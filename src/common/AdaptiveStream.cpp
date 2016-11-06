@@ -1,13 +1,20 @@
 /*
-* AdaptiveStream.cpp
-*****************************************************************************
-* Copyright(C) 2015, liberty_developer
+*      Copyright (C) 2016-2016 peak3d
+*      http://www.peak3d.de
 *
-* Email: liberty.developer@xmail.net
+*  This Program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2, or (at your option)
+*  any later version.
 *
-* This source code and its use and distribution, is subject to the terms
-* and conditions of the applicable license agreement.
-*****************************************************************************/
+*  This Program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*  GNU General Public License for more details.
+*
+*  <http://www.gnu.org/licenses/>.
+*
+*/
 
 #include "AdaptiveStream.h"
 
