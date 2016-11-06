@@ -1,0 +1,89 @@
+#include "AdaptiveTree.h"
+
+namespace adaptive
+{
+  void AdaptiveTree::Segment::SetRange(const char *range)
+  {
+    const char *delim(strchr(range, '-'));
+    if (delim)
+    {
+      range_begin_ = strtoull(range, 0, 10);
+      range_end_ = strtoull(delim + 1, 0, 10);
+    }
+    else
+      range_begin_ = range_end_ = 0;
+  }
+
+  AdaptiveTree::AdaptiveTree()
+    :download_speed_(0.0)
+    , average_download_speed_(0.0f)
+    , parser_(0)
+    , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
+    , current_period_(0)
+    , available_time_(0)
+    , stream_start_(0)
+    , base_time_(0)
+    , publish_time_(0)
+    , has_timeshift_buffer_(false)
+  {
+  }
+
+  bool AdaptiveTree::has_type(StreamType t)
+  {
+    if (periods_.empty())
+      return false;
+
+    for (std::vector<AdaptationSet*>::const_iterator b(periods_[0]->adaptationSets_.begin()), e(periods_[0]->adaptationSets_.end()); b != e; ++b)
+      if ((*b)->type_ == t)
+        return true;
+    return false;
+  }
+
+  uint32_t AdaptiveTree::estimate_segcount(uint32_t duration, uint32_t timescale)
+  {
+    double tmp(duration);
+    duration /= timescale;
+    return static_cast<uint32_t>((overallSeconds_ / duration)*1.01);
+  }
+
+  void AdaptiveTree::set_download_speed(double speed)
+  {
+    download_speed_ = speed;
+    if (!average_download_speed_)
+      average_download_speed_ = download_speed_;
+    else
+      average_download_speed_ = average_download_speed_*0.9 + download_speed_*0.1;
+  };
+
+  void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration, uint32_t movie_timescale)
+  {
+    if (!has_timeshift_buffer_)
+      return;
+
+    //Get a modifiable adaptationset
+    AdaptationSet *adpm(static_cast<AdaptationSet *>((void*)adp));
+
+    // Check if its the last frame we watch
+    if (adp->segment_durations_.data.size())
+    {
+      if (pos == adp->segment_durations_.data.size() - 1)
+      {
+        adpm->segment_durations_.insert(fragmentDuration*adp->timescale_ / movie_timescale);
+      }
+      else
+        return;
+    }
+    else if (pos != rep->segments_.data.size() - 1)
+      return;
+
+    fragmentDuration = fragmentDuration*rep->timescale_ / movie_timescale;
+
+    Segment seg(*(rep->segments_[pos]));
+    seg.range_begin_ += fragmentDuration;
+    seg.range_end_ += (rep->flags_ & Representation::TIMETEMPLATE) ? fragmentDuration : 1;
+    seg.startPTS_ += fragmentDuration;
+
+    for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
+      (*b)->segments_.insert(seg);
+  }
+}

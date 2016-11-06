@@ -1,0 +1,23 @@
+# build artifacts
+build/
+debian/changelog
+debian/files
+debian/kodi-inputstream-mpd-dbg.debhelper.log
+debian/kodi-inputstream-mpd-dbg.substvars
+debian/kodi-inputstream-mpd-dbg/
+debian/kodi-inputstream-mpd.debhelper.log
+debian/kodi-inputstream-mpd.postinst.debhelper
+debian/kodi-inputstream-mpd.postrm.debhelper
+debian/kodi-inputstream-mpd.substvars
+debian/kodi-inputstream-mpd/
+debian/tmp/
+obj-x86_64-linux-gnu/
+inputstream.mpd/addon.xml
+
+# clion
+.idea/
+
+# Eclipse/CDT
+.cproject
+.project
+.settings/

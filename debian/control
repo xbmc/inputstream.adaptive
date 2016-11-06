@@ -1,0 +1,22 @@
+Source: kodi-inputstream-mpd
+Priority: extra
+Maintainer: peak3d <info@peak3d.de>
+Build-Depends: debhelper (>= 9.0.0), cmake, libkodiplatform-dev (>= 17.0.0),
+               kodi-addon-dev, kodi-inputstream-dev, pkg-config, libexpat1-dev
+Standards-Version: 3.9.6
+Section: libs
+Homepage: http://www.peak3d.de
+
+Package: kodi-inputstream-mpd
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: mpd DASH inputstream addon for Kodi
+ mpd DASH inputstream addon for Kodi
+
+Package: kodi-inputstream-mpd-dbg
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: debug symbols for mpd DASH inputstream addon for Kodi
+ debug symbols for mpd DASH inputstream addon for Kodi

@@ -1,0 +1,1 @@
+expat http://mirrors.kodi.tv/build-deps/sources/expat-2.0.1.tar.gz

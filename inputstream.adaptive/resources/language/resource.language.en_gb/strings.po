@@ -1,0 +1,41 @@
+# Kodi Media Center language file
+# Addon Name: Inputstream.adaptive
+# Addon id: inputstream.adaptive
+# Addon Provider: peak3d
+
+msgid ""
+msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30100"
+msgid "General"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Min. Bandwidth (Bit/s)"
+msgstr "The minimum bandwidth which should not be deceeded."
+
+msgctxt "#30102"
+msgid "Max. Bandwidth (Bit/s)"
+msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
+
+msgctxt "#30103"
+msgid "Decrypter path"
+msgstr "Absolute path to the folder containing the decrypters"
+
+msgctxt "#30110"
+msgid "Max. Resolution"
+msgstr "Maximum Resolution"
+
+msgctxt "#30111"
+msgid "Stream Selection"
+msgstr "Stream Selection"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "Media"
