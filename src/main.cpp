@@ -1008,13 +1008,16 @@ bool Session::initialize()
   }
 
   // Open mpd file
-  const char* delim(strrchr(mpdFileURL_.c_str(), '/'));
-  if (!delim)
+  size_t paramPos = mpdFileURL_.find('?');
+  adaptiveTree_->base_url_ = (paramPos == std::string::npos) ? mpdFileURL_ : mpdFileURL_.substr(0, paramPos);
+
+  paramPos = adaptiveTree_->base_url_.find_last_of('/', adaptiveTree_->base_url_.length());
+  if (paramPos == std::string::npos)
   {
     xbmc->Log(ADDON::LOG_ERROR, "Invalid mpdURL: / expected (%s)", mpdFileURL_.c_str());
     return false;
   }
-  adaptiveTree_->base_url_ = std::string(mpdFileURL_.c_str(), (delim - mpdFileURL_.c_str()) + 1);
+  adaptiveTree_->base_url_.resize(paramPos + 1);
 
   if (!adaptiveTree_->open(mpdFileURL_.c_str()) || adaptiveTree_->empty())
   {
@@ -1161,10 +1164,17 @@ bool Session::initialize()
     }
     else
     {
-      init_data.SetBufferSize(1024);
-      unsigned int init_data_size(1024);
-      b64_decode(adaptiveTree_->pssh_.second.data(), adaptiveTree_->pssh_.second.size(), init_data.UseData(), init_data_size);
-      init_data.SetDataSize(init_data_size);
+      if (manifest_type_ == MANIFEST_TYPE_ISM)
+      {
+        create_ism_license(adaptiveTree_->defaultKID_, license_data_, init_data);
+      }
+      else
+      {
+        init_data.SetBufferSize(1024);
+        unsigned int init_data_size(1024);
+        b64_decode(adaptiveTree_->pssh_.second.data(), adaptiveTree_->pssh_.second.size(), init_data.UseData(), init_data_size);
+        init_data.SetDataSize(init_data_size);
+      }
     }
     if ((single_sample_decryptor_ = CreateSingleSampleDecrypter(init_data)) != 0)
     {
@@ -1207,7 +1217,8 @@ void Session::UpdateStream(STREAM &stream)
     strcpy(stream.info_.m_codecName, "aac");
   else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
     strcpy(stream.info_.m_codecName, "eac3");
-  else if (rep->codecs_.find("avc") == 0)
+  else if (rep->codecs_.find("avc") == 0
+  || rep->codecs_.find("H264") == 0)
     strcpy(stream.info_.m_codecName, "h264");
   else if (rep->codecs_.find("hevc") == 0 || rep->codecs_.find("hvc") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
@@ -1464,7 +1475,7 @@ extern "C" {
     {
         iids.m_streamCount = 0;
         for (unsigned int i(1); i <= session->GetStreamCount(); ++i)
-          if(session->getMediaTypeMask() & static_cast<uint8_t>(1) << session->GetStream(i)->stream_.get_type())
+          if(session->GetMediaTypeMask() & static_cast<uint8_t>(1) << session->GetStream(i)->stream_.get_type())
             iids.m_streamIds[iids.m_streamCount++] = i;
     } else
         iids.m_streamCount = 0;
@@ -1550,16 +1561,45 @@ extern "C" {
       }
 
       stream->input_ = new AP4_DASHStream(&stream->stream_);
-      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
-      AP4_Movie* movie = stream->input_file_->GetMovie();
+      AP4_Movie* movie(0);
+      static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = { 
+        AP4_Track::TYPE_UNKNOWN,
+        AP4_Track::TYPE_VIDEO,
+        AP4_Track::TYPE_AUDIO,
+        AP4_Track::TYPE_TEXT };
+
+      if (session->GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
+      {
+        //We'll create a Movie out of the things we got from manifest file
+        //note: movie will be deleted in destructor of stream->input_file_
+        movie = new AP4_Movie();
+
+        AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
+        AP4_SampleDescription *sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+        if (stream->stream_.getAdaptationSet()->encrypted)
+        {
+          static const AP4_UI08 default_key[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+          AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
+          schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, default_key));
+          sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
+        }
+        sample_table->AddSampleDescription(sample_descryption);
+
+        movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0, stream->stream_.getRepresentation()->timescale_, 0, stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
+        //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
+        AP4_MoovAtom *moov = new AP4_MoovAtom();
+        moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
+        movie->SetMoovAtom(moov);
+      }
+
+      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
+      movie = stream->input_file_->GetMovie();
+
       if (movie == NULL)
       {
         xbmc->Log(ADDON::LOG_ERROR, "No MOOV in stream!");
         return stream->disable();
       }
-
-      static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] =
-      { AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO, AP4_Track::TYPE_TEXT };
 
       AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
       if (!track)

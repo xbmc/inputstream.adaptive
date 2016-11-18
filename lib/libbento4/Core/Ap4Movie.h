@@ -58,6 +58,7 @@ public:
     AP4_Result Inspect(AP4_AtomInspector& inspector);
 
     AP4_MoovAtom* GetMoovAtom() { return m_MoovAtom;}
+    void SetMoovAtom(AP4_MoovAtom* atom) { m_MoovAtom = atom; }
     AP4_MvhdAtom* GetMvhdAtom() { return m_MvhdAtom;}
 	AP4_Array<AP4_PsshAtom*>& GetPsshAtoms()   { return m_PsshAtoms; }
 

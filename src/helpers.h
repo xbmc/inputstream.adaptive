@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <vector>
 
+class AP4_DataBuffer;
+
 bool b64_decode(const char *in, unsigned int in_len, uint8_t *out, unsigned int &out_len);
 
 std::string b64_encode(unsigned char const* in, unsigned int in_len, bool urlEncode);
@@ -33,3 +35,5 @@ std::string &trim(std::string &src);
 std::string url_decode(std::string text);
 
 std::string annexb_to_avc(const char *b16_data);
+
+bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data);

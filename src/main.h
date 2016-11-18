@@ -111,7 +111,7 @@ public:
   STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
   const AP4_DataBuffer &GetCryptoData() { return m_cryptoData; };
-  uint8_t getMediaTypeMask() const { return media_type_mask_; };
+  uint8_t GetMediaTypeMask() const { return media_type_mask_; };
   std::uint16_t GetWidth()const { return width_; };
   std::uint16_t GetHeight()const { return height_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
@@ -122,6 +122,7 @@ public:
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w < maxwidth_ ? w : maxwidth_; height_ = h < maxheight_ ? h : maxheight_;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
+  MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
 
   //Observer Section
   void BeginFragment(AP4_UI32 streamId) override;

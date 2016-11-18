@@ -594,7 +594,7 @@ AP4_LinearReader::SeekSample(AP4_UI32 track_id, AP4_UI64 ts, AP4_Ordinal &sample
       return result;
     sample_index = 0;
   }
-  return SetSampleIndex(track_id, sample_index);
+  return SetSampleIndex(tracker->m_Track->GetId(), sample_index);
 }
 
 /*----------------------------------------------------------------------

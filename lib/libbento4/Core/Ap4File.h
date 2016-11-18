@@ -99,7 +99,8 @@ public:
      */
     AP4_File(AP4_ByteStream&  stream, 
              AP4_AtomFactory& atom_factory = AP4_DefaultAtomFactory::Instance,
-             bool             moov_only = false);
+             bool             moov_only = false,
+             AP4_Movie* movie = NULL);
 
     /**
      * Destroys the AP4_File instance 
