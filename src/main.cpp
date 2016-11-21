@@ -1213,12 +1213,13 @@ void Session::UpdateStream(STREAM &stream)
   strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
   stream.info_.m_codecInternalName[pos] = 0;
 
-  if (rep->codecs_.find("mp4a") == 0)
+  if (rep->codecs_.find("mp4a") == 0
+  || rep->codecs_.find("aac") == 0)
     strcpy(stream.info_.m_codecName, "aac");
   else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
     strcpy(stream.info_.m_codecName, "eac3");
   else if (rep->codecs_.find("avc") == 0
-  || rep->codecs_.find("H264") == 0)
+  || rep->codecs_.find("h264") == 0)
     strcpy(stream.info_.m_codecName, "h264");
   else if (rep->codecs_.find("hevc") == 0 || rep->codecs_.find("hvc") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
@@ -1305,6 +1306,14 @@ void Session::EndFragment(AP4_UI32 streamId)
     s->stream_.getSegmentPos(),
     s->reader_->GetFragmentDuration(),
     s->reader_->GetTimeScale());
+}
+
+const AP4_UI08 *Session::GetDefaultKeyId() const
+{
+  static const AP4_UI08 default_key[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+  if (adaptiveTree_->defaultKID_.size() == 16)
+    return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->defaultKID_.data());
+  return default_key;
 }
 
 /***************************  Interface *********************************/
@@ -1578,9 +1587,8 @@ extern "C" {
         AP4_SampleDescription *sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
         if (stream->stream_.getAdaptationSet()->encrypted)
         {
-          static const AP4_UI08 default_key[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
           AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
-          schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, default_key));
+          schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, session->GetDefaultKeyId()));
           sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
         }
         sample_table->AddSampleDescription(sample_descryption);

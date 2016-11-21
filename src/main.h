@@ -123,6 +123,7 @@ public:
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
+  const AP4_UI08 *GetDefaultKeyId() const;
 
   //Observer Section
   void BeginFragment(AP4_UI32 streamId) override;

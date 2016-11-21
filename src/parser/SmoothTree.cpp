@@ -23,6 +23,7 @@
 #include "SmoothTree.h"
 #include "../oscompat.h"
 #include "../helpers.h"
+#include <algorithm>
 
 using namespace adaptive;
 
@@ -76,6 +77,7 @@ start(void *data, const char *el, const char **attr)
         dash->current_representation_ = new SmoothTree::Representation();
         dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
         dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
+        dash->current_representation_->flags_ |= SmoothTree::Representation::STARTTIMETPL;
 
         const char *bw = "0";
 
@@ -84,7 +86,10 @@ start(void *data, const char *el, const char **attr)
           if (strcmp((const char*)*attr, "Bitrate") == 0)
             bw = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "FourCC") == 0)
+          {
             dash->current_representation_->codecs_ = (const char*)*(attr + 1);
+            std::transform(dash->current_representation_->codecs_.begin(), dash->current_representation_->codecs_.end(), dash->current_representation_->codecs_.begin(), ::tolower);
+          }
           else if (strcmp((const char*)*attr, "MaxWidth") == 0)
             dash->current_representation_->width_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
           else if (strcmp((const char*)*attr, "MaxHeight") == 0)
@@ -134,6 +139,7 @@ start(void *data, const char *el, const char **attr)
       //<StreamIndex Type = "video" TimeScale = "10000000" Name = "video" Chunks = "3673" QualityLevels = "6" Url = "QualityLevels({bitrate})/Fragments(video={start time})" MaxWidth = "960" MaxHeight = "540" DisplayWidth = "960" DisplayHeight = "540">
       dash->current_adaptationset_ = new SmoothTree::AdaptationSet();
       dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
+      dash->current_adaptationset_->encrypted = dash->encryptionState_ == SmoothTree::ENCRYTIONSTATE_SUPPORTED;
 
       for (; *attr;)
       {
@@ -159,7 +165,7 @@ start(void *data, const char *el, const char **attr)
     {
       dash->currentNode_ |= SmoothTree::SSMNODE_PROTECTION;
       dash->encryptionState_ = SmoothTree::ENCRYTIONSTATE_SUPPORTED;
-	}
+	  }
   }
   else if (strcmp(el, "SmoothStreamingMedia") == 0)
   {
@@ -178,6 +184,7 @@ start(void *data, const char *el, const char **attr)
     if (timeScale)
       dash->overallSeconds_ = (double)duration / timeScale;
     dash->currentNode_ |= SmoothTree::SSMNODE_SSM;
+    dash->minPresentationOffset = DBL_MAX;
   }
 }
 
@@ -269,7 +276,11 @@ protection_end(void *data, const char *el)
       unsigned int buffer_size(32);
       b64_decode(dash->strXMLText_.data(), dash->strXMLText_.size(), buffer, buffer_size);
 
-      dash->defaultKID_ = std::string((const char*)buffer, buffer_size);
+      if (buffer_size == 16)
+      {
+        dash->defaultKID_.resize(16);
+        prkid2wvkid(reinterpret_cast<const char *>(buffer), &dash->defaultKID_[0]);
+      }
     }
 }
 
@@ -306,8 +317,7 @@ bool SmoothTree::open(const char *url)
       for (std::vector<SmoothTree::Segment>::iterator bs((*b)->segments_.data.begin()), es((*b)->segments_.data.end()); bs != es; ++bsd, ++bs)
       {
         bs->range_begin_ = ~0;
-        bs->startPTS_ = (*ba)->startPTS_;
-        bs->range_end_ = cummulated;
+        bs->range_end_ = bs->startPTS_ = cummulated;
         cummulated += *bsd;
       }
     }

@@ -119,6 +119,8 @@ namespace adaptive
       static const unsigned int INITIALIZATION = 8;
       static const unsigned int TIMETEMPLATE = 16;
       static const unsigned int SEGMENTBASE = 32;
+      static const unsigned int STARTTIMETPL = 64;
+
       uint32_t flags_;
 
       uint32_t indexRangeMin_, indexRangeMax_;

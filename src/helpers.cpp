@@ -255,6 +255,13 @@ std::string annexb_to_avc(const char *b16_data)
   return result;
 }
 
+void prkid2wvkid(const char *input, char *output)
+{
+  static const uint8_t remap[16] = { 3,2,1,0,5,4,7,6,8,9,10,11,12,13,14,15 };
+  for (unsigned int i(0); i < 16; ++i)
+    output[i] = input[remap[i]];
+}
+
 bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data)
 {
   if (key.size() != 16 || license_data.empty())
@@ -292,32 +299,11 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
     static const uint8_t hexmap[16] = { '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f' };
     memcpy(protoptr, ld, uuid - ld);
     protoptr += uuid - ld;
-    *protoptr++ = hexmap[(uint8_t)(key.data()[3]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[3]) & 15];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[2]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[2]) & 15];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[1]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[1]) & 15];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[0]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[0]) & 15];
-    *protoptr++ = '-';
-    *protoptr++ = hexmap[(uint8_t)(key.data()[5]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[5]) & 15];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[4]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[4]) & 15];
-    *protoptr++ = '-';
-    *protoptr++ = hexmap[(uint8_t)(key.data()[7]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[7]) & 15];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[6]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[6]) & 15];
-    *protoptr++ = '-';
-    *protoptr++ = hexmap[(uint8_t)(key.data()[8]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[8]) & 15];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[9]) >> 4];
-    *protoptr++ = hexmap[(uint8_t)(key.data()[9]) & 15];
-    *protoptr++ = '-';
-    for (unsigned int i(10); i < 16; ++i)
+
+    for (unsigned int i(0); i < 16; ++i)
     {
+      if(i == 4 || i == 6 || i == 8 || i == 10)
+        *protoptr++ = '-';
       *protoptr++ = hexmap[(uint8_t)(key.data()[i]) >> 4];
       *protoptr++ = hexmap[(uint8_t)(key.data()[i]) & 15];
     }
