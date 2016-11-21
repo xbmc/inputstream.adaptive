@@ -18,6 +18,7 @@
 
 #include <string>
 #include <cstring>
+#include <cfloat>
 #include <fstream>
 
 #include "SmoothTree.h"
