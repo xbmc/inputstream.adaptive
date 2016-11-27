@@ -19,11 +19,12 @@
 #include <string>
 #include <cstring>
 #include <fstream>
+#include <float.h>
+#include <algorithm>
 
 #include "SmoothTree.h"
 #include "../oscompat.h"
 #include "../helpers.h"
-#include <algorithm>
 
 using namespace adaptive;
 

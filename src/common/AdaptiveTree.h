@@ -100,8 +100,8 @@ namespace adaptive
 
     struct Representation
     {
-      Representation() :timescale_(0), duration_(0), bandwidth_(0), samplingRate_(0), width_(0), height_(0),
-        aspect_(1.0f), fpsRate_(0), fpsScale_(1), channelCount_(0), flags_(0), indexRangeMin_(0), indexRangeMax_(0){};
+      Representation() :bandwidth_(0), samplingRate_(0),  width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(1.0f), 
+         flags_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), duration_(0), timescale_(0){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -152,7 +152,7 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), encrypted(false), timescale_(0), startPTS_(0){ language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0),  startPTS_(0), encrypted(false){ language_ = "unk"; };
       ~AdaptationSet(){ for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_;
