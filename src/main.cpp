@@ -1691,14 +1691,14 @@ extern "C" {
     return NULL;
   }
 
-  bool DemuxSeekTime(int time, bool backwards, double *startpts)
+  bool DemuxSeekTime(double time, bool backwards, double *startpts)
   {
     if (!session)
       return false;
 
-    xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%d)", time);
+    xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
 
-    return session->SeekTime(static_cast<double>(time)*0.001f, 0, !backwards);
+    return session->SeekTime(time * 0.001f, 0, !backwards);
   }
 
   void DemuxSetSpeed(int speed)
