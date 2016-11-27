@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="1.2.17"
+  version="1.0.0"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>
-    <import addon="kodi.inputstream" version="1.0.5"/>
+    <import addon="kodi.inputstream" version="1.0.0"/>
   </requires>
   <extension
     point="kodi.inputstream"
