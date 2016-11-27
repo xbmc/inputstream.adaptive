@@ -17,6 +17,7 @@
 */
 
 #include "AdaptiveTree.h"
+#include <string.h>
 
 namespace adaptive
 {
@@ -33,16 +34,20 @@ namespace adaptive
   }
 
   AdaptiveTree::AdaptiveTree()
-    :download_speed_(0.0)
-    , average_download_speed_(0.0f)
+    : current_period_(0)
     , parser_(0)
-    , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
-    , current_period_(0)
-    , available_time_(0)
+    , currentNode_(0)
+    , segcount_(0)
+    , overallSeconds_(0.0)
     , stream_start_(0)
-    , base_time_(0)
+    , available_time_(0)
     , publish_time_(0)
+    , base_time_(0)
+    , minPresentationOffset(0.0)
     , has_timeshift_buffer_(false)
+    , download_speed_(0.0)
+    , average_download_speed_(0.0f)
+    , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
   {
   }
 
