@@ -13,7 +13,7 @@ find_package(p8-platform REQUIRED)
 set(ADP_SOURCES 
 	src/main.cpp
 	src/common/AdaptiveTree.cpp
-	src/parser/DashTree.cpp
+	src/parser/DASHTree.cpp
 	src/parser/SmoothTree.cpp
 	src/common/AdaptiveStream.cpp
 	src/helpers.cpp
