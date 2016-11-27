@@ -28,8 +28,8 @@
 #include "helpers.h"
 #include "kodi_vfs_types.h"
 #include "SSD_dll.h"
-#include "parser\DASHTree.h"
-#include "parser\SmoothTree.h"
+#include "parser/DASHTree.h"
+#include "parser/SmoothTree.h"
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
