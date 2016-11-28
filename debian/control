@@ -1,22 +1,24 @@
-Source: kodi-inputstream-mpd
+Source: kodi-inputstream-adaptive
 Priority: extra
 Maintainer: peak3d <info@peak3d.de>
 Build-Depends: debhelper (>= 9.0.0), cmake, libkodiplatform-dev (>= 17.0.0),
                kodi-addon-dev, kodi-inputstream-dev, pkg-config, libexpat1-dev
-Standards-Version: 3.9.6
+Standards-Version: 3.9.7
 Section: libs
 Homepage: http://www.peak3d.de
 
-Package: kodi-inputstream-mpd
+Package: kodi-inputstream-adaptive
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: mpd DASH inputstream addon for Kodi
- mpd DASH inputstream addon for Kodi
+Conflicts: kodi-inputstream-mpd, kodi-inputstream-smoothstream
+Replaces: kodi-inputstream-mpd, kodi-inputstream-smoothstream
+Description: adaptive inputstream addon for Kodi
+ DASH/smoothstream inputstream addon for Kodi
 
-Package: kodi-inputstream-mpd-dbg
-Section: libs
+Package: kodi-inputstream-adaptive-dbg
+Section: debug
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: debug symbols for mpd DASH inputstream addon for Kodi
- debug symbols for mpd DASH inputstream addon for Kodi
+Depends: kodi-inputstream-adaptive, ${misc:Depends}
+Description: debug symbols for adaptive inputstream addon for Kodi
+ debug symbols for DASH/smoothstream inputstream addon for Kodi
