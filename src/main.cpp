@@ -571,7 +571,7 @@ public:
     , m_bSampleDescChanged(false)
   {
     EnableTrack(m_Track->GetId());
-    
+
     AP4_SampleDescription *desc(m_Track->GetSampleDescription(0));
     if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
       m_Protected_desc = static_cast<AP4_ProtectedSampleDescription*>(desc);
@@ -823,20 +823,21 @@ void Session::STREAM::disable()
 }
 
 Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* profile_path)
-  :single_sample_decryptor_(0)
-  , manifest_type_(manifestType)
+  : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
-  , license_type_(strLicType)
   , license_key_(strLicKey)
+  , license_type_(strLicType)
   , license_data_(strLicData)
   , profile_path_(profile_path)
-  , width_(kodiDisplayWidth)
-  , height_(kodiDisplayHeight)
-  , last_pts_(0)
   , decrypterModule_(0)
   , decrypter_(0)
+  , adaptiveTree_(0)
+  , width_(kodiDisplayWidth)
+  , height_(kodiDisplayHeight)
   , changed_(false)
   , manual_streams_(false)
+  , last_pts_(0)
+  , single_sample_decryptor_(0)
 {
   switch (manifest_type_)
   {
@@ -848,7 +849,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     break;
   default:;
   };
-  
+
   std::string fn(profile_path_ + "bandwidth.bin");
   FILE* f = fopen(fn.c_str(), "rb");
   if (f)
@@ -932,7 +933,7 @@ Session::~Session()
 void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 {
   typedef SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD_HOST *host, uint32_t version);
-  
+
   char specialpath[1024];
   if (!xbmc->GetSetting("DECRYPTERPATH", specialpath))
   {
@@ -940,9 +941,9 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
     return;
   }
   addonstring path(xbmc->TranslateSpecialProtocol(specialpath));
-  
+
   kodihost.SetLibraryPath(path.c_str());
-  
+
   VFSDirEntry *items(0);
   unsigned int num_items(0);
 
@@ -1246,7 +1247,7 @@ FragmentedSampleReader *Session::GetNextSample()
     if ((*b)->enabled && !(*b)->reader_->EOS() && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
       && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
       res = *b;
-    
+
     if (bStarted && ((*b)->reader_->GetInformation((*b)->info_)))
       changed_ = true;
   }
