@@ -1,5 +1,5 @@
 # build artifacts
-build/
+./build/
 debian/changelog
 debian/files
 debian/kodi-inputstream-mpd-dbg.debhelper.log
@@ -12,7 +12,8 @@ debian/kodi-inputstream-mpd.substvars
 debian/kodi-inputstream-mpd/
 debian/tmp/
 obj-x86_64-linux-gnu/
-inputstream.mpd/addon.xml
+inputstream.adaptive/addon.xml
+inputstream.adaptive/resources/settings.xml
 
 # clion
 .idea/
