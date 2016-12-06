@@ -1,2 +1,4 @@
+1.0.1
+- bumb to force update
 1.0.0
-initial release
+- initial release
