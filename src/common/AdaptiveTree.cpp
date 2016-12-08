@@ -91,7 +91,7 @@ namespace adaptive
     {
       if (pos == adp->segment_durations_.data.size() - 1)
       {
-        adpm->segment_durations_.insert(fragmentDuration*adp->timescale_ / movie_timescale);
+        adpm->segment_durations_.insert(static_cast<std::uint64_t>(fragmentDuration)*adp->timescale_ / movie_timescale);
       }
       else
         return;
@@ -99,11 +99,12 @@ namespace adaptive
     else if (pos != rep->segments_.data.size() - 1)
       return;
 
-    fragmentDuration = fragmentDuration*rep->timescale_ / movie_timescale;
+    fragmentDuration = static_cast<std::uint32_t>(static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_ / movie_timescale);
 
     Segment seg(*(rep->segments_[pos]));
-    seg.range_begin_ += fragmentDuration;
-    seg.range_end_ += (rep->flags_ & Representation::TIMETEMPLATE) ? fragmentDuration : 1;
+    if(~seg.range_begin_)
+      seg.range_begin_ += fragmentDuration;
+    seg.range_end_ += (rep->flags_ & (Representation::STARTTIMETPL | Representation::TIMETEMPLATE)) ? fragmentDuration : 1;
     seg.startPTS_ += fragmentDuration;
 
     for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)

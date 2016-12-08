@@ -1,3 +1,5 @@
+1.0.2
+- Fix live-streams by using 64-bit for frame-duration transformation
 1.0.1
 - bumb to force update
 1.0.0
