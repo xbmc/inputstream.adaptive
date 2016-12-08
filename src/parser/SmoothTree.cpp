@@ -114,6 +114,8 @@ start(void *data, const char *el, const char **attr)
       else if (strcmp(el, "c") == 0)
       {
         //<c n = "0" d = "20000000" / >
+        uint32_t push_duration(~0);
+
         for (; *attr;)
         {
           if (*(const char*)*attr == 't')
@@ -124,15 +126,17 @@ start(void *data, const char *el, const char **attr)
             else
               dash->current_adaptationset_->startPTS_ = lt;
             dash->pts_helper_ = lt;
-            dash->current_adaptationset_->segment_durations_.data.push_back(0);
+            push_duration = 0;
           }
           else if (*(const char*)*attr == 'd')
           {
-            dash->current_adaptationset_->segment_durations_.data.push_back(atoi((const char*)*(attr + 1)));
+            push_duration = atoi((const char*)*(attr + 1));
             break;
           }
           attr += 2;
         }
+        if (~push_duration)
+          dash->current_adaptationset_->segment_durations_.data.push_back(push_duration);
       }
     }
     else if (strcmp(el, "StreamIndex") == 0)
@@ -179,7 +183,14 @@ start(void *data, const char *el, const char **attr)
       else if (strcmp((const char*)*attr, "Duration") == 0)
         duration = atoll((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "IsLive") == 0)
+      {
         dash->has_timeshift_buffer_ = strcmp((const char*)*(attr + 1), "TRUE") == 0;
+        if (dash->has_timeshift_buffer_)
+        {
+          dash->stream_start_ = time(0);
+          dash->available_time_ = dash->stream_start_;
+        }
+      }
       attr += 2;
     }
     if (timeScale)

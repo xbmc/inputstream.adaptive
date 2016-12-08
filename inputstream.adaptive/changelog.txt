@@ -1,3 +1,5 @@
+1.0.3
+- Start livestreams 12 secs before "now"
 1.0.2
 - Fix live-streams by using 64-bit for frame-duration transformation
 1.0.1
