@@ -415,7 +415,7 @@ start(void *data, const char *el, const char **attr)
           {
             dash->current_representation_->channelCount_ = GetChannels(attr);
           }
-          else if (strcmp(el, "BaseURL") == 0)
+          else if (strcmp(el, "BaseURL") == 0) //Inside Representation
           {
             dash->strXMLText_.clear();
             dash->currentNode_ |= DASHTree::MPDNODE_BASEURL;
@@ -629,7 +629,7 @@ start(void *data, const char *el, const char **attr)
         {
           dash->adpChannelCount_ = GetChannels(attr);
         }
-        else if (strcmp(el, "BaseURL") == 0)
+        else if (strcmp(el, "BaseURL") == 0) //Inside AdaptationSet
         {
           dash->strXMLText_.clear();
           dash->currentNode_ |= DASHTree::MPDNODE_BASEURL;
@@ -678,11 +678,16 @@ start(void *data, const char *el, const char **attr)
         dash->segcount_ = 0;
         dash->currentNode_ |= DASHTree::MPDNODE_ADAPTIONSET;
       }
-      else if (strcmp(el, "BaseURL") == 0)
+      else if (strcmp(el, "BaseURL") == 0) // Inside Period
       {
         dash->strXMLText_.clear();
         dash->currentNode_ |= DASHTree::MPDNODE_BASEURL;
       }
+    }
+    else if (strcmp(el, "BaseURL") == 0) // Out of Period
+    {
+      dash->strXMLText_.clear();
+      dash->currentNode_ |= DASHTree::MPDNODE_BASEURL;
     }
     else if (strcmp(el, "Period") == 0)
     {
@@ -791,7 +796,7 @@ end(void *data, const char *el)
       {
         if (dash->currentNode_ & DASHTree::MPDNODE_REPRESENTATION)
         {
-          if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
+          if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL) // Inside Representation
           {
             if (strcmp(el, "BaseURL") == 0)
             {
@@ -925,7 +930,7 @@ end(void *data, const char *el)
             dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
           }
         }
-        else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
+        else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL) // Inside AdaptationSet
         {
           if (strcmp(el, "BaseURL") == 0)
           {
@@ -998,7 +1003,7 @@ end(void *data, const char *el)
           }
         }
       }
-      else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL)
+      else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL) // Inside Period
       {
         if (strcmp(el, "BaseURL") == 0)
         {
@@ -1015,6 +1020,20 @@ end(void *data, const char *el)
       else if (strcmp(el, "Period") == 0)
       {
         dash->currentNode_ &= ~DASHTree::MPDNODE_PERIOD;
+      }
+    }
+    else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL) // Outside Period
+    {
+      if (strcmp(el, "BaseURL") == 0)
+      {
+        while (dash->strXMLText_.size() && (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
+          dash->strXMLText_.erase(dash->strXMLText_.begin());
+        if (dash->strXMLText_.compare(0, 7, "http://") == 0
+          || dash->strXMLText_.compare(0, 8, "https://") == 0)
+          dash->base_url_ = dash->strXMLText_;
+        else
+          dash->base_url_ += dash->strXMLText_;
+        dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
       }
     }
     else if (strcmp(el, "MPD") == 0)
