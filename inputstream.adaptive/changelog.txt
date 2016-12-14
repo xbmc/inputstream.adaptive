@@ -1,3 +1,5 @@
+1.0.5
+- normalize livestream's timestamp values
 1.0.4
 - Parse BaseUrl from top mpd level
 1.0.3
