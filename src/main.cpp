@@ -555,20 +555,21 @@ public:
     AP4_UI32 streamId, AP4_CencSingleSampleDecrypter *ssd, const double pto)
     : AP4_LinearReader(*movie, input)
     , m_Track(track)
-    , m_dts(0.0)
-    , m_pts(0.0)
-    , m_eos(false)
-    , m_started(false)
     , m_StreamId(streamId)
-    , m_SingleSampleDecryptor(ssd)
-    , m_Decrypter(0)
-    , m_Protected_desc(0)
-    , m_codecHandler(0)
-    , m_Observer(0)
-    , m_DefaultKey(0)
-    , m_presentationTimeOffset(pto)
     , m_SampleDescIndex(0)
     , m_bSampleDescChanged(false)
+    , m_fail_count_(0)
+    , m_eos(false)
+    , m_started(false)
+    , m_dts(0.0)
+    , m_pts(0.0)
+    , m_presentationTimeOffset(pto)
+    , m_codecHandler(0)
+    , m_DefaultKey(0)
+    , m_Protected_desc(0)
+    , m_SingleSampleDecryptor(ssd)
+    , m_Decrypter(0)
+    , m_Observer(0)
   {
     EnableTrack(m_Track->GetId());
 
@@ -617,9 +618,16 @@ public:
       if (AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
       {
         xbmc->Log(ADDON::LOG_ERROR, "Decrypt Sample returns failure!");
-        Reset(true);
-        return result;
+        if (++m_fail_count_ > 50)
+        {
+          Reset(true);
+          return result;
+        }
+        else
+          m_sample_data_.SetDataSize(0);
       }
+      else
+        m_fail_count_ = 0;
     }
 
     m_dts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale() - m_presentationTimeOffset;
@@ -788,6 +796,7 @@ private:
   AP4_UI32 m_StreamId;
   AP4_UI32 m_SampleDescIndex;
   bool m_bSampleDescChanged;
+  unsigned int m_fail_count_;
 
   bool m_eos, m_started;
   double m_dts, m_pts;
