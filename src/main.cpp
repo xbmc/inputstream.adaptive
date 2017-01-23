@@ -831,7 +831,7 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* profile_path)
+Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , license_key_(strLicKey)
@@ -911,6 +911,13 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     break;
   default:
     media_type_mask_ = static_cast<uint8_t>(~0);
+  }
+  if (*strCert)
+  {
+    unsigned int sz(strlen(strCert)), dstsz((sz * 3) / 4);
+    server_certificate_.SetDataSize(dstsz);
+    b64_decode(strCert, sz, server_certificate_.UseData(), dstsz);
+    server_certificate_.SetDataSize(dstsz);
   }
 }
 
@@ -997,7 +1004,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 AP4_CencSingleSampleDecrypter *Session::CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec)
 {
   if (decrypter_)
-    return decrypter_->CreateSingleSampleDecrypter(streamCodec);
+    return decrypter_->CreateSingleSampleDecrypter(streamCodec, server_certificate_);
   return 0;
 };
 
@@ -1427,7 +1434,7 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "Open()");
 
-    const char *lt(""), *lk(""), *ld("");
+    const char *lt(""), *lk(""), *ld(""), *lsc("");
     MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
     for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
     {
@@ -1445,6 +1452,11 @@ extern "C" {
       {
         xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.adaptive.license_data: [not shown]");
         ld = props.m_ListItemProperties[i].m_strValue;
+      }
+      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.server_certificate") == 0)
+      {
+        xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
+        lsc = props.m_ListItemProperties[i].m_strValue;
       }
       else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.manifest_type") == 0)
       {
@@ -1464,7 +1476,7 @@ extern "C" {
 
     kodihost.SetProfilePath(props.m_profileFolder);
 
-    session = new Session(manifest, props.m_strURL, lt, lk, ld, props.m_profileFolder);
+    session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder);
 
     if (!session->initialize())
     {

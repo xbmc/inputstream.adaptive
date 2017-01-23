@@ -1,3 +1,5 @@
+1.0.7
+- ServerCertificate / SSD version bump -> 6
 1.0.6
 - allow some frames to fail decrypting
 1.0.5

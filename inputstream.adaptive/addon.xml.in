@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="1.0.6"
+  version="1.0.7"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>
@@ -12,7 +12,7 @@
     name="adaptive"
     extension=""
     tags="true"
-    listitemprops="license_type|license_key|license_data|manifest_type"
+    listitemprops="license_type|license_key|license_data|manifest_type|server_certificate"
     library_@PLATFORM@="@LIBRARY_FILENAME@"/>
   <extension point="xbmc.addon.metadata">
     <summary lang="en">InputStream client for adaptive streams</summary>

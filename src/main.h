@@ -86,7 +86,7 @@ enum MANIFEST_TYPE
 class Session: public FragmentObserver
 {
 public:
-  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* profile_path);
+  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path);
   ~Session();
   bool initialize();
   FragmentedSampleReader *GetNextSample();
@@ -137,6 +137,7 @@ private:
   MANIFEST_TYPE manifest_type_;
   std::string mpdFileURL_;
   std::string license_key_, license_type_, license_data_;
+  AP4_DataBuffer server_certificate_;
   std::string profile_path_;
   void * decrypterModule_;
   SSD_DECRYPTER *decrypter_;

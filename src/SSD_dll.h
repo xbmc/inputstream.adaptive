@@ -9,7 +9,7 @@ public:
     OPTION_PROTOCOL,
     OPTION_HEADER
   };
-  static const uint32_t version = 5;
+  static const uint32_t version = 6;
 
   virtual const char *GetLibraryPath() const = 0;
   virtual const char *GetProfilePath() const = 0;
@@ -40,5 +40,5 @@ class SSD_DECRYPTER
 public:
   // Return supported URN if type matches to capabikitues, otherwise null
   virtual const char *Supported(const char* licenseType, const char *licenseKey) = 0;
-  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec) = 0;
+  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec, AP4_DataBuffer &serverCertificate) = 0;
 };
