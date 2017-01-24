@@ -17,8 +17,7 @@ set(ADP_SOURCES
 	src/parser/SmoothTree.cpp
 	src/common/AdaptiveStream.cpp
 	src/helpers.cpp
-  src/oscompat.cpp
-  src/msl.cpp
+	src/oscompat.cpp
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
