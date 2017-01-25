@@ -575,7 +575,23 @@ public:
 
     AP4_SampleDescription *desc(m_Track->GetSampleDescription(0));
     if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
+    {
       m_Protected_desc = static_cast<AP4_ProtectedSampleDescription*>(desc);
+
+      AP4_ContainerAtom *schi;
+      if (m_Protected_desc->GetSchemeInfo() && (schi = m_Protected_desc->GetSchemeInfo()->GetSchiAtom()))
+      {
+        AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
+        if (tenc)
+          m_DefaultKey = tenc->GetDefaultKid();
+        else
+        {
+          AP4_PiffTrackEncryptionAtom* piff(AP4_DYNAMIC_CAST(AP4_PiffTrackEncryptionAtom, schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
+          if (piff)
+            m_DefaultKey = piff->GetDefaultKid();
+        }
+      }
+    }
   }
 
   ~FragmentedSampleReader()
@@ -734,15 +750,6 @@ protected:
 
         if (AP4_FAILED(result = AP4_CencSampleInfoTable::Create(m_Protected_desc, traf, algorithm_id, *m_FragmentStream, moof_offset, sample_table)))
           return result;
-
-        AP4_ContainerAtom *schi;
-        m_DefaultKey = 0;
-        if (m_Protected_desc->GetSchemeInfo() && (schi = m_Protected_desc->GetSchemeInfo()->GetSchiAtom()))
-        {
-          AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
-          if (tenc)
-            m_DefaultKey = tenc->GetDefaultKid();
-        }
 
         if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, m_SingleSampleDecryptor, m_Decrypter)))
           return result;
@@ -1348,6 +1355,15 @@ extern "C" {
   * Standard AddOn related public library functions
   ***********************************************************/
 
+  ADDON_STATUS ADDON_CreateInstance(int instanceType, const char* instanceID, KODI_HANDLE instance, KODI_HANDLE* addonInstance)
+  {
+    return ADDON_STATUS_OK;
+  }
+
+  void ADDON_DestroyInstance(int instanceType, KODI_HANDLE instance)
+  {
+  }
+
   ADDON_STATUS ADDON_Create(void* hdl, void* props)
   {
     // initialize globals
@@ -1513,16 +1529,14 @@ extern "C" {
     return iids;
   }
 
-  struct INPUTSTREAM_CAPABILITIES GetCapabilities()
+  void GetCapabilities(INPUTSTREAM_CAPABILITIES *caps)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
-    INPUTSTREAM_CAPABILITIES caps;
-    caps.m_supportsIDemux = true;
-    caps.m_supportsIPosTime = false;
-    caps.m_supportsIDisplayTime = true;
-    caps.m_supportsSeek = session && !session->IsLive();
-    caps.m_supportsPause = caps.m_supportsSeek;
-    return caps;
+    caps->m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTSIDEMUX |
+      INPUTSTREAM_CAPABILITIES::SUPPORTSIDISPLAYTIME;
+    if (session && !session->IsLive())
+      caps->m_mask |= INPUTSTREAM_CAPABILITIES::SUPPORTSSEEK
+      | INPUTSTREAM_CAPABILITIES::SUPPORTSPAUSE;
   }
 
   struct INPUTSTREAM_INFO GetStream(int streamid)
