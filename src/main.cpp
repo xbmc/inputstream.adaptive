@@ -30,6 +30,7 @@
 #include "SSD_dll.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
+#include "DemuxCrypto.h"
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
@@ -1544,7 +1545,8 @@ extern "C" {
     static struct INPUTSTREAM_INFO dummy_info = {
       INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
       0, 0, 0, 0, 0.0f,
-      0, 0, 0, 0, 0 };
+      0, 0, 0, 0, 0,
+      INPUTSTREAM_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
 
     xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
 
@@ -1553,15 +1555,17 @@ extern "C" {
     if (stream)
     {
 #ifdef ANDROID
-      if (stream->encrypted)
+      if (stream->encrypted && session->GetCryptoData().GetDataSize())
       {
-        static AP4_DataBuffer tmp;
-        tmp.SetData(session->GetCryptoData().GetData(), session->GetCryptoData().GetDataSize());
-        tmp.AppendData(stream->info_.m_ExtraData, stream->info_.m_ExtraSize);
-        INPUTSTREAM_INFO tmpInfo = stream->info_;
-        tmpInfo.m_ExtraData = tmp.GetData();
-        tmpInfo.m_ExtraSize = tmp.GetDataSize();
-        return tmpInfo;
+        const AP4_UI08 *pData(session->GetCryptoData().GetData() + 8); //skip "CRYPTO" + size
+        stream->info_.m_CryptoKeySystem = INPUTSTREAM_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
+        if ((*pData > 32))
+        {
+          xbmc->Log(ADDON::LOG_ERROR, "GetStream: SessionIdSize exceeds max allowed size of 32");
+          return dummy_info;
+        }
+        stream->info_.m_CryptoSessionIdSize = *pData;
+        memcpy(stream->info_.m_CryptoSessionId, pData + 1, *pData);
       }
 #endif
       return stream->info_;
@@ -1710,14 +1714,37 @@ extern "C" {
     if (sr)
     {
       const AP4_Sample &s(sr->Sample());
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
+      AP4_Size iSize(sr->GetSampleDataSize());
+      const AP4_UI08 *pData(sr->GetSampleData());
+      DemuxPacket *p;
+
+#ifdef ANDROID
+      if (sr->IsEncrypted())
+      {
+        unsigned int numSubSamples(*((unsigned int*)pData)); pData += sizeof(numSubSamples);
+        DemuxPacket *p = ipsh->AllocateEncryptedDemuxPacket(iSize, numSubSamples);
+        memcpy(p->cryptoInfo->clearBytes, pData, numSubSamples * sizeof(uint16_t));
+        pData += (numSubSamples * sizeof(uint16_t));
+        memcpy(p->cryptoInfo->cipherBytes, pData, numSubSamples * sizeof(uint32_t));
+        pData += (numSubSamples * sizeof(uint32_t));
+        memcpy(p->cryptoInfo->iv, pData, 16);
+        pData += 16;
+        memcpy(p->cryptoInfo->kid, pData, 16);
+        pData += 16;
+        iSize -= (pData - sr->GetSampleData());
+        p->cryptoInfo->flags = 0;
+      }
+      else
+#endif
+      DemuxPacket *p = ipsh->AllocateDemuxPacket(iSize);
+
       p->dts = sr->DTS() * 1000000;
       p->pts = sr->PTS() * 1000000;
       p->duration = sr->GetDuration() * 1000000;
       p->iStreamId = sr->GetStreamId();
       p->iGroupId = 0;
-      p->iSize = sr->GetSampleDataSize();
-      memcpy(p->pData, sr->GetSampleData(), p->iSize);
+      p->iSize = iSize;
+      memcpy(p->pData, pData, iSize);
 
       //xbmc->Log(ADDON::LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
