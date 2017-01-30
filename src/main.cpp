@@ -1557,6 +1557,7 @@ extern "C" {
 #ifdef ANDROID
       if (stream->encrypted && session->GetCryptoData().GetDataSize())
       {
+        xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
         const AP4_UI08 *pData(session->GetCryptoData().GetData() + 8); //skip "CRYPTO" + size
         stream->info_.m_CryptoKeySystem = INPUTSTREAM_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
         if ((*pData > 32))
@@ -1722,7 +1723,7 @@ extern "C" {
       if (sr->IsEncrypted())
       {
         unsigned int numSubSamples(*((unsigned int*)pData)); pData += sizeof(numSubSamples);
-        DemuxPacket *p = ipsh->AllocateEncryptedDemuxPacket(iSize, numSubSamples);
+        p = ipsh->AllocateEncryptedDemuxPacket(iSize, numSubSamples);
         memcpy(p->cryptoInfo->clearBytes, pData, numSubSamples * sizeof(uint16_t));
         pData += (numSubSamples * sizeof(uint16_t));
         memcpy(p->cryptoInfo->cipherBytes, pData, numSubSamples * sizeof(uint32_t));
@@ -1736,7 +1737,7 @@ extern "C" {
       }
       else
 #endif
-      DemuxPacket *p = ipsh->AllocateDemuxPacket(iSize);
+      p = ipsh->AllocateDemuxPacket(iSize);
 
       p->dts = sr->DTS() * 1000000;
       p->pts = sr->PTS() * 1000000;
