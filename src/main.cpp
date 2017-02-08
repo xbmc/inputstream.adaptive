@@ -1419,14 +1419,6 @@ extern "C" {
     return ADDON_STATUS_OK;
   }
 
-  void ADDON_Stop()
-  {
-  }
-
-  void ADDON_Announce(const char *flag, const char *sender, const char *message, const void *data)
-  {
-  }
-
   /***********************************************************
   * InputSteam Client AddOn specific public library functions
   ***********************************************************/
