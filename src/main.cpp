@@ -40,7 +40,7 @@ std::uint16_t kodiDisplayWidth(0), kodiDisplayHeight(0);
 /*******************************************************
 kodi host - interface for decrypter libraries
 ********************************************************/
-class KodiHost : public SSD_HOST
+class KodiHost : public SSD::SSD_HOST
 {
 public:
   virtual const char *GetLibraryPath() const override
@@ -956,7 +956,7 @@ Session::~Session()
 
 void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 {
-  typedef SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD_HOST *host, uint32_t version);
+  typedef SSD::SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD::SSD_HOST *host, uint32_t version);
 
   char specialpath[1024];
   if (!xbmc->GetSetting("DECRYPTERPATH", specialpath))
@@ -987,7 +987,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
       CreateDecryptorInstanceFunc startup;
       if ((startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance")))
       {
-        SSD_DECRYPTER *decrypter = startup(&kodihost, SSD_HOST::version);
+        SSD::SSD_DECRYPTER *decrypter = startup(&kodihost, SSD::SSD_HOST::version);
         const char *suppUrn(0);
 
         if (decrypter && (suppUrn = decrypter->Supported(license_type_.c_str(), license_key_.c_str())))
@@ -1329,7 +1329,7 @@ void Session::EndFragment(AP4_UI32 streamId)
     s->stream_.getAdaptationSet(),
     s->stream_.getRepresentation(),
     s->stream_.getSegmentPos(),
-    s->reader_->GetFragmentDuration(),
+    static_cast<uint32_t>(s->reader_->GetFragmentDuration()),
     s->reader_->GetTimeScale());
 }
 
@@ -1345,6 +1345,7 @@ const AP4_UI08 *Session::GetDefaultKeyId() const
 
 #include "kodi_inputstream_dll.h"
 #include "libKODI_inputstream.h"
+#include "kodi_videocodec_types.h"
 
 CHelper_libKODI_inputstream *ipsh = 0;
 
@@ -1546,7 +1547,7 @@ extern "C" {
       INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0,
-      INPUTSTREAM_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
+      CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
 
     xbmc->Log(ADDON::LOG_DEBUG, "GetStream(%d)", streamid);
 
@@ -1825,6 +1826,69 @@ extern "C" {
   bool IsRealTimeStream(void)
   {
     return false;
+  }
+
+  /*******************************************************/
+  /*                     VideoCodec                      */
+  /*******************************************************/
+
+  bool VideoCodecOpen(VIDEOCODEC_INITDATA &initData)
+  {
+    if (!session || !session->GetDecrypter())
+      return false;
+
+    return session->GetDecrypter()->OpenVideoDecoder(reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));
+  }
+
+  bool VideoCodecAddData(const DemuxPacket &packet)
+  {
+    if (!session || !session->GetDecrypter())
+      return false;
+
+    SSD::SSD_SAMPLE sample;
+    sample.data = packet.pData;
+    sample.dataSize = packet.iSize;
+    sample.flags = 0;
+    sample.pts = (int64_t)packet.pts;
+    if (packet.cryptoInfo)
+    {
+      sample.numSubSamples = packet.cryptoInfo->numSubSamples;
+      sample.clearBytes = packet.cryptoInfo->clearBytes;
+      sample.cipherBytes = packet.cryptoInfo->cipherBytes;
+      sample.iv = packet.cryptoInfo->iv;
+      sample.kid = packet.cryptoInfo->kid;
+    }
+    else
+      sample.numSubSamples = 0;
+
+    return session->GetDecrypter()->DecodeVideo(&sample, nullptr) != SSD::VC_ERROR;
+  }
+
+  VIDEOCODEC_RETVAL VideoCodecGetPicture(VIDEOCODEC_PICTURE &picture)
+  {
+    if (!session || !session->GetDecrypter())
+      return VIDEOCODEC_RETVAL::VC_ERROR;
+
+    static VIDEOCODEC_RETVAL vrvm[] =
+    {
+      VIDEOCODEC_RETVAL::VC_NONE,
+      VIDEOCODEC_RETVAL::VC_ERROR,
+      VIDEOCODEC_RETVAL::VC_BUFFER,
+      VIDEOCODEC_RETVAL::VC_PICTURE
+    };
+
+    return vrvm[session->GetDecrypter()->DecodeVideo(nullptr, reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
+  }
+
+  void VideoCodecReset()
+  {
+    if (!session || !session->GetDecrypter())
+      return;
+
+    SSD::SSD_PICTURE picture;
+    picture.decodedData = 0;
+
+    while (session->GetDecrypter()->DecodeVideo(nullptr, &picture) == SSD::VC_PICTURE);
   }
 
 }//extern "C"

@@ -28,7 +28,10 @@
 #include "kodi_inputstream_types.h"
 
 class FragmentedSampleReader;
-class SSD_DECRYPTER;
+namespace SSD
+{
+  class SSD_DECRYPTER;
+};
 
 namespace XBMCFILE
 {
@@ -115,6 +118,7 @@ public:
   std::uint16_t GetWidth()const { return width_; };
   std::uint16_t GetHeight()const { return height_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
+  SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
   double GetPresentationTimeOffset() { return adaptiveTree_->minPresentationOffset < DBL_MAX? adaptiveTree_->minPresentationOffset:0; };
   double GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
   double GetPTS()const { return last_pts_; };
@@ -140,7 +144,7 @@ private:
   AP4_DataBuffer server_certificate_;
   std::string profile_path_;
   void * decrypterModule_;
-  SSD_DECRYPTER *decrypter_;
+  SSD::SSD_DECRYPTER *decrypter_;
   AP4_DataBuffer m_cryptoData;
 
   adaptive::AdaptiveTree *adaptiveTree_;
