@@ -135,6 +135,7 @@ public:
 
 protected:
   void GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn);
+  void DisposeDecrypter();
   AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec);
 
 private:

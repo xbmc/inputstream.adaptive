@@ -935,12 +935,7 @@ Session::~Session()
     SAFE_DELETE(*b);
   streams_.clear();
 
-  if (decrypterModule_)
-  {
-    dlclose(decrypterModule_);
-    decrypterModule_ = 0;
-    decrypter_ = 0;
-  }
+  DisposeDecrypter();
 
   std::string fn(profile_path_ + "bandwidth.bin");
   FILE* f = fopen(fn.c_str(), "wb");
@@ -1007,6 +1002,22 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
     }
   }
   xbmc->FreeDirectory(items, num_items);
+}
+
+void Session::DisposeDecrypter()
+{
+  if (!decrypterModule_)
+    return;
+  
+  typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER *);
+  DeleteDecryptorInstanceFunc disposefn((DeleteDecryptorInstanceFunc)dlsym(decrypterModule_, "DeleteDecryptorInstance"));
+
+  if (disposefn)
+    disposefn(decrypter_);
+
+  dlclose(decrypterModule_);
+  decrypterModule_ = 0;
+  decrypter_ = 0;
 }
 
 AP4_CencSingleSampleDecrypter *Session::CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec)
