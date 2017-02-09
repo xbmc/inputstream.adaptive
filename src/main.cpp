@@ -1425,41 +1425,17 @@ extern "C" {
     SAFE_DELETE(ipsh);
   }
 
-  bool ADDON_HasSettings()
-  {
-    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_HasSettings()");
-    return false;
-  }
-
-  unsigned int ADDON_GetSettings(ADDON_StructSetting ***sSet)
-  {
-    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_GetSettings()");
-    return 0;
-  }
-
   ADDON_STATUS ADDON_SetSetting(const char *settingName, const void *settingValue)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "ADDON_SetSettings()");
     return ADDON_STATUS_OK;
   }
 
-  void ADDON_Stop()
-  {
-  }
-
-  void ADDON_FreeSettings()
-  {
-  }
-
-  void ADDON_Announce(const char *flag, const char *sender, const char *message, const void *data)
-  {
-  }
-
   /***********************************************************
   * InputSteam Client AddOn specific public library functions
   ***********************************************************/
 
-  bool Open(INPUTSTREAM& props)
+  bool Open(void* addonInstance, INPUTSTREAM& props)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "Open()");
 
@@ -1515,18 +1491,18 @@ extern "C" {
     return true;
   }
 
-  void Close(void)
+  void Close(void* addonInstance)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "Close()");
     SAFE_DELETE(session);
   }
 
-  const char* GetPathList(void)
+  const char* GetPathList(void* addonInstance)
   {
     return "";
   }
 
-  struct INPUTSTREAM_IDS GetStreamIds()
+  struct INPUTSTREAM_IDS GetStreamIds(void* addonInstance)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetStreamIds()");
     INPUTSTREAM_IDS iids;
@@ -1542,7 +1518,7 @@ extern "C" {
     return iids;
   }
 
-  void GetCapabilities(INPUTSTREAM_CAPABILITIES *caps)
+  void GetCapabilities(void* addonInstance, INPUTSTREAM_CAPABILITIES *caps)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "GetCapabilities()");
     caps->m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTSIDEMUX |
@@ -1552,7 +1528,7 @@ extern "C" {
       | INPUTSTREAM_CAPABILITIES::SUPPORTSPAUSE;
   }
 
-  struct INPUTSTREAM_INFO GetStream(int streamid)
+  struct INPUTSTREAM_INFO GetStream(void* addonInstance, int streamid)
   {
     static struct INPUTSTREAM_INFO dummy_info = {
       INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
@@ -1586,7 +1562,7 @@ extern "C" {
     return dummy_info;
   }
 
-  void EnableStream(int streamid, bool enable)
+  void EnableStream(void* addonInstance, int streamid, bool enable)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
 
@@ -1677,39 +1653,39 @@ extern "C" {
     return stream->disable();
   }
 
-  int ReadStream(unsigned char*, unsigned int)
+  int ReadStream(void* addonInstance, unsigned char*, unsigned int)
   {
     return -1;
   }
 
-  int64_t SeekStream(int64_t, int)
+  int64_t SeekStream(void* addonInstance, int64_t, int)
   {
     return -1;
   }
 
-  int64_t PositionStream(void)
+  int64_t PositionStream(void* addonInstance)
   {
     return -1;
   }
 
-  int64_t LengthStream(void)
+  int64_t LengthStream(void* addonInstance)
   {
     return -1;
   }
 
-  void DemuxReset(void)
+  void DemuxReset(void* addonInstance)
   {
   }
 
-  void DemuxAbort(void)
+  void DemuxAbort(void* addonInstance)
   {
   }
 
-  void DemuxFlush(void)
+  void DemuxFlush(void* addonInstance)
   {
   }
 
-  DemuxPacket* __cdecl DemuxRead(void)
+  DemuxPacket* __cdecl DemuxRead(void* addonInstance)
   {
     if (!session)
       return NULL;
@@ -1767,7 +1743,7 @@ extern "C" {
     return NULL;
   }
 
-  bool DemuxSeekTime(double time, bool backwards, double *startpts)
+  bool DemuxSeekTime(void* addonInstance, double time, bool backwards, double *startpts)
   {
     if (!session)
       return false;
@@ -1777,13 +1753,13 @@ extern "C" {
     return session->SeekTime(time * 0.001f, 0, !backwards);
   }
 
-  void DemuxSetSpeed(int speed)
+  void DemuxSetSpeed(void* addonInstance, int speed)
   {
 
   }
 
   //callback - will be called from kodi
-  void SetVideoResolution(int width, int height)
+  void SetVideoResolution(void* addonInstance, int width, int height)
   {
     xbmc->Log(ADDON::LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
     if (session)
@@ -1795,7 +1771,7 @@ extern "C" {
     }
   }
 
-  int GetTotalTime()
+  int GetTotalTime(void* addonInstance)
   {
     if (!session)
       return 0;
@@ -1803,7 +1779,7 @@ extern "C" {
     return static_cast<int>(session->GetTotalTime()*1000);
   }
 
-  int GetTime()
+  int GetTime(void* addonInstance)
   {
     if (!session)
       return 0;
@@ -1811,30 +1787,30 @@ extern "C" {
     return static_cast<int>(session->GetPTS() * 1000);
   }
 
-  bool CanPauseStream(void)
+  bool CanPauseStream(void* addonInstance)
   {
     return true;
   }
 
-  bool CanSeekStream(void)
+  bool CanSeekStream(void* addonInstance)
   {
     return session && !session->IsLive();
   }
 
-  bool PosTime(int)
+  bool PosTime(void* addonInstance, int)
   {
     return false;
   }
 
-  void SetSpeed(int)
+  void SetSpeed(void* addonInstance, int)
   {
   }
 
-  void PauseStream(double)
+  void PauseStream(void* addonInstance, double)
   {
   }
 
-  bool IsRealTimeStream(void)
+  bool IsRealTimeStream(void* addonInstance)
   {
     return false;
   }
