@@ -25,7 +25,7 @@
 
 #include "Ap4.h"
 
-#include "kodi_inputstream_types.h"
+#include <kodi/addon-instance/Inputstream.h>
 
 class FragmentedSampleReader;
 class SSD_DECRYPTER;
@@ -55,7 +55,7 @@ Kodi Streams implementation
 class KodiAdaptiveTree : public adaptive::AdaptiveTree
 {
 protected:
-  virtual bool download(const char* url);
+  virtual bool download(std::string url);
 };
 
 class KodiAdaptiveStream : public adaptive::AdaptiveStream
@@ -64,7 +64,7 @@ public:
   KodiAdaptiveStream(adaptive::AdaptiveTree &tree, adaptive::AdaptiveTree::StreamType type)
     :adaptive::AdaptiveStream(tree, type){};
 protected:
-  virtual bool download(const char* url, const char* rangeHeader) override;
+  virtual bool download(std::string url, std::string rangeHeader) override;
   virtual bool parseIndexRange() override;
 };
 

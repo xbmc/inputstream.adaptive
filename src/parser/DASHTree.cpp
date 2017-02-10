@@ -1047,7 +1047,7 @@ end(void *data, const char *el)
 |   DASHTree
 +---------------------------------------------------------------------*/
 
-bool DASHTree::open(const char *url)
+bool DASHTree::open(std::string url)
 {
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)

@@ -301,7 +301,7 @@ protection_end(void *data, const char *el)
 |   SmoothTree
 +---------------------------------------------------------------------*/
 
-bool SmoothTree::open(const char *url)
+bool SmoothTree::open(std::string url)
 {
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)

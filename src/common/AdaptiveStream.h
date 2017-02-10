@@ -63,7 +63,7 @@ namespace adaptive
     size_t getSegmentPos() { return current_rep_->segments_.pos(current_seg_); };
     uint64_t GetPTSOffset() { return current_seg_ ? current_seg_->startPTS_ : 0; };
   protected:
-    virtual bool download(const char* url, const char* rangeHeader){ return false; };
+    virtual bool download(std::string url, std::string rangeHeader){ return false; };
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
   private:

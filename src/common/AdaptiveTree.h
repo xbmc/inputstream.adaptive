@@ -212,7 +212,7 @@ namespace adaptive
     std::string strXMLText_;
 
     AdaptiveTree();
-    virtual bool open(const char *url) = 0;
+    virtual bool open(std::string url) = 0;
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
     double get_download_speed() const { return download_speed_; };
@@ -223,7 +223,7 @@ namespace adaptive
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
 protected:
-  virtual bool download(const char* url);
+  virtual bool download(std::string url);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
 };
 

@@ -45,7 +45,8 @@ bool AdaptiveStream::download_segment()
     return false;
 
   std::string strURL;
-  char rangebuf[128], *rangeHeader(0);
+  std::string rangeHeader;
+  char rangebuf[128];
 
   if (current_rep_->flags_ & AdaptiveTree::Representation::STARTTIMETPL)
   {
@@ -96,7 +97,7 @@ bool AdaptiveStream::download_segment()
     rangeHeader = rangebuf;
   }
 
-  return download(strURL.c_str(), rangeHeader);
+  return download(strURL, rangeHeader);
 }
 
 bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
