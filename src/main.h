@@ -25,8 +25,6 @@
 
 #include "Ap4.h"
 
-#include "kodi_inputstream_types.h"
-
 class FragmentedSampleReader;
 namespace SSD
 {
