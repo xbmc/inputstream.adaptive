@@ -24,7 +24,7 @@
 #include <sstream>
 #include <kodi/General.h>
 #include <kodi/Filesystem.h>
-#include <kodi/addon-instance/Inputstream.h>
+#include <kodi/addon-instance/VideoCodec.h>
 
 #include "helpers.h"
 #include "SSD_dll.h"
@@ -977,10 +977,10 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 
   for (unsigned int i(0); i < items.size(); ++i)
   {
-    if (strncmp(items[i].Label, "ssd_", 4) && strncmp(items[i].Label, "libssd_", 7))
+    if (strncmp(items[i].Label().c_str(), "ssd_", 4) && strncmp(items[i].Label().c_str(), "libssd_", 7))
       continue;
 
-    void * mod(dlopen(items[i].Path, RTLD_LAZY));
+    void * mod(dlopen(items[i].Path().c_str(), RTLD_LAZY));
     if (mod)
     {
       CreateDecryptorInstanceFunc startup;
@@ -991,7 +991,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
 
         if (decrypter && (suppUrn = decrypter->Supported(license_type_.c_str(), license_key_.c_str())))
         {
-          kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path);
+          kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
           decrypterModule_ = mod;
           decrypter_ = decrypter;
           urn.first = suppUrn;
@@ -1357,11 +1357,40 @@ const AP4_UI08 *Session::GetDefaultKeyId() const
 
 /***************************  Interface *********************************/
 
+class CInputStreamAdaptive;
+
+/*******************************************************/
+/*                     VideoCodec                      */
+/*******************************************************/
+
+class CVideoCodecAdaptive
+  : public kodi::addon::CInstanceVideoCodec
+{
+public:
+  CVideoCodecAdaptive(KODI_HANDLE instance);
+  CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive *parent);
+
+  virtual bool Open(VIDEOCODEC_INITDATA &initData) override;
+  virtual bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
+  virtual bool AddData(const DemuxPacket &packet) override;
+  virtual VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
+  virtual const char *GetName() override;
+  virtual void Reset() override;
+
+private:
+  Session* m_session;
+};
+
+/*******************************************************/
+/*                     InputStream                     */
+/*******************************************************/
+
 class CInputStreamAdaptive
   : public kodi::addon::CInstanceInputStream
 {
 public:
   CInputStreamAdaptive(KODI_HANDLE instance);
+  virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
 
   virtual bool Open(INPUTSTREAM& props) override;
   virtual void Close() override;
@@ -1377,6 +1406,8 @@ public:
   virtual bool CanPauseStream() override;
   virtual bool CanSeekStream() override;
 
+  Session* GetSession() { return m_session; };
+
 private:
   Session* m_session;
 };
@@ -1387,392 +1418,443 @@ CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance)
 {
 }
 
-  bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
+ADDON_STATUS CInputStreamAdaptive::CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance)
+{
+  if (instanceType == ADDON_INSTANCE_VIDEOCODEC)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "Open()");
+    addonInstance = new CVideoCodecAdaptive(instance, this);
+    return ADDON_STATUS_OK;
+  }
+  return ADDON_STATUS_NOT_IMPLEMENTED;
+}
 
-    const char *lt(""), *lk(""), *ld(""), *lsc("");
-    MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
-    for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
+bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
+{
+  kodi::Log(ADDON_LOG_DEBUG, "Open()");
+
+  const char *lt(""), *lk(""), *ld(""), *lsc("");
+  MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
+  for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
+  {
+    if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_type") == 0)
     {
-      if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_type") == 0)
-      {
-        kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_type: %s", props.m_ListItemProperties[i].m_strValue);
-        lt = props.m_ListItemProperties[i].m_strValue;
-      }
-      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_key") == 0)
-      {
-        kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_key: [not shown]");
-        lk = props.m_ListItemProperties[i].m_strValue;
-      }
-      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_data") == 0)
-      {
-        kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_data: [not shown]");
-        ld = props.m_ListItemProperties[i].m_strValue;
-      }
-      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.server_certificate") == 0)
-      {
-        kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
-        lsc = props.m_ListItemProperties[i].m_strValue;
-      }
-      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.manifest_type") == 0)
-      {
-        kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_type: %s", props.m_ListItemProperties[i].m_strValue);
-        if (strcmp(props.m_ListItemProperties[i].m_strValue, "mpd") == 0)
-          manifest = MANIFEST_TYPE_MPD;
-        else if (strcmp(props.m_ListItemProperties[i].m_strValue, "ism") == 0)
-          manifest = MANIFEST_TYPE_ISM;
-      }
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_type: %s", props.m_ListItemProperties[i].m_strValue);
+      lt = props.m_ListItemProperties[i].m_strValue;
     }
-
-    if (manifest == MANIFEST_TYPE_UNKNOWN)
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_key") == 0)
     {
-      kodi::Log(ADDON_LOG_ERROR, "Invalid / not given inputstream.adaptive.manifest_type");
-      return false;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_key: [not shown]");
+      lk = props.m_ListItemProperties[i].m_strValue;
     }
-
-    kodihost.SetProfilePath(props.m_profileFolder);
-
-    session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder);
-
-    if (!session->initialize())
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_data") == 0)
     {
-      SAFE_DELETE(session);
-      return false;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_data: [not shown]");
+      ld = props.m_ListItemProperties[i].m_strValue;
     }
-    return true;
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.server_certificate") == 0)
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
+      lsc = props.m_ListItemProperties[i].m_strValue;
+    }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.manifest_type") == 0)
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_type: %s", props.m_ListItemProperties[i].m_strValue);
+      if (strcmp(props.m_ListItemProperties[i].m_strValue, "mpd") == 0)
+        manifest = MANIFEST_TYPE_MPD;
+      else if (strcmp(props.m_ListItemProperties[i].m_strValue, "ism") == 0)
+        manifest = MANIFEST_TYPE_ISM;
+    }
   }
 
-  void CInputStreamAdaptive::Close(void)
+  if (manifest == MANIFEST_TYPE_UNKNOWN)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "Close()");
+    kodi::Log(ADDON_LOG_ERROR, "Invalid / not given inputstream.adaptive.manifest_type");
+    return false;
+  }
+
+  kodihost.SetProfilePath(props.m_profileFolder);
+
+  session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder);
+
+  if (!session->initialize())
+  {
     SAFE_DELETE(session);
+    return false;
   }
+  return true;
+}
 
-  struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
+void CInputStreamAdaptive::Close(void)
+{
+  kodi::Log(ADDON_LOG_DEBUG, "Close()");
+  SAFE_DELETE(session);
+}
+
+struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
+{
+  kodi::Log(ADDON_LOG_DEBUG, "GetStreamIds()");
+  INPUTSTREAM_IDS iids;
+
+  if(session)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "GetStreamIds()");
-    INPUTSTREAM_IDS iids;
+      iids.m_streamCount = 0;
+      for (unsigned int i(1); i <= session->GetStreamCount(); ++i)
+        if(session->GetMediaTypeMask() & static_cast<uint8_t>(1) << session->GetStream(i)->stream_.get_type())
+          iids.m_streamIds[iids.m_streamCount++] = i;
+  } else
+      iids.m_streamCount = 0;
+  return iids;
+}
 
-    if(session)
-    {
-        iids.m_streamCount = 0;
-        for (unsigned int i(1); i <= session->GetStreamCount(); ++i)
-          if(session->GetMediaTypeMask() & static_cast<uint8_t>(1) << session->GetStream(i)->stream_.get_type())
-            iids.m_streamIds[iids.m_streamCount++] = i;
-    } else
-        iids.m_streamCount = 0;
-    return iids;
-  }
+void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
+{
+  kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
+  caps.m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTSIDEMUX |
+    INPUTSTREAM_CAPABILITIES::SUPPORTSIDISPLAYTIME;
+  if (session && !session->IsLive())
+    caps.m_mask |= INPUTSTREAM_CAPABILITIES::SUPPORTSSEEK
+    | INPUTSTREAM_CAPABILITIES::SUPPORTSPAUSE;
+}
 
-  void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
+struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
+{
+  static struct INPUTSTREAM_INFO dummy_info = {
+    INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
+    0, 0, 0, 0, 0.0f,
+    0, 0, 0, 0, 0,
+    CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
+
+  kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
+
+  Session::STREAM *stream(session->GetStream(streamid));
+
+  if (stream)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
-    caps.m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTSIDEMUX |
-      INPUTSTREAM_CAPABILITIES::SUPPORTSIDISPLAYTIME;
-    if (session && !session->IsLive())
-      caps.m_mask |= INPUTSTREAM_CAPABILITIES::SUPPORTSSEEK
-      | INPUTSTREAM_CAPABILITIES::SUPPORTSPAUSE;
-  }
-
-  struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
-  {
-    static struct INPUTSTREAM_INFO dummy_info = {
-      INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
-      0, 0, 0, 0, 0.0f,
-      0, 0, 0, 0, 0,
-      CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
-
-    kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
-
-    Session::STREAM *stream(session->GetStream(streamid));
-
-    if (stream)
-    {
 #ifdef ANDROID
-      if (stream->encrypted && session->GetCryptoData().GetDataSize())
+    if (stream->encrypted && session->GetCryptoData().GetDataSize())
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
+      const AP4_UI08 *pData(session->GetCryptoData().GetData() + 8); //skip "CRYPTO" + size
+      stream->info_.m_CryptoKeySystem = INPUTSTREAM_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
+      if ((*pData > 32))
       {
-        kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
-        const AP4_UI08 *pData(session->GetCryptoData().GetData() + 8); //skip "CRYPTO" + size
-        stream->info_.m_CryptoKeySystem = INPUTSTREAM_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
-        if ((*pData > 32))
-        {
-          kodi::Log(ADDON_LOG_ERROR, "GetStream: SessionIdSize exceeds max allowed size of 32");
-          return dummy_info;
-        }
-        stream->info_.m_CryptoSessionIdSize = *pData;
-        memcpy(stream->info_.m_CryptoSessionId, pData + 1, *pData);
+        kodi::Log(ADDON_LOG_ERROR, "GetStream: SessionIdSize exceeds max allowed size of 32");
+        return dummy_info;
       }
+      stream->info_.m_CryptoSessionIdSize = *pData;
+      memcpy(stream->info_.m_CryptoSessionId, pData + 1, *pData);
+    }
 #endif
-      return stream->info_;
-    }
-    return dummy_info;
+    return stream->info_;
   }
+  return dummy_info;
+}
 
-  void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
+void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
+{
+  kodi::Log(ADDON_LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
+
+  if (!session)
+    return;
+
+  Session::STREAM *stream(session->GetStream(streamid));
+
+  if (!stream)
+    return;
+
+  if (enable)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable?"true":"false");
-
-    if (!session)
+    if (stream->enabled)
       return;
 
-    Session::STREAM *stream(session->GetStream(streamid));
+    stream->enabled = true;
 
-    if (!stream)
-      return;
+    stream->stream_.start_stream(~0, session->GetWidth(), session->GetHeight());
+    const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
+    kodi::Log(ADDON_LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u", 
+      stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
 
-    if (enable)
+    if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
     {
-      if (stream->enabled)
-        return;
-
-      stream->enabled = true;
-
-      stream->stream_.start_stream(~0, session->GetWidth(), session->GetHeight());
-      const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
-      kodi::Log(ADDON_LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u", 
-        stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
-
-      if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
-      {
-        kodi::Log(ADDON_LOG_ERROR, "Unable to select stream!");
-        return stream->disable();
-      }
-
-      if(rep != stream->stream_.getRepresentation())
-      {
-        session->UpdateStream(*stream);
-        session->CheckChange(true);
-      }
-
-      stream->input_ = new AP4_DASHStream(&stream->stream_);
-      AP4_Movie* movie(0);
-      static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = { 
-        AP4_Track::TYPE_UNKNOWN,
-        AP4_Track::TYPE_VIDEO,
-        AP4_Track::TYPE_AUDIO,
-        AP4_Track::TYPE_TEXT };
-
-      if (session->GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
-      {
-        //We'll create a Movie out of the things we got from manifest file
-        //note: movie will be deleted in destructor of stream->input_file_
-        movie = new AP4_Movie();
-
-        AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
-        AP4_SampleDescription *sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
-        if (stream->stream_.getAdaptationSet()->encrypted)
-        {
-          AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
-          schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, session->GetDefaultKeyId()));
-          sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
-        }
-        sample_table->AddSampleDescription(sample_descryption);
-
-        movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0, stream->stream_.getRepresentation()->timescale_, 0, stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
-        //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
-        AP4_MoovAtom *moov = new AP4_MoovAtom();
-        moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
-        movie->SetMoovAtom(moov);
-      }
-
-      stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
-      movie = stream->input_file_->GetMovie();
-
-      if (movie == NULL)
-      {
-        kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
-        return stream->disable();
-      }
-
-      AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
-      if (!track)
-      {
-        kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-        return stream->disable();
-      }
-
-      stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor(), session->GetPresentationTimeOffset());
-      stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(session));
-
-      return;
+      kodi::Log(ADDON_LOG_ERROR, "Unable to select stream!");
+      return stream->disable();
     }
-    return stream->disable();
+
+    if(rep != stream->stream_.getRepresentation())
+    {
+      session->UpdateStream(*stream);
+      session->CheckChange(true);
+    }
+
+    stream->input_ = new AP4_DASHStream(&stream->stream_);
+    AP4_Movie* movie(0);
+    static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = { 
+      AP4_Track::TYPE_UNKNOWN,
+      AP4_Track::TYPE_VIDEO,
+      AP4_Track::TYPE_AUDIO,
+      AP4_Track::TYPE_TEXT };
+
+    if (session->GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
+    {
+      //We'll create a Movie out of the things we got from manifest file
+      //note: movie will be deleted in destructor of stream->input_file_
+      movie = new AP4_Movie();
+
+      AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
+      AP4_SampleDescription *sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+      if (stream->stream_.getAdaptationSet()->encrypted)
+      {
+        AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
+        schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, session->GetDefaultKeyId()));
+        sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
+      }
+      sample_table->AddSampleDescription(sample_descryption);
+
+      movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0, stream->stream_.getRepresentation()->timescale_, 0, stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
+      //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
+      AP4_MoovAtom *moov = new AP4_MoovAtom();
+      moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
+      movie->SetMoovAtom(moov);
+    }
+
+    stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
+    movie = stream->input_file_->GetMovie();
+
+    if (movie == NULL)
+    {
+      kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+      return stream->disable();
+    }
+
+    AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
+    if (!track)
+    {
+      kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
+      return stream->disable();
+    }
+
+    stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor(), session->GetPresentationTimeOffset());
+    stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(session));
+
+    return;
   }
+  return stream->disable();
+}
 
-  DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
-  {
-    if (!session)
-      return NULL;
-
-    FragmentedSampleReader *sr(session->GetNextSample());
-
-    if (session->CheckChange())
-    {
-      DemuxPacket *p = AllocateDemuxPacket(0);
-      p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
-      kodi::Log(ADDON_LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
-      return p;
-    }
-
-    if (sr)
-    {
-      const AP4_Sample &s(sr->Sample());
-      AP4_Size iSize(sr->GetSampleDataSize());
-      const AP4_UI08 *pData(sr->GetSampleData());
-      DemuxPacket *p;
-
-#ifdef ANDROID
-      if (sr->IsEncrypted())
-      {
-        unsigned int numSubSamples(*((unsigned int*)pData)); pData += sizeof(numSubSamples);
-        p = AllocateEncryptedDemuxPacket(iSize, numSubSamples);
-        memcpy(p->cryptoInfo->clearBytes, pData, numSubSamples * sizeof(uint16_t));
-        pData += (numSubSamples * sizeof(uint16_t));
-        memcpy(p->cryptoInfo->cipherBytes, pData, numSubSamples * sizeof(uint32_t));
-        pData += (numSubSamples * sizeof(uint32_t));
-        memcpy(p->cryptoInfo->iv, pData, 16);
-        pData += 16;
-        memcpy(p->cryptoInfo->kid, pData, 16);
-        pData += 16;
-        iSize -= (pData - sr->GetSampleData());
-        p->cryptoInfo->flags = 0;
-      }
-      else
-#endif
-      p = AllocateDemuxPacket(iSize);
-
-      p->dts = sr->DTS() * 1000000;
-      p->pts = sr->PTS() * 1000000;
-      p->duration = sr->GetDuration() * 1000000;
-      p->iStreamId = sr->GetStreamId();
-      p->iGroupId = 0;
-      p->iSize = iSize;
-      memcpy(p->pData, pData, iSize);
-
-      //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
-
-      sr->ReadSample();
-      return p;
-    }
+DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
+{
+  if (!session)
     return NULL;
+
+  FragmentedSampleReader *sr(session->GetNextSample());
+
+  if (session->CheckChange())
+  {
+    DemuxPacket *p = AllocateDemuxPacket(0);
+    p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+    kodi::Log(ADDON_LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
+    return p;
   }
 
-  bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double &startpts)
+  if (sr)
   {
-    if (!session)
-      return false;
+    const AP4_Sample &s(sr->Sample());
+    AP4_Size iSize(sr->GetSampleDataSize());
+    const AP4_UI08 *pData(sr->GetSampleData());
+    DemuxPacket *p;
 
-    kodi::Log(ADDON_LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
-
-    return session->SeekTime(time * 0.001f, 0, !backwards);
-  }
-
-  //callback - will be called from kodi
-  void CInputStreamAdaptive::SetVideoResolution(int width, int height)
-  {
-    kodi::Log(ADDON_LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
-    if (session)
-      session->SetVideoResolution(width, height);
-    else
+#ifdef ANDROID
+    if (sr->IsEncrypted())
     {
-      kodiDisplayWidth = width;
-      kodiDisplayHeight = height;
-    }
-  }
-
-  int CInputStreamAdaptive::GetTotalTime()
-  {
-    if (!session)
-      return 0;
-
-    return static_cast<int>(session->GetTotalTime()*1000);
-  }
-
-  int CInputStreamAdaptive::GetTime()
-  {
-    if (!session)
-      return 0;
-
-    return static_cast<int>(session->GetPTS() * 1000);
-  }
-
-  bool CInputStreamAdaptive::CanPauseStream(void)
-  {
-    return true;
-  }
-
-  bool CInputStreamAdaptive::CanSeekStream(void)
-  {
-    return session && !session->IsLive();
-  }
-
-  /*******************************************************/
-  /*                     VideoCodec                      */
-  /*******************************************************/
-
-  bool VideoCodecOpen(VIDEOCODEC_INITDATA &initData)
-  {
-    if (!session || !session->GetDecrypter())
-      return false;
-
-    return session->GetDecrypter()->OpenVideoDecoder(reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));
-  }
-
-  bool VideoCodecAddData(const DemuxPacket &packet)
-  {
-    if (!session || !session->GetDecrypter())
-      return false;
-
-    SSD::SSD_SAMPLE sample;
-    sample.data = packet.pData;
-    sample.dataSize = packet.iSize;
-    sample.flags = 0;
-    sample.pts = (int64_t)packet.pts;
-    if (packet.cryptoInfo)
-    {
-      sample.numSubSamples = packet.cryptoInfo->numSubSamples;
-      sample.clearBytes = packet.cryptoInfo->clearBytes;
-      sample.cipherBytes = packet.cryptoInfo->cipherBytes;
-      sample.iv = packet.cryptoInfo->iv;
-      sample.kid = packet.cryptoInfo->kid;
+      unsigned int numSubSamples(*((unsigned int*)pData)); pData += sizeof(numSubSamples);
+      p = AllocateEncryptedDemuxPacket(iSize, numSubSamples);
+      memcpy(p->cryptoInfo->clearBytes, pData, numSubSamples * sizeof(uint16_t));
+      pData += (numSubSamples * sizeof(uint16_t));
+      memcpy(p->cryptoInfo->cipherBytes, pData, numSubSamples * sizeof(uint32_t));
+      pData += (numSubSamples * sizeof(uint32_t));
+      memcpy(p->cryptoInfo->iv, pData, 16);
+      pData += 16;
+      memcpy(p->cryptoInfo->kid, pData, 16);
+      pData += 16;
+      iSize -= (pData - sr->GetSampleData());
+      p->cryptoInfo->flags = 0;
     }
     else
-      sample.numSubSamples = 0;
+#endif
+    p = AllocateDemuxPacket(iSize);
 
-    return session->GetDecrypter()->DecodeVideo(&sample, nullptr) != SSD::VC_ERROR;
+    p->dts = sr->DTS() * 1000000;
+    p->pts = sr->PTS() * 1000000;
+    p->duration = sr->GetDuration() * 1000000;
+    p->iStreamId = sr->GetStreamId();
+    p->iGroupId = 0;
+    p->iSize = iSize;
+    memcpy(p->pData, pData, iSize);
+
+    //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
+
+    sr->ReadSample();
+    return p;
   }
+  return NULL;
+}
 
-  VIDEOCODEC_RETVAL VideoCodecGetPicture(VIDEOCODEC_PICTURE &picture)
+bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double &startpts)
+{
+  if (!session)
+    return false;
+
+  kodi::Log(ADDON_LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
+
+  return session->SeekTime(time * 0.001f, 0, !backwards);
+}
+
+//callback - will be called from kodi
+void CInputStreamAdaptive::SetVideoResolution(int width, int height)
+{
+  kodi::Log(ADDON_LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
+  if (session)
+    session->SetVideoResolution(width, height);
+  else
   {
-    if (!session || !session->GetDecrypter())
-      return VIDEOCODEC_RETVAL::VC_ERROR;
-
-    static VIDEOCODEC_RETVAL vrvm[] =
-    {
-      VIDEOCODEC_RETVAL::VC_NONE,
-      VIDEOCODEC_RETVAL::VC_ERROR,
-      VIDEOCODEC_RETVAL::VC_BUFFER,
-      VIDEOCODEC_RETVAL::VC_PICTURE
-    };
-
-    return vrvm[session->GetDecrypter()->DecodeVideo(nullptr, reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
+    kodiDisplayWidth = width;
+    kodiDisplayHeight = height;
   }
+}
 
-  const char *VideoCodecGetName()
+int CInputStreamAdaptive::GetTotalTime()
+{
+  if (!session)
+    return 0;
+
+  return static_cast<int>(session->GetTotalTime()*1000);
+}
+
+int CInputStreamAdaptive::GetTime()
+{
+  if (!session)
+    return 0;
+
+  return static_cast<int>(session->GetPTS() * 1000);
+}
+
+bool CInputStreamAdaptive::CanPauseStream(void)
+{
+  return true;
+}
+
+bool CInputStreamAdaptive::CanSeekStream(void)
+{
+  return session && !session->IsLive();
+}
+
+/*****************************************************************************************************/
+
+CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance)
+  : CInstanceVideoCodec(instance)
+  , m_session(nullptr)
+{
+}
+
+CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive *parent)
+  : CInstanceVideoCodec(instance)
+  , m_session(parent->GetSession())
+{
+}
+
+bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA &initData)
+{
+  if (!session || !session->GetDecrypter())
+    return false;
+
+  return session->GetDecrypter()->OpenVideoDecoder(reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));
+}
+
+bool CVideoCodecAdaptive::Reconfigure(VIDEOCODEC_INITDATA &initData)
+{
+  return false;
+}
+
+bool CVideoCodecAdaptive::AddData(const DemuxPacket &packet)
+{
+  if (!session || !session->GetDecrypter())
+    return false;
+
+  SSD::SSD_SAMPLE sample;
+  sample.data = packet.pData;
+  sample.dataSize = packet.iSize;
+  sample.flags = 0;
+  sample.pts = (int64_t)packet.pts;
+  if (packet.cryptoInfo)
   {
-    return "inputstream.adaptive.decoder";
+    sample.numSubSamples = packet.cryptoInfo->numSubSamples;
+    sample.clearBytes = packet.cryptoInfo->clearBytes;
+    sample.cipherBytes = packet.cryptoInfo->cipherBytes;
+    sample.iv = packet.cryptoInfo->iv;
+    sample.kid = packet.cryptoInfo->kid;
   }
+  else
+    sample.numSubSamples = 0;
 
-  void VideoCodecReset()
+  return session->GetDecrypter()->DecodeVideo(&sample, nullptr) != SSD::VC_ERROR;
+}
+
+VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE &picture)
+{
+  if (!session || !session->GetDecrypter())
+    return VIDEOCODEC_RETVAL::VC_ERROR;
+
+  static VIDEOCODEC_RETVAL vrvm[] =
   {
-    if (!session || !session->GetDecrypter())
-      return;
+    VIDEOCODEC_RETVAL::VC_NONE,
+    VIDEOCODEC_RETVAL::VC_ERROR,
+    VIDEOCODEC_RETVAL::VC_BUFFER,
+    VIDEOCODEC_RETVAL::VC_PICTURE
+  };
 
-    SSD::SSD_PICTURE picture;
-    picture.decodedData = 0;
+  return vrvm[session->GetDecrypter()->DecodeVideo(nullptr, reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
+}
 
-    while (session->GetDecrypter()->DecodeVideo(nullptr, &picture) == SSD::VC_PICTURE);
+const char *CVideoCodecAdaptive::GetName()
+{
+  return "inputstream.adaptive.decoder";
+}
+
+void CVideoCodecAdaptive::Reset()
+{
+  if (!session || !session->GetDecrypter())
+    return;
+
+  SSD::SSD_PICTURE picture;
+  picture.decodedData = 0;
+
+  while (session->GetDecrypter()->DecodeVideo(nullptr, &picture) == SSD::VC_PICTURE);
+}
+
+/*****************************************************************************************************/
+
+class CMyAddon
+  : public kodi::addon::CAddonBase
+{
+public:
+  CMyAddon();
+  virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+};
+
+CMyAddon::CMyAddon()
+{
+  kodiDisplayWidth = 1280;
+  kodiDisplayHeight = 720;
+}
+
+ADDON_STATUS CMyAddon::CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance)
+{
+  if (instanceType == ADDON_INSTANCE_INPUTSTREAM)
+  {
+    addonInstance = new CInputStreamAdaptive(instance);
+    return ADDON_STATUS_OK;
   }
+  return ADDON_STATUS_NOT_IMPLEMENTED;
+}
 
-}//extern "C"
+ADDONCREATOR(CMyAddon);
