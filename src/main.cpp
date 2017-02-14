@@ -559,12 +559,13 @@ class FragmentedSampleReader : public AP4_LinearReader
 public:
 
   FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track,
-    AP4_UI32 streamId, AP4_CencSingleSampleDecrypter *ssd, const double pto)
+    AP4_UI32 streamId, AP4_CencSingleSampleDecrypter *ssd, const double pto, bool canDecrypt)
     : AP4_LinearReader(*movie, input)
     , m_Track(track)
     , m_StreamId(streamId)
     , m_SampleDescIndex(0)
     , m_bSampleDescChanged(false)
+    , m_bCanDecrypt(canDecrypt)
     , m_fail_count_(0)
     , m_eos(false)
     , m_started(false)
@@ -675,7 +676,7 @@ public:
   AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
   const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
   double GetDuration()const{ return (double)m_sample_.GetDuration() / (double)m_Track->GetMediaTimeScale(); };
-  bool IsEncrypted() { return m_Protected_desc != nullptr; };
+  bool IsEncrypted() { return !m_bCanDecrypt && m_Protected_desc != nullptr; };
   bool GetInformation(INPUTSTREAM_INFO &info)
   {
     if (!m_codecHandler)
@@ -810,6 +811,7 @@ private:
   AP4_UI32 m_StreamId;
   AP4_UI32 m_SampleDescIndex;
   bool m_bSampleDescChanged;
+  bool m_bCanDecrypt;
   unsigned int m_fail_count_;
 
   bool m_eos, m_started;
@@ -854,6 +856,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , profile_path_(profile_path)
   , decrypterModule_(0)
   , decrypter_(0)
+  , decrypter_caps_(0)
   , adaptiveTree_(0)
   , width_(kodiDisplayWidth)
   , height_(kodiDisplayHeight)
@@ -1023,13 +1026,6 @@ void Session::DisposeDecrypter()
   decrypter_ = 0;
 }
 
-AP4_CencSingleSampleDecrypter *Session::CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec)
-{
-  if (decrypter_)
-    return decrypter_->CreateSingleSampleDecrypter(streamCodec, server_certificate_);
-  return 0;
-};
-
 /*----------------------------------------------------------------------
 |   initialize
 +---------------------------------------------------------------------*/
@@ -1113,6 +1109,7 @@ bool Session::initialize()
       strcpy(stream.info_.m_language, adp->language_.c_str());
       stream.info_.m_ExtraData = nullptr;
       stream.info_.m_ExtraSize = 0;
+      stream.info_.m_features = 0;
       stream.encrypted = adp->encrypted;
 
       UpdateStream(stream);
@@ -1215,15 +1212,18 @@ bool Session::initialize()
         init_data.SetDataSize(init_data_size);
       }
     }
-    if ((single_sample_decryptor_ = CreateSingleSampleDecrypter(init_data)) != 0)
+    if (decrypter_ && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, server_certificate_)) != 0)
     {
-#ifdef ANDROID
-      AP4_DataBuffer in;
-      m_cryptoData.Reserve(1024);
-      single_sample_decryptor_->DecryptSampleData(in, m_cryptoData, 0, 0, 0, 0);
-#endif
+      decrypter_caps_ = decrypter_->GetCapabilities(single_sample_decryptor_);
+      if (decrypter_caps_ & (SSD::SSD_DECRYPTER::SSD_SECURE_PATH))
+      {
+        AP4_DataBuffer in;
+        m_cryptoData.Reserve(1024);
+        single_sample_decryptor_->DecryptSampleData(in, m_cryptoData, 0, 0, 0, 0);
+      }
       return true;
     }
+    single_sample_decryptor_ = nullptr;
     return false;
   }
   return true;
@@ -1519,7 +1519,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 {
   static struct INPUTSTREAM_INFO dummy_info = {
-    INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
+    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", 0, 0, 0, 0, "",
     0, 0, 0, 0, 0.0f,
     0, 0, 0, 0, 0,
     CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
@@ -1530,21 +1530,16 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   if (stream)
   {
-#ifdef ANDROID
     if (stream->encrypted && session->GetCryptoData().GetDataSize())
     {
       kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
       const AP4_UI08 *pData(session->GetCryptoData().GetData() + 8); //skip "CRYPTO" + size
-      stream->info_.m_CryptoKeySystem = INPUTSTREAM_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
-      if ((*pData > 32))
-      {
-        kodi::Log(ADDON_LOG_ERROR, "GetStream: SessionIdSize exceeds max allowed size of 32");
-        return dummy_info;
-      }
-      stream->info_.m_CryptoSessionIdSize = *pData;
-      memcpy(stream->info_.m_CryptoSessionId, pData + 1, *pData);
+      stream->info_.m_cryptoInfo.m_CryptoKeySystem = CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
+      stream->info_.m_cryptoInfo.m_CryptoSessionIdSize = *pData;
+      stream->info_.m_cryptoInfo.m_CryptoSessionId = reinterpret_cast<const char*>(pData + 1);
+      if(session->GetDecrypterCaps() & SSD::SSD_DECRYPTER::SSD_SUPPORTS_DECODING)
+        stream->info_.m_features = INPUTSTREAM_INFO::FEATURE_DECODE;
     }
-#endif
     return stream->info_;
   }
   return dummy_info;
@@ -1633,7 +1628,10 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
       return stream->disable();
     }
 
-    stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid, session->GetSingleSampleDecryptor(), session->GetPresentationTimeOffset());
+    stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
+      session->GetSingleSampleDecryptor(), session->GetPresentationTimeOffset(),
+      (session->GetDecrypterCaps() & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)==0);
+
     stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(session));
 
     return;
@@ -1663,8 +1661,7 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
     const AP4_UI08 *pData(sr->GetSampleData());
     DemuxPacket *p;
 
-#ifdef ANDROID
-    if (sr->IsEncrypted())
+    if (iSize && pData && sr->IsEncrypted())
     {
       unsigned int numSubSamples(*((unsigned int*)pData)); pData += sizeof(numSubSamples);
       p = AllocateEncryptedDemuxPacket(iSize, numSubSamples);
@@ -1680,8 +1677,7 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
       p->cryptoInfo->flags = 0;
     }
     else
-#endif
-    p = AllocateDemuxPacket(iSize);
+      p = AllocateDemuxPacket(iSize);
 
     p->dts = sr->DTS() * 1000000;
     p->pts = sr->PTS() * 1000000;
