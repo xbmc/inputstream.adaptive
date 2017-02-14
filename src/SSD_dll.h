@@ -70,7 +70,7 @@ namespace SSD
       H264CodecProfileHigh444Predictive
     } codecProfile;
 
-    SSD_VIDEOFORMAT videoFormats[SSD_VIDEOFORMAT::MaxVideoFormats];
+    const SSD_VIDEOFORMAT *videoFormats;
 
     uint32_t width, height;
 
@@ -126,9 +126,18 @@ namespace SSD
   class SSD_DECRYPTER
   {
   public:
+    enum SSD_CAPS : uint32_t
+    {
+      SSD_SUPPORTS_DECODING = 1,
+      SSD_SECURE_VIDEO = 2,
+      SSD_SECURE_AUDIO = 4,
+      SSD_SECURE_PATH = SSD_SECURE_VIDEO | SSD_SECURE_AUDIO
+    };
+
     // Return supported URN if type matches to capabilities, otherwise null
     virtual const char *Supported(const char* licenseType, const char *licenseKey) = 0;
     virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec, AP4_DataBuffer &serverCertificate) = 0;
+    virtual uint32_t GetCapabilities(AP4_CencSingleSampleDecrypter *decrypter) = 0;
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
   };

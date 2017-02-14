@@ -119,6 +119,7 @@ public:
   std::uint16_t GetHeight()const { return height_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
+  AP4_UI32 GetDecrypterCaps() const{ return decrypter_caps_; };
   double GetPresentationTimeOffset() { return adaptiveTree_->minPresentationOffset < DBL_MAX? adaptiveTree_->minPresentationOffset:0; };
   double GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
   double GetPTS()const { return last_pts_; };
@@ -136,7 +137,6 @@ public:
 protected:
   void GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn);
   void DisposeDecrypter();
-  AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec);
 
 private:
   MANIFEST_TYPE manifest_type_;
@@ -146,6 +146,7 @@ private:
   std::string profile_path_;
   void * decrypterModule_;
   SSD::SSD_DECRYPTER *decrypter_;
+  AP4_UI32 decrypter_caps_;
   AP4_DataBuffer m_cryptoData;
 
   adaptive::AdaptiveTree *adaptiveTree_;
