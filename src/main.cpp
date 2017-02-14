@@ -1214,7 +1214,7 @@ bool Session::initialize()
     }
     if (decrypter_ && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, server_certificate_)) != 0)
     {
-      decrypter_caps_ = decrypter_->GetCapabilities(single_sample_decryptor_);
+      decrypter_caps_ = decrypter_->GetCapabilities();
       if (decrypter_caps_ & (SSD::SSD_DECRYPTER::SSD_SECURE_PATH))
       {
         AP4_DataBuffer in;
@@ -1378,7 +1378,13 @@ public:
   virtual void Reset() override;
 
 private:
+  enum STATE : unsigned int
+  {
+    STATE_WAIT_EXTRADATA = 1
+  };
+
   Session* m_session;
+  unsigned int m_state;
 };
 
 /*******************************************************/
@@ -1749,12 +1755,14 @@ bool CInputStreamAdaptive::CanSeekStream(void)
 CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance)
   : CInstanceVideoCodec(instance)
   , m_session(nullptr)
+  , m_state(0)
 {
 }
 
 CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive *parent)
   : CInstanceVideoCodec(instance)
   , m_session(parent->GetSession())
+  , m_state(0)
 {
 }
 
@@ -1762,6 +1770,16 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA &initData)
 {
   if (!session || !session->GetDecrypter())
     return false;
+
+  if (initData.codec == VIDEOCODEC_INITDATA::CodecH264 && !initData.extraDataSize && !(m_state & STATE_WAIT_EXTRADATA))
+  {
+    kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open: Wait ExtraData");
+    m_state |= STATE_WAIT_EXTRADATA;
+    return true;
+  }
+  m_state &= ~STATE_WAIT_EXTRADATA;
+
+  kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open");
 
   return session->GetDecrypter()->OpenVideoDecoder(reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));
 }
