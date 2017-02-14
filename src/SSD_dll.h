@@ -91,7 +91,7 @@ namespace SSD
 
     uint32_t width, height;
 
-    const uint8_t *decodedData;
+    uint8_t *decodedData;
     size_t decodedDataSize;
 
     uint32_t planeOffsets[VideoPlane::MaxPlanes];
