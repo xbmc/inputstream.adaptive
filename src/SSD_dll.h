@@ -90,7 +90,9 @@ namespace SSD
     SSD_VIDEOFORMAT videoFormat;
 
     uint32_t width, height;
+
     const uint8_t *decodedData;
+    size_t decodedDataSize;
 
     uint32_t planeOffsets[VideoPlane::MaxPlanes];
     uint32_t stride[VideoPlane::MaxPlanes];
@@ -137,7 +139,7 @@ namespace SSD
     // Return supported URN if type matches to capabilities, otherwise null
     virtual const char *Supported(const char* licenseType, const char *licenseKey) = 0;
     virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec, AP4_DataBuffer &serverCertificate) = 0;
-    virtual uint32_t GetCapabilities(AP4_CencSingleSampleDecrypter *decrypter) = 0;
+    virtual uint32_t GetCapabilities() = 0;
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
   };
