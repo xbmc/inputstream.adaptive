@@ -24,6 +24,7 @@
 #include <sstream>
 #include <kodi/General.h>
 #include <kodi/Filesystem.h>
+#include <kodi/StreamCodec.h>
 #include <kodi/addon-instance/VideoCodec.h>
 
 #include "helpers.h"
@@ -378,13 +379,17 @@ public:
     , pictureId(0)
     , pictureIdPrev(0)
   {};
+
   virtual void UpdatePPSId(AP4_DataBuffer const&){};
   virtual bool GetVideoInformation(unsigned int &width, unsigned int &height){ return false; };
   virtual bool GetAudioInformation(unsigned int &channels){ return false; };
+  virtual bool ExtraDataToAnnexB() { return false; };
+  virtual ADDON::CODEC_PROFILE GetProfile() { return ADDON::CODEC_PROFILE::CodecProfileNotNeeded; };
 
   AP4_SampleDescription *sample_description;
   const AP4_UI08 *extra_data;
   AP4_Size extra_data_size;
+  AP4_DataBuffer annexb_extra_data;
   AP4_UI08 naluLengthSize;
   AP4_UI08 pictureId, pictureIdPrev;
 };
@@ -412,7 +417,67 @@ public:
       countPictureSetIds = avc->GetPictureParameters().ItemCount();
       naluLengthSize = avc->GetNaluLengthSize();
       needSliceInfo = (countPictureSetIds > 1 || !width || !height);
+      switch (avc->GetProfile())
+      {
+      case AP4_AVC_PROFILE_BASELINE:
+        codecProfile = ADDON::CODEC_PROFILE::H264CodecProfileBaseline;
+        break;
+      case AP4_AVC_PROFILE_MAIN:
+        codecProfile = ADDON::CODEC_PROFILE::H264CodecProfileMain;
+        break;
+      case AP4_AVC_PROFILE_EXTENDED:
+        codecProfile = ADDON::CODEC_PROFILE::H264CodecProfileExtended;
+        break;
+      case AP4_AVC_PROFILE_HIGH:
+        codecProfile = ADDON::CODEC_PROFILE::H264CodecProfileHigh;
+        break;
+      case AP4_AVC_PROFILE_HIGH_10:
+        codecProfile = ADDON::CODEC_PROFILE::H264CodecProfileHigh10;
+        break;
+      case AP4_AVC_PROFILE_HIGH_422:
+        codecProfile = ADDON::CODEC_PROFILE::H264CodecProfileHigh422;
+        break;
+      case AP4_AVC_PROFILE_HIGH_444:
+        codecProfile = ADDON::CODEC_PROFILE::H264CodecProfileHigh444Predictive;
+        break;
+      default:
+        codecProfile = ADDON::CODEC_PROFILE::CodecProfileUnknown;
+        break;
+      }
     }
+  }
+
+  virtual bool ExtraDataToAnnexB() override
+  {
+    if (AP4_AvcSampleDescription *avc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, sample_description))
+    {
+      //calculate the size for annexb
+      size_t sz(0);
+      AP4_Array<AP4_DataBuffer>& pps(avc->GetPictureParameters());
+      for (unsigned int i(0); i < pps.ItemCount(); ++i)
+        sz += 4 + pps[i].GetDataSize();
+      AP4_Array<AP4_DataBuffer>& sps(avc->GetSequenceParameters());
+      for (unsigned int i(0); i < sps.ItemCount(); ++i)
+        sz += 4 + sps[i].GetDataSize();
+
+      annexb_extra_data.SetDataSize(sz);
+      uint8_t *cursor(annexb_extra_data.UseData());
+
+      for (unsigned int i(0); i < sps.ItemCount(); ++i)
+      {
+        cursor[0] = cursor[1] = cursor[2] = 0; cursor[3] = 1;
+        memcpy(cursor + 4, sps[i].GetData(), sps[i].GetDataSize());
+        cursor += sps[i].GetDataSize() + 4;
+      }
+      for (unsigned int i(0); i < pps.ItemCount(); ++i)
+      {
+        cursor[0] = cursor[1] = cursor[2] = 0; cursor[3] = 1;
+        memcpy(cursor + 4, pps[i].GetData(), pps[i].GetDataSize());
+        cursor += pps[i].GetDataSize() + 4;
+      }
+      return true;
+    }
+    return false;
   }
 
   virtual void UpdatePPSId(AP4_DataBuffer const &buffer) override
@@ -500,8 +565,14 @@ public:
     }
     return false;
   };
+
+  virtual ADDON::CODEC_PROFILE GetProfile()
+  {
+    return codecProfile;
+  };
 private:
   unsigned int countPictureSetIds;
+  ADDON::CODEC_PROFILE codecProfile;
   bool needSliceInfo;
 };
 
@@ -621,24 +692,21 @@ public:
   AP4_Result ReadSample()
   {
     AP4_Result result;
-    if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, m_Protected_desc ? m_encrypted : m_sample_data_)))
+    bool useDecryptingDecoder = m_Protected_desc && !m_bCanDecrypt;
+
+    if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, (m_Decrypter || useDecryptingDecoder) ? m_encrypted : m_sample_data_)))
     {
       if (result == AP4_ERROR_EOS)
         m_eos = true;
       return result;
     }
 
-    if (m_Protected_desc)
+    if (m_Decrypter)
     {
-      if (!m_Decrypter)
-        return AP4_ERROR_EOS;
-
       // Make sure that the decrypter is NOT allocating memory!
       // If decrypter and addon are compiled with different DEBUG / RELEASE
       // options freeing HEAP memory will fail.
       m_sample_data_.Reserve(m_encrypted.GetDataSize() + 4096);
-      m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey?16:0, m_DefaultKey, m_codecHandler->naluLengthSize);
-
       if (AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
       {
         kodi::Log(ADDON_LOG_ERROR, "Decrypt Sample returns failure!");
@@ -652,6 +720,11 @@ public:
       }
       else
         m_fail_count_ = 0;
+    }
+    else if (useDecryptingDecoder)
+    {
+      m_sample_data_.Reserve(m_encrypted.GetDataSize() + 1024);
+      m_SingleSampleDecryptor->DecryptSampleData(m_encrypted, m_sample_data_, nullptr, 0, nullptr, nullptr);
     }
 
     m_dts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale() - m_presentationTimeOffset;
@@ -676,21 +749,37 @@ public:
   AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
   const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
   double GetDuration()const{ return (double)m_sample_.GetDuration() / (double)m_Track->GetMediaTimeScale(); };
-  bool IsEncrypted() { return !m_bCanDecrypt && m_Protected_desc != nullptr; };
+  bool IsEncrypted() { return !m_bCanDecrypt && m_Decrypter != nullptr; };
   bool GetInformation(INPUTSTREAM_INFO &info)
   {
     if (!m_codecHandler)
       return false;
 
     bool edchanged(false);
+    bool annexb(m_Protected_desc && !m_bCanDecrypt && m_codecHandler->annexb_extra_data.GetDataSize());
 
-    if (m_bSampleDescChanged && info.m_ExtraSize != m_codecHandler->extra_data_size
-      || memcmp(info.m_ExtraData, m_codecHandler->extra_data, m_codecHandler->extra_data_size))
+    const uint8_t* compareData(annexb ? m_codecHandler->annexb_extra_data.GetData() : m_codecHandler->extra_data);
+    AP4_Size compareDataSize(annexb ? m_codecHandler->annexb_extra_data.GetDataSize() : m_codecHandler->extra_data_size);
+
+    if (m_bSampleDescChanged && (info.m_ExtraSize != compareDataSize
+      || memcmp(info.m_ExtraData, compareData, compareDataSize)))
     {
       free((void*)(info.m_ExtraData));
-      info.m_ExtraSize = m_codecHandler->extra_data_size;
-      info.m_ExtraData = (const uint8_t*)malloc(info.m_ExtraSize);
-      memcpy((void*)info.m_ExtraData, m_codecHandler->extra_data, info.m_ExtraSize);
+
+      // If we use decrypting decoder, we transform h.264 avc to anexb
+      if (annexb)
+      {
+        info.m_ExtraSize = m_codecHandler->annexb_extra_data.GetDataSize();
+        info.m_ExtraData = (const uint8_t*)malloc(info.m_ExtraSize);
+        memcpy((void*)info.m_ExtraData, m_codecHandler->annexb_extra_data.GetData(), info.m_ExtraSize);
+        edchanged = true;
+      }
+      else
+      {
+        info.m_ExtraSize = m_codecHandler->extra_data_size;
+        info.m_ExtraData = (const uint8_t*)malloc(info.m_ExtraSize);
+        memcpy((void*)info.m_ExtraData, m_codecHandler->extra_data, info.m_ExtraSize);
+      }
       edchanged = true;
     }
 
@@ -757,7 +846,8 @@ protected:
           return AP4_ERROR_INVALID_FORMAT;
 
         if (AP4_FAILED(result = AP4_CencSampleInfoTable::Create(m_Protected_desc, traf, algorithm_id, *m_FragmentStream, moof_offset, sample_table)))
-          return result;
+          // we assume unencrypted fragment here
+          return AP4_SUCCESS;
 
         if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, m_SingleSampleDecryptor, m_Decrypter)))
           return result;
@@ -804,6 +894,10 @@ private:
       m_codecHandler = new CodecHandler(desc);
       break;
     }
+    if (m_Protected_desc && !m_bCanDecrypt)
+      m_codecHandler->ExtraDataToAnnexB();
+
+    m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->annexb_extra_data);
   }
 
 private:
@@ -1525,7 +1619,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 {
   static struct INPUTSTREAM_INFO dummy_info = {
-    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", 0, 0, 0, 0, "",
+    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", ADDON::CODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, 0, "",
     0, 0, 0, 0, 0.0f,
     0, 0, 0, 0, 0,
     CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
@@ -1808,7 +1902,10 @@ bool CVideoCodecAdaptive::AddData(const DemuxPacket &packet)
     sample.kid = packet.cryptoInfo->kid;
   }
   else
+  {
     sample.numSubSamples = 0;
+    sample.iv = sample.kid = nullptr;
+  }
 
   return session->GetDecrypter()->DecodeVideo(&sample, nullptr) != SSD::VC_ERROR;
 }
