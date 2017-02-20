@@ -897,7 +897,8 @@ private:
     if (m_Protected_desc && !m_bCanDecrypt)
       m_codecHandler->ExtraDataToAnnexB();
 
-    m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->annexb_extra_data);
+    if (m_SingleSampleDecryptor)
+      m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->annexb_extra_data);
   }
 
 private:
