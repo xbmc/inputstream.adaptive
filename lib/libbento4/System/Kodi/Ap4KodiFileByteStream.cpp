@@ -41,9 +41,7 @@
 
 #include "Ap4FileByteStream.h"
 
-#include "libXBMC_addon.h"
-
-extern ADDON::CHelper_libXBMC_addon *xbmc;
+#include <kodi/Filesystem.h>
 
 /*----------------------------------------------------------------------
 |   compatibility wrappers
@@ -69,7 +67,7 @@ public:
                       
     // methods
     AP4_KodiFileByteStream(AP4_FileByteStream* delegator,
-                           void*               file, 
+                           kodi::vfs::CFile*   file, 
                            AP4_LargeSize       size);
     
     ~AP4_KodiFileByteStream();
@@ -94,7 +92,7 @@ private:
     // members
     AP4_ByteStream* m_Delegator;
     AP4_Cardinal    m_ReferenceCount;
-    void*           m_File;
+    kodi::vfs::CFile* m_File;
     AP4_Position    m_Position;
     AP4_LargeSize   m_Size;
 };
@@ -115,30 +113,33 @@ AP4_KodiFileByteStream::Create(AP4_FileByteStream*      delegator,
     if (name == NULL) return AP4_ERROR_INVALID_PARAMETERS;
     
     // open the file
-    void* file = NULL;
+    kodi::vfs::CFile* file = new kodi::vfs::CFile;
     AP4_Position size = 0;
+    bool ret = false;
     switch (mode) {
         case AP4_FileByteStream::STREAM_MODE_READ:
-            file = xbmc->OpenFile(name, 0);
+            ret = file->OpenFile(name, 0);
             break;
 
         case AP4_FileByteStream::STREAM_MODE_WRITE:
-            file = xbmc->OpenFileForWrite(name, true);
+            ret = file->OpenFileForWrite(name, true);
             break;
 
         case AP4_FileByteStream::STREAM_MODE_READ_WRITE:
-            file = xbmc->OpenFileForWrite(name, false);
+            ret = file->OpenFileForWrite(name, false);
             break;                                  
 
         default:
+            delete file;
             return AP4_ERROR_INVALID_PARAMETERS;
     }
 
-    if (!file) {
+    if (!ret) {
+        delete file;
         return AP4_ERROR_CANNOT_OPEN_FILE;
     }
 
-    size = xbmc->GetFileLength(file);
+    size = file->GetLength();
 
     stream = new AP4_KodiFileByteStream(delegator, file, size);
     return AP4_SUCCESS;
@@ -148,7 +149,7 @@ AP4_KodiFileByteStream::Create(AP4_FileByteStream*      delegator,
 |   AP4_KodiFileByteStream::AP4_KodiFileByteStream
 +---------------------------------------------------------------------*/
 AP4_KodiFileByteStream::AP4_KodiFileByteStream(AP4_FileByteStream* delegator,
-                                               void*               file,
+                                               kodi::vfs::CFile*   file,
                                                AP4_LargeSize       size) :
     m_Delegator(delegator),
     m_ReferenceCount(1),
@@ -164,7 +165,7 @@ AP4_KodiFileByteStream::AP4_KodiFileByteStream(AP4_FileByteStream* delegator,
 AP4_KodiFileByteStream::~AP4_KodiFileByteStream()
 {
     if (m_File) {
-        xbmc->CloseFile(m_File);
+        delete m_File;
     }
 }
 
@@ -202,7 +203,7 @@ AP4_KodiFileByteStream::ReadPartial(void*     buffer,
 {
     size_t nbRead;
 
-    nbRead = xbmc->ReadFile(m_File, buffer, bytesToRead);
+    nbRead = m_File->Read(buffer, bytesToRead);
 
     if (nbRead > 0) {
         bytesRead = (AP4_Size)nbRead;
@@ -228,7 +229,7 @@ AP4_KodiFileByteStream::WritePartial(const void* buffer,
     size_t nbWritten;
 
     if (bytesToWrite == 0) return AP4_SUCCESS;
-    nbWritten = xbmc->WriteFile(m_File, buffer, bytesToWrite);
+    nbWritten = m_File->Write(buffer, bytesToWrite);
     
     if (nbWritten > 0) {
         bytesWritten = (AP4_Size)nbWritten;
@@ -250,7 +251,7 @@ AP4_KodiFileByteStream::Seek(AP4_Position position)
     if (position == m_Position) return AP4_SUCCESS;
     
     std::int64_t result;
-    result = xbmc->SeekFile(m_File, position, SEEK_SET);
+    result = m_File->Seek(position, SEEK_SET);
     if (result == position) {
         m_Position = position;
         return AP4_SUCCESS;
@@ -286,7 +287,7 @@ AP4_Result
 AP4_KodiFileByteStream::Flush()
 {
     int ret_val = 0;
-    xbmc->FlushFile(m_File);
+    m_File->Flush();
 	AP4_Result result((ret_val > 0) ? AP4_FAILURE : AP4_SUCCESS);
 	if (AP4_SUCCEEDED(result) && GetObserver())
 		return GetObserver()->OnFlush(this);
