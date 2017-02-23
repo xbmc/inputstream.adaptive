@@ -6,6 +6,8 @@ class AP4_DataBuffer;
 
 namespace SSD
 {
+  struct SSD_PICTURE;
+
   //Functionality wich is supported by the Addon
   class SSD_HOST
   {
@@ -25,6 +27,7 @@ namespace SSD
     virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize) = 0;
     virtual void CloseFile(void* file) = 0;
     virtual bool CreateDirectory(const char *dir) = 0;
+    virtual bool GetBuffer(void* instance, SSD_PICTURE &picture) = 0;
 
     enum LOGLEVEL
     {
@@ -141,6 +144,7 @@ namespace SSD
     virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec, AP4_DataBuffer &serverCertificate) = 0;
     virtual uint32_t GetCapabilities() = 0;
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;
-    virtual SSD_DECODE_RETVAL DecodeVideo(SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
+    virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
+    virtual void ResetVideo() = 0;
   };
 }; // namespace

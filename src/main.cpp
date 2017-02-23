@@ -132,9 +132,13 @@ public:
     kodi::vfs::CreateDirectory(m_strProfilePath.c_str());
   }
 
+  virtual bool GetBuffer(void* instance, SSD::SSD_PICTURE &picture) override
+  {
+    return instance ? static_cast<kodi::addon::CInstanceVideoCodec*>(instance)->GetFrameBuffer(*reinterpret_cast<VIDEOCODEC_PICTURE*>(&picture)) : false;
+  }
+
 private:
   std::string m_strProfilePath, m_strLibraryPath;
-
 }kodihost;
 
 /*******************************************************
@@ -1908,7 +1912,7 @@ bool CVideoCodecAdaptive::AddData(const DemuxPacket &packet)
     sample.iv = sample.kid = nullptr;
   }
 
-  return session->GetDecrypter()->DecodeVideo(&sample, nullptr) != SSD::VC_ERROR;
+  return session->GetDecrypter()->DecodeVideo(dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &sample, nullptr) != SSD::VC_ERROR;
 }
 
 VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE &picture)
@@ -1924,7 +1928,7 @@ VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE &picture)
     VIDEOCODEC_RETVAL::VC_PICTURE
   };
 
-  return vrvm[session->GetDecrypter()->DecodeVideo(nullptr, reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
+  return vrvm[session->GetDecrypter()->DecodeVideo(dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), nullptr, reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
 }
 
 const char *CVideoCodecAdaptive::GetName()
@@ -1937,10 +1941,7 @@ void CVideoCodecAdaptive::Reset()
   if (!session || !session->GetDecrypter())
     return;
 
-  SSD::SSD_PICTURE picture;
-  picture.decodedData = 0;
-
-  while (session->GetDecrypter()->DecodeVideo(nullptr, &picture) == SSD::VC_PICTURE);
+  session->GetDecrypter()->ResetVideo();
 }
 
 /*****************************************************************************************************/
