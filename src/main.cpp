@@ -1927,7 +1927,8 @@ VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE &picture)
     VIDEOCODEC_RETVAL::VC_NONE,
     VIDEOCODEC_RETVAL::VC_ERROR,
     VIDEOCODEC_RETVAL::VC_BUFFER,
-    VIDEOCODEC_RETVAL::VC_PICTURE
+    VIDEOCODEC_RETVAL::VC_PICTURE,
+    VIDEOCODEC_RETVAL::VC_EOF
   };
 
   return vrvm[session->GetDecrypter()->DecodeVideo(dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), nullptr, reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
