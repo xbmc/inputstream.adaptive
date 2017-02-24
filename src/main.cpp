@@ -1335,6 +1335,8 @@ void Session::UpdateStream(STREAM &stream)
   stream.info_.m_Width = rep->width_;
   stream.info_.m_Height = rep->height_;
   stream.info_.m_Aspect = rep->aspect_;
+  if (stream.info_.m_Aspect == 0.0f)
+    stream.info_.m_Aspect = (float)stream.info_.m_Width / stream.info_.m_Height;
 
   if (!stream.info_.m_ExtraSize && rep->codec_private_data_.size())
   {

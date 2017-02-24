@@ -90,7 +90,13 @@ namespace SSD
       MaxPlanes = 3,
     };
 
+    enum Flags :uint32_t {
+      FLAG_DROP,
+      FLAG_DRAIN
+    };
+
     SSD_VIDEOFORMAT videoFormat;
+    uint32_t flags;
 
     uint32_t width, height;
 
