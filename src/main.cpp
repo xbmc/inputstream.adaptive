@@ -760,30 +760,13 @@ public:
       return false;
 
     bool edchanged(false);
-    bool annexb(m_Protected_desc && !m_bCanDecrypt && m_codecHandler->annexb_extra_data.GetDataSize());
-
-    const uint8_t* compareData(annexb ? m_codecHandler->annexb_extra_data.GetData() : m_codecHandler->extra_data);
-    AP4_Size compareDataSize(annexb ? m_codecHandler->annexb_extra_data.GetDataSize() : m_codecHandler->extra_data_size);
-
-    if (m_bSampleDescChanged && (info.m_ExtraSize != compareDataSize
-      || memcmp(info.m_ExtraData, compareData, compareDataSize)))
+    if (m_bSampleDescChanged && (info.m_ExtraSize != m_codecHandler->extra_data_size
+      || memcmp(info.m_ExtraData, m_codecHandler->extra_data, info.m_ExtraSize)))
     {
       free((void*)(info.m_ExtraData));
-
-      // If we use decrypting decoder, we transform h.264 avc to anexb
-      if (annexb)
-      {
-        info.m_ExtraSize = m_codecHandler->annexb_extra_data.GetDataSize();
-        info.m_ExtraData = (const uint8_t*)malloc(info.m_ExtraSize);
-        memcpy((void*)info.m_ExtraData, m_codecHandler->annexb_extra_data.GetData(), info.m_ExtraSize);
-        edchanged = true;
-      }
-      else
-      {
-        info.m_ExtraSize = m_codecHandler->extra_data_size;
-        info.m_ExtraData = (const uint8_t*)malloc(info.m_ExtraSize);
-        memcpy((void*)info.m_ExtraData, m_codecHandler->extra_data, info.m_ExtraSize);
-      }
+      info.m_ExtraSize = m_codecHandler->extra_data_size;
+      info.m_ExtraData = (const uint8_t*)malloc(info.m_ExtraSize);
+      memcpy((void*)info.m_ExtraData, m_codecHandler->extra_data, info.m_ExtraSize);
       edchanged = true;
     }
 
@@ -901,7 +884,7 @@ private:
     if (m_Protected_desc && !m_bCanDecrypt)
       m_codecHandler->ExtraDataToAnnexB();
 
-    if (m_SingleSampleDecryptor)
+    if (m_Protected_desc && m_SingleSampleDecryptor)
       m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->annexb_extra_data);
   }
 
