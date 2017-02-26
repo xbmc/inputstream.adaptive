@@ -113,7 +113,7 @@ public:
 
   STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
-  const AP4_DataBuffer &GetCryptoData() { return m_cryptoData; };
+  const char *GetCDMSession() { return cdm_session_id_; };
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
   std::uint16_t GetWidth()const { return width_; };
   std::uint16_t GetHeight()const { return height_; };
@@ -147,7 +147,6 @@ private:
   void * decrypterModule_;
   SSD::SSD_DECRYPTER *decrypter_;
   AP4_UI32 decrypter_caps_;
-  AP4_DataBuffer m_cryptoData;
 
   adaptive::AdaptiveTree *adaptiveTree_;
 
@@ -163,4 +162,5 @@ private:
 
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
   size_t cdm_session_;
+  const char *cdm_session_id_;
 };

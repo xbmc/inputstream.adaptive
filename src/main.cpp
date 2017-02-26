@@ -946,6 +946,8 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , last_pts_(0)
   , single_sample_decryptor_(0)
   , cdm_session_(0)
+  , cdm_session_id_(nullptr)
+
 {
   switch (manifest_type_)
   {
@@ -1303,11 +1305,7 @@ bool Session::initialize()
     {
       decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_);
       if (decrypter_caps_ & (SSD::SSD_DECRYPTER::SSD_SECURE_PATH))
-      {
-        AP4_DataBuffer in;
-        m_cryptoData.Reserve(1024);
-        single_sample_decryptor_->DecryptSampleData(in, m_cryptoData, 0, 0, 0, 0);
-      }
+        cdm_session_id_ = decrypter_->GetSessionId(cdm_session_);
       return true;
     }
     single_sample_decryptor_ = nullptr;
@@ -1625,13 +1623,12 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   if (stream)
   {
-    if (stream->encrypted && m_session->GetCryptoData().GetDataSize())
+    if (stream->encrypted && m_session->GetCDMSession() != nullptr)
     {
       kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
-      const AP4_UI08 *pData(m_session->GetCryptoData().GetData() + 8); //skip "CRYPTO" + size
       stream->info_.m_cryptoInfo.m_CryptoKeySystem = CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
-      stream->info_.m_cryptoInfo.m_CryptoSessionIdSize = *pData;
-      stream->info_.m_cryptoInfo.m_CryptoSessionId = reinterpret_cast<const char*>(pData + 1);
+      stream->info_.m_cryptoInfo.m_CryptoSessionIdSize = static_cast<uint16_t>(strlen(m_session->GetCDMSession()));
+      stream->info_.m_cryptoInfo.m_CryptoSessionId = m_session->GetCDMSession();
       if(m_session->GetDecrypterCaps() & SSD::SSD_DECRYPTER::SSD_SUPPORTS_DECODING)
         stream->info_.m_features = INPUTSTREAM_INFO::FEATURE_DECODE;
     }
