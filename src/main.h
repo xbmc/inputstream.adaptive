@@ -162,4 +162,5 @@ private:
   uint8_t media_type_mask_;
 
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
+  size_t cdm_session_;
 };

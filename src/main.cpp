@@ -945,6 +945,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , manual_streams_(false)
   , last_pts_(0)
   , single_sample_decryptor_(0)
+  , cdm_session_(0)
 {
   switch (manifest_type_)
   {
@@ -1296,9 +1297,11 @@ bool Session::initialize()
         init_data.SetDataSize(init_data_size);
       }
     }
-    if (decrypter_ && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, server_certificate_)) != 0)
+    if (decrypter_
+      && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(server_certificate_)) != 0
+      && (cdm_session_ = decrypter_->CreateSession(init_data)) > 0)
     {
-      decrypter_caps_ = decrypter_->GetCapabilities();
+      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_);
       if (decrypter_caps_ & (SSD::SSD_DECRYPTER::SSD_SECURE_PATH))
       {
         AP4_DataBuffer in;

@@ -141,15 +141,16 @@ namespace SSD
     enum SSD_CAPS : uint32_t
     {
       SSD_SUPPORTS_DECODING = 1,
-      SSD_SECURE_VIDEO = 2,
-      SSD_SECURE_AUDIO = 4,
-      SSD_SECURE_PATH = SSD_SECURE_VIDEO | SSD_SECURE_AUDIO
+      SSD_SECURE_PATH = 2
     };
 
     // Return supported URN if type matches to capabilities, otherwise null
     virtual const char *Supported(const char* licenseType, const char *licenseKey) = 0;
-    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &streamCodec, AP4_DataBuffer &serverCertificate) = 0;
-    virtual uint32_t GetCapabilities() = 0;
+    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &serverCertificate) = 0;
+    virtual size_t CreateSession(AP4_DataBuffer &streamCodec) = 0;
+    virtual void CloseSession(size_t sessionHandle) = 0;
+
+    virtual uint32_t GetCapabilities(size_t sessionHandle) = 0;
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
     virtual void ResetVideo() = 0;
