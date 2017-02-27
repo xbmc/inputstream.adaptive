@@ -544,6 +544,8 @@ start(void *data, const char *el, const char **attr)
           dash->current_representation_->width_ = dash->adpwidth_;
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
+          dash->current_representation_->aspect_ = dash->adpaspect_;
+
           for (; *attr;)
           {
             if (strcmp((const char*)*attr, "bandwidth") == 0)
@@ -646,6 +648,7 @@ start(void *data, const char *el, const char **attr)
         dash->adpwidth_ = 0;
         dash->adpheight_ = 0;
         dash->adpfpsRate_ = 0;
+        dash->adpaspect_ = 0.0f;
 
         for (; *attr;)
         {
@@ -666,6 +669,12 @@ start(void *data, const char *el, const char **attr)
             dash->adpheight_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
           else if (strcmp((const char*)*attr, "frameRate") == 0)
             dash->adpfpsRate_ = static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
+          else if (strcmp((const char*)*attr, "par") == 0)
+          {
+            int w, h;
+            if (sscanf((const char*)*(attr + 1), "%d:%d", &w, &h) == 2)
+              dash->adpaspect_ = (float)w / h;
+          }
           attr += 2;
         }
         if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)

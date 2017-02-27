@@ -687,6 +687,7 @@ public:
   {
     AP4_Result result;
     bool useDecryptingDecoder = m_Protected_desc && (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_SECURE_PATH) != 0;
+    bool decrypterPresent(m_Decrypter != nullptr);
 
     if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, (m_Decrypter || useDecryptingDecoder) ? m_encrypted : m_sample_data_)))
     {
@@ -694,6 +695,12 @@ public:
         m_eos = true;
       return result;
     }
+
+    //Protection coult have changed in ProcessMoof
+    if (!decrypterPresent && m_Decrypter != nullptr && !useDecryptingDecoder)
+      m_encrypted.SetData(m_sample_data_.GetData(), m_sample_data_.GetDataSize());
+    else if (decrypterPresent && m_Decrypter == nullptr && !useDecryptingDecoder)
+      m_sample_data_.SetData(m_encrypted.GetData(), m_encrypted.GetDataSize());
 
     if (m_Decrypter)
     {

@@ -208,6 +208,7 @@ namespace adaptive
     uint8_t adpChannelCount_;
     uint16_t adpwidth_, adpheight_;
     uint32_t adpfpsRate_;
+    float adpaspect_;
 
     std::string strXMLText_;
 

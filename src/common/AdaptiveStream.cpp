@@ -263,7 +263,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     for (std::vector<AdaptiveTree::Representation*>::const_iterator br(current_adp_->repesentations_.begin()), er(current_adp_->repesentations_.end()); br != er; ++br)
     {
       unsigned int score;
-      if ((*br)->bandwidth_ <= bandwidth_ &&  (!hdcpLimit_ || static_cast<uint32_t>(width_) * height_ <= hdcpLimit_)
+      if ((*br)->bandwidth_ <= bandwidth_ &&  (!hdcpLimit_ || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit_)
         && ((score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))
         + static_cast<unsigned int>(sqrt(bandwidth_ - (*br)->bandwidth_))) < bestScore))
       {
