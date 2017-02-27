@@ -152,7 +152,7 @@ namespace SSD
     virtual size_t CreateSession(AP4_DataBuffer &streamCodec) = 0;
     virtual void CloseSession(size_t sessionHandle) = 0;
 
-    virtual uint32_t GetCapabilities(size_t sessionHandle, bool has_hdcp_testkey) = 0;
+    virtual uint32_t GetCapabilities(size_t sessionHandle, const uint8_t *keyid) = 0;
     virtual const char *GetSessionId(size_t sessionHandle) = 0;
 
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;

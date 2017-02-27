@@ -696,7 +696,7 @@ public:
       return result;
     }
 
-    //Protection coult have changed in ProcessMoof
+    //Protection could have changed in ProcessMoof
     if (!decrypterPresent && m_Decrypter != nullptr && !useDecryptingDecoder)
       m_encrypted.SetData(m_sample_data_.GetData(), m_sample_data_.GetDataSize());
     else if (decrypterPresent && m_Decrypter == nullptr && !useDecryptingDecoder)
@@ -1267,7 +1267,7 @@ bool Session::initialize()
       && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(server_certificate_)) != 0
       && (cdm_session_ = decrypter_->CreateSession(init_data)) > 0)
     {
-      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_, true);
+      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_, nullptr);
       if (decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)
         cdm_session_id_ = decrypter_->GetSessionId(cdm_session_);
     }
