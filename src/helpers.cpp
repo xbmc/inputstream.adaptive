@@ -255,6 +255,46 @@ std::string annexb_to_avc(const char *b16_data)
   return result;
 }
 
+std::string avc_to_annexb(const std::string &avc)
+{
+  if (avc.size() < 8)
+    return "";
+
+  // check if's already annexb, avc starts with 1
+  if (avc[0] == 0)
+    return avc;
+
+  const uint8_t *avc_data(reinterpret_cast<const uint8_t*>(avc.data()));
+  size_t avc_data_size(avc.size());
+
+  // calculate size
+  uint8_t buffer[1024];
+  uint8_t buffer_size(4);
+  buffer[0] = buffer[1] = buffer[2] = 0; buffer[3] = 1;
+
+  //skip avc header
+  avc_data += 6; avc_data_size -= 6;
+  //sizeof SPS
+  std::uint16_t sz(*avc_data); ++avc_data; --avc_data_size;
+  sz = (sz << 8) | *avc_data; ++avc_data; --avc_data_size;
+  //SPS
+  memcpy(buffer + buffer_size, avc_data, sz);
+  buffer_size += sz, avc_data_size -= sz, avc_data += sz;
+
+  // Number PPS
+  sz = *avc_data, ++avc_data, --avc_data_size;
+
+  while (sz--)
+  {
+    buffer[buffer_size] = buffer[buffer_size + 1] = buffer[buffer_size + 2] = 0; buffer[buffer_size + 3] = 1; buffer_size += 4;
+    std::uint16_t ppssz(*avc_data); ++avc_data; --avc_data_size;
+    ppssz = (ppssz << 8) | *avc_data; ++avc_data; --avc_data_size;
+    memcpy(buffer + buffer_size, avc_data, ppssz), buffer_size += ppssz, avc_data_size -= ppssz, avc_data += ppssz;
+  }
+  return std::string(reinterpret_cast<char*>(buffer), buffer_size);
+}
+
+
 void prkid2wvkid(const char *input, char *output)
 {
   static const uint8_t remap[16] = { 3,2,1,0,5,4,7,6,8,9,10,11,12,13,14,15 };

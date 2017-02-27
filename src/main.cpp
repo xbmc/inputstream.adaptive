@@ -377,8 +377,6 @@ class CodecHandler
 public:
   CodecHandler(AP4_SampleDescription *sd)
     : sample_description(sd)
-    , extra_data(0)
-    , extra_data_size(0)
     , naluLengthSize(0)
     , pictureId(0)
     , pictureIdPrev(0)
@@ -391,9 +389,7 @@ public:
   virtual kodi::addon::CODEC_PROFILE GetProfile() { return kodi::addon::CODEC_PROFILE::CodecProfileNotNeeded; };
 
   AP4_SampleDescription *sample_description;
-  const AP4_UI08 *extra_data;
-  AP4_Size extra_data_size;
-  AP4_DataBuffer annexb_extra_data;
+  AP4_DataBuffer extra_data;
   AP4_UI08 naluLengthSize;
   AP4_UI08 pictureId, pictureIdPrev;
 };
@@ -416,8 +412,7 @@ public:
     }
     if (AP4_AvcSampleDescription *avc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, sample_description))
     {
-      extra_data_size = avc->GetRawBytes().GetDataSize();
-      extra_data = avc->GetRawBytes().GetData();
+      extra_data.SetData(avc->GetRawBytes().GetData(), avc->GetRawBytes().GetDataSize());
       countPictureSetIds = avc->GetPictureParameters().ItemCount();
       naluLengthSize = avc->GetNaluLengthSize();
       needSliceInfo = (countPictureSetIds > 1 || !width || !height);
@@ -464,8 +459,8 @@ public:
       for (unsigned int i(0); i < sps.ItemCount(); ++i)
         sz += 4 + sps[i].GetDataSize();
 
-      annexb_extra_data.SetDataSize(sz);
-      uint8_t *cursor(annexb_extra_data.UseData());
+      extra_data.SetDataSize(sz);
+      uint8_t *cursor(extra_data.UseData());
 
       for (unsigned int i(0); i < sps.ItemCount(); ++i)
       {
@@ -590,8 +585,7 @@ public:
   {
     if (AP4_HevcSampleDescription *hevc = AP4_DYNAMIC_CAST(AP4_HevcSampleDescription, sample_description))
     {
-      extra_data_size = hevc->GetRawBytes().GetDataSize();
-      extra_data = hevc->GetRawBytes().GetData();
+      extra_data.SetData(hevc->GetRawBytes().GetData(), hevc->GetRawBytes().GetDataSize());
       naluLengthSize = hevc->GetNaluLengthSize();
     }
   }
@@ -606,12 +600,8 @@ public:
     :CodecHandler(sd)
   {
     if (AP4_MpegSampleDescription *aac = AP4_DYNAMIC_CAST(AP4_MpegSampleDescription, sample_description))
-    {
-      extra_data_size = aac->GetDecoderInfo().GetDataSize();
-      extra_data = aac->GetDecoderInfo().GetData();
-    }
+      extra_data.SetData(aac->GetDecoderInfo().GetData(), aac->GetDecoderInfo().GetDataSize());
   }
-
 
   virtual bool GetAudioInformation(unsigned int &channels)
   {
@@ -634,13 +624,13 @@ class FragmentedSampleReader : public AP4_LinearReader
 public:
 
   FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track,
-    AP4_UI32 streamId, AP4_CencSingleSampleDecrypter *ssd, const double pto, bool canDecrypt)
+    AP4_UI32 streamId, AP4_CencSingleSampleDecrypter *ssd, const double pto, uint32_t dcaps)
     : AP4_LinearReader(*movie, input)
     , m_Track(track)
     , m_StreamId(streamId)
     , m_SampleDescIndex(0)
     , m_bSampleDescChanged(false)
-    , m_bCanDecrypt(canDecrypt)
+    , m_decrypterCaps(dcaps)
     , m_fail_count_(0)
     , m_eos(false)
     , m_started(false)
@@ -696,7 +686,7 @@ public:
   AP4_Result ReadSample()
   {
     AP4_Result result;
-    bool useDecryptingDecoder = m_Protected_desc && !m_bCanDecrypt;
+    bool useDecryptingDecoder = m_Protected_desc && (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_SECURE_PATH) != 0;
 
     if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, (m_Decrypter || useDecryptingDecoder) ? m_encrypted : m_sample_data_)))
     {
@@ -753,20 +743,20 @@ public:
   AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
   const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
   double GetDuration()const{ return (double)m_sample_.GetDuration() / (double)m_Track->GetMediaTimeScale(); };
-  bool IsEncrypted() { return !m_bCanDecrypt && m_Decrypter != nullptr; };
+  bool IsEncrypted() { return (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_SECURE_PATH) != 0 && m_Decrypter != nullptr; };
   bool GetInformation(INPUTSTREAM_INFO &info)
   {
     if (!m_codecHandler)
       return false;
 
     bool edchanged(false);
-    if (m_bSampleDescChanged && (info.m_ExtraSize != m_codecHandler->extra_data_size
-      || memcmp(info.m_ExtraData, m_codecHandler->extra_data, info.m_ExtraSize)))
+    if (m_bSampleDescChanged && (info.m_ExtraSize != m_codecHandler->extra_data.GetDataSize()
+      || memcmp(info.m_ExtraData, m_codecHandler->extra_data.GetData(), info.m_ExtraSize)))
     {
       free((void*)(info.m_ExtraData));
-      info.m_ExtraSize = m_codecHandler->extra_data_size;
+      info.m_ExtraSize = m_codecHandler->extra_data.GetDataSize();
       info.m_ExtraData = (const uint8_t*)malloc(info.m_ExtraSize);
-      memcpy((void*)info.m_ExtraData, m_codecHandler->extra_data, info.m_ExtraSize);
+      memcpy((void*)info.m_ExtraData, m_codecHandler->extra_data.GetData(), info.m_ExtraSize);
       edchanged = true;
     }
 
@@ -881,11 +871,12 @@ private:
       m_codecHandler = new CodecHandler(desc);
       break;
     }
-    if (m_Protected_desc && !m_bCanDecrypt)
+
+    if (m_Protected_desc && (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_SECURE_PATH) != 0)
       m_codecHandler->ExtraDataToAnnexB();
 
     if (m_Protected_desc && m_SingleSampleDecryptor)
-      m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->annexb_extra_data);
+      m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
   }
 
 private:
@@ -893,7 +884,7 @@ private:
   AP4_UI32 m_StreamId;
   AP4_UI32 m_SampleDescIndex;
   bool m_bSampleDescChanged;
-  bool m_bCanDecrypt;
+  uint32_t m_decrypterCaps;
   unsigned int m_fail_count_;
 
   bool m_eos, m_started;
@@ -1169,41 +1160,6 @@ bool Session::initialize()
     SAFE_DELETE(*b);
   streams_.clear();
 
-  while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
-  {
-    size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
-
-    do {
-      streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
-      STREAM &stream(*streams_.back());
-      stream.stream_.prepare_stream(adp, width_, height_, min_bandwidth, max_bandwidth, repId);
-
-      switch (adp->type_)
-      {
-      case adaptive::AdaptiveTree::VIDEO:
-        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
-        break;
-      case adaptive::AdaptiveTree::AUDIO:
-        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
-        break;
-      case adaptive::AdaptiveTree::TEXT:
-        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_TELETEXT;
-        break;
-      default:
-        break;
-      }
-      stream.info_.m_pID = i | (repId << 16);
-      strcpy(stream.info_.m_language, adp->language_.c_str());
-      stream.info_.m_ExtraData = nullptr;
-      stream.info_.m_ExtraSize = 0;
-      stream.info_.m_features = 0;
-      stream.encrypted = adp->encrypted;
-
-      UpdateStream(stream);
-
-    } while (repId--);
-  }
-
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->encryptionState_)
   {
@@ -1226,19 +1182,20 @@ bool Session::initialize()
         unsigned char key_system[16];
         AP4_ParseHex(strkey.c_str(), key_system, 16);
 
-        Session::STREAM *stream(streams_[0]);
+        Session::STREAM stream(*adaptiveTree_, adp->type_);
+        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), width_, height_, min_bandwidth, max_bandwidth, 0);
 
-        stream->enabled = true;
-        stream->stream_.start_stream(0, width_, height_);
-        stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16);
+        stream.enabled = true;
+        stream.stream_.start_stream(0, width_, height_);
+        stream.stream_.select_stream(true, false, stream.info_.m_pID >> 16);
 
-        stream->input_ = new AP4_DASHStream(&stream->stream_);
-        stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true);
-        AP4_Movie* movie = stream->input_file_->GetMovie();
+        stream.input_ = new AP4_DASHStream(&stream.stream_);
+        stream.input_file_ = new AP4_File(*stream.input_, AP4_DefaultAtomFactory::Instance, true);
+        AP4_Movie* movie = stream.input_file_->GetMovie();
         if (movie == NULL)
         {
           kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
-          stream->disable();
+          stream.disable();
           return false;
         }
         AP4_Array<AP4_PsshAtom*>& pssh = movie->GetPsshAtoms();
@@ -1252,10 +1209,10 @@ bool Session::initialize()
         if (!init_data.GetDataSize())
         {
           kodi::Log(ADDON_LOG_ERROR, "Could not extract license from video stream (PSSH not found)");
-          stream->disable();
+          stream.disable();
           return false;
         }
-        stream->disable();
+        stream.disable();
       }
       else if (!adaptiveTree_->defaultKID_.empty())
       {
@@ -1306,10 +1263,47 @@ bool Session::initialize()
       decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_);
       if (decrypter_caps_ & (SSD::SSD_DECRYPTER::SSD_SECURE_PATH))
         cdm_session_id_ = decrypter_->GetSessionId(cdm_session_);
-      return true;
     }
-    single_sample_decryptor_ = nullptr;
-    return false;
+    else
+    {
+      single_sample_decryptor_ = nullptr;
+      return false;
+    }
+  }
+
+  while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
+  {
+    size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
+
+    do {
+      streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
+      STREAM &stream(*streams_.back());
+      stream.stream_.prepare_stream(adp, width_, height_, min_bandwidth, max_bandwidth, repId);
+
+      switch (adp->type_)
+      {
+      case adaptive::AdaptiveTree::VIDEO:
+        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+        break;
+      case adaptive::AdaptiveTree::AUDIO:
+        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+        break;
+      case adaptive::AdaptiveTree::TEXT:
+        stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_TELETEXT;
+        break;
+      default:
+        break;
+      }
+      stream.info_.m_pID = i | (repId << 16);
+      strcpy(stream.info_.m_language, adp->language_.c_str());
+      stream.info_.m_ExtraData = nullptr;
+      stream.info_.m_ExtraSize = 0;
+      stream.info_.m_features = 0;
+      stream.encrypted = adp->encrypted;
+
+      UpdateStream(stream);
+
+    } while (repId--);
   }
   return true;
 }
@@ -1326,9 +1320,18 @@ void Session::UpdateStream(STREAM &stream)
 
   if (!stream.info_.m_ExtraSize && rep->codec_private_data_.size())
   {
-    stream.info_.m_ExtraSize = rep->codec_private_data_.size();
+    std::string annexb;
+    const std::string *res(&annexb);
+
+    if ((decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)
+      && stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+      annexb = avc_to_annexb(rep->codec_private_data_);
+    else
+      res = &rep->codec_private_data_;
+
+    stream.info_.m_ExtraSize = res->size();
     stream.info_.m_ExtraData = (const uint8_t*)malloc(stream.info_.m_ExtraSize);
-    memcpy((void*)stream.info_.m_ExtraData, rep->codec_private_data_.data(), stream.info_.m_ExtraSize);
+    memcpy((void*)stream.info_.m_ExtraData, res->data(), stream.info_.m_ExtraSize);
   }
 
   // we currently use only the first track!
@@ -1722,7 +1725,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
       m_session->GetSingleSampleDecryptor(), m_session->GetPresentationTimeOffset(),
-      (m_session->GetDecrypterCaps() & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)==0);
+      m_session->GetDecrypterCaps());
 
     stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 
