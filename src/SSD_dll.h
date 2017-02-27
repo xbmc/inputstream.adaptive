@@ -141,7 +141,9 @@ namespace SSD
     enum SSD_CAPS : uint32_t
     {
       SSD_SUPPORTS_DECODING = 1,
-      SSD_SECURE_PATH = 2
+      SSD_SECURE_PATH = 2,
+      SSD_ANNEXB_REQUIRED = 4,
+      SSD_HDCP_RESTRICTED = 8
     };
 
     // Return supported URN if type matches to capabilities, otherwise null
@@ -150,7 +152,7 @@ namespace SSD
     virtual size_t CreateSession(AP4_DataBuffer &streamCodec) = 0;
     virtual void CloseSession(size_t sessionHandle) = 0;
 
-    virtual uint32_t GetCapabilities(size_t sessionHandle) = 0;
+    virtual uint32_t GetCapabilities(size_t sessionHandle, bool has_hdcp_testkey) = 0;
     virtual const char *GetSessionId(size_t sessionHandle) = 0;
 
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;

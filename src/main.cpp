@@ -872,7 +872,7 @@ private:
       break;
     }
 
-    if (m_Protected_desc && (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_SECURE_PATH) != 0)
+    if (m_Protected_desc && (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_ANNEXB_REQUIRED) != 0)
       m_codecHandler->ExtraDataToAnnexB();
 
     if (m_Protected_desc && m_SingleSampleDecryptor)
@@ -1183,7 +1183,7 @@ bool Session::initialize()
         AP4_ParseHex(strkey.c_str(), key_system, 16);
 
         Session::STREAM stream(*adaptiveTree_, adp->type_);
-        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), width_, height_, min_bandwidth, max_bandwidth, 0);
+        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), width_, height_, 0, min_bandwidth, max_bandwidth, 0);
 
         stream.enabled = true;
         stream.stream_.start_stream(0, width_, height_);
@@ -1260,8 +1260,8 @@ bool Session::initialize()
       && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(server_certificate_)) != 0
       && (cdm_session_ = decrypter_->CreateSession(init_data)) > 0)
     {
-      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_);
-      if (decrypter_caps_ & (SSD::SSD_DECRYPTER::SSD_SECURE_PATH))
+      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_, true);
+      if (decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)
         cdm_session_id_ = decrypter_->GetSessionId(cdm_session_);
     }
     else
@@ -1278,7 +1278,10 @@ bool Session::initialize()
     do {
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
-      stream.stream_.prepare_stream(adp, width_, height_, min_bandwidth, max_bandwidth, repId);
+
+      uint32_t hdcpLimit((decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_HDCP_RESTRICTED) ? 500000 : 0);
+
+      stream.stream_.prepare_stream(adp, width_, height_, hdcpLimit, min_bandwidth, max_bandwidth, repId);
 
       switch (adp->type_)
       {
@@ -1323,7 +1326,7 @@ void Session::UpdateStream(STREAM &stream)
     std::string annexb;
     const std::string *res(&annexb);
 
-    if ((decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)
+    if ((decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_ANNEXB_REQUIRED)
       && stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
       annexb = avc_to_annexb(rep->codec_private_data_);
     else

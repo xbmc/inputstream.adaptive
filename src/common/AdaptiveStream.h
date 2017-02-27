@@ -38,7 +38,7 @@ namespace adaptive
     ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     bool prepare_stream(const AdaptiveTree::AdaptationSet *adp,
-      const uint32_t width, const uint32_t height,
+      const uint32_t width, const uint32_t height, uint32_t hdcpLimit,
       uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId);
     bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height);
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
@@ -84,6 +84,7 @@ namespace adaptive
 
     uint16_t width_, height_;
     uint32_t bandwidth_;
+    uint32_t hdcpLimit_;
     bool stopped_;
   };
 };

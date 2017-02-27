@@ -106,11 +106,12 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 }
 
 bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
-  const uint32_t width, const uint32_t height,
+  const uint32_t width, const uint32_t height, uint32_t hdcpLimit,
   uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId)
 {
   width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
   height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
+  hdcpLimit_ = hdcpLimit;
 
   uint32_t avg_bandwidth = tree_.bandwidth_;
 
@@ -262,7 +263,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     for (std::vector<AdaptiveTree::Representation*>::const_iterator br(current_adp_->repesentations_.begin()), er(current_adp_->repesentations_.end()); br != er; ++br)
     {
       unsigned int score;
-      if ((*br)->bandwidth_ <= bandwidth_ 
+      if ((*br)->bandwidth_ <= bandwidth_ &&  (!hdcpLimit_ || static_cast<uint32_t>(width_) * height_ <= hdcpLimit_)
         && ((score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))
         + static_cast<unsigned int>(sqrt(bandwidth_ - (*br)->bandwidth_))) < bestScore))
       {
