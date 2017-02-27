@@ -37,5 +37,7 @@ std::string url_decode(std::string text);
 std::string annexb_to_avc(const char *b16_data);
 std::string avc_to_annexb(const std::string &avc);
 
+unsigned char HexNibble(char c);
+
 void prkid2wvkid(const char *input, char *output);
 bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data);

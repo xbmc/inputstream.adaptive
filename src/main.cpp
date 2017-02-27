@@ -1223,14 +1223,7 @@ bool Session::initialize()
       }
       else if (!adaptiveTree_->defaultKID_.empty())
       {
-        init_data.SetDataSize(16);
-        AP4_Byte *data(init_data.UseData());
-        const char *src(adaptiveTree_->defaultKID_.c_str());
-        AP4_ParseHex(src, data, 4);
-        AP4_ParseHex(src + 9, data + 4, 2);
-        AP4_ParseHex(src + 14, data + 6, 2);
-        AP4_ParseHex(src + 19, data + 8, 2);
-        AP4_ParseHex(src + 24, data + 10, 6);
+        init_data.SetData((AP4_Byte*)adaptiveTree_->defaultKID_.data(),16);
 
         uint8_t ld[1024];
         unsigned int ld_size(1014);
@@ -1267,7 +1260,8 @@ bool Session::initialize()
       && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(server_certificate_)) != 0
       && (cdm_session_ = decrypter_->CreateSession(init_data)) > 0)
     {
-      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_, nullptr);
+      const char *defkid = adaptiveTree_->defaultKID_.empty() ? nullptr : adaptiveTree_->defaultKID_.data();
+      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_, (const uint8_t *)defkid);
       if (decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)
         cdm_session_id_ = decrypter_->GetSessionId(cdm_session_);
     }

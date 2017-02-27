@@ -185,7 +185,7 @@ std::string url_decode(std::string text) {
   return escaped;
 }
 
-static unsigned char HexNibble(char c)
+unsigned char HexNibble(char c)
 {
   if (c >= '0' && c <= '9')
     return c - '0';

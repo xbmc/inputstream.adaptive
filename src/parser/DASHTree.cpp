@@ -625,7 +625,16 @@ start(void *data, const char *el, const char **attr)
             dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
           }
           else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
-            dash->defaultKID_ = defaultKID;
+          {
+            dash->defaultKID_.resize(16);
+            for (unsigned int i(0); i < 16; ++i)
+            {
+              if (i == 4 || i == 6 || i == 8 || i == 10)
+                ++defaultKID;
+              dash->defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
+              dash->defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
+            }
+          }
         }
         else if (strcmp(el, "AudioChannelConfiguration") == 0)
         {
