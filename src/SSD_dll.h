@@ -138,12 +138,23 @@ namespace SSD
   class SSD_DECRYPTER
   {
   public:
-    enum SSD_CAPS : uint32_t
+    struct SSD_CAPS
     {
-      SSD_SUPPORTS_DECODING = 1,
-      SSD_SECURE_PATH = 2,
-      SSD_ANNEXB_REQUIRED = 4,
-      SSD_HDCP_RESTRICTED = 8
+      static const uint32_t SSD_SUPPORTS_DECODING = 1;
+      static const uint32_t SSD_SECURE_PATH = 2;
+      static const uint32_t SSD_ANNEXB_REQUIRED = 4;
+      static const uint32_t SSD_HDCP_RESTRICTED = 8;
+
+      uint16_t flags;
+
+      /* The following 2 fields are set as followed:
+      - If licenseresponse return hdcp information, hdcpversion is 0 and
+      hdcplimit either 0 (if hdcp is supported) or given value (if hdcpversion is not supported)
+      - if no hdcp information is passed in licenseresponse, we set hdcpversion to the value we support
+      manifest / representation have to check if they are allowed to be played.
+      */
+      uint16_t hdcpVersion; //The HDCP version streams has to be restricted 0,10,20,21,22.....
+      uint32_t hdcpLimit; // If set, streams wich wxh > this value cannot be played.
     };
 
     // Return supported URN if type matches to capabilities, otherwise null
@@ -152,7 +163,7 @@ namespace SSD
     virtual size_t CreateSession(AP4_DataBuffer &streamCodec) = 0;
     virtual void CloseSession(size_t sessionHandle) = 0;
 
-    virtual uint32_t GetCapabilities(size_t sessionHandle, const uint8_t *keyid) = 0;
+    virtual const SSD_CAPS &GetCapabilities(size_t sessionHandle, const uint8_t *keyid) = 0;
     virtual const char *GetSessionId(size_t sessionHandle) = 0;
 
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;

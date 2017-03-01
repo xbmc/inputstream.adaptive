@@ -28,7 +28,6 @@
 #include <kodi/addon-instance/VideoCodec.h>
 
 #include "helpers.h"
-#include "SSD_dll.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
 #include "DemuxCrypto.h"
@@ -40,8 +39,6 @@
 #endif
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
-
-std::uint16_t kodiDisplayWidth(0), kodiDisplayHeight(0);
 
 /*******************************************************
 kodi host - interface for decrypter libraries
@@ -623,8 +620,8 @@ class FragmentedSampleReader : public AP4_LinearReader
 {
 public:
 
-  FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track,
-    AP4_UI32 streamId, AP4_CencSingleSampleDecrypter *ssd, const double pto, uint32_t dcaps)
+  FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId,
+    AP4_CencSingleSampleDecrypter *ssd, const double pto, const SSD::SSD_DECRYPTER::SSD_CAPS &dcaps)
     : AP4_LinearReader(*movie, input)
     , m_Track(track)
     , m_StreamId(streamId)
@@ -686,7 +683,7 @@ public:
   AP4_Result ReadSample()
   {
     AP4_Result result;
-    bool useDecryptingDecoder = m_Protected_desc && (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_SECURE_PATH) != 0;
+    bool useDecryptingDecoder = m_Protected_desc && (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0;
     bool decrypterPresent(m_Decrypter != nullptr);
 
     if (AP4_FAILED(result = ReadNextSample(m_Track->GetId(), m_sample_, (m_Decrypter || useDecryptingDecoder) ? m_encrypted : m_sample_data_)))
@@ -750,7 +747,7 @@ public:
   AP4_Size GetSampleDataSize()const{ return m_sample_data_.GetDataSize(); };
   const AP4_Byte *GetSampleData()const{ return m_sample_data_.GetData(); };
   double GetDuration()const{ return (double)m_sample_.GetDuration() / (double)m_Track->GetMediaTimeScale(); };
-  bool IsEncrypted() { return (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_SECURE_PATH) != 0 && m_Decrypter != nullptr; };
+  bool IsEncrypted() { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_Decrypter != nullptr; };
   bool GetInformation(INPUTSTREAM_INFO &info)
   {
     if (!m_codecHandler)
@@ -879,7 +876,7 @@ private:
       break;
     }
 
-    if (m_Protected_desc && (m_decrypterCaps & SSD::SSD_DECRYPTER::SSD_ANNEXB_REQUIRED) != 0)
+    if (m_Protected_desc && (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
       m_codecHandler->ExtraDataToAnnexB();
 
     if (m_Protected_desc && m_SingleSampleDecryptor)
@@ -891,7 +888,7 @@ private:
   AP4_UI32 m_StreamId;
   AP4_UI32 m_SampleDescIndex;
   bool m_bSampleDescChanged;
-  uint32_t m_decrypterCaps;
+  SSD::SSD_DECRYPTER::SSD_CAPS m_decrypterCaps;
   unsigned int m_fail_count_;
 
   bool m_eos, m_started;
@@ -935,10 +932,9 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , profile_path_(profile_path)
   , decrypterModule_(0)
   , decrypter_(0)
-  , decrypter_caps_(0)
   , adaptiveTree_(0)
-  , width_(kodiDisplayWidth)
-  , height_(kodiDisplayHeight)
+  , width_(1280)
+  , height_(720)
   , changed_(false)
   , manual_streams_(false)
   , last_pts_(0)
@@ -1020,6 +1016,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     b64_decode(strCert, sz, server_certificate_.UseData(), dstsz);
     server_certificate_.SetDataSize(dstsz);
   }
+  memset(&decrypter_caps_, 0, sizeof(decrypter_caps_));
 }
 
 Session::~Session()
@@ -1190,7 +1187,7 @@ bool Session::initialize()
         AP4_ParseHex(strkey.c_str(), key_system, 16);
 
         Session::STREAM stream(*adaptiveTree_, adp->type_);
-        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), width_, height_, 0, min_bandwidth, max_bandwidth, 0);
+        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), width_, height_, 0, 0, min_bandwidth, max_bandwidth, 0);
 
         stream.enabled = true;
         stream.stream_.start_stream(0, width_, height_);
@@ -1262,7 +1259,7 @@ bool Session::initialize()
     {
       const char *defkid = adaptiveTree_->defaultKID_.empty() ? nullptr : adaptiveTree_->defaultKID_.data();
       decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_, (const uint8_t *)defkid);
-      if (decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_SECURE_PATH)
+      if (decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         cdm_session_id_ = decrypter_->GetSessionId(cdm_session_);
     }
     else
@@ -1280,9 +1277,7 @@ bool Session::initialize()
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
 
-      uint32_t hdcpLimit((decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_HDCP_RESTRICTED) ? 500000 : 0);
-
-      stream.stream_.prepare_stream(adp, width_, height_, hdcpLimit, min_bandwidth, max_bandwidth, repId);
+      stream.stream_.prepare_stream(adp, width_, height_, decrypter_caps_.hdcpLimit, decrypter_caps_.hdcpVersion, min_bandwidth, max_bandwidth, repId);
 
       switch (adp->type_)
       {
@@ -1327,7 +1322,7 @@ void Session::UpdateStream(STREAM &stream)
     std::string annexb;
     const std::string *res(&annexb);
 
-    if ((decrypter_caps_ & SSD::SSD_DECRYPTER::SSD_ANNEXB_REQUIRED)
+    if ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED)
       && stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
       annexb = avc_to_annexb(rep->codec_private_data_);
     else
@@ -1510,11 +1505,14 @@ public:
 
 private:
   Session* m_session;
+  int m_width, m_height;
 };
 
 CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance)
-  : CInstanceInputStream(instance),
-  m_session(nullptr)
+  : CInstanceInputStream(instance)
+  , m_session(nullptr)
+  , m_width(1280)
+  , m_height(720)
 {
 }
 
@@ -1575,6 +1573,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
   kodihost.SetProfilePath(props.m_profileFolder);
 
   m_session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder);
+  m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize())
   {
@@ -1636,7 +1635,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
       stream->info_.m_cryptoInfo.m_CryptoKeySystem = CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
       stream->info_.m_cryptoInfo.m_CryptoSessionIdSize = static_cast<uint16_t>(strlen(m_session->GetCDMSession()));
       stream->info_.m_cryptoInfo.m_CryptoSessionId = m_session->GetCDMSession();
-      if(m_session->GetDecrypterCaps() & SSD::SSD_DECRYPTER::SSD_SUPPORTS_DECODING)
+      if(m_session->GetDecrypterCaps().flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
         stream->info_.m_features = INPUTSTREAM_INFO::FEATURE_DECODE;
     }
     return stream->info_;
@@ -1812,8 +1811,8 @@ void CInputStreamAdaptive::SetVideoResolution(int width, int height)
     m_session->SetVideoResolution(width, height);
   else
   {
-    kodiDisplayWidth = width;
-    kodiDisplayHeight = height;
+    m_width = width;
+    m_height = height;
   }
 }
 
@@ -1951,8 +1950,6 @@ public:
 
 CMyAddon::CMyAddon()
 {
-  kodiDisplayWidth = 1280;
-  kodiDisplayHeight = 720;
 }
 
 ADDON_STATUS CMyAddon::CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance)

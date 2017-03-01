@@ -101,7 +101,7 @@ namespace adaptive
     struct Representation
     {
       Representation() :bandwidth_(0), samplingRate_(0),  width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
-         flags_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), duration_(0), timescale_(0){};
+         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), duration_(0), timescale_(0){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -121,7 +121,8 @@ namespace adaptive
       static const unsigned int SEGMENTBASE = 32;
       static const unsigned int STARTTIMETPL = 64;
 
-      uint32_t flags_;
+      uint16_t flags_;
+      uint16_t hdcpVersion_;
 
       uint32_t indexRangeMin_, indexRangeMax_;
       uint8_t channelCount_, nalLengthSize_;

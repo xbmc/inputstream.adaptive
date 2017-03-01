@@ -564,6 +564,8 @@ start(void *data, const char *el, const char **attr)
               dash->current_representation_->id = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "codecPrivateData") == 0)
               dash->current_representation_->codec_private_data_ = annexb_to_avc((const char*)*(attr + 1));
+            else if (strcmp((const char*)*attr, "hdcp") == 0)
+              dash->current_representation_->hdcpVersion_ = static_cast<uint16_t>(atof((const char*)*(attr + 1))*10);
             else if (dash->current_adaptationset_->mimeType_.empty() && strcmp((const char*)*attr, "mimeType") == 0)
             {
               dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
@@ -900,7 +902,7 @@ end(void *data, const char *el)
                   seg.startPTS_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
-                    seg.range_end_ += ((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration;
+                    seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration);
 
                   for (;countSegs;--countSegs)
                   {

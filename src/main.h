@@ -26,12 +26,9 @@
 #include <float.h>
 
 #include "Ap4.h"
+#include "SSD_dll.h"
 
 class FragmentedSampleReader;
-namespace SSD
-{
-  class SSD_DECRYPTER;
-};
 
 namespace XBMCFILE
 {
@@ -119,7 +116,7 @@ public:
   std::uint16_t GetHeight()const { return height_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
-  AP4_UI32 GetDecrypterCaps() const{ return decrypter_caps_; };
+  const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps() const{ return decrypter_caps_; };
   double GetPresentationTimeOffset() { return adaptiveTree_->minPresentationOffset < DBL_MAX? adaptiveTree_->minPresentationOffset:0; };
   double GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
   double GetPTS()const { return last_pts_; };
@@ -146,7 +143,7 @@ private:
   std::string profile_path_;
   void * decrypterModule_;
   SSD::SSD_DECRYPTER *decrypter_;
-  AP4_UI32 decrypter_caps_;
+  SSD::SSD_DECRYPTER::SSD_CAPS decrypter_caps_;
 
   adaptive::AdaptiveTree *adaptiveTree_;
 
