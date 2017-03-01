@@ -832,6 +832,9 @@ protected:
 
         if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, m_SingleSampleDecryptor, m_Decrypter)))
           return result;
+
+        if (m_SingleSampleDecryptor)
+          m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
       }
     }
 
@@ -878,9 +881,6 @@ private:
 
     if (m_Protected_desc && (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
       m_codecHandler->ExtraDataToAnnexB();
-
-    if (m_Protected_desc && m_SingleSampleDecryptor)
-      m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
   }
 
 private:
