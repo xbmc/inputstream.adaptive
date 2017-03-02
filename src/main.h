@@ -86,7 +86,7 @@ enum MANIFEST_TYPE
 class Session: public FragmentObserver
 {
 public:
-  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path);
+  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path, uint16_t display_width, uint16_t display_height);
   ~Session();
   bool initialize();
   FragmentedSampleReader *GetNextSample();
@@ -121,7 +121,7 @@ public:
   double GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
   double GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
-  void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w < maxwidth_ ? w : maxwidth_; height_ = h < maxheight_ ? h : maxheight_;};
+  void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
@@ -150,7 +150,7 @@ private:
   std::vector<STREAM*> streams_;
 
   uint16_t width_, height_;
-  uint16_t maxwidth_, maxheight_;
+  int max_resolution_, max_secure_resolution_;
   uint32_t fixed_bandwidth_;
   bool changed_;
   bool manual_streams_;

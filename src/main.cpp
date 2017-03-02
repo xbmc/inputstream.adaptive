@@ -923,7 +923,8 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path)
+Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData,
+  const char* strCert, const char* profile_path, uint16_t display_width, uint16_t display_height)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , license_key_(strLicKey)
@@ -933,8 +934,8 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , decrypterModule_(0)
   , decrypter_(0)
   , adaptiveTree_(0)
-  , width_(1280)
-  , height_(720)
+  , width_(display_width)
+  , height_(display_height)
   , changed_(false)
   , manual_streams_(false)
   , last_pts_(0)
@@ -971,29 +972,13 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     adaptiveTree_->bandwidth_ = 4000000;
   kodi::Log(ADDON_LOG_DEBUG, "Initial bandwidth: %u ", adaptiveTree_->bandwidth_);
 
-  int buf(kodi::GetSettingInt("MAXRESOLUTION"));
-  kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTION selected: %d ", buf);
-  switch (buf)
-  {
-  case 0:
-    maxwidth_ = 0xFFFF;
-    maxheight_ = 0xFFFF;
-    break;
-  case 2:
-    maxwidth_ = 1920;
-    maxheight_ = 1080;
-    break;
-  default:
-    maxwidth_ = 1280;
-    maxheight_ = 720;
-  }
-  if (width_ > maxwidth_)
-    width_ = maxwidth_;
+  max_resolution_ = kodi::GetSettingInt("MAXRESOLUTION");
+  kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTION selected: %d ", max_resolution_);
 
-  if (height_ > maxheight_)
-    height_ = maxheight_;
+  max_secure_resolution_ = kodi::GetSettingInt("MAXRESOLUTIONSECURE");
+  kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTIONSECURE selected: %d ", max_secure_resolution_);
 
-  buf = kodi::GetSettingInt("STREAMSELECTION");
+  int buf = kodi::GetSettingInt("STREAMSELECTION");
   kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", buf);
   manual_streams_ = buf != 0;
 
@@ -1187,7 +1172,7 @@ bool Session::initialize()
         AP4_ParseHex(strkey.c_str(), key_system, 16);
 
         Session::STREAM stream(*adaptiveTree_, adp->type_);
-        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), width_, height_, 0, 0, min_bandwidth, max_bandwidth, 0);
+        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), 0, 0, 0, 0, 0, 0, 0);
 
         stream.enabled = true;
         stream.stream_.start_stream(0, width_, height_);
@@ -1269,6 +1254,21 @@ bool Session::initialize()
     }
   }
 
+  uint16_t selectWidth_(width_), selectHeight_(height_);
+  switch ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)?max_secure_resolution_ : max_resolution_)
+  {
+  case 1:
+    if (selectWidth_ > 1280) selectWidth_ = 1280;
+    if (selectHeight_ > 720) selectHeight_ = 720;
+    break;
+  case 2:
+    if (selectWidth_ > 1920) selectWidth_ = 1920;
+    if (selectHeight_ > 1080) selectHeight_ = 1080;
+    break;
+  default:
+    ;
+  }
+
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
     size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
@@ -1277,7 +1277,7 @@ bool Session::initialize()
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
 
-      stream.stream_.prepare_stream(adp, width_, height_, decrypter_caps_.hdcpLimit, decrypter_caps_.hdcpVersion, min_bandwidth, max_bandwidth, repId);
+      stream.stream_.prepare_stream(adp, selectWidth_, selectHeight_, decrypter_caps_.hdcpLimit, decrypter_caps_.hdcpVersion, min_bandwidth, max_bandwidth, repId);
 
       switch (adp->type_)
       {
@@ -1572,7 +1572,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 
   kodihost.SetProfilePath(props.m_profileFolder);
 
-  m_session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder);
+  m_session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder, m_width, m_height);
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize())

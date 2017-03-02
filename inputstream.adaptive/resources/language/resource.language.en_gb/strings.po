@@ -29,7 +29,7 @@ msgid "Decrypter path"
 msgstr "Absolute path to the folder containing the decrypters"
 
 msgctxt "#30110"
-msgid "Max. Resolution"
+msgid "Max. Resolution general decoder"
 msgstr "Maximum Resolution"
 
 msgctxt "#30111"
@@ -39,3 +39,7 @@ msgstr "Stream Selection"
 msgctxt "#30112"
 msgid "Media"
 msgstr "Media"
+
+msgctxt "#30113"
+msgid "Max. Resolution secure decoder"
+msgstr "Maximum allowed resolution if decoded through secure path"
