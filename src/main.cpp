@@ -1618,7 +1618,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 {
   static struct INPUTSTREAM_INFO dummy_info = {
-    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", kodi::addon::CODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, 0, "",
+    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", kodi::addon::CODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
     0, 0, 0, 0, 0.0f,
     0, 0, 0, 0, 0,
     CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
