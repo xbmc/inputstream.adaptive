@@ -1362,7 +1362,7 @@ void Session::UpdateStream(STREAM &stream)
   stream.info_.m_FpsScale = rep->fpsScale_;
   stream.info_.m_SampleRate = rep->samplingRate_;
   stream.info_.m_Channels = rep->channelCount_;
-  stream.info_.m_Bandwidth = rep->bandwidth_;
+  stream.info_.m_BitRate = rep->bandwidth_;
 }
 
 FragmentedSampleReader *Session::GetNextSample()
@@ -1597,7 +1597,7 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
   if(m_session)
   {
       iids.m_streamCount = 0;
-      for (unsigned int i(1); i <= m_session->GetStreamCount(); ++i)
+      for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
         if(m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type())
           iids.m_streamIds[iids.m_streamCount++] = i;
   } else
