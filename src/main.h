@@ -112,8 +112,8 @@ public:
   unsigned int GetStreamCount() const { return streams_.size(); };
   const char *GetCDMSession() { return cdm_session_id_; };
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
-  std::uint16_t GetWidth()const { return width_; };
-  std::uint16_t GetHeight()const { return height_; };
+  std::uint16_t GetVideoWidth()const;
+  std::uint16_t GetVideoHeight()const;
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps() const{ return decrypter_caps_; };

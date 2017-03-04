@@ -1254,21 +1254,6 @@ bool Session::initialize()
     }
   }
 
-  uint16_t selectWidth_(width_), selectHeight_(height_);
-  switch ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)?max_secure_resolution_ : max_resolution_)
-  {
-  case 1:
-    if (selectWidth_ > 1280) selectWidth_ = 1280;
-    if (selectHeight_ > 720) selectHeight_ = 720;
-    break;
-  case 2:
-    if (selectWidth_ > 1920) selectWidth_ = 1920;
-    if (selectHeight_ > 1080) selectHeight_ = 1080;
-    break;
-  default:
-    ;
-  }
-
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
     size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
@@ -1277,7 +1262,7 @@ bool Session::initialize()
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
 
-      stream.stream_.prepare_stream(adp, selectWidth_, selectHeight_, decrypter_caps_.hdcpLimit, decrypter_caps_.hdcpVersion, min_bandwidth, max_bandwidth, repId);
+      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), decrypter_caps_.hdcpLimit, decrypter_caps_.hdcpVersion, min_bandwidth, max_bandwidth, repId);
 
       switch (adp->type_)
       {
@@ -1442,6 +1427,40 @@ const AP4_UI08 *Session::GetDefaultKeyId() const
   if (adaptiveTree_->defaultKID_.size() == 16)
     return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->defaultKID_.data());
   return default_key;
+}
+
+std::uint16_t Session::GetVideoWidth() const
+{
+  std::uint16_t ret(width_);
+  switch ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) ? max_secure_resolution_ : max_resolution_)
+  {
+  case 1:
+    if (ret > 1280) ret = 1280;
+    break;
+  case 2:
+    if (ret > 1920) ret = 1920;
+    break;
+  default:
+    ;
+  }
+  return ret;
+}
+
+std::uint16_t Session::GetVideoHeight() const
+{
+  std::uint16_t ret(height_);
+  switch ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) ? max_secure_resolution_ : max_resolution_)
+  {
+  case 1:
+    if (ret > 720) ret = 720;
+    break;
+  case 2:
+    if (ret > 1080) ret = 1080;
+    break;
+  default:
+    ;
+  }
+  return ret;
 }
 
 /***************************  Interface *********************************/
@@ -1662,7 +1681,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
     stream->enabled = true;
 
-    stream->stream_.start_stream(~0, m_session->GetWidth(), m_session->GetHeight());
+    stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight());
     const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
     kodi::Log(ADDON_LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u", 
       stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
