@@ -18,6 +18,7 @@
 
 #include "AdaptiveTree.h"
 #include <string.h>
+#include <algorithm>
 
 namespace adaptive
 {
