@@ -933,6 +933,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , profile_path_(profile_path)
   , decrypterModule_(0)
   , decrypter_(0)
+  , secure_video_session_(false)
   , adaptiveTree_(0)
   , width_(display_width)
   , height_(display_height)
@@ -940,9 +941,6 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , manual_streams_(false)
   , last_pts_(0)
   , single_sample_decryptor_(0)
-  , cdm_session_(0)
-  , cdm_session_id_(nullptr)
-
 {
   switch (manifest_type_)
   {
@@ -1001,7 +999,6 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     b64_decode(strCert, sz, server_certificate_.UseData(), dstsz);
     server_certificate_.SetDataSize(dstsz);
   }
-  memset(&decrypter_caps_, 0, sizeof(decrypter_caps_));
 }
 
 Session::~Session()
@@ -1024,7 +1021,7 @@ Session::~Session()
   adaptiveTree_ = nullptr;
 }
 
-void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
+void Session::GetSupportedDecrypterURN(std::string &key_system)
 {
   typedef SSD::SSD_DECRYPTER *(*CreateDecryptorInstanceFunc)(SSD::SSD_HOST *host, uint32_t version);
 
@@ -1064,7 +1061,7 @@ void Session::GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn)
           kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
           decrypterModule_ = mod;
           decrypter_ = decrypter;
-          urn.first = suppUrn;
+          key_system = suppUrn;
           break;
         }
       }
@@ -1105,8 +1102,8 @@ bool Session::initialize()
   // Get URN's wich are supported by this addon
   if (!license_type_.empty())
   {
-    GetSupportedDecrypterURN(adaptiveTree_->adp_pssh_);
-    kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->adp_pssh_.first.c_str());
+    GetSupportedDecrypterURN(adaptiveTree_->supportedKeySystem_);
+    kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
   }
 
   // Open mpd file
@@ -1148,109 +1145,123 @@ bool Session::initialize()
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
+  cdm_sessions_.resize(1);
+  memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
 
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->encryptionState_)
   {
     AP4_DataBuffer init_data;
 
-    if (adaptiveTree_->pssh_.second == "FILE")
+    cdm_sessions_.resize(adaptiveTree_->psshSets_.size());
+
+    for (size_t ses(1); ses < cdm_sessions_.size(); ++ses)
     {
-      if (license_data_.empty())
+      if (adaptiveTree_->psshSets_[ses].pssh_ == "FILE")
       {
-        std::string strkey(adaptiveTree_->adp_pssh_.first.substr(9));
-        size_t pos;
-        while ((pos = strkey.find('-')) != std::string::npos)
-          strkey.erase(pos, 1);
-        if (strkey.size() != 32)
+        if (license_data_.empty())
         {
-          kodi::Log(ADDON_LOG_ERROR, "Key system mismatch (%s)!", adaptiveTree_->adp_pssh_.first.c_str());
-          return false;
-        }
+          std::string strkey(adaptiveTree_->supportedKeySystem_.substr(9));
+          size_t pos;
+          while ((pos = strkey.find('-')) != std::string::npos)
+            strkey.erase(pos, 1);
+          if (strkey.size() != 32)
+          {
+            kodi::Log(ADDON_LOG_ERROR, "Key system mismatch (%s)!", adaptiveTree_->supportedKeySystem_.c_str());
+            return false;
+          }
 
-        unsigned char key_system[16];
-        AP4_ParseHex(strkey.c_str(), key_system, 16);
+          unsigned char key_system[16];
+          AP4_ParseHex(strkey.c_str(), key_system, 16);
 
-        Session::STREAM stream(*adaptiveTree_, adp->type_);
-        stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), 0, 0, 0, 0, 0, 0, 0);
+          Session::STREAM stream(*adaptiveTree_, adaptiveTree_->GetAdaptationSet(0)->type_);
+          stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), 0, 0, 0, 0, 0, 0, 0);
 
-        stream.enabled = true;
-        stream.stream_.start_stream(0, width_, height_);
-        stream.stream_.select_stream(true, false, stream.info_.m_pID >> 16);
+          stream.enabled = true;
+          stream.stream_.start_stream(0, width_, height_);
+          stream.stream_.select_stream(true, false, stream.info_.m_pID >> 16);
 
-        stream.input_ = new AP4_DASHStream(&stream.stream_);
-        stream.input_file_ = new AP4_File(*stream.input_, AP4_DefaultAtomFactory::Instance, true);
-        AP4_Movie* movie = stream.input_file_->GetMovie();
-        if (movie == NULL)
-        {
-          kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+          stream.input_ = new AP4_DASHStream(&stream.stream_);
+          stream.input_file_ = new AP4_File(*stream.input_, AP4_DefaultAtomFactory::Instance, true);
+          AP4_Movie* movie = stream.input_file_->GetMovie();
+          if (movie == NULL)
+          {
+            kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+            stream.disable();
+            return false;
+          }
+          AP4_Array<AP4_PsshAtom*>& pssh = movie->GetPsshAtoms();
+
+          for (unsigned int i = 0; !init_data.GetDataSize() && i < pssh.ItemCount(); i++)
+          {
+            if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
+            {
+              init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
+              if (adaptiveTree_->psshSets_[ses].defaultKID_.empty())
+                adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)pssh[i]->GetKid(0), 16);
+            }
+          }
+
+          if (!init_data.GetDataSize())
+          {
+            kodi::Log(ADDON_LOG_ERROR, "Could not extract license from video stream (PSSH not found)");
+            stream.disable();
+            return false;
+          }
           stream.disable();
-          return false;
         }
-        AP4_Array<AP4_PsshAtom*>& pssh = movie->GetPsshAtoms();
-
-        for (unsigned int i = 0; !init_data.GetDataSize() && i < pssh.ItemCount(); i++)
+        else if (!adaptiveTree_->psshSets_[ses].defaultKID_.empty())
         {
-          if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
-            init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
-        }
+          init_data.SetData((AP4_Byte*)adaptiveTree_->psshSets_[ses].defaultKID_.data(), 16);
 
-        if (!init_data.GetDataSize())
-        {
-          kodi::Log(ADDON_LOG_ERROR, "Could not extract license from video stream (PSSH not found)");
-          stream.disable();
-          return false;
-        }
-        stream.disable();
-      }
-      else if (!adaptiveTree_->defaultKID_.empty())
-      {
-        init_data.SetData((AP4_Byte*)adaptiveTree_->defaultKID_.data(),16);
+          uint8_t ld[1024];
+          unsigned int ld_size(1014);
+          b64_decode(license_data_.c_str(), license_data_.size(), ld, ld_size);
 
-        uint8_t ld[1024];
-        unsigned int ld_size(1014);
-        b64_decode(license_data_.c_str(), license_data_.size(), ld, ld_size);
-
-        uint8_t *uuid((uint8_t*)strstr((const char*)ld, "{KID}"));
-        if (uuid)
-        {
-          memmove(uuid + 11, uuid, ld_size - (uuid - ld));
-          memcpy(uuid, init_data.GetData(), init_data.GetDataSize());
-          init_data.SetData(ld, ld_size + 11);
+          uint8_t *uuid((uint8_t*)strstr((const char*)ld, "{KID}"));
+          if (uuid)
+          {
+            memmove(uuid + 11, uuid, ld_size - (uuid - ld));
+            memcpy(uuid, init_data.GetData(), init_data.GetDataSize());
+            init_data.SetData(ld, ld_size + 11);
+          }
+          else
+            init_data.SetData(ld, ld_size);
         }
         else
-          init_data.SetData(ld, ld_size);
+          return false;
       }
       else
+      {
+        if (manifest_type_ == MANIFEST_TYPE_ISM)
+        {
+          create_ism_license(adaptiveTree_->psshSets_[ses].defaultKID_, license_data_, init_data);
+        }
+        else
+        {
+          init_data.SetBufferSize(1024);
+          unsigned int init_data_size(1024);
+          b64_decode(adaptiveTree_->psshSets_[ses].pssh_.data(), adaptiveTree_->psshSets_[ses].pssh_.size(), init_data.UseData(), init_data_size);
+          init_data.SetDataSize(init_data_size);
+        }
+      }
+      if (decrypter_
+        && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(server_certificate_)) != 0
+        && (cdm_sessions_[ses].cdm_session_ = decrypter_->CreateSession(init_data)) > 0)
+      {
+        const char *defkid = adaptiveTree_->psshSets_[ses].defaultKID_.empty() ? nullptr : adaptiveTree_->psshSets_[ses].defaultKID_.data();
+        cdm_sessions_[ses].decrypter_caps_ = decrypter_->GetCapabilities(cdm_sessions_[ses].cdm_session_, (const uint8_t *)defkid);
+        if (cdm_sessions_[ses].decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
+        {
+          cdm_sessions_[ses].cdm_session_str_ = decrypter_->GetSessionId(cdm_sessions_[ses].cdm_session_);
+          secure_video_session_ = true;
+        }
+      }
+      else
+      {
+        single_sample_decryptor_ = nullptr;
         return false;
-    }
-    else
-    {
-      if (manifest_type_ == MANIFEST_TYPE_ISM)
-      {
-        create_ism_license(adaptiveTree_->defaultKID_, license_data_, init_data);
       }
-      else
-      {
-        init_data.SetBufferSize(1024);
-        unsigned int init_data_size(1024);
-        b64_decode(adaptiveTree_->pssh_.second.data(), adaptiveTree_->pssh_.second.size(), init_data.UseData(), init_data_size);
-        init_data.SetDataSize(init_data_size);
-      }
-    }
-    if (decrypter_
-      && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(server_certificate_)) != 0
-      && (cdm_session_ = decrypter_->CreateSession(init_data)) > 0)
-    {
-      const char *defkid = adaptiveTree_->defaultKID_.empty() ? nullptr : adaptiveTree_->defaultKID_.data();
-      decrypter_caps_ = decrypter_->GetCapabilities(cdm_session_, (const uint8_t *)defkid);
-      if (decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
-        cdm_session_id_ = decrypter_->GetSessionId(cdm_session_);
-    }
-    else
-    {
-      single_sample_decryptor_ = nullptr;
-      return false;
     }
   }
 
@@ -1261,8 +1272,9 @@ bool Session::initialize()
     do {
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
+      const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->pssh_set_));
 
-      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), decrypter_caps_.hdcpLimit, decrypter_caps_.hdcpVersion, min_bandwidth, max_bandwidth, repId);
+      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), caps.hdcpLimit, caps.hdcpVersion, min_bandwidth, max_bandwidth, repId);
 
       switch (adp->type_)
       {
@@ -1285,14 +1297,14 @@ bool Session::initialize()
       stream.info_.m_features = 0;
       stream.encrypted = adp->encrypted;
 
-      UpdateStream(stream);
+      UpdateStream(stream, caps);
 
     } while (repId--);
   }
   return true;
 }
 
-void Session::UpdateStream(STREAM &stream)
+void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps)
 {
   const adaptive::AdaptiveTree::Representation *rep(stream.stream_.getRepresentation());
 
@@ -1307,7 +1319,7 @@ void Session::UpdateStream(STREAM &stream)
     std::string annexb;
     const std::string *res(&annexb);
 
-    if ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED)
+    if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED)
       && stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
       annexb = avc_to_annexb(rep->codec_private_data_);
     else
@@ -1421,18 +1433,18 @@ void Session::EndFragment(AP4_UI32 streamId)
     s->reader_->GetTimeScale());
 }
 
-const AP4_UI08 *Session::GetDefaultKeyId() const
+const AP4_UI08 *Session::GetDefaultKeyId(const uint8_t index) const
 {
   static const AP4_UI08 default_key[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
-  if (adaptiveTree_->defaultKID_.size() == 16)
-    return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->defaultKID_.data());
+  if (adaptiveTree_->psshSets_[index].defaultKID_.size() == 16)
+    return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->psshSets_[index].defaultKID_.data());
   return default_key;
 }
 
 std::uint16_t Session::GetVideoWidth() const
 {
   std::uint16_t ret(width_);
-  switch ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) ? max_secure_resolution_ : max_resolution_)
+  switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
   {
   case 1:
     if (ret > 1280) ret = 1280;
@@ -1449,7 +1461,7 @@ std::uint16_t Session::GetVideoWidth() const
 std::uint16_t Session::GetVideoHeight() const
 {
   std::uint16_t ret(height_);
-  switch ((decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) ? max_secure_resolution_ : max_resolution_)
+  switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
   {
   case 1:
     if (ret > 720) ret = 720;
@@ -1648,13 +1660,17 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   if (stream)
   {
-    if (stream->encrypted && m_session->GetCDMSession() != nullptr)
+    uint8_t cdmId(stream->stream_.getAdaptationSet()->pssh_set_);
+    if (stream->encrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
       kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
       stream->info_.m_cryptoInfo.m_CryptoKeySystem = CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
-      stream->info_.m_cryptoInfo.m_CryptoSessionIdSize = static_cast<uint16_t>(strlen(m_session->GetCDMSession()));
-      stream->info_.m_cryptoInfo.m_CryptoSessionId = m_session->GetCDMSession();
-      if(m_session->GetDecrypterCaps().flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
+
+      const char* sessionId(m_session->GetCDMSession(cdmId));
+      stream->info_.m_cryptoInfo.m_CryptoSessionIdSize = static_cast<uint16_t>(strlen(sessionId));
+      stream->info_.m_cryptoInfo.m_CryptoSessionId = sessionId;
+
+      if(m_session->GetDecrypterCaps(cdmId).flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
         stream->info_.m_features = INPUTSTREAM_INFO::FEATURE_DECODE;
     }
     return stream->info_;
@@ -1694,7 +1710,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
     if(rep != stream->stream_.getRepresentation())
     {
-      m_session->UpdateStream(*stream);
+      m_session->UpdateStream(*stream, m_session->GetDecrypterCaps(stream->stream_.getAdaptationSet()->pssh_set_));
       m_session->CheckChange(true);
     }
 
@@ -1717,7 +1733,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
       if (stream->stream_.getAdaptationSet()->encrypted)
       {
         AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
-        schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, m_session->GetDefaultKeyId()));
+        schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, m_session->GetDefaultKeyId(stream->stream_.getAdaptationSet()->get_psshset())));
         sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
       }
       sample_table->AddSampleDescription(sample_descryption);
@@ -1747,7 +1763,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
       m_session->GetSingleSampleDecryptor(), m_session->GetPresentationTimeOffset(),
-      m_session->GetDecrypterCaps());
+      m_session->GetDecrypterCaps(stream->stream_.getAdaptationSet()->pssh_set_));
 
     stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 

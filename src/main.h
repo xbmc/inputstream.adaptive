@@ -106,33 +106,33 @@ public:
     FragmentedSampleReader *reader_;
   };
 
-  void UpdateStream(STREAM &stream);
+  void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
 
   STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
-  const char *GetCDMSession() { return cdm_session_id_; };
+  const char *GetCDMSession(int nSet) { return cdm_sessions_[nSet].cdm_session_str_; };;
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
   std::uint16_t GetVideoWidth()const;
   std::uint16_t GetVideoHeight()const;
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
-  const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps() const{ return decrypter_caps_; };
+  const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex]. decrypter_caps_; };
   double GetPresentationTimeOffset() { return adaptiveTree_->minPresentationOffset < DBL_MAX? adaptiveTree_->minPresentationOffset:0; };
-  double GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
+  uint64_t GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
   double GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
-  const AP4_UI08 *GetDefaultKeyId() const;
+  const AP4_UI08 *GetDefaultKeyId(const uint8_t index) const;
 
   //Observer Section
   void BeginFragment(AP4_UI32 streamId) override;
   void EndFragment(AP4_UI32 streamId) override;
 
 protected:
-  void GetSupportedDecrypterURN(std::pair<std::string, std::string> &urn);
+  void GetSupportedDecrypterURN(std::string &key_system);
   void DisposeDecrypter();
 
 private:
@@ -143,7 +143,15 @@ private:
   std::string profile_path_;
   void * decrypterModule_;
   SSD::SSD_DECRYPTER *decrypter_;
-  SSD::SSD_DECRYPTER::SSD_CAPS decrypter_caps_;
+
+  struct CDMSESSION
+  {
+    SSD::SSD_DECRYPTER::SSD_CAPS decrypter_caps_;
+    uint64_t cdm_session_;
+    const char *cdm_session_str_;
+  };
+  std::vector<CDMSESSION> cdm_sessions_;
+  bool secure_video_session_;
 
   adaptive::AdaptiveTree *adaptiveTree_;
 
@@ -158,6 +166,4 @@ private:
   uint8_t media_type_mask_;
 
   AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
-  size_t cdm_session_;
-  const char *cdm_session_id_;
 };

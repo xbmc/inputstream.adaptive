@@ -38,7 +38,7 @@ namespace adaptive
     , parser_(0)
     , currentNode_(0)
     , segcount_(0)
-    , overallSeconds_(0.0)
+    , overallSeconds_(0)
     , stream_start_(0)
     , available_time_(0)
     , publish_time_(0)
@@ -49,6 +49,7 @@ namespace adaptive
     , average_download_speed_(0.0f)
     , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
   {
+    psshSets_.push_back(PSSH());
   }
 
   bool AdaptiveTree::has_type(StreamType t)
@@ -109,5 +110,16 @@ namespace adaptive
 
     for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
       (*b)->segments_.insert(seg);
+  }
+
+  uint8_t AdaptiveTree::insert_psshset(PSSH &pset)
+  {
+#ifndef ANDROID
+    pset.streamType_ = NOTYPE;
+#endif
+    std::vector<PSSH>::iterator pos(std::find(psshSets_.begin()+1, psshSets_.end(), pset));
+    if (pos == psshSets_.end())
+      pos = psshSets_.insert(psshSets_.end(), pset);
+    return static_cast<uint8_t>(pos - psshSets_.begin());
   }
 }

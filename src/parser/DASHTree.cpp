@@ -377,7 +377,7 @@ start(void *data, const char *el, const char **attr)
                 if (dash->current_representation_->segments_.data.empty())
                 {
                   if (dash->current_representation_->segtpl_.duration && dash->current_representation_->segtpl_.timescale)
-                    dash->current_representation_->segments_.data.reserve((unsigned int)(dash->overallSeconds_ / (((double)dash->current_representation_->segtpl_.duration) / dash->current_representation_->segtpl_.timescale)) + 1);
+                    dash->current_representation_->segments_.data.reserve((unsigned int)((double)dash->overallSeconds_ / (((double)dash->current_representation_->segtpl_.duration) / dash->current_representation_->segtpl_.timescale)) + 1);
 
                   if (dash->current_representation_->flags_ & DASHTree::Representation::INITIALIZATION)
                   {
@@ -598,8 +598,8 @@ start(void *data, const char *el, const char **attr)
         else if (strcmp(el, "ContentProtection") == 0)
         {
           dash->current_adaptationset_->encrypted = true;
-          if (dash->adp_pssh_.second.empty())
-            dash->adp_pssh_.second = "PROTECTED";
+          if (dash->adp_pssh_.empty())
+            dash->adp_pssh_ = "PROTECTED";
 
           dash->strXMLText_.clear();
           dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
@@ -613,7 +613,7 @@ start(void *data, const char *el, const char **attr)
                 mpdFound = true;
               else
               {
-                urnFound = stricmp(dash->adp_pssh_.first.c_str(), (const char*)*(attr + 1)) == 0;
+                urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
                 break;
               }
             }
@@ -628,13 +628,13 @@ start(void *data, const char *el, const char **attr)
           }
           else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
           {
-            dash->defaultKID_.resize(16);
+            dash->adp_defaultKID_.resize(16);
             for (unsigned int i(0); i < 16; ++i)
             {
               if (i == 4 || i == 6 || i == 8 || i == 10)
                 ++defaultKID;
-              dash->defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
-              dash->defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
+              dash->adp_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
+              dash->adp_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
             }
           }
         }
@@ -654,7 +654,7 @@ start(void *data, const char *el, const char **attr)
         dash->current_adaptationset_ = new DASHTree::AdaptationSet();
         dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
         dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_;
-        dash->adp_pssh_.second.clear();
+        dash->adp_pssh_.clear();
         dash->adpChannelCount_ = 0;
         dash->adpwidth_ = 0;
         dash->adpheight_ = 0;
@@ -753,17 +753,17 @@ start(void *data, const char *el, const char **attr)
     {
       const char *next = strchr(mpt, 'H');
       if (next){
-        dash->overallSeconds_ += atof(mpt)*3600;
+        dash->overallSeconds_ += static_cast<uint64_t>(atof(mpt)*3600);
         mpt = next + 1;
       }
       next = strchr(mpt, 'M');
       if (next){
-        dash->overallSeconds_ += atof(mpt)*60;
+        dash->overallSeconds_ += static_cast<uint64_t>(atof(mpt)*60);
         mpt = next + 1;
       }
       next = strchr(mpt, 'S');
       if (next)
-        dash->overallSeconds_ += atof(mpt);
+        dash->overallSeconds_ += static_cast<uint64_t>(atof(mpt));
     }
     if (dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > dash->overallSeconds_)
       dash->base_time_ = dash->publish_time_ - dash->available_time_ - dash->overallSeconds_;
@@ -867,7 +867,7 @@ end(void *data, const char *el)
                 && tpl.timescale > 0 && (tpl.duration > 0 || dash->current_adaptationset_->segment_durations_.data.size()))
               {
                 unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.data.empty()? dash->current_adaptationset_->segment_durations_.data.size():
-                  (unsigned int)(dash->overallSeconds_ / (((double)tpl.duration) / tpl.timescale)) + 1;
+                  (unsigned int)((double)dash->overallSeconds_ / (((double)tpl.duration) / tpl.timescale)) + 1;
 
                 if (countSegs < 65536)
                 {
@@ -939,14 +939,14 @@ end(void *data, const char *el)
           {
             if (strcmp(el, "cenc:pssh") == 0)
             {
-              dash->adp_pssh_.second = dash->strXMLText_;
+              dash->adp_pssh_ = dash->strXMLText_;
               dash->currentNode_ &= ~DASHTree::MPDNODE_PSSH;
             }
           }
           else if (strcmp(el, "ContentProtection") == 0)
           {
-            if (dash->adp_pssh_.second == "PROTECTED")
-              dash->adp_pssh_.second = "FILE";
+            if (dash->adp_pssh_ == "PROTECTED")
+              dash->adp_pssh_ = "FILE";
             dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
           }
         }
@@ -976,7 +976,7 @@ end(void *data, const char *el)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
-          || dash->adp_pssh_.second == "PROTECTED"
+          || dash->adp_pssh_ == "PROTECTED"
           || dash->current_adaptationset_->repesentations_.empty())
           {
             delete dash->current_adaptationset_;
@@ -984,8 +984,14 @@ end(void *data, const char *el)
           }
           else
           {
-            if(!dash->adp_pssh_.second.empty())
-              dash->pssh_ = dash->adp_pssh_;
+            if (!dash->adp_pssh_.empty())
+            {
+              AdaptiveTree::PSSH pssh;
+              pssh.streamType_ = dash->current_adaptationset_->type_;
+              pssh.pssh_ = dash->adp_pssh_;
+              pssh.defaultKID_ = dash->adp_defaultKID_;
+              dash->current_adaptationset_->pssh_set_ = dash->insert_psshset(pssh);
+            }
             
             if (dash->current_adaptationset_->segment_durations_.data.empty()
               && !dash->current_adaptationset_->segtpl_.media.empty())

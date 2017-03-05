@@ -153,9 +153,10 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0),  startPTS_(0), encrypted(false){ language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), pssh_set_(0), timescale_(0),  startPTS_(0), encrypted(false){ language_ = "unk"; };
       ~AdaptationSet(){ for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
+      uint8_t pssh_set_;
       uint32_t timescale_;
       uint64_t startPTS_;
       std::string language_;
@@ -164,10 +165,17 @@ namespace adaptive
       std::string codecs_;
       std::vector<Representation*> repesentations_;
       SPINCACHE<uint32_t> segment_durations_;
+
       const uint32_t get_segment_duration(uint32_t pos)const
       {
         return *segment_durations_[pos];
       };
+
+      const uint8_t get_psshset() const
+      {
+        return pssh_set_;
+      };
+
       SegmentTemplate segtpl_;
       bool encrypted;
     }*current_adaptationset_;
@@ -187,8 +195,7 @@ namespace adaptive
     XML_Parser parser_;
     uint32_t currentNode_;
     uint32_t segcount_;
-    double overallSeconds_;
-    uint64_t stream_start_, available_time_, publish_time_, base_time_;
+    uint64_t overallSeconds_, stream_start_, available_time_, publish_time_, base_time_;
     double minPresentationOffset;
     bool has_timeshift_buffer_;
 
@@ -196,8 +203,16 @@ namespace adaptive
 
     double download_speed_, average_download_speed_;
     
-    std::pair<std::string, std::string> pssh_, adp_pssh_;
-    std::string defaultKID_;
+    std::string supportedKeySystem_;
+    struct PSSH
+    {
+      PSSH() :streamType_(NOTYPE) {};
+      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && streamType_ == other.streamType_; };
+      StreamType streamType_;
+      std::string pssh_;
+      std::string defaultKID_;
+    };
+    std::vector<PSSH> psshSets_;
 
     enum
     {
@@ -211,10 +226,13 @@ namespace adaptive
     uint32_t adpfpsRate_;
     float adpaspect_;
 
+    std::string adp_pssh_, adp_defaultKID_;
+
     std::string strXMLText_;
 
     AdaptiveTree();
     virtual bool open(const char *url) = 0;
+    uint8_t insert_psshset(PSSH &pset);
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
     double get_download_speed() const { return download_speed_; };
