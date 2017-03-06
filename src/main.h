@@ -116,6 +116,7 @@ public:
   std::uint16_t GetVideoHeight()const;
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor(unsigned int nIndex)const{ return cdm_sessions_[nIndex].single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
+  AP4_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
   double GetPresentationTimeOffset() { return adaptiveTree_->minPresentationOffset < DBL_MAX? adaptiveTree_->minPresentationOffset:0; };
   uint64_t GetTotalTime()const { return adaptiveTree_->overallSeconds_; };

@@ -1474,6 +1474,14 @@ std::uint16_t Session::GetVideoHeight() const
   return ret;
 }
 
+AP4_CencSingleSampleDecrypter *Session::GetSingleSampleDecrypter(std::string sessionId)
+{
+  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
+    if (sessionId == b->cdm_session_str_)
+      return b->single_sample_decryptor_;
+  return nullptr;
+}
+
 /***************************  Interface *********************************/
 
 class CInputStreamAdaptive;
@@ -1908,7 +1916,9 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA &initData)
 
   kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open");
 
-  return m_session->GetDecrypter()->OpenVideoDecoder(reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));
+  std::string sessionId(initData.cryptoInfo.m_CryptoSessionId, initData.cryptoInfo.m_CryptoSessionIdSize);
+  AP4_CencSingleSampleDecrypter *ssd(m_session->GetSingleSampleDecrypter(sessionId));
+  return m_session->GetDecrypter()->OpenVideoDecoder(ssd, reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));
 }
 
 bool CVideoCodecAdaptive::Reconfigure(VIDEOCODEC_INITDATA &initData)
