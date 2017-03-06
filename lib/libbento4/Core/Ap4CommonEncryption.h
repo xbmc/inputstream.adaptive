@@ -518,10 +518,13 @@ public:
     // methods
 		AP4_CencSingleSampleDecrypter(AP4_StreamCipher* cipher) : m_Cipher(cipher), m_FullBlocksOnly(false), m_ParentIsOwner(true){}
 		virtual ~AP4_CencSingleSampleDecrypter();
-    virtual AP4_Result SetFrameInfo(const AP4_UI08* keyid, const AP4_UI08 nalu_length_size, AP4_DataBuffer &annexb_sps_pps) { return AP4_ERROR_NOT_SUPPORTED; };
+    virtual AP4_Result SetFragmentInfo(AP4_UI32 poolid, const AP4_UI08* keyid, const AP4_UI08 nalu_length_size, AP4_DataBuffer &annexb_sps_pps) { return AP4_ERROR_NOT_SUPPORTED; };
+    virtual AP4_UI32 AddPool() { return 0; };
+    virtual void RemovePool(AP4_UI32 poolid) {};
     virtual const char* GetSessionId() { return nullptr; };
 
-    virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
+    virtual AP4_Result DecryptSampleData(AP4_UI32 poolid, 
+                                         AP4_DataBuffer& data_in,
                                          AP4_DataBuffer& data_out,
                                          
                                          // always 16 bytes
@@ -596,7 +599,7 @@ public:
         m_SampleCursor(0) {}
     virtual ~AP4_CencSampleDecrypter();
     virtual AP4_Result SetSampleIndex(AP4_Ordinal sample_index);
-    virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
+    virtual AP4_Result DecryptSampleData(AP4_UI32 poolid, AP4_DataBuffer& data_in,
       AP4_DataBuffer& data_out,
       const AP4_UI08* iv);
 protected:

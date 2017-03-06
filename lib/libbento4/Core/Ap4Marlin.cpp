@@ -431,7 +431,7 @@ AP4_MarlinIpmpSampleDecrypter::GetDecryptedSampleSize(AP4_Sample& sample)
 |   AP4_MarlinIpmpSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_MarlinIpmpSampleDecrypter::DecryptSampleData(AP4_DataBuffer&    data_in,
+AP4_MarlinIpmpSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer&    data_in,
                                                  AP4_DataBuffer&    data_out,
                                                  const AP4_UI08*    /*iv*/)
 {
@@ -631,7 +631,7 @@ AP4_Result
 AP4_MarlinIpmpTrackDecrypter::ProcessSample(AP4_DataBuffer& data_in,
                                             AP4_DataBuffer& data_out)
 {
-    return m_SampleDecrypter->DecryptSampleData(data_in, data_out);
+    return m_SampleDecrypter->DecryptSampleData(0, data_in, data_out);
 }
 
 /*----------------------------------------------------------------------

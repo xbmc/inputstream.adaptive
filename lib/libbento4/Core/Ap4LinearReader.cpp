@@ -696,5 +696,5 @@ AP4_DecryptingSampleReader::ReadSampleData(AP4_Sample&     sample,
     AP4_Result result = sample.ReadData(m_DataBuffer);
     if (AP4_FAILED(result)) return result;
 
-    return m_Decrypter->DecryptSampleData(m_DataBuffer, sample_data);
+    return m_Decrypter->DecryptSampleData(0, m_DataBuffer, sample_data);
 }

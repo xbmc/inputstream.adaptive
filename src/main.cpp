@@ -662,10 +662,15 @@ public:
         }
       }
     }
+    if (m_SingleSampleDecryptor)
+      m_PoolId = m_SingleSampleDecryptor->AddPool();
+
   }
 
   ~FragmentedSampleReader()
   {
+    if (m_SingleSampleDecryptor)
+      m_SingleSampleDecryptor->RemovePool(m_PoolId);
     delete m_Decrypter;
     delete m_codecHandler;
   }
@@ -705,7 +710,7 @@ public:
       // If decrypter and addon are compiled with different DEBUG / RELEASE
       // options freeing HEAP memory will fail.
       m_sample_data_.Reserve(m_encrypted.GetDataSize() + 4096);
-      if (AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_encrypted, m_sample_data_, NULL)))
+      if (AP4_FAILED(result = m_Decrypter->DecryptSampleData(m_PoolId, m_encrypted, m_sample_data_, NULL)))
       {
         kodi::Log(ADDON_LOG_ERROR, "Decrypt Sample returns failure!");
         if (++m_fail_count_ > 50)
@@ -722,7 +727,7 @@ public:
     else if (useDecryptingDecoder)
     {
       m_sample_data_.Reserve(m_encrypted.GetDataSize() + 1024);
-      m_SingleSampleDecryptor->DecryptSampleData(m_encrypted, m_sample_data_, nullptr, 0, nullptr, nullptr);
+      m_SingleSampleDecryptor->DecryptSampleData(m_PoolId, m_encrypted, m_sample_data_, nullptr, 0, nullptr, nullptr);
     }
 
     m_dts = (double)m_sample_.GetDts() / (double)m_Track->GetMediaTimeScale() - m_presentationTimeOffset;
@@ -834,7 +839,7 @@ protected:
           return result;
 
         if (m_SingleSampleDecryptor)
-          m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
+          m_SingleSampleDecryptor->SetFragmentInfo(m_PoolId, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
       }
     }
 
@@ -890,6 +895,7 @@ private:
   bool m_bSampleDescChanged;
   SSD::SSD_DECRYPTER::SSD_CAPS m_decrypterCaps;
   unsigned int m_fail_count_;
+  AP4_UI32 m_PoolId;
 
   bool m_eos, m_started;
   double m_dts, m_pts;

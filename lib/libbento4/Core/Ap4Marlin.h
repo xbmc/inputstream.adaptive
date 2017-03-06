@@ -118,7 +118,7 @@ public:
     
     // AP4_SampleDecrypter methods
     AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample);
-    AP4_Result DecryptSampleData(AP4_DataBuffer&    data_in,
+    AP4_Result DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer&    data_in,
                                  AP4_DataBuffer&    data_out,
                                  const AP4_UI08*    iv = NULL);
                                  
