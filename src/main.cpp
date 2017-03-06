@@ -1108,7 +1108,7 @@ bool Session::initialize()
     return false;
 
   // Get URN's wich are supported by this addon
-  if (!license_type_.empty())
+  if (!license_type_.empty() && !license_key_.empty())
   {
     GetSupportedDecrypterURN(adaptiveTree_->supportedKeySystem_);
     kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
