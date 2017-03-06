@@ -518,7 +518,9 @@ public:
     // methods
 		AP4_CencSingleSampleDecrypter(AP4_StreamCipher* cipher) : m_Cipher(cipher), m_FullBlocksOnly(false), m_ParentIsOwner(true){}
 		virtual ~AP4_CencSingleSampleDecrypter();
-    virtual AP4_Result SetFrameInfo(const AP4_UI16 keyid_size, const AP4_UI08* keyid, const AP4_UI08 nalu_length_size, AP4_DataBuffer &annexb_sps_pps) { return AP4_ERROR_NOT_SUPPORTED; };
+    virtual AP4_Result SetFrameInfo(const AP4_UI08* keyid, const AP4_UI08 nalu_length_size, AP4_DataBuffer &annexb_sps_pps) { return AP4_ERROR_NOT_SUPPORTED; };
+    virtual const char* GetSessionId() { return nullptr; };
+
     virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
                                          AP4_DataBuffer& data_out,
                                          

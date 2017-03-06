@@ -834,7 +834,7 @@ protected:
           return result;
 
         if (m_SingleSampleDecryptor)
-          m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey ? 16 : 0, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
+          m_SingleSampleDecryptor->SetFrameInfo(m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
       }
     }
 
@@ -940,7 +940,6 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , changed_(false)
   , manual_streams_(false)
   , last_pts_(0)
-  , single_sample_decryptor_(0)
 {
   switch (manifest_type_)
   {
@@ -1056,7 +1055,7 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
         SSD::SSD_DECRYPTER *decrypter = startup(&kodihost, SSD::SSD_HOST::version);
         const char *suppUrn(0);
 
-        if (decrypter && (suppUrn = decrypter->Supported(license_type_.c_str(), license_key_.c_str())))
+        if (decrypter && (suppUrn = decrypter->OpenDRMSystem(license_type_.c_str(), license_key_.c_str(), server_certificate_)))
         {
           kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
           decrypterModule_ = mod;
@@ -1245,21 +1244,21 @@ bool Session::initialize()
           init_data.SetDataSize(init_data_size);
         }
       }
-      if (decrypter_
-        && (single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(server_certificate_)) != 0
-        && (cdm_sessions_[ses].cdm_session_ = decrypter_->CreateSession(init_data)) > 0)
+
+      CDMSESSION &session(cdm_sessions_[ses]);
+      if (decrypter_ && (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data)) != 0)
       {
         const char *defkid = adaptiveTree_->psshSets_[ses].defaultKID_.empty() ? nullptr : adaptiveTree_->psshSets_[ses].defaultKID_.data();
-        cdm_sessions_[ses].decrypter_caps_ = decrypter_->GetCapabilities(cdm_sessions_[ses].cdm_session_, (const uint8_t *)defkid);
+        cdm_sessions_[ses].decrypter_caps_ = decrypter_->GetCapabilities(cdm_sessions_[ses].single_sample_decryptor_, (const uint8_t *)defkid);
         if (cdm_sessions_[ses].decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
-          cdm_sessions_[ses].cdm_session_str_ = decrypter_->GetSessionId(cdm_sessions_[ses].cdm_session_);
+          cdm_sessions_[ses].cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session_ = true;
         }
       }
       else
       {
-        single_sample_decryptor_ = nullptr;
+        cdm_sessions_[ses].single_sample_decryptor_ = nullptr;
         return false;
       }
     }
@@ -1762,7 +1761,8 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
     }
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
-      m_session->GetSingleSampleDecryptor(), m_session->GetPresentationTimeOffset(),
+      m_session->GetSingleSampleDecryptor(stream->stream_.getAdaptationSet()->pssh_set_),
+      m_session->GetPresentationTimeOffset(),
       m_session->GetDecrypterCaps(stream->stream_.getAdaptationSet()->pssh_set_));
 
     stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));

@@ -158,13 +158,11 @@ namespace SSD
     };
 
     // Return supported URN if type matches to capabilities, otherwise null
-    virtual const char *Supported(const char* licenseType, const char *licenseKey) = 0;
-    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &serverCertificate) = 0;
-    virtual size_t CreateSession(AP4_DataBuffer &streamCodec) = 0;
-    virtual void CloseSession(size_t sessionHandle) = 0;
+    virtual const char *OpenDRMSystem(const char* keySystem, const char *licenseURL, const AP4_DataBuffer &serverCertificate) = 0;
+    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh) = 0;
+    virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 
-    virtual const SSD_CAPS &GetCapabilities(size_t sessionHandle, const uint8_t *keyid) = 0;
-    virtual const char *GetSessionId(size_t sessionHandle) = 0;
+    virtual const SSD_CAPS &GetCapabilities(const AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
 
     virtual bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;

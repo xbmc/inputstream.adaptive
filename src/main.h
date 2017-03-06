@@ -114,9 +114,9 @@ public:
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
   std::uint16_t GetVideoWidth()const;
   std::uint16_t GetVideoHeight()const;
-  AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor()const{ return single_sample_decryptor_; };
+  AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor(unsigned int nIndex)const{ return cdm_sessions_[nIndex].single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
-  const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex]. decrypter_caps_; };
+  const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
   double GetPresentationTimeOffset() { return adaptiveTree_->minPresentationOffset < DBL_MAX? adaptiveTree_->minPresentationOffset:0; };
   uint64_t GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
   double GetPTS()const { return last_pts_; };
@@ -147,7 +147,7 @@ private:
   struct CDMSESSION
   {
     SSD::SSD_DECRYPTER::SSD_CAPS decrypter_caps_;
-    uint64_t cdm_session_;
+    AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
     const char *cdm_session_str_;
   };
   std::vector<CDMSESSION> cdm_sessions_;
@@ -164,6 +164,4 @@ private:
   bool manual_streams_;
   double last_pts_;
   uint8_t media_type_mask_;
-
-  AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
 };
