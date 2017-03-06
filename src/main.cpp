@@ -1078,6 +1078,9 @@ void Session::DisposeDecrypter()
   if (!decrypterModule_)
     return;
   
+  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
+    decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+
   typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER *);
   DeleteDecryptorInstanceFunc disposefn((DeleteDecryptorInstanceFunc)dlsym(decrypterModule_, "DeleteDecryptorInstance"));
 

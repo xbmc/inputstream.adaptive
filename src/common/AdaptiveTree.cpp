@@ -115,9 +115,8 @@ namespace adaptive
 
   uint8_t AdaptiveTree::insert_psshset(PSSH &pset)
   {
-#ifndef ANDROID
+    //we currently work with a single for unique pssh
     pset.streamType_ = NOTYPE;
-#endif
     std::vector<PSSH>::iterator pos(std::find(psshSets_.begin()+1, psshSets_.end(), pset));
     if (pos == psshSets_.end())
       pos = psshSets_.insert(psshSets_.end(), pset);
