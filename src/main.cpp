@@ -1485,7 +1485,7 @@ std::uint16_t Session::GetVideoHeight() const
 
 AP4_CencSingleSampleDecrypter *Session::GetSingleSampleDecrypter(std::string sessionId)
 {
-  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
+  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin() + 1), e(cdm_sessions_.end()); b != e; ++b)
     if (sessionId == b->cdm_session_str_)
       return b->single_sample_decryptor_;
   return nullptr;
