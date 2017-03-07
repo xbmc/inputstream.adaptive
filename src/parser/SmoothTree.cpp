@@ -244,7 +244,6 @@ end(void *data, const char *el)
       else if (strcmp(el, "Protection") == 0)
       {
         dash->currentNode_ &= ~(SmoothTree::SSMNODE_PROTECTION| SmoothTree::SSMNODE_PROTECTIONTEXT);
-        dash->psshSets_.push_back(AdaptiveTree::PSSH());
         dash->parse_protection();
       }
     }
@@ -332,6 +331,15 @@ bool SmoothTree::open(const char *url)
   if (!ret)
     return false;
 
+  uint8_t psshset(0);
+
+  if (!adp_defaultKID_.empty())
+  {
+    PSSH pssh;
+    pssh.defaultKID_ = adp_defaultKID_;
+    psshset = insert_psshset(pssh);
+  }
+
   for (std::vector<AdaptationSet*>::iterator ba(current_period_->adaptationSets_.begin()), ea(current_period_->adaptationSets_.end()); ba != ea; ++ba)
   {
     for (std::vector<SmoothTree::Representation*>::iterator b((*ba)->repesentations_.begin()), e((*ba)->repesentations_.end()); b != e; ++b)
@@ -346,6 +354,7 @@ bool SmoothTree::open(const char *url)
         cummulated += *bsd;
       }
     }
+    (*ba)->pssh_set_ = psshset;
   }
   return true;
 }
