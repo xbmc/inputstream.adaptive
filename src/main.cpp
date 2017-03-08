@@ -1153,15 +1153,13 @@ bool Session::initialize()
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
-  cdm_sessions_.resize(1);
+  cdm_sessions_.resize(adaptiveTree_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
 
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->encryptionState_)
   {
     AP4_DataBuffer init_data;
-
-    cdm_sessions_.resize(adaptiveTree_->psshSets_.size());
 
     for (size_t ses(1); ses < cdm_sessions_.size(); ++ses)
     {

@@ -145,7 +145,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     }
     //go at least 12 secs back
     uint64_t duration(current_rep_->get_segment(pos)->startPTS_ - current_rep_->get_segment(pos - 1)->startPTS_);
-    pos -= (12 * current_rep_->timescale_) / duration;
+    pos -= (12 * static_cast<uint32_t>(current_rep_->timescale_) / duration);
     current_seg_ = current_rep_->get_segment(pos < 0 ? 0: pos);
   }
   else
