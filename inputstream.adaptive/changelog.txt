@@ -1,3 +1,5 @@
+1.0.8
+- Fix missing brackets when calculating livestream - start
 1.0.7
 - ServerCertificate / SSD version bump -> 6
 1.0.6
