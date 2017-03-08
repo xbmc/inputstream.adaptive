@@ -169,13 +169,6 @@ start(void *data, const char *el, const char **attr)
       }
       dash->segcount_ = 0;
       dash->currentNode_ |= SmoothTree::SSMNODE_STREAMINDEX;
-
-      if (dash->encryptionState_)
-      {
-        AdaptiveTree::PSSH pssh;
-        pssh.streamType_ = dash->current_adaptationset_->type_;
-        dash->current_adaptationset_->pssh_set_ = dash->insert_psshset(pssh);
-      }
     }
     else if (strcmp(el, "Protection") == 0)
     {

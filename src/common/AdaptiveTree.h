@@ -206,9 +206,8 @@ namespace adaptive
     std::string supportedKeySystem_;
     struct PSSH
     {
-      PSSH() :streamType_(NOTYPE) {};
-      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && streamType_ == other.streamType_; };
-      StreamType streamType_;
+      PSSH(){};
+      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_; };
       std::string pssh_;
       std::string defaultKID_;
     };

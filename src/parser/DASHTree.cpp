@@ -987,7 +987,6 @@ end(void *data, const char *el)
             if (!dash->adp_pssh_.empty())
             {
               AdaptiveTree::PSSH pssh;
-              pssh.streamType_ = dash->current_adaptationset_->type_;
               pssh.pssh_ = dash->adp_pssh_;
               pssh.defaultKID_ = dash->adp_defaultKID_;
               dash->current_adaptationset_->pssh_set_ = dash->insert_psshset(pssh);
