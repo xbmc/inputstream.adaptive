@@ -148,7 +148,6 @@ start(void *data, const char *el, const char **attr)
       //<StreamIndex Type = "video" TimeScale = "10000000" Name = "video" Chunks = "3673" QualityLevels = "6" Url = "QualityLevels({bitrate})/Fragments(video={start time})" MaxWidth = "960" MaxHeight = "540" DisplayWidth = "960" DisplayHeight = "540">
       dash->current_adaptationset_ = new SmoothTree::AdaptationSet();
       dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
-      dash->current_adaptationset_->encrypted = dash->encryptionState_ == SmoothTree::ENCRYTIONSTATE_SUPPORTED;
 
       for (; *attr;)
       {
@@ -211,10 +210,10 @@ start(void *data, const char *el, const char **attr)
 static void XMLCALL
 text(void *data, const char *s, int len)
 {
-	SmoothTree *dash(reinterpret_cast<SmoothTree*>(data));
+  SmoothTree *dash(reinterpret_cast<SmoothTree*>(data));
 
-    if (dash->currentNode_  & SmoothTree::SSMNODE_PROTECTIONTEXT)
-      dash->strXMLText_ += std::string(s, len);
+  if (dash->currentNode_  & SmoothTree::SSMNODE_PROTECTIONTEXT)
+    dash->strXMLText_ += std::string(s, len);
 }
 
 /*----------------------------------------------------------------------
@@ -266,8 +265,8 @@ end(void *data, const char *el)
 static void XMLCALL
 protection_start(void *data, const char *el, const char **attr)
 {
-	SmoothTree *dash(reinterpret_cast<SmoothTree*>(data));
-    dash->strXMLText_.clear();
+  SmoothTree *dash(reinterpret_cast<SmoothTree*>(data));
+  dash->strXMLText_.clear();
 }
 
 /*----------------------------------------------------------------------
@@ -353,6 +352,7 @@ bool SmoothTree::open(const char *url)
       }
     }
     (*ba)->pssh_set_ = psshset;
+    (*ba)->encrypted = encryptionState_ == SmoothTree::ENCRYTIONSTATE_SUPPORTED;
   }
   return true;
 }

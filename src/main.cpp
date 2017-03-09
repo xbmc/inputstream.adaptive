@@ -1061,7 +1061,7 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
         SSD::SSD_DECRYPTER *decrypter = startup(&kodihost, SSD::SSD_HOST::version);
         const char *suppUrn(0);
 
-        if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_key_.c_str())))
+        if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_type_.c_str())))
         {
           kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
           decrypterModule_ = mod;
@@ -1162,11 +1162,19 @@ bool Session::initialize()
     if (license_key_.empty())
       license_key_ = adaptiveTree_->license_url_;
 
+    kodi::Log(ADDON_LOG_DEBUG, "Entering encryption sectiom (License Key: %s)", license_key_.c_str());
+
     if (license_key_.empty())
+    {
+      kodi::Log(ADDON_LOG_ERROR, "Invalid license_key (%s)", license_key_.c_str());
       return false;
+    }
 
     if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_))
+    {
+      kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
       return false;
+    }
 
     AP4_DataBuffer init_data;
 
@@ -1277,6 +1285,7 @@ bool Session::initialize()
       }
       else
       {
+        kodi::Log(ADDON_LOG_ERROR, "Initialize failed (SingleSampleDecrypter)");
         cdm_sessions_[ses].single_sample_decryptor_ = nullptr;
         return false;
       }
@@ -1501,6 +1510,17 @@ AP4_CencSingleSampleDecrypter *Session::GetSingleSampleDecrypter(std::string ses
   return nullptr;
 }
 
+CRYPTO_INFO::CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
+{
+  if (license_type_ == "com.widevine.alpha")
+    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
+  else if (license_type_ == "com.microsoft.playready")
+    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_PLAYREADY;
+ else
+   return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE;
+}
+
+
 /***************************  Interface *********************************/
 
 class CInputStreamAdaptive;
@@ -1690,7 +1710,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
     if (stream->encrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
       kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
-      stream->info_.m_cryptoInfo.m_CryptoKeySystem = CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
+      stream->info_.m_cryptoInfo.m_CryptoKeySystem = m_session->GetCryptoKeySystem();
 
       const char* sessionId(m_session->GetCDMSession(cdmId));
       stream->info_.m_cryptoInfo.m_CryptoSessionIdSize = static_cast<uint16_t>(strlen(sessionId));
