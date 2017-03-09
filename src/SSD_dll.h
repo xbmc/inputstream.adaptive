@@ -158,7 +158,8 @@ namespace SSD
     };
 
     // Return supported URN if type matches to capabilities, otherwise null
-    virtual const char *OpenDRMSystem(const char* keySystem, const char *licenseURL, const AP4_DataBuffer &serverCertificate) = 0;
+    virtual const char *SelectKeySytem(const char* keySystem) = 0;
+    virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate) = 0;
     virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh) = 0;
     virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 

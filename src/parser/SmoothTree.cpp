@@ -299,6 +299,10 @@ protection_end(void *data, const char *el)
       prkid2wvkid(reinterpret_cast<const char *>(buffer), &dash->adp_defaultKID_[0]);
     }
   }
+  else if (strcmp(el, "LA_URL") == 0)
+  {
+    dash->license_url_ = dash->strXMLText_;
+  }
 }
 
 /*----------------------------------------------------------------------
@@ -330,6 +334,7 @@ bool SmoothTree::open(const char *url)
   {
     PSSH pssh;
     pssh.defaultKID_ = adp_defaultKID_;
+    pssh.pssh_ = adp_pssh_;
     psshset = insert_psshset(pssh);
   }
 
@@ -386,6 +391,8 @@ void SmoothTree::parse_protection()
     free(buffer);
     return;
   }
+
+  adp_pssh_ = std::string(reinterpret_cast<char*>(buffer), xml_size);
 
   while (xml_size && *xml_start != '<')
   {

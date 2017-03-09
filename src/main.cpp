@@ -1061,7 +1061,7 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
         SSD::SSD_DECRYPTER *decrypter = startup(&kodihost, SSD::SSD_HOST::version);
         const char *suppUrn(0);
 
-        if (decrypter && (suppUrn = decrypter->OpenDRMSystem(license_type_.c_str(), license_key_.c_str(), server_certificate_)))
+        if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_key_.c_str())))
         {
           kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
           decrypterModule_ = mod;
@@ -1108,7 +1108,7 @@ bool Session::initialize()
     return false;
 
   // Get URN's wich are supported by this addon
-  if (!license_type_.empty() && !license_key_.empty())
+  if (!license_type_.empty())
   {
     GetSupportedDecrypterURN(adaptiveTree_->supportedKeySystem_);
     kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
@@ -1159,6 +1159,15 @@ bool Session::initialize()
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->encryptionState_)
   {
+    if (license_key_.empty())
+      license_key_ = adaptiveTree_->license_url_;
+
+    if (license_key_.empty())
+      return false;
+
+    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_))
+      return false;
+
     AP4_DataBuffer init_data;
 
     for (size_t ses(1); ses < cdm_sessions_.size(); ++ses)
@@ -1241,7 +1250,10 @@ bool Session::initialize()
       {
         if (manifest_type_ == MANIFEST_TYPE_ISM)
         {
-          create_ism_license(adaptiveTree_->psshSets_[ses].defaultKID_, license_data_, init_data);
+          if (license_type_ == "com.widevine.alpha")
+            create_ism_license(adaptiveTree_->psshSets_[ses].defaultKID_, license_data_, init_data);
+          else
+            init_data.SetData(reinterpret_cast<const uint8_t*>(adaptiveTree_->psshSets_[ses].pssh_.data()), adaptiveTree_->psshSets_[ses].pssh_.size());
         }
         else
         {

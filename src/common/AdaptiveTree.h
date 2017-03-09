@@ -226,6 +226,7 @@ namespace adaptive
     float adpaspect_;
 
     std::string adp_pssh_, adp_defaultKID_;
+    std::string license_url_;
 
     std::string strXMLText_;
 
