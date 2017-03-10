@@ -1170,6 +1170,12 @@ bool Session::initialize()
       return false;
     }
 
+    if (!decrypter_)
+    {
+      kodi::Log(ADDON_LOG_ERROR, "No decrypter found for encrypted stream");
+      return false;
+    }
+
     if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_))
     {
       kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
@@ -1782,8 +1788,9 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
       AP4_SampleDescription *sample_descryption;
       if (strcmp(stream->info_.m_codecName, "h264") == 0)
       {
-        AP4_MemoryByteStream ms(stream->info_.m_ExtraData, stream->info_.m_ExtraSize);
-        AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + stream->info_.m_ExtraSize, ms);
+        const std::string &extradata(stream->stream_.getRepresentation()->codec_private_data_);
+        AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
+        AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
         sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
       }
       else
