@@ -1348,7 +1348,10 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
 
     if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED)
       && stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "UpdateStream: Convert avc -> annexb");
       annexb = avc_to_annexb(rep->codec_private_data_);
+    }
     else
       res = &rep->codec_private_data_;
 
@@ -1775,7 +1778,17 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
       movie = new AP4_Movie();
 
       AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
-      AP4_SampleDescription *sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+
+      AP4_SampleDescription *sample_descryption;
+      if (strcmp(stream->info_.m_codecName, "h264") == 0)
+      {
+        AP4_MemoryByteStream ms(stream->info_.m_ExtraData, stream->info_.m_ExtraSize);
+        AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + stream->info_.m_ExtraSize, ms);
+        sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
+      }
+      else
+        sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+
       if (stream->stream_.getAdaptationSet()->encrypted)
       {
         AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);

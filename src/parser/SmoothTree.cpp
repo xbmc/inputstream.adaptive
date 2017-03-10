@@ -167,6 +167,10 @@ start(void *data, const char *el, const char **attr)
         attr += 2;
       }
       dash->segcount_ = 0;
+      if (!dash->current_adaptationset_->timescale_)
+        dash->current_adaptationset_->timescale_ = 10000000; //Defalt Smmoothstream frequency (10Khz)
+
+
       dash->currentNode_ |= SmoothTree::SSMNODE_STREAMINDEX;
     }
     else if (strcmp(el, "Protection") == 0)
