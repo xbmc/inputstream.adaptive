@@ -1183,6 +1183,7 @@ bool Session::initialize()
     }
 
     AP4_DataBuffer init_data;
+    const char *optionalKeyParameter(nullptr);
 
     for (size_t ses(1); ses < cdm_sessions_.size(); ++ses)
     {
@@ -1267,7 +1268,10 @@ bool Session::initialize()
           if (license_type_ == "com.widevine.alpha")
             create_ism_license(adaptiveTree_->psshSets_[ses].defaultKID_, license_data_, init_data);
           else
+          {
             init_data.SetData(reinterpret_cast<const uint8_t*>(adaptiveTree_->psshSets_[ses].pssh_.data()), adaptiveTree_->psshSets_[ses].pssh_.size());
+            optionalKeyParameter = license_data_.empty() ? nullptr : license_data_.c_str();
+          }
         }
         else
         {
@@ -1279,7 +1283,7 @@ bool Session::initialize()
       }
 
       CDMSESSION &session(cdm_sessions_[ses]);
-      if (decrypter_ && init_data.GetDataSize() >= 4 && (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data)) != 0)
+      if (decrypter_ && init_data.GetDataSize() >= 4 && (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, optionalKeyParameter)) != 0)
       {
         const char *defkid = adaptiveTree_->psshSets_[ses].defaultKID_.empty() ? nullptr : adaptiveTree_->psshSets_[ses].defaultKID_.data();
         cdm_sessions_[ses].decrypter_caps_ = decrypter_->GetCapabilities(cdm_sessions_[ses].single_sample_decryptor_, (const uint8_t *)defkid);
