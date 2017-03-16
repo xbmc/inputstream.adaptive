@@ -125,6 +125,27 @@ struct AP4_AvcSequenceParameterSet {
     unsigned int frame_crop_right_offset;
     unsigned int frame_crop_top_offset;
     unsigned int frame_crop_bottom_offset;
+    unsigned int vui_parameters_present_flag;
+    unsigned int aspect_ratio_info_present_flag;
+    unsigned int aspect_ratio_idc;
+    unsigned int sar_width;
+    unsigned int sar_height;
+    unsigned int overscan_info_present_flag;
+    unsigned int overscan_appropriate_flag;
+    unsigned int video_signal_type_present_flag;
+    unsigned int video_format;
+    unsigned int video_full_range_flag;
+    unsigned int colour_description_present_flag;
+    unsigned int colour_primaries;
+    unsigned int transfer_characteristics;
+    unsigned int matrix_coefficients;
+    unsigned int chroma_loc_info_present_flag;
+    unsigned int chroma_sample_loc_type_top_field;
+    unsigned int chroma_sample_loc_type_bottom_field;
+    unsigned int timing_info_present_flag;
+    unsigned int num_units_in_tick;
+    unsigned int time_scale;
+    unsigned int fixed_frame_rate_flag;
 };
 
 struct AP4_AvcPictureParameterSet {

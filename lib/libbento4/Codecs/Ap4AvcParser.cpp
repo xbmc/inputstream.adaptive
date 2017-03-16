@@ -119,6 +119,27 @@ AP4_AvcNalParser::SliceTypeName(unsigned int slice_type)
     }
 }
 
+
+const int SAR[17][2] = {
+  { 0,  1 },
+  { 1,  1 },
+  { 12, 11 },
+  { 10, 11 },
+  { 16, 11 },
+  { 40, 33 },
+  { 24, 11 },
+  { 20, 11 },
+  { 32, 11 },
+  { 80, 33 },
+  { 18, 11 },
+  { 15, 11 },
+  { 64, 33 },
+  { 160, 99 },
+  { 4,  3 },
+  { 3,  2 },
+  { 2,  1 },
+};
+
 /*----------------------------------------------------------------------
 |   AP4_AvcNalParser::AP4_AvcNalParser
 +---------------------------------------------------------------------*/
@@ -196,7 +217,28 @@ AP4_AvcSequenceParameterSet::AP4_AvcSequenceParameterSet() :
     frame_crop_left_offset(0),
     frame_crop_right_offset(0),
     frame_crop_top_offset(0),
-    frame_crop_bottom_offset(0)
+    frame_crop_bottom_offset(0),
+    vui_parameters_present_flag(0),
+    aspect_ratio_info_present_flag(0),
+    aspect_ratio_idc(0),
+    sar_width(0),
+    sar_height(0),
+    overscan_info_present_flag(0),
+    overscan_appropriate_flag(0),
+    video_signal_type_present_flag(0),
+    video_format(0),
+    video_full_range_flag(0),
+    colour_description_present_flag(0),
+    colour_primaries(0),
+    transfer_characteristics(0),
+    matrix_coefficients(0),
+    chroma_loc_info_present_flag(0),
+    chroma_sample_loc_type_top_field(0),
+    chroma_sample_loc_type_bottom_field(0),
+    timing_info_present_flag(0),
+    num_units_in_tick(0),
+    time_scale(0),
+    fixed_frame_rate_flag(0)
 {
     AP4_SetMemory(scaling_list_4x4, 0, sizeof(scaling_list_4x4));
     AP4_SetMemory(use_default_scaling_matrix_4x4, 0, sizeof(use_default_scaling_matrix_4x4));
@@ -363,7 +405,63 @@ AP4_AvcFrameParser::ParseSPS(const unsigned char* data, unsigned int data_size, 
         sps.frame_crop_top_offset    = ReadGolomb(bits);
         sps.frame_crop_bottom_offset = ReadGolomb(bits);
     }
+    sps.vui_parameters_present_flag = bits.ReadBit();
+    if (sps.vui_parameters_present_flag) {
+      sps.aspect_ratio_info_present_flag = bits.ReadBit();
+      if (sps.aspect_ratio_info_present_flag) {
+        sps.aspect_ratio_idc = bits.ReadBits(8);
+        if (sps.aspect_ratio_idc == 0xFF)
+        {
+          sps.sar_width = bits.ReadBits(16);
+          sps.sar_height = bits.ReadBits(16);
+        }
+        else if (sps.aspect_ratio_idc < 17)
+        {
+          sps.sar_width = SAR[sps.aspect_ratio_idc][0];
+          sps.sar_height = SAR[sps.aspect_ratio_idc][0];
+        }
+      }
+      sps.overscan_info_present_flag = bits.ReadBit();
+      if (sps.overscan_info_present_flag)
+        sps.overscan_appropriate_flag = bits.ReadBit();
 
+      sps.video_signal_type_present_flag = bits.ReadBit();
+      if (sps.video_signal_type_present_flag) {
+        sps.video_format = bits.ReadBits(3);
+        sps.video_full_range_flag = bits.ReadBit();
+        sps.colour_description_present_flag = bits.ReadBit();
+        if (sps.colour_description_present_flag) {
+          sps.colour_primaries = bits.ReadBits(8);
+          sps.transfer_characteristics = bits.ReadBits(8);
+          sps.matrix_coefficients = bits.ReadBits(8);
+        }
+      }
+
+      sps.chroma_loc_info_present_flag = bits.ReadBit();
+      if (sps.chroma_loc_info_present_flag) {
+        sps.chroma_sample_loc_type_top_field = ReadGolomb(bits);
+        sps.chroma_sample_loc_type_bottom_field = ReadGolomb(bits);
+      }
+
+      if(bits.PeekBit() && bits.BitsLeft() < 10)
+        return AP4_SUCCESS;
+
+      sps.timing_info_present_flag = bits.ReadBit();
+      if (sps.timing_info_present_flag) {
+#if AP4_PLATFORM_BYTE_ORDER == AP4_PLATFORM_BYTE_ORDER_BIG_ENDIAN
+        sps.num_units_in_tick = bits.ReadBits(32);
+        sps.time_scale = bits.ReadBits(32);
+#else
+        sps.num_units_in_tick = bits.ReadBits(16) << 16;
+        sps.num_units_in_tick |= bits.ReadBits(16);
+        sps.time_scale = bits.ReadBits(16) << 16;
+        sps.time_scale |= bits.ReadBits(16);
+#endif
+        if (!sps.num_units_in_tick || !sps.time_scale)
+          sps.timing_info_present_flag = 0;
+        sps.fixed_frame_rate_flag = bits.ReadBit();
+      }
+    }
     return AP4_SUCCESS;
 }
 
