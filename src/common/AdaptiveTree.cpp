@@ -118,6 +118,8 @@ namespace adaptive
     std::vector<PSSH>::iterator pos(std::find(psshSets_.begin()+1, psshSets_.end(), pset));
     if (pos == psshSets_.end())
       pos = psshSets_.insert(psshSets_.end(), pset);
+    else
+      pos->media_ |= pset.media_;
     return static_cast<uint8_t>(pos - psshSets_.begin());
   }
 }

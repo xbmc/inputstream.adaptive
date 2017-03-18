@@ -206,10 +206,14 @@ namespace adaptive
     std::string supportedKeySystem_;
     struct PSSH
     {
+      static const uint32_t MEDIA_VIDEO = 1;
+      static const uint32_t MEDIA_AUDIO = 2;
+
       PSSH(){};
-      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_; };
+      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_; };
       std::string pssh_;
       std::string defaultKID_;
+      uint32_t media_;
     };
     std::vector<PSSH> psshSets_;
 

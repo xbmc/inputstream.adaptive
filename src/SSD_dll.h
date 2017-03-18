@@ -145,6 +145,9 @@ namespace SSD
       static const uint32_t SSD_ANNEXB_REQUIRED = 4;
       static const uint32_t SSD_HDCP_RESTRICTED = 8;
 
+      static const uint32_t SSD_MEDIA_VIDEO = 1;
+      static const uint32_t SSD_MEDIA_AUDIO = 2;
+
       uint16_t flags;
 
       /* The following 2 fields are set as followed:
@@ -163,7 +166,7 @@ namespace SSD
     virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter) = 0;
     virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 
-    virtual const SSD_CAPS &GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
+    virtual const SSD_CAPS &GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media) = 0;
 
     virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;

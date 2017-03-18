@@ -1287,7 +1287,12 @@ bool Session::initialize()
       if (decrypter_ && init_data.GetDataSize() >= 4 && (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, optionalKeyParameter)) != 0)
       {
         const char *defkid = adaptiveTree_->psshSets_[ses].defaultKID_.empty() ? nullptr : adaptiveTree_->psshSets_[ses].defaultKID_.data();
-        cdm_sessions_[ses].decrypter_caps_ = decrypter_->GetCapabilities(cdm_sessions_[ses].single_sample_decryptor_, (const uint8_t *)defkid);
+
+        cdm_sessions_[ses].decrypter_caps_ = decrypter_->GetCapabilities(
+          cdm_sessions_[ses].single_sample_decryptor_,
+          (const uint8_t *)defkid,
+          adaptiveTree_->psshSets_[ses].media_);
+
         if (cdm_sessions_[ses].decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
           cdm_sessions_[ses].cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();

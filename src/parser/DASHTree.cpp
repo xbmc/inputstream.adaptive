@@ -989,6 +989,12 @@ end(void *data, const char *el)
               AdaptiveTree::PSSH pssh;
               pssh.pssh_ = dash->adp_pssh_;
               pssh.defaultKID_ = dash->adp_defaultKID_;
+              switch (dash->current_adaptationset_->type_)
+              {
+              case DASHTree::VIDEO: pssh.media_ = AdaptiveTree::PSSH::MEDIA_VIDEO; break;
+              case DASHTree::AUDIO: pssh.media_ = AdaptiveTree::PSSH::MEDIA_AUDIO; break;
+              default: pssh.media_ = 0; break;
+              }
               dash->current_adaptationset_->pssh_set_ = dash->insert_psshset(pssh);
             }
             
