@@ -283,19 +283,56 @@ AP4_AvcFrameParser::SignedGolomb(unsigned int code_num)
 /*----------------------------------------------------------------------
 |   AP4_AvcSequenceParameterSet::GetInfo
 +---------------------------------------------------------------------*/
-void
+bool
 AP4_AvcSequenceParameterSet::GetInfo(unsigned int& width, unsigned int& height)
 {
-    width = (pic_width_in_mbs_minus1+1) * 16;
-	height = (2-frame_mbs_only_flag) * (pic_height_in_map_units_minus1+1) * 16;
+  unsigned int nwidth = (pic_width_in_mbs_minus1+1) * 16;
+  unsigned int nheight = (2-frame_mbs_only_flag) * (pic_height_in_map_units_minus1+1) * 16;
 
-    if (frame_cropping_flag) {
-        unsigned int crop_h = 2*(frame_crop_left_offset+frame_crop_right_offset);
-        unsigned int crop_v = 2*(frame_crop_top_offset+frame_crop_bottom_offset)*(2-frame_mbs_only_flag);
-		if (crop_h < width) width   -= crop_h;
-		if (crop_v < height) height -= crop_v;
+  if (frame_cropping_flag) {
+    unsigned int crop_h = 2*(frame_crop_left_offset+frame_crop_right_offset);
+    unsigned int crop_v = 2*(frame_crop_top_offset+frame_crop_bottom_offset)*(2-frame_mbs_only_flag);
+    if (crop_h < nwidth) nwidth   -= crop_h;
+    if (crop_v < nheight) nheight -= crop_v;
 	}
+  if (nwidth != width | nheight != height)
+  {
+    width = nwidth;
+    height = nheight;
+    return true;
+  }
+  return false;
 }
+
+/*----------------------------------------------------------------------
+|   AP4_AvcSequenceParameterSet::GetVUIInfo
++---------------------------------------------------------------------*/
+bool
+AP4_AvcSequenceParameterSet::GetVUIInfo(unsigned int& fps_ticks, unsigned int& fps_scale, float &aspect)
+{
+  bool ret(false);
+  if (timing_info_present_flag)
+  {
+    if (fps_ticks != (num_units_in_tick << 1) || fps_scale != time_scale)
+    {
+      fps_ticks = num_units_in_tick << 1;
+      fps_scale = time_scale;
+      ret = true;
+    }
+  }
+  unsigned int w, h;
+  if (aspect_ratio_info_present_flag && GetInfo(w, h))
+  {
+    float a((float)(sar_width * w) / (sar_height * h));
+    if (a != aspect)
+    {
+      aspect = a;
+      ret = true;
+    }
+  }
+  return ret;
+}
+
 
 /*----------------------------------------------------------------------
 |   AP4_AvcFrameParser::ParseSPS
@@ -418,7 +455,7 @@ AP4_AvcFrameParser::ParseSPS(const unsigned char* data, unsigned int data_size, 
         else if (sps.aspect_ratio_idc < 17)
         {
           sps.sar_width = SAR[sps.aspect_ratio_idc][0];
-          sps.sar_height = SAR[sps.aspect_ratio_idc][0];
+          sps.sar_height = SAR[sps.aspect_ratio_idc][1];
         }
       }
       sps.overscan_info_present_flag = bits.ReadBit();

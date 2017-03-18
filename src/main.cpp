@@ -376,11 +376,11 @@ public:
     : sample_description(sd)
     , naluLengthSize(0)
     , pictureId(0)
-    , pictureIdPrev(0)
+    , pictureIdPrev(0xFF)
   {};
 
   virtual void UpdatePPSId(AP4_DataBuffer const&){};
-  virtual bool GetVideoInformation(unsigned int &width, unsigned int &height){ return false; };
+  virtual bool GetVideoInformation(INPUTSTREAM_INFO &info){ return false; };
   virtual bool GetAudioInformation(unsigned int &channels){ return false; };
   virtual bool ExtraDataToAnnexB() { return false; };
   virtual kodi::addon::CODEC_PROFILE GetProfile() { return kodi::addon::CODEC_PROFILE::CodecProfileNotNeeded; };
@@ -531,7 +531,7 @@ public:
     }
   }
 
-  virtual bool GetVideoInformation(unsigned int &width, unsigned int &height) override
+  virtual bool GetVideoInformation(INPUTSTREAM_INFO &info) override
   {
     if (pictureId == pictureIdPrev)
       return false;
@@ -551,8 +551,9 @@ public:
           {
             if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParseSPS(buffer[i].GetData(), buffer[i].GetDataSize(), sps)) && sps.seq_parameter_set_id == pps.seq_parameter_set_id)
             {
-              sps.GetInfo(width, height);
-              return true;
+              bool ret = sps.GetInfo(info.m_Width, info.m_Height);
+              ret = sps.GetVUIInfo(info.m_FpsRate, info.m_FpsScale, info.m_Aspect) || ret;
+              return ret;
             }
           }
           break;
@@ -771,7 +772,7 @@ public:
 
     m_bSampleDescChanged = false;
 
-    if (m_codecHandler->GetVideoInformation(info.m_Width, info.m_Height)
+    if (m_codecHandler->GetVideoInformation(info)
       || m_codecHandler->GetAudioInformation(info.m_Channels))
       return true;
 
@@ -1348,7 +1349,7 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_Width = rep->width_;
   stream.info_.m_Height = rep->height_;
   stream.info_.m_Aspect = rep->aspect_;
-  if (stream.info_.m_Aspect == 0.0f)
+  if (stream.info_.m_Aspect == 0.0f && stream.info_.m_Height)
     stream.info_.m_Aspect = (float)stream.info_.m_Width / stream.info_.m_Height;
 
   if (!stream.info_.m_ExtraSize && rep->codec_private_data_.size())

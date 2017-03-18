@@ -84,7 +84,8 @@ typedef struct {
 struct AP4_AvcSequenceParameterSet {
     AP4_AvcSequenceParameterSet();
     
-    void GetInfo(unsigned int& width, unsigned int& height);
+    bool GetInfo(unsigned int& width, unsigned int& height);
+    bool GetVUIInfo(unsigned int& fps_ticks, unsigned int& fps_scale, float &aspect);
     
     AP4_DataBuffer raw_bytes;
 

@@ -107,6 +107,27 @@ start(void *data, const char *el, const char **attr)
             dash->current_representation_->nalLengthSize_ = static_cast<uint8_t>(atoi((const char*)*(attr + 1)));
           attr += 2;
         }
+
+        if (dash->current_representation_->codecs_ == "aacl" && dash->current_representation_->codec_private_data_.empty())
+        {
+          uint16_t esds(0x1010), sidx(4);
+          switch (dash->current_representation_->samplingRate_)
+          {
+            case 96000: sidx = 0; break;
+            case 88200: sidx = 1; break;
+            case 64000: sidx = 2; break;
+            case 48000: sidx = 3; break;
+            case 44100: sidx = 4; break;
+            case 32000: sidx = 5; break;
+            default:;
+          }
+          esds |= (sidx << 7);
+
+          dash->current_representation_->codec_private_data_.resize(2);
+          dash->current_representation_->codec_private_data_[0] = esds >> 8;
+          dash->current_representation_->codec_private_data_[1] = esds & 0xFF;
+        }
+
         dash->current_representation_->url_.replace(pos, 9, bw);
         dash->current_representation_->bandwidth_ = atoi(bw);
         dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
