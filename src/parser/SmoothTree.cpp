@@ -115,6 +115,7 @@ start(void *data, const char *el, const char **attr)
       {
         //<c n = "0" d = "20000000" / >
         uint32_t push_duration(~0);
+        uint32_t repeat_count(1);
 
         for (; *attr;)
         {
@@ -126,17 +127,20 @@ start(void *data, const char *el, const char **attr)
             else
               dash->current_adaptationset_->startPTS_ = lt;
             dash->pts_helper_ = lt;
-            push_duration = 0;
+            if (!~push_duration)
+              push_duration = 0;
           }
           else if (*(const char*)*attr == 'd')
-          {
             push_duration = atoi((const char*)*(attr + 1));
-            break;
-          }
+          else if (*(const char*)*attr == 'r')
+            repeat_count = atoi((const char*)*(attr + 1));
           attr += 2;
         }
         if (~push_duration)
-          dash->current_adaptationset_->segment_durations_.data.push_back(push_duration);
+        {
+          while (repeat_count--)
+            dash->current_adaptationset_->segment_durations_.data.push_back(push_duration);
+        }
       }
     }
     else if (strcmp(el, "StreamIndex") == 0)
