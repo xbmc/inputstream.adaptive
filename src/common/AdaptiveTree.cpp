@@ -80,7 +80,7 @@ namespace adaptive
       average_download_speed_ = average_download_speed_*0.9 + download_speed_*0.1;
   };
 
-  void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration, uint32_t movie_timescale)
+  void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
   {
     if (!has_timeshift_buffer_)
       return;
@@ -101,9 +101,13 @@ namespace adaptive
     else if (pos != rep->segments_.data.size() - 1)
       return;
 
-    fragmentDuration = static_cast<std::uint32_t>(static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_ / movie_timescale);
-
     Segment seg(*(rep->segments_[pos]));
+
+    if (!timestamp)
+      fragmentDuration = static_cast<std::uint32_t>(static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_ / movie_timescale);
+    else
+      fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - seg.startPTS_);
+
     if(~seg.range_begin_)
       seg.range_begin_ += fragmentDuration;
     seg.range_end_ += (rep->flags_ & (Representation::STARTTIMETPL | Representation::TIMETEMPLATE)) ? fragmentDuration : 1;

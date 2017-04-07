@@ -641,6 +641,8 @@ public:
     , m_SingleSampleDecryptor(ssd)
     , m_Decrypter(0)
     , m_Observer(0)
+    , m_nextDuration(0)
+    , m_nextTimestamp(0)
   {
     EnableTrack(m_Track->GetId());
 
@@ -793,7 +795,19 @@ public:
   };
   void SetObserver(FragmentObserver *observer) { m_Observer = observer; };
   void SetPTSOffset(uint64_t offset) { FindTracker(m_Track->GetId())->m_NextDts = offset; };
-  uint64_t GetFragmentDuration() { return dynamic_cast<AP4_FragmentSampleTable*>(FindTracker(m_Track->GetId())->m_SampleTable)->GetDuration(); };
+  void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur)
+  {
+    if (m_nextDuration)
+    {
+      dur = m_nextDuration;
+      ts = m_nextTimestamp;
+    }
+    else
+    {
+      dur = dynamic_cast<AP4_FragmentSampleTable*>(FindTracker(m_Track->GetId())->m_SampleTable)->GetDuration();
+      ts = 0;
+    }
+  };
   uint32_t GetTimeScale() { return m_Track->GetMediaTimeScale(); };
 
 protected:
@@ -808,9 +822,30 @@ protected:
 
     if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(moof, moof_offset, mdat_payload_offset))))
     {
+      AP4_ContainerAtom *traf = AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));
+
+      //For ISM Livestreams we have an UUID atom with one / more following fragment durations
+      m_nextDuration = m_nextTimestamp = 0;
+      AP4_UuidAtom *uuid_atom;
+      unsigned int atom_pos(0);
+      const uint8_t uuid[16] = { 0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46, 0x95, 0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f };
+      while ((uuid_atom = AP4_DYNAMIC_CAST(AP4_UuidAtom, traf->GetChild(AP4_ATOM_TYPE_UUID, atom_pos++))))
+      {
+        if (memcmp(uuid_atom->GetUuid(), uuid, 16) == 0)
+        {
+          //verison(8) + flags(24) + numpairs(8) + pairs(ts(64)/dur(64))*numpairs
+          const AP4_DataBuffer &buf(AP4_DYNAMIC_CAST(AP4_UnknownUuidAtom, uuid_atom)->GetData());
+          if (buf.GetDataSize() >= 21)
+          {
+            const uint8_t *data(buf.GetData());
+            m_nextTimestamp = AP4_BytesToUInt64BE(data + 5);
+            m_nextDuration = AP4_BytesToUInt64BE(data + 13);
+          }
+          break;
+        }
+      }
 
       //Check if the sample table description has changed
-      AP4_ContainerAtom *traf = AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));
       AP4_TfhdAtom *tfhd = AP4_DYNAMIC_CAST(AP4_TfhdAtom, traf->GetChild(AP4_ATOM_TYPE_TFHD, 0));
       if ((tfhd && tfhd->GetSampleDescriptionIndex() != m_SampleDescIndex) || (!tfhd && (m_SampleDescIndex = 1)))
       {
@@ -834,7 +869,7 @@ protected:
 
         if (AP4_FAILED(result = AP4_CencSampleInfoTable::Create(m_Protected_desc, traf, algorithm_id, *m_FragmentStream, moof_offset, sample_table)))
           // we assume unencrypted fragment here
-          return AP4_SUCCESS;
+          goto SUCCESS;
 
         if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, m_SingleSampleDecryptor, m_Decrypter)))
           return result;
@@ -843,7 +878,7 @@ protected:
           m_SingleSampleDecryptor->SetFragmentInfo(m_PoolId, m_DefaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
       }
     }
-
+SUCCESS:
     if (m_Observer)
       m_Observer->EndFragment(m_StreamId);
 
@@ -912,6 +947,7 @@ private:
   AP4_CencSingleSampleDecrypter *m_SingleSampleDecryptor;
   AP4_CencSampleDecrypter *m_Decrypter;
   FragmentObserver *m_Observer;
+  uint64_t m_nextDuration, m_nextTimestamp;
 };
 
 /*******************************************************
@@ -1471,11 +1507,15 @@ void Session::BeginFragment(AP4_UI32 streamId)
 void Session::EndFragment(AP4_UI32 streamId)
 {
   STREAM *s(streams_[streamId - 1]);
+  uint64_t nextTs, nextDur;
+  s->reader_->GetNextFragmentInfo(nextTs, nextDur);
+
   adaptiveTree_->SetFragmentDuration(
     s->stream_.getAdaptationSet(),
     s->stream_.getRepresentation(),
     s->stream_.getSegmentPos(),
-    static_cast<uint32_t>(s->reader_->GetFragmentDuration()),
+    nextTs,
+    static_cast<uint32_t>(nextDur),
     s->reader_->GetTimeScale());
 }
 

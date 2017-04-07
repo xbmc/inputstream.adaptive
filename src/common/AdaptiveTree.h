@@ -242,7 +242,7 @@ namespace adaptive
     double get_download_speed() const { return download_speed_; };
     double get_average_download_speed() const { return average_download_speed_; };
     void set_download_speed(double speed);
-    void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint32_t fragmentDuration, uint32_t movie_timescale);
+    void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale);
 
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
