@@ -518,6 +518,7 @@ start(void *data, const char *el, const char **attr)
               dash->current_adaptationset_->type_ =
                 stricmp((const char*)*(attr + 1), "video") == 0 ? DASHTree::VIDEO
                 : stricmp((const char*)*(attr + 1), "audio") == 0 ? DASHTree::AUDIO
+                : stricmp((const char*)*(attr + 1), "text") == 0 ? DASHTree::SUBTITLE
                 : DASHTree::NOTYPE;
               break;
             }
@@ -575,6 +576,8 @@ start(void *data, const char *el, const char **attr)
                   dash->current_adaptationset_->type_ = DASHTree::VIDEO;
                 else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
                   dash->current_adaptationset_->type_ = DASHTree::AUDIO;
+                else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
+                  dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
               }
             }
             attr += 2;
@@ -667,6 +670,7 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->type_ =
             stricmp((const char*)*(attr + 1), "video") == 0 ? DASHTree::VIDEO
             : stricmp((const char*)*(attr + 1), "audio") == 0 ? DASHTree::AUDIO
+            : stricmp((const char*)*(attr + 1), "text") == 0 ? DASHTree::SUBTITLE
             : DASHTree::NOTYPE;
           else if (strcmp((const char*)*attr, "lang") == 0)
             dash->current_adaptationset_->language_ = ltranslate((const char*)*(attr + 1));
@@ -694,6 +698,8 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->type_ = DASHTree::VIDEO;
           else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
             dash->current_adaptationset_->type_ = DASHTree::AUDIO;
+          else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
+            dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
         }
         dash->segcount_ = 0;
         dash->currentNode_ |= DASHTree::MPDNODE_ADAPTIONSET;

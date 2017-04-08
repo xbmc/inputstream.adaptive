@@ -75,7 +75,7 @@ namespace adaptive
       NOTYPE,
       VIDEO,
       AUDIO,
-      TEXT,
+      SUBTITLE,
       STREAM_TYPE_COUNT
     };
 

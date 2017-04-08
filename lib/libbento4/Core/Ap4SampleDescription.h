@@ -88,6 +88,7 @@ const AP4_UI32 AP4_SAMPLE_FORMAT_TEXT = AP4_ATOM_TYPE('t','e','t','x');
 const AP4_UI32 AP4_SAMPLE_FORMAT_TWOS = AP4_ATOM_TYPE('t','w','o','s');
 const AP4_UI32 AP4_SAMPLE_FORMAT_TX3G = AP4_ATOM_TYPE('t','x','3','g');
 const AP4_UI32 AP4_SAMPLE_FORMAT_VC_1 = AP4_ATOM_TYPE('v','c','-','1');
+const AP4_UI32 AP4_SAMPLE_FORMAT_STPP = AP4_ATOM_TYPE('s','t','p','p');
 const AP4_UI32 AP4_SAMPLE_FORMAT_XML_ = AP4_ATOM_TYPE('x','m','l',' ');
 
 const char*
