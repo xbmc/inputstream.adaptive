@@ -120,6 +120,7 @@ namespace adaptive
       static const unsigned int TIMETEMPLATE = 16;
       static const unsigned int SEGMENTBASE = 32;
       static const unsigned int STARTTIMETPL = 64;
+      static const unsigned int SUBTITLESTREAM = 128;
 
       uint16_t flags_;
       uint16_t hdcpVersion_;

@@ -576,12 +576,17 @@ start(void *data, const char *el, const char **attr)
                   dash->current_adaptationset_->type_ = DASHTree::VIDEO;
                 else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
                   dash->current_adaptationset_->type_ = DASHTree::AUDIO;
-                else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
+                else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application", 11) == 0)
                   dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
               }
             }
             attr += 2;
           }
+
+          if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE
+          && dash->current_adaptationset_->mimeType_ == "application/ttml+xml")
+            dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
+
           dash->currentNode_ |= DASHTree::MPDNODE_REPRESENTATION;
         }
         else if (strcmp(el, "SegmentDurations") == 0)
@@ -698,7 +703,7 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->type_ = DASHTree::VIDEO;
           else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
             dash->current_adaptationset_->type_ = DASHTree::AUDIO;
-          else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
+          else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application", 11) == 0)
             dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
         }
         dash->segcount_ = 0;
@@ -919,7 +924,7 @@ end(void *data, const char *el)
                   return;
                 }
               }
-              else if (!(dash->current_representation_->flags_ & DASHTree::Representation::SEGMENTBASE))
+              else if (!(dash->current_representation_->flags_ & (DASHTree::Representation::SEGMENTBASE | DASHTree::Representation::SUBTITLESTREAM)))
               {
                 //Let us try to extract the fragments out of SIDX atom  
                 dash->current_representation_->flags_ |= DASHTree::Representation::SEGMENTBASE;

@@ -217,6 +217,9 @@ bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool
   if (!current_rep_)
     return false;
 
+  if (current_rep_->flags_ & AdaptiveTree::Representation::SUBTITLESTREAM)
+    return true;
+
   uint32_t choosen_seg(~0);
   
   uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->timescale_);

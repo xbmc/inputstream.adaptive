@@ -28,7 +28,7 @@
 #include "Ap4.h"
 #include "SSD_dll.h"
 
-class FragmentedSampleReader;
+class SampleReader;
 
 namespace XBMCFILE
 {
@@ -89,7 +89,7 @@ public:
   Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path, uint16_t display_width, uint16_t display_height);
   ~Session();
   bool initialize();
-  FragmentedSampleReader *GetNextSample();
+  SampleReader *GetNextSample();
 
   struct STREAM
   {
@@ -103,7 +103,7 @@ public:
     AP4_ByteStream *input_;
     AP4_File *input_file_;
     INPUTSTREAM_INFO info_;
-    FragmentedSampleReader *reader_;
+    SampleReader *reader_;
   };
 
   void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);

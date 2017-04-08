@@ -155,6 +155,12 @@ bool TTML2SRT::Prepare(uint64_t &pts, uint32_t &duration)
   return true;
 }
 
+bool TTML2SRT::TimeSeek(uint64_t seekPos)
+{
+  for (m_pos = 0; m_pos < m_subTitles.size() && m_subTitles[m_pos].end < seekPos; ++m_pos);
+  return true;
+}
+
 bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
 {
   if (!s || !e)
