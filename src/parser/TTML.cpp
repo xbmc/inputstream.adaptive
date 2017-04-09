@@ -18,51 +18,65 @@
 
 #include "TTML.h"
 #include "expat.h"
+#include <cstring>
 
 static void XMLCALL
 start(void *data, const char *el, const char **attr)
 {
   TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
-  if (ttml->m_node & TTML2SRT::NODE_BODY)
+  if (ttml->m_node & TTML2SRT::NODE_TT)
   {
-    if (ttml->m_node & TTML2SRT::NODE_DIV)
+    if (ttml->m_node & TTML2SRT::NODE_BODY)
     {
-      if (ttml->m_node & TTML2SRT::NODE_P)
+      if (ttml->m_node & TTML2SRT::NODE_DIV)
       {
-        if (ttml->m_node & TTML2SRT::NODE_SPAN)
+        if (ttml->m_node & TTML2SRT::NODE_P)
         {
-          if (strcmp(el, "br") == 0)
-            ttml->m_strXMLText += "\n";
+          if (ttml->m_node & TTML2SRT::NODE_SPAN)
+          {
+            if (strcmp(el, "br") == 0)
+              ttml->m_strXMLText += "\n";
+          }
+          else if (strcmp(el, "span") == 0)
+          {
+            ttml->m_strXMLText.clear();
+            ttml->m_node |= TTML2SRT::NODE_SPAN;
+          }
         }
-        else if (strcmp(el, "span") == 0)
+        else if (strcmp(el, "p") == 0)
         {
-          ttml->m_strXMLText.clear();
-          ttml->m_node |= TTML2SRT::NODE_SPAN;
-        }
-      }
-      else if (strcmp(el, "p") == 0)
-      {
-        const char *b(0), *e(0), *id("");
+          const char *b(0), *e(0), *id("");
 
-        for (; *attr;)
-        {
-          if (strcmp((const char*)*attr, "begin") == 0)
-            b = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "end") == 0)
-            e = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "xml:id") == 0)
-            id = (const char*)*(attr + 1);
-          attr += 2;
+          for (; *attr;)
+          {
+            if (strcmp((const char*)*attr, "begin") == 0)
+              b = (const char*)*(attr + 1);
+            else if (strcmp((const char*)*attr, "end") == 0)
+              e = (const char*)*(attr + 1);
+            else if (strcmp((const char*)*attr, "xml:id") == 0)
+              id = (const char*)*(attr + 1);
+            attr += 2;
+          }
+          if (ttml->StackSubTitle(b, e, id))
+            ttml->m_node |= TTML2SRT::NODE_P;
         }
-        if (ttml->StackSubTitle(b, e, id))
-          ttml->m_node |= TTML2SRT::NODE_P;
       }
+      else if (strcmp(el, "div") == 0)
+        ttml->m_node |= TTML2SRT::NODE_DIV;
     }
-    else if (strcmp(el, "div") == 0)
-      ttml->m_node |= TTML2SRT::NODE_DIV;
+    else if (strcmp(el, "body") == 0)
+      ttml->m_node |= TTML2SRT::NODE_BODY;
   }
-  else if (strcmp(el, "body") == 0)
-    ttml->m_node |= TTML2SRT::NODE_BODY;
+  else if (strcmp(el, "tt") == 0)
+  {
+    ttml->m_node |= TTML2SRT::NODE_TT;
+    for (; *attr;)
+    {
+      if (strcmp((const char*)*attr, "ttp:tickRate") == 0)
+        ttml->m_tickRate = atoll((const char*)*(attr + 1));
+      attr += 2;
+    }
+  }
 }
 
 static void XMLCALL
@@ -79,25 +93,30 @@ end(void *data, const char *el)
 {
   TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
 
-  if (ttml->m_node & TTML2SRT::NODE_BODY)
+  if (ttml->m_node & TTML2SRT::NODE_TT)
   {
-    if (ttml->m_node & TTML2SRT::NODE_DIV)
+    if (ttml->m_node & TTML2SRT::NODE_BODY)
     {
-      if (ttml->m_node & TTML2SRT::NODE_P)
+      if (ttml->m_node & TTML2SRT::NODE_DIV)
       {
-        if (strcmp(el, "span") == 0)
+        if (ttml->m_node & TTML2SRT::NODE_P)
         {
-          ttml->m_node &= ~TTML2SRT::NODE_SPAN;
-          ttml->StackText();
+          if (strcmp(el, "span") == 0)
+          {
+            ttml->m_node &= ~TTML2SRT::NODE_SPAN;
+            ttml->StackText();
+          }
+          else if (strcmp(el, "p") == 0)
+            ttml->m_node &= ~TTML2SRT::NODE_P;
         }
-        else if (strcmp(el, "p") == 0)
-          ttml->m_node &= ~TTML2SRT::NODE_P;
+        else if (strcmp(el, "div") == 0)
+          ttml->m_node &= ~TTML2SRT::NODE_DIV;
       }
-      else if (strcmp(el, "div") == 0)
-        ttml->m_node &= ~TTML2SRT::NODE_DIV;
+      else if (strcmp(el, "body") == 0)
+        ttml->m_node &= ~TTML2SRT::NODE_BODY;
     }
-    else if (strcmp(el, "body") == 0)
-      ttml->m_node &= ~TTML2SRT::NODE_BODY;
+    else if (strcmp(el, "tt") == 0)
+      ttml->m_node &= ~TTML2SRT::NODE_TT;
   }
 }
 
@@ -161,24 +180,36 @@ bool TTML2SRT::TimeSeek(uint64_t seekPos)
   return true;
 }
 
+uint64_t TTML2SRT::GetTime(const char *tmchar)
+{
+  uint64_t ret;
+  if (tmchar[strlen(tmchar) - 1] == 't')
+  {
+    ret = atoll(tmchar) * m_timescale;
+    if (m_tickRate)
+      ret /= m_tickRate;
+  }
+  else
+  {
+    unsigned int th, tm, ts, tms;
+    sscanf(tmchar, "%u:%u:%u.%u", &th, &tm, &ts, &tms);
+    ret = th * 3600 + tm * 60 + ts;
+    ret = ret * 1000 + tms * 10;
+    ret = (ret * m_timescale) / 1000;
+  }
+  return ret;
+}
+
 bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
 {
-  if (!s || !e)
+  if (!s || !e || !*s || !*e)
     return false;
   
   m_subTitles.push_back(SUBTITLE());
   SUBTITLE &sub(m_subTitles.back());
-  unsigned int th, tm, ts, tms;
   
-  sscanf(s, "%u:%u:%u.%u", &th, &tm, &ts, &tms);
-  sub.start = th * 3600 + tm * 60 + ts;
-  sub.start = sub.start * 1000 + tms * 10;
-  sub.start = (sub.start * m_timescale) / 1000;
-
-  sscanf(e, "%u:%u:%u.%u", &th, &tm, &ts, &tms);
-  sub.end = th * 3600 + tm * 60 + ts;
-  sub.end = sub.end * 1000 + tms * 10;
-  sub.end = (sub.end * m_timescale) / 1000;
+  sub.start = GetTime(s);
+  sub.end = GetTime(e);
 
   sub.id = id;
 

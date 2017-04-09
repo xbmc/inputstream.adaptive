@@ -21,11 +21,12 @@
 #include <inttypes.h>
 #include <deque>
 #include <vector>
+#include <string>
 
 class TTML2SRT
 {
 public:
-  TTML2SRT() :m_node(0), m_pos(0), m_timescale(0){};
+  TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_timescale(0) {};
 
   bool Parse(const void *buffer, size_t buffer_size, uint64_t timescale);
 
@@ -47,14 +48,17 @@ public:
 
   // helper
   std::string m_strXMLText;
-
+  static const uint32_t NODE_TT = 1 << 0;
   static const uint32_t NODE_BODY = 1 << 10;
   static const uint32_t NODE_DIV = 1 << 11;
   static const uint32_t NODE_P = 1 << 12;
   static const uint32_t NODE_SPAN = 1 << 13;
 
   uint32_t m_node, m_pos;
+  uint64_t m_tickRate;
 private:
+  uint64_t GetTime(const char * tm);
+
   std::deque<SUBTITLE> m_subTitles;
   std::string m_SRT, m_lastId;
   uint64_t m_timescale;
