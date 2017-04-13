@@ -907,11 +907,12 @@ protected:
 
       //For ISM Livestreams we have an UUID atom with one / more following fragment durations
       m_nextDuration = m_nextTimestamp = 0;
-      AP4_UuidAtom *uuid_atom;
+      AP4_Atom *atom;
       unsigned int atom_pos(0);
       const uint8_t uuid[16] = { 0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46, 0x95, 0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f };
-      while ((uuid_atom = AP4_DYNAMIC_CAST(AP4_UuidAtom, traf->GetChild(AP4_ATOM_TYPE_UUID, atom_pos++))))
+      while ((atom = traf->GetChild(AP4_ATOM_TYPE_UUID, atom_pos++))!= nullptr)
       {
+        AP4_UuidAtom *uuid_atom(AP4_DYNAMIC_CAST(AP4_UuidAtom, atom));
         if (memcmp(uuid_atom->GetUuid(), uuid, 16) == 0)
         {
           //verison(8) + flags(24) + numpairs(8) + pairs(ts(64)/dur(64))*numpairs
