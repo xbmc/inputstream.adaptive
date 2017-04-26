@@ -1396,18 +1396,6 @@ extern "C" {
     SAFE_DELETE(ipsh);
   }
 
-  bool ADDON_HasSettings()
-  {
-    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_HasSettings()");
-    return false;
-  }
-
-  unsigned int ADDON_GetSettings(ADDON_StructSetting ***sSet)
-  {
-    xbmc->Log(ADDON::LOG_DEBUG, "ADDON_GetSettings()");
-    return 0;
-  }
-
   ADDON_STATUS ADDON_SetSetting(const char *settingName, const void *settingValue)
   {
     xbmc->Log(ADDON::LOG_DEBUG, "ADDON_SetSettings()");
@@ -1415,14 +1403,6 @@ extern "C" {
   }
 
   void ADDON_Stop()
-  {
-  }
-
-  void ADDON_FreeSettings()
-  {
-  }
-
-  void ADDON_Announce(const char *flag, const char *sender, const char *message, const void *data)
   {
   }
 
