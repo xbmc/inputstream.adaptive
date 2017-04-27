@@ -26,7 +26,34 @@ start(void *data, const char *el, const char **attr)
   TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
   if (ttml->m_node & TTML2SRT::NODE_TT)
   {
-    if (ttml->m_node & TTML2SRT::NODE_BODY)
+    if (ttml->m_node & TTML2SRT::NODE_HEAD)
+    {
+      if (ttml->m_node & TTML2SRT::NODE_STYLING)
+      {
+        if (strcmp(el, "style") == 0)
+        {
+          TTML2SRT::STYLE style;
+          for (; *attr;)
+          {
+            if (strcmp((const char*)*attr, "xml:id") == 0)
+              style.id = (const char*)*(attr + 1);
+            else if (strcmp((const char*)*attr, "tts:color") == 0)
+              style.color = (const char*)*(attr + 1);
+            else if (strcmp((const char*)*attr, "tts:textDecoration") == 0)
+              style.underline = strcmp((const char*)*(attr + 1), "underline") == 0 ? 1 : strcmp((const char*)*(attr + 1), "noUnderline") == 0 ? 0 : 0xFF;
+            else if (strcmp((const char*)*attr, "tts:fontStyle") == 0)
+              style.italic = strcmp((const char*)*(attr + 1), "italic") == 0 ? 1 : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0 : 0xFF;
+            else if (strcmp((const char*)*attr, "tts:fontWeight") == 0)
+              style.bold = strcmp((const char*)*(attr + 1), "bold") == 0 ? 1 : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0 : 0xFF;
+            attr += 2;
+          }
+          ttml->InsertStyle(style);
+        }
+      }
+      else if (strcmp(el, "styling") == 0)
+        ttml->m_node |= TTML2SRT::NODE_STYLING;
+    }
+    else if (ttml->m_node & TTML2SRT::NODE_BODY)
     {
       if (ttml->m_node & TTML2SRT::NODE_DIV)
       {
@@ -34,17 +61,23 @@ start(void *data, const char *el, const char **attr)
         {
           if (ttml->m_node & TTML2SRT::NODE_SPAN)
           {
-            if (strcmp(el, "br") == 0)
-              ttml->m_strXMLText += "\n";
           }
           else if (strcmp(el, "span") == 0)
           {
-            ttml->m_strXMLText.clear();
+            const char *style(0);
+            for (; *attr && !style; attr += 2)
+              if (strcmp((const char*)*attr, "style") == 0)
+                style = (const char*)*(attr + 1);
+            ttml->StackStyle(style);
+
             ttml->m_node |= TTML2SRT::NODE_SPAN;
           }
+          if (strcmp(el, "br") == 0)
+            ttml->m_strXMLText += "\n";
         }
         else if (strcmp(el, "p") == 0)
         {
+          ttml->m_strXMLText.clear();
           const char *b(0), *e(0), *id("");
 
           for (; *attr;)
@@ -65,7 +98,17 @@ start(void *data, const char *el, const char **attr)
         ttml->m_node |= TTML2SRT::NODE_DIV;
     }
     else if (strcmp(el, "body") == 0)
+    {
+      const char *style(0);
+      for (; *attr && !style; attr += 2)
+        if (strcmp((const char*)*attr, "style") == 0)
+          style = (const char*)*(attr + 1);
+      ttml->StackStyle(style);
+
       ttml->m_node |= TTML2SRT::NODE_BODY;
+    }
+    else if (strcmp(el, "head") == 0)
+      ttml->m_node |= TTML2SRT::NODE_HEAD;
   }
   else if (strcmp(el, "tt") == 0)
   {
@@ -84,7 +127,7 @@ text(void *data, const char *s, int len)
 {
   TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
   
-  if (ttml->m_node & TTML2SRT::NODE_SPAN)
+  if (ttml->m_node & TTML2SRT::NODE_P)
     ttml->m_strXMLText += std::string(s, len);
 }
 
@@ -101,19 +144,39 @@ end(void *data, const char *el)
       {
         if (ttml->m_node & TTML2SRT::NODE_P)
         {
-          if (strcmp(el, "span") == 0)
+          if (ttml->m_node & TTML2SRT::NODE_SPAN)
           {
-            ttml->m_node &= ~TTML2SRT::NODE_SPAN;
-            ttml->StackText();
+            if (strcmp(el, "span") == 0)
+            {
+              ttml->m_node &= ~TTML2SRT::NODE_SPAN;
+              ttml->StackText();
+              ttml->UnstackStyle();
+            }
           }
           else if (strcmp(el, "p") == 0)
+          {
             ttml->m_node &= ~TTML2SRT::NODE_P;
+            ttml->StackText();
+          }
         }
         else if (strcmp(el, "div") == 0)
           ttml->m_node &= ~TTML2SRT::NODE_DIV;
       }
       else if (strcmp(el, "body") == 0)
+      {
         ttml->m_node &= ~TTML2SRT::NODE_BODY;
+        ttml->UnstackStyle();
+      }
+    }
+    else if (ttml->m_node & TTML2SRT::NODE_HEAD)
+    {
+      if (ttml->m_node & TTML2SRT::NODE_STYLING)
+      {
+        if (strcmp(el, "styling") == 0)
+          ttml->m_node &= ~TTML2SRT::NODE_STYLING;
+      }
+      else if (strcmp(el, "head") == 0)
+        ttml->m_node &= ~TTML2SRT::NODE_HEAD;
     }
     else if (strcmp(el, "tt") == 0)
       ttml->m_node &= ~TTML2SRT::NODE_TT;
@@ -128,6 +191,8 @@ bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale)
   m_strXMLText.clear();
   m_subTitles.clear();
   m_timescale = timescale;
+  m_styles.clear();
+  m_styleStack.resize(1);
 
   XML_Parser parser = XML_ParserCreate(NULL);
   if (!parser)
@@ -204,10 +269,10 @@ bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
 {
   if (!s || !e || !*s || !*e)
     return false;
-  
+
   m_subTitles.push_back(SUBTITLE());
   SUBTITLE &sub(m_subTitles.back());
-  
+
   sub.start = GetTime(s);
   sub.end = GetTime(e);
 
@@ -218,5 +283,65 @@ bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
 
 void TTML2SRT::StackText()
 {
-  m_subTitles.back().text.push_back(m_strXMLText);
+  if (!m_strXMLText.empty())
+  {
+    std::string strFmt, strFmtEnd;
+    STYLE &curStyle(m_styleStack.back());
+    if (!curStyle.color.empty())
+    {
+      strFmt = "<font color=" + curStyle.color + ">";
+      strFmtEnd = "</color>";
+    }
+    if (curStyle.bold == 1)
+    {
+      strFmt += "<b>";
+      strFmtEnd = "</b>" + strFmtEnd;
+    }
+    if (curStyle.italic == 1)
+    {
+      strFmt += "<i>";
+      strFmtEnd = "</i>" + strFmtEnd;
+    }
+
+    m_subTitles.back().text.push_back(strFmt + m_strXMLText + strFmtEnd);
+    m_strXMLText.clear();
+  }
+}
+
+
+void TTML2SRT::StackStyle(const char* styleId)
+{
+  if (styleId)
+  {
+    const STYLE *sp(0);
+    for (auto const &s : m_styles)
+    {
+      if (s.id == styleId)
+      {
+        sp = &s;
+        break;
+      }
+    }
+    if (sp)
+    {
+      STYLE s(m_styleStack.back());
+      if (!sp->color.empty())
+        s.color = sp->color;
+      if (sp->bold != 0xFF)
+        s.bold = sp->bold;
+      if (sp->italic != 0xFF)
+        s.italic = sp->italic;
+      if (sp->underline != 0xFF)
+        s.underline = sp->underline;
+
+      m_styleStack.push_back(s);
+      return;
+    }
+  }
+  m_styleStack.push_back(m_styleStack.back());
+}
+
+void TTML2SRT::UnstackStyle()
+{
+  m_styleStack.pop_back();
 }
