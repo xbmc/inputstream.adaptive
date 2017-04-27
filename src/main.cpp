@@ -35,6 +35,7 @@
 
 ADDON::CHelper_libXBMC_addon *xbmc = 0;
 std::uint16_t kodiDisplayWidth(0), kodiDisplayHeight(0);
+std::string pipe;
 
 /*******************************************************
 kodi host - interface for decrypter libraries
@@ -204,12 +205,24 @@ bool adaptive::AdaptiveTree::download(const char* url)
   xbmc->CloseFile(file);
 
   xbmc->Log(ADDON::LOG_DEBUG, "Download %s finished", url);
+  
+// save custom headers if found in url
+  std::string url_str(url);
+  std::string::size_type pipePos = url_str.find("|");
+  if (pipePos != std::string::npos)
+    pipe = url_str.substr(pipePos);
 
   return nbRead == 0;
 }
 
-bool KodiAdaptiveStream::download(const char* url, const char* rangeHeader)
+bool KodiAdaptiveStream::download(const char* urlPointer, const char* rangeHeader)
 {
+  // add custom headers to url if found
+  std::string url_str = urlPointer;
+  if (!pipe.empty())
+    url_str += pipe;
+  const char* url = url_str.c_str();
+
   // open the file
   void* file = xbmc->CURLCreate(url);
   if (!file)
