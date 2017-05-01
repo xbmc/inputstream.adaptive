@@ -136,7 +136,7 @@ protected:
 private:
   MANIFEST_TYPE manifest_type_;
   std::string mpdFileURL_;
-  std::string license_key_, license_type_, license_data_, segment_headers_;
+  std::string license_key_, license_type_, license_data_;
   AP4_DataBuffer server_certificate_;
   std::string profile_path_;
   void * decrypterModule_;

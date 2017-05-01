@@ -846,7 +846,6 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , license_key_(strLicKey)
   , license_type_(strLicType)
   , license_data_(strLicData)
-  , segment_headers_(strSegmentHeaders)
   , profile_path_(profile_path)
   , decrypterModule_(0)
   , decrypter_(0)
@@ -930,7 +929,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     server_certificate_.SetDataSize(dstsz);
   }
   if (*strSegmentHeaders)
-    adaptiveTree_->segment_headers_ = segment_headers_;
+    adaptiveTree_->segment_headers_ = strSegmentHeaders;
 
 }
 
