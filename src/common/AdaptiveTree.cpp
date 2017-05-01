@@ -48,6 +48,7 @@ namespace adaptive
     , download_speed_(0.0)
     , average_download_speed_(0.0f)
     , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
+    , segment_headers_("")
   {
   }
 

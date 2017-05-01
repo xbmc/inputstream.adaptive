@@ -64,7 +64,7 @@ public:
   KodiAdaptiveStream(adaptive::AdaptiveTree &tree, adaptive::AdaptiveTree::StreamType type)
     :adaptive::AdaptiveStream(tree, type){};
 protected:
-  virtual bool download(const char* url, const char* rangeHeader) override;
+  virtual bool download(const char* url, const char* rangeHeader, const char* segmentHeaders) override;
   virtual bool parseIndexRange() override;
 };
 
@@ -86,7 +86,7 @@ enum MANIFEST_TYPE
 class Session: public FragmentObserver
 {
 public:
-  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path);
+  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* strSegmentHeaders, const char* profile_path);
   ~Session();
   bool initialize();
   FragmentedSampleReader *GetNextSample();
@@ -136,7 +136,7 @@ protected:
 private:
   MANIFEST_TYPE manifest_type_;
   std::string mpdFileURL_;
-  std::string license_key_, license_type_, license_data_;
+  std::string license_key_, license_type_, license_data_, segment_headers_;
   AP4_DataBuffer server_certificate_;
   std::string profile_path_;
   void * decrypterModule_;

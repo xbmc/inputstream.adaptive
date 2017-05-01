@@ -63,7 +63,7 @@ namespace adaptive
     size_t getSegmentPos() { return current_rep_->segments_.pos(current_seg_); };
     uint64_t GetPTSOffset() { return current_seg_ ? current_seg_->startPTS_ : 0; };
   protected:
-    virtual bool download(const char* url, const char* rangeHeader){ return false; };
+    virtual bool download(const char* url, const char* rangeHeader, const char* segmentHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
   private:
@@ -79,6 +79,7 @@ namespace adaptive
     const AdaptiveTree::Segment *current_seg_;
     //We assume that a single segment can build complete frames
     std::string segment_buffer_;
+    std::string segment_headers_;
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
 

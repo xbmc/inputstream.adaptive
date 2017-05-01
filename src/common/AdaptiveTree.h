@@ -192,6 +192,7 @@ namespace adaptive
     bool has_timeshift_buffer_;
 
     uint32_t bandwidth_;
+    std::string segment_headers_;
 
     double download_speed_, average_download_speed_;
     

@@ -208,7 +208,7 @@ bool adaptive::AdaptiveTree::download(const char* url)
   return nbRead == 0;
 }
 
-bool KodiAdaptiveStream::download(const char* url, const char* rangeHeader)
+bool KodiAdaptiveStream::download(const char* url, const char* rangeHeader, const char* segmentHeaders)
 {
   // open the file
   void* file = xbmc->CURLCreate(url);
@@ -219,6 +219,15 @@ bool KodiAdaptiveStream::download(const char* url, const char* rangeHeader)
     xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Range", rangeHeader);
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+  if (strcmp(segmentHeaders, "") != 0)
+  {
+    std::vector<std::string> header, headers = split(segmentHeaders, '&');
+    for (std::vector<std::string>::iterator b(headers.begin()), e(headers.end()); b != e; ++b)
+    {
+      header = split(*b, '=');
+      xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, trim(header[0]).c_str(), header.size() > 1 ? url_decode(trim(header[1])).c_str() : "");
+    }
+  }
 
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
 
@@ -831,12 +840,13 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* profile_path)
+Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* strSegmentHeaders, const char* profile_path)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , license_key_(strLicKey)
   , license_type_(strLicType)
   , license_data_(strLicData)
+  , segment_headers_(strSegmentHeaders)
   , profile_path_(profile_path)
   , decrypterModule_(0)
   , decrypter_(0)
@@ -919,6 +929,9 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     b64_decode(strCert, sz, server_certificate_.UseData(), dstsz);
     server_certificate_.SetDataSize(dstsz);
   }
+  if (*strSegmentHeaders)
+    adaptiveTree_->segment_headers_ = segment_headers_;
+
 }
 
 Session::~Session()
@@ -1434,7 +1447,7 @@ extern "C" {
   {
     xbmc->Log(ADDON::LOG_DEBUG, "Open()");
 
-    const char *lt(""), *lk(""), *ld(""), *lsc("");
+    const char *lt(""), *lk(""), *ld(""), *lsc(""), *sh("");
     MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
     for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
     {
@@ -1458,6 +1471,11 @@ extern "C" {
         xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
         lsc = props.m_ListItemProperties[i].m_strValue;
       }
+      else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.segment_curl_option_headers") == 0)
+      {
+        xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.adaptive.segment_curl_option_headers: %s", props.m_ListItemProperties[i].m_strValue);
+        sh = props.m_ListItemProperties[i].m_strValue;
+      }
       else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.manifest_type") == 0)
       {
         xbmc->Log(ADDON::LOG_DEBUG, "found inputstream.adaptive.manifest_type: %s", props.m_ListItemProperties[i].m_strValue);
@@ -1476,7 +1494,7 @@ extern "C" {
 
     kodihost.SetProfilePath(props.m_profileFolder);
 
-    session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder);
+    session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, sh, props.m_profileFolder);
 
     if (!session->initialize())
     {
