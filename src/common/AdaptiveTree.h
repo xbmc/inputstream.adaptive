@@ -192,7 +192,7 @@ namespace adaptive
     bool has_timeshift_buffer_;
 
     uint32_t bandwidth_;
-    std::string segment_headers_;
+    std::string manifest_headers_, media_headers_;
 
     double download_speed_, average_download_speed_;
     
@@ -224,7 +224,7 @@ namespace adaptive
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
 protected:
-  virtual bool download(const char* url);
+  virtual bool download(const char* url, const char* manifestHeaders);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
 };
 

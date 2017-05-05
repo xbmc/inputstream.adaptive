@@ -96,8 +96,8 @@ bool AdaptiveStream::download_segment()
     rangeHeader = rangebuf;
   }
 
-  segment_headers_ = tree_.segment_headers_;
-  return download(strURL.c_str(), rangeHeader, segment_headers_.c_str());
+  media_headers_ = tree_.media_headers_;
+  return download(strURL.c_str(), rangeHeader, media_headers_.c_str());
 }
 
 bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)

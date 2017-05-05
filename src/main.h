@@ -86,7 +86,7 @@ enum MANIFEST_TYPE
 class Session: public FragmentObserver
 {
 public:
-  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* strSegmentHeaders, const char* profile_path);
+  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const char* strManifestHeaders, const char* strMediaHeaders, const char* profile_path);
   ~Session();
   bool initialize();
   FragmentedSampleReader *GetNextSample();
