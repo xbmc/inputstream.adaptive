@@ -212,6 +212,8 @@ namespace adaptive
     std::string strXMLText_;
 
     AdaptiveTree();
+    virtual ~AdaptiveTree() {};
+
     virtual bool open(const char *url) = 0;
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
