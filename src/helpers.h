@@ -21,6 +21,7 @@
 #include <string>
 #include <stdint.h>
 #include <vector>
+#include <map>
 
 class AP4_DataBuffer;
 
@@ -38,3 +39,4 @@ std::string annexb_to_avc(const char *b16_data);
 
 void prkid2wvkid(const char *input, char *output);
 bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data);
+void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString);

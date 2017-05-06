@@ -21,6 +21,7 @@
 #include "oscompat.h"
 #include <stdlib.h>
 #include "Ap4DataBuffer.h"
+#include <map>
 
 #ifndef BYTE
 typedef unsigned char BYTE;
@@ -319,4 +320,15 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
   init_data.SetDataSize(protoptr - init_data.UseData());
 
   return true;
+}
+
+void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString)
+{
+  std::vector<std::string> header, headers = split(headerString, '&');
+  for (std::vector<std::string>::iterator b(headers.begin()), e(headers.end()); b != e; ++b)
+  {
+    header = split(*b, '=');
+    if (header.size() == 2)
+      headerMap[trim(header[0])] = url_decode(trim(header[1]));
+  }
 }

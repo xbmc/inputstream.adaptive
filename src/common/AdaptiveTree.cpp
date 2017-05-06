@@ -48,8 +48,6 @@ namespace adaptive
     , download_speed_(0.0)
     , average_download_speed_(0.0f)
     , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
-    , manifest_headers_("")
-    , media_headers_("")
   {
   }
 
