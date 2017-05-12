@@ -316,7 +316,7 @@ bool SmoothTree::open(const char *url)
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(url);
+  bool ret = download(url, manifest_headers_);
 
   XML_ParserFree(parser_);
   parser_ = 0;
