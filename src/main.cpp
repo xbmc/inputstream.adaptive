@@ -190,7 +190,7 @@ protected:
 Kodi Streams implementation
 ********************************************************/
 
-bool adaptive::AdaptiveTree::download(const char* url)
+bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::string, std::string> &manifestHeaders)
 {
   // open the file
   kodi::vfs::CFile file;
@@ -199,6 +199,12 @@ bool adaptive::AdaptiveTree::download(const char* url)
 
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
+
+  for (const auto &entry : manifestHeaders)
+  {
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+  }
+
   file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE);
 
   // read the file
@@ -216,18 +222,20 @@ bool adaptive::AdaptiveTree::download(const char* url)
   return nbRead == 0;
 }
 
-bool KodiAdaptiveStream::download(const char* url, const char* rangeHeader)
+bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, std::string> &mediaHeaders)
 {
   // open the file
   kodi::vfs::CFile file;
   if (!file.CURLCreate(url))
     return false;
-
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable" , "0");
-  if (rangeHeader)
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "Range", rangeHeader);
   file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "Connection", "keep-alive");
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+
+  for (const auto &entry : mediaHeaders)
+  {
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+  }
 
   file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE | OpenFileFlags::READ_AUDIO_VIDEO);
 
@@ -1131,13 +1139,14 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData,
-  const char* strCert, const char* profile_path, uint16_t display_width, uint16_t display_height)
+Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert,
+  const std::map<std::string, std::string> &manifestHeaders, const std::map<std::string, std::string> &mediaHeaders, const char* profile_path, uint16_t display_width, uint16_t display_height)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , license_key_(strLicKey)
   , license_type_(strLicType)
   , license_data_(strLicData)
+  , media_headers_(mediaHeaders)
   , profile_path_(profile_path)
   , decrypterModule_(0)
   , decrypter_(0)
@@ -1206,6 +1215,8 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     b64_decode(strCert, sz, server_certificate_.UseData(), dstsz);
     server_certificate_.SetDataSize(dstsz);
   }
+  adaptiveTree_->manifest_headers_ = manifestHeaders;
+
 }
 
 Session::~Session()
@@ -1285,7 +1296,7 @@ void Session::DisposeDecrypter()
 {
   if (!decrypterModule_)
     return;
-  
+
   for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
     decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
 
@@ -1407,7 +1418,7 @@ bool Session::initialize()
           AP4_ParseHex(strkey.c_str(), key_system, 16);
 
           Session::STREAM stream(*adaptiveTree_, adaptiveTree_->GetAdaptationSet(0)->type_);
-          stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), 0, 0, 0, 0, 0, 0, 0);
+          stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
 
           stream.enabled = true;
           stream.stream_.start_stream(0, width_, height_);
@@ -1518,7 +1529,7 @@ bool Session::initialize()
       STREAM &stream(*streams_.back());
       const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->pssh_set_));
 
-      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), caps.hdcpLimit, caps.hdcpVersion, min_bandwidth, max_bandwidth, repId);
+      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), caps.hdcpLimit, caps.hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
 
       switch (adp->type_)
       {
@@ -1834,6 +1845,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
   const char *lt(""), *lk(""), *ld(""), *lsc("");
+  std::map<std::string, std::string> manh, medh;
+  std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
   for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
   {
@@ -1865,6 +1878,13 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       else if (strcmp(props.m_ListItemProperties[i].m_strValue, "ism") == 0)
         manifest = MANIFEST_TYPE_ISM;
     }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.stream_headers") == 0)
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.stream_headers: %s", props.m_ListItemProperties[i].m_strValue);
+      parseheader(manh, props.m_ListItemProperties[i].m_strValue);
+      medh = manh;
+      mpd_url = mpd_url.substr(0, mpd_url.find("|"));
+    }
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -1873,9 +1893,12 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     return false;
   }
 
+  if (manh.empty() && (mpd_url.find("|") != std::string::npos))
+    parseheader(manh, mpd_url.substr(mpd_url.find("|") + 1).c_str());
+
   kodihost.SetProfilePath(props.m_profileFolder);
 
-  m_session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, props.m_profileFolder, m_width, m_height);
+  m_session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, manh, medh, props.m_profileFolder, m_width, m_height);
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize())

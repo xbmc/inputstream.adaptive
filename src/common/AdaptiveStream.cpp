@@ -96,7 +96,8 @@ bool AdaptiveStream::download_segment()
     rangeHeader = rangebuf;
   }
 
-  return download(strURL.c_str(), rangeHeader);
+  media_headers_["Range"] = rangeHeader ? rangeHeader : "";
+  return download(strURL.c_str(), media_headers_);
 }
 
 bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
@@ -107,7 +108,8 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 
 bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
   const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
-  uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId)
+  uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
+  const std::map<std::string, std::string> &media_headers)
 {
   width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
   height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
@@ -127,6 +129,8 @@ bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
   bandwidth_ = static_cast<uint32_t>(bandwidth_ *(type_ == AdaptiveTree::VIDEO ? 0.9 : 0.1));
 
   current_adp_ = adp;
+
+  media_headers_ = media_headers;
 
   return select_stream(false, true, repId);
 }
@@ -221,7 +225,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool
     return true;
 
   uint32_t choosen_seg(~0);
-  
+
   uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->timescale_);
   choosen_seg = 0; //Skip initialization
   while (choosen_seg < current_rep_->segments_.data.size() && sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_)
@@ -281,7 +285,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   }
   else
     new_rep = current_adp_->repesentations_[repId -1];
-  
+
   if (!new_rep)
     new_rep = min_rep;
 

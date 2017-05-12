@@ -21,6 +21,7 @@
 #include <string>
 #include <stdint.h>
 #include <vector>
+#include <map>
 
 class AP4_DataBuffer;
 
@@ -41,3 +42,4 @@ unsigned char HexNibble(char c);
 
 void prkid2wvkid(const char *input, char *output);
 bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data);
+void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString);

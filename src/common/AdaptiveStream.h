@@ -20,6 +20,7 @@
 
 #include "AdaptiveTree.h"
 #include <string>
+#include <map>
 
 namespace adaptive
 {
@@ -39,7 +40,8 @@ namespace adaptive
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     bool prepare_stream(const AdaptiveTree::AdaptationSet *adp,
       const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
-      uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId);
+      uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
+      const std::map<std::string, std::string> &media_headers);
     bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height);
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
     void stop(){ stopped_ = true; };
@@ -63,7 +65,7 @@ namespace adaptive
     size_t getSegmentPos() { return current_rep_->segments_.pos(current_seg_); };
     uint64_t GetPTSOffset() { return current_seg_ ? current_seg_->startPTS_ : 0; };
   protected:
-    virtual bool download(const char* url, const char* rangeHeader){ return false; };
+    virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
   private:
@@ -79,6 +81,7 @@ namespace adaptive
     const AdaptiveTree::Segment *current_seg_;
     //We assume that a single segment can build complete frames
     std::string segment_buffer_;
+    std::map<std::string, std::string> media_headers_;
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
 
