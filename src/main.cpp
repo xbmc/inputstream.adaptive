@@ -191,12 +191,10 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
     return false;
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable", "0");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
-  if (!manifestHeaders.empty())
+ 
+  for (const auto &entry : manifestHeaders)
   {
-    for (std::map<std::string, std::string>::const_iterator b(manifestHeaders.begin()), e(manifestHeaders.end()); b != e; ++b)
-    {
-      xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, b->first.c_str(), b->second.c_str());
-    }
+    xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
   }
 
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE);
@@ -225,12 +223,10 @@ bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, s
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "seekable" , "0");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, "Connection", "keep-alive");
   xbmc->CURLAddOption(file, XFILE::CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
-  if (!mediaHeaders.empty())
+  
+  for (const auto &entry : mediaHeaders)
   {
-    for (std::map<std::string, std::string>::const_iterator b(mediaHeaders.begin()), e(mediaHeaders.end()); b != e; ++b)
-    {
-      xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, b->first.c_str(), b->second.c_str());
-    }
+    xbmc->CURLAddOption(file, XFILE::CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
   }
 
   xbmc->CURLOpen(file, XFILE::READ_CHUNKED | XFILE::READ_NO_CACHE | XFILE::READ_AUDIO_VIDEO);
