@@ -1720,7 +1720,7 @@ extern "C" {
 
     xbmc->Log(ADDON::LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
 
-    return session->SeekTime(time * 0.001f, 0, !backwards);
+    return session->SeekTime(time * 0.001l, 0, !backwards);
   }
 
   void DemuxSetSpeed(int speed)
