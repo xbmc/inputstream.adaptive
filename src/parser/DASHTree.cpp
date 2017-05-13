@@ -1098,7 +1098,7 @@ end(void *data, const char *el)
                   continue;
                 std::vector<uint32_t>::const_iterator sdb(dash->current_adaptationset_->segment_durations_.data.begin()),
                   sde(dash->current_adaptationset_->segment_durations_.data.end());
-                uint64_t spts(0);
+                uint64_t spts((*b)->segments_[0]->startPTS_);
                 for (std::vector<DASHTree::Segment>::iterator sb((*b)->segments_.data.begin()), se((*b)->segments_.data.end()); sb != se && sdb != sde; ++sb, ++sdb)
                 {
                   sb->startPTS_ = spts;
