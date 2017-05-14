@@ -1264,7 +1264,7 @@ void Session::UpdateStream(STREAM &stream)
   stream.info_.m_FpsScale = rep->fpsScale_;
   stream.info_.m_SampleRate = rep->samplingRate_;
   stream.info_.m_Channels = rep->channelCount_;
-  stream.info_.m_Bandwidth = rep->bandwidth_;
+  stream.info_.m_BitRate = rep->bandwidth_;
 }
 
 FragmentedSampleReader *Session::GetNextSample()
@@ -1533,7 +1533,7 @@ extern "C" {
   struct INPUTSTREAM_INFO GetStream(int streamid)
   {
     static struct INPUTSTREAM_INFO dummy_info = {
-      INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, 0, "",
+      INPUTSTREAM_INFO::TYPE_NONE, "", "", 0, 0, 0, "",
       0, 0, 0, 0, 0.0f,
       0, 0, 0, 0, 0 };
 
