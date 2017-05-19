@@ -924,6 +924,7 @@ end(void *data, const char *el)
               {
                 dash->current_pssh_ = "FILE";
                 dash->current_representation_->pssh_set_ = dash->insert_psshset(dash->current_adaptationset_->type_);
+                dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
               }
               else
               {
