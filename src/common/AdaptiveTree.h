@@ -102,7 +102,8 @@ namespace adaptive
     struct Representation
     {
       Representation() :bandwidth_(0), samplingRate_(0),  width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
-         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), duration_(0), timescale_(0){};
+        flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0),
+        duration_(0), timescale_(0){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -128,6 +129,7 @@ namespace adaptive
 
       uint32_t indexRangeMin_, indexRangeMax_;
       uint8_t channelCount_, nalLengthSize_;
+      uint8_t pssh_set_, dummy;
       SegmentTemplate segtpl_;
       //SegmentList
       uint32_t duration_, timescale_;
@@ -151,14 +153,21 @@ namespace adaptive
       {
         return segments_.data.empty() ? 0: segments_.pos(segment);
       }
+
+      const uint8_t get_psshset() const
+      {
+        return pssh_set_;
+      };
+
+      static bool compare(const Representation* a, const Representation *b) { return a->bandwidth_ < b->bandwidth_; };
+
     }*current_representation_;
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), pssh_set_(0), timescale_(0),  startPTS_(0), encrypted(false){ language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0),  startPTS_(0) { language_ = "unk"; };
       ~AdaptationSet(){ for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
-      uint8_t pssh_set_;
       uint32_t timescale_;
       uint64_t startPTS_;
       std::string language_;
@@ -173,13 +182,7 @@ namespace adaptive
         return *segment_durations_[pos];
       };
 
-      const uint8_t get_psshset() const
-      {
-        return pssh_set_;
-      };
-
       SegmentTemplate segtpl_;
-      bool encrypted;
     }*current_adaptationset_;
 
     struct Period
@@ -227,19 +230,20 @@ namespace adaptive
       ENCRYTIONSTATE_SUPPORTED = 2
     };
     unsigned int  encryptionState_;
-    uint8_t adpChannelCount_;
+    uint8_t adpChannelCount_, adp_pssh_set_;
     uint16_t adpwidth_, adpheight_;
     uint32_t adpfpsRate_;
     float adpaspect_;
 
-    std::string adp_pssh_, adp_defaultKID_;
+    bool current_hasRepURN_, current_hasAdpURN_;
+    std::string current_pssh_, current_defaultKID_;
     std::string license_url_;
 
     std::string strXMLText_;
 
     AdaptiveTree();
     virtual bool open(const char *url) = 0;
-    uint8_t insert_psshset(PSSH &pset);
+    uint8_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
     double get_download_speed() const { return download_speed_; };
@@ -252,6 +256,7 @@ namespace adaptive
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
+  void SortRepresentations();
 };
 
 }

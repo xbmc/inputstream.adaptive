@@ -1527,7 +1527,7 @@ bool Session::initialize()
     do {
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
-      const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->pssh_set_));
+      const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->repesentations_[0]->get_psshset()));
 
       stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), caps.hdcpLimit, caps.hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
 
@@ -1550,7 +1550,7 @@ bool Session::initialize()
       stream.info_.m_ExtraData = nullptr;
       stream.info_.m_ExtraSize = 0;
       stream.info_.m_features = 0;
-      stream.encrypted = adp->encrypted;
+      stream.encrypted = adp->repesentations_[0]->get_psshset() > 0;
 
       UpdateStream(stream, caps);
 
@@ -1955,7 +1955,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   if (stream)
   {
-    uint8_t cdmId(stream->stream_.getAdaptationSet()->pssh_set_);
+    uint8_t cdmId(stream->stream_.getRepresentation()->pssh_set_);
     if (stream->encrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
       kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
@@ -2005,7 +2005,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
     if(rep != stream->stream_.getRepresentation())
     {
-      m_session->UpdateStream(*stream, m_session->GetDecrypterCaps(stream->stream_.getAdaptationSet()->pssh_set_));
+      m_session->UpdateStream(*stream, m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
       m_session->CheckChange(true);
     }
 
@@ -2042,10 +2042,10 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
       else
         sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
 
-      if (stream->stream_.getAdaptationSet()->encrypted)
+      if (stream->stream_.getRepresentation()->get_psshset() > 0)
       {
         AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
-        schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, m_session->GetDefaultKeyId(stream->stream_.getAdaptationSet()->get_psshset())));
+        schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, m_session->GetDefaultKeyId(stream->stream_.getRepresentation()->get_psshset())));
         sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
       }
       sample_table->AddSampleDescription(sample_descryption);
@@ -2074,9 +2074,9 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
     }
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
-      m_session->GetSingleSampleDecryptor(stream->stream_.getAdaptationSet()->pssh_set_),
+      m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
       m_session->GetPresentationTimeOffset(),
-      m_session->GetDecrypterCaps(stream->stream_.getAdaptationSet()->pssh_set_));
+      m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
 
     stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 

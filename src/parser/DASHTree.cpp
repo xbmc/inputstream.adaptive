@@ -301,6 +301,49 @@ static time_t getTime(const char* timeStr)
   return ~0;
 }
 
+bool ParseContentProtection(const char **attr, DASHTree *dash)
+{
+  dash->strXMLText_.clear();
+  dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
+  bool urnFound(false), mpdFound(false);
+  const char *defaultKID(0);
+  for (; *attr;)
+  {
+    if (strcmp((const char*)*attr, "schemeIdUri") == 0)
+    {
+      if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
+        mpdFound = true;
+      else
+      {
+        urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
+        break;
+      }
+    }
+    else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
+      defaultKID = (const char*)*(attr + 1);
+    attr += 2;
+  }
+  if (urnFound)
+  {
+    dash->currentNode_ |= DASHTree::MPDNODE_CONTENTPROTECTION;
+    dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+    return true;
+  }
+  else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
+  {
+    dash->current_defaultKID_.resize(16);
+    for (unsigned int i(0); i < 16; ++i)
+    {
+      if (i == 4 || i == 6 || i == 8 || i == 10)
+        ++defaultKID;
+      dash->current_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
+      dash->current_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
+    }
+  }
+  // Return if we have URN or not
+  return !mpdFound;
+}
+
 /*----------------------------------------------------------------------
 |   expat start
 +---------------------------------------------------------------------*/
@@ -411,6 +454,11 @@ start(void *data, const char *el, const char **attr)
               dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTIMELINE;
             }
           }
+          else if (dash->currentNode_ & DASHTree::MPDNODE_CONTENTPROTECTION)
+          {
+            if (strcmp(el, "cenc:pssh") == 0)
+              dash->currentNode_ |= DASHTree::MPDNODE_PSSH;
+          }
           else if (strcmp(el, "AudioChannelConfiguration") == 0)
           {
             dash->current_representation_->channelCount_ = GetChannels(attr);
@@ -467,6 +515,16 @@ start(void *data, const char *el, const char **attr)
               dash->current_representation_->timescale_ = dash->current_representation_->segtpl_.timescale;
             }
             dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
+          }
+          else if (strcmp(el, "ContentProtection") == 0)
+          {
+            if (!dash->current_representation_->pssh_set_)
+            {
+              //Mark protected but invalid
+              dash->current_representation_->pssh_set_ = 0xFF;
+              if (ParseContentProtection(attr, dash))
+                dash->current_hasRepURN_ = true;
+            }
           }
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
@@ -546,6 +604,8 @@ start(void *data, const char *el, const char **attr)
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
           dash->current_representation_->aspect_ = dash->adpaspect_;
+          dash->current_pssh_.clear();
+          dash->current_hasRepURN_ = false;
 
           for (; *attr;)
           {
@@ -605,45 +665,12 @@ start(void *data, const char *el, const char **attr)
         }
         else if (strcmp(el, "ContentProtection") == 0)
         {
-          dash->current_adaptationset_->encrypted = true;
-          if (dash->adp_pssh_.empty())
-            dash->adp_pssh_ = "PROTECTED";
-
-          dash->strXMLText_.clear();
-          dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
-          bool urnFound(false), mpdFound(false);
-          const char *defaultKID(0);
-          for (; *attr;)
+          if (!dash->adp_pssh_set_)
           {
-            if (strcmp((const char*)*attr, "schemeIdUri") == 0)
-            {
-              if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
-                mpdFound = true;
-              else
-              {
-                urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
-                break;
-              }
-            }
-            else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
-              defaultKID = (const char*)*(attr + 1);
-            attr += 2;
-          }
-          if (urnFound)
-          {
-            dash->currentNode_ |= DASHTree::MPDNODE_CONTENTPROTECTION;
-            dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
-          }
-          else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
-          {
-            dash->adp_defaultKID_.resize(16);
-            for (unsigned int i(0); i < 16; ++i)
-            {
-              if (i == 4 || i == 6 || i == 8 || i == 10)
-                ++defaultKID;
-              dash->adp_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
-              dash->adp_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
-            }
+            //Mark protected but invalid
+            dash->adp_pssh_set_ = 0xFF;
+            if (ParseContentProtection(attr, dash))
+              dash->current_hasAdpURN_ = true;
           }
         }
         else if (strcmp(el, "AudioChannelConfiguration") == 0)
@@ -662,12 +689,14 @@ start(void *data, const char *el, const char **attr)
         dash->current_adaptationset_ = new DASHTree::AdaptationSet();
         dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
         dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_;
-        dash->adp_pssh_.clear();
+        dash->current_pssh_.clear();
         dash->adpChannelCount_ = 0;
         dash->adpwidth_ = 0;
         dash->adpheight_ = 0;
         dash->adpfpsRate_ = 0;
         dash->adpaspect_ = 0.0f;
+        dash->adp_pssh_set_ = 0;
+        dash->current_hasAdpURN_ = false;
 
         for (; *attr;)
         {
@@ -865,9 +894,44 @@ end(void *data, const char *el)
               dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
             }
           }
+          else if (dash->currentNode_ & DASHTree::MPDNODE_CONTENTPROTECTION)
+          {
+            if (dash->currentNode_ & DASHTree::MPDNODE_PSSH)
+            {
+              if (strcmp(el, "cenc:pssh") == 0)
+              {
+                dash->current_pssh_ = dash->strXMLText_;
+                dash->currentNode_ &= ~DASHTree::MPDNODE_PSSH;
+              }
+            }
+            else if (strcmp(el, "ContentProtection") == 0)
+            {
+              if (dash->current_pssh_.empty())
+                dash->current_pssh_ = "FILE";
+              dash->current_representation_->pssh_set_ = dash->insert_psshset(dash->current_adaptationset_->type_);
+              dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
+            }
+          }
           else if (strcmp(el, "Representation") == 0)
           {
             dash->currentNode_ &= ~DASHTree::MPDNODE_REPRESENTATION;
+
+            if (dash->current_representation_->pssh_set_ == 0xFF)
+            {
+              // Some manifests dont have Protection per URN included.
+              // We treet manifests valid if no single URN was given
+              if (!dash->current_hasRepURN_)
+              {
+                dash->current_pssh_ = "FILE";
+                dash->current_representation_->pssh_set_ = dash->insert_psshset(dash->current_adaptationset_->type_);
+              }
+              else
+              {
+                delete dash->current_representation_;
+                dash->current_adaptationset_->repesentations_.pop_back();
+                return;
+              }
+            }
 
             if (dash->current_representation_->segments_.data.empty())
             {
@@ -944,23 +1008,6 @@ end(void *data, const char *el)
           if (strcmp(el, "SegmentDurations") == 0)
             dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTDURATIONS;
         }
-        else if (dash->currentNode_ & DASHTree::MPDNODE_CONTENTPROTECTION)
-        {
-          if (dash->currentNode_ & DASHTree::MPDNODE_PSSH)
-          {
-            if (strcmp(el, "cenc:pssh") == 0)
-            {
-              dash->adp_pssh_ = dash->strXMLText_;
-              dash->currentNode_ &= ~DASHTree::MPDNODE_PSSH;
-            }
-          }
-          else if (strcmp(el, "ContentProtection") == 0)
-          {
-            if (dash->adp_pssh_ == "PROTECTED")
-              dash->adp_pssh_ = "FILE";
-            dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
-          }
-        }
         else if (dash->currentNode_ & DASHTree::MPDNODE_BASEURL) // Inside AdaptationSet
         {
           if (strcmp(el, "BaseURL") == 0)
@@ -983,11 +1030,29 @@ end(void *data, const char *el)
             dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
           }
         }
+        else if (dash->currentNode_ & DASHTree::MPDNODE_CONTENTPROTECTION)
+        {
+          if (dash->currentNode_ & DASHTree::MPDNODE_PSSH)
+          {
+            if (strcmp(el, "cenc:pssh") == 0)
+            {
+              dash->current_pssh_ = dash->strXMLText_;
+              dash->currentNode_ &= ~DASHTree::MPDNODE_PSSH;
+            }
+          }
+          else if (strcmp(el, "ContentProtection") == 0)
+          {
+            if (dash->current_pssh_.empty())
+              dash->current_pssh_ = "FILE";
+            dash->adp_pssh_set_ = dash->insert_psshset(dash->current_adaptationset_->type_);
+            dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
+          }
+        }
         else if (strcmp(el, "AdaptationSet") == 0)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
-          || dash->adp_pssh_ == "PROTECTED"
+          || dash->adp_pssh_set_ == 0xFF
           || dash->current_adaptationset_->repesentations_.empty())
           {
             delete dash->current_adaptationset_;
@@ -995,20 +1060,15 @@ end(void *data, const char *el)
           }
           else
           {
-            if (!dash->adp_pssh_.empty())
+            if (dash->adp_pssh_set_)
             {
-              AdaptiveTree::PSSH pssh;
-              pssh.pssh_ = dash->adp_pssh_;
-              pssh.defaultKID_ = dash->adp_defaultKID_;
-              switch (dash->current_adaptationset_->type_)
-              {
-              case DASHTree::VIDEO: pssh.media_ = AdaptiveTree::PSSH::MEDIA_VIDEO; break;
-              case DASHTree::AUDIO: pssh.media_ = AdaptiveTree::PSSH::MEDIA_AUDIO; break;
-              default: pssh.media_ = 0; break;
-              }
-              dash->current_adaptationset_->pssh_set_ = dash->insert_psshset(pssh);
+              for (std::vector<DASHTree::Representation*>::iterator
+                b(dash->current_adaptationset_->repesentations_.begin()),
+                e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
+                if (!(*b)->pssh_set_)
+                  (*b)->pssh_set_ = dash->adp_pssh_set_;
             }
-            
+
             if (dash->current_adaptationset_->segment_durations_.data.empty()
               && !dash->current_adaptationset_->segtpl_.media.empty())
             {
@@ -1104,6 +1164,8 @@ bool DASHTree::open(const char *url)
   
   XML_ParserFree(parser_);
   parser_ = 0;
+
+  SortRepresentations();
 
   return ret;
 }

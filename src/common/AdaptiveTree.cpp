@@ -117,13 +117,36 @@ namespace adaptive
       (*b)->segments_.insert(seg);
   }
 
-  uint8_t AdaptiveTree::insert_psshset(PSSH &pset)
+  uint8_t AdaptiveTree::insert_psshset(StreamType type)
   {
-    std::vector<PSSH>::iterator pos(std::find(psshSets_.begin()+1, psshSets_.end(), pset));
-    if (pos == psshSets_.end())
-      pos = psshSets_.insert(psshSets_.end(), pset);
-    else
-      pos->media_ |= pset.media_;
-    return static_cast<uint8_t>(pos - psshSets_.begin());
+    if (!current_pssh_.empty())
+    {
+      PSSH pssh;
+      pssh.pssh_ = current_pssh_;
+      pssh.defaultKID_ = current_defaultKID_;
+      switch (type)
+      {
+      case VIDEO: pssh.media_ = PSSH::MEDIA_VIDEO; break;
+      case AUDIO: pssh.media_ = PSSH::MEDIA_AUDIO; break;
+      case STREAM_TYPE_COUNT: pssh.media_ = PSSH::MEDIA_VIDEO | PSSH::MEDIA_AUDIO; break;
+      default: pssh.media_ = 0; break;
+      }
+
+      std::vector<PSSH>::iterator pos(std::find(psshSets_.begin() + 1, psshSets_.end(), pssh));
+      if (pos == psshSets_.end())
+        pos = psshSets_.insert(psshSets_.end(), pssh);
+      else
+        pos->media_ |= pssh.media_;
+      return static_cast<uint8_t>(pos - psshSets_.begin());
+    }
+    return 0;
   }
-}
+
+  void AdaptiveTree::SortRepresentations()
+  {
+    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
+      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
+        std::sort((*ba)->repesentations_.begin(), (*ba)->repesentations_.end(), Representation::compare);
+  }
+
+} // namespace

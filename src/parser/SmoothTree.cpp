@@ -319,8 +319,8 @@ protection_end(void *data, const char *el)
 
     if (buffer_size == 16)
     {
-      dash->adp_defaultKID_.resize(16);
-      prkid2wvkid(reinterpret_cast<const char *>(buffer), &dash->adp_defaultKID_[0]);
+      dash->current_defaultKID_.resize(16);
+      prkid2wvkid(reinterpret_cast<const char *>(buffer), &dash->current_defaultKID_[0]);
     }
   }
   else if (strcmp(el, "LA_URL") == 0)
@@ -354,14 +354,8 @@ bool SmoothTree::open(const char *url)
 
   uint8_t psshset(0);
 
-  if (!adp_defaultKID_.empty())
-  {
-    PSSH pssh;
-    pssh.defaultKID_ = adp_defaultKID_;
-    pssh.pssh_ = adp_pssh_;
-    pssh.media_ = PSSH::MEDIA_AUDIO | PSSH::MEDIA_VIDEO;
-    psshset = insert_psshset(pssh);
-  }
+  if (!current_defaultKID_.empty())
+    psshset = insert_psshset(STREAM_TYPE_COUNT);
 
   for (std::vector<AdaptationSet*>::iterator ba(current_period_->adaptationSets_.begin()), ea(current_period_->adaptationSets_.end()); ba != ea; ++ba)
   {
@@ -376,10 +370,12 @@ bool SmoothTree::open(const char *url)
         bs->range_end_ = bs->startPTS_ = cummulated;
         cummulated += *bsd;
       }
+      (*b)->pssh_set_ = psshset;
     }
-    (*ba)->pssh_set_ = psshset;
-    (*ba)->encrypted = encryptionState_ == SmoothTree::ENCRYTIONSTATE_SUPPORTED;
   }
+
+  SortRepresentations();
+
   return true;
 }
 
@@ -418,7 +414,7 @@ void SmoothTree::parse_protection()
     return;
   }
 
-  adp_pssh_ = std::string(reinterpret_cast<char*>(buffer), xml_size);
+  current_pssh_ = std::string(reinterpret_cast<char*>(buffer), xml_size);
 
   while (xml_size && *xml_start != '<')
   {

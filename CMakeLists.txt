@@ -21,6 +21,17 @@ set(ADP_SOURCES
 	src/oscompat.cpp
 )
 
+set(ADP_HEADERS
+	src/helpers.h
+	src/main.h
+	src/oscompat.h
+	src/SSD_dll.h
+	src/common/AdaptiveStream.h
+	src/common/AdaptiveTree.h
+	src/parser/DASHTree.h
+	src/parser/SmoothTree.h
+)
+
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
 
 include_directories(${INCLUDES}
