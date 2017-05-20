@@ -119,10 +119,9 @@ namespace adaptive
       static const unsigned int TEMPLATE = 2;
       static const unsigned int TIMELINE = 4;
       static const unsigned int INITIALIZATION = 8;
-      static const unsigned int TIMETEMPLATE = 16;
-      static const unsigned int SEGMENTBASE = 32;
-      static const unsigned int STARTTIMETPL = 64;
-      static const unsigned int SUBTITLESTREAM = 128;
+      static const unsigned int SEGMENTBASE = 16;
+      static const unsigned int STARTTIMETPL = 32;
+      static const unsigned int SUBTITLESTREAM = 64;
 
       uint16_t flags_;
       uint16_t hdcpVersion_;
@@ -234,6 +233,7 @@ namespace adaptive
     uint16_t adpwidth_, adpheight_;
     uint32_t adpfpsRate_;
     float adpaspect_;
+    bool adp_timelined_;
 
     bool current_hasRepURN_, current_hasAdpURN_;
     std::string current_pssh_, current_defaultKID_;
