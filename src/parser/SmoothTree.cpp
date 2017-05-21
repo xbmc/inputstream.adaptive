@@ -78,7 +78,7 @@ start(void *data, const char *el, const char **attr)
         dash->current_representation_ = new SmoothTree::Representation();
         dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
         dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
-        dash->current_representation_->flags_ |= SmoothTree::Representation::STARTTIMETPL;
+        dash->current_representation_->flags_ |= AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::STARTTIMETPL;
 
         const char *bw = "0";
 
@@ -330,11 +330,13 @@ bool SmoothTree::open(const char *url)
     {
       (*b)->segments_.data.resize((*ba)->segment_durations_.data.size());
       std::vector<uint32_t>::iterator bsd((*ba)->segment_durations_.data.begin());
-      uint64_t cummulated = (*ba)->startPTS_ - base_time_;
-      for (std::vector<SmoothTree::Segment>::iterator bs((*b)->segments_.data.begin()), es((*b)->segments_.data.end()); bs != es; ++bsd, ++bs)
+      uint64_t cummulated((*ba)->startPTS_ - base_time_), index(1);
+
+      for (std::vector<SmoothTree::Segment>::iterator bs((*b)->segments_.data.begin()), es((*b)->segments_.data.end()); bs != es; ++bsd, ++bs, ++index)
       {
-        bs->range_begin_ = ~0;
-        bs->range_end_ = bs->startPTS_ = cummulated;
+        bs->startPTS_ = cummulated;
+        bs->range_begin_ = cummulated + base_time_;
+        bs->range_end_ = index;
         cummulated += *bsd;
       }
     }

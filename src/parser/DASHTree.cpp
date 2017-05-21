@@ -497,6 +497,7 @@ start(void *data, const char *el, const char **attr)
           else if (strcmp(el, "SegmentTimeline") == 0)
           {
             dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTIMELINE;
+            dash->adp_timelined_ = true;
           }
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTDURATIONS)
@@ -646,6 +647,7 @@ start(void *data, const char *el, const char **attr)
         dash->adpwidth_ = 0;
         dash->adpheight_ = 0;
         dash->adpfpsRate_ = 0;
+        dash->adp_timelined_ = false;
 
         for (; *attr;)
         {
@@ -852,7 +854,6 @@ end(void *data, const char *el)
                 if (countSegs < 65536)
                 {
                   DASHTree::Segment seg;
-                  seg.range_begin_ = ~0;
 
                   dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
 
@@ -875,11 +876,11 @@ end(void *data, const char *el)
                   std::vector<uint32_t>::const_iterator sdb(dash->current_adaptationset_->segment_durations_.data.begin()),
                     sde(dash->current_adaptationset_->segment_durations_.data.end());
                   bool timeBased = sdb!=sde && tpl.media.find("$Time") != std::string::npos;
-                  if(timeBased)
-                    dash->current_representation_->flags_ |= DASHTree::Representation::TIMETEMPLATE;
+                  if (dash->adp_timelined_)
+                    dash->current_representation_->flags_ |= AdaptiveTree::Representation::TIMELINE;
 
-                  seg.range_end_ = timeBased ? dash->current_adaptationset_->startPTS_ : tpl.startNumber;
-                  seg.startPTS_ = dash->current_adaptationset_->startPTS_;
+                  seg.range_end_ = tpl.startNumber;
+                  seg.startPTS_ = seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
                     seg.range_end_ += ((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration;
@@ -887,8 +888,9 @@ end(void *data, const char *el)
                   for (;countSegs;--countSegs)
                   {
                     dash->current_representation_->segments_.data.push_back(seg);
-                    seg.startPTS_ += (sdb != sde) ? *sdb : tpl.duration;
-                    seg.range_end_ += timeBased ? *(sdb++) : 1;
+                    seg.startPTS_ += (sdb != sde) ? *(sdb++) : tpl.duration;
+                    seg.range_begin_ = seg.startPTS_;
+                    ++seg.range_end_;
                   }
                   return;
                 }

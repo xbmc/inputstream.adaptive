@@ -118,9 +118,8 @@ namespace adaptive
       static const unsigned int TEMPLATE = 2;
       static const unsigned int TIMELINE = 4;
       static const unsigned int INITIALIZATION = 8;
-      static const unsigned int TIMETEMPLATE = 16;
-      static const unsigned int SEGMENTBASE = 32;
-      static const unsigned int STARTTIMETPL = 64;
+      static const unsigned int SEGMENTBASE = 16;
+      static const unsigned int STARTTIMETPL = 32;
 
       uint32_t flags_;
 
@@ -210,6 +209,7 @@ namespace adaptive
     uint8_t adpChannelCount_;
     uint16_t adpwidth_, adpheight_;
     uint32_t adpfpsRate_;
+    bool adp_timelined_;
 
     std::string strXMLText_;
 
