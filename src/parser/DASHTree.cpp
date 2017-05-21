@@ -984,7 +984,7 @@ end(void *data, const char *el)
                   for (;countSegs;--countSegs)
                   {
                     dash->current_representation_->segments_.data.push_back(seg);
-                    seg.startPTS_ += (sdb != sde) ? *sdb : tpl.duration;
+                    seg.startPTS_ += (sdb != sde) ? *(sdb++) : tpl.duration;
                     seg.range_begin_ = seg.startPTS_;
                     ++seg.range_end_;
                   }
