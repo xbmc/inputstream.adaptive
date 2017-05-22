@@ -1,3 +1,20 @@
+1.0.11
+- Remove of never used addon interface function
+1.0.10
+- Remove complexity in filling segment members / fix timelined Live-streams
+- MPD Livestream: replace with seg::range_begin_
+- Fix API changes from vpupdates merge
+- Send custom headers with segment downloads
+- Reimplement custom headers using listitem property
+- Remove redundant string
+- Separate manifest and media headers
+- Rework headers again using maps
+- Remove unneccessary condition test
+- Change to automatic depends set on addon.xml
+1.0.9
+- Removed compiler warning
+- Removed not used addon interface parts
+- SmoothStream repeat_count / attribute order
 1.0.8
 - Fix missing brackets when calculating livestream - start
 1.0.7
