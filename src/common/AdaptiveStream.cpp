@@ -66,7 +66,7 @@ bool AdaptiveStream::download_segment()
       if (np == std::string::npos)
       {
         lenReplace = 5;
-        np = media.find((current_rep_->flags_ & AdaptiveTree::Representation::STARTTIMETPL) ? "{start time}" : "$Time");
+        np = media.find("$Time");
         value = current_seg_->range_begin_; //Timestamp
       }
       np += lenReplace;

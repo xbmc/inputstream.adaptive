@@ -71,14 +71,21 @@ start(void *data, const char *el, const char **attr)
         //<QualityLevel Index = "0" Bitrate = "150000" NominalBitrate = "150784" BufferTime = "3000" FourCC = "AVC1" MaxWidth = "480" MaxHeight = "272" CodecPrivateData = "000000016742E01E96540F0477FE0110010ED100000300010000030032E4A0093401BB2F7BE3250049A00DD97BDF0A0000000168CE060CC8" NALUnitLengthField = "4" / >
         //<QualityLevel Index = "0" Bitrate = "48000" SamplingRate = "24000" Channels = "2" BitsPerSample = "16" PacketSize = "4" AudioTag = "255" FourCC = "AACH" CodecPrivateData = "131056E598" / >
 
-        std::string::size_type pos = dash->current_adaptationset_->base_url_.find("{bitrate}");
-        if (pos == std::string::npos)
-          return;
-
         dash->current_representation_ = new SmoothTree::Representation();
         dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
         dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
-        dash->current_representation_->flags_ |= AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::STARTTIMETPL;
+        dash->current_representation_->flags_ |= AdaptiveTree::Representation::TEMPLATE;
+        dash->current_representation_->segtpl_.media = dash->current_representation_->url_;
+
+        std::string::size_type pos(dash->current_representation_->segtpl_.media.find("{start time}"));
+        if (pos != std::string::npos)
+          dash->current_representation_->segtpl_.media.replace(pos, 12, "$Time$");
+        else
+          return;
+
+        pos = dash->current_representation_->segtpl_.media.find("{bitrate}");
+        if (pos == std::string::npos)
+          return;
 
         const char *bw = "0";
 
@@ -107,7 +114,7 @@ start(void *data, const char *el, const char **attr)
             dash->current_representation_->nalLengthSize_ = static_cast<uint8_t>(atoi((const char*)*(attr + 1)));
           attr += 2;
         }
-        dash->current_representation_->url_.replace(pos, 9, bw);
+        dash->current_representation_->segtpl_.media.replace(pos, 9, bw);
         dash->current_representation_->bandwidth_ = atoi(bw);
         dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
       }
