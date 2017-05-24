@@ -487,7 +487,7 @@ start(void *data, const char *el, const char **attr)
               attr += 2;
             }
             if(dash->current_adaptationset_->segment_durations_.data.empty())
-              dash->current_adaptationset_->startPTS_ = t-(dash->base_time_)*dash->current_adaptationset_->timescale_;
+              dash->current_adaptationset_->startPTS_ = t;
             if (d && r)
             {
               for (; r; --r)
@@ -880,7 +880,8 @@ end(void *data, const char *el)
                     dash->current_representation_->flags_ |= AdaptiveTree::Representation::TIMELINE;
 
                   seg.range_end_ = tpl.startNumber;
-                  seg.startPTS_ = seg.range_begin_ = dash->current_adaptationset_->startPTS_;
+                  seg.startPTS_ = dash->current_adaptationset_->startPTS_ - (dash->base_time_)*dash->current_adaptationset_->timescale_;
+                  seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
                     seg.range_end_ += ((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration;
@@ -888,8 +889,8 @@ end(void *data, const char *el)
                   for (;countSegs;--countSegs)
                   {
                     dash->current_representation_->segments_.data.push_back(seg);
-                    seg.startPTS_ += (sdb != sde) ? *(sdb++) : tpl.duration;
-                    seg.range_begin_ = seg.startPTS_;
+                    uint32_t duration((sdb != sde) ? *(sdb++) : tpl.duration);
+                    seg.startPTS_ += duration, seg.range_begin_ += duration;
                     ++seg.range_end_;
                   }
                   return;
