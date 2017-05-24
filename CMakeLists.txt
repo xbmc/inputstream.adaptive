@@ -39,17 +39,16 @@ include_directories(${INCLUDES}
                     ${KODI_INCLUDE_DIR}
                     lib/libbento4/Core
 )
-                    
+
+include(FindEXPAT)
+find_package(EXPAT REQUIRED)
+include_directories(${EXPAT_INCLUDE_DIRS})
+list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
+
 if(WIN32)
- 	add_definitions(-DXML_STATIC)
-	include_directories(lib/expat/include)
-	link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
-	list(APPEND DEPLIBS ws2_32 expat)
+	add_definitions(-DXML_STATIC)
+	list(APPEND DEPLIBS ws2_32)
 else()
-	include(FindEXPAT)
-	find_package(EXPAT REQUIRED)
-	include_directories(${EXPAT_INCLUDE_DIRS})
-	list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
 	add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
