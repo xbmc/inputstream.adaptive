@@ -16,6 +16,8 @@
 *
 */
 
+#include <cstring>
+
 #include "AdaptiveTree.h"
 #include <string.h>
 
