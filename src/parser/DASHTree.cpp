@@ -468,6 +468,40 @@ start(void *data, const char *el, const char **attr)
             }
             dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
           }
+		  else if (strcmp(el, "ContentProtection") == 0) //Inside Representation
+		  {
+			  dash->current_adaptationset_->encrypted = true;
+			  if (dash->adp_pssh_.second.empty())
+				  dash->adp_pssh_.second = "PROTECTED";
+
+			  dash->strXMLText_.clear();
+			  dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
+			  bool urnFound(false), mpdFound(false);
+			  const char *defaultKID(0);
+			  for (; *attr;)
+			  {
+				  if (strcmp((const char*)*attr, "schemeIdUri") == 0)
+				  {
+					  if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
+						  mpdFound = true;
+					  else
+					  {
+						  urnFound = stricmp(dash->adp_pssh_.first.c_str(), (const char*)*(attr + 1)) == 0;
+						  break;
+					  }
+				  }
+				  else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
+					  defaultKID = (const char*)*(attr + 1);
+				  attr += 2;
+			  }
+			  if (urnFound)
+			  {
+				  dash->currentNode_ |= DASHTree::MPDNODE_CONTENTPROTECTION;
+				  dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+			  }
+			  else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
+				  dash->defaultKID_ = defaultKID;
+		  }
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
         {
@@ -592,7 +626,7 @@ start(void *data, const char *el, const char **attr)
           }
           dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTDURATIONS;
         }
-        else if (strcmp(el, "ContentProtection") == 0)
+        else if (strcmp(el, "ContentProtection") == 0) //Outside Representation
         {
           dash->current_adaptationset_->encrypted = true;
           if (dash->adp_pssh_.second.empty())
