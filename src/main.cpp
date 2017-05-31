@@ -963,16 +963,16 @@ protected:
 
         if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, m_singleSampleDecryptor, m_decrypter)))
           return result;
-
-        if (m_singleSampleDecryptor)
-          m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
       }
     }
 SUCCESS:
+    if (m_singleSampleDecryptor && m_codecHandler)
+      m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
+
     if (m_observer)
       m_observer->EndFragment(m_streamId);
 
-    return result;
+    return AP4_SUCCESS;
   }
 
 private:
@@ -1013,7 +1013,7 @@ private:
       break;
     }
 
-    if (m_protectedDesc && (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
+    if ((m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
       m_codecHandler->ExtraDataToAnnexB();
   }
 
@@ -1742,7 +1742,7 @@ std::uint16_t Session::GetVideoHeight() const
 AP4_CencSingleSampleDecrypter *Session::GetSingleSampleDecrypter(std::string sessionId)
 {
   for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin() + 1), e(cdm_sessions_.end()); b != e; ++b)
-    if (sessionId == b->cdm_session_str_)
+    if (b->cdm_session_str_ && sessionId == b->cdm_session_str_)
       return b->single_sample_decryptor_;
   return nullptr;
 }
