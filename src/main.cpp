@@ -967,7 +967,7 @@ protected:
     }
 SUCCESS:
     if (m_singleSampleDecryptor && m_codecHandler)
-      m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data);
+      m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data, m_decrypterCaps.flags);
 
     if (m_observer)
       m_observer->EndFragment(m_streamId);
@@ -1503,7 +1503,7 @@ bool Session::initialize()
 
       if (decrypter_ && defkid)
       {
-        for (unsigned int i(0); i < ses; ++i)
+        for (unsigned int i(1); i < ses; ++i)
           if (decrypter_ && decrypter_->HasLicenseKey(cdm_sessions_[i].single_sample_decryptor_, (const uint8_t *)defkid))
           {
             session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
