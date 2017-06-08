@@ -1515,10 +1515,11 @@ bool Session::initialize()
         || (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, optionalKeyParameter)) != 0))
       {
 
-        session.decrypter_caps_ = decrypter_->GetCapabilities(
+        decrypter_->GetCapabilities(
           session.single_sample_decryptor_,
           (const uint8_t *)defkid,
-          adaptiveTree_->psshSets_[ses].media_);
+          adaptiveTree_->psshSets_[ses].media_,
+          session.decrypter_caps_);
 
         if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
