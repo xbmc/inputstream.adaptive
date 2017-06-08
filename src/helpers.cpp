@@ -364,11 +364,11 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
 
 void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString)
 {
-  std::vector<std::string> header, headers = split(headerString, '&');
+  std::vector<std::string> headers = split(headerString, '&');
   for (std::vector<std::string>::iterator b(headers.begin()), e(headers.end()); b != e; ++b)
   {
-    header = split(*b, '=');
-    if (header.size() == 2)
-      headerMap[trim(header[0])] = url_decode(trim(header[1]));
+    std::string::size_type pos(b->find('='));
+    if(pos != std::string::npos)
+      headerMap[trim(b->substr(0, pos))] = url_decode(trim(b->substr(pos+1)));
   }
 }

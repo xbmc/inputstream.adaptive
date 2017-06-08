@@ -1893,8 +1893,13 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     return false;
   }
 
-  if (manh.empty() && (mpd_url.find("|") != std::string::npos))
-    parseheader(manh, mpd_url.substr(mpd_url.find("|") + 1).c_str());
+  std::string::size_type posHeader(mpd_url.find("|"));
+  if (posHeader != std::string::npos)
+  {
+    manh.clear();
+    parseheader(manh, mpd_url.substr(posHeader + 1).c_str());
+    mpd_url = mpd_url.substr(0, posHeader);
+  }
 
   kodihost.SetProfilePath(props.m_profileFolder);
 
