@@ -17,7 +17,7 @@ namespace SSD
       OPTION_PROTOCOL,
       OPTION_HEADER
     };
-    static const uint32_t version = 6;
+    static const uint32_t version = 7;
 
     virtual const char *GetLibraryPath() const = 0;
     virtual const char *GetProfilePath() const = 0;
@@ -167,6 +167,7 @@ namespace SSD
     virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 
     virtual const SSD_CAPS &GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media) = 0;
+    virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
 
     virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
