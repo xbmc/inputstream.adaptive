@@ -160,6 +160,13 @@ std::string &trim(std::string &src)
   return src;
 }
 
+static std::string trimcp(std::string src)
+{
+  src.erase(0, src.find_first_not_of(" "));
+  src.erase(src.find_last_not_of(" ") + 1);
+  return src;
+}
+
 static char from_hex(char ch) {
   return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
 }
@@ -369,6 +376,6 @@ void parseheader(std::map<std::string, std::string> &headerMap, const char* head
   {
     std::string::size_type pos(b->find('='));
     if(pos != std::string::npos)
-      headerMap[trim(b->substr(0, pos))] = url_decode(trim(b->substr(pos+1)));
+      headerMap[trimcp(b->substr(0, pos))] = url_decode(trimcp(b->substr(pos+1)));
   }
 }
