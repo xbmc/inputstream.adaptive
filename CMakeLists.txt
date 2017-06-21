@@ -36,7 +36,7 @@ list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
 include_directories(${INCLUDES}
                     ${kodiplatform_INCLUDE_DIRS}
                     ${p8-platform_INCLUDE_DIRS}
-                    ${KODI_INCLUDE_DIR}
+                    ${KODI_INCLUDE_DIR}/.. # Hack way with "/..", need bigger Kodi cmake rework to match right include ways (becomes done in future)
                     lib/libbento4/Core
 )
 

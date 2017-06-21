@@ -25,7 +25,7 @@
 
 #include "Ap4.h"
 
-#include "kodi_inputstream_types.h"
+#include <kodi/addon-instance/Inputstream.h>
 
 class FragmentedSampleReader;
 class SSD_DECRYPTER;
@@ -86,7 +86,7 @@ enum MANIFEST_TYPE
 class Session: public FragmentObserver
 {
 public:
-  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const std::map<std::string, std::string> &manifestHeaders, const std::map<std::string, std::string> &mediaHeaders, const char* profile_path);
+  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert, const std::map<std::string, std::string> &manifestHeaders, const std::map<std::string, std::string> &mediaHeaders, const char* profile_path, uint16_t display_width, uint16_t display_height);
   ~Session();
   bool initialize();
   FragmentedSampleReader *GetNextSample();
