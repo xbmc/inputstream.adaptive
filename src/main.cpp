@@ -392,7 +392,7 @@ public:
   virtual bool GetVideoInformation(INPUTSTREAM_INFO &info){ return false; };
   virtual bool GetAudioInformation(unsigned int &channels){ return false; };
   virtual bool ExtraDataToAnnexB() { return false; };
-  virtual kodi::addon::CODEC_PROFILE GetProfile() { return kodi::addon::CODEC_PROFILE::CodecProfileNotNeeded; };
+  virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
   virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) { return false; };
   virtual bool TimeSeek(AP4_UI64 seekPos) { return true; };
@@ -428,28 +428,28 @@ public:
       switch (avc->GetProfile())
       {
       case AP4_AVC_PROFILE_BASELINE:
-        codecProfile = kodi::addon::CODEC_PROFILE::H264CodecProfileBaseline;
+        codecProfile = STREAMCODEC_PROFILE::H264CodecProfileBaseline;
         break;
       case AP4_AVC_PROFILE_MAIN:
-        codecProfile = kodi::addon::CODEC_PROFILE::H264CodecProfileMain;
+        codecProfile = STREAMCODEC_PROFILE::H264CodecProfileMain;
         break;
       case AP4_AVC_PROFILE_EXTENDED:
-        codecProfile = kodi::addon::CODEC_PROFILE::H264CodecProfileExtended;
+        codecProfile = STREAMCODEC_PROFILE::H264CodecProfileExtended;
         break;
       case AP4_AVC_PROFILE_HIGH:
-        codecProfile = kodi::addon::CODEC_PROFILE::H264CodecProfileHigh;
+        codecProfile = STREAMCODEC_PROFILE::H264CodecProfileHigh;
         break;
       case AP4_AVC_PROFILE_HIGH_10:
-        codecProfile = kodi::addon::CODEC_PROFILE::H264CodecProfileHigh10;
+        codecProfile = STREAMCODEC_PROFILE::H264CodecProfileHigh10;
         break;
       case AP4_AVC_PROFILE_HIGH_422:
-        codecProfile = kodi::addon::CODEC_PROFILE::H264CodecProfileHigh422;
+        codecProfile = STREAMCODEC_PROFILE::H264CodecProfileHigh422;
         break;
       case AP4_AVC_PROFILE_HIGH_444:
-        codecProfile = kodi::addon::CODEC_PROFILE::H264CodecProfileHigh444Predictive;
+        codecProfile = STREAMCODEC_PROFILE::H264CodecProfileHigh444Predictive;
         break;
       default:
-        codecProfile = kodi::addon::CODEC_PROFILE::CodecProfileUnknown;
+        codecProfile = STREAMCODEC_PROFILE::CodecProfileUnknown;
         break;
       }
     }
@@ -575,13 +575,13 @@ public:
     return false;
   };
 
-  virtual kodi::addon::CODEC_PROFILE GetProfile()
+  virtual STREAMCODEC_PROFILE GetProfile()
   {
     return codecProfile;
   };
 private:
   unsigned int countPictureSetIds;
-  kodi::addon::CODEC_PROFILE codecProfile;
+  STREAMCODEC_PROFILE codecProfile;
   bool needSliceInfo;
 };
 
@@ -1966,7 +1966,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 {
   static struct INPUTSTREAM_INFO dummy_info = {
-    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", kodi::addon::CODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
+    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", STREAMCODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
     0, 0, 0, 0, 0.0f,
     0, 0, 0, 0, 0,
     CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
