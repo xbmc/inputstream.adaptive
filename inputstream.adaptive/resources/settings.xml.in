@@ -3,8 +3,8 @@
   <category label="30100">
     <setting id="MINBANDWIDTH" type="number" default="0" label="30101" />
     <setting id="MAXBANDWIDTH" type="number" default = "0" label="30102" />
-    <setting id="MAXRESOLUTION" type="enum" label="30110" default = "0" values="Max|720p|1080p" />
-    <setting id="MAXRESOLUTIONSECURE" type="enum" label="30113" default = "1" values="Max|720p|1080p" />
+    <setting id="MAXRESOLUTION" type="enum" label="30110" default = "0" values="Max|480p|720p|1080p" />
+    <setting id="MAXRESOLUTIONSECURE" type="enum" label="30113" default = "2" values="Max|480p|720p|1080p" />
     <setting id="STREAMSELECTION" type="enum" label="30111" default = "0" values="Auto|Manual" />
     <setting id="MEDIATYPE" type="enum" label="30112" default = "0" values="All|Audio|Video" />
     <setting type="sep"/>
