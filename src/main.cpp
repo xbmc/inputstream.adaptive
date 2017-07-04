@@ -41,6 +41,12 @@
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
+static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
+  AP4_Track::TYPE_UNKNOWN,
+  AP4_Track::TYPE_VIDEO,
+  AP4_Track::TYPE_AUDIO,
+  AP4_Track::TYPE_SUBTITLES };
+
 /*******************************************************
 kodi host - interface for decrypter libraries
 ********************************************************/
@@ -1442,7 +1448,27 @@ bool Session::initialize()
             {
               init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
               if (adaptiveTree_->psshSets_[ses].defaultKID_.empty())
-                adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)pssh[i]->GetKid(0), 16);
+              {
+                if (pssh[i]->GetKid(0))
+                  adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)pssh[i]->GetKid(0), 16);
+                else if (AP4_Track *track = movie->GetTrack(TIDC[stream.stream_.get_type()]))
+                {
+                  AP4_ProtectedSampleDescription *m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(track->GetSampleDescription(0));
+                  AP4_ContainerAtom *schi;
+                  if (m_protectedDesc->GetSchemeInfo() && (schi = m_protectedDesc->GetSchemeInfo()->GetSchiAtom()))
+                  {
+                    AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
+                    if (tenc)
+                      adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)tenc->GetDefaultKid());
+                    else
+                    {
+                      AP4_PiffTrackEncryptionAtom* piff(AP4_DYNAMIC_CAST(AP4_PiffTrackEncryptionAtom, schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
+                      if (piff)
+                        adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)piff->GetDefaultKid());
+                    }
+                  }
+                }
+              }
             }
           }
 
@@ -2045,12 +2071,6 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     AP4_Movie* movie(0);
-    static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = { 
-      AP4_Track::TYPE_UNKNOWN,
-      AP4_Track::TYPE_VIDEO,
-      AP4_Track::TYPE_AUDIO,
-      AP4_Track::TYPE_SUBTITLES };
-
     if (m_session->GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
     {
       //We'll create a Movie out of the things we got from manifest file
