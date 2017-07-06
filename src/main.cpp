@@ -581,7 +581,7 @@ public:
     return false;
   };
 
-  virtual STREAMCODEC_PROFILE GetProfile()
+  virtual STREAMCODEC_PROFILE GetProfile() override
   {
     return codecProfile;
   };
@@ -640,12 +640,12 @@ public:
     :CodecHandler(sd)
   {};
 
-  bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
     return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale);
   }
 
-  bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf)
+  virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) override
   {
     uint64_t pts;
     uint32_t dur;
@@ -679,6 +679,7 @@ private:
 class SampleReader
 {
 public:
+  virtual ~SampleReader() = default;
   virtual bool EOS()const = 0;
   virtual double DTS()const = 0;
   virtual double PTS()const = 0;
@@ -908,7 +909,7 @@ public:
 protected:
   virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
     AP4_Position       moof_offset,
-    AP4_Position       mdat_payload_offset)
+    AP4_Position       mdat_payload_offset) override
   {
     AP4_Result result;
 

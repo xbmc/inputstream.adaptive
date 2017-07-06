@@ -241,6 +241,8 @@ namespace adaptive
     std::string strXMLText_;
 
     AdaptiveTree();
+    virtual ~AdaptiveTree() = default;
+
     virtual bool open(const char *url) = 0;
     uint8_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
