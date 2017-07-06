@@ -2001,7 +2001,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
     INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", STREAMCODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
     0, 0, 0, 0, 0.0f,
     0, 0, 0, 0, 0,
-    CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0};
+    CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0 ,0};
 
   kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
 
@@ -2021,6 +2021,10 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
       if(m_session->GetDecrypterCaps(cdmId).flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
         stream->info_.m_features = INPUTSTREAM_INFO::FEATURE_DECODE;
+      else
+       stream->info_.m_features = 0;
+
+      stream->info_.m_cryptoInfo.flags = (m_session->GetDecrypterCaps(cdmId).flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER) ? CRYPTO_INFO::FLAG_SECURE_DECODER : 0;
     }
     return stream->info_;
   }
