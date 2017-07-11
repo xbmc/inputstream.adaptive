@@ -17,7 +17,7 @@ namespace SSD
       OPTION_PROTOCOL,
       OPTION_HEADER
     };
-    static const uint32_t version = 7;
+    static const uint32_t version = 8;
 
     virtual const char *GetLibraryPath() const = 0;
     virtual const char *GetProfilePath() const = 0;
@@ -28,6 +28,7 @@ namespace SSD
     virtual void CloseFile(void* file) = 0;
     virtual bool CreateDirectory(const char *dir) = 0;
     virtual bool GetBuffer(void* instance, SSD_PICTURE &picture) = 0;
+    virtual void ReleaseBuffer(void* instance, void *buffer) = 0;
 
     enum LOGLEVEL
     {
@@ -107,6 +108,8 @@ namespace SSD
     uint32_t stride[VideoPlane::MaxPlanes];
 
     int64_t pts;
+
+    void *buffer;
   };
 
   typedef struct SSD_SAMPLE

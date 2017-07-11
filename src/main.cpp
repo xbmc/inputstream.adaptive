@@ -141,6 +141,13 @@ public:
     return instance ? static_cast<kodi::addon::CInstanceVideoCodec*>(instance)->GetFrameBuffer(*reinterpret_cast<VIDEOCODEC_PICTURE*>(&picture)) : false;
   }
 
+  virtual void ReleaseBuffer(void* instance, void *buffer) override
+  {
+    if (instance)
+      static_cast<kodi::addon::CInstanceVideoCodec*>(instance)->ReleaseFrameBuffer(buffer);
+  }
+
+
 private:
   std::string m_strProfilePath, m_strLibraryPath;
 }kodihost;
@@ -1822,6 +1829,7 @@ class CVideoCodecAdaptive
 public:
   CVideoCodecAdaptive(KODI_HANDLE instance);
   CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive *parent);
+  virtual ~CVideoCodecAdaptive();
 
   virtual bool Open(VIDEOCODEC_INITDATA &initData) override;
   virtual bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
@@ -1857,6 +1865,7 @@ public:
   virtual void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
   virtual struct INPUTSTREAM_INFO GetStream(int streamid) override;
   virtual void EnableStream(int streamid, bool enable) override;
+  virtual void OpenStream(int streamid) override;
   virtual DemuxPacket* DemuxRead() override;
   virtual bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
   virtual void SetVideoResolution(int width, int height) override;
@@ -2041,102 +2050,110 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
   Session::STREAM *stream(m_session->GetStream(streamid));
 
+  if (!enable && stream)
+    stream->disable();
+}
+
+void CInputStreamAdaptive::OpenStream(int streamid)
+{
+  kodi::Log(ADDON_LOG_DEBUG, "OpenStream(%d)", streamid);
+
+  if (!m_session)
+    return;
+
+  Session::STREAM *stream(m_session->GetStream(streamid));
+
   if (!stream)
     return;
 
-  if (enable)
+  if (stream->enabled)
+    return;
+
+  stream->enabled = true;
+
+  stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight());
+  const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
+  kodi::Log(ADDON_LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u",
+    stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
+
+  if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
   {
-    if (stream->enabled)
-      return;
+    kodi::Log(ADDON_LOG_ERROR, "Unable to select stream!");
+    return stream->disable();
+  }
 
-    stream->enabled = true;
+  if (rep != stream->stream_.getRepresentation())
+  {
+    m_session->UpdateStream(*stream, m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
+    m_session->CheckChange(true);
+  }
 
-    stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight());
-    const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
-    kodi::Log(ADDON_LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u", 
-      stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
-
-    if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
-    {
-      kodi::Log(ADDON_LOG_ERROR, "Unable to select stream!");
-      return stream->disable();
-    }
-
-    if(rep != stream->stream_.getRepresentation())
-    {
-      m_session->UpdateStream(*stream, m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
-      m_session->CheckChange(true);
-    }
-
-    if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
-    {
-      stream->reader_ = new SubtitleSampleReader(rep->url_, streamid, m_session->GetPresentationTimeOffset());
-      return;
-    }
-
-    stream->input_ = new AP4_DASHStream(&stream->stream_);
-    AP4_Movie* movie(0);
-    if (m_session->GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
-    {
-      //We'll create a Movie out of the things we got from manifest file
-      //note: movie will be deleted in destructor of stream->input_file_
-      movie = new AP4_Movie();
-
-      AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
-
-      AP4_SampleDescription *sample_descryption;
-      if (strcmp(stream->info_.m_codecName, "h264") == 0)
-      {
-        const std::string &extradata(stream->stream_.getRepresentation()->codec_private_data_);
-        AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
-        AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
-        sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
-      }
-      else
-        sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
-
-      if (stream->stream_.getRepresentation()->get_psshset() > 0)
-      {
-        AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
-        schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, m_session->GetDefaultKeyId(stream->stream_.getRepresentation()->get_psshset())));
-        sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
-      }
-      sample_table->AddSampleDescription(sample_descryption);
-
-      movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0, stream->stream_.getRepresentation()->timescale_, 0, stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
-      //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
-      AP4_MoovAtom *moov = new AP4_MoovAtom();
-      moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
-      movie->SetMoovAtom(moov);
-    }
-
-    stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
-    movie = stream->input_file_->GetMovie();
-
-    if (movie == NULL)
-    {
-      kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
-      return stream->disable();
-    }
-
-    AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
-    if (!track)
-    {
-      kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-      return stream->disable();
-    }
-
-    stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
-      m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
-      m_session->GetPresentationTimeOffset(),
-      m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
-
-    stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
-
+  if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
+  {
+    stream->reader_ = new SubtitleSampleReader(rep->url_, streamid, m_session->GetPresentationTimeOffset());
     return;
   }
-  return stream->disable();
+
+  stream->input_ = new AP4_DASHStream(&stream->stream_);
+  AP4_Movie* movie(0);
+  if (m_session->GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
+  {
+    //We'll create a Movie out of the things we got from manifest file
+    //note: movie will be deleted in destructor of stream->input_file_
+    movie = new AP4_Movie();
+
+    AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
+
+    AP4_SampleDescription *sample_descryption;
+    if (strcmp(stream->info_.m_codecName, "h264") == 0)
+    {
+      const std::string &extradata(stream->stream_.getRepresentation()->codec_private_data_);
+      AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
+      AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
+      sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
+    }
+    else
+      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+
+    if (stream->stream_.getRepresentation()->get_psshset() > 0)
+    {
+      AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
+      schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, m_session->GetDefaultKeyId(stream->stream_.getRepresentation()->get_psshset())));
+      sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
+    }
+    sample_table->AddSampleDescription(sample_descryption);
+
+    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0, stream->stream_.getRepresentation()->timescale_, 0, stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
+    //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
+    AP4_MoovAtom *moov = new AP4_MoovAtom();
+    moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
+    movie->SetMoovAtom(moov);
+  }
+
+  stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
+  movie = stream->input_file_->GetMovie();
+
+  if (movie == NULL)
+  {
+    kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+    return stream->disable();
+  }
+
+  AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
+  if (!track)
+  {
+    kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
+    return stream->disable();
+  }
+
+  stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
+    m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
+    m_session->GetPresentationTimeOffset(),
+    m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
+
+  stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 }
+
 
 DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 {
@@ -2256,6 +2273,10 @@ CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdapt
   : CInstanceVideoCodec(instance)
   , m_session(parent->GetSession())
   , m_state(0)
+{
+}
+
+CVideoCodecAdaptive::~CVideoCodecAdaptive()
 {
 }
 
