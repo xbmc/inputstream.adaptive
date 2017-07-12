@@ -322,12 +322,26 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
   unsigned int ld_size(1024);
   b64_decode(license_data.c_str(), license_data.size(), ld, ld_size);
 
+  const uint8_t *kid((uint8_t*)strstr((const char*)ld, "{KID}"));
   const uint8_t *uuid((uint8_t*)strstr((const char*)ld, "{UUID}"));
   unsigned int license_size = uuid ? ld_size + 36 - 6 : ld_size;
 
   //Build up proto header
   init_data.Reserve(512);
   uint8_t *protoptr(init_data.UseData());
+  if (kid)
+  {
+    if (uuid && uuid < kid)
+      return false;
+    license_size -= 5; //Remove sizeof(placeholder)
+    memcpy(protoptr, ld, kid - ld);
+    protoptr += kid - ld;
+    kid += 5;
+    ld_size -= kid - ld;
+  }
+  else
+    kid = ld;
+
   *protoptr++ = 18; //id=16>>3=2, type=2(flexlen)
   *protoptr++ = 16; //length of key
   memcpy(protoptr, key.data(), 16);
@@ -345,8 +359,8 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
   if (uuid)
   {
     static const uint8_t hexmap[16] = { '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f' };
-    memcpy(protoptr, ld, uuid - ld);
-    protoptr += uuid - ld;
+    memcpy(protoptr, kid, uuid - kid);
+    protoptr += uuid - kid;
 
     for (unsigned int i(0); i < 16; ++i)
     {
@@ -355,13 +369,13 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
       *protoptr++ = hexmap[(uint8_t)(key.data()[i]) >> 4];
       *protoptr++ = hexmap[(uint8_t)(key.data()[i]) & 15];
     }
-    unsigned int sizeleft = ld_size - ((uuid - ld) + 6);
+    unsigned int sizeleft = ld_size - ((uuid - kid) + 6);
     memcpy(protoptr, uuid + 6, sizeleft);
     protoptr += sizeleft;
   }
   else
   {
-    memcpy(protoptr, ld, ld_size);
+    memcpy(protoptr, kid, ld_size);
     protoptr += ld_size;
   }
   init_data.SetDataSize(protoptr - init_data.UseData());

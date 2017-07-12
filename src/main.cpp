@@ -720,7 +720,7 @@ public:
     : AP4_LinearReader(*movie, input)
     , m_track(track)
     , m_streamId(streamId)
-    , m_sampleDescIndex(0)
+    , m_sampleDescIndex(1)
     , m_bSampleDescChanged(false)
     , m_decrypterCaps(dcaps)
     , m_failCount(0)
@@ -762,6 +762,8 @@ public:
     if (m_singleSampleDecryptor)
       m_poolId = m_singleSampleDecryptor->AddPool();
 
+    //We need this to fill extradata
+    UpdateSampleDescription();
   }
 
   ~FragmentedSampleReader()
@@ -2150,6 +2152,7 @@ void CInputStreamAdaptive::OpenStream(int streamid)
     m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
     m_session->GetPresentationTimeOffset(),
     m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
+  stream->reader_->GetInformation(stream->info_);
 
   stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 }
