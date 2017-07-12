@@ -564,17 +564,17 @@ public:
 
     if (AP4_AvcSampleDescription *avc = AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, sample_description))
     {
-      AP4_Array<AP4_DataBuffer>& buffer = avc->GetPictureParameters();
+      AP4_Array<AP4_DataBuffer>& ppsList(avc->GetPictureParameters());
       AP4_AvcPictureParameterSet pps;
-      for (unsigned int i(0); i < buffer.ItemCount(); ++i)
+      for (unsigned int i(0); i < ppsList.ItemCount(); ++i)
       {
-        if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParsePPS(buffer[i].GetData(), buffer[i].GetDataSize(), pps)) && pps.pic_parameter_set_id == pictureId)
+        if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParsePPS(ppsList[i].GetData(), ppsList[i].GetDataSize(), pps)) && pps.pic_parameter_set_id == pictureId)
         {
-          buffer = avc->GetSequenceParameters();
+          AP4_Array<AP4_DataBuffer>& spsList = avc->GetSequenceParameters();
           AP4_AvcSequenceParameterSet sps;
-          for (unsigned int i(0); i < buffer.ItemCount(); ++i)
+          for (unsigned int i(0); i < spsList.ItemCount(); ++i)
           {
-            if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParseSPS(buffer[i].GetData(), buffer[i].GetDataSize(), sps)) && sps.seq_parameter_set_id == pps.seq_parameter_set_id)
+            if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParseSPS(spsList[i].GetData(), spsList[i].GetDataSize(), sps)) && sps.seq_parameter_set_id == pps.seq_parameter_set_id)
             {
               bool ret = sps.GetInfo(info.m_Width, info.m_Height);
               ret = sps.GetVUIInfo(info.m_FpsRate, info.m_FpsScale, info.m_Aspect) || ret;
