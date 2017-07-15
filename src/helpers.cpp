@@ -321,6 +321,7 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
   uint8_t ld[1024];
   unsigned int ld_size(1024);
   b64_decode(license_data.c_str(), license_data.size(), ld, ld_size);
+  ld[ld_size] = 0;
 
   const uint8_t *kid((uint8_t*)strstr((const char*)ld, "{KID}"));
   const uint8_t *uuid((uint8_t*)strstr((const char*)ld, "{UUID}"));
@@ -336,6 +337,7 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
     license_size -= 5; //Remove sizeof(placeholder)
     memcpy(protoptr, ld, kid - ld);
     protoptr += kid - ld;
+    license_size -= kid - ld;
     kid += 5;
     ld_size -= kid - ld;
   }
