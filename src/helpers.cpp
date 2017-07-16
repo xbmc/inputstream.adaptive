@@ -57,12 +57,27 @@ bool b64_decode(const char *in, unsigned int in_len, uint8_t *out, unsigned int 
 		}
 	}
 
-	if (in_len & 3)
-	{
-		free(in_copy);
-        out_len = 0;
-		return false;
-	}
+  if (strchr(in, '\\') != 0)
+  {
+    if (!in_copy)
+    {
+      in_copy = (char *)malloc(in_len + 1);
+      memcpy(in_copy, in, in_len);
+      in = in_copy;
+    }
+    char *run(in_copy);
+    for (size_t i(0); i < in_len; ++i)
+      if (in_copy[i] != '\\')
+        *run++ = in_copy[i];
+    in_len = run - in_copy;
+  }
+
+  if (in_len & 3)
+  {
+    free(in_copy);
+    out_len = 0;
+    return false;
+  }
 
 	unsigned int new_out_len = in_len / 4 * 3;
 	if (in[in_len - 1] == '=') --new_out_len;
