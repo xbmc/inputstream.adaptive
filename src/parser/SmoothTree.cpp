@@ -151,7 +151,11 @@ start(void *data, const char *el, const char **attr)
           {
             uint64_t lt(atoll((const char*)*(attr + 1)));
             if (!dash->current_adaptationset_->segment_durations_.data.empty())
+            {
+              //Go back to the previous timestamp to calculate the real gap.
+              dash->pts_helper_ -= dash->current_adaptationset_->segment_durations_.data.back();
               dash->current_adaptationset_->segment_durations_.data.back() = static_cast<uint32_t>(lt - dash->pts_helper_);
+            }
             else
               dash->current_adaptationset_->startPTS_ = lt;
             dash->pts_helper_ = lt;
@@ -167,7 +171,10 @@ start(void *data, const char *el, const char **attr)
         if (~push_duration)
         {
           while (repeat_count--)
+          {
             dash->current_adaptationset_->segment_durations_.data.push_back(push_duration);
+            dash->pts_helper_ += push_duration;
+          }
         }
       }
     }
