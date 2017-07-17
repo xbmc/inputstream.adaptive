@@ -1265,45 +1265,51 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
     kodi::Log(ADDON_LOG_DEBUG, "DECRYPTERPATH not specified in settings.xml");
     return;
   }
-  std::string path(kodi::vfs::TranslateSpecialProtocol(specialpath));
 
-  kodihost.SetLibraryPath(path.c_str());
+  std::vector<std::string> searchPaths(2);
+  searchPaths[0] = kodi::vfs::TranslateSpecialProtocol(specialpath);
+  searchPaths[1] = kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive");
+
+  kodihost.SetLibraryPath(searchPaths[0].c_str());
 
   std::vector<kodi::vfs::CDirEntry> items;
 
-  kodi::Log(ADDON_LOG_DEBUG, "Searching for decrypters in: %s", path.c_str());
-
-  if (!kodi::vfs::GetDirectory(path, "", items))
-    return;
-
-  for (unsigned int i(0); i < items.size(); ++i)
+  for (std::vector<std::string>::const_iterator path(searchPaths.begin()); !decrypter_ && path != searchPaths.end(); ++path)
   {
-    if (strncmp(items[i].Label().c_str(), "ssd_", 4) && strncmp(items[i].Label().c_str(), "libssd_", 7))
-      continue;
+    kodi::Log(ADDON_LOG_DEBUG, "Searching for decrypters in: %s", path->c_str());
 
-    void * mod(dlopen(items[i].Path().c_str(), RTLD_LAZY));
-    if (mod)
+    if (!kodi::vfs::GetDirectory(*path, "", items))
+      return;
+
+    for (unsigned int i(0); i < items.size(); ++i)
     {
-      CreateDecryptorInstanceFunc startup;
-      if ((startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance")))
+      if (strncmp(items[i].Label().c_str(), "ssd_", 4) && strncmp(items[i].Label().c_str(), "libssd_", 7))
+        continue;
+
+      void * mod(dlopen(items[i].Path().c_str(), RTLD_LAZY));
+      if (mod)
       {
-        SSD::SSD_DECRYPTER *decrypter = startup(&kodihost, SSD::SSD_HOST::version);
-        const char *suppUrn(0);
-
-        if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_type_.c_str())))
+        CreateDecryptorInstanceFunc startup;
+        if ((startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance")))
         {
-          kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
-          decrypterModule_ = mod;
-          decrypter_ = decrypter;
-          key_system = suppUrn;
-          break;
+          SSD::SSD_DECRYPTER *decrypter = startup(&kodihost, SSD::SSD_HOST::version);
+          const char *suppUrn(0);
+
+          if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_type_.c_str())))
+          {
+            kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
+            decrypterModule_ = mod;
+            decrypter_ = decrypter;
+            key_system = suppUrn;
+            break;
+          }
         }
+        dlclose(mod);
       }
-      dlclose(mod);
-    }
-    else
-    {
-      kodi::Log(ADDON_LOG_DEBUG, "%s", dlerror());
+      else
+      {
+        kodi::Log(ADDON_LOG_DEBUG, "%s", dlerror());
+      }
     }
   }
 }

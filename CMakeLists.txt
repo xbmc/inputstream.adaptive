@@ -54,17 +54,17 @@ else()
 	add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
+add_subdirectory(wvdecrypter)
+
 if(CORE_SYSTEM_NAME STREQUAL android)
-  add_subdirectory(wvdecrypter)
   set(DECRYPTERPATH "special://xbmcbinaddons")
-  install(FILES $<TARGET_FILE:ssd_wv> DESTINATION lib/${APP_NAME_LC}/addons/inputstream.adaptive)
 else()
   set(DECRYPTERPATH "special://home/cdm")
-  add_subdirectory(lib/libbento4)
 endif()
 
 list(APPEND DEPLIBS bento4)
 					
+set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 build_addon(inputstream.adaptive ADP DEPLIBS)
 
 include(CPack)
