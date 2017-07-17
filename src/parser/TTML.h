@@ -26,9 +26,9 @@
 class TTML2SRT
 {
 public:
-  TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_timescale(0) { m_styleStack.push_back(STYLE()); };
+  TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_timescale(0), m_ptsOffset(0) { m_styleStack.push_back(STYLE()); };
 
-  bool Parse(const void *buffer, size_t buffer_size, uint64_t timescale);
+  bool Parse(const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset);
 
   bool Prepare(uint64_t &pts, uint32_t &duration);
   bool TimeSeek(uint64_t seekPos);
@@ -82,5 +82,5 @@ private:
   std::vector<STYLE> m_styles, m_styleStack;
 
   std::string m_SRT, m_lastId;
-  uint64_t m_timescale;
+  uint64_t m_timescale, m_ptsOffset;
 };

@@ -183,7 +183,7 @@ end(void *data, const char *el)
   }
 }
 
-bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale)
+bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
 {
   bool done(true);
   m_node = 0;
@@ -191,6 +191,7 @@ bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale)
   m_strXMLText.clear();
   m_subTitles.clear();
   m_timescale = timescale;
+  m_ptsOffset = ptsOffset;
   m_styles.clear();
   m_styleStack.resize(1);
 
@@ -257,7 +258,7 @@ uint64_t TTML2SRT::GetTime(const char *tmchar)
   else
   {
     unsigned int th, tm, ts, tms;
-    sscanf(tmchar, "%u:%u:%u.%u", &th, &tm, &ts, &tms);
+    sscanf(tmchar, "%u:%u:%u.%2u", &th, &tm, &ts, &tms);
     ret = th * 3600 + tm * 60 + ts;
     ret = ret * 1000 + tms * 10;
     ret = (ret * m_timescale) / 1000;
@@ -276,7 +277,13 @@ bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
   sub.start = GetTime(s);
   sub.end = GetTime(e);
 
-  sub.id = id;
+  if (sub.start < m_ptsOffset)
+  {
+    sub.start += m_ptsOffset;
+    sub.end += m_ptsOffset;
+  }
+
+  sub.id = *id ? id : s;
 
   return true;
 }

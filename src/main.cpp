@@ -406,7 +406,7 @@ public:
   virtual bool GetAudioInformation(unsigned int &channels){ return false; };
   virtual bool ExtraDataToAnnexB() { return false; };
   virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
+  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale, AP4_UI64 offSet) { return false; };
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) { return false; };
   virtual bool TimeSeek(AP4_UI64 seekPos) { return true; };
 
@@ -645,11 +645,12 @@ class TTMLCodecHandler : public CodecHandler
 public:
   TTMLCodecHandler(AP4_SampleDescription *sd)
     :CodecHandler(sd)
+    ,ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale, AP4_UI64 offset) override
   {
-    return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale);
+    return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale, offset);
   }
 
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) override
@@ -677,6 +678,7 @@ public:
 
 private:
   TTML2SRT m_ttml;
+  AP4_UI64 ptsOffset;
 };
 
 /*******************************************************
@@ -729,6 +731,7 @@ public:
     , m_dts(0.0)
     , m_pts(0.0)
     , m_presentationTimeOffset(pto)
+    , m_ptsOffset(0)
     , m_codecHandler(0)
     , m_defaultKey(0)
     , m_protectedDesc(0)
@@ -831,7 +834,7 @@ public:
         m_singleSampleDecryptor->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, nullptr, 0, nullptr, nullptr);
       }
 
-      if (m_codecHandler->Transform(m_sampleData, m_track->GetMediaTimeScale()))
+      if (m_codecHandler->Transform(m_sampleData, m_track->GetMediaTimeScale(), m_ptsOffset))
         m_codecHandler->ReadNextSample(m_sample, m_sampleData);
     }
 
@@ -898,8 +901,10 @@ public:
     }
     return false;
   };
+
   virtual void SetObserver(FragmentObserver *observer) override { m_observer = observer; };
-  virtual void SetPTSOffset(uint64_t offset) override { FindTracker(m_track->GetId())->m_NextDts = offset; };
+  virtual void SetPTSOffset(uint64_t offset) override { FindTracker(m_track->GetId())->m_NextDts = m_ptsOffset = offset; };
+
   virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
   {
     if (m_nextDuration)
@@ -1045,6 +1050,7 @@ private:
   bool m_eos, m_started;
   double m_dts, m_pts;
   double m_presentationTimeOffset;
+  AP4_UI64 m_ptsOffset;
 
   AP4_Sample     m_sample;
   AP4_DataBuffer m_encrypted, m_sampleData;
@@ -1092,7 +1098,7 @@ public:
       result.AppendData(buf, nbRead);
     file.Close();
 
-    m_codecHandler.Transform(result, 1000);
+    m_codecHandler.Transform(result, 1000, 0);
   };
 
   virtual bool EOS()const override { return m_eos; };
@@ -1671,7 +1677,7 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "opus");
   else if (rep->codecs_.find("vorbis") == 0)
     strcpy(stream.info_.m_codecName, "vorbis");
-  else if (rep->codecs_.find("stpp") == 0)
+  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0)
     strcpy(stream.info_.m_codecName, "srt");
 
   stream.info_.m_FpsRate = rep->fpsRate_;
@@ -2120,6 +2126,8 @@ void CInputStreamAdaptive::OpenStream(int streamid)
       AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
       sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
     }
+    else if (strcmp(stream->info_.m_codecName, "srt") == 0)
+      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES, AP4_SAMPLE_FORMAT_STPP, 0);
     else
       sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
 
