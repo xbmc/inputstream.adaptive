@@ -57,7 +57,7 @@ bool needProvision = false;
 
 void MediaDrmEventListener(AMediaDrm *media_drm, const AMediaDrmSessionId *sessionId, AMediaDrmEventType eventType, int extra, const uint8_t *data, size_t dataSize)
 {
-  Log(SSD_HOST::LL_DEBUG, "EVENT occured drm:%x, event:%d extra:%d dataSize;%d", (unsigned int)media_drm, eventType, extra, dataSize);
+  Log(SSD_HOST::LL_DEBUG, "EVENT occured drm:%p, event:%d extra:%d dataSize;%d", media_drm, eventType, extra, dataSize);
   if (eventType == EVENT_PROVISION_REQUIRED)
     needProvision = true;
 }
@@ -130,7 +130,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   AMediaDrm_getPropertyString(media_drm_, "securityLevel", &property);
   std::string strSecurityLevel(property? property : "unknown");
 
-  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %X, deviceid: %s, security-level: %s", (unsigned int)media_drm_, strDeviceId.c_str(), strSecurityLevel.c_str());
+  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, security-level: %s", media_drm_, strDeviceId.c_str(), strSecurityLevel.c_str());
 
   media_status_t status;
   if ((status = AMediaDrm_setOnEventListener(media_drm_, MediaDrmEventListener)) != AMEDIA_OK)
@@ -305,7 +305,7 @@ TRYAGAIN:
       goto FAILWITHSESSION;
   }
 
-  Log(SSD_HOST::LL_DEBUG, "Key request successful, size: %u, oldsize: %u", reinterpret_cast<unsigned int>(key_request_size_), reinterpret_cast<unsigned int>(old_key_request_size));
+  Log(SSD_HOST::LL_DEBUG, "Key request successful, size: %u, oldsize: %u", static_cast<unsigned int>(key_request_size_), static_cast<unsigned int>(old_key_request_size));
 
   if (!SendSessionMessage(session_id_, key_request_, key_request_size_ - old_key_request_size))
     goto FAILWITHSESSION;
@@ -367,7 +367,7 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
   const char *url(0);
   size_t prov_size(4096);
 
-  Log(SSD_HOST::LL_ERROR, "PrivisionData request: drm: %x key_request_size_: %u", (unsigned int)media_drm_.GetMediaDrm(), key_request_size_);
+  Log(SSD_HOST::LL_ERROR, "PrivisionData request: drm:%p key_request_size_: %u", media_drm_.GetMediaDrm(), key_request_size_);
 
   media_status_t status = AMediaDrm_getProvisionRequest(media_drm_.GetMediaDrm(), &key_request_, &prov_size, &url);
 
