@@ -1274,7 +1274,7 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
 
   std::vector<std::string> searchPaths(2);
   searchPaths[0] = kodi::vfs::TranslateSpecialProtocol(specialpath);
-  searchPaths[1] = kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive");
+  searchPaths[1] = kodi::GetAddonInfo("path");
 
   kodihost.SetLibraryPath(searchPaths[0].c_str());
 
