@@ -58,6 +58,8 @@ else()
 	add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
+add_definitions(-DUNICODE -D_UNICODE)
+
 add_subdirectory(wvdecrypter)
 
 if(CORE_SYSTEM_NAME STREQUAL android)

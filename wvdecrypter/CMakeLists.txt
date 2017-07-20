@@ -7,11 +7,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     endif()
 endif()
 
-add_definitions(-DUNICODE -D_UNICODE -D_DEBUG)
-
 project(wvdecrypter)
-
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
 
 if(CORE_SYSTEM_NAME STREQUAL android)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-undefined")
