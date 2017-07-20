@@ -47,6 +47,6 @@ namespace adaptive
       MPDNODE_SEGMENTTEMPLATE = 1 << 13,
       MPDNODE_SEGMENTTIMELINE = 1 << 14
     };
+    uint64_t pts_helper_;
   };
-
 }

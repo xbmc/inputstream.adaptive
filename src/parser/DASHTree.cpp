@@ -533,7 +533,7 @@ start(void *data, const char *el, const char **attr)
           {
             // <S t="3600" d="900000" r="2398"/>
             unsigned int d(0), r(1);
-            static uint64_t t(0);
+            uint64_t t(0);
             for (; *attr;)
             {
               if (strcmp((const char*)*attr, "t") == 0)
@@ -545,11 +545,21 @@ start(void *data, const char *el, const char **attr)
               attr += 2;
             }
             if(dash->current_adaptationset_->segment_durations_.data.empty())
-              dash->current_adaptationset_->startPTS_ = t;
+              dash->current_adaptationset_->startPTS_ = dash->pts_helper_ = t;
+            else if (t)
+            {
+              //Go back to the previous timestamp to calculate the real gap.
+              dash->pts_helper_ -= dash->current_adaptationset_->segment_durations_.data.back();
+              dash->current_adaptationset_->segment_durations_.data.back() = static_cast<uint32_t>(t - dash->pts_helper_);
+              dash->pts_helper_ = t;
+            }
             if (d && r)
             {
               for (; r; --r)
+              {
                 dash->current_adaptationset_->segment_durations_.data.push_back(d);
+                dash->pts_helper_ += d;
+              }
             }
           }
           else if (strcmp(el, "SegmentTimeline") == 0)
