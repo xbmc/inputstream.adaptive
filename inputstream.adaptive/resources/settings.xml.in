@@ -7,6 +7,7 @@
     <setting id="MAXRESOLUTIONSECURE" type="enum" label="30113" default = "2" values="Max|480p|720p|1080p" />
     <setting id="STREAMSELECTION" type="enum" label="30111" default = "0" values="Auto|Manual" />
     <setting id="MEDIATYPE" type="enum" label="30112" default = "0" values="All|Audio|Video" />
+    <setting id="HDCPOVERRIDE" type="bool" label="30114" default="false" />
     <setting type="sep"/>
     <setting id="DECRYPTERPATH" type="folder" visible="true" label="30103" default="@DECRYPTERPATH@" />
   </category>

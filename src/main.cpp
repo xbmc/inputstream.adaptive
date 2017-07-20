@@ -1594,7 +1594,16 @@ bool Session::initialize()
       STREAM &stream(*streams_.back());
       const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->repesentations_[0]->get_psshset()));
 
-      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), caps.hdcpLimit, caps.hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
+      uint32_t hdcpLimit(caps.hdcpLimit);
+      uint16_t hdcpVersion(caps.hdcpVersion);
+
+      if (kodi::GetSettingBoolean("HDCPOVERRIDE"))
+      {
+        hdcpLimit = 0;
+        hdcpVersion = 99;
+      }
+
+      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
 
       switch (adp->type_)
       {

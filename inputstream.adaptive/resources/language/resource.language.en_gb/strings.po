@@ -43,3 +43,8 @@ msgstr "Media"
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "Maximum allowed resolution if decoded through secure path"
+
+msgctxt "#30114"
+msgid "Override HDCP status"
+msgstr "Select streams without respecting HDCP status"
+
