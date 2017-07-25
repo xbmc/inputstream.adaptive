@@ -95,7 +95,7 @@ public:
 
   struct STREAM
   {
-    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :stream_(t, s), enabled(false), encrypted(false), current_segment_(0), input_(0), reader_(0), input_file_(0) { memset(&info_, 0, sizeof(info_)); };
+    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0) { memset(&info_, 0, sizeof(info_)); };
     ~STREAM() { disable(); free((void*)info_.m_ExtraData); };
     void disable();
 

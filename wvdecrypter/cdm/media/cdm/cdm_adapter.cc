@@ -80,13 +80,13 @@ CdmAdapter::CdmAdapter(
   const std::string& base_path,
   const CdmConfig& cdm_config,
   CdmAdapterClient *client)
-: key_system_(key_system)
+: library_(0)
 , cdm_base_path_(base_path)
-, cdm_config_(cdm_config)
 , client_(client)
-, cdm_(0)
-, library_(0)
+, key_system_(key_system)
+, cdm_config_(cdm_config)
 , active_buffer_(0)
+, cdm_(0)
 {
   //DCHECK(!key_system_.empty());
   Initialize(cdm_path);

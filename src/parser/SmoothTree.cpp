@@ -402,10 +402,7 @@ bool SmoothTree::write_data(void *buffer, size_t buffer_size)
   XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);
 
   if (retval == XML_STATUS_ERROR)
-  {
-    unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
     return false;
-  }
   return true;
 }
 

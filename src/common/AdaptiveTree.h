@@ -91,7 +91,7 @@ namespace adaptive
 
     struct SegmentTemplate
     {
-      SegmentTemplate() :duration(0), startNumber(1), timescale(0), presentationTimeOffset(0){};
+      SegmentTemplate() :startNumber(1), timescale(0), duration(0), presentationTimeOffset(0){};
       std::string initialization;
       std::string media;
       unsigned int startNumber;

@@ -461,14 +461,14 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   : AP4_CencSingleSampleDecrypter(0)
   , drm_(drm)
   , pssh_(pssh)
+  , hdcp_version_(99)
+  , hdcp_limit_(0)
   , max_subsample_count_decrypt_(0)
   , max_subsample_count_video_(0)
   , subsample_buffer_decrypt_(0)
   , subsample_buffer_video_(0)
   , promise_id_(0)
   , drained_(true)
-  , hdcp_version_(99)
-  , hdcp_limit_(0)
 {
   SetParentIsOwner(false);
 

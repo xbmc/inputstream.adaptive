@@ -400,6 +400,7 @@ public:
     , pictureId(0)
     , pictureIdPrev(0xFF)
   {};
+  virtual ~CodecHandler() {};
 
   virtual void UpdatePPSId(AP4_DataBuffer const&){};
   virtual bool GetVideoInformation(INPUTSTREAM_INFO &info){ return false; };
