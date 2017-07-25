@@ -15,9 +15,21 @@ set(ADP_SOURCES
 	src/common/AdaptiveTree.cpp
 	src/parser/DASHTree.cpp
 	src/parser/SmoothTree.cpp
+	src/parser/TTML.cpp
 	src/common/AdaptiveStream.cpp
 	src/helpers.cpp
 	src/oscompat.cpp
+)
+
+set(ADP_HEADERS
+	src/helpers.h
+	src/main.h
+	src/oscompat.h
+	src/SSD_dll.h
+	src/common/AdaptiveStream.h
+	src/common/AdaptiveTree.h
+	src/parser/DASHTree.h
+	src/parser/SmoothTree.h
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
@@ -30,10 +42,14 @@ include_directories(${INCLUDES}
 )
                     
 if(WIN32)
- 	add_definitions(-DXML_STATIC)
-	include_directories(lib/expat/include)
-	link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
-	list(APPEND DEPLIBS ws2_32 expat)
+  add_definitions(-DXML_STATIC)
+  include_directories(lib/expat/include)
+  if("${CMAKE_GENERATOR}" MATCHES "(Win64|IA64)")
+    link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib64)
+  else()
+    link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
+  endif()
+  list(APPEND DEPLIBS ws2_32 expat)
 else()
 	include(FindEXPAT)
 	find_package(EXPAT REQUIRED)
@@ -42,15 +58,19 @@ else()
 	add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
+add_definitions(-DUNICODE -D_UNICODE)
+
+add_subdirectory(wvdecrypter)
+
 if(CORE_SYSTEM_NAME STREQUAL android)
   set(DECRYPTERPATH "special://xbmcbinaddons")
 else()
   set(DECRYPTERPATH "special://home/cdm")
 endif()
 
-add_subdirectory(lib/libbento4)
 list(APPEND DEPLIBS bento4)
 					
+set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 build_addon(inputstream.adaptive ADP DEPLIBS)
 
 include(CPack)
