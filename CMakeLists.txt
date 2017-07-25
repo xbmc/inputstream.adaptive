@@ -14,6 +14,7 @@ set(ADP_SOURCES
 	src/main.cpp
 	src/common/AdaptiveTree.cpp
 	src/parser/DASHTree.cpp
+	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
 	src/parser/TTML.cpp
 	src/common/AdaptiveStream.cpp
@@ -29,7 +30,9 @@ set(ADP_HEADERS
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
 	src/parser/DASHTree.h
+	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
+	src/parser/TTML.h
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})

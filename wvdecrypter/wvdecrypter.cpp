@@ -31,6 +31,8 @@
 #error  "WIDEVINECDMFILENAME must be set"
 #endif
 
+#define LOCLICENSE 1
+
 using namespace SSD;
 
 SSD_HOST *host = 0;
@@ -480,7 +482,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
 
   drm_.insertssd(this);
 
-#ifdef _DEBUG
+#ifdef LOCLICENSE
   std::string strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init";
   FILE*f = fopen(strDbg.c_str(), "wb");
@@ -616,7 +618,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     return false;
   }
 
-#ifdef _DEBUG
+#ifdef LOCLICENSE
   std::string strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge";
   FILE*f = fopen(strDbg.c_str(), "wb");
@@ -731,7 +733,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     goto SSMFAIL;
   }
 
-#ifdef _DEBUG
+#ifdef LOCLICENSE
   strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response";
   f = fopen(strDbg.c_str(), "wb");
