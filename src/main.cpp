@@ -30,6 +30,7 @@
 #include "helpers.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
+#include "parser/HLSTree.h"
 #include "parser/TTML.h"
 #include "DemuxCrypto.h"
 
@@ -1189,6 +1190,9 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   case MANIFEST_TYPE_ISM:
     adaptiveTree_ = new adaptive::SmoothTree;
     break;
+  case MANIFEST_TYPE_HLS:
+    adaptiveTree_ = new adaptive::HLSTree;
+    break;
   default:;
   };
 
@@ -1960,6 +1964,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
         manifest = MANIFEST_TYPE_MPD;
       else if (strcmp(props.m_ListItemProperties[i].m_strValue, "ism") == 0)
         manifest = MANIFEST_TYPE_ISM;
+      else if (strcmp(props.m_ListItemProperties[i].m_strValue, "hls") == 0)
+        manifest = MANIFEST_TYPE_HLS;
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.stream_headers") == 0)
     {

@@ -19,12 +19,19 @@
 #pragma once
 
 #include "../common/AdaptiveTree.h"
+#include <sstream>
 
 namespace adaptive
 {
 
   class HLSTree : public AdaptiveTree
   {
+  public:
+    HLSTree() = default;
+    virtual bool open(const char *url) override;
+    virtual bool write_data(void *buffer, size_t buffer_size) override;
+  private:
+    std::stringstream m_stream;
   };
 
 } // namespace
