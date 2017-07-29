@@ -15,7 +15,6 @@ set(ADP_SOURCES
 	src/common/AdaptiveTree.cpp
 	src/parser/DASHTree.cpp
 	src/parser/SmoothTree.cpp
-	src/parser/TTML.cpp
 	src/common/AdaptiveStream.cpp
 	src/helpers.cpp
 	src/oscompat.cpp
