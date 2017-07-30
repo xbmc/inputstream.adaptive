@@ -190,10 +190,10 @@ bool AdaptiveStream::restart_stream()
   return true;
 }
 
-uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
+bool AdaptiveStream::ensureSegment()
 {
   if (stopped_)
-    return 0;
+    return false;
 
   if (segment_read_pos_ >= segment_buffer_.size())
   {
@@ -201,10 +201,16 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
     if (!download_segment() || segment_buffer_.empty())
     {
       stopped_ = true;
-      return 0;
+      return false;
     }
   }
-  if (bytesToRead)
+  return true;
+}
+
+
+uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
+{
+  if (ensureSegment() && bytesToRead)
   {
     uint32_t avail = segment_buffer_.size() - segment_read_pos_;
     if (avail > bytesToRead)
@@ -216,6 +222,24 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
     return avail;
   }
   return 0;
+}
+
+const uint8_t *AdaptiveStream::getBuffer(uint32_t  bytesToRead)
+{
+  const uint8_t *ret(nullptr);
+  if (ensureSegment() && bytesToRead)
+  {
+    uint32_t avail = segment_buffer_.size() - segment_read_pos_;
+    if (avail > bytesToRead)
+      avail = bytesToRead;
+
+    if (avail == bytesToRead)
+      ret = reinterpret_cast<const uint8_t*>(segment_buffer_.data() + segment_read_pos_);
+
+    segment_read_pos_ += avail;
+    absolute_position_ += avail;
+  }
+  return ret;
 }
 
 bool AdaptiveStream::seek(uint64_t const pos)

@@ -198,6 +198,10 @@ public:
     /* unimplemented */
     return AP4_ERROR_NOT_SUPPORTED;
   };
+  const AP4_UI08 *GetBuffer(AP4_Size bytes_to_read) override
+  {
+    return stream_->getBuffer(bytes_to_read);
+  }
   // AP4_Referenceable methods
   void AddReference() override {};
   void Release()override      {};

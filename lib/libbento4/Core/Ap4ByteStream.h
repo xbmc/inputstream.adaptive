@@ -88,6 +88,7 @@ class AP4_ByteStream : public AP4_Referenceable
     virtual AP4_Result CopyTo(AP4_ByteStream& stream, AP4_LargeSize size);
 	virtual AP4_Result Buffer() { return AP4_SUCCESS; }
 	virtual AP4_Result Flush() { return AP4_SUCCESS; }
+  virtual const AP4_UI08 *GetBuffer(AP4_Size bytes_to_read) { return nullptr; };
 private:
 	AP4_ByteStreamObserver *observer_;
 };

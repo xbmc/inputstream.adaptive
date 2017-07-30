@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <vector>
 #include "../lib/mpegts/tsDemuxer.h"
-#include "Ap4DataBuffer.h"
+#include "Ap4Types.h"
 #include <kodi/addon-instance/Inputstream.h>
 
 class AP4_ByteStream;
@@ -56,7 +56,6 @@ private:
   AP4_ByteStream *m_stream;
 
   TSDemux::STREAM_PKT m_pkt;
-  AP4_DataBuffer m_readBuffer;
 
   struct TSINFO
   {

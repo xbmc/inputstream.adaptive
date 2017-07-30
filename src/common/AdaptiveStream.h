@@ -54,8 +54,10 @@ namespace adaptive
 
     unsigned int get_type()const{ return type_; };
 
+    bool ensureSegment();
     uint32_t read(void* buffer,
       uint32_t  bytesToRead);
+    const uint8_t *getBuffer(uint32_t  bytesToRead);
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
     bool seek_time(double seek_seconds, double current_seconds, bool &needReset);

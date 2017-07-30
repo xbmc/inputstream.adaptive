@@ -40,9 +40,7 @@ TSReader::~TSReader()
 const unsigned char* TSReader::ReadAV(uint64_t pos, size_t len)
 {
   m_stream->Seek(pos);
-  m_readBuffer.Reserve(len);
-  m_stream->Read(m_readBuffer.UseData(), len);
-  return m_readBuffer.GetData();
+  return m_stream->GetBuffer(len);
 }
 
 void TSReader::Reset()
