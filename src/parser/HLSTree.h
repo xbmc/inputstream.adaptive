@@ -27,11 +27,16 @@ namespace adaptive
   class HLSTree : public AdaptiveTree
   {
   public:
-    HLSTree() = default;
+    HLSTree() :m_containerType(CONTAINERTYPE_TS) {};
+
     virtual bool open(const char *url) override;
+    virtual bool prepareRepresentation(Representation *rep) override;
+    virtual ContainerType GetContainerType() override { return m_containerType; };
     virtual bool write_data(void *buffer, size_t buffer_size) override;
   private:
     std::stringstream m_stream;
+    std::string m_audioCodec;
+    ContainerType m_containerType;
   };
 
 } // namespace

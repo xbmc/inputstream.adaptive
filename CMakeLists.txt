@@ -20,6 +20,7 @@ set(ADP_SOURCES
 	src/common/AdaptiveStream.cpp
 	src/helpers.cpp
 	src/oscompat.cpp
+	src/TSReader.cpp
 )
 
 set(ADP_HEADERS
@@ -33,6 +34,7 @@ set(ADP_HEADERS
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
 	src/parser/TTML.h
+	src/TSReader.h
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
@@ -63,6 +65,7 @@ endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
 
+add_subdirectory(lib/mpegts)
 add_subdirectory(wvdecrypter)
 
 if(CORE_SYSTEM_NAME STREQUAL android)
@@ -72,7 +75,8 @@ else()
 endif()
 
 list(APPEND DEPLIBS bento4)
-					
+list(APPEND DEPLIBS mpegts)
+
 set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 build_addon(inputstream.adaptive ADP DEPLIBS)
 

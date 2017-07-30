@@ -43,6 +43,7 @@ namespace adaptive
       uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
       const std::map<std::string, std::string> &media_headers);
     bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height);
+    bool restart_stream();
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
     void stop(){ stopped_ = true; };
     void clear();

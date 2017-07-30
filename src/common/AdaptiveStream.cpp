@@ -154,7 +154,10 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
   }
   else
     current_seg_ = current_rep_->get_segment(~seg_offset? seg_offset:0);
+
   segment_buffer_.clear();
+  segment_read_pos_ = 0;
+
   if (!current_seg_ || !current_rep_->get_next_segment(current_seg_))
   {
     absolute_position_ = ~0;
@@ -168,6 +171,22 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
     stopped_ = false;
   }
+  return true;
+}
+
+bool AdaptiveStream::restart_stream()
+{
+  if (!start_stream(~0, width_, height_))
+    return false;
+
+  uint32_t segid(current_rep_ ? current_rep_->get_segment_pos(current_seg_) : 0);
+
+  /* lets download the initialization */
+  if ((current_seg_ = current_rep_->get_initialization()) && !download_segment())
+    return false;
+
+  current_seg_ = current_rep_->get_segment(segid - 1);
+
   return true;
 }
 

@@ -239,7 +239,7 @@ start(void *data, const char *el, const char **attr)
     if (timeScale)
       dash->overallSeconds_ = duration / timeScale;
     dash->currentNode_ |= SmoothTree::SSMNODE_SSM;
-    dash->minPresentationOffset = DBL_MAX;
+    dash->minPresentationOffset = ~0ULL;
     dash->base_time_ = ~0ULL;
   }
 }

@@ -82,6 +82,7 @@ namespace TSDemux
     uint64_t Shift();
     void GoPosition(uint64_t pos);
     uint64_t GetPosition() const;
+    uint64_t GetNextPosition() const;
     int ProcessTSPacket();
     int ProcessTSPayload();
 

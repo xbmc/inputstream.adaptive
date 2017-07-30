@@ -39,12 +39,16 @@ namespace TSDemux
         int log2_max_frame_num;
         int log2_max_pic_order_cnt_lsb;
         int delta_pic_order_always_zero_flag;
+        int raw_data_size;
+        uint8_t raw_data[32];
       } sps[256];
 
       struct PPS
       {
-        int sps;
-        int pic_order_present_flag;
+        uint8_t sps;
+        uint8_t pic_order_present_flag;
+        uint16_t raw_data_size;
+        uint8_t raw_data[32];
       } pps[256];
 
       struct VCL_NAL
@@ -86,16 +90,16 @@ namespace TSDemux
     bool            m_NeedPPS;
     int             m_Width;
     int             m_Height;
-    int             m_FPS;
-    int             m_FpsScale;
     mpeg_rational_t m_PixelAspect;
-    int             m_FrameDuration;
     h264_private    m_streamData;
     int             m_vbvDelay;       /* -1 if CBR */
     int             m_vbvSize;        /* Video buffer size (in bytes) */
     int64_t         m_DTS;
     int64_t         m_PTS;
     bool            m_Interlaced;
+
+    int             m_SPSRawId;
+    int             m_PPSRawId;
 
     int Parse_H264(uint32_t startcode, int buf_ptr, bool &complete);
     bool Parse_PPS(uint8_t *buf, int len);

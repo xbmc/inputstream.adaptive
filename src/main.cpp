@@ -26,19 +26,25 @@
 #include <kodi/Filesystem.h>
 #include <kodi/StreamCodec.h>
 #include <kodi/addon-instance/VideoCodec.h>
+#include "DemuxCrypto.h"
 
 #include "helpers.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
 #include "parser/HLSTree.h"
 #include "parser/TTML.h"
-#include "DemuxCrypto.h"
+#include "TSReader.h"
 
 #ifdef _WIN32                   // windows
 #include "p8-platform/windows/dlfcn-win32.h"
 #else // windows
 #include <dlfcn.h>              // linux+osx
 #endif
+
+#define DVD_TIME_BASE 1000000
+#define DVD_NOPTS_VALUE 0xFFF0000000000000ULL
+
+#undef CreateDirectory
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
@@ -692,22 +698,21 @@ class SampleReader
 public:
   virtual ~SampleReader() = default;
   virtual bool EOS()const = 0;
-  virtual double DTS()const = 0;
-  virtual double PTS()const = 0;
+  virtual uint64_t  DTS()const = 0;
+  virtual uint64_t  PTS()const = 0;
   virtual AP4_Result Start(bool &bStarted) = 0;
   virtual AP4_Result ReadSample() = 0;
   virtual void Reset(bool bEOS) = 0;
   virtual bool GetInformation(INPUTSTREAM_INFO &info) = 0;
-  virtual bool TimeSeek(double pts, bool preceeding) = 0;
+  virtual bool TimeSeek(uint64_t pts, bool preceeding) = 0;
   virtual void SetObserver(FragmentObserver *observer) = 0;
   virtual void SetPTSOffset(uint64_t offset) = 0;
   virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) = 0;
   virtual uint32_t GetTimeScale()const = 0;
-  virtual const AP4_Sample &Sample()const = 0;
   virtual AP4_UI32 GetStreamId()const = 0;
   virtual AP4_Size GetSampleDataSize()const = 0;
   virtual const AP4_Byte *GetSampleData()const = 0;
-  virtual double GetDuration()const = 0;
+  virtual uint64_t GetDuration()const = 0;
   virtual bool IsEncrypted()const = 0;
 };
 
@@ -720,7 +725,7 @@ class FragmentedSampleReader : public SampleReader, public AP4_LinearReader
 public:
 
   FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId,
-    AP4_CencSingleSampleDecrypter *ssd, const double pto, const SSD::SSD_DECRYPTER::SSD_CAPS &dcaps)
+    AP4_CencSingleSampleDecrypter *ssd, uint64_t pto, const SSD::SSD_DECRYPTER::SSD_CAPS &dcaps)
     : AP4_LinearReader(*movie, input)
     , m_track(track)
     , m_streamId(streamId)
@@ -730,8 +735,8 @@ public:
     , m_failCount(0)
     , m_eos(false)
     , m_started(false)
-    , m_dts(0.0)
-    , m_pts(0.0)
+    , m_dts(0)
+    , m_pts(0)
     , m_presentationTimeOffset(pto)
     , m_ptsOffset(0)
     , m_codecHandler(0)
@@ -840,8 +845,8 @@ public:
         m_codecHandler->ReadNextSample(m_sample, m_sampleData);
     }
 
-    m_dts = (double)m_sample.GetDts() / (double)m_track->GetMediaTimeScale() - m_presentationTimeOffset;
-    m_pts = (double)m_sample.GetCts() / (double)m_track->GetMediaTimeScale() - m_presentationTimeOffset;
+    m_dts = (m_sample.GetDts() * DVD_TIME_BASE) / m_track->GetMediaTimeScale() - m_presentationTimeOffset;
+    m_pts = (m_sample.GetCts() * DVD_TIME_BASE) / m_track->GetMediaTimeScale() - m_presentationTimeOffset;
 
     m_codecHandler->UpdatePPSId(m_sampleData);
 
@@ -855,13 +860,12 @@ public:
   }
 
   virtual bool EOS() const  override { return m_eos; };
-  virtual double DTS()const override { return m_dts; };
-  virtual double PTS()const override { return m_pts; };
-  virtual const AP4_Sample &Sample()const override { return m_sample; };
+  virtual uint64_t DTS()const override { return m_dts; };
+  virtual uint64_t  PTS()const override { return m_pts; };
   virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
   virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
   virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
-  virtual double GetDuration()const override { return (double)m_sample.GetDuration() / (double)m_track->GetMediaTimeScale(); };
+  virtual uint64_t GetDuration()const override { return (m_sample.GetDuration() * DVD_TIME_BASE) / m_track->GetMediaTimeScale(); };
   virtual bool IsEncrypted()const override { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_decrypter != nullptr; };
   virtual bool GetInformation(INPUTSTREAM_INFO &info) override
   {
@@ -888,10 +892,10 @@ public:
     return edchanged;
   }
 
-  virtual bool TimeSeek(double pts, bool preceeding) override
+  virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
     AP4_Ordinal sampleIndex;
-    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts + m_presentationTimeOffset)*(double)m_track->GetMediaTimeScale()));
+    AP4_UI64 seekPos(static_cast<AP4_UI64>(((pts + m_presentationTimeOffset)*m_track->GetMediaTimeScale()) / DVD_TIME_BASE));
     if (AP4_SUCCEEDED(SeekSample(m_track->GetId(), seekPos, sampleIndex, preceeding)))
     {
       if (m_decrypter)
@@ -1050,8 +1054,8 @@ private:
   AP4_UI32 m_poolId;
 
   bool m_eos, m_started;
-  double m_dts, m_pts;
-  double m_presentationTimeOffset;
+  int64_t m_dts, m_pts;
+  int64_t m_presentationTimeOffset;
   AP4_UI64 m_ptsOffset;
 
   AP4_Sample     m_sample;
@@ -1074,8 +1078,8 @@ private:
 class SubtitleSampleReader : public SampleReader
 {
 public:
-  SubtitleSampleReader(const std::string &url, AP4_UI32 streamId, const double pto)
-    : m_pts(0.0)
+  SubtitleSampleReader(const std::string &url, AP4_UI32 streamId, const int64_t pto)
+    : m_pts(0)
     , m_streamId(streamId)
     , m_presentationTimeOffset(pto)
     , m_eos(false)
@@ -1104,14 +1108,14 @@ public:
   };
 
   virtual bool EOS()const override { return m_eos; };
-  virtual double DTS()const override { return m_pts; };
-  virtual double PTS()const override { return m_pts; };
+  virtual uint64_t DTS()const override { return m_pts; };
+  virtual uint64_t PTS()const override { return m_pts; };
   virtual AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
   virtual AP4_Result ReadSample() override
   {
     if (m_codecHandler.ReadNextSample(m_sample, m_sampleData))
     {
-      m_pts = (double)m_sample.GetCts() / 1000 - m_presentationTimeOffset;
+      m_pts = m_sample.GetCts() * 1000 - m_presentationTimeOffset;
       return AP4_SUCCESS;
     }
     m_eos = true;
@@ -1119,9 +1123,9 @@ public:
   }
   virtual void Reset(bool bEOS) override {};
   virtual bool GetInformation(INPUTSTREAM_INFO &info) override { return false; };
-  virtual bool TimeSeek(double pts, bool preceeding) override
+  virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
-    if (m_codecHandler.TimeSeek(static_cast<uint64_t>((pts + m_presentationTimeOffset) * 1000)))
+    if (m_codecHandler.TimeSeek(static_cast<uint64_t>(((pts + m_presentationTimeOffset) * 1000) / DVD_TIME_BASE)))
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
@@ -1129,22 +1133,104 @@ public:
   virtual void SetPTSOffset(uint64_t offset) override {};
   virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override {};
   virtual uint32_t GetTimeScale()const override { return 1000; };
-  virtual const AP4_Sample &Sample()const override { return m_sample; };
   virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
   virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
   virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
-  virtual double GetDuration()const override { return (double)m_sample.GetDuration() / 1000; };
+  virtual uint64_t GetDuration()const override { return m_sample.GetDuration() * 1000; };
   virtual bool IsEncrypted()const override { return false; };
 private:
-  double m_pts;
+  uint64_t m_pts;
   AP4_UI32 m_streamId;
-  double m_presentationTimeOffset;
+  uint64_t m_presentationTimeOffset;
   bool m_eos;
 
   TTMLCodecHandler m_codecHandler;
 
   AP4_Sample m_sample;
   AP4_DataBuffer m_sampleData;
+};
+
+/*******************************************************
+|   TSSampleReader
+********************************************************/
+class TSSampleReader : public SampleReader, public TSReader
+{
+public:
+  TSSampleReader(AP4_ByteStream *input, INPUTSTREAM_INFO::STREAM_TYPE type, AP4_UI32 streamId, const int64_t pto)
+    : TSReader(input)
+    , m_typeMask(1 << type)
+    , m_streamId(streamId)
+    , m_presentationTimeOffset(pto)
+  {};
+  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { m_typeMask |= (1 << type); };
+  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { m_typeMask = (1 << type); };
+
+  virtual bool EOS()const override { return m_eos; }
+
+  virtual uint64_t DTS()const override { return m_dts; }
+
+  virtual uint64_t PTS()const override { return m_pts; }
+
+  virtual AP4_Result Start(bool &bStarted) override
+  {
+    bStarted = false;
+    if (m_started)
+      return AP4_SUCCESS;
+
+    if (!StartStreaming(m_typeMask))
+      return AP4_ERROR_CANNOT_OPEN_FILE;
+
+    m_started = bStarted = true;
+    return ReadSample();
+  }
+
+  virtual AP4_Result ReadSample() override
+  {
+    if (ReadPacket())
+    {
+      m_dts = (GetDts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetDts() * DVD_TIME_BASE) / GetTimeScale() - m_presentationTimeOffset;
+      m_pts = (GetPts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetPts() * DVD_TIME_BASE) / GetTimeScale() - m_presentationTimeOffset;
+      return AP4_SUCCESS;
+    }
+    return AP4_ERROR_EOS;
+  }
+
+  virtual void Reset(bool bEOS) override
+  {
+    TSReader::Reset();
+    m_eos = bEOS;
+  }
+
+  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  {
+    return TSReader::GetInformation(info);
+  }
+
+  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  {
+    //AP4_UI64 seekPos(static_cast<AP4_UI64>((pts + m_presentationTimeOffset)*(double)m_track->GetMediaTimeScale()));
+    return AP4_SUCCEEDED(ReadSample());
+  }
+
+  virtual void SetObserver(FragmentObserver *observer) override {}
+  virtual void SetPTSOffset(uint64_t offset) override {}
+  virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override {}
+  virtual uint32_t GetTimeScale()const override { return TSReader::GetTimeScale(); }
+  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
+  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  virtual uint64_t GetDuration()const override { return (TSReader::GetDuration() * DVD_TIME_BASE) / TSReader::GetTimeScale(); }
+  virtual bool IsEncrypted()const override { return false; };
+
+private:
+  uint32_t m_typeMask; //Bit representation of INPUTSTREAM_INFO::STREAM_TYPES
+  AP4_UI32 m_streamId;
+  uint64_t m_presentationTimeOffset;
+  bool m_eos = false;
+  bool m_started = false;
+
+  uint64_t m_pts = 0;
+  uint64_t m_dts = 0;
 };
 
 /*******************************************************
@@ -1701,6 +1787,50 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_BitRate = rep->bandwidth_;
 }
 
+AP4_Movie *Session::PrepareStream(STREAM *stream)
+{
+  if (!adaptiveTree_->prepareRepresentation(const_cast<adaptive::AdaptiveTree::Representation *>(stream->stream_.getRepresentation())))
+    return nullptr;
+
+  if (GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
+  {
+    //We'll create a Movie out of the things we got from manifest file
+    //note: movie will be deleted in destructor of stream->input_file_
+    AP4_Movie *movie = new AP4_Movie();
+
+    AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
+
+    AP4_SampleDescription *sample_descryption;
+    if (strcmp(stream->info_.m_codecName, "h264") == 0)
+    {
+      const std::string &extradata(stream->stream_.getRepresentation()->codec_private_data_);
+      AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
+      AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
+      sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
+    }
+    else if (strcmp(stream->info_.m_codecName, "srt") == 0)
+      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES, AP4_SAMPLE_FORMAT_STPP, 0);
+    else
+      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+
+    if (stream->stream_.getRepresentation()->get_psshset() > 0)
+    {
+      AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
+      schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, GetDefaultKeyId(stream->stream_.getRepresentation()->get_psshset())));
+      sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
+    }
+    sample_table->AddSampleDescription(sample_descryption);
+
+    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0, stream->stream_.getRepresentation()->timescale_, 0, stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
+    //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
+    AP4_MoovAtom *moov = new AP4_MoovAtom();
+    moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
+    movie->SetMoovAtom(moov);
+    return movie;
+  }
+  return nullptr;
+}
+
 SampleReader *Session::GetNextSample()
 {
   STREAM *res(0);
@@ -1719,7 +1849,9 @@ SampleReader *Session::GetNextSample()
   {
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
-    last_pts_ = res->reader_->PTS();
+    if (res->reader_->PTS() != DVD_NOPTS_VALUE)
+      last_pts_ = res->reader_->PTS();
+
     return res->reader_;
   }
   return 0;
@@ -1774,6 +1906,11 @@ void Session::EndFragment(AP4_UI32 streamId)
     nextTs,
     static_cast<uint32_t>(nextDur),
     s->reader_->GetTimeScale());
+}
+
+adaptive::AdaptiveTree::ContainerType Session::GetContainerType() const
+{
+  return adaptiveTree_->GetContainerType();
 }
 
 const AP4_UI08 *Session::GetDefaultKeyId(const uint8_t index) const
@@ -2097,7 +2234,11 @@ void CInputStreamAdaptive::OpenStream(int streamid)
     return;
 
   if (stream->enabled)
+  {
+    if (m_session->GetContainerType() == adaptive::AdaptiveTree::CONTAINERTYPE_TS && stream->reader_)
+      static_cast<TSSampleReader*>(stream->reader_)->AddStreamType(stream->info_.m_streamType);
     return;
+  }
 
   stream->enabled = true;
 
@@ -2124,66 +2265,62 @@ void CInputStreamAdaptive::OpenStream(int streamid)
     return;
   }
 
-  stream->input_ = new AP4_DASHStream(&stream->stream_);
-  AP4_Movie* movie(0);
-  if (m_session->GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
+  AP4_Movie* movie(m_session->PrepareStream(stream));
+
+  // We load fragments on PrepareTime for HLS manifests and have to reevaluate the start-segment
+  if (m_session->GetManifestType() == MANIFEST_TYPE_HLS)
+    stream->stream_.restart_stream();
+
+  if (m_session->GetContainerType() == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
   {
-    //We'll create a Movie out of the things we got from manifest file
-    //note: movie will be deleted in destructor of stream->input_file_
-    movie = new AP4_Movie();
-
-    AP4_SyntheticSampleTable* sample_table = new AP4_SyntheticSampleTable();
-
-    AP4_SampleDescription *sample_descryption;
-    if (strcmp(stream->info_.m_codecName, "h264") == 0)
+    // If we select a dummy (=inside video) stream, open the video part
+    // Dummy streams will be never enabled, they will only enable / activate audio track.
+    if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
     {
-      const std::string &extradata(stream->stream_.getRepresentation()->codec_private_data_);
-      AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
-      AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
-      sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
+      Session::STREAM *internalStream(stream);
+      for (streamid = 0; (stream = m_session->GetStream(streamid)) && stream->info_.m_streamType != INPUTSTREAM_INFO::TYPE_VIDEO; ++streamid);
+      if (stream)
+      {
+        if (stream->reader_)
+          static_cast<TSSampleReader*>(stream->reader_)->AddStreamType(internalStream->info_.m_streamType);
+        else
+        {
+          OpenStream(streamid);
+          if (stream->reader_)
+            static_cast<TSSampleReader*>(stream->reader_)->SetStreamType(internalStream->info_.m_streamType);
+        }
+      }
+      stream->reader_->GetInformation(internalStream->info_);
+      return;
     }
-    else if (strcmp(stream->info_.m_codecName, "srt") == 0)
-      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES, AP4_SAMPLE_FORMAT_STPP, 0);
-    else
-      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+    stream->input_ = new AP4_DASHStream(&stream->stream_);
+    stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid, m_session->GetPresentationTimeOffset());
+  }
+  else if (m_session->GetContainerType() == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
+  {
+    stream->input_ = new AP4_DASHStream(&stream->stream_);
+    stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
+    movie = stream->input_file_->GetMovie();
 
-    if (stream->stream_.getRepresentation()->get_psshset() > 0)
+    if (movie == NULL)
     {
-      AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
-      schi.AddChild(new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8, m_session->GetDefaultKeyId(stream->stream_.getRepresentation()->get_psshset())));
-      sample_descryption = new AP4_ProtectedSampleDescription(0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
+      kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+      return stream->disable();
     }
-    sample_table->AddSampleDescription(sample_descryption);
 
-    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0, stream->stream_.getRepresentation()->timescale_, 0, stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
-    //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
-    AP4_MoovAtom *moov = new AP4_MoovAtom();
-    moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
-    movie->SetMoovAtom(moov);
+    AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
+    if (!track)
+    {
+      kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
+      return stream->disable();
+    }
+
+    stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
+      m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
+      m_session->GetPresentationTimeOffset(),
+      m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
   }
-
-  stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
-  movie = stream->input_file_->GetMovie();
-
-  if (movie == NULL)
-  {
-    kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
-    return stream->disable();
-  }
-
-  AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
-  if (!track)
-  {
-    kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-    return stream->disable();
-  }
-
-  stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
-    m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
-    m_session->GetPresentationTimeOffset(),
-    m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
   stream->reader_->GetInformation(stream->info_);
-
   stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 }
 
@@ -2205,7 +2342,6 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 
   if (sr)
   {
-    const AP4_Sample &s(sr->Sample());
     AP4_Size iSize(sr->GetSampleDataSize());
     const AP4_UI08 *pData(sr->GetSampleData());
     DemuxPacket *p;
@@ -2228,9 +2364,9 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
     else
       p = AllocateDemuxPacket(iSize);
 
-    p->dts = sr->DTS() * 1000000;
-    p->pts = sr->PTS() * 1000000;
-    p->duration = sr->GetDuration() * 1000000;
+    p->dts = static_cast<double>(sr->DTS());
+    p->pts = static_cast<double>(sr->PTS());
+    p->duration = static_cast<double>(sr->GetDuration());
     p->iStreamId = sr->GetStreamId();
     p->iGroupId = 0;
     p->iSize = iSize;

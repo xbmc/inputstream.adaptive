@@ -80,6 +80,13 @@ namespace adaptive
       STREAM_TYPE_COUNT
     };
 
+    enum ContainerType
+    {
+      CONTAINERTYPE_NOTYPE,
+      CONTAINERTYPE_MP4,
+      CONTAINERTYPE_TS
+    };
+
     // Node definition
     struct Segment
     {
@@ -96,7 +103,7 @@ namespace adaptive
       std::string media;
       unsigned int startNumber;
       unsigned int timescale, duration;
-      double presentationTimeOffset;
+      uint64_t presentationTimeOffset;
     };
 
     struct Representation
@@ -121,6 +128,7 @@ namespace adaptive
       static const unsigned int INITIALIZATION = 8;
       static const unsigned int SEGMENTBASE = 16;
       static const unsigned int SUBTITLESTREAM = 32;
+      static const unsigned int INCLUDEDSTREAM = 64;
 
       uint16_t flags_;
       uint16_t hdcpVersion_;
@@ -199,7 +207,7 @@ namespace adaptive
     uint32_t currentNode_;
     uint32_t segcount_;
     uint64_t overallSeconds_, stream_start_, available_time_, publish_time_, base_time_;
-    double minPresentationOffset;
+    uint64_t minPresentationOffset;
     bool has_timeshift_buffer_;
 
     uint32_t bandwidth_;
@@ -244,6 +252,8 @@ namespace adaptive
     virtual ~AdaptiveTree() = default;
 
     virtual bool open(const char *url) = 0;
+    virtual bool prepareRepresentation(Representation *rep) { return true; };
+    virtual ContainerType GetContainerType() { return CONTAINERTYPE_MP4; };
     uint8_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);

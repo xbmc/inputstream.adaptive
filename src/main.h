@@ -83,7 +83,6 @@ enum MANIFEST_TYPE
   MANIFEST_TYPE_HLS
 };
 
-
 class Session: public FragmentObserver
 {
 public:
@@ -110,6 +109,7 @@ public:
   };
 
   void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
+  AP4_Movie *PrepareStream(STREAM *stream);
 
   STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   unsigned int GetStreamCount() const { return streams_.size(); };
@@ -121,7 +121,7 @@ public:
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
   AP4_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
-  double GetPresentationTimeOffset() { return adaptiveTree_->minPresentationOffset < DBL_MAX? adaptiveTree_->minPresentationOffset:0; };
+  uint64_t GetPresentationTimeOffset() { return ~adaptiveTree_->minPresentationOffset ? adaptiveTree_->minPresentationOffset:0; };
   uint64_t GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
   double GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
@@ -129,6 +129,7 @@ public:
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
+  adaptive::AdaptiveTree::ContainerType GetContainerType() const;
   const AP4_UI08 *GetDefaultKeyId(const uint8_t index) const;
   CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 

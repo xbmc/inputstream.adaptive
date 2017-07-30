@@ -73,6 +73,8 @@ namespace TSDemux
     int                   bit_rate;
     int                   bits_per_sample;
     bool                  interlaced;
+    uint8_t               extra_data[256];
+    int                   extra_data_size;
   };
 
   struct STREAM_PKT
@@ -126,6 +128,7 @@ namespace TSDemux
     size_t es_parsed;             ///< Parser: Last processed position in buffer
     bool   es_found_frame;        ///< Parser: Found frame
     bool   es_frame_valid;
+    bool   es_extraDataChanged;
   };
 }
 

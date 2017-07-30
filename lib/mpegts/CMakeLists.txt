@@ -8,17 +8,17 @@ if(TSDEMUX_DEBUG)
 endif(TSDEMUX_DEBUG)
 
 add_library(mpegts STATIC
-  src/elementaryStream.cpp
-  src/bitstream.cpp
-  src/ES_AC3.cpp
-  src/ES_MPEGAudio.cpp
-  src/ES_Subtitle.cpp
-  src/ES_AAC.cpp
-  src/ES_h264.cpp
-  src/ES_MPEGVideo.cpp
-  src/ES_Teletext.cpp
-  src/ES_hevc.cpp
-  src/debug.cpp
-  src/tsDemuxer.cpp)
+  elementaryStream.cpp
+  bitstream.cpp
+  ES_AC3.cpp
+  ES_MPEGAudio.cpp
+  ES_Subtitle.cpp
+  ES_AAC.cpp
+  ES_h264.cpp
+  ES_MPEGVideo.cpp
+  ES_Teletext.cpp
+  ES_hevc.cpp
+  debug.cpp
+  tsDemuxer.cpp)
 
 set_target_properties(mpegts PROPERTIES POSITION_INDEPENDENT_CODE True)

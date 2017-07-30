@@ -46,6 +46,7 @@ ElementaryStream::ElementaryStream(uint16_t pes_pid)
   , es_parsed(0)
   , es_found_frame(false)
   , es_frame_valid(false)
+  , es_extraDataChanged(false)
 {
   memset(&stream_info, 0, sizeof(STREAM_INFO));
 }

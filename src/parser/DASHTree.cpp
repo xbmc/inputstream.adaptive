@@ -278,7 +278,7 @@ static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTre
       pto = atoll((const char*)*(attr + 1));
     attr += 2;
   }
-  tpl.presentationTimeOffset = tpl.timescale ? (double)pto / tpl.timescale : 0;
+  tpl.presentationTimeOffset = tpl.timescale ? (pto * 1000000) / tpl.timescale : 0;
   tpl.media = baseURL + tpl.media;
 }
 
@@ -819,7 +819,7 @@ start(void *data, const char *el, const char **attr)
     }
     if (dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > dash->overallSeconds_)
       dash->base_time_ = dash->publish_time_ - dash->available_time_ - dash->overallSeconds_;
-    dash->minPresentationOffset = DBL_MAX;
+    dash->minPresentationOffset = ~0ULL;
 
     dash->currentNode_ |= DASHTree::MPDNODE_MPD;
   }

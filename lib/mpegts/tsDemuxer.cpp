@@ -362,11 +362,18 @@ void AVContext::GoPosition(uint64_t pos)
 {
   av_pos = pos;
   Reset();
+  for (std::map<uint16_t, Packet>::iterator it = this->packets.begin(); it != this->packets.end(); ++it)
+    it->second.Reset();
 }
 
 uint64_t AVContext::GetPosition() const
 {
   return av_pos;
+}
+
+uint64_t AVContext::GetNextPosition() const
+{
+  return av_pos + av_pkt_size;
 }
 
 /*

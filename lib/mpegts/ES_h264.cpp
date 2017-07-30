@@ -51,9 +51,6 @@ ES_h264::ES_h264(uint16_t pes_pid)
 {
   m_Height                      = 0;
   m_Width                       = 0;
-  m_FPS                         = 25;
-  m_FpsScale                    = 0;
-  m_FrameDuration               = 0;
   m_vbvDelay                    = -1;
   m_vbvSize                     = 0;
   m_PixelAspect.den             = 1;
@@ -62,6 +59,8 @@ ES_h264::ES_h264(uint16_t pes_pid)
   m_PTS                         = 0;
   m_Interlaced                  = false;
   es_alloc_init                 = 240000;
+  m_SPSRawId                    = -1;
+  m_PPSRawId                    = -1;
   Reset();
 }
 
@@ -72,7 +71,7 @@ ES_h264::~ES_h264()
 void ES_h264::Parse(STREAM_PKT* pkt)
 {
   size_t frame_ptr = es_consumed;
-  size_t p = es_parsed;
+  size_t pOld, p = es_parsed;
   uint32_t startcode = m_StartCode;
   bool frameComplete = false;
 
@@ -80,6 +79,19 @@ void ES_h264::Parse(STREAM_PKT* pkt)
   {
     if ((startcode & 0xffffff00) == 0x00000100)
     {
+      if (m_PPSRawId >= 0)
+      {
+        m_streamData.pps[m_PPSRawId].raw_data_size = p - pOld - 5;
+        memcpy(m_streamData.pps[m_PPSRawId].raw_data, es_buf + pOld, m_streamData.pps[m_PPSRawId].raw_data_size);
+        m_PPSRawId = -1, es_extraDataChanged = true;
+      }
+      if (m_SPSRawId >= 0)
+      {
+        m_streamData.sps[m_SPSRawId].raw_data_size = p - pOld - 5;
+        memcpy(m_streamData.sps[m_SPSRawId].raw_data, es_buf + pOld, m_streamData.sps[m_SPSRawId].raw_data_size);
+        m_SPSRawId = -1, es_extraDataChanged = true;
+      }
+      pOld = p - 1;
       if (Parse_H264(startcode, p, frameComplete) < 0)
       {
         break;
@@ -103,15 +115,7 @@ void ES_h264::Parse(STREAM_PKT* pkt)
       if (c_dts != PTS_UNSET && p_dts != PTS_UNSET && c_dts > p_dts)
         duration = c_dts - p_dts;
       else
-        duration = static_cast<int>(Rescale(40000, PTS_TIME_BASE, RESCALE_TIME_BASE));
-
-      bool streamChange = false;
-      if (es_frame_valid)
-      {
-        if (m_FpsScale == 0)
-          m_FpsScale = static_cast<int>(Rescale(duration, RESCALE_TIME_BASE, PTS_TIME_BASE));
-        streamChange = SetVideoInformation(m_FpsScale, RESCALE_TIME_BASE, m_Height, m_Width, static_cast<float>(DAR), m_Interlaced);
-      }
+        duration = stream_info.fps_scale;
 
       pkt->pid            = pid;
       pkt->size           = es_consumed - frame_ptr;
@@ -119,7 +123,30 @@ void ES_h264::Parse(STREAM_PKT* pkt)
       pkt->dts            = m_DTS;
       pkt->pts            = m_PTS;
       pkt->duration       = duration;
-      pkt->streamChange   = streamChange;
+      pkt->streamChange   = SetVideoInformation(duration, PTS_TIME_BASE, m_Height, m_Width, static_cast<float>(DAR), m_Interlaced);
+
+      if (es_extraDataChanged)
+      {
+        if (m_streamData.sps[0].raw_data_size)
+        {
+          uint8_t *ed(stream_info.extra_data);
+          stream_info.extra_data_size = 4 + m_streamData.sps[0].raw_data_size;
+          ed[0] = ed[1] = ed[2] = 0, ed[3] = 1, ed += 4;
+          memcpy(ed, m_streamData.sps[0].raw_data, m_streamData.sps[0].raw_data_size), ed += m_streamData.sps[0].raw_data_size;
+          for (int i = 0; i < 256; ++i)
+          {
+            if (m_streamData.pps[i].raw_data_size)
+            {
+              ed[0] = ed[1] = ed[2] = 0, ed[3] = 1, ed += 4;
+              memcpy(ed, m_streamData.pps[i].raw_data, m_streamData.pps[i].raw_data_size), ed += m_streamData.sps[i].raw_data_size;
+              stream_info.extra_data_size += 4 + m_streamData.pps[i].raw_data_size;
+            }
+          }
+        }
+        else
+          stream_info.extra_data_size = 0;
+      }
+      es_extraDataChanged = false;
     }
     m_StartCode = 0xffffffff;
     es_parsed = es_consumed;
@@ -285,6 +312,7 @@ bool ES_h264::Parse_PPS(uint8_t *buf, int len)
   m_streamData.pps[pps_id].sps = sps_id;
   bs.readBits1();
   m_streamData.pps[pps_id].pic_order_present_flag = bs.readBits1();
+  m_PPSRawId = pps_id;
   return true;
 }
 
@@ -540,6 +568,7 @@ bool ES_h264::Parse_SPS(uint8_t *buf, int len)
     }
   }
 
+  m_SPSRawId = seq_parameter_set_id;
   DBG(DEMUX_DBG_PARSE, "H.264 SPS: -> video size %dx%d, aspect %d:%d\n", m_Width, m_Height, m_PixelAspect.num, m_PixelAspect.den);
   return true;
 }
