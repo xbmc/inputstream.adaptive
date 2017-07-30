@@ -216,7 +216,7 @@ bool AdaptiveStream::seek(uint64_t const pos)
   return false;
 }
 
-bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool &needReset)
+bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool &needReset, double &startPts)
 {
   if (!current_rep_)
     return false;
@@ -232,7 +232,19 @@ bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool
     ++choosen_seg;
 
   if (choosen_seg == current_rep_->segments_.data.size())
-    return false;
+  {
+    if (tree_.has_timeshift_buffer_)
+    {
+      choosen_seg --;
+      //go at least 12 secs back
+      uint64_t duration(current_rep_->get_segment(choosen_seg)->startPTS_ - current_rep_->get_segment(choosen_seg - 1)->startPTS_);
+      choosen_seg -= (12 * current_rep_->timescale_) / duration;
+      if (!current_rep_->get_segment(choosen_seg))
+        return false;
+      startPts = current_rep_->get_segment(choosen_seg)->startPTS_ * 1000l;
+    } else
+      return false;
+  }
 
   if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
     --choosen_seg;

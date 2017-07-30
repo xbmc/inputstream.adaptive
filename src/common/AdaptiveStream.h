@@ -57,7 +57,7 @@ namespace adaptive
       uint32_t  bytesToRead);
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
-    bool seek_time(double seek_seconds, double current_seconds, bool &needReset);
+    bool seek_time(double seek_seconds, double current_seconds, bool &needReset, double &startPts);
     AdaptiveTree::AdaptationSet const *getAdaptationSet() { return current_adp_; };
     AdaptiveTree::Representation const *getRepresentation(){ return current_rep_; };
     double get_download_speed() const { return tree_.get_download_speed(); };

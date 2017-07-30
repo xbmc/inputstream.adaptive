@@ -1725,9 +1725,10 @@ SampleReader *Session::GetNextSample()
   return 0;
 }
 
-bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
+bool Session::SeekTime(double seekTime,  double &startPts, unsigned int streamId, bool preceeding)
 {
   bool ret(false);
+  double dvdNoPts(startPts);
 
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)
@@ -1737,8 +1738,10 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     if ((*b)->enabled && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
-      if ((*b)->stream_.seek_time(seekTime + GetPresentationTimeOffset(), last_pts_, bReset))
+      if ((*b)->stream_.seek_time(seekTime + GetPresentationTimeOffset(), last_pts_, bReset, startPts))
       {
+        if (startPts != dvdNoPts)
+          seekTime = (startPts - GetPresentationTimeOffset())/1000000l;
         if (bReset)
           (*b)->reader_->Reset(false);
         if (!(*b)->reader_->TimeSeek(seekTime, preceeding))
@@ -2251,7 +2254,7 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double &st
 
   kodi::Log(ADDON_LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
 
-  return m_session->SeekTime(time * 0.001f, 0, !backwards);
+  return m_session->SeekTime(time * 0.001l, startpts, 0, !backwards);
 }
 
 //callback - will be called from kodi
