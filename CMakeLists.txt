@@ -47,7 +47,7 @@ include_directories(${INCLUDES}
 if(WIN32)
   add_definitions(-DXML_STATIC)
   include_directories(lib/expat/include)
-  if("${CMAKE_GENERATOR}" MATCHES "(Win64|IA64)")
+  if( CMAKE_SIZEOF_VOID_P EQUAL 8 )
     link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib64)
   else()
     link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
