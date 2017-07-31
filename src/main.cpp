@@ -718,6 +718,9 @@ public:
   virtual const AP4_Byte *GetSampleData()const = 0;
   virtual uint64_t GetDuration()const = 0;
   virtual bool IsEncrypted()const = 0;
+  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) {};
+  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) {};
+  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { return true; };
 };
 
 
@@ -1163,11 +1166,31 @@ public:
   TSSampleReader(AP4_ByteStream *input, INPUTSTREAM_INFO::STREAM_TYPE type, AP4_UI32 streamId, const int64_t pto)
     : TSReader(input)
     , m_typeMask(1 << type)
-    , m_streamId(streamId)
     , m_presentationTimeOffset(pto)
-  {};
-  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { m_typeMask |= (1 << type); };
-  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { m_typeMask = (1 << type); };
+  {
+    m_typeMap[type] = streamId;
+  };
+
+  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  {
+    m_typeMap[type] = sid;
+    m_typeMask |= (1 << type);
+    if (m_started)
+      StartStreaming(m_typeMask);
+  };
+
+  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  {
+    m_typeMap[type] = sid;
+    m_typeMask = (1 << type);
+  };
+
+  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type)
+  {
+    m_typeMask &= ~(1 << type);
+    StartStreaming(m_typeMask);
+    return m_typeMask == 0;
+  };
 
   virtual bool EOS()const override { return m_eos; }
 
@@ -1182,7 +1205,10 @@ public:
       return AP4_SUCCESS;
 
     if (!StartStreaming(m_typeMask))
+    {
+      m_eos = true;
       return AP4_ERROR_CANNOT_OPEN_FILE;
+    }
 
     m_started = bStarted = true;
     return ReadSample();
@@ -1220,7 +1246,7 @@ public:
   virtual void SetPTSOffset(uint64_t offset) override {}
   virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override {}
   virtual uint32_t GetTimeScale()const override { return TSReader::GetTimeScale(); }
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
+  virtual AP4_UI32 GetStreamId()const override { return m_typeMap[GetStreamType()]; }
   virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
   virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
   virtual uint64_t GetDuration()const override { return (TSReader::GetDuration() * DVD_TIME_BASE) / TSReader::GetTimeScale(); }
@@ -1228,7 +1254,7 @@ public:
 
 private:
   uint32_t m_typeMask; //Bit representation of INPUTSTREAM_INFO::STREAM_TYPES
-  AP4_UI32 m_streamId;
+  uint16_t m_typeMap[16];
   uint64_t m_presentationTimeOffset;
   bool m_eos = false;
   bool m_started = false;
@@ -1249,7 +1275,8 @@ void Session::STREAM::disable()
     SAFE_DELETE(reader_);
     SAFE_DELETE(input_file_);
     SAFE_DELETE(input_);
-    enabled = false;
+    enabled = encrypted = false;
+    mainId_ = 0;
   }
 }
 
@@ -1719,7 +1746,7 @@ bool Session::initialize()
       stream.info_.m_ExtraData = nullptr;
       stream.info_.m_ExtraSize = 0;
       stream.info_.m_features = 0;
-      stream.encrypted = adp->repesentations_[0]->get_psshset() > 0;
+      stream.mainId_ = 0;
 
       UpdateStream(stream, caps);
 
@@ -1737,6 +1764,7 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_Aspect = rep->aspect_;
   if (stream.info_.m_Aspect == 0.0f && stream.info_.m_Height)
     stream.info_.m_Aspect = (float)stream.info_.m_Width / stream.info_.m_Height;
+  stream.encrypted = rep->get_psshset() > 0;
 
   if (!stream.info_.m_ExtraSize && rep->codec_private_data_.size())
   {
@@ -1841,7 +1869,7 @@ SampleReader *Session::GetNextSample()
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
   {
     bool bStarted(false);
-    if ((*b)->enabled && !(*b)->reader_->EOS() && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
+    if ((*b)->enabled && !(*b)->mainId_ && !(*b)->reader_->EOS() && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
       && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
       res = *b;
 
@@ -1873,11 +1901,12 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     if ((*b)->enabled && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
-      if ((*b)->stream_.seek_time(seekTime + GetPresentationTimeOffset(), last_pts_, bReset))
+      if ((*b)->stream_.seek_time(seekTime + static_cast<double>(GetPresentationTimeOffset()) / DVD_TIME_BASE, 
+        static_cast<double>(last_pts_) / DVD_TIME_BASE, bReset))
       {
         if (bReset)
           (*b)->reader_->Reset(false);
-        if (!(*b)->reader_->TimeSeek(seekTime, preceeding))
+        if (!(*b)->reader_->TimeSeek(static_cast<uint64_t>(seekTime * DVD_TIME_BASE), preceeding))
           (*b)->reader_->Reset(true);
         else
         {
@@ -1910,11 +1939,6 @@ void Session::EndFragment(AP4_UI32 streamId)
     nextTs,
     static_cast<uint32_t>(nextDur),
     s->reader_->GetTimeScale());
-}
-
-adaptive::AdaptiveTree::ContainerType Session::GetContainerType() const
-{
-  return adaptiveTree_->GetContainerType();
 }
 
 const AP4_UI08 *Session::GetDefaultKeyId(const uint8_t index) const
@@ -2221,8 +2245,18 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
   Session::STREAM *stream(m_session->GetStream(streamid));
 
-  if (!enable && stream)
-    stream->disable();
+  if (!enable && stream && stream->enabled)
+  {
+    INPUTSTREAM_INFO::STREAM_TYPE type = stream->info_.m_streamType;
+    if (stream->mainId_)
+    {
+      uint16_t streamId(stream->mainId_);
+      stream->disable();
+      stream = m_session->GetStream(streamId);
+    }
+    if (stream->reader_ && stream->reader_->RemoveStreamType(type))
+      stream->disable();
+  }
 }
 
 void CInputStreamAdaptive::OpenStream(int streamid)
@@ -2234,20 +2268,59 @@ void CInputStreamAdaptive::OpenStream(int streamid)
 
   Session::STREAM *stream(m_session->GetStream(streamid));
 
-  if (!stream)
+  if (!stream || stream->enabled)
     return;
-
-  if (stream->enabled)
-  {
-    if (m_session->GetContainerType() == adaptive::AdaptiveTree::CONTAINERTYPE_TS && stream->reader_)
-      static_cast<TSSampleReader*>(stream->reader_)->AddStreamType(stream->info_.m_streamType);
-    return;
-  }
 
   stream->enabled = true;
 
   stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight());
   const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
+
+  // If we select a dummy (=inside video) stream, open the video part
+  // Dummy streams will be never enabled, they will only enable / activate audio track.
+  if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+  {
+    //locate the enabled video stream, if not found, use first (with lowest bandwidth)
+    Session::STREAM *mainStream;
+    uint16_t firstVideoId(0);
+    stream->mainId_ = 0;
+
+    while ((mainStream = m_session->GetStream(++stream->mainId_)))
+    {
+      if (mainStream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+      {
+        if (mainStream->enabled)
+          break;
+        else if (!firstVideoId)
+          firstVideoId = stream->mainId_;
+      }
+    }
+
+    if (!mainStream && firstVideoId)
+    {
+      stream->mainId_ = firstVideoId;
+      mainStream = m_session->GetStream(firstVideoId);
+    }
+
+    if (mainStream)
+    {
+      if (mainStream->reader_)
+        mainStream->reader_->AddStreamType(stream->info_.m_streamType, streamid);
+      else
+      {
+        OpenStream(stream->mainId_);
+        if (mainStream->reader_)
+          mainStream->reader_->SetStreamType(stream->info_.m_streamType, streamid);
+        else
+          return stream->disable();
+      }
+      mainStream->reader_->GetInformation(stream->info_);
+    }
+    else
+      stream->disable();
+    return;
+  }
+
   kodi::Log(ADDON_LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u",
     stream->stream_.getWidth(), stream->stream_.getHeight(), stream->stream_.getBandwidth());
 
@@ -2275,32 +2348,12 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   if (m_session->GetManifestType() == MANIFEST_TYPE_HLS)
     stream->stream_.restart_stream();
 
-  if (m_session->GetContainerType() == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
+  if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
   {
-    // If we select a dummy (=inside video) stream, open the video part
-    // Dummy streams will be never enabled, they will only enable / activate audio track.
-    if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
-    {
-      Session::STREAM *internalStream(stream);
-      for (streamid = 0; (stream = m_session->GetStream(streamid)) && stream->info_.m_streamType != INPUTSTREAM_INFO::TYPE_VIDEO; ++streamid);
-      if (stream)
-      {
-        if (stream->reader_)
-          static_cast<TSSampleReader*>(stream->reader_)->AddStreamType(internalStream->info_.m_streamType);
-        else
-        {
-          OpenStream(streamid);
-          if (stream->reader_)
-            static_cast<TSSampleReader*>(stream->reader_)->SetStreamType(internalStream->info_.m_streamType);
-        }
-      }
-      stream->reader_->GetInformation(internalStream->info_);
-      return;
-    }
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid, m_session->GetPresentationTimeOffset());
   }
-  else if (m_session->GetContainerType() == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
+  else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->input_file_ = new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
@@ -2324,6 +2377,9 @@ void CInputStreamAdaptive::OpenStream(int streamid)
       m_session->GetPresentationTimeOffset(),
       m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
   }
+  else
+    return stream->disable();
+
   stream->reader_->GetInformation(stream->info_);
   stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 }

@@ -85,7 +85,44 @@ bool HLSTree::open(const char *url)
 
       if (line.compare(0, 13, "#EXT-X-MEDIA:") == 0)
       {
-        //TODO
+        //#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="bipbop_audio",LANGUAGE="eng",NAME="BipBop Audio 2",AUTOSELECT=NO,DEFAULT=NO,URI="alternate_audio_aac_sinewave/prog_index.m3u8"
+        parseLine(line, 13, map);
+
+        StreamType type;
+        if (map["TYPE"] == "AUDIO")
+          type = AUDIO;
+        //else if (map["TYPE"] == "SUBTITLES")
+        //  type = SUBTITLE;
+        else
+          continue;
+
+        EXTGROUP &group = m_extGroups[map["GROUP-ID"]];
+
+        AdaptationSet *adp = new AdaptationSet();
+        Representation *rep = new Representation();
+        adp->repesentations_.push_back(rep);
+        group.m_sets.push_back(adp);
+
+        adp->type_ = type;
+        adp->language_ =  map["LANGUAGE"];
+        adp->timescale_ = 1000000;
+
+        rep->codecs_ = group.m_codec;
+        rep->timescale_ = 1000000;
+
+        std::map<std::string, std::string>::iterator res;
+        if ((res = map.find("URI")) != map.end())
+        {
+          if (res->second.find("://", 0, 8) == std::string::npos)
+            rep->url_ = base_url_ + res->second;
+          else
+            rep->url_ = res->second;
+        }
+        else
+          rep->flags_ = Representation::INCLUDEDSTREAM;
+
+        if ((res = map.find("CHANNELS")) != map.end())
+          rep->channelCount_ = atoi(res->second.c_str());
       }
       else if (line.compare(0, 18, "#EXT-X-STREAM-INF:") == 0)
       {
@@ -116,8 +153,10 @@ bool HLSTree::open(const char *url)
         current_representation_->bandwidth_ = atoi(map["BANDWIDTH"].c_str());
         parseResolution(current_representation_->width_, current_representation_->height_, map["RESOLUTION"]);
 
-        if (map.find("AUDIO") == map.end())
-          m_audioCodec = getVideoCodec(map["CODECS"]);
+        if (map.find("AUDIO") != map.end())
+          m_extGroups[map["AUDIO"]].setCodec(getAudioCodec(map["CODECS"]));
+        else
+          m_audioCodec = getAudioCodec(map["CODECS"]);
       }
       else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
       {
@@ -138,19 +177,31 @@ bool HLSTree::open(const char *url)
           }
       }
     }
-    // We may need to create the Default / Dummy audio representation
-    if (!m_audioCodec.empty() && current_period_)
-    {
-      current_adaptationset_ = new AdaptationSet();
-      current_adaptationset_->type_ = AUDIO;
-      current_adaptationset_->timescale_ = 1000000;
-      current_period_->adaptationSets_.push_back(current_adaptationset_);
 
-      current_representation_ = new Representation();
-      current_representation_->timescale_ = 1000000;
-      current_representation_->codecs_ = m_audioCodec;
-      current_representation_->flags_ = Representation::INCLUDEDSTREAM;
-      current_adaptationset_->repesentations_.push_back(current_representation_);
+    if (current_period_)
+    {
+      // We may need to create the Default / Dummy audio representation
+      if (!m_audioCodec.empty())
+      {
+        current_adaptationset_ = new AdaptationSet();
+        current_adaptationset_->type_ = AUDIO;
+        current_adaptationset_->timescale_ = 1000000;
+        current_period_->adaptationSets_.push_back(current_adaptationset_);
+
+        current_representation_ = new Representation();
+        current_representation_->timescale_ = 1000000;
+        current_representation_->codecs_ = m_audioCodec;
+        current_representation_->flags_ = Representation::INCLUDEDSTREAM;
+        current_adaptationset_->repesentations_.push_back(current_representation_);
+      }
+
+      //Register external adaptationsets
+      for (const auto &group : m_extGroups)
+        for (auto *adp : group.second.m_sets)
+          current_period_->adaptationSets_.push_back(adp);
+      m_extGroups.clear();
+
+      SortRepresentations();
     }
     return true;
   }
@@ -202,6 +253,20 @@ bool HLSTree::prepareRepresentation(Representation *rep)
         }
         else if (!line.empty() && line.compare(0, 1, "#") != 0 && ~segment.startPTS_)
         {
+          std::string::size_type ext = line.rfind('.');
+          if (ext != std::string::npos)
+          {
+            if (strcmp(line.c_str() + ext, ".ts") == 0)
+              rep->containerType_ = CONTAINERTYPE_TS;
+            else if (strcmp(line.c_str() + ext, ".mp4") == 0)
+              rep->containerType_ = CONTAINERTYPE_MP4;
+            else
+            {
+              rep->containerType_ = CONTAINERTYPE_NOTYPE;
+              continue;
+            }
+          }
+
           std::string url(base_url + line);
           if (rep->url_.empty())
             rep->url_ = url;
@@ -219,7 +284,7 @@ bool HLSTree::prepareRepresentation(Representation *rep)
       }
     }
   }
-  return true;
+  return !rep->segments_.data.empty();
 };
 
 

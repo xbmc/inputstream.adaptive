@@ -54,6 +54,8 @@ bool TSReader::StartStreaming(AP4_UI32 typeMask)
   {
     if (!(typeMask & (1 << tsInfo.m_streamType)))
       m_AVContext->StopStreaming(tsInfo.m_stream->pid);
+    else
+      m_AVContext->StartStreaming(tsInfo.m_stream->pid);
     typeMask &= ~(1 << tsInfo.m_streamType);
   }
   return typeMask == 0;
@@ -259,4 +261,12 @@ bool TSReader::HandleStreamChange(uint16_t pid)
       ret = false;
   }
   return ret;
+}
+
+const INPUTSTREAM_INFO::STREAM_TYPE TSReader::GetStreamType() const
+{
+  for (const auto &tsInfo : m_streamInfos)
+    if (tsInfo.m_stream && tsInfo.m_stream->pid == m_pkt.pid)
+      return tsInfo.m_streamType;
+  return INPUTSTREAM_INFO::TYPE_NONE;
 }

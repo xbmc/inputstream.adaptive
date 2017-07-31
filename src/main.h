@@ -100,6 +100,7 @@ public:
     void disable();
 
     bool enabled, encrypted;
+    uint16_t mainId_;
     uint32_t current_segment_;
     KodiAdaptiveStream stream_;
     AP4_ByteStream *input_;
@@ -123,13 +124,12 @@ public:
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
   uint64_t GetPresentationTimeOffset() { return ~adaptiveTree_->minPresentationOffset ? adaptiveTree_->minPresentationOffset:0; };
   uint64_t GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
-  double GetPTS()const { return last_pts_; };
+  uint64_t GetPTS()const { return last_pts_; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
-  adaptive::AdaptiveTree::ContainerType GetContainerType() const;
   const AP4_UI08 *GetDefaultKeyId(const uint8_t index) const;
   CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
@@ -170,6 +170,6 @@ private:
   uint32_t fixed_bandwidth_;
   bool changed_;
   bool manual_streams_;
-  double last_pts_;
+  uint64_t last_pts_;
   uint8_t media_type_mask_;
 };

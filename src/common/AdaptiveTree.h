@@ -80,7 +80,7 @@ namespace adaptive
       STREAM_TYPE_COUNT
     };
 
-    enum ContainerType
+    enum ContainerType : uint8_t
     {
       CONTAINERTYPE_NOTYPE,
       CONTAINERTYPE_MP4,
@@ -110,7 +110,7 @@ namespace adaptive
     {
       Representation() :bandwidth_(0), samplingRate_(0),  width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0),
-        duration_(0), timescale_(0){};
+        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), duration_(0), timescale_(0){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -135,7 +135,8 @@ namespace adaptive
 
       uint32_t indexRangeMin_, indexRangeMax_;
       uint8_t channelCount_, nalLengthSize_;
-      uint8_t pssh_set_, dummy;
+      uint8_t pssh_set_;
+      ContainerType containerType_;
       SegmentTemplate segtpl_;
       //SegmentList
       uint32_t duration_, timescale_;
@@ -253,7 +254,6 @@ namespace adaptive
 
     virtual bool open(const char *url) = 0;
     virtual bool prepareRepresentation(Representation *rep) { return true; };
-    virtual ContainerType GetContainerType() { return CONTAINERTYPE_MP4; };
     uint8_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);

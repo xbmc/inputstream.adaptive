@@ -20,6 +20,7 @@
 
 #include "../common/AdaptiveTree.h"
 #include <sstream>
+#include <map>
 
 namespace adaptive
 {
@@ -27,16 +28,32 @@ namespace adaptive
   class HLSTree : public AdaptiveTree
   {
   public:
-    HLSTree() :m_containerType(CONTAINERTYPE_TS) {};
+    HLSTree() = default;
 
     virtual bool open(const char *url) override;
     virtual bool prepareRepresentation(Representation *rep) override;
-    virtual ContainerType GetContainerType() override { return m_containerType; };
     virtual bool write_data(void *buffer, size_t buffer_size) override;
   private:
     std::stringstream m_stream;
     std::string m_audioCodec;
-    ContainerType m_containerType;
+
+    struct EXTGROUP
+    {
+      std::string m_codec;
+      std::vector<AdaptationSet*> m_sets;
+
+      void setCodec(const std::string &codec)
+      {
+        if (m_codec.empty())
+        {
+          m_codec = codec;
+          for (auto &set : m_sets)
+            set->repesentations_[0]->codecs_ = codec;
+        }
+      }
+    };
+
+    std::map<std::string, EXTGROUP> m_extGroups;
   };
 
 } // namespace

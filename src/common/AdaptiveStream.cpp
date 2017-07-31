@@ -327,7 +327,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     }
   }
   else
-    new_rep = current_adp_->repesentations_[repId -1];
+    new_rep = current_adp_->repesentations_[current_adp_->repesentations_.size() - repId];
 
   if (!new_rep)
     new_rep = min_rep;
