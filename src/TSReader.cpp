@@ -29,6 +29,8 @@ TSReader::TSReader(AP4_ByteStream *stream)
     delete m_AVContext;
     m_AVContext = nullptr;
   }
+  if (!m_firstDTS)
+    m_firstDTS = 0;
 }
 
 TSReader::~TSReader()
@@ -45,6 +47,9 @@ const unsigned char* TSReader::ReadAV(uint64_t pos, size_t len)
 
 void TSReader::Reset()
 {
+  AP4_UI64 position;
+  m_stream->Tell(position);
+  m_AVContext->GoPosition(position);
 }
 
 bool TSReader::StartStreaming(AP4_UI32 typeMask)
@@ -146,6 +151,9 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
       {
         if (m_pkt.streamChange)
         {
+          if (!~m_firstDTS && m_pkt.dts != PTS_UNSET)
+            m_firstDTS = m_pkt.dts;
+
           if (HandleStreamChange(m_pkt.pid))
           {
             m_AVContext->GoPosition(startPos);

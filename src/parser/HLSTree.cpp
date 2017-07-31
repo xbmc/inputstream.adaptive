@@ -283,6 +283,7 @@ bool HLSTree::prepareRepresentation(Representation *rep)
         }
       }
     }
+    overallSeconds_ = static_cast<double>(pts) / rep->timescale_;
   }
   return !rep->segments_.data.empty();
 };

@@ -36,14 +36,13 @@ public:
 
   void Reset();
   bool StartStreaming(AP4_UI32 typeMask);
-  void StopStreaming(AP4_UI32 typeMask);
 
   bool GetInformation(INPUTSTREAM_INFO &info);
   uint32_t GetTimeScale() const { return 90000; };
   bool ReadPacket(bool streamInfo = false);
 
-  uint64_t GetDts() const { return m_pkt.dts; }
-  uint64_t GetPts() const { return m_pkt.pts; }
+  uint64_t GetDts() const { return m_pkt.dts == PTS_UNSET ? PTS_UNSET : m_pkt.dts - m_firstDTS; }
+  uint64_t GetPts() const { return m_pkt.pts == PTS_UNSET ? PTS_UNSET : m_pkt.pts - m_firstDTS; }
   uint64_t GetDuration() const { return m_pkt.duration; }
   const AP4_Byte *GetPacketData() const { return m_pkt.data; };
   const AP4_Size GetPacketSize() const { return m_pkt.size; };
@@ -69,4 +68,5 @@ private:
     INPUTSTREAM_INFO::STREAM_TYPE m_streamType;
   };
   std::vector<TSINFO> m_streamInfos;
+  uint64_t m_firstDTS = ~0ULL;
 };

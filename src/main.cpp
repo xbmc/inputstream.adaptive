@@ -1898,7 +1898,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     seekTime = 0;
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    if ((*b)->enabled && (streamId == 0 || (*b)->info_.m_pID == streamId))
+    if ((*b)->enabled && !(*b)->mainId_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
       if ((*b)->stream_.seek_time(seekTime + static_cast<double>(GetPresentationTimeOffset()) / DVD_TIME_BASE, 
@@ -2432,7 +2432,7 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
     p->iSize = iSize;
     memcpy(p->pData, pData, iSize);
 
-    //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
+    kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
     sr->ReadSample();
     return p;
@@ -2476,7 +2476,7 @@ int CInputStreamAdaptive::GetTime()
   if (!m_session)
     return 0;
 
-  return static_cast<int>(m_session->GetPTS() * 1000);
+  return static_cast<int>(m_session->GetPTS() / 1000);
 }
 
 bool CInputStreamAdaptive::CanPauseStream(void)
