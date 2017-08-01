@@ -18,6 +18,7 @@
 
 #include "HLSTree.h"
 #include <map>
+#include <string.h>
 
 using namespace adaptive;
 
@@ -114,9 +115,9 @@ bool HLSTree::open(const char *url)
         if ((res = map.find("URI")) != map.end())
         {
           if (res->second.find("://", 0) == std::string::npos)
-            rep->url_ = base_url_ + res->second;
+            rep->source_url_ = base_url_ + res->second;
           else
-            rep->url_ = res->second;
+            rep->source_url_ = res->second;
         }
         else
           rep->flags_ = Representation::INCLUDEDSTREAM;
@@ -161,14 +162,13 @@ bool HLSTree::open(const char *url)
       else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
       {
         if (line.find("://", 0) == std::string::npos)
-          current_representation_->url_ = base_url_ + line;
+          current_representation_->source_url_ = base_url_ + line;
         else
-          current_representation_->url_ = line;
+          current_representation_->source_url_ = line;
 
         //Ignore duplicate reps
-        bool duplicate(false);
         for (auto const *rep : current_adaptationset_->repesentations_)
-          if (rep != current_representation_ &&  rep->url_ == current_representation_->url_)
+          if (rep != current_representation_ &&  rep->source_url_ == current_representation_->source_url_)
           {
             delete current_representation_;
             current_representation_ = nullptr;
@@ -210,7 +210,7 @@ bool HLSTree::open(const char *url)
 
 bool HLSTree::prepareRepresentation(Representation *rep)
 {
-  if (rep->segments_.data.empty() && !rep->url_.empty())
+  if (rep->segments_.data.empty() && !rep->source_url_.empty())
   {
     m_stream.str().clear();
     m_stream.clear();
@@ -219,18 +219,18 @@ bool HLSTree::prepareRepresentation(Representation *rep)
     std::map<std::string, std::string> map;
     bool startCodeFound(false);
     Segment segment;
-    segment.range_begin_ = segment.range_end_ = 0;
+    segment.range_begin_ = ~0ULL;
+    segment.range_end_ = 0;
     uint64_t pts(0);
     std::string::size_type segIdxPos = std::string::npos;
 
-    if (download(rep->url_.c_str(), manifest_headers_))
+    if (download(rep->source_url_.c_str(), manifest_headers_))
     {
       bool byteRange(false);
       std::string base_url;
-      std::string::size_type bs = rep->url_.rfind('/');
+      std::string::size_type bs = rep->source_url_.rfind('/');
       if (bs != std::string::npos)
-        base_url = rep->url_.substr(0, bs + 1);
-      rep->url_.clear();
+        base_url = rep->source_url_.substr(0, bs + 1);
 
       while (std::getline(m_stream, line))
       {
@@ -274,34 +274,20 @@ bool HLSTree::prepareRepresentation(Representation *rep)
             }
           }
 
-          std::string url;
-          if (line.find("://", 0) == std::string::npos)
-            url = base_url + line;
-          else
-            url = line;
-
-          if (rep->url_.empty())
-            rep->url_ = url;
-
-          if (segIdxPos != std::string::npos)
-            segment.range_end_ = atoi(url.c_str() + segIdxPos);
-          else if (rep->url_ != url)
+          if (!byteRange || rep->url_.empty())
           {
-            for (segIdxPos = 0; rep->url_[segIdxPos] == url[segIdxPos]; ++segIdxPos);
-            if (!isdigit(rep->url_[segIdxPos]) || rep->segments_.data.size() != 1)
+            std::string url;
+            if (line.find("://", 0) == std::string::npos)
+              url = base_url + line;
+            else
+              url = line;
+            if (!byteRange)
             {
-              rep->segments_.data.clear();
-              return false;
+              segment.url = new char[url.size() + 1];
+              memcpy((char*)segment.url, url.c_str(), url.size() + 1);
             }
-            while (segIdxPos > 0 && isdigit(rep->url_[segIdxPos - 1])) --segIdxPos;
-            unsigned int len(1); while (segIdxPos + len < rep->url_.size() && isdigit(rep->url_[segIdxPos + len])) ++len;
-            rep->segments_.data[0].range_end_ = atoi(rep->url_.c_str() + segIdxPos);
-            rep->url_.replace(segIdxPos, len, "$Number$");
-            rep->segtpl_.media.swap(rep->url_);
-
-            segment.range_end_ = atoi(url.c_str() + segIdxPos);
-
-            rep->flags_ |= Representation::TEMPLATE;
+            else
+              rep->url_ = url;
           }
           rep->segments_.data.push_back(segment);
           segment.startPTS_ = ~0ULL;
@@ -314,7 +300,10 @@ bool HLSTree::prepareRepresentation(Representation *rep)
         {
         }
       }
-      overallSeconds_ = static_cast<double>(pts) / rep->timescale_;
+      overallSeconds_ = pts / rep->timescale_;
+
+      if (!byteRange)
+        rep->flags_ |= Representation::URLSEGMENTS;
 
       // Insert Initialization Segment
       if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && rep->segments_.data[0].range_begin_ > 0)

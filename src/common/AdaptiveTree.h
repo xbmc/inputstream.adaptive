@@ -91,8 +91,12 @@ namespace adaptive
     struct Segment
     {
       void SetRange(const char *range);
-      uint64_t range_begin_;
-      uint64_t range_end_;
+      uint64_t range_begin_; //Either byterange start or timestamp or ~0
+      union
+      {
+        uint64_t range_end_; //Either byterange end or sequence_id or char* if range_begin is ~0
+        const char *url;
+      };
       uint64_t startPTS_;
     };
 
@@ -115,6 +119,7 @@ namespace adaptive
       std::string id;
       std::string codecs_;
       std::string codec_private_data_;
+      std::string source_url_;
       uint32_t bandwidth_;
       uint32_t samplingRate_;
       uint16_t width_, height_;
@@ -129,6 +134,7 @@ namespace adaptive
       static const unsigned int SEGMENTBASE = 16;
       static const unsigned int SUBTITLESTREAM = 32;
       static const unsigned int INCLUDEDSTREAM = 64;
+      static const unsigned int URLSEGMENTS = 128;
 
       uint16_t flags_;
       uint16_t hdcpVersion_;
@@ -250,7 +256,7 @@ namespace adaptive
     std::string strXMLText_;
 
     AdaptiveTree();
-    virtual ~AdaptiveTree() = default;
+    virtual ~AdaptiveTree();
 
     virtual bool open(const char *url) = 0;
     virtual bool prepareRepresentation(Representation *rep) { return true; };

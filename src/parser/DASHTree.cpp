@@ -259,7 +259,7 @@ static uint8_t GetChannels(const char **attr)
   return 0;
 }
 
-static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTree::SegmentTemplate &tpl, bool adp)
+static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTree::SegmentTemplate &tpl)
 {
   uint64_t pto(0);
   for (; *attr;)
@@ -424,7 +424,7 @@ start(void *data, const char *el, const char **attr)
 
                   if (dash->current_representation_->flags_ & DASHTree::Representation::INITIALIZATION)
                   {
-                    s.range_begin_ = s.range_end_ = ~0;
+                    s.range_begin_ = 0ULL, s.range_end_ = 0;
                     dash->current_representation_->initialization_ = s;
                   }
                   s.range_end_ = dash->current_representation_->segtpl_.startNumber;
@@ -506,7 +506,7 @@ start(void *data, const char *el, const char **attr)
           {
             dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
 
-            ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->current_representation_->segtpl_, false);
+            ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->current_representation_->segtpl_);
             dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
             if (!dash->current_representation_->segtpl_.initialization.empty())
             {
@@ -599,7 +599,7 @@ start(void *data, const char *el, const char **attr)
         }
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
-          ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_, true);
+          ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_);
           dash->current_adaptationset_->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
           dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
         }
@@ -771,7 +771,7 @@ start(void *data, const char *el, const char **attr)
   }
   else if (strcmp(el, "MPD") == 0)
   {
-    const char *mpt(0), *tsbd(0), *mpdtype(0);
+    const char *mpt(0), *tsbd(0);
 
     dash->overallSeconds_ = 0;
     dash->stream_start_ = time(0);
@@ -990,7 +990,7 @@ end(void *data, const char *el)
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
-                    seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration);
+                    seg.range_begin_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration);
 
                   for (;countSegs;--countSegs)
                   {
@@ -1191,7 +1191,7 @@ bool DASHTree::write_data(void *buffer, size_t buffer_size)
 
   if (retval == XML_STATUS_ERROR)
   {
-    unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
+    //unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
     return false;
   }
   return true;

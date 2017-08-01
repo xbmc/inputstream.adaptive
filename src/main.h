@@ -89,7 +89,7 @@ public:
   Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert,
   const std::map<std::string, std::string> &manifestHeaders, const std::map<std::string, std::string> &mediaHeaders,
   const char* profile_path, uint16_t display_width, uint16_t display_height);
-  ~Session();
+  virtual ~Session();
   bool initialize();
   SampleReader *GetNextSample();
 

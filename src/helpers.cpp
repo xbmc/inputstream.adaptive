@@ -94,10 +94,10 @@ bool b64_decode(const char *in, unsigned int in_len, uint8_t *out, unsigned int 
 	{
 		// Get values for each group of four base 64 characters
 		BYTE b4[4];
-		b4[0] = (in[i + 0] <= 'z') ? from_base64[in[i + 0]] : 0xff;
-		b4[1] = (in[i + 1] <= 'z') ? from_base64[in[i + 1]] : 0xff;
-		b4[2] = (in[i + 2] <= 'z') ? from_base64[in[i + 2]] : 0xff;
-		b4[3] = (in[i + 3] <= 'z') ? from_base64[in[i + 3]] : 0xff;
+		b4[0] = (in[i + 0] <= 'z') ? from_base64[static_cast<uint8_t>(in[i + 0])] : 0xff;
+		b4[1] = (in[i + 1] <= 'z') ? from_base64[static_cast<uint8_t>(in[i + 1])] : 0xff;
+		b4[2] = (in[i + 2] <= 'z') ? from_base64[static_cast<uint8_t>(in[i + 2])] : 0xff;
+		b4[3] = (in[i + 3] <= 'z') ? from_base64[static_cast<uint8_t>(in[i + 3])] : 0xff;
 
 		// Transform into a group of three bytes
 		BYTE b3[3];

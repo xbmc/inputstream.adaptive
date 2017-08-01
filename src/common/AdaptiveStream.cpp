@@ -51,12 +51,17 @@ bool AdaptiveStream::download_segment()
   {
     if (!(current_rep_->flags_ & AdaptiveTree::Representation::TEMPLATE))
     {
-      strURL = current_rep_->url_;
-      sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
-      rangeHeader = rangebuf;
-      absolute_position_ = current_seg_->range_begin_;
+      if (current_rep_->flags_ & AdaptiveTree::Representation::URLSEGMENTS)
+        strURL = current_seg_->url;
+      else
+      {
+        strURL = current_rep_->url_;
+        sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
+        rangeHeader = rangebuf;
+        absolute_position_ = current_seg_->range_begin_;
+      }
     }
-    else if (~current_seg_->range_end_) //templated segment
+    else if (current_seg_ != &current_rep_->initialization_) //templated segment
     {
       std::string media = current_rep_->segtpl_.media;
       std::string::size_type lenReplace(7);
@@ -168,7 +173,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
     height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
 
-    if (!(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE)))
+    if (!(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::URLSEGMENTS)))
       absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
     else
       absolute_position_ = 0;

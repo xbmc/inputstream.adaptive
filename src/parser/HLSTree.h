@@ -29,6 +29,7 @@ namespace adaptive
   {
   public:
     HLSTree() = default;
+    virtual ~HLSTree() = default;
 
     virtual bool open(const char *url) override;
     virtual bool prepareRepresentation(Representation *rep) override;

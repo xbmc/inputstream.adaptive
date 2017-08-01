@@ -240,7 +240,7 @@ class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 public:
   // methods
   WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh);
-  ~WV_CencSingleSampleDecrypter();
+  virtual ~WV_CencSingleSampleDecrypter();
 
   void GetCapabilities(const uint8_t* key, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps);
   virtual const char *GetSessionId() override;
@@ -324,7 +324,7 @@ class WV_DRM : public media::CdmAdapterClient
 {
 public:
   WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert);
-  ~WV_DRM();
+  virtual ~WV_DRM();
 
   virtual void OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG msg, const uint8_t *data, size_t data_size, uint32_t status) override;
 
@@ -757,7 +757,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       if (jsonVals.size() > 1)
       {
         for (; i < numTokens; ++i)
-          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[1].size() == tokens[i].end - tokens[i].start
+          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[1].size() == static_cast<unsigned int>(tokens[i].end - tokens[i].start)
             && strncmp(response.c_str() + tokens[i].start, jsonVals[1].c_str(), tokens[i].end - tokens[i].start) == 0)
             break;
         if (i < numTokens)
@@ -767,7 +767,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       if (jsonVals.size() > 0)
       {
         for (i = 0; i < numTokens; ++i)
-          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[0].size() == tokens[i].end - tokens[i].start
+          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[0].size() == static_cast<unsigned int>(tokens[i].end - tokens[i].start)
             && strncmp(response.c_str() + tokens[i].start, jsonVals[0].c_str(), tokens[i].end - tokens[i].start) == 0)
             break;
       }
