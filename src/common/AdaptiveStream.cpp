@@ -308,8 +308,8 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
 {
   const AdaptiveTree::Representation *new_rep(0), *min_rep(0);
 
-  if (force && absolute_position_ == 0) //already selected
-    return true;
+  //if (force && absolute_position_ == 0) //already selected
+  //  return true;
 
   if (!repId || repId > current_adp_->repesentations_.size())
   {
