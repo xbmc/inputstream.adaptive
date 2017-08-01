@@ -943,7 +943,10 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 
         if (nalsize + fragInfo.nal_length_size_ + nalunitsum > *bytes_of_cleartext_data + *bytes_of_encrypted_data)
         {
-          Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %d) %d -> %d ", fragInfo.nal_length_size_, nalsize + fragInfo.nal_length_size_ + nalunitsum, *bytes_of_cleartext_data + *bytes_of_encrypted_data);
+          Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %u) %u -> %u ",
+            static_cast<unsigned int>(fragInfo.nal_length_size_),
+            static_cast<unsigned int>(nalsize + fragInfo.nal_length_size_ + nalunitsum),
+            *bytes_of_cleartext_data + *bytes_of_encrypted_data);
           return AP4_ERROR_NOT_SUPPORTED;
         }
         else if (!iv)
@@ -963,7 +966,10 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
       }
       if (packet_in != packet_in_e || subsample_count)
       {
-        Log(SSD_HOST::LL_ERROR, "NAL Unit definition incomplete (nls: %d) %d -> %u ", fragInfo.nal_length_size_, (int)(packet_in_e - packet_in), subsample_count);
+        Log(SSD_HOST::LL_ERROR, "NAL Unit definition incomplete (nls: %u) %u -> %u ",
+          static_cast<unsigned int>(fragInfo.nal_length_size_),
+          static_cast<unsigned int>(packet_in_e - packet_in),
+          subsample_count);
         return AP4_ERROR_NOT_SUPPORTED;
       }
       data_out.SetDataSize(data_out.GetDataSize() + data_in.GetDataSize() + configSize + (4 - fragInfo.nal_length_size_) * nalunitcount);

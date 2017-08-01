@@ -1870,7 +1870,7 @@ SampleReader *Session::GetNextSample()
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
   {
     bool bStarted(false);
-    if ((*b)->enabled && !(*b)->mainId_ && !(*b)->reader_->EOS() && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
+    if ((*b)->enabled && (*b)->reader_ && !(*b)->reader_->EOS() && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
       && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
       res = *b;
 
@@ -1899,7 +1899,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     seekTime = 0;
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    if ((*b)->enabled && !(*b)->mainId_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
+    if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
       if ((*b)->stream_.seek_time(seekTime + static_cast<double>(GetPresentationTimeOffset()) / DVD_TIME_BASE, 
@@ -2073,6 +2073,7 @@ public:
 private:
   Session* m_session;
   int m_width, m_height;
+  uint16_t m_IncludedStreams[16];
 };
 
 CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance)
@@ -2081,6 +2082,7 @@ CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance)
   , m_width(1280)
   , m_height(720)
 {
+  memset(m_IncludedStreams, 0, sizeof(m_IncludedStreams));
 }
 
 ADDON_STATUS CInputStreamAdaptive::CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance)
@@ -2248,15 +2250,16 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
   if (!enable && stream && stream->enabled)
   {
-    INPUTSTREAM_INFO::STREAM_TYPE type = stream->info_.m_streamType;
     if (stream->mainId_)
     {
-      uint16_t streamId(stream->mainId_);
-      stream->disable();
-      stream = m_session->GetStream(streamId);
+      Session::STREAM *mainStream(m_session->GetStream(stream->mainId_));
+      if (mainStream->reader_)
+        mainStream->reader_->RemoveStreamType(stream->info_.m_streamType);
     }
-    if (stream->reader_ && stream->reader_->RemoveStreamType(type))
-      stream->disable();
+    const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
+    if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+      m_IncludedStreams[stream->info_.m_streamType] = 0;
+    stream->disable();
   }
 }
 
@@ -2281,44 +2284,16 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   // Dummy streams will be never enabled, they will only enable / activate audio track.
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
   {
-    //locate the enabled video stream, if not found, use first (with lowest bandwidth)
     Session::STREAM *mainStream;
-    uint16_t firstVideoId(0);
     stream->mainId_ = 0;
-
     while ((mainStream = m_session->GetStream(++stream->mainId_)))
-    {
-      if (mainStream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
-      {
-        if (mainStream->enabled)
-          break;
-        else if (!firstVideoId)
-          firstVideoId = stream->mainId_;
-      }
-    }
-
-    if (!mainStream && firstVideoId)
-    {
-      stream->mainId_ = firstVideoId;
-      mainStream = m_session->GetStream(firstVideoId);
-    }
-
+      if (mainStream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO && mainStream->enabled)
+        break;
     if (mainStream)
-    {
-      if (mainStream->reader_)
-        mainStream->reader_->AddStreamType(stream->info_.m_streamType, streamid);
-      else
-      {
-        OpenStream(stream->mainId_);
-        if (mainStream->reader_)
-          mainStream->reader_->SetStreamType(stream->info_.m_streamType, streamid);
-        else
-          return stream->disable();
-      }
-      mainStream->reader_->GetInformation(stream->info_);
-    }
+      mainStream->reader_->AddStreamType(stream->info_.m_streamType, streamid);
     else
-      stream->disable();
+      stream->mainId_ = 0;
+    m_IncludedStreams[stream->info_.m_streamType] = streamid;
     return;
   }
 
@@ -2380,6 +2355,13 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   }
   else
     return stream->disable();
+
+  if (stream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+  {
+    for (uint16_t i(0); i < 16; ++i)
+      if (m_IncludedStreams[i])
+        stream->reader_->AddStreamType(static_cast<INPUTSTREAM_INFO::STREAM_TYPE>(i), m_IncludedStreams[i]);
+  }
 
   stream->reader_->GetInformation(stream->info_);
   stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
