@@ -225,6 +225,7 @@ bool HLSTree::prepareRepresentation(Representation *rep)
 
     if (download(rep->url_.c_str(), manifest_headers_))
     {
+      bool byteRange(false);
       std::string base_url;
       std::string::size_type bs = rep->url_.rfind('/');
       if (bs != std::string::npos)
@@ -255,6 +256,7 @@ bool HLSTree::prepareRepresentation(Representation *rep)
             segment.range_begin_ = atoll(line.c_str() + (bs + 1));
             segment.range_end_ = segment.range_begin_ + atoll(line.c_str() + 17) - 1;
           }
+          byteRange = true;
         }
         else if (!line.empty() && line.compare(0, 1, "#") != 0 && ~segment.startPTS_)
         {
@@ -312,8 +314,16 @@ bool HLSTree::prepareRepresentation(Representation *rep)
         {
         }
       }
+      overallSeconds_ = static_cast<double>(pts) / rep->timescale_;
+
+      // Insert Initialization Segment
+      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && rep->segments_.data[0].range_begin_ > 0)
+      {
+        rep->flags_ |= Representation::INITIALIZATION;
+        rep->initialization_.range_begin_ = 0;
+        rep->initialization_.range_end_ = rep->segments_.data[0].range_begin_ - 1;
+      }
     }
-    overallSeconds_ = static_cast<double>(pts) / rep->timescale_;
   }
   return !rep->segments_.data.empty();
 };
