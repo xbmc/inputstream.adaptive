@@ -660,8 +660,8 @@ public:
 
     bool edchanged(false);
 
-    if (m_bSampleDescChanged && info.m_ExtraSize != m_codecHandler->extra_data_size
-      || memcmp(info.m_ExtraData, m_codecHandler->extra_data, m_codecHandler->extra_data_size))
+    if (m_bSampleDescChanged && ( info.m_ExtraSize != m_codecHandler->extra_data_size
+      || memcmp(info.m_ExtraData, m_codecHandler->extra_data, m_codecHandler->extra_data_size)))
     {
       free((void*)(info.m_ExtraData));
       info.m_ExtraSize = m_codecHandler->extra_data_size;

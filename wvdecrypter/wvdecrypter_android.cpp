@@ -91,7 +91,7 @@ bool needProvision = false;
 
 void MediaDrmEventListener(AMediaDrm *media_drm, const AMediaDrmSessionId *sessionId, AMediaDrmEventType eventType, int extra, const uint8_t *data, size_t dataSize)
 {
-  Log(SSD_HOST::LL_DEBUG, "EVENT occured drm:%x, event:%d extra:%d dataSize;%d", (unsigned int)media_drm, eventType, extra, dataSize);
+  Log(SSD_HOST::LL_DEBUG, "EVENT occured drm:%p, event:%d extra:%d dataSize;%d", media_drm, eventType, extra, dataSize);
   if (eventType == EVENT_PROVISION_REQUIRED )
     needProvision = true;
 
@@ -169,7 +169,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(std::string licenseUR
     Log(SSD_HOST::LL_ERROR, "Unable to initialize media_drm");
     return;
   }
-  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %X", (unsigned int)media_drm_);
+  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p", media_drm_);
 
   media_status_t status;
   if ((status = AMediaDrm_setOnEventListener(media_drm_, MediaDrmEventListener)) != AMEDIA_OK)
@@ -226,7 +226,7 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
   const char *url(0);
   size_t prov_size(4096);
 
-  Log(SSD_HOST::LL_ERROR, "PrivisionData request: drm: %x key_request_size_: %u", (unsigned int)media_drm_, key_request_size_);
+  Log(SSD_HOST::LL_ERROR, "PrivisionData request: drm: %p key_request_size_: %u", media_drm_, key_request_size_);
 
   media_status_t status = AMediaDrm_getProvisionRequest(media_drm_, &key_request_, &prov_size, &url);
 
@@ -235,7 +235,7 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
     Log(SSD_HOST::LL_ERROR, "PrivisionData request failed with status: %d", status);
     return false;
   }
-  Log(SSD_HOST::LL_DEBUG, "PrivisionData: status: %d, size: %u, url: %s", status, prov_size, url);
+  Log(SSD_HOST::LL_DEBUG, "PrivisionData: status: %d, size: %lu, url: %s", status, prov_size, url);
 
   std::string tmp_str("{\"signedRequest\":\"");
   tmp_str += std::string(reinterpret_cast<const char*>(key_request_), prov_size);
@@ -281,7 +281,7 @@ bool WV_CencSingleSampleDecrypter::GetLicense()
     return false;
   }
 
-  Log(SSD_HOST::LL_DEBUG, "Key request successful, size: %u", reinterpret_cast<unsigned int>(key_request_size_));
+  Log(SSD_HOST::LL_DEBUG, "Key request successful, size: %lu", key_request_size_);
 
   if (!SendSessionMessage())
     return false;
@@ -548,7 +548,10 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(
 
         if (nalsize + nal_length_size_ + nalunitsum > *bytes_of_cleartext_data + *bytes_of_encrypted_data)
         {
-          Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %d) %d -> %d ", nal_length_size_, nalsize + nal_length_size_ + nalunitsum, *bytes_of_cleartext_data + *bytes_of_encrypted_data);
+          Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %u) %u -> %u ",
+            static_cast<unsigned int>(nal_length_size_),
+            static_cast<unsigned int>(nalsize + nal_length_size_ + nalunitsum),
+            *bytes_of_cleartext_data + *bytes_of_encrypted_data);
           return AP4_ERROR_NOT_SUPPORTED;
         }
         else if (nalsize + nal_length_size_ + nalunitsum == *bytes_of_cleartext_data + *bytes_of_encrypted_data)
@@ -564,7 +567,10 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(
       }
       if (packet_in != packet_in_e || subsample_count)
       {
-        Log(SSD_HOST::LL_ERROR, "NAL Unit definition incomplete (nls: %d) %d -> %u ", nal_length_size_, (int)(packet_in_e - packet_in), subsample_count);
+        Log(SSD_HOST::LL_ERROR, "NAL Unit definition incomplete (nls: %u) %u -> %u ",
+          static_cast<unsigned int>(nal_length_size_),
+          static_cast<unsigned int>(packet_in_e - packet_in),
+          subsample_count);
         return AP4_ERROR_NOT_SUPPORTED;
       }
       data_out.SetDataSize(data_out.GetDataSize() + data_in.GetDataSize() + (4 - nal_length_size_) * nalunitcount);

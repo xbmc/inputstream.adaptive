@@ -305,7 +305,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   std::string::size_type insPos(blocks[0].find("{SSM}"));
   if (insPos != std::string::npos)
   {
-    if (insPos >= 0 && blocks[0][insPos - 1] == 'B')
+    if (insPos > 0 && blocks[0][insPos - 1] == 'B')
     {
       std::string msgEncoded = b64_encode(wv_adapter->GetMessage(), wv_adapter->GetMessageSize(), true);
       blocks[0].replace(insPos - 1, 6, msgEncoded);
@@ -343,7 +343,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     if (insPos != std::string::npos)
     {
       std::string::size_type sidSearchPos(insPos);
-      if (insPos >= 0)
+      if (insPos > 0)
       {
         if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
         {
@@ -366,7 +366,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       insPos = blocks[2].find("{SID}", sidSearchPos);
       if (insPos != std::string::npos)
       {
-        if (insPos >= 0)
+        if (insPos > 0)
         {
           if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
           {
