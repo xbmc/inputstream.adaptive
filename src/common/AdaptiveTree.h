@@ -153,12 +153,12 @@ namespace adaptive
 
       const Segment *get_segment(uint32_t pos)const
       {
-        return segments_[pos];
+        return ~pos ? segments_[pos] : nullptr;
       };
 
       const uint32_t get_segment_pos(const Segment *segment)const
       {
-        return segments_.data.empty() ? 0: segments_.pos(segment);
+        return segment ? segments_.data.empty() ? 0: segments_.pos(segment) : ~0;
       }
 
       const uint8_t get_psshset() const

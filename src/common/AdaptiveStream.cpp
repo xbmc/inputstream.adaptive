@@ -38,7 +38,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
 bool AdaptiveStream::download_segment()
 {
   segment_buffer_.clear();
-  absolute_position_ = 0;
+  //absolute_position_ = 0;
   segment_read_pos_ = 0;
 
   if (!current_seg_)
@@ -153,12 +153,12 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     current_seg_ = current_rep_->get_segment(pos < 0 ? 0: pos);
   }
   else
-    current_seg_ = current_rep_->get_segment(~seg_offset? seg_offset:0);
+    current_seg_ = ~seg_offset ? current_rep_->get_segment(seg_offset) : 0;
 
   segment_buffer_.clear();
   segment_read_pos_ = 0;
 
-  if (!current_seg_ || !current_rep_->get_next_segment(current_seg_))
+  if (!current_rep_->get_next_segment(current_seg_))
   {
     absolute_position_ = ~0;
     stopped_ = true;
@@ -168,7 +168,11 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
     height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
 
-    absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
+    if (!(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE)))
+      absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
+    else
+      absolute_position_ = 0;
+
     stopped_ = false;
   }
   return true;
@@ -179,13 +183,13 @@ bool AdaptiveStream::restart_stream()
   if (!start_stream(~0, width_, height_))
     return false;
 
-  uint32_t segid(current_rep_ ? current_rep_->get_segment_pos(current_seg_) : 0);
+   const AdaptiveTree::Segment *saveSeg(current_seg_);
 
   /* lets download the initialization */
   if ((current_seg_ = current_rep_->get_initialization()) && !download_segment())
     return false;
 
-  current_seg_ = current_rep_->get_segment(segid - 1);
+  current_seg_ = saveSeg;
 
   return true;
 }
@@ -355,6 +359,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     if (!parseIndexRange())
       return false;
     rep->indexRangeMin_ = rep->indexRangeMax_ = 0;
+    absolute_position_ = 0;
     stopped_ = false;
   }
 
@@ -362,7 +367,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   if ((current_seg_ = current_rep_->get_initialization()) && !download_segment())
     return false;
 
-  current_seg_ = current_rep_->get_segment(segid - 1);
+  current_seg_ = current_rep_->get_segment(segid);
   return true;
 }
 

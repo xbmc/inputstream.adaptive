@@ -113,7 +113,7 @@ bool HLSTree::open(const char *url)
         std::map<std::string, std::string>::iterator res;
         if ((res = map.find("URI")) != map.end())
         {
-          if (res->second.find("://", 0, 8) == std::string::npos)
+          if (res->second.find("://", 0) == std::string::npos)
             rep->url_ = base_url_ + res->second;
           else
             rep->url_ = res->second;
@@ -160,7 +160,7 @@ bool HLSTree::open(const char *url)
       }
       else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
       {
-        if (line.find("://", 0, 8) == std::string::npos)
+        if (line.find("://", 0) == std::string::npos)
           current_representation_->url_ = base_url_ + line;
         else
           current_representation_->url_ = line;
@@ -221,6 +221,7 @@ bool HLSTree::prepareRepresentation(Representation *rep)
     Segment segment;
     segment.range_begin_ = segment.range_end_ = 0;
     uint64_t pts(0);
+    std::string::size_type segIdxPos = std::string::npos;
 
     if (download(rep->url_.c_str(), manifest_headers_))
     {
@@ -232,6 +233,10 @@ bool HLSTree::prepareRepresentation(Representation *rep)
 
       while (std::getline(m_stream, line))
       {
+        std::string::size_type sz(line.size());
+        while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n')) --sz;
+        line.resize(sz);
+
         if (!startCodeFound && line.compare(0, 7, "#EXTM3U") == 0)
           startCodeFound = true;
         else if (!startCodeFound)
@@ -267,11 +272,36 @@ bool HLSTree::prepareRepresentation(Representation *rep)
             }
           }
 
-          std::string url(base_url + line);
+          std::string url;
+          if (line.find("://", 0) == std::string::npos)
+            url = base_url + line;
+          else
+            url = line;
+
           if (rep->url_.empty())
             rep->url_ = url;
-          if (rep->url_ == url)
-            rep->segments_.data.push_back(segment);
+
+          if (segIdxPos != std::string::npos)
+            segment.range_end_ = atoi(url.c_str() + segIdxPos);
+          else if (rep->url_ != url)
+          {
+            for (segIdxPos = 0; rep->url_[segIdxPos] == url[segIdxPos]; ++segIdxPos);
+            if (!isdigit(rep->url_[segIdxPos]) || rep->segments_.data.size() != 1)
+            {
+              rep->segments_.data.clear();
+              return false;
+            }
+            while (segIdxPos > 0 && isdigit(rep->url_[segIdxPos - 1])) --segIdxPos;
+            unsigned int len(1); while (segIdxPos + len < rep->url_.size() && isdigit(rep->url_[segIdxPos + len])) ++len;
+            rep->segments_.data[0].range_end_ = atoi(rep->url_.c_str() + segIdxPos);
+            rep->url_.replace(segIdxPos, len, "$Number$");
+            rep->segtpl_.media.swap(rep->url_);
+
+            segment.range_end_ = atoi(url.c_str() + segIdxPos);
+
+            rep->flags_ |= Representation::TEMPLATE;
+          }
+          rep->segments_.data.push_back(segment);
           segment.startPTS_ = ~0ULL;
         }
         else if (line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)

@@ -388,7 +388,7 @@ bool KodiAdaptiveStream::parseIndexRange()
       seg.range_begin_ = seg.range_end_ + 1;
       seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
       rep->segments_.data.push_back(seg);
-      if (adp->segment_durations_.data.size() < rep->segments_.data.size() - 1)
+      if (adp->segment_durations_.data.size() < rep->segments_.data.size())
         adp->segment_durations_.data.push_back(refs[i].m_SubsegmentDuration);
       seg.startPTS_ += refs[i].m_SubsegmentDuration;
     }
@@ -1222,6 +1222,7 @@ public:
       m_pts = (GetPts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetPts() * DVD_TIME_BASE) / GetTimeScale() - m_presentationTimeOffset;
       return AP4_SUCCESS;
     }
+    m_eos = true;
     return AP4_ERROR_EOS;
   }
 
@@ -2432,7 +2433,7 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
     p->iSize = iSize;
     memcpy(p->pData, pData, iSize);
 
-    kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
+    //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
     sr->ReadSample();
     return p;
