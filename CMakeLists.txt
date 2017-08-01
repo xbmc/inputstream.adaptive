@@ -45,7 +45,7 @@ include_directories(${INCLUDES}
                     ${KODI_INCLUDE_DIR}
                     lib/libbento4/Core
 )
-                    
+
 if(WIN32)
   add_definitions(-DXML_STATIC)
   include_directories(lib/expat/include)
@@ -66,7 +66,11 @@ endif()
 add_definitions(-DUNICODE -D_UNICODE)
 
 add_subdirectory(lib/mpegts)
-add_subdirectory(wvdecrypter)
+
+if(NOT CORE_SYSTEM_NAME STREQUAL ios)
+  add_subdirectory(wvdecrypter)
+  set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
+endif()
 
 if(CORE_SYSTEM_NAME STREQUAL android)
   set(DECRYPTERPATH "special://xbmcbinaddons")
@@ -77,7 +81,6 @@ endif()
 list(APPEND DEPLIBS bento4)
 list(APPEND DEPLIBS mpegts)
 
-set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 build_addon(inputstream.adaptive ADP DEPLIBS)
 
 include(CPack)
