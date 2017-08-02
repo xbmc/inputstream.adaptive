@@ -1058,9 +1058,13 @@ int AVContext::parse_ts_pes()
         {
           int64_t pts = decode_pts(this->packet->packet_table.buf + 9);
           int64_t dts = decode_pts(this->packet->packet_table.buf + 14);
+
+          int64_t d(0);
           if (pts < dts)
-            dts -= PTS_UNSET;
-          int64_t d = (pts - dts) & PTS_MASK;
+            dts = PTS_UNSET;
+          else
+            d = (pts - dts) & PTS_MASK;
+
           // more than two seconds of PTS/DTS delta, probably corrupt
           if(d > 180000)
           {

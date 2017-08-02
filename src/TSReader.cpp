@@ -29,8 +29,6 @@ TSReader::TSReader(AP4_ByteStream *stream)
     delete m_AVContext;
     m_AVContext = nullptr;
   }
-  if (!m_firstDTS)
-    m_firstDTS = 0;
 }
 
 TSReader::~TSReader()
@@ -158,9 +156,6 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
       {
         if (m_pkt.streamChange)
         {
-          if (m_firstDTS == 0x7FFFFFFF && m_pkt.dts != PTS_UNSET)
-            m_firstDTS = m_pkt.dts;
-
           if (HandleStreamChange(m_pkt.pid))
           {
             m_AVContext->GoPosition(startPos);

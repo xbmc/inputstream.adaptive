@@ -215,7 +215,7 @@ bool HLSTree::prepareRepresentation(Representation *rep)
 
     std::string line;
     std::map<std::string, std::string> map;
-    bool startCodeFound(false);
+    bool startCodeFound(false), isLive(false);
     Segment segment;
     segment.range_begin_ = ~0ULL;
     segment.range_end_ = 0;
@@ -296,9 +296,11 @@ bool HLSTree::prepareRepresentation(Representation *rep)
         }
         else if (line.compare(0, 21, "#EXT-X-PLAYLIST-TYPE:") == 0)
         {
+          isLive = strcmp(line.c_str() + 21, "LIVE") == 0;
         }
       }
       overallSeconds_ = pts / rep->timescale_;
+      if (isLive);
 
       if (!byteRange)
         rep->flags_ |= Representation::URLSEGMENTS;
@@ -312,12 +314,23 @@ bool HLSTree::prepareRepresentation(Representation *rep)
       }
     }
   }
-  return !rep->segments_.data.empty();
-};
 
+  if (rep->segments_.data.empty())
+  {
+    rep->source_url_.clear(); // disable this segment
+    return false;
+  }
+  return true;
+};
 
 bool HLSTree::write_data(void *buffer, size_t buffer_size)
 {
   m_stream.write(static_cast<const char*>(buffer), buffer_size);
   return true;
+}
+
+// TODO Decryption if required
+void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8_t *data, size_t dataSize)
+{
+
 }

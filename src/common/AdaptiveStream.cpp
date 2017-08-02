@@ -102,7 +102,14 @@ bool AdaptiveStream::download_segment()
     media_headers_["Range"] = rangeHeader;
   else
     media_headers_.erase("Range");
-  return download(strURL.c_str(), media_headers_);
+
+  if (download(strURL.c_str(), media_headers_))
+  {
+    tree_.OnSegmentDownloaded(const_cast<AdaptiveTree::Representation*>(current_rep_), 
+      current_seg_, reinterpret_cast<uint8_t*>(&segment_buffer_[0]), segment_buffer_.size());
+    return true;
+  }
+  return false;
 }
 
 bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)

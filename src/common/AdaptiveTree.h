@@ -260,6 +260,8 @@ namespace adaptive
 
     virtual bool open(const char *url) = 0;
     virtual bool prepareRepresentation(Representation *rep) { return true; };
+    virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8_t *data, size_t dataSize) {};
+
     uint8_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
