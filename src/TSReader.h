@@ -68,5 +68,5 @@ private:
     INPUTSTREAM_INFO::STREAM_TYPE m_streamType;
   };
   std::vector<TSINFO> m_streamInfos;
-  uint64_t m_firstDTS = ~0ULL;
+  int64_t m_firstDTS = 0x7FFFFFFF;
 };

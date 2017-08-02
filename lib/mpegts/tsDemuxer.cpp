@@ -1040,7 +1040,7 @@ int AVContext::parse_ts_pes()
         has_pts = true;
         if (this->packet->packet_table.len >= 14)
         {
-          uint64_t pts = decode_pts(this->packet->packet_table.buf + 9);
+          int64_t pts = decode_pts(this->packet->packet_table.buf + 9);
           this->packet->stream->p_dts = this->packet->stream->c_dts;
           this->packet->stream->p_pts = this->packet->stream->c_pts;
           this->packet->stream->c_dts = this->packet->stream->c_pts = pts;
@@ -1056,8 +1056,10 @@ int AVContext::parse_ts_pes()
         has_pts = true;
         if (this->packet->packet_table.len >= 19 )
         {
-          uint64_t pts = decode_pts(this->packet->packet_table.buf + 9);
-          uint64_t dts = decode_pts(this->packet->packet_table.buf + 14);
+          int64_t pts = decode_pts(this->packet->packet_table.buf + 9);
+          int64_t dts = decode_pts(this->packet->packet_table.buf + 14);
+          if (pts < dts)
+            dts -= PTS_UNSET;
           int64_t d = (pts - dts) & PTS_MASK;
           // more than two seconds of PTS/DTS delta, probably corrupt
           if(d > 180000)

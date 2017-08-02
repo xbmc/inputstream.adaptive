@@ -82,8 +82,8 @@ namespace TSDemux
     uint16_t              pid;
     size_t                size;
     const unsigned char*  data;
-    uint64_t              dts;
-    uint64_t              pts;
+    int64_t               dts;
+    int64_t               pts;
     uint64_t              duration;
     bool                  streamChange;
   };
@@ -101,10 +101,10 @@ namespace TSDemux
 
     uint16_t pid;
     STREAM_TYPE stream_type;
-    uint64_t c_dts;               ///< current MPEG stream DTS (decode time for video)
-    uint64_t c_pts;               ///< current MPEG stream PTS (presentation time for audio and video)
-    uint64_t p_dts;               ///< previous MPEG stream DTS (decode time for video)
-    uint64_t p_pts;               ///< previous MPEG stream PTS (presentation time for audio and video)
+    int64_t c_dts;               ///< current MPEG stream DTS (decode time for video)
+    int64_t c_pts;               ///< current MPEG stream PTS (presentation time for audio and video)
+    int64_t p_dts;               ///< previous MPEG stream DTS (decode time for video)
+    int64_t p_pts;               ///< previous MPEG stream PTS (presentation time for audio and video)
 
     bool has_stream_info;         ///< true if stream info is completed else it requires parsing of iframe
 

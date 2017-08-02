@@ -2290,7 +2290,10 @@ void CInputStreamAdaptive::OpenStream(int streamid)
       if (mainStream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO && mainStream->enabled)
         break;
     if (mainStream)
+    {
       mainStream->reader_->AddStreamType(stream->info_.m_streamType, streamid);
+      mainStream->reader_->GetInformation(stream->info_);
+    }
     else
       stream->mainId_ = 0;
     m_IncludedStreams[stream->info_.m_streamType] = streamid;
@@ -2360,7 +2363,10 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   {
     for (uint16_t i(0); i < 16; ++i)
       if (m_IncludedStreams[i])
+      {
         stream->reader_->AddStreamType(static_cast<INPUTSTREAM_INFO::STREAM_TYPE>(i), m_IncludedStreams[i]);
+        stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_);
+      }
   }
 
   stream->reader_->GetInformation(stream->info_);

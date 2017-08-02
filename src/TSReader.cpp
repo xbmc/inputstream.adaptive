@@ -68,19 +68,24 @@ bool TSReader::StartStreaming(AP4_UI32 typeMask)
 
 bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
 {
+  static const char* STREAMTYPEMAP[] = {
+    "unk", "mpeg1", "mpeg2", "mpeg1", "mpeg2", "aac", "aac", "aac", "h264", "hevc", "ac3", "eac3", "unk", "srt", "mpeg4", "vc1", "unk", "unk", "unk"
+  };
+
   for (auto &tsInfo : m_streamInfos)
   {
     if (tsInfo.m_streamType == info.m_streamType)
     {
       if (!tsInfo.m_changed)
         return false;
-      
+      tsInfo.m_changed = false;
+
       bool ret(false);
 
       if (tsInfo.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
       {
-        if ((tsInfo.m_stream->stream_info.fps_scale != info.m_FpsScale) ||
-          (tsInfo.m_stream->stream_info.fps_rate != info.m_FpsRate) ||
+        if ((!tsInfo.m_stream->stream_info.fps_scale && tsInfo.m_stream->stream_info.fps_scale != info.m_FpsScale) ||
+          (!tsInfo.m_stream->stream_info.fps_rate && tsInfo.m_stream->stream_info.fps_rate != info.m_FpsRate) ||
           (tsInfo.m_stream->stream_info.height != info.m_Height) ||
           (tsInfo.m_stream->stream_info.width != info.m_Width) ||
           (tsInfo.m_stream->stream_info.aspect && tsInfo.m_stream->stream_info.aspect != info.m_Aspect))
@@ -113,6 +118,8 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
           ret = true;
         }
       }
+      strcpy(info.m_codecName, STREAMTYPEMAP[tsInfo.m_stream->stream_type]);
+
       if (info.m_ExtraSize != tsInfo.m_stream->stream_info.extra_data_size
         || memcmp(info.m_ExtraData, tsInfo.m_stream->stream_info.extra_data, info.m_ExtraSize))
       {
@@ -151,7 +158,7 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
       {
         if (m_pkt.streamChange)
         {
-          if (!~m_firstDTS && m_pkt.dts != PTS_UNSET)
+          if (m_firstDTS == 0x7FFFFFFF && m_pkt.dts != PTS_UNSET)
             m_firstDTS = m_pkt.dts;
 
           if (HandleStreamChange(m_pkt.pid))
@@ -239,13 +246,13 @@ bool TSReader::HandleStreamChange(uint16_t pid)
       {
       case TSDemux::STREAM_TYPE_VIDEO_MPEG1:
       case TSDemux::STREAM_TYPE_VIDEO_MPEG2:
-      case TSDemux::STREAM_TYPE_AUDIO_MPEG1:
       case TSDemux::STREAM_TYPE_VIDEO_H264:
       case TSDemux::STREAM_TYPE_VIDEO_HEVC:
       case TSDemux::STREAM_TYPE_VIDEO_MPEG4:
       case TSDemux::STREAM_TYPE_VIDEO_VC1:
         tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
         break;
+      case TSDemux::STREAM_TYPE_AUDIO_MPEG1:
       case TSDemux::STREAM_TYPE_AUDIO_MPEG2:
       case TSDemux::STREAM_TYPE_AUDIO_AAC:
       case TSDemux::STREAM_TYPE_AUDIO_AAC_ADTS:

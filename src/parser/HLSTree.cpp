@@ -49,7 +49,7 @@ static void parseResolution(std::uint16_t &width, std::uint16_t &height, const s
 
 static std::string getVideoCodec(const std::string &codecs)
 {
-  if (codecs.find("avc1.") != std::string::npos)
+  if (codecs.empty() || codecs.find("avc1.") != std::string::npos)
     return "h264";
   return "";
 }
@@ -59,7 +59,7 @@ static std::string getAudioCodec(const std::string &codecs)
   if (codecs.find("mp4a.40.34") != std::string::npos)
     return  "ac-3";
   else
-    return codecs.find("mp4a.") != std::string::npos ? "aac" : "";
+    return codecs.empty() || codecs.find("mp4a.") != std::string::npos ? "aac" : "";
 }
 
 bool HLSTree::open(const char *url)
@@ -127,17 +127,13 @@ bool HLSTree::open(const char *url)
       }
       else if (line.compare(0, 18, "#EXT-X-STREAM-INF:") == 0)
       {
+        // TODO: If CODECS value is not present, get StreamReps from stream program section
         //#EXT-X-STREAM-INF:BANDWIDTH=263851,CODECS="mp4a.40.2, avc1.4d400d",RESOLUTION=416x234,AUDIO="bipbop_audio",SUBTITLES="subs"
         parseLine(line, 18, map);
 
         current_representation_ = nullptr;
 
-        if (map.find("CODECS") == map.end() || map.find("BANDWIDTH") == map.end() || map.find("RESOLUTION") == map.end())
-          continue;
-
-        std::string videoCodec = getVideoCodec(map["CODECS"]);
-
-        if (videoCodec.empty())
+        if (map.find("BANDWIDTH") == map.end())
           continue;
 
         if (!current_adaptationset_)
@@ -150,9 +146,11 @@ bool HLSTree::open(const char *url)
         current_representation_ = new Representation();
         current_adaptationset_->repesentations_.push_back(current_representation_);
         current_representation_->timescale_ = 1000000;
-        current_representation_->codecs_ = videoCodec;
+        current_representation_->codecs_ = getVideoCodec(map["CODECS"]);
         current_representation_->bandwidth_ = atoi(map["BANDWIDTH"].c_str());
-        parseResolution(current_representation_->width_, current_representation_->height_, map["RESOLUTION"]);
+
+        if (map.find("RESOLUTION") != map.end())
+          parseResolution(current_representation_->width_, current_representation_->height_, map["RESOLUTION"]);
 
         if (map.find("AUDIO") != map.end())
           m_extGroups[map["AUDIO"]].setCodec(getAudioCodec(map["CODECS"]));
