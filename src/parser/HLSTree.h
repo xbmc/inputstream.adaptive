@@ -56,6 +56,7 @@ namespace adaptive
     };
 
     std::map<std::string, EXTGROUP> m_extGroups;
+    bool m_refreshPlayList = true;
   };
 
 } // namespace

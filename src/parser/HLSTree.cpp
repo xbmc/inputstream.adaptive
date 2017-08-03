@@ -19,6 +19,7 @@
 #include "HLSTree.h"
 #include <map>
 #include <string.h>
+#include "../log.h"
 
 using namespace adaptive;
 
@@ -110,6 +111,7 @@ bool HLSTree::open(const char *url)
 
         rep->codecs_ = group.m_codec;
         rep->timescale_ = 1000000;
+        rep->containerType_ = CONTAINERTYPE_NOTYPE;
 
         std::map<std::string, std::string>::iterator res;
         if ((res = map.find("URI")) != map.end())
@@ -148,6 +150,7 @@ bool HLSTree::open(const char *url)
         current_representation_->timescale_ = 1000000;
         current_representation_->codecs_ = getVideoCodec(map["CODECS"]);
         current_representation_->bandwidth_ = atoi(map["BANDWIDTH"].c_str());
+        current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
 
         if (map.find("RESOLUTION") != map.end())
           parseResolution(current_representation_->width_, current_representation_->height_, map["RESOLUTION"]);
@@ -201,6 +204,8 @@ bool HLSTree::open(const char *url)
 
       SortRepresentations();
     }
+    // Set Live as default
+    has_timeshift_buffer_ = true;
     return true;
   }
   return false;
@@ -208,7 +213,7 @@ bool HLSTree::open(const char *url)
 
 bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 {
-  if (rep->segments_.data.empty() && !rep->source_url_.empty())
+  if ((rep->segments_.data.empty() || segmentId) && !rep->source_url_.empty())
   {
     m_stream.str().clear();
     m_stream.clear();
@@ -222,7 +227,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
       std::map<std::string, std::string> map;
       bool startCodeFound(false);
       Segment segment;
-      uint64_t pts(0), segmentBaseId(0);
+      uint64_t pts(rep->nextPTS_), segmentBaseId(0);
       size_t freeSegments;
       std::string::size_type segIdxPos(std::string::npos);
 
@@ -266,9 +271,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
             std::string::size_type ext = line.rfind('.');
             if (ext != std::string::npos)
             {
-              if (strcmp(line.c_str() + ext, ".ts") == 0)
+              if (strncmp(line.c_str() + ext, ".ts", 3) == 0)
                 rep->containerType_ = CONTAINERTYPE_TS;
-              else if (strcmp(line.c_str() + ext, ".mp4") == 0)
+              else if (strncmp(line.c_str() + ext, ".mp4", 4) == 0)
                 rep->containerType_ = CONTAINERTYPE_MP4;
               else
               {
@@ -293,18 +298,22 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
             else
               rep->url_ = url;
           }
-          if (!rep->segmentBaseId_)
+          if (!~rep->segmentBaseId_)
           {
             rep->segments_.data.push_back(segment);
+            rep->nextPTS_ = pts;
           }
           else if (segmentBaseId)
           {
             if (segmentBaseId >= segmentId && freeSegments > 0)
             {
+              Log(LOGLEVEL_DEBUG, "Inserting segment: :%llu", segmentBaseId);
               if (byteRange)
                 delete rep->segments_[0]->url;
               rep->segments_.insert(segment);
+              ++rep->segmentBaseId_;
               --freeSegments;
+              rep->nextPTS_ = pts;
             }
             else if (byteRange)
               delete segment.url;
@@ -317,27 +326,35 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
         else if (!segmentBaseId && line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
           segmentBaseId = atoll(line.c_str() + 22);
+          Log(LOGLEVEL_DEBUG, "old base :%llu, new base:%llu, current:%llu", rep->segmentBaseId_, segmentBaseId, segmentId);
           if (segmentBaseId == rep->segmentBaseId_)
             return true; //Nothing to do
-          else if (!rep->segmentBaseId_)
+          else if (!~rep->segmentBaseId_)
             continue;
           //calculate first and last segment we have to replace
-          if (segmentBaseId > segmentId + 1) //we have lost our window / game over
+          if (segmentBaseId > rep->segmentBaseId_ + rep->segments_.data.size()) //we have lost our window / game over
             return false;
           freeSegments = static_cast<size_t>(segmentId - rep->segmentBaseId_); // Number of slots to fill
           segmentId += rep->segments_.data.size() - freeSegments; //First segmentId to be inserted
         }
         else if (line.compare(0, 21, "#EXT-X-PLAYLIST-TYPE:") == 0)
         {
+          if (strcmp(line.c_str() + 21, "VOD") == 0)
+          {
+            m_refreshPlayList = false;
+            has_timeshift_buffer_ = false;
+          }
+        }
+        else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
+        {
+          m_refreshPlayList = false;
         }
       }
-      overallSeconds_ = pts / rep->timescale_;
 
-      if (!rep->segmentBaseId_ && segmentBaseId)
-      {
+      overallSeconds_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;
+
+      if (!~rep->segmentBaseId_)
         rep->segmentBaseId_ = segmentBaseId;
-        this->has_timeshift_buffer_ = true;
-      }
 
       if (!byteRange)
         rep->flags_ |= Representation::URLSEGMENTS;
@@ -369,6 +386,6 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size)
 // TODO Decryption if required
 void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8_t *data, size_t dataSize)
 {
-  if (has_timeshift_buffer_ && rep->containerType_ == CONTAINERTYPE_TS)
+  if (m_refreshPlayList && rep->containerType_ == CONTAINERTYPE_TS && rep->segments_.pos(seg))
     prepareRepresentation(rep, rep->segmentBaseId_ + rep->segments_.pos(seg));
 }

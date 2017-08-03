@@ -114,7 +114,7 @@ namespace adaptive
     {
       Representation() :bandwidth_(0), samplingRate_(0),  width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0),
-        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), duration_(0), timescale_(0), segmentBaseId_(0){};
+        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), duration_(0), timescale_(0), segmentBaseId_(~0ULL), nextPTS_(0){};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -147,6 +147,7 @@ namespace adaptive
       //SegmentList
       uint32_t duration_, timescale_;
       uint64_t segmentBaseId_;
+      uint64_t nextPTS_;
       Segment initialization_;
       SPINCACHE<Segment> segments_;
       const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };

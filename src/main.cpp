@@ -29,6 +29,7 @@
 #include "DemuxCrypto.h"
 
 #include "helpers.h"
+#include "log.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
 #include "parser/HLSTree.h"
@@ -47,6 +48,16 @@
 #undef CreateDirectory
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
+
+inline void Log(const LogLevel loglevel, const char* format, ...)
+{
+  char buffer[16384];
+  va_list args;
+  va_start(args, format);
+  vsprintf(buffer, format, args);
+  va_end(args);
+  ::kodi::addon::CAddonBase::m_interface->toKodi->addon_log_msg(::kodi::addon::CAddonBase::m_interface->toKodi->kodiBase, loglevel, buffer);
+}
 
 static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
   AP4_Track::TYPE_UNKNOWN,

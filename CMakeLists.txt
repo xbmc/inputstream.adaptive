@@ -35,6 +35,7 @@ set(ADP_HEADERS
 	src/parser/SmoothTree.h
 	src/parser/TTML.h
 	src/TSReader.h
+  src/log.h
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
