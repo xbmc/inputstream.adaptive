@@ -234,6 +234,7 @@ namespace adaptive
       bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_; };
       std::string pssh_;
       std::string defaultKID_;
+      std::string iv;
       uint32_t media_;
     };
     std::vector<PSSH> psshSets_;
@@ -252,7 +253,7 @@ namespace adaptive
     bool adp_timelined_;
 
     bool current_hasRepURN_, current_hasAdpURN_;
-    std::string current_pssh_, current_defaultKID_;
+    std::string current_pssh_, current_defaultKID_, current_iv_;
     std::string license_url_;
 
     std::string strXMLText_;

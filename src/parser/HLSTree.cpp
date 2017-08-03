@@ -20,6 +20,7 @@
 #include <map>
 #include <string.h>
 #include "../log.h"
+#include "../aes_decrypter.h"
 
 using namespace adaptive;
 
@@ -215,8 +216,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 {
   if ((rep->segments_.data.empty() || segmentId) && !rep->source_url_.empty())
   {
-    m_stream.str().clear();
-    m_stream.clear();
+    m_stream.swap(std::stringstream());
 
     if (download(rep->source_url_.c_str(), manifest_headers_))
     {
@@ -317,11 +317,11 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
             }
             else if (byteRange)
               delete segment.url;
-            ++segmentBaseId;
+++segmentBaseId;
           }
           else if (byteRange)
             delete segment.url;
-          segment.startPTS_ = ~0ULL;
+            segment.startPTS_ = ~0ULL;
         }
         else if (!segmentBaseId && line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
@@ -343,6 +343,29 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
           {
             m_refreshPlayList = false;
             has_timeshift_buffer_ = false;
+          }
+        }
+        else if (line.compare(0, 11, "#EXT-X-KEY:") == 0)
+        {
+          if (!rep->pssh_set_)
+          {
+            parseLine(line, 11, map);
+            if (map["METHOD"] != "AES-128")
+            {
+              Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+              return false;
+            }
+            if (map["URI"].empty())
+            {
+              Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+              return false;
+            }
+            current_pssh_ = map["URI"];
+            if (current_pssh_.find("://", 0) == std::string::npos)
+              current_pssh_ = base_url + current_pssh_;
+
+            current_iv_ = m_decrypter->convertIV(map["IV"]);
+            rep->pssh_set_ = insert_psshset(NOTYPE);
           }
         }
         else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
@@ -386,6 +409,26 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size)
 // TODO Decryption if required
 void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8_t *data, size_t dataSize)
 {
+  if (rep->pssh_set_)
+  {
+    PSSH &pssh(psshSets_[rep->pssh_set_]);
+    //Encrypted media, decrypt it
+    if (pssh.defaultKID_.empty())
+    {
+      m_stream.swap(std::stringstream());
+      if (download(pssh.pssh_.c_str(), manifest_headers_))
+      {
+        pssh.defaultKID_ =  m_stream.str();
+      }
+    }
+
+    m_decrypter->decrypt(
+      reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()),
+      reinterpret_cast<const uint8_t*>(pssh.iv.data()),
+      data,
+      dataSize);
+  }
+
   if (m_refreshPlayList && rep->containerType_ == CONTAINERTYPE_TS && rep->segments_.pos(seg))
     prepareRepresentation(rep, rep->segmentBaseId_ + rep->segments_.pos(seg));
 }

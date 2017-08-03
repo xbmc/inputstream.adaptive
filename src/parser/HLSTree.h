@@ -22,14 +22,16 @@
 #include <sstream>
 #include <map>
 
+class AESDecrypter;
+
 namespace adaptive
 {
 
   class HLSTree : public AdaptiveTree
   {
   public:
-    HLSTree() = default;
-    virtual ~HLSTree() = default;
+    HLSTree(AESDecrypter *decrypter) : AdaptiveTree(), m_decrypter(decrypter) {};
+    virtual ~HLSTree() { delete m_decrypter; };
 
     virtual bool open(const char *url) override;
     virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) override;
@@ -57,6 +59,7 @@ namespace adaptive
 
     std::map<std::string, EXTGROUP> m_extGroups;
     bool m_refreshPlayList = true;
+    AESDecrypter *m_decrypter;
   };
 
 } // namespace

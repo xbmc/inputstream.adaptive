@@ -28,6 +28,7 @@
 #include <kodi/addon-instance/VideoCodec.h>
 #include "DemuxCrypto.h"
 
+#include "aes_decrypter.h"
 #include "helpers.h"
 #include "log.h"
 #include "parser/DASHTree.h"
@@ -1336,7 +1337,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     adaptiveTree_ = new adaptive::SmoothTree;
     break;
   case MANIFEST_TYPE_HLS:
-    adaptiveTree_ = new adaptive::HLSTree;
+    adaptiveTree_ = new adaptive::HLSTree(new AESDecrypter());
     break;
   default:;
   };
@@ -2224,10 +2225,9 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
 {
   kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
   caps.m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTS_IDEMUX |
-    INPUTSTREAM_CAPABILITIES::SUPPORTS_IDISPLAYTIME;
-  if (m_session && !m_session->IsLive())
-    caps.m_mask |= INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK
-    | INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
+    INPUTSTREAM_CAPABILITIES::SUPPORTS_IDISPLAYTIME |
+    INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK |
+    INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
 }
 
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)

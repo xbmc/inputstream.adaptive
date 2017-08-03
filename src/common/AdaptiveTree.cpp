@@ -132,6 +132,7 @@ namespace adaptive
       PSSH pssh;
       pssh.pssh_ = current_pssh_;
       pssh.defaultKID_ = current_defaultKID_;
+      pssh.iv = current_iv_;
       switch (type)
       {
       case VIDEO: pssh.media_ = PSSH::MEDIA_VIDEO; break;

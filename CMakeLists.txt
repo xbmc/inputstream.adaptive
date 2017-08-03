@@ -21,6 +21,7 @@ set(ADP_SOURCES
 	src/helpers.cpp
 	src/oscompat.cpp
 	src/TSReader.cpp
+	src/aes_decrypter.cpp
 )
 
 set(ADP_HEADERS
@@ -35,7 +36,8 @@ set(ADP_HEADERS
 	src/parser/SmoothTree.h
 	src/parser/TTML.h
 	src/TSReader.h
-  src/log.h
+	src/log.h
+	src/aes_decrypter.h
 )
 
 list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
