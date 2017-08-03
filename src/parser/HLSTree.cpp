@@ -206,26 +206,29 @@ bool HLSTree::open(const char *url)
   return false;
 }
 
-bool HLSTree::prepareRepresentation(Representation *rep)
+bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 {
   if (rep->segments_.data.empty() && !rep->source_url_.empty())
   {
     m_stream.str().clear();
     m_stream.clear();
 
-    std::string line;
-    std::map<std::string, std::string> map;
-    bool startCodeFound(false), isLive(false);
-    Segment segment;
-    segment.range_begin_ = ~0ULL;
-    segment.range_end_ = 0;
-    uint64_t pts(0);
-    std::string::size_type segIdxPos = std::string::npos;
-
     if (download(rep->source_url_.c_str(), manifest_headers_))
     {
       bool byteRange(false);
+      std::string line;
       std::string base_url;
+
+      std::map<std::string, std::string> map;
+      bool startCodeFound(false);
+      Segment segment;
+      uint64_t pts(0), segmentBaseId(0);
+      size_t freeSegments;
+      std::string::size_type segIdxPos(std::string::npos);
+
+      segment.range_begin_ = ~0ULL;
+      segment.range_end_ = 0;
+
       std::string::size_type bs = rep->source_url_.rfind('/');
       if (bs != std::string::npos)
         base_url = rep->source_url_.substr(0, bs + 1);
@@ -258,17 +261,20 @@ bool HLSTree::prepareRepresentation(Representation *rep)
         }
         else if (!line.empty() && line.compare(0, 1, "#") != 0 && ~segment.startPTS_)
         {
-          std::string::size_type ext = line.rfind('.');
-          if (ext != std::string::npos)
+          if (rep->containerType_ == CONTAINERTYPE_NOTYPE)
           {
-            if (strcmp(line.c_str() + ext, ".ts") == 0)
-              rep->containerType_ = CONTAINERTYPE_TS;
-            else if (strcmp(line.c_str() + ext, ".mp4") == 0)
-              rep->containerType_ = CONTAINERTYPE_MP4;
-            else
+            std::string::size_type ext = line.rfind('.');
+            if (ext != std::string::npos)
             {
-              rep->containerType_ = CONTAINERTYPE_NOTYPE;
-              continue;
+              if (strcmp(line.c_str() + ext, ".ts") == 0)
+                rep->containerType_ = CONTAINERTYPE_TS;
+              else if (strcmp(line.c_str() + ext, ".mp4") == 0)
+                rep->containerType_ = CONTAINERTYPE_MP4;
+              else
+              {
+                rep->containerType_ = CONTAINERTYPE_NOTYPE;
+                continue;
+              }
             }
           }
 
@@ -287,20 +293,51 @@ bool HLSTree::prepareRepresentation(Representation *rep)
             else
               rep->url_ = url;
           }
-          rep->segments_.data.push_back(segment);
+          if (!rep->segmentBaseId_)
+          {
+            rep->segments_.data.push_back(segment);
+          }
+          else if (segmentBaseId)
+          {
+            if (segmentBaseId >= segmentId && freeSegments > 0)
+            {
+              if (byteRange)
+                delete rep->segments_[0]->url;
+              rep->segments_.insert(segment);
+              --freeSegments;
+            }
+            else if (byteRange)
+              delete segment.url;
+            ++segmentBaseId;
+          }
+          else if (byteRange)
+            delete segment.url;
           segment.startPTS_ = ~0ULL;
         }
-        else if (line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
+        else if (!segmentBaseId && line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
-          rep->id = line.c_str() + 22;
+          segmentBaseId = atoll(line.c_str() + 22);
+          if (segmentBaseId == rep->segmentBaseId_)
+            return true; //Nothing to do
+          else if (!rep->segmentBaseId_)
+            continue;
+          //calculate first and last segment we have to replace
+          if (segmentBaseId > segmentId + 1) //we have lost our window / game over
+            return false;
+          freeSegments = static_cast<size_t>(segmentId - rep->segmentBaseId_); // Number of slots to fill
+          segmentId += rep->segments_.data.size() - freeSegments; //First segmentId to be inserted
         }
         else if (line.compare(0, 21, "#EXT-X-PLAYLIST-TYPE:") == 0)
         {
-          isLive = strcmp(line.c_str() + 21, "LIVE") == 0;
         }
       }
       overallSeconds_ = pts / rep->timescale_;
-      if (isLive);
+
+      if (!rep->segmentBaseId_ && segmentBaseId)
+      {
+        rep->segmentBaseId_ = segmentBaseId;
+        this->has_timeshift_buffer_ = true;
+      }
 
       if (!byteRange)
         rep->flags_ |= Representation::URLSEGMENTS;
@@ -332,5 +369,6 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size)
 // TODO Decryption if required
 void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8_t *data, size_t dataSize)
 {
-
+  if (has_timeshift_buffer_ && rep->containerType_ == CONTAINERTYPE_TS)
+    prepareRepresentation(rep, rep->segmentBaseId_ + rep->segments_.pos(seg));
 }
