@@ -27,6 +27,9 @@ public:
   AESDecrypter() = default;
   virtual ~AESDecrypter() = default;
 
-  void decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, AP4_UI08 *encrypted_data, AP4_Size encrypted_data_size);
+  void decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, std::string &data);
   std::string convertIV(const std::string &input);
+  void ivFromSequence(uint8_t *buffer, uint64_t sid);
+private:
+  std::string m_swapBuffer;
 };

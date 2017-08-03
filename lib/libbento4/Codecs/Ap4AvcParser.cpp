@@ -295,7 +295,7 @@ AP4_AvcSequenceParameterSet::GetInfo(unsigned int& width, unsigned int& height)
     if (crop_h < nwidth) nwidth   -= crop_h;
     if (crop_v < nheight) nheight -= crop_v;
 	}
-  if (nwidth != width | nheight != height)
+  if (nwidth != width || nheight != height)
   {
     width = nwidth;
     height = nheight;

@@ -1831,8 +1831,8 @@ AP4_CencFragmentDecrypter::ProcessSample(AP4_DataBuffer& data_in,
 AP4_CencDecryptingProcessor::AP4_CencDecryptingProcessor(const AP4_ProtectionKeyMap* key_map, 
                                                          AP4_BlockCipherFactory*     block_cipher_factory,
 														 AP4_CencSingleSampleDecrypter *cenc_singlesample_decrypter) :
-    m_KeyMap(key_map),
-	m_CencSingleSampleDecrypter(cenc_singlesample_decrypter)
+  m_CencSingleSampleDecrypter(cenc_singlesample_decrypter),
+  m_KeyMap(key_map)
 {
     if (block_cipher_factory) {
         m_BlockCipherFactory = block_cipher_factory;

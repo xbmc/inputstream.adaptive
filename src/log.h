@@ -28,4 +28,4 @@ typedef enum LogLevel
 } LogLevel;
 
 
-extern inline void Log(const LogLevel loglevel, const char* format, ...);
+extern void Log(const LogLevel loglevel, const char* format, ...);

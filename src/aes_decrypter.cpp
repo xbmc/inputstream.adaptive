@@ -19,7 +19,7 @@
 #include "aes_decrypter.h"
 #include "Ap4Protection.h"
 
-void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, AP4_UI08 *encrypted_data, AP4_Size encrypted_data_size)
+void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, std::string &data)
 {
   AP4_BlockCipher* cbc_d_block_cipher;
   AP4_DefaultBlockCipherFactory::Instance.CreateCipher(
@@ -31,7 +31,9 @@ void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, AP4_
     16,
     cbc_d_block_cipher);
 
-  cbc_d_block_cipher->Process(encrypted_data, encrypted_data_size, encrypted_data, aes_iv);
+  m_swapBuffer.resize(data.size());
+  cbc_d_block_cipher->Process(reinterpret_cast<const AP4_UI08*>(data.data()), data.size(), reinterpret_cast<AP4_UI08*>(&m_swapBuffer[0]), aes_iv);
+  data.swap(m_swapBuffer);
 
   delete cbc_d_block_cipher;
 }
@@ -49,4 +51,10 @@ std::string AESDecrypter::convertIV(const std::string &input)
   if (!AP4_SUCCEEDED(ret))
     result.clear();
   return result;
+}
+
+void AESDecrypter::ivFromSequence(uint8_t *buffer, uint64_t sid)
+{
+  memset(buffer, 0, 16);
+  AP4_BytesFromUInt64BE(buffer + 8, sid);
 }

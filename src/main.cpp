@@ -50,7 +50,7 @@
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
-inline void Log(const LogLevel loglevel, const char* format, ...)
+void Log(const LogLevel loglevel, const char* format, ...)
 {
   char buffer[16384];
   va_list args;

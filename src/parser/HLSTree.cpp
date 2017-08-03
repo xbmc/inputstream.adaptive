@@ -64,6 +64,17 @@ static std::string getAudioCodec(const std::string &codecs)
     return codecs.empty() || codecs.find("mp4a.") != std::string::npos ? "aac" : "";
 }
 
+HLSTree::~HLSTree()
+{
+  delete m_decrypter;
+}
+
+void HLSTree::ClearStream()
+{
+  std::stringstream tmp;
+  m_stream.swap(tmp);
+}
+
 bool HLSTree::open(const char *url)
 {
   if (download(url, manifest_headers_))
@@ -216,7 +227,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 {
   if ((rep->segments_.data.empty() || segmentId) && !rep->source_url_.empty())
   {
-    m_stream.swap(std::stringstream());
+    ClearStream();
 
     if (download(rep->source_url_.c_str(), manifest_headers_))
     {
@@ -317,11 +328,11 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
             }
             else if (byteRange)
               delete segment.url;
-++segmentBaseId;
+            ++segmentBaseId;
           }
           else if (byteRange)
             delete segment.url;
-            segment.startPTS_ = ~0ULL;
+          segment.startPTS_ = ~0ULL;
         }
         else if (!segmentBaseId && line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
@@ -407,7 +418,7 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size)
 }
 
 // TODO Decryption if required
-void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8_t *data, size_t dataSize)
+void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, std::string &data)
 {
   if (rep->pssh_set_)
   {
@@ -415,18 +426,20 @@ void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
-      m_stream.swap(std::stringstream());
+      ClearStream();
       if (download(pssh.pssh_.c_str(), manifest_headers_))
       {
         pssh.defaultKID_ =  m_stream.str();
       }
     }
 
-    m_decrypter->decrypt(
-      reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()),
-      reinterpret_cast<const uint8_t*>(pssh.iv.data()),
-      data,
-      dataSize);
+    uint8_t iv[16];
+    if (pssh.iv.empty())
+      m_decrypter->ivFromSequence(iv, rep->segmentBaseId_ + rep->segments_.pos(seg));
+    else
+      memcpy(iv, pssh.iv.data(), 16);
+
+    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, data);
   }
 
   if (m_refreshPlayList && rep->containerType_ == CONTAINERTYPE_TS && rep->segments_.pos(seg))

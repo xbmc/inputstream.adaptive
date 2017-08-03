@@ -1223,7 +1223,7 @@ class WVDecrypter : public SSD_DECRYPTER
 {
 public:
   WVDecrypter() : cdmsession_(nullptr), decoding_decrypter_(nullptr) {};
-  ~WVDecrypter()
+  virtual ~WVDecrypter()
   {
     delete cdmsession_;
     cdmsession_ = nullptr;

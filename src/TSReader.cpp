@@ -43,11 +43,11 @@ const unsigned char* TSReader::ReadAV(uint64_t pos, size_t len)
   return m_stream->GetBuffer(len);
 }
 
-void TSReader::Reset()
+void TSReader::Reset(bool resetPackets)
 {
   AP4_UI64 position;
   m_stream->Tell(position);
-  m_AVContext->GoPosition(position);
+  m_AVContext->GoPosition(position, resetPackets);
 }
 
 bool TSReader::StartStreaming(AP4_UI32 typeMask)
@@ -148,7 +148,7 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
     if (m_AVContext->TSResync() != TSDemux::AVCONTEXT_CONTINUE)
     {
       //Lets make one retry with the new segment
-      Reset();
+      Reset(false);
       if (m_AVContext->TSResync() != TSDemux::AVCONTEXT_CONTINUE)
         return false;
     }

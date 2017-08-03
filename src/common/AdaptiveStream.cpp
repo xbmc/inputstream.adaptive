@@ -106,7 +106,7 @@ bool AdaptiveStream::download_segment()
   if (download(strURL.c_str(), media_headers_))
   {
     tree_.OnSegmentDownloaded(const_cast<AdaptiveTree::Representation*>(current_rep_), 
-      current_seg_, reinterpret_cast<uint8_t*>(&segment_buffer_[0]), segment_buffer_.size());
+      current_seg_, segment_buffer_);
     return true;
   }
   return false;

@@ -71,7 +71,7 @@ ES_h264::~ES_h264()
 void ES_h264::Parse(STREAM_PKT* pkt)
 {
   size_t frame_ptr = es_consumed;
-  size_t pOld, p = es_parsed;
+  size_t pOld = es_parsed, p = es_parsed;
   uint32_t startcode = m_StartCode;
   bool frameComplete = false;
 

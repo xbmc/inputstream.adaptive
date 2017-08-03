@@ -263,7 +263,7 @@ namespace adaptive
 
     virtual bool open(const char *url) = 0;
     virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) { return true; };
-    virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg, uint8_t *data, size_t dataSize) {};
+    virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg, std::string &data) {};
 
     uint8_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
