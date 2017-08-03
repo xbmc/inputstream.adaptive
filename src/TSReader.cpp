@@ -163,7 +163,7 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
         {
           if (HandleStreamChange(m_pkt.pid))
           {
-            m_AVContext->GoPosition(startPos);
+            m_AVContext->GoPosition(startPos, true);
             return true;
           }
         }
