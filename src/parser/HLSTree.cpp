@@ -71,8 +71,7 @@ HLSTree::~HLSTree()
 
 void HLSTree::ClearStream()
 {
-  std::stringstream tmp;
-  m_stream.swap(tmp);
+  m_stream = std::stringstream();
 }
 
 bool HLSTree::open(const char *url)
@@ -239,11 +238,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
       bool startCodeFound(false);
       Segment segment;
       uint64_t pts(rep->nextPTS_), segmentBaseId(0);
-      size_t freeSegments;
+      size_t freeSegments(0);
       std::string::size_type segIdxPos(std::string::npos);
 
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
+      segment.startPTS_ = ~0ULL;
 
       std::string::size_type bs = rep->source_url_.rfind('/');
       if (bs != std::string::npos)
