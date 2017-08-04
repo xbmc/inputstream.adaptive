@@ -71,7 +71,8 @@ HLSTree::~HLSTree()
 
 void HLSTree::ClearStream()
 {
-  m_stream = std::stringstream();
+  m_stream.str("");
+  m_stream.clear();
 }
 
 bool HLSTree::open(const char *url)
