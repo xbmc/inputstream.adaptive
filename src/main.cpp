@@ -1213,7 +1213,7 @@ public:
     m_typeMask = (1 << type);
   };
 
-  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type)
+  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override
   {
     m_typeMask &= ~(1 << type);
     StartStreaming(m_typeMask);
