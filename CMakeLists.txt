@@ -75,7 +75,7 @@ if(NOT CORE_SYSTEM_NAME STREQUAL ios)
   set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 else()
   set(BENTOUSESTCFS 1)
-  add_subdirectory(../lib/libbento4)
+  add_subdirectory(lib/libbento4)
 endif()
 
 if(CORE_SYSTEM_NAME STREQUAL android)
