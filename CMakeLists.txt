@@ -49,21 +49,16 @@ include_directories(${INCLUDES}
                     lib/libbento4/Core
 )
 
+include(FindEXPAT)
+find_package(EXPAT REQUIRED)
+include_directories(${EXPAT_INCLUDE_DIRS})
+list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
+
 if(WIN32)
   add_definitions(-DXML_STATIC)
-  include_directories(lib/expat/include)
-  if( CMAKE_SIZEOF_VOID_P EQUAL 8 )
-    link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib64)
-  else()
-    link_directories(${PROJECT_SOURCE_DIR}/lib/expat/lib)
-  endif()
-  list(APPEND DEPLIBS ws2_32 expat)
+  list(APPEND DEPLIBS ws2_32)
 else()
-	include(FindEXPAT)
-	find_package(EXPAT REQUIRED)
-	include_directories(${EXPAT_INCLUDE_DIRS})
-	list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
-	add_definitions(-D__STDC_FORMAT_MACROS)
+  add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
