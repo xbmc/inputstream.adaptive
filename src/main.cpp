@@ -2358,6 +2358,8 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid, m_session->GetPresentationTimeOffset());
+    if (!static_cast<TSSampleReader*>(stream->reader_)->Valid())
+      return stream->disable();
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {

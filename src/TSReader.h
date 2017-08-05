@@ -32,6 +32,8 @@ public:
   TSReader(AP4_ByteStream *stream);
   virtual ~TSReader();
 
+  bool Valid() const { return m_AVContext != nullptr; };
+
   virtual const unsigned char* ReadAV(uint64_t pos, size_t len) override;
 
   void Reset(bool resetPackets = true);

@@ -137,7 +137,6 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
     return false;
 
   bool ret(false);
-  unsigned int maxSerachPos(0);
   uint64_t startPos(0);
 
   if (GetPacket())
@@ -167,8 +166,6 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
             return true;
           }
         }
-        else if (++maxSerachPos > 50)
-          return false;
       }
       else
       {
