@@ -22,7 +22,7 @@
 #include <vector>
 #include "../lib/mpegts/tsDemuxer.h"
 #include "Ap4Types.h"
-#include <kodi/addon-instance/Inputstream.h>
+#include "kodi_inputstream_types.h"
 
 class AP4_ByteStream;
 

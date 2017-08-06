@@ -19,7 +19,7 @@
 
 #include <vector>
 
-#include <kodi/addon-instance/Inputstream.h>
+#include "kodi_inputstream_types.h"
 
 #include "common/AdaptiveTree.h"
 #include "common/AdaptiveStream.h"
@@ -131,7 +131,6 @@ public:
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
   const AP4_UI08 *GetDefaultKeyId(const uint8_t index) const;
-  CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
   //Observer Section
   void BeginFragment(AP4_UI32 streamId) override;
