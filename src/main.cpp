@@ -728,6 +728,7 @@ public:
   virtual AP4_Size GetSampleDataSize()const = 0;
   virtual const AP4_Byte *GetSampleData()const = 0;
   virtual uint64_t GetDuration()const = 0;
+  virtual int64_t GetPTSDiff() const = 0;
   virtual bool IsEncrypted()const = 0;
   virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) {};
   virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) {};
@@ -897,6 +898,7 @@ public:
   virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
   virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
   virtual uint64_t GetDuration()const override { return (m_sample.GetDuration() * m_timeBaseExt) / m_timeBaseInt; };
+  virtual int64_t GetPTSDiff() const override { return 0; };
   virtual bool IsEncrypted()const override { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_decrypter != nullptr; };
   virtual bool GetInformation(INPUTSTREAM_INFO &info) override
   {
@@ -1162,6 +1164,7 @@ public:
   virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
   virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
   virtual uint64_t GetDuration()const override { return m_sample.GetDuration() * 1000; };
+  virtual int64_t GetPTSDiff() const override { return 0; };
   virtual bool IsEncrypted()const override { return false; };
 private:
   uint64_t m_pts;
@@ -1268,6 +1271,7 @@ public:
 
   virtual void SetPTSOffset(uint64_t offset) override
   {
+    TSReader::SetPTSOffset((offset * 9) / 100);
   }
 
   virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
@@ -1276,6 +1280,7 @@ public:
   virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
   virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
   virtual uint64_t GetDuration()const override { return (TSReader::GetDuration() * 100) / 9; }
+  virtual int64_t GetPTSDiff() const { return TSReader::GetPTSDiff() * 100 / 9; }
   virtual bool IsEncrypted()const override { return false; };
 
 private:
@@ -1923,12 +1928,17 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)
     seekTime = 0;
+  uint64_t seekTimeDVD = static_cast<uint64_t>(seekTime * DVD_TIME_BASE) + GetPresentationTimeOffset();
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
-      if ((*b)->stream_.seek_time(seekTime + static_cast<double>(GetPresentationTimeOffset()) / DVD_TIME_BASE, 
+      int64_t ptsDiff((*b)->reader_->GetPTSDiff());
+      if (ptsDiff > static_cast<int64_t>(seekTimeDVD))
+        ptsDiff = seekTimeDVD;
+
+      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeDVD - ptsDiff) / DVD_TIME_BASE,
         static_cast<double>(last_pts_) / DVD_TIME_BASE, bReset))
       {
         if (bReset)
@@ -2365,7 +2375,7 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid, m_session->GetPresentationTimeOffset());
-    if (!static_cast<TSSampleReader*>(stream->reader_)->Valid())
+    if (!static_cast<TSSampleReader*>(stream->reader_)->Initialize())
       return stream->disable();
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
