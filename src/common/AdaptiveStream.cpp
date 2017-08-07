@@ -44,6 +44,9 @@ bool AdaptiveStream::download_segment()
   if (!current_seg_)
     return false;
 
+  if (observer_ && current_seg_ != &current_rep_->initialization_)
+    observer_->OnSegmentChanged(this);
+
   std::string strURL;
   char rangebuf[128], *rangeHeader(0);
 
