@@ -2399,11 +2399,13 @@ extern "C" {
           if (m_IncludedStreams[i])
           {
             stream->reader_->AddStreamType(static_cast<INPUTSTREAM_INFO::STREAM_TYPE>(i), m_IncludedStreams[i]);
-            stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_);
+            if(stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_))
+              m_session->CheckChange(true);
           }
       }
 
-      stream->reader_->GetInformation(stream->info_);
+      if (stream->reader_->GetInformation(stream->info_))
+        m_session->CheckChange(true);
 
       return;
     }
