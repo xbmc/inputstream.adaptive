@@ -45,9 +45,10 @@ const unsigned char* TSReader::ReadAV(uint64_t pos, size_t len)
 
 void TSReader::Reset(bool resetPackets)
 {
-  AP4_UI64 position;
-  m_stream->Tell(position);
-  m_AVContext->GoPosition(position, resetPackets);
+  m_stream->Tell(m_startPos);
+  m_AVContext->GoPosition(m_startPos, resetPackets);
+  //mark invalid for Seek operations
+  m_pkt.pts = PTS_UNSET;
 }
 
 bool TSReader::StartStreaming(AP4_UI32 typeMask)
@@ -59,6 +60,7 @@ bool TSReader::StartStreaming(AP4_UI32 typeMask)
       m_AVContext->StopStreaming(tsInfo.m_stream->pid);
     else
       m_AVContext->StartStreaming(tsInfo.m_stream->pid);
+    tsInfo.m_enabled = (typeMask & (1 << tsInfo.m_streamType)) != 0;
     typeMask &= ~(1 << tsInfo.m_streamType);
   }
   return typeMask == 0;
@@ -131,13 +133,38 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
   return false;
 }
 
+// We assume that m_startpos is the current I-Frame position
+bool TSReader::SeekTime(uint64_t timeInTs)
+{
+  bool hasVideo(false);
+  //look if we have video
+  for (auto &tsInfo : m_streamInfos)
+    if (tsInfo.m_enabled && tsInfo.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+    {
+      hasVideo = true;
+      break;
+    }
+
+  uint64_t lastRecovery(m_startPos);
+  while (m_pkt.pts == PTS_UNSET || m_pkt.pts < timeInTs)
+  {
+    uint64_t thisFrameStart(m_AVContext->GetPosition());
+    if (!ReadPacket())
+      return false;
+    if (!hasVideo || m_pkt.recoveryPoint || thisFrameStart == m_startPos)
+      lastRecovery = thisFrameStart;
+  }
+  m_AVContext->GoPosition(lastRecovery, true);
+
+  return true;
+}
+
 bool TSReader::ReadPacket(bool scanStreamInfo)
 {
   if (!m_AVContext)
     return false;
 
   bool ret(false);
-  uint64_t startPos(0);
 
   if (GetPacket())
     return true;
@@ -162,7 +189,7 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
         {
           if (HandleStreamChange(m_pkt.pid))
           {
-            m_AVContext->GoPosition(startPos, true);
+            m_AVContext->GoPosition(m_startPos, true);
             return true;
           }
         }
@@ -188,7 +215,7 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
         else
         {
           scanStreamInfo = true;
-          startPos = m_AVContext->GetNextPosition();
+          m_startPos = m_AVContext->GetNextPosition();
         }
       }
     }

@@ -86,6 +86,7 @@ namespace TSDemux
     int64_t               pts;
     uint64_t              duration;
     bool                  streamChange;
+    bool                  recoveryPoint;
   };
 
   class ElementaryStream

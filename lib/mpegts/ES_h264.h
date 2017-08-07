@@ -97,6 +97,7 @@ namespace TSDemux
     int64_t         m_DTS;
     int64_t         m_PTS;
     bool            m_Interlaced;
+    bool            m_recoveryPoint;
 
     int             m_SPSRawId;
     int             m_PPSRawId;

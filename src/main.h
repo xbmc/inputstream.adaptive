@@ -68,13 +68,6 @@ protected:
   virtual bool parseIndexRange() override;
 };
 
-class FragmentObserver
-{
-public:
-  virtual void BeginFragment(AP4_UI32 streamId) = 0;
-  virtual void EndFragment(AP4_UI32 streamId) = 0;
-};
-
 enum MANIFEST_TYPE
 {
   MANIFEST_TYPE_UNKNOWN,
@@ -83,7 +76,7 @@ enum MANIFEST_TYPE
   MANIFEST_TYPE_HLS
 };
 
-class Session: public FragmentObserver
+class Session: public adaptive::AdaptiveStreamObserver
 {
 public:
   Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert,
@@ -95,7 +88,7 @@ public:
 
   struct STREAM
   {
-    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0) { memset(&info_, 0, sizeof(info_)); };
+    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false) { memset(&info_, 0, sizeof(info_)); };
     ~STREAM() { disable(); free((void*)info_.m_ExtraData); };
     void disable();
 
@@ -107,6 +100,7 @@ public:
     AP4_File *input_file_;
     INPUTSTREAM_INFO info_;
     SampleReader *reader_;
+    bool segmentChanged;
   };
 
   void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
@@ -134,10 +128,11 @@ public:
   CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
   //Observer Section
-  void BeginFragment(AP4_UI32 streamId) override;
-  void EndFragment(AP4_UI32 streamId) override;
+  virtual void OnSegmentChanged(adaptive::AdaptiveStream *stream) override;
+  virtual void OnStreamChange(adaptive::AdaptiveStream *stream, uint32_t segment) override;
 
 protected:
+  void CheckFragmentDuration(STREAM &stream);
   void GetSupportedDecrypterURN(std::string &key_system);
   void DisposeDecrypter();
 

@@ -29,6 +29,7 @@ namespace adaptive
   class AdaptiveStreamObserver
   {
   public:
+    virtual void OnSegmentChanged(AdaptiveStream *stream) = 0;
     virtual void OnStreamChange(AdaptiveStream *stream, uint32_t segment) = 0;
   };
 

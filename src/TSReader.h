@@ -38,6 +38,7 @@ public:
 
   void Reset(bool resetPackets = true);
   bool StartStreaming(AP4_UI32 typeMask);
+  bool SeekTime(uint64_t timeInTs);
 
   bool GetInformation(INPUTSTREAM_INFO &info);
   bool ReadPacket(bool streamInfo = false);
@@ -59,13 +60,14 @@ private:
   AP4_ByteStream *m_stream;
 
   TSDemux::STREAM_PKT m_pkt;
+  uint64_t m_startPos;
 
   struct TSINFO
   {
-    TSINFO(TSDemux::ElementaryStream* stream) : m_stream(stream), m_needInfo(true), m_changed(false), m_streamType(INPUTSTREAM_INFO::TYPE_NONE) {};
+    TSINFO(TSDemux::ElementaryStream* stream) : m_stream(stream), m_needInfo(true), m_changed(false), m_enabled(false), m_streamType(INPUTSTREAM_INFO::TYPE_NONE) {};
 
     TSDemux::ElementaryStream* m_stream;
-    bool m_needInfo, m_changed;
+    bool m_needInfo, m_changed, m_enabled;
     INPUTSTREAM_INFO::STREAM_TYPE m_streamType;
   };
   std::vector<TSINFO> m_streamInfos;

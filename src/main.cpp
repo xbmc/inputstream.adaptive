@@ -721,9 +721,8 @@ public:
   virtual void Reset(bool bEOS) = 0;
   virtual bool GetInformation(INPUTSTREAM_INFO &info) = 0;
   virtual bool TimeSeek(uint64_t pts, bool preceeding) = 0;
-  virtual void SetObserver(FragmentObserver *observer) = 0;
   virtual void SetPTSOffset(uint64_t offset) = 0;
-  virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) = 0;
+  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) = 0;
   virtual uint32_t GetTimeScale()const = 0;
   virtual AP4_UI32 GetStreamId()const = 0;
   virtual AP4_Size GetSampleDataSize()const = 0;
@@ -763,7 +762,6 @@ public:
     , m_protectedDesc(0)
     , m_singleSampleDecryptor(ssd)
     , m_decrypter(0)
-    , m_observer(0)
     , m_nextDuration(0)
     , m_nextTimestamp(0)
   {
@@ -941,10 +939,9 @@ public:
     return false;
   };
 
-  virtual void SetObserver(FragmentObserver *observer) override { m_observer = observer; };
   virtual void SetPTSOffset(uint64_t offset) override { FindTracker(m_track->GetId())->m_NextDts = m_ptsOffset = offset; };
 
-  virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
+  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
   {
     if (m_nextDuration)
     {
@@ -956,6 +953,7 @@ public:
       dur = dynamic_cast<AP4_FragmentSampleTable*>(FindTracker(m_track->GetId())->m_SampleTable)->GetDuration();
       ts = 0;
     }
+    return true;
   };
   virtual uint32_t GetTimeScale()const override { return m_track->GetMediaTimeScale(); };
 
@@ -965,9 +963,6 @@ protected:
     AP4_Position       mdat_payload_offset) override
   {
     AP4_Result result;
-
-    if (m_observer)
-      m_observer->BeginFragment(m_streamId);
 
     if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(moof, moof_offset, mdat_payload_offset))))
     {
@@ -1028,9 +1023,6 @@ protected:
 SUCCESS:
     if (m_singleSampleDecryptor && m_codecHandler)
       m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey, m_codecHandler->naluLengthSize, m_codecHandler->extra_data, m_decrypterCaps.flags);
-
-    if (m_observer)
-      m_observer->EndFragment(m_streamId);
 
     return AP4_SUCCESS;
   }
@@ -1102,7 +1094,6 @@ private:
   AP4_ProtectedSampleDescription *m_protectedDesc;
   AP4_CencSingleSampleDecrypter *m_singleSampleDecryptor;
   AP4_CencSampleDecrypter *m_decrypter;
-  FragmentObserver *m_observer;
   uint64_t m_nextDuration, m_nextTimestamp;
 };
 
@@ -1164,9 +1155,8 @@ public:
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
-  virtual void SetObserver(FragmentObserver *observer) override {};
   virtual void SetPTSOffset(uint64_t offset) override {};
-  virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override {};
+  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; };
   virtual uint32_t GetTimeScale()const override { return 1000; };
   virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
   virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
@@ -1267,13 +1257,20 @@ public:
 
   virtual bool TimeSeek(uint64_t pts, bool preceeding) override
   {
-    //AP4_UI64 seekPos(static_cast<AP4_UI64>((pts + m_presentationTimeOffset)*(double)m_track->GetMediaTimeScale()));
-    return AP4_SUCCEEDED(ReadSample());
+    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts*9) / 100 + m_presentationTimeOffset));
+    if (TSReader::SeekTime(seekPos))
+    {
+      m_started = true;
+      return AP4_SUCCEEDED(ReadSample());
+    }
+    return AP4_ERROR_EOS;
   }
 
-  virtual void SetObserver(FragmentObserver *observer) override {}
-  virtual void SetPTSOffset(uint64_t offset) override {}
-  virtual void GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override {}
+  virtual void SetPTSOffset(uint64_t offset) override
+  {
+  }
+
+  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
   virtual uint32_t GetTimeScale()const override { return 90000; }
   virtual AP4_UI32 GetStreamId()const override { return m_typeMap[GetStreamType()]; }
   virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
@@ -1775,7 +1772,7 @@ bool Session::initialize()
       stream.info_.m_ExtraData = nullptr;
       stream.info_.m_ExtraSize = 0;
       stream.info_.m_features = 0;
-      stream.mainId_ = 0;
+      stream.stream_.set_observer(dynamic_cast<adaptive::AdaptiveStreamObserver*>(this));
 
       UpdateStream(stream, caps);
 
@@ -1908,6 +1905,7 @@ SampleReader *Session::GetNextSample()
 
   if (res)
   {
+    CheckFragmentDuration(*res);
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
@@ -1939,7 +1937,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
           (*b)->reader_->Reset(true);
         else
         {
-          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.4f) for Stream:%d continues at %0.4f", seekTime, (*b)->info_.m_pID, (*b)->reader_->PTS());
+          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.4f) for Stream:%d continues at %llu", seekTime, (*b)->info_.m_pID, (*b)->reader_->PTS());
           ret = true;
         }
       }
@@ -1949,25 +1947,34 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   return ret;
 }
 
-void Session::BeginFragment(AP4_UI32 streamId)
+void Session::OnSegmentChanged(adaptive::AdaptiveStream *stream)
 {
-  STREAM *s(streams_[streamId - 1]);
-  s->reader_->SetPTSOffset(s->stream_.GetPTSOffset());
+  for (std::vector<STREAM*>::iterator s(streams_.begin()), e(streams_.end()); s != e; ++s)
+    if (&(*s)->stream_ == stream)
+    {
+      if((*s)->reader_)
+        (*s)->reader_->SetPTSOffset((*s)->stream_.GetPTSOffset());
+      (*s)->segmentChanged = true;
+      break;
+    }
 }
 
-void Session::EndFragment(AP4_UI32 streamId)
+void Session::OnStreamChange(adaptive::AdaptiveStream *stream, uint32_t segment)
 {
-  STREAM *s(streams_[streamId - 1]);
-  uint64_t nextTs, nextDur;
-  s->reader_->GetNextFragmentInfo(nextTs, nextDur);
+}
 
-  adaptiveTree_->SetFragmentDuration(
-    s->stream_.getAdaptationSet(),
-    s->stream_.getRepresentation(),
-    s->stream_.getSegmentPos(),
-    nextTs,
-    static_cast<uint32_t>(nextDur),
-    s->reader_->GetTimeScale());
+void Session::CheckFragmentDuration(STREAM &stream)
+{
+  uint64_t nextTs, nextDur;
+  if (stream.segmentChanged && stream.reader_->GetNextFragmentInfo(nextTs, nextDur))
+    adaptiveTree_->SetFragmentDuration(
+      stream.stream_.getAdaptationSet(),
+      stream.stream_.getRepresentation(),
+      stream.stream_.getSegmentPos(),
+      nextTs,
+      static_cast<uint32_t>(nextDur),
+      stream.reader_->GetTimeScale());
+  stream.segmentChanged = false;
 }
 
 const AP4_UI08 *Session::GetDefaultKeyId(const uint8_t index) const
@@ -2399,7 +2406,6 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   }
 
   stream->reader_->GetInformation(stream->info_);
-  stream->reader_->SetObserver(dynamic_cast<FragmentObserver*>(m_session));
 }
 
 

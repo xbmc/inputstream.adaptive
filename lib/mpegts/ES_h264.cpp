@@ -74,6 +74,7 @@ void ES_h264::Parse(STREAM_PKT* pkt)
   size_t pOld = es_parsed, p = es_parsed;
   uint32_t startcode = m_StartCode;
   bool frameComplete = false;
+  m_recoveryPoint = false;
 
   while ((p + 3) < es_len)
   {
@@ -124,6 +125,7 @@ void ES_h264::Parse(STREAM_PKT* pkt)
       pkt->pts            = m_PTS;
       pkt->duration       = duration;
       pkt->streamChange   = SetVideoInformation(duration, PTS_TIME_BASE, m_Height, m_Width, static_cast<float>(DAR), m_Interlaced);
+      pkt->recoveryPoint  = m_recoveryPoint;
 
       if (es_extraDataChanged)
       {
@@ -333,6 +335,7 @@ bool ES_h264::Parse_SLH(uint8_t *buf, int len, h264_private::VCL_NAL &vcl)
   case 1:
     break;
   case 2:
+    m_recoveryPoint = true;
     m_NeedIFrame = false;
     break;
   default:

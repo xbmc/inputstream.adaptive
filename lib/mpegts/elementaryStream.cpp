@@ -216,6 +216,7 @@ void ElementaryStream::ResetStreamPacket(STREAM_PKT* pkt)
   pkt->pts                = PTS_UNSET;
   pkt->duration           = 0;
   pkt->streamChange       = false;
+  pkt->recoveryPoint      = false;
 }
 
 uint64_t ElementaryStream::Rescale(uint64_t a, uint64_t b, uint64_t c)
