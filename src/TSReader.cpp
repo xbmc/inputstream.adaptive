@@ -92,10 +92,10 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
 
       if (tsInfo.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
       {
-        if ((!tsInfo.m_stream->stream_info.fps_scale && tsInfo.m_stream->stream_info.fps_scale != info.m_FpsScale) ||
-          (!tsInfo.m_stream->stream_info.fps_rate && tsInfo.m_stream->stream_info.fps_rate != info.m_FpsRate) ||
-          (tsInfo.m_stream->stream_info.height != info.m_Height) ||
-          (tsInfo.m_stream->stream_info.width != info.m_Width) ||
+        if ((!tsInfo.m_stream->stream_info.fps_scale && tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.m_FpsScale)) ||
+          (!tsInfo.m_stream->stream_info.fps_rate && tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.m_FpsRate)) ||
+          (tsInfo.m_stream->stream_info.height != static_cast<int>(info.m_Height)) ||
+          (tsInfo.m_stream->stream_info.width != static_cast<int>(info.m_Width)) ||
           (tsInfo.m_stream->stream_info.aspect && tsInfo.m_stream->stream_info.aspect != info.m_Aspect))
         {
           info.m_FpsRate = tsInfo.m_stream->stream_info.fps_rate;
@@ -112,11 +112,11 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
         if (tsInfo.m_stream->stream_info.language[0])
           strncpy(info.m_language, tsInfo.m_stream->stream_info.language, 3), info.m_language[3] = 0;
 
-        if ((tsInfo.m_stream->stream_info.channels != info.m_Channels) ||
-          (tsInfo.m_stream->stream_info.sample_rate != info.m_SampleRate) ||
-          (tsInfo.m_stream->stream_info.block_align != info.m_BlockAlign) ||
-          (tsInfo.m_stream->stream_info.bit_rate != info.m_BitRate) ||
-          (tsInfo.m_stream->stream_info.bits_per_sample != info.m_BitsPerSample))
+        if ((tsInfo.m_stream->stream_info.channels != static_cast<int>(info.m_Channels)) ||
+          (tsInfo.m_stream->stream_info.sample_rate != static_cast<int>(info.m_SampleRate)) ||
+          (tsInfo.m_stream->stream_info.block_align != static_cast<int>(info.m_BlockAlign)) ||
+          (tsInfo.m_stream->stream_info.bit_rate != static_cast<int>(info.m_BitRate)) ||
+          (tsInfo.m_stream->stream_info.bits_per_sample != static_cast<int>(info.m_BitsPerSample)))
         {
           info.m_Channels = tsInfo.m_stream->stream_info.channels;
           info.m_SampleRate = tsInfo.m_stream->stream_info.sample_rate;
@@ -153,8 +153,8 @@ bool TSReader::SeekTime(uint64_t timeInTs)
       break;
     }
 
-  uint64_t lastRecovery(m_startPos);
-  while (m_pkt.pts == PTS_UNSET || m_pkt.pts < timeInTs)
+  uint64_t lastRecovery(static_cast<uint64_t>(m_startPos));
+  while (m_pkt.pts == PTS_UNSET || static_cast<uint64_t>(m_pkt.pts) < timeInTs)
   {
     uint64_t thisFrameStart(m_AVContext->GetPosition());
     if (!ReadPacket())

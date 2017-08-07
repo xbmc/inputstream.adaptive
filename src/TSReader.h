@@ -62,7 +62,7 @@ private:
   AP4_ByteStream *m_stream;
 
   TSDemux::STREAM_PKT m_pkt;
-  uint64_t m_startPos;
+  AP4_Position m_startPos;
   uint64_t m_PTSOffset;
   int64_t m_PTSDiff;
 

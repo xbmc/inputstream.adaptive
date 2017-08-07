@@ -2473,9 +2473,9 @@ extern "C" {
     if (sr)
     {
       DemuxPacket *p = ipsh->AllocateDemuxPacket(sr->GetSampleDataSize());
-      p->dts = sr->DTS();
-      p->pts = sr->PTS();
-      p->duration = sr->GetDuration();
+      p->dts = static_cast<double>(sr->DTS());
+      p->pts = static_cast<double>(sr->PTS());
+      p->duration = static_cast<double>(sr->GetDuration());
       p->iStreamId = sr->GetStreamId();
       p->iGroupId = 0;
       p->iSize = sr->GetSampleDataSize();
