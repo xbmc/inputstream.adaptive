@@ -347,6 +347,22 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
 /*----------------------------------------------------------------------
 |   expat start
 +---------------------------------------------------------------------*/
+
+static void ReplacePlaceHolders(std::string &rep, const std::string &id, uint32_t bandwidth)
+{
+  std::string::size_type repPos = rep.find("$RepresentationID$");
+  if (repPos != std::string::npos)
+    rep.replace(repPos, 18, id);
+
+  repPos = rep.find("$Bandwidth$");
+  if (repPos != std::string::npos)
+  {
+    char bw[32];
+    sprintf(bw, "%u", bandwidth);
+    rep.replace(repPos, 11, bw);
+  }
+}
+
 static void XMLCALL
 start(void *data, const char *el, const char **attr)
 {
@@ -512,6 +528,7 @@ start(void *data, const char *el, const char **attr)
             {
               dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
               dash->current_representation_->url_ += dash->current_representation_->segtpl_.initialization;
+              ReplacePlaceHolders(dash->current_representation_->url_, dash->current_representation_->id, dash->current_representation_->bandwidth_);
               dash->current_representation_->timescale_ = dash->current_representation_->segtpl_.timescale;
             }
             dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
@@ -839,21 +856,6 @@ text(void *data, const char *s, int len)
 /*----------------------------------------------------------------------
 |   expat end
 +---------------------------------------------------------------------*/
-
-static void ReplacePlaceHolders(std::string &rep, const std::string &id, uint32_t bandwidth)
-{
-  std::string::size_type repPos = rep.find("$RepresentationID$");
-  if (repPos != std::string::npos)
-    rep.replace(repPos, 18, id);
-
-  repPos = rep.find("$Bandwidth$");
-  if (repPos != std::string::npos)
-  {
-    char bw[32];
-    sprintf(bw, "%u", bandwidth);
-    rep.replace(repPos, 11, bw);
-  }
-}
 
 static void XMLCALL
 end(void *data, const char *el)
