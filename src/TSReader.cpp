@@ -21,6 +21,12 @@
 
 TSReader::TSReader(AP4_ByteStream *stream)
   : m_stream(stream)
+  , m_PTSOffset(~0ULL)
+  , m_PTSDiff(0)
+{
+}
+
+bool TSReader::Initialize()
 {
   m_AVContext = new TSDemux::AVContext(this, 0, 0);
   // Get stream Information
@@ -28,7 +34,9 @@ TSReader::TSReader(AP4_ByteStream *stream)
   {
     delete m_AVContext;
     m_AVContext = nullptr;
+    return false;
   }
+  return true;
 }
 
 TSReader::~TSReader()
@@ -183,6 +191,13 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
 
     while (GetPacket())
     {
+      // m_PTSOffset is the current value in segment-list
+      // The difference is used to seek most probably directly to the correct segment
+      if (~m_PTSOffset && m_pkt.pts != PTS_UNSET)
+      {
+        m_PTSDiff = m_pkt.pts - m_PTSOffset;
+        m_PTSOffset = ~0ULL;
+      }
       if (scanStreamInfo)
       {
         if (m_pkt.streamChange)
