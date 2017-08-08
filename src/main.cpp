@@ -2083,7 +2083,7 @@ private:
     STATE_WAIT_EXTRADATA = 1
   };
 
-  Session* m_session;
+  std::shared_ptr<Session> m_session;
   unsigned int m_state;
 };
 
@@ -2113,10 +2113,10 @@ public:
   virtual bool CanPauseStream() override;
   virtual bool CanSeekStream() override;
 
-  Session* GetSession() { return m_session; };
+  std::shared_ptr<Session> GetSession() { return m_session; };
 
 private:
-  Session* m_session;
+  std::shared_ptr<Session> m_session;
   int m_width, m_height;
   uint16_t m_IncludedStreams[16];
 };
@@ -2205,12 +2205,12 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 
   kodihost.SetProfilePath(props.m_profileFolder);
 
-  m_session = new Session(manifest, props.m_strURL, lt, lk, ld, lsc, manh, medh, props.m_profileFolder, m_width, m_height);
+  m_session = std::shared_ptr<Session>(new Session(manifest, props.m_strURL, lt, lk, ld, lsc, manh, medh, props.m_profileFolder, m_width, m_height));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize())
   {
-    SAFE_DELETE(m_session);
+    m_session = nullptr;
     return false;
   }
   return true;
@@ -2219,7 +2219,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 void CInputStreamAdaptive::Close(void)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Close()");
-  SAFE_DELETE(m_session);
+  m_session = nullptr;
 }
 
 struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
