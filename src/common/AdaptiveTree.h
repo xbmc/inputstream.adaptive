@@ -209,7 +209,7 @@ namespace adaptive
     }*current_period_;
 
     std::vector<Period*> periods_;
-    std::string base_url_;
+    std::string base_url_, base_domain_;
 
     /* XML Parsing*/
     XML_Parser parser_;

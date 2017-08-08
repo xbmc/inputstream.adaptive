@@ -1520,6 +1520,11 @@ bool Session::initialize()
     return false;
   }
   adaptiveTree_->base_url_.resize(paramPos + 1);
+  adaptiveTree_->base_domain_ = adaptiveTree_->base_url_;
+
+  paramPos = adaptiveTree_->base_url_.find_first_of('/', 8);
+  if (paramPos != std::string::npos)
+    adaptiveTree_->base_domain_.resize(paramPos);
 
   if (!adaptiveTree_->open(mpdFileURL_.c_str()) || adaptiveTree_->empty())
   {
