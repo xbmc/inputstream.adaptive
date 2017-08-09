@@ -417,8 +417,23 @@ public:
   virtual ~CodecHandler() {};
 
   virtual void UpdatePPSId(AP4_DataBuffer const&){};
-  virtual bool GetVideoInformation(INPUTSTREAM_INFO &info){ return false; };
-  virtual bool GetAudioInformation(unsigned int &channels){ return false; };
+  virtual bool GetInformation(INPUTSTREAM_INFO &info)
+  {
+    AP4_GenericAudioSampleDescription* asd(nullptr);
+    if (sample_description && (asd = dynamic_cast<AP4_GenericAudioSampleDescription*>(sample_description)))
+    {
+      if (asd->GetChannelCount() != info.m_Channels
+        || asd->GetSampleRate() != info.m_SampleRate
+        || asd->GetSampleSize() != info.m_BitsPerSample)
+      {
+        info.m_Channels = asd->GetChannelCount();
+        info.m_SampleRate = asd->GetSampleRate();
+        info.m_BitsPerSample = asd->GetSampleSize();
+        return true;
+      }
+    }
+    return false;
+  };
   virtual bool ExtraDataToAnnexB() { return false; };
   //virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
   virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale, AP4_UI64 offSet) { return false; };
@@ -571,7 +586,7 @@ public:
     }
   }
 
-  virtual bool GetVideoInformation(INPUTSTREAM_INFO &info) override
+  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     if (pictureId == pictureIdPrev)
       return false;
@@ -641,12 +656,20 @@ public:
       extra_data.SetData(aac->GetDecoderInfo().GetData(), aac->GetDecoderInfo().GetDataSize());
   }
 
-  virtual bool GetAudioInformation(unsigned int &channels)
+  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
   {
-    AP4_AudioSampleDescription *mpeg = AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, sample_description);
-    if (mpeg != nullptr && mpeg->GetChannelCount() != channels)
+    AP4_AudioSampleDescription *asd;
+    if (sample_description && (asd = AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, sample_description)))
     {
-      channels = mpeg->GetChannelCount();
+      if (asd->GetChannelCount() != info.m_Channels
+        || asd->GetSampleRate() != info.m_SampleRate
+        || asd->GetSampleSize() != info.m_BitsPerSample)
+      {
+        info.m_Channels = asd->GetChannelCount();
+        info.m_SampleRate = asd->GetSampleRate();
+        info.m_BitsPerSample = asd->GetSampleSize();
+        return true;
+      }
       return true;
     }
     return false;
@@ -909,8 +932,7 @@ public:
 
     m_bSampleDescChanged = false;
 
-    if (m_codecHandler->GetVideoInformation(info)
-      || m_codecHandler->GetAudioInformation(info.m_Channels))
+    if (m_codecHandler->GetInformation(info))
       return true;
 
     return edchanged;
@@ -1175,8 +1197,8 @@ private:
 class TSSampleReader : public SampleReader, public TSReader
 {
 public:
-  TSSampleReader(AP4_ByteStream *input, INPUTSTREAM_INFO::STREAM_TYPE type, AP4_UI32 streamId, const int64_t pto)
-    : TSReader(input)
+  TSSampleReader(AP4_ByteStream *input, INPUTSTREAM_INFO::STREAM_TYPE type, AP4_UI32 streamId, const int64_t pto, uint32_t requiredMask)
+    : TSReader(input, requiredMask)
     , m_typeMask(1 << type)
     , m_presentationTimeOffset((pto * 9) / 100)
   {
@@ -2044,6 +2066,16 @@ AP4_CencSingleSampleDecrypter *Session::GetSingleSampleDecrypter(std::string ses
   return nullptr;
 }
 
+uint32_t Session::GetIncludedStreamMask() const
+{
+  const INPUTSTREAM_INFO::STREAM_TYPE adp2ips[] = { INPUTSTREAM_INFO::TYPE_NONE, INPUTSTREAM_INFO::TYPE_VIDEO, INPUTSTREAM_INFO::TYPE_AUDIO, INPUTSTREAM_INFO::TYPE_SUBTITLE};
+  uint32_t res(0);
+  for (unsigned int i(0); i < 4; ++i)
+    if (adaptiveTree_->included_types_ & (1U << i))
+      res |= (1U << adp2ips[i]);
+  return res;
+}
+
 /***************************  Interface *********************************/
 
 #include "kodi_inputstream_dll.h"
@@ -2365,7 +2397,8 @@ extern "C" {
       if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
       {
         stream->input_ = new AP4_DASHStream(&stream->stream_);
-        stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid, m_session->GetPresentationTimeOffset());
+        stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid, m_session->GetPresentationTimeOffset(),
+          (1U << stream->info_.m_streamType) | m_session->GetIncludedStreamMask());
         if (!static_cast<TSSampleReader*>(stream->reader_)->Initialize())
           return stream->disable();
         else

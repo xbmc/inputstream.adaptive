@@ -19,10 +19,11 @@
 #include "TSReader.h"
 #include "Ap4ByteStream.h"
 
-TSReader::TSReader(AP4_ByteStream *stream)
+TSReader::TSReader(AP4_ByteStream *stream, uint32_t requiredMask)
   : m_stream(stream)
   , m_PTSOffset(~0ULL)
   , m_PTSDiff(0)
+  , m_requiredMask(requiredMask)
 {
 }
 
@@ -265,10 +266,45 @@ bool TSReader::HandleProgramChange()
   for (auto stream : streams)
   {
     m_streamInfos.push_back(TSINFO(stream));
+    TSINFO &tsInfo(m_streamInfos.back());
+
+    switch (tsInfo.m_stream->stream_type)
+    {
+    case TSDemux::STREAM_TYPE_VIDEO_MPEG1:
+    case TSDemux::STREAM_TYPE_VIDEO_MPEG2:
+    case TSDemux::STREAM_TYPE_VIDEO_H264:
+    case TSDemux::STREAM_TYPE_VIDEO_HEVC:
+    case TSDemux::STREAM_TYPE_VIDEO_MPEG4:
+    case TSDemux::STREAM_TYPE_VIDEO_VC1:
+      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+      break;
+    case TSDemux::STREAM_TYPE_AUDIO_MPEG1:
+    case TSDemux::STREAM_TYPE_AUDIO_MPEG2:
+    case TSDemux::STREAM_TYPE_AUDIO_AAC:
+    case TSDemux::STREAM_TYPE_AUDIO_AAC_ADTS:
+    case TSDemux::STREAM_TYPE_AUDIO_AAC_LATM:
+    case TSDemux::STREAM_TYPE_AUDIO_AC3:
+    case TSDemux::STREAM_TYPE_AUDIO_EAC3:
+    case TSDemux::STREAM_TYPE_AUDIO_LPCM:
+    case TSDemux::STREAM_TYPE_AUDIO_DTS:
+      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+      break;
+    case TSDemux::STREAM_TYPE_DVB_SUBTITLE:
+      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
+      break;
+    default:
+      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_NONE;
+    }
+
     if (stream->has_stream_info)
       HandleStreamChange(stream->pid);
-    else
+    else if (m_requiredMask & (1 << tsInfo.m_streamType))
       ret = false;
+    else
+    {
+      tsInfo.m_needInfo = false;
+      continue;
+    }
     m_AVContext->StartStreaming(stream->pid);
   }
   return ret;
@@ -281,33 +317,6 @@ bool TSReader::HandleStreamChange(uint16_t pid)
   {
     if (tsInfo.m_stream->pid == pid)
     {
-      switch (tsInfo.m_stream->stream_type)
-      {
-      case TSDemux::STREAM_TYPE_VIDEO_MPEG1:
-      case TSDemux::STREAM_TYPE_VIDEO_MPEG2:
-      case TSDemux::STREAM_TYPE_VIDEO_H264:
-      case TSDemux::STREAM_TYPE_VIDEO_HEVC:
-      case TSDemux::STREAM_TYPE_VIDEO_MPEG4:
-      case TSDemux::STREAM_TYPE_VIDEO_VC1:
-        tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
-        break;
-      case TSDemux::STREAM_TYPE_AUDIO_MPEG1:
-      case TSDemux::STREAM_TYPE_AUDIO_MPEG2:
-      case TSDemux::STREAM_TYPE_AUDIO_AAC:
-      case TSDemux::STREAM_TYPE_AUDIO_AAC_ADTS:
-      case TSDemux::STREAM_TYPE_AUDIO_AAC_LATM:
-      case TSDemux::STREAM_TYPE_AUDIO_AC3:
-      case TSDemux::STREAM_TYPE_AUDIO_EAC3:
-      case TSDemux::STREAM_TYPE_AUDIO_LPCM:
-      case TSDemux::STREAM_TYPE_AUDIO_DTS:
-        tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
-        break;
-      case TSDemux::STREAM_TYPE_DVB_SUBTITLE:
-        tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
-        break;
-      default:
-        tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_NONE;
-      }
       tsInfo.m_needInfo = false;
       tsInfo.m_changed = true;
     }

@@ -49,6 +49,7 @@ namespace adaptive
     , download_speed_(0.0)
     , average_download_speed_(0.0f)
     , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
+    , included_types_(0)
   {
     psshSets_.push_back(PSSH());
   }

@@ -29,7 +29,7 @@ class AP4_ByteStream;
 class TSReader : public TSDemux::TSDemuxer
 {
 public:
-  TSReader(AP4_ByteStream *stream);
+  TSReader(AP4_ByteStream *stream, uint32_t requiredMask);
   virtual ~TSReader();
 
   bool Initialize();
@@ -65,6 +65,7 @@ private:
   AP4_Position m_startPos;
   uint64_t m_PTSOffset;
   int64_t m_PTSDiff;
+  uint32_t m_requiredMask;
 
   struct TSINFO
   {
