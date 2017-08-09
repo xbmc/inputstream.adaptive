@@ -23,8 +23,8 @@ matrix:
       compiler: clang
     - os: osx
       osx_image: xcode7.3
-#    - os: osx
-#      osx_image: xcode6.1
+    - os: osx
+      osx_image: xcode6.4
 
 #
 # Some of the OS X images don't have cmake, contrary to what people 
@@ -42,6 +42,6 @@ before_script:
   - cd $TRAVIS_BUILD_DIR/..
   - git clone --depth=1 https://github.com/xbmc/xbmc.git -b master
   - cd ${app_id} && mkdir build && cd build
-  - cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=$TRAVIS_BUILD_DIR/.. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$TRAVIS_BUILD_DIR/../xbmc/addons -DPACKAGE_ZIP=1 $TRAVIS_BUILD_DIR/../xbmc/project/cmake/addons
+  - cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=$TRAVIS_BUILD_DIR/.. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$TRAVIS_BUILD_DIR/../xbmc/addons -DPACKAGE_ZIP=1 $TRAVIS_BUILD_DIR/../xbmc/cmake/addons
 
 script: make
