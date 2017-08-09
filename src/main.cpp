@@ -679,7 +679,6 @@ public:
         info.m_BitsPerSample = asd->GetSampleSize();
         return true;
       }
-      return true;
     }
     return false;
   }
