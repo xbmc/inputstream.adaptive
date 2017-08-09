@@ -1,0 +1,25 @@
+version: BuildNr.{build}
+
+image: Visual Studio 2015
+
+shallow_clone: true
+
+clone_folder: c:\projects\inputstream.adaptive
+
+environment:
+  app_id: inputstream.adaptive
+
+  matrix:
+    - GENERATOR: "Visual Studio 14"
+      CONFIG: Release
+    - GENERATOR: "Visual Studio 14 Win64"
+      CONFIG: Release
+
+build_script:
+  - cd ..
+  - git clone --depth=1 --branch master https://github.com/xbmc/xbmc.git
+  - cd %app_id%
+  - mkdir build
+  - cd build
+  - cmake -T host=x64 -G "%GENERATOR%" -DADDONS_TO_BUILD=%app_id% -DCMAKE_BUILD_TYPE=%CONFIG% -DADDON_SRC_PREFIX=../.. -DCMAKE_INSTALL_PREFIX=../../xbmc/addons -DPACKAGE_ZIP=1 ../../xbmc/cmake/addons
+  - cmake --build . --config %CONFIG% --target %app_id%
