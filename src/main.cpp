@@ -2311,7 +2311,15 @@ extern "C" {
       if (stream->encrypted)
       {
         static AP4_DataBuffer tmp;
-        tmp.SetData(m_session->GetCryptoData().GetData(), m_session->GetCryptoData().GetDataSize());
+        tmp.SetData(reinterpret_cast<const AP4_Byte*>("CRYPTO"), 6);
+        const char* sessionId(m_session->GetCDMSession(cdmId));
+        uint8_t sessionIdSize = static_cast<uint8_t>(strlen(sessionId));
+        uint16_t cryptosize = 6 + 2 + (1 + sessionIdSize) + 16;
+        tmp.AppendData(reinterpret_cast<const AP4_Byte*>(&cryptosize), sizeof(cryptosize));
+        tmp.AppendData(&sessionIdSize, 1);
+        tmp.AppendData(sessionId, sessionIdSize);
+        uint8_t keysystem[16] = { 0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed };
+        tmp.AppendData(keysystem, 16);
         tmp.AppendData(stream->info_.m_ExtraData, stream->info_.m_ExtraSize);
         INPUTSTREAM_INFO tmpInfo = stream->info_;
         tmpInfo.m_ExtraData = tmp.GetData();
