@@ -35,6 +35,7 @@
 #include "Ap4TimsAtom.h"
 #include "Ap4SampleDescription.h"
 #include "Ap4AvccAtom.h"
+#include "Ap4Dac3Atom.h"
 
 /*----------------------------------------------------------------------
 |   dynamic cast support
@@ -454,6 +455,10 @@ AP4_AudioSampleEntry::GetChannelCount()
     if (m_QtVersion == 2) {
         return (AP4_UI16)m_QtV2ChannelCount;
     } else {
+        AP4_Atom *child;
+        if (GetType() == AP4_ATOM_TYPE_AC_3 && (child = GetChild(AP4_ATOM_TYPE_DAC3)))
+          return AP4_DYNAMIC_CAST(AP4_Dac3Atom, child)->GetChannels();
+
         return m_ChannelCount;
     }
 }

@@ -30,6 +30,8 @@ static void parseLine(const std::string &line, size_t offset, std::map<std::stri
   map.clear();
   while (offset < line.size() && (value = line.find('=', offset)) != std::string::npos)
   {
+    while (offset < line.size() && line[offset] == ' ')
+      ++offset;
     end = value;
     uint8_t inValue(0);
     while (++end < line.size() && ((inValue & 1) || line[end] != ','))
@@ -58,10 +60,12 @@ static std::string getVideoCodec(const std::string &codecs)
 
 static std::string getAudioCodec(const std::string &codecs)
 {
-  if (codecs.find("mp4a.40.34") != std::string::npos)
-    return  "ac-3";
+  if (codecs.find("ec-3") != std::string::npos)
+    return "ec-3";
+  else if (codecs.find("ac-3") != std::string::npos)
+    return "ac-3";
   else
-    return codecs.empty() || codecs.find("mp4a.") != std::string::npos ? "aac" : "";
+    return  "aac";
 }
 
 HLSTree::~HLSTree()
@@ -136,7 +140,10 @@ bool HLSTree::open(const char *url)
             rep->source_url_ = res->second;
         }
         else
+        {
           rep->flags_ = Representation::INCLUDEDSTREAM;
+          included_types_ |= 1U << type;
+        }
 
         if ((res = map.find("CHANNELS")) != map.end())
           rep->channelCount_ = atoi(res->second.c_str());
@@ -172,7 +179,11 @@ bool HLSTree::open(const char *url)
         if (map.find("AUDIO") != map.end())
           m_extGroups[map["AUDIO"]].setCodec(getAudioCodec(map["CODECS"]));
         else
+        {
+          // We assume audio is included
+          included_types_ |= 1U << AUDIO;
           m_audioCodec = getAudioCodec(map["CODECS"]);
+        }
       }
       else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
       {

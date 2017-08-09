@@ -246,6 +246,7 @@ namespace adaptive
       ENCRYTIONSTATE_SUPPORTED = 2
     };
     unsigned int  encryptionState_;
+    uint32_t included_types_;
     uint8_t adpChannelCount_, adp_pssh_set_;
     uint16_t adpwidth_, adpheight_;
     uint32_t adpfpsRate_;

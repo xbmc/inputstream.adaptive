@@ -100,6 +100,7 @@
 #include "Ap4AinfAtom.h"
 #include "Ap4PsshAtom.h"
 #include "Ap4Dec3Atom.h"
+#include "Ap4Dac3Atom.h"
 #include "Ap4SidxAtom.h"
 #include "Ap4SbgpAtom.h"
 #include "Ap4SgpdAtom.h"
@@ -681,6 +682,13 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
             if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
             if (GetContext() == AP4_ATOM_TYPE_MARL) {
                 atom = AP4_MkidAtom::Create(size_32, stream);
+            }
+            break;
+
+          case AP4_ATOM_TYPE_DAC3:
+            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
+            if (GetContext() == AP4_ATOM_TYPE_AC_3) {
+              atom = AP4_Dac3Atom::Create(size_32, stream);
             }
             break;
 
