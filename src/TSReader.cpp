@@ -93,8 +93,8 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
 
       if (tsInfo.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
       {
-        if ((!tsInfo.m_stream->stream_info.fps_scale && tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.m_FpsScale)) ||
-          (!tsInfo.m_stream->stream_info.fps_rate && tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.m_FpsRate)) ||
+        if ((!info.m_FpsScale && tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.m_FpsScale)) ||
+          (!info.m_FpsRate && tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.m_FpsRate)) ||
           (tsInfo.m_stream->stream_info.height != static_cast<int>(info.m_Height)) ||
           (tsInfo.m_stream->stream_info.width != static_cast<int>(info.m_Width)) ||
           (tsInfo.m_stream->stream_info.aspect && tsInfo.m_stream->stream_info.aspect != info.m_Aspect))
