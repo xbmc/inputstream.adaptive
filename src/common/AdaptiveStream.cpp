@@ -32,7 +32,14 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
   , current_period_(tree_.periods_.empty() ? 0 : tree_.periods_[0])
   , current_adp_(0)
   , current_rep_(0)
+  , thread_data_(nullptr)
 {
+}
+
+AdaptiveStream::~AdaptiveStream()
+{
+  stop();
+  clear();
 }
 
 bool AdaptiveStream::download_segment()
@@ -115,6 +122,15 @@ bool AdaptiveStream::download_segment()
   return false;
 }
 
+void AdaptiveStream::worker()
+{
+  do {
+    std::unique_lock<std::mutex> lck(thread_data_->mutex_dl_);
+    thread_data_->signal_dl_.wait(lck);
+  } while (!thread_data_->thread_stop_);
+}
+
+
 bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 {
   segment_buffer_ += std::string((const char *)buffer, buffer_size);
@@ -190,6 +206,13 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
 
     stopped_ = false;
   }
+
+  if (!thread_data_ && !stopped_)
+  {
+    thread_data_ = new THREADDATA();
+    thread_data_->Start(this);
+  }
+
   return true;
 }
 
@@ -392,13 +415,19 @@ void AdaptiveStream::info(std::ostream &s)
   s << ts[type_] << " representation: " << current_rep_->url_.substr(current_rep_->url_.find_last_of('/') + 1) << " bandwidth: " << current_rep_->bandwidth_ << std::endl;
 }
 
+void AdaptiveStream::stop()
+{
+  stopped_ = true;
+  if (thread_data_)
+  {
+    delete thread_data_;
+    thread_data_ = nullptr;
+  }
+};
+
 void AdaptiveStream::clear()
 {
   current_adp_ = 0;
   current_rep_ = 0;
-}
 
-AdaptiveStream::~AdaptiveStream()
-{
-  clear();
 }

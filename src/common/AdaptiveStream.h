@@ -22,6 +22,9 @@
 #include <string>
 #include <map>
 
+#include <thread>
+#include <mutex>
+
 namespace adaptive
 {
   class AdaptiveStream;
@@ -37,7 +40,7 @@ namespace adaptive
   {
   public:
     AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type);
-    ~AdaptiveStream();
+    virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     bool prepare_stream(const AdaptiveTree::AdaptationSet *adp,
       const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
@@ -46,7 +49,7 @@ namespace adaptive
     bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height);
     bool restart_stream();
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
-    void stop(){ stopped_ = true; };
+    void stop();
     void clear();
     void info(std::ostream &s);
     unsigned int getWidth() const { return width_; };
@@ -73,7 +76,35 @@ namespace adaptive
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
   private:
+    // Segment download section
     bool download_segment();
+    void worker();
+
+    struct THREADDATA
+    {
+      THREADDATA()
+        : thread_stop_(false)
+      {
+      }
+
+      void Start(AdaptiveStream *parent)
+      {
+        download_thread_ = std::thread(&AdaptiveStream::worker, parent);
+      }
+
+      ~THREADDATA()
+      {
+        thread_stop_ = true;
+        signal_dl_.notify_one();
+        download_thread_.join();
+      };
+
+      std::mutex mutex_rw_, mutex_dl_;
+      std::condition_variable signal_rw_, signal_dl_;
+      std::thread download_thread_;
+      bool thread_stop_;
+    };
+    THREADDATA *thread_data_;
 
     AdaptiveTree &tree_;
     AdaptiveTree::StreamType type_;
