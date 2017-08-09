@@ -18,6 +18,7 @@
 
 #include "TSReader.h"
 #include "Ap4ByteStream.h"
+#include <stdlib.h>
 
 TSReader::TSReader(AP4_ByteStream *stream, uint32_t requiredMask)
   : m_stream(stream)
