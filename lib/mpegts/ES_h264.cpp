@@ -61,11 +61,33 @@ ES_h264::ES_h264(uint16_t pes_pid)
   es_alloc_init                 = 240000;
   m_SPSRawId                    = -1;
   m_PPSRawId                    = -1;
+  m_fpsRate = 0;
+  m_fpsScale = 0;
   Reset();
 }
 
 ES_h264::~ES_h264()
 {
+}
+
+static unsigned int unescape(const uint8_t * in, uint8_t *out, unsigned int in_size)
+{
+  unsigned int zero_count = 0;
+  unsigned int bytes_removed = 0;
+
+  for (unsigned int i = 0; i<in_size; i++) {
+    if (zero_count >= 2 && in[i] == 3 && i + 1 < in_size && in[i + 1] <= 3) {
+      ++bytes_removed;
+      zero_count = 0;
+    }
+    else {
+      out[i - bytes_removed] = in[i];
+      if (in[i] == 0) {
+        ++zero_count;
+      }
+    }
+  }
+  return in_size - bytes_removed;
 }
 
 void ES_h264::Parse(STREAM_PKT* pkt)
@@ -88,6 +110,10 @@ void ES_h264::Parse(STREAM_PKT* pkt)
       }
       if (m_SPSRawId >= 0)
       {
+        uint8_t unescaped[256];
+        unsigned int usize = unescape(es_buf + pOld + 1, unescaped, p - pOld - 6);
+        Parse_SPS(unescaped, usize, false);
+
         m_streamData.sps[m_SPSRawId].raw_data_size = p - pOld - 5;
         memcpy(m_streamData.sps[m_SPSRawId].raw_data, es_buf + pOld, m_streamData.sps[m_SPSRawId].raw_data_size);
         m_SPSRawId = -1, es_extraDataChanged = true;
@@ -124,7 +150,7 @@ void ES_h264::Parse(STREAM_PKT* pkt)
       pkt->dts            = m_DTS;
       pkt->pts            = m_PTS;
       pkt->duration       = duration;
-      pkt->streamChange   = SetVideoInformation(duration, PTS_TIME_BASE, m_Height, m_Width, static_cast<float>(DAR), m_Interlaced);
+      pkt->streamChange   = SetVideoInformation(m_fpsScale << 1, m_fpsRate, m_Height, m_Width, static_cast<float>(DAR), m_Interlaced);
       pkt->recoveryPoint  = m_recoveryPoint;
 
       if (es_extraDataChanged)
@@ -240,9 +266,10 @@ int ES_h264::Parse_H264(uint32_t startcode, int buf_ptr, bool &complete)
       return -1;
     }
     // TODO: how big is SPS?
-    if (len < 256)
+    if (len < 64)
       return -1;
-    if (!Parse_SPS(buf, len))
+
+    if (!Parse_SPS(buf, len, true))
       return 0;
 
     m_NeedSPS = false;
@@ -383,7 +410,7 @@ bool ES_h264::Parse_SLH(uint8_t *buf, int len, h264_private::VCL_NAL &vcl)
   return true;
 }
 
-bool ES_h264::Parse_SPS(uint8_t *buf, int len)
+bool ES_h264::Parse_SPS(uint8_t *buf, int len, bool idOnly)
 {
   CBitstream bs(buf, len*8);
   unsigned int tmp, frame_mbs_only;
@@ -398,6 +425,12 @@ bool ES_h264::Parse_SPS(uint8_t *buf, int len)
   bs.skipBits(8);
   int level_idc = bs.readBits(8);
   unsigned int seq_parameter_set_id = bs.readGolombUE(9);
+
+  if (idOnly)
+  {
+    m_SPSRawId = seq_parameter_set_id;
+    return true;
+  }
 
   unsigned int i = 0;
   while (h264_lev2cpbsize[i][0] != -1)
@@ -563,15 +596,12 @@ bool ES_h264::Parse_SPS(uint8_t *buf, int len)
 
     if (bs.readBits1()) // timing_info_present_flag
     {
-//      uint32_t num_units_in_tick = bs.readBits(32);
-//      uint32_t time_scale = bs.readBits(32);
-//      int fixed_frame_rate = bs.readBits1();
-//      if (num_units_in_tick > 0)
-//        m_FPS = time_scale / (num_units_in_tick * 2);
+      m_fpsScale = bs.readBits(16) << 16;
+      m_fpsScale |= bs.readBits(16);
+      m_fpsRate = bs.readBits(16) << 16;
+      m_fpsRate |= bs.readBits(16);
     }
   }
-
-  m_SPSRawId = seq_parameter_set_id;
   DBG(DEMUX_DBG_PARSE, "H.264 SPS: -> video size %dx%d, aspect %d:%d\n", m_Width, m_Height, m_PixelAspect.num, m_PixelAspect.den);
   return true;
 }

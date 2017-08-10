@@ -98,6 +98,7 @@ namespace TSDemux
     int64_t         m_PTS;
     bool            m_Interlaced;
     bool            m_recoveryPoint;
+    uint32_t        m_fpsRate, m_fpsScale;
 
     int             m_SPSRawId;
     int             m_PPSRawId;
@@ -105,7 +106,7 @@ namespace TSDemux
     int Parse_H264(uint32_t startcode, int buf_ptr, bool &complete);
     bool Parse_PPS(uint8_t *buf, int len);
     bool Parse_SLH(uint8_t *buf, int len, h264_private::VCL_NAL &vcl);
-    bool Parse_SPS(uint8_t *buf, int len);
+    bool Parse_SPS(uint8_t *buf, int len, bool idOnly);
     bool IsFirstVclNal(h264_private::VCL_NAL &vcl);
 
   public:
