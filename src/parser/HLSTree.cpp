@@ -21,6 +21,7 @@
 #include <string.h>
 #include "../log.h"
 #include "../aes_decrypter.h"
+#include "../helpers.h"
 
 using namespace adaptive;
 
@@ -447,7 +448,11 @@ void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, std::
     if (pssh.defaultKID_.empty())
     {
       ClearStream();
-      if (download(pssh.pssh_.c_str(), manifest_headers_))
+      std::map<std::string, std::string> headers;
+      std::vector<std::string> keyParts(split(m_decrypter->getLicenseKey(), '|'));
+      if (keyParts.size() > 1)
+        parseheader(headers, keyParts[1].c_str());
+      if (download(pssh.pssh_.c_str(), headers))
       {
         pssh.defaultKID_ =  m_stream.str();
       }

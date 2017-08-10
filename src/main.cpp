@@ -1360,7 +1360,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
     adaptiveTree_ = new adaptive::SmoothTree;
     break;
   case MANIFEST_TYPE_HLS:
-    adaptiveTree_ = new adaptive::HLSTree(new AESDecrypter());
+    adaptiveTree_ = new adaptive::HLSTree(new AESDecrypter(license_key_));
     break;
   default:;
   };
@@ -1583,11 +1583,11 @@ bool Session::initialize()
     if (license_key_.empty())
       license_key_ = adaptiveTree_->license_url_;
 
-    kodi::Log(ADDON_LOG_DEBUG, "Entering encryption sectiom (License Key: %s)", license_key_.c_str());
+    kodi::Log(ADDON_LOG_DEBUG, "Entering encryption sectiom");
 
     if (license_key_.empty())
     {
-      kodi::Log(ADDON_LOG_ERROR, "Invalid license_key (%s)", license_key_.c_str());
+      kodi::Log(ADDON_LOG_ERROR, "Invalid license_key");
       return false;
     }
 
