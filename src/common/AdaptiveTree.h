@@ -23,6 +23,7 @@
 #include <map>
 #include <inttypes.h>
 #include "expat.h"
+#include <mutex>
 
 namespace adaptive
 {
@@ -280,6 +281,8 @@ protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
   void SortRepresentations();
+private:
+  std::mutex m_mutex;
 };
 
 }

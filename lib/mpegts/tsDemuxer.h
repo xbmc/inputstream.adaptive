@@ -43,7 +43,7 @@ namespace TSDemux
   class TSDemuxer
   {
   public:
-    virtual const unsigned char* ReadAV(uint64_t pos, size_t len) = 0;
+    virtual bool ReadAV(uint64_t pos, unsigned char* buffer, size_t len) = 0;
   };
 
   enum {

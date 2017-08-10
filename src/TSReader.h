@@ -34,7 +34,7 @@ public:
 
   bool Initialize();
 
-  virtual const unsigned char* ReadAV(uint64_t pos, size_t len) override;
+  virtual bool ReadAV(uint64_t pos, unsigned char * data, size_t len) override;
 
   void Reset(bool resetPackets = true);
   bool StartStreaming(AP4_UI32 typeMask);

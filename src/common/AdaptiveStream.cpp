@@ -28,10 +28,12 @@ using namespace adaptive;
 AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type)
   :tree_(tree)
   , type_(type)
-  , observer_(0)
-  , current_period_(tree_.periods_.empty() ? 0 : tree_.periods_[0])
-  , current_adp_(0)
-  , current_rep_(0)
+  , observer_(nullptr)
+  , current_period_(tree_.periods_.empty() ? nullptr : tree_.periods_[0])
+  , current_adp_(nullptr)
+  , current_rep_(nullptr)
+  , current_seg_(nullptr)
+  , loading_seg_(nullptr)
   , thread_data_(nullptr)
 {
 }
@@ -125,15 +127,30 @@ bool AdaptiveStream::download_segment()
 void AdaptiveStream::worker()
 {
   do {
-    std::unique_lock<std::mutex> lck(thread_data_->mutex_dl_);
-    thread_data_->signal_dl_.wait(lck);
+    std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
+    thread_data_->signal_dl_.wait(lckdl);
+
+    bool ret  = download_segment();
+
+    //Signal finished download
+    {
+      std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
+      loading_seg_ = nullptr;
+      if (!ret)
+        stopped_ = true;
+    }
+    thread_data_->signal_rw_.notify_one();
+
   } while (!thread_data_->thread_stop_);
 }
 
-
 bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 {
-  segment_buffer_ += std::string((const char *)buffer, buffer_size);
+  {
+    std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
+    segment_buffer_ += std::string((const char *)buffer, buffer_size);
+  }
+  thread_data_->signal_rw_.notify_one();
   return true;
 }
 
@@ -237,14 +254,16 @@ bool AdaptiveStream::ensureSegment()
   if (stopped_)
     return false;
 
-  if (segment_read_pos_ >= segment_buffer_.size())
+  if (!loading_seg_ && segment_read_pos_ >= segment_buffer_.size())
   {
     current_seg_ = current_rep_->get_next_segment(current_seg_);
-    if (!download_segment() || segment_buffer_.empty())
+    if (current_seg_)
     {
-      stopped_ = true;
-      return false;
+      loading_seg_ = current_seg_;
+      thread_data_->signal_dl_.notify_one();
     }
+    else
+      return false;
   }
   return true;
 }
@@ -252,40 +271,39 @@ bool AdaptiveStream::ensureSegment()
 
 uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
 {
+  std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
+
   if (ensureSegment() && bytesToRead)
   {
-    uint32_t avail = segment_buffer_.size() - segment_read_pos_;
-    if (avail > bytesToRead)
-      avail = bytesToRead;
-    memcpy(buffer, segment_buffer_.data() + segment_read_pos_, avail);
+    while (true)
+    {
+      uint32_t avail = segment_buffer_.size() - segment_read_pos_;
+      if (avail < bytesToRead && loading_seg_)
+      {
+        thread_data_->signal_rw_.wait(lckrw);
+        continue;
+      }
 
-    segment_read_pos_ += avail;
-    absolute_position_ += avail;
-    return avail;
+      if (avail >= bytesToRead)
+      {
+        if (avail > bytesToRead)
+          avail = bytesToRead;
+
+        memcpy(buffer, segment_buffer_.data() + segment_read_pos_, avail);
+
+        segment_read_pos_ += avail;
+        absolute_position_ += avail;
+        return avail;
+      }
+      return 0;
+    }
   }
   return 0;
 }
 
-const uint8_t *AdaptiveStream::getBuffer(uint32_t  bytesToRead)
-{
-  const uint8_t *ret(nullptr);
-  if (ensureSegment() && bytesToRead)
-  {
-    uint32_t avail = segment_buffer_.size() - segment_read_pos_;
-    if (avail > bytesToRead)
-      avail = bytesToRead;
-
-    if (avail == bytesToRead)
-      ret = reinterpret_cast<const uint8_t*>(segment_buffer_.data() + segment_read_pos_);
-
-    segment_read_pos_ += avail;
-    absolute_position_ += avail;
-  }
-  return ret;
-}
-
 bool AdaptiveStream::seek(uint64_t const pos)
 {
+  std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
   // we seek only in the current segment
   if (pos >= absolute_position_ - segment_read_pos_)
   {

@@ -83,6 +83,8 @@ namespace adaptive
 
   void AdaptiveTree::set_download_speed(double speed)
   {
+    std::lock_guard<std::mutex> lck(m_mutex);
+
     download_speed_ = speed;
     if (!average_download_speed_)
       average_download_speed_ = download_speed_;

@@ -47,10 +47,10 @@ TSReader::~TSReader()
   m_AVContext = nullptr;
 }
 
-const unsigned char* TSReader::ReadAV(uint64_t pos, size_t len)
+bool TSReader::ReadAV(uint64_t pos, unsigned char * data, size_t len)
 {
   m_stream->Seek(pos);
-  return m_stream->GetBuffer(len);
+  return AP4_SUCCEEDED(m_stream->Read(data, len));
 }
 
 void TSReader::Reset(bool resetPackets)

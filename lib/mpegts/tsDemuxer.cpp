@@ -249,7 +249,6 @@ STREAM_TYPE AVContext::get_stream_type(uint8_t pes_type)
 
 int AVContext::configure_ts()
 {
-  size_t data_size = AV_CONTEXT_PACKETSIZE;
   uint64_t pos = av_pos;
   int fluts[][2] = {
     {FLUTS_NORMAL_TS_PACKETSIZE, 0},
@@ -257,30 +256,37 @@ int AVContext::configure_ts()
     {FLUTS_DVB_ASI_TS_PACKETSIZE, 0},
     {FLUTS_ATSC_TS_PACKETSIZE, 0}
   };
+
+  uint8_t data[AV_CONTEXT_PACKETSIZE];
+  size_t data_size(0);
+
   int nb = sizeof (fluts) / (2 * sizeof (int));
   int score = TS_CHECK_MIN_SCORE;
 
   for (int i = 0; i < MAX_RESYNC_SIZE; i++)
   {
-    const unsigned char* data = m_demux->ReadAV(pos, data_size);
-    if (!data)
+    if (!data_size)
+      data_size = m_demux->ReadAV(pos, data, AV_CONTEXT_PACKETSIZE) ? AV_CONTEXT_PACKETSIZE : 0;
+
+    if (!data_size)
       return AVCONTEXT_IO_ERROR;
-    if (data[0] == 0x47)
+
+    if (data[AV_CONTEXT_PACKETSIZE - data_size] == 0x47)
     {
       int count, found;
       for (int t = 0; t < nb; t++) // for all fluts
       {
-        const unsigned char* ndata;
+        unsigned char ndata;
         uint64_t npos = pos;
         int do_retry = score; // Reach for score
         do
         {
           --do_retry;
           npos += fluts[t][0];
-          if (!(ndata = m_demux->ReadAV(npos, data_size)))
+          if (!m_demux->ReadAV(npos, &ndata, 1))
             return AVCONTEXT_IO_ERROR;
         }
-        while (ndata[0] == 0x47 && (++fluts[t][1]) && do_retry);
+        while (ndata == 0x47 && (++fluts[t][1]) && do_retry);
       }
       // Is score reached ?
       count = found = 0;
@@ -308,10 +314,16 @@ int AVContext::configure_ts()
         break;
       // None: Bad sync. Shift and retry
       else
+      {
+        --data_size;
         pos++;
+      }
     }
     else
+    {
+      --data_size;
       pos++;
+    }
   }
 
   DBG(DEMUX_DBG_ERROR, "%s: invalid stream\n", __FUNCTION__);
@@ -327,18 +339,30 @@ int AVContext::TSResync()
       return ret;
     is_configured = true;
   }
+
+  size_t data_size(0);
+
   for (int i = 0; i < MAX_RESYNC_SIZE; i++)
   {
-    const unsigned char* data = m_demux->ReadAV(av_pos, av_pkt_size);
-    if (!data)
+    if (!data_size)
+      data_size = m_demux->ReadAV(av_pos, av_buf, av_pkt_size) ? av_pkt_size : 0;
+
+    if (!data_size)
       return AVCONTEXT_IO_ERROR;
-    if (data[0] == 0x47)
+
+    if (av_buf[av_pkt_size - data_size] == 0x47)
     {
-      memcpy(av_buf, data, av_pkt_size);
-      Reset();
-      return AVCONTEXT_CONTINUE;
+      if (data_size != av_pkt_size)
+        data_size = m_demux->ReadAV(av_pos, av_buf, av_pkt_size) ? av_pkt_size : 0;
+
+      if (data_size)
+      {
+        Reset();
+        return AVCONTEXT_CONTINUE;
+      }
     }
     av_pos++;
+    --data_size;
   }
 
   return AVCONTEXT_TS_NOSYNC;
