@@ -1,10 +1,10 @@
-# inputstream.adaptive (1.0.6)
+# inputstream.adaptive (2.0.7)
 
 This is an adaptive file addon for kodi's new InputStream Interface.
 
 - this addon is part of the official kodi repository and part of each kodi installation
 - configure the addon by adding URL prefixes wich are allowed to be played by this addon
-- create a .strm file / or addon with passes an url with sets inputstream.adaptive.manifest_type to either "mpd" or "ism" and open the strm file in kodi
+- create a .strm file / or addon with passes an url with sets inputstream.adaptive.manifest_type to either "mpd", "ism" or "hls" and open the strm file in kodi
 - or write an addon wich passes an mpd or ism manifest file to kodi
 
 ##### Examples:
@@ -40,7 +40,7 @@ If your display resolution is 720p, you will not be able to watch 1080p videos i
 - Automatic / fixed video stream selection depending on max. visible display rect (some work has to be done at the inputstream interface).
 - Currently always a full segment is read from source into memory before it is processed. Reading in smaller chunks could be lead to faster start of the media and better cache fill strategy.
 - DASH implementation of periods (currently only the first period is considered)
-- There will be a lot of dash mpd or other manifest types (hls / netflix) implementations with unsupported xml syntax - must be extended. 
+- There will be many dash mpd, smoothstream or hls manifest types currently not supported - must be extended. 
 
 ##### Notes:
 - This addon is single threaded. The memory consumption is the sum of a single segment from each stream currently playing (will be reduced, see TODO's) Refering to known streams it is < 10MB for 720p videos.
@@ -52,3 +52,4 @@ If your display resolution is 720p, you will not be able to watch 1080p videos i
 
 ##### Continuous integration:
 [Travis CI build state:](https://travis-ci.org/peak3d) ![alt tag](https://travis-ci.org/peak3d/inputstream.adaptive.svg?branch=master)  
+[Appveyor:](https://ci.appveyor.com/project/peak3d) ![alt tag](https://ci.appveyor.com/api/projects/status/ah9s8usgxhangq7o?svg=true)
