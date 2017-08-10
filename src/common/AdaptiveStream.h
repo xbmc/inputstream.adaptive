@@ -75,6 +75,7 @@ namespace adaptive
     bool write_data(const void *buffer, size_t buffer_size);
   private:
     // Segment download section
+    void ResetSegment();
     bool download_segment();
     void worker();
 

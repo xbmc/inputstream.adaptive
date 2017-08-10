@@ -44,12 +44,18 @@ AdaptiveStream::~AdaptiveStream()
   clear();
 }
 
-bool AdaptiveStream::download_segment()
+void AdaptiveStream::ResetSegment()
 {
   segment_buffer_.clear();
-  //absolute_position_ = 0;
   segment_read_pos_ = 0;
 
+  if (current_seg_ && !(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE
+  | AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::URLSEGMENTS)))
+    absolute_position_ = current_seg_->range_begin_;
+}
+
+bool AdaptiveStream::download_segment()
+{
   if (!current_seg_)
     return false;
 
@@ -70,7 +76,6 @@ bool AdaptiveStream::download_segment()
         strURL = current_rep_->url_;
         sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, current_seg_->range_begin_, current_seg_->range_end_);
         rangeHeader = rangebuf;
-        absolute_position_ = current_seg_->range_begin_;
       }
     }
     else if (current_seg_ != &current_rep_->initialization_) //templated segment
@@ -260,6 +265,7 @@ bool AdaptiveStream::ensureSegment()
     if (current_seg_)
     {
       loading_seg_ = current_seg_;
+      ResetSegment();
       thread_data_->signal_dl_.notify_one();
     }
     else
