@@ -25,6 +25,7 @@ TSReader::TSReader(AP4_ByteStream *stream, uint32_t requiredMask)
   , m_PTSOffset(~0ULL)
   , m_PTSDiff(0)
   , m_requiredMask(requiredMask)
+  , m_typeMask(0)
 {
 }
 
@@ -63,6 +64,7 @@ void TSReader::Reset(bool resetPackets)
 
 bool TSReader::StartStreaming(AP4_UI32 typeMask)
 {
+  m_typeMask = typeMask;
   // All streams are ON at this place
   for (auto &tsInfo : m_streamInfos)
   {
@@ -207,6 +209,7 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
           if (HandleStreamChange(m_pkt.pid))
           {
             m_AVContext->GoPosition(m_startPos, true);
+            StartStreaming(m_typeMask);
             return true;
           }
         }

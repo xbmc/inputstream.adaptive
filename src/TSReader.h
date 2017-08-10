@@ -66,6 +66,7 @@ private:
   uint64_t m_PTSOffset;
   int64_t m_PTSDiff;
   uint32_t m_requiredMask;
+  uint32_t m_typeMask;
 
   struct TSINFO
   {
