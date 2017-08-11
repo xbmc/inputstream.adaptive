@@ -153,6 +153,9 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
   {
     std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
 
+    if (stopped_)
+      return false;
+
     size_t insertPos(segment_buffer_.size());
     segment_buffer_.resize(insertPos + buffer_size);
     tree_.OnDataArrived(const_cast<AdaptiveTree::Representation*>(current_rep_), current_seg_,
@@ -293,17 +296,17 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
         continue;
       }
 
-      if (avail >= bytesToRead)
-      {
-        if (avail > bytesToRead)
-          avail = bytesToRead;
+      if (avail > bytesToRead)
+        avail = bytesToRead;
 
-        memcpy(buffer, segment_buffer_.data() + segment_read_pos_, avail);
-
-        return avail;
-      }
       segment_read_pos_ += avail;
       absolute_position_ += avail;
+
+      if (avail == bytesToRead)
+      {
+        memcpy(buffer, segment_buffer_.data() + (segment_read_pos_ - avail), avail);
+        return avail;
+      }
       return 0;
     }
   }

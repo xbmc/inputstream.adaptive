@@ -225,6 +225,11 @@ public:
     AP4_AvcFrameParser();
    ~AP4_AvcFrameParser();
     
+   static AP4_Result AP4_AvcFrameParser::ParseFrameForSPS(const AP4_Byte* data,
+     AP4_Size data_size,
+     AP4_UI08 naluLengthSize,
+     AP4_AvcSequenceParameterSet &sps);
+
     /**
      * Feed some data to the parser and look for the next NAL Unit.
      *
@@ -257,10 +262,10 @@ public:
      * responsible for freeing this data by calling AccessUnitInfo::Reset()
      */
     AP4_Result Feed(const void*     data,
-                    AP4_Size        data_size,
-                    AP4_Size&       bytes_consumed,
-                    AccessUnitInfo& access_unit_info,
-                    bool            eos=false);
+      AP4_Size        data_size,
+      AP4_Size&       bytes_consumed,
+      AccessUnitInfo& access_unit_info,
+      bool            eos=false);
     
     AP4_AvcSequenceParameterSet** GetSequenceParameterSets() { return &m_SPS[0]; }
     AP4_AvcPictureParameterSet**  GetPictureParameterSets()  { return &m_PPS[0]; }

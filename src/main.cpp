@@ -858,6 +858,9 @@ public:
         return result;
       }
 
+      //AP4_AvcSequenceParameterSet sps;
+      //AP4_AvcFrameParser::ParseFrameForSPS(m_sampleData.GetData(), m_sampleData.GetDataSize(), 4, sps);
+
       //Protection could have changed in ProcessMoof
       if (!decrypterPresent && m_decrypter != nullptr && !useDecryptingDecoder)
         m_encrypted.SetData(m_sampleData.GetData(), m_sampleData.GetDataSize());
