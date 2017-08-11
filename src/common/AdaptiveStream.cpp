@@ -122,8 +122,7 @@ bool AdaptiveStream::download_segment()
 
   if (download(strURL.c_str(), media_headers_))
   {
-    tree_.OnSegmentDownloaded(const_cast<AdaptiveTree::Representation*>(current_rep_), 
-      current_seg_, segment_buffer_);
+    tree_.OnSegmentDownloaded(const_cast<AdaptiveTree::Representation*>(current_rep_), current_seg_);
     return true;
   }
   return false;
@@ -153,7 +152,11 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 {
   {
     std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-    segment_buffer_ += std::string((const char *)buffer, buffer_size);
+
+    size_t insertPos(segment_buffer_.size());
+    segment_buffer_.resize(insertPos + buffer_size);
+    tree_.OnDataArrived(const_cast<AdaptiveTree::Representation*>(current_rep_), current_seg_,
+      reinterpret_cast<const uint8_t*>(buffer), reinterpret_cast<uint8_t*>(&segment_buffer_[0]), insertPos, buffer_size);
   }
   thread_data_->signal_rw_.notify_one();
   return true;
@@ -297,10 +300,10 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
 
         memcpy(buffer, segment_buffer_.data() + segment_read_pos_, avail);
 
-        segment_read_pos_ += avail;
-        absolute_position_ += avail;
         return avail;
       }
+      segment_read_pos_ += avail;
+      absolute_position_ += avail;
       return 0;
     }
   }
@@ -453,5 +456,4 @@ void AdaptiveStream::clear()
 {
   current_adp_ = 0;
   current_rep_ = 0;
-
 }

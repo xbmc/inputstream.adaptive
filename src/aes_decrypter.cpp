@@ -19,7 +19,7 @@
 #include "aes_decrypter.h"
 #include "Ap4Protection.h"
 
-void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, std::string &data)
+void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, const AP4_UI08 *src, AP4_UI08 *dst, size_t dataSize)
 {
   AP4_BlockCipher* cbc_d_block_cipher;
   AP4_DefaultBlockCipherFactory::Instance.CreateCipher(
@@ -31,9 +31,7 @@ void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, std:
     16,
     cbc_d_block_cipher);
 
-  m_swapBuffer.resize(data.size());
-  cbc_d_block_cipher->Process(reinterpret_cast<const AP4_UI08*>(data.data()), data.size(), reinterpret_cast<AP4_UI08*>(&m_swapBuffer[0]), aes_iv);
-  data.swap(m_swapBuffer);
+  cbc_d_block_cipher->Process(src, dataSize, dst, aes_iv);
 
   delete cbc_d_block_cipher;
 }

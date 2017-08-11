@@ -36,7 +36,8 @@ namespace adaptive
     virtual bool open(const char *url) override;
     virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) override;
     virtual bool write_data(void *buffer, size_t buffer_size) override;
-    virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg, std::string &data) override;
+    virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize) override;
+    virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg) override;
   private:
     void ClearStream();
     std::stringstream m_stream;
@@ -61,6 +62,7 @@ namespace adaptive
     std::map<std::string, EXTGROUP> m_extGroups;
     bool m_refreshPlayList = true;
     AESDecrypter *m_decrypter;
+    uint8_t m_iv[16];
   };
 
 } // namespace

@@ -438,8 +438,7 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size)
   return true;
 }
 
-// TODO Decryption if required
-void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, std::string &data)
+void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
 {
   if (rep->pssh_set_)
   {
@@ -454,19 +453,28 @@ void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg, std::
         parseheader(headers, keyParts[1].c_str());
       if (download(pssh.pssh_.c_str(), headers))
       {
-        pssh.defaultKID_ =  m_stream.str();
+        pssh.defaultKID_ = m_stream.str();
       }
+      else
+        pssh.defaultKID_ = "0000000000000000";
     }
-
-    uint8_t iv[16];
-    if (pssh.iv.empty())
-      m_decrypter->ivFromSequence(iv, rep->segmentBaseId_ + rep->segments_.pos(seg));
-    else
-      memcpy(iv, pssh.iv.data(), 16);
-
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, data);
+    if (!dstOffset)
+    {
+      if (pssh.iv.empty())
+        m_decrypter->ivFromSequence(m_iv, rep->segmentBaseId_ + rep->segments_.pos(seg));
+      else
+        memcpy(m_iv, pssh.iv.data(), 16);
+    }
+    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), m_iv, src, dst + dstOffset, dataSize);
+    if(dataSize >= 16)
+      memcpy(m_iv, src + (dataSize - 16), 16);
   }
+  else
+    AdaptiveTree::OnDataArrived(rep, seg, src, dst, dstOffset, dataSize);
+}
 
+void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg)
+{
   if (m_refreshPlayList && rep->containerType_ == CONTAINERTYPE_TS && rep->segments_.pos(seg))
     prepareRepresentation(rep, rep->segmentBaseId_ + rep->segments_.pos(seg));
 }
