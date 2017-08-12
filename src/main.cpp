@@ -1972,6 +1972,8 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
         else
         {
           kodi::Log(ADDON_LOG_INFO, "seekTime(%0.4f) for Stream:%d continues at %llu", seekTime, (*b)->info_.m_pID, (*b)->reader_->PTS());
+          if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+            seekTime = static_cast<double>((*b)->reader_->PTS()) / DVD_TIME_BASE, preceeding = false;
           ret = true;
         }
       }

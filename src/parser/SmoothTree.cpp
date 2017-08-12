@@ -391,7 +391,7 @@ bool SmoothTree::open(const char *url)
     }
   }
 
-  SortRepresentations();
+  SortTree();
 
   return true;
 }

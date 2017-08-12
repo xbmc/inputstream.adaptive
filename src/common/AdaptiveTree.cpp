@@ -154,11 +154,14 @@ namespace adaptive
     return 0;
   }
 
-  void AdaptiveTree::SortRepresentations()
+  void AdaptiveTree::SortTree()
   {
     for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
+    {
+      std::sort((*bp)->adaptationSets_.begin(), (*bp)->adaptationSets_.end(), AdaptationSet::compare);
       for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
         std::sort((*ba)->repesentations_.begin(), (*ba)->repesentations_.end(), Representation::compare);
+    }
   }
 
 } // namespace

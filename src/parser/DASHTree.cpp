@@ -1182,7 +1182,7 @@ bool DASHTree::open(const char *url)
   XML_ParserFree(parser_);
   parser_ = 0;
 
-  SortRepresentations();
+  SortTree();
 
   return ret;
 }

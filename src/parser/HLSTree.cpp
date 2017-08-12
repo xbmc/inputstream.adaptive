@@ -230,7 +230,7 @@ bool HLSTree::open(const char *url)
           current_period_->adaptationSets_.push_back(adp);
       m_extGroups.clear();
 
-      SortRepresentations();
+      SortTree();
     }
     // Set Live as default
     has_timeshift_buffer_ = true;

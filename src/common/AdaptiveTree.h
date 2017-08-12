@@ -198,6 +198,8 @@ namespace adaptive
         return *segment_durations_[pos];
       };
 
+      static bool compare(const AdaptationSet* a, const AdaptationSet *b) { return a->type_ < b->type_; };
+
       SegmentTemplate segtpl_;
     }*current_adaptationset_;
 
@@ -281,7 +283,7 @@ namespace adaptive
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
-  void SortRepresentations();
+  void SortTree();
 private:
   std::mutex m_mutex;
 };

@@ -267,6 +267,8 @@ bool AdaptiveStream::ensureSegment()
 
   if (!loading_seg_ && segment_read_pos_ >= segment_buffer_.size())
   {
+    //wait until worker is reeady for new segment
+    std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
     current_seg_ = current_rep_->get_next_segment(current_seg_);
     if (current_seg_)
     {
@@ -285,6 +287,7 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
 {
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
+NEXTSEGMENT:
   if (ensureSegment() && bytesToRead)
   {
     while (true)
@@ -307,6 +310,9 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
         memcpy(buffer, segment_buffer_.data() + (segment_read_pos_ - avail), avail);
         return avail;
       }
+      // If we call read after the last chunk was read but before worker finishes download, we end up here.
+      if (!avail)
+        goto NEXTSEGMENT;
       return 0;
     }
   }
@@ -315,11 +321,15 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
 
 bool AdaptiveStream::seek(uint64_t const pos)
 {
-  std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
+  std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
   // we seek only in the current segment
   if (pos >= absolute_position_ - segment_read_pos_)
   {
     segment_read_pos_ = static_cast<uint32_t>(pos - (absolute_position_ - segment_read_pos_));
+
+    while (segment_read_pos_ > segment_buffer_.size() && loading_seg_)
+      thread_data_->signal_rw_.wait(lckrw);
+
     if (segment_read_pos_ > segment_buffer_.size())
     {
       segment_read_pos_ = static_cast<uint32_t>(segment_buffer_.size());
@@ -333,7 +343,7 @@ bool AdaptiveStream::seek(uint64_t const pos)
 
 bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool &needReset)
 {
-  if (!current_rep_)
+  if (!current_rep_ || stopped_)
     return false;
 
   if (current_rep_->flags_ & AdaptiveTree::Representation::SUBTITLESTREAM)
@@ -352,12 +362,22 @@ bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool
   if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
     --choosen_seg;
 
-  const AdaptiveTree::Segment* old_seg(current_seg_);
-  if ((current_seg_ = current_rep_->get_segment(choosen_seg)))
+  const AdaptiveTree::Segment *old_seg(current_seg_), *newSeg(current_rep_->get_segment(choosen_seg));
+  if (newSeg)
   {
     needReset = true;
-    if (current_seg_ != old_seg)
-      download_segment();
+    if (newSeg != old_seg)
+    {
+      //stop downloading chunks
+      stopped_ = true;
+      //wait until last reading operation stopped
+      std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
+      stopped_ = false;
+      current_seg_ = loading_seg_ = newSeg;
+      absolute_position_ = 0;
+      ResetSegment();
+      thread_data_->signal_dl_.notify_one();
+    }
     else if (seek_seconds < current_seconds)
     {
       absolute_position_ -= segment_read_pos_;
