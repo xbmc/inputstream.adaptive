@@ -362,6 +362,10 @@ bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool
   if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
     --choosen_seg;
 
+  // Never seek into expired segments.....
+  if (choosen_seg < current_rep_->expired_segments_)
+    choosen_seg = current_rep_->expired_segments_;
+
   const AdaptiveTree::Segment *old_seg(current_seg_), *newSeg(current_rep_->get_segment(choosen_seg));
   if (newSeg)
   {

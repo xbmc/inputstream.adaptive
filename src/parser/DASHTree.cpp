@@ -278,7 +278,7 @@ static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTre
       pto = atoll((const char*)*(attr + 1));
     attr += 2;
   }
-  tpl.presentationTimeOffset = tpl.timescale ? (pto * 1000000) / tpl.timescale : 0;
+  tpl.presentationTimeOffset = tpl.timescale ? static_cast<uint64_t>((static_cast<double>(pto) / tpl.timescale) * 1000000)  : 0;
   tpl.media = baseURL + tpl.media;
 }
 

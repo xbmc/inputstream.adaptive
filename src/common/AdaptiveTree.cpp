@@ -19,6 +19,7 @@
 #include "AdaptiveTree.h"
 #include <string.h>
 #include <algorithm>
+#include <stdlib.h>
 
 namespace adaptive
 {
@@ -98,7 +99,7 @@ namespace adaptive
       return;
 
     //Get a modifiable adaptationset
-    AdaptationSet *adpm(static_cast<AdaptationSet *>((void*)adp));
+    AdaptationSet *adpm(const_cast<AdaptationSet *>(adp));
 
     // Check if its the last frame we watch
     if (adp->segment_durations_.data.size())
@@ -108,7 +109,10 @@ namespace adaptive
         adpm->segment_durations_.insert(static_cast<std::uint64_t>(fragmentDuration)*adp->timescale_ / movie_timescale);
       }
       else
+      {
+        ++const_cast<Representation*>(rep)->expired_segments_;
         return;
+      }
     }
     else if (pos != rep->segments_.data.size() - 1)
       return;
@@ -126,6 +130,11 @@ namespace adaptive
 
     for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
       (*b)->segments_.insert(seg);
+  }
+
+  void AdaptiveTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
+  { 
+    memcpy(dst + dstOffset, src, dataSize);
   }
 
   uint8_t AdaptiveTree::insert_psshset(StreamType type)

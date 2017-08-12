@@ -343,6 +343,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
               rep->segments_.insert(segment);
               ++rep->segmentBaseId_;
               --freeSegments;
+              if (rep->expired_segments_)
+                --rep->expired_segments_;
               rep->nextPTS_ = pts;
             }
             else if (byteRange)
@@ -366,6 +368,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
             return false;
           freeSegments = static_cast<size_t>(segmentId - rep->segmentBaseId_); // Number of slots to fill
           segmentId += rep->segments_.data.size() - freeSegments; //First segmentId to be inserted
+          rep->expired_segments_ = segmentBaseId - rep->segmentBaseId_;
         }
         else if (line.compare(0, 21, "#EXT-X-PLAYLIST-TYPE:") == 0)
         {

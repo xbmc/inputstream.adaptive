@@ -114,7 +114,7 @@ namespace adaptive
     struct Representation
     {
       Representation() :bandwidth_(0), samplingRate_(0),  width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
-        flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0),
+        flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0), expired_segments_(0),
         containerType_(AdaptiveTree::CONTAINERTYPE_MP4), duration_(0), timescale_(0), segmentBaseId_(~0ULL), nextPTS_(0){};
       std::string url_;
       std::string id;
@@ -143,6 +143,7 @@ namespace adaptive
       uint32_t indexRangeMin_, indexRangeMax_;
       uint8_t channelCount_, nalLengthSize_;
       uint8_t pssh_set_;
+      uint32_t expired_segments_;
       ContainerType containerType_;
       SegmentTemplate segtpl_;
       //SegmentList
@@ -267,7 +268,7 @@ namespace adaptive
 
     virtual bool open(const char *url) = 0;
     virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) { return true; };
-    virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize) { memcpy(dst + dstOffset, src, dataSize); };
+    virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg) {};
 
     uint8_t insert_psshset(StreamType type);
