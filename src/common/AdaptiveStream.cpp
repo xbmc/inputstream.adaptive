@@ -35,6 +35,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
   , current_seg_(nullptr)
   , loading_seg_(nullptr)
   , thread_data_(nullptr)
+  , segment_read_pos_(0)
 {
 }
 
@@ -130,8 +131,9 @@ bool AdaptiveStream::download_segment()
 
 void AdaptiveStream::worker()
 {
+  std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
+  thread_data_->signal_dl_.notify_one();
   do {
-    std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
     thread_data_->signal_dl_.wait(lckdl);
 
     bool ret  = download_segment();
@@ -238,7 +240,10 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
   if (!thread_data_ && !stopped_)
   {
     thread_data_ = new THREADDATA();
+    std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
     thread_data_->Start(this);
+    // Wait until worker thread is waiting for input
+    thread_data_->signal_dl_.wait(lckdl);
   }
 
   return true;
