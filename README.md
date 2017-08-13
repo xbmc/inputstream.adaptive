@@ -1,4 +1,4 @@
-# inputstream.adaptive (2.0.7)
+# inputstream.adaptive (2.0.8)
 
 This is an adaptive file addon for kodi's new InputStream Interface.
 
@@ -38,12 +38,11 @@ If your display resolution is 720p, you will not be able to watch 1080p videos i
 ##### TODO's:
 - Adaptive bitrate switching is prepared but currently not yet activated  
 - Automatic / fixed video stream selection depending on max. visible display rect (some work has to be done at the inputstream interface).
-- Currently always a full segment is read from source into memory before it is processed. Reading in smaller chunks could be lead to faster start of the media and better cache fill strategy.
 - DASH implementation of periods (currently only the first period is considered)
 - There will be many dash mpd, smoothstream or hls manifest types currently not supported - must be extended. 
 
 ##### Notes:
-- This addon is single threaded. The memory consumption is the sum of a single segment from each stream currently playing (will be reduced, see TODO's) Refering to known streams it is < 10MB for 720p videos.
+- This addon uses threads to download segments. The memory consumption is the sum of single segment from each stream currently playing. Refering to known streams it is < 10MB for 720p videos.
 
 ##### Credits:
 [@fernetmenta](github.com/fernetmenta) Best support I ever got regarding streams / codecs and kodi internals.  
