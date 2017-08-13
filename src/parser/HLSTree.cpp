@@ -261,6 +261,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
       segment.startPTS_ = ~0ULL;
+      segment.pssh_set_ = 0;
 
       std::string::size_type bs = rep->source_url_.rfind('/');
       if (bs != std::string::npos)
@@ -362,7 +363,11 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
           if (segmentBaseId == rep->segmentBaseId_)
             return true; //Nothing to do
           else if (!~rep->segmentBaseId_)
+          {
+            if (!segmentBaseId)
+              has_timeshift_buffer_ = false;
             continue;
+          }
           //calculate first and last segment we have to replace
           if (segmentBaseId > rep->segmentBaseId_ + rep->segments_.data.size()) //we have lost our window / game over
             return false;
@@ -400,7 +405,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
               current_pssh_ = base_domain_ + current_pssh_;
 
             current_iv_ = m_decrypter->convertIV(map["IV"]);
-            rep->pssh_set_ = insert_psshset(NOTYPE);
+            segment.pssh_set_ = insert_psshset(NOTYPE);
           }
         }
         else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
@@ -411,7 +416,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 
       overallSeconds_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;
 
-      if (!~rep->segmentBaseId_)
+      if (!~rep->segmentBaseId_ && segmentBaseId)
         rep->segmentBaseId_ = segmentBaseId;
 
       if (!byteRange)
@@ -443,9 +448,9 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size)
 
 void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
 {
-  if (rep->pssh_set_)
+  if (seg->pssh_set_)
   {
-    PSSH &pssh(psshSets_[rep->pssh_set_]);
+    PSSH &pssh(psshSets_[seg->pssh_set_]);
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {

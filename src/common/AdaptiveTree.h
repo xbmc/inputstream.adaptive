@@ -99,6 +99,7 @@ namespace adaptive
         const char *url;
       };
       uint64_t startPTS_;
+      uint8_t pssh_set_;
     };
 
     struct SegmentTemplate
@@ -235,7 +236,7 @@ namespace adaptive
       static const uint32_t MEDIA_AUDIO = 2;
 
       PSSH(){};
-      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_; };
+      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ && iv == other.iv; };
       std::string pssh_;
       std::string defaultKID_;
       std::string iv;

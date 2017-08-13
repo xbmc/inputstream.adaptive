@@ -198,7 +198,7 @@ bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
 
 bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height)
 {
-  if (!~seg_offset && tree_.available_time_ > 0 && current_rep_->segments_.data.size()>1)
+  if (!~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size()>1)
   {
     std::int32_t pos;
     if (tree_.has_timeshift_buffer_ || tree_.available_time_>= tree_.stream_start_)
