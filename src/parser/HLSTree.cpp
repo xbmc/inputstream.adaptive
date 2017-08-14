@@ -97,10 +97,16 @@ bool HLSTree::open(const char *url)
 
     while (std::getline(m_stream, line))
     {
-      if (!startCodeFound && line.compare(0, 7, "#EXTM3U") == 0)
-        startCodeFound = true;
-      else if (!startCodeFound)
+      if (!startCodeFound)
+      {
+        if (line.compare(0, 7, "#EXTM3U") == 0)
+          startCodeFound = true;
         continue;
+      }
+
+      std::string::size_type sz(line.size());
+      while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n' || line[sz - 1] == ' ')) --sz;
+      line.resize(sz);
 
       if (line.compare(0, 13, "#EXT-X-MEDIA:") == 0)
       {
@@ -269,14 +275,16 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 
       while (std::getline(m_stream, line))
       {
-        std::string::size_type sz(line.size());
-        while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n')) --sz;
-        line.resize(sz);
-
-        if (!startCodeFound && line.compare(0, 7, "#EXTM3U") == 0)
-          startCodeFound = true;
-        else if (!startCodeFound)
+        if (!startCodeFound)
+        {
+          if (line.compare(0, 7, "#EXTM3U") == 0)
+            startCodeFound = true;
           continue;
+        }
+
+        std::string::size_type sz(line.size());
+        while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n' || line[sz - 1] == ' ')) --sz;
+        line.resize(sz);
 
         if (line.compare(0, 8, "#EXTINF:") == 0)
         {
