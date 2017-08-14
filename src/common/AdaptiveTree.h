@@ -154,10 +154,12 @@ namespace adaptive
       Segment initialization_;
       SPINCACHE<Segment> segments_;
       const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
-      const Segment *get_next_segment(const Segment *seg)const
+      const Segment *get_next_segment(const Segment *seg, bool wrap)const
       {
         if (!seg || seg == &initialization_)
           return segments_[0];
+        else if (!wrap && segments_.pos(seg) + 1 == segments_.data.size())
+          return nullptr;
         else
           return segments_[segments_.pos(seg) + 1];
       };
