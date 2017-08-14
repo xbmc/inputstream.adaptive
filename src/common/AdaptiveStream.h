@@ -63,13 +63,14 @@ namespace adaptive
     uint32_t read(void* buffer, uint32_t  bytesToRead);
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
-    bool seek_time(double seek_seconds, double current_seconds, bool &needReset);
+    bool seek_time(double seek_seconds, bool preceeding, bool &needReset);
     AdaptiveTree::AdaptationSet const *getAdaptationSet() { return current_adp_; };
     AdaptiveTree::Representation const *getRepresentation(){ return current_rep_; };
     double get_download_speed() const { return tree_.get_download_speed(); };
     void set_download_speed(double speed) { tree_.set_download_speed(speed); };
     size_t getSegmentPos() { return current_rep_->segments_.pos(current_seg_); };
     uint64_t GetPTSOffset() { return current_seg_ ? current_seg_->startPTS_ : 0; };
+    uint64_t GetStartPTS() const { return start_PTS_; };
   protected:
     virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
@@ -119,6 +120,7 @@ namespace adaptive
     std::map<std::string, std::string> media_headers_;
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
+    uint64_t start_PTS_;
 
     uint16_t width_, height_;
     uint32_t bandwidth_;

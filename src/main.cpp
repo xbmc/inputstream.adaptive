@@ -733,6 +733,7 @@ public:
   virtual bool EOS()const = 0;
   virtual uint64_t  DTS()const = 0;
   virtual uint64_t  PTS()const = 0;
+  virtual uint64_t  Elapsed(uint64_t basePTS) = 0;
   virtual AP4_Result Start(bool &bStarted) = 0;
   virtual AP4_Result ReadSample() = 0;
   virtual void Reset(bool bEOS) = 0;
@@ -745,7 +746,6 @@ public:
   virtual AP4_Size GetSampleDataSize()const = 0;
   virtual const AP4_Byte *GetSampleData()const = 0;
   virtual uint64_t GetDuration()const = 0;
-  virtual int64_t GetPTSDiff() const = 0;
   virtual bool IsEncrypted()const = 0;
   virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) {};
   virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) {};
@@ -761,7 +761,7 @@ class FragmentedSampleReader : public SampleReader, public AP4_LinearReader
 public:
 
   FragmentedSampleReader(AP4_ByteStream *input, AP4_Movie *movie, AP4_Track *track, AP4_UI32 streamId,
-    AP4_CencSingleSampleDecrypter *ssd, uint64_t pto, const SSD::SSD_DECRYPTER::SSD_CAPS &dcaps)
+    AP4_CencSingleSampleDecrypter *ssd, const SSD::SSD_DECRYPTER::SSD_CAPS &dcaps)
     : AP4_LinearReader(*movie, input)
     , m_track(track)
     , m_streamId(streamId)
@@ -773,7 +773,6 @@ public:
     , m_started(false)
     , m_dts(0)
     , m_pts(0)
-    , m_presentationTimeOffset((pto))
     , m_ptsOffset(0)
     , m_codecHandler(0)
     , m_defaultKey(0)
@@ -818,8 +817,6 @@ public:
       }
       else
         break;
-
-    m_presentationTimeOffset = (m_presentationTimeOffset * m_timeBaseInt) / m_timeBaseExt;
 
     //We need this to fill extradata
     UpdateSampleDescription();
@@ -897,8 +894,8 @@ public:
         m_codecHandler->ReadNextSample(m_sample, m_sampleData);
     }
 
-    m_dts = ((m_sample.GetDts() - m_presentationTimeOffset) * m_timeBaseExt) / m_timeBaseInt;
-    m_pts = ((m_sample.GetCts() - m_presentationTimeOffset) * m_timeBaseExt) / m_timeBaseInt;
+    m_dts = (m_sample.GetDts() * m_timeBaseExt) / m_timeBaseInt;
+    m_pts = (m_sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
 
     m_codecHandler->UpdatePPSId(m_sampleData);
 
@@ -914,11 +911,11 @@ public:
   virtual bool EOS() const  override { return m_eos; };
   virtual uint64_t DTS()const override { return m_dts; };
   virtual uint64_t  PTS()const override { return m_pts; };
+  virtual uint64_t  Elapsed(uint64_t basePTS) { return m_pts > basePTS ? m_pts - basePTS : 0; };
   virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
   virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
   virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
   virtual uint64_t GetDuration()const override { return (m_sample.GetDuration() * m_timeBaseExt) / m_timeBaseInt; };
-  virtual int64_t GetPTSDiff() const override { return 0; };
   virtual bool IsEncrypted()const override { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_decrypter != nullptr; };
   virtual bool GetInformation(INPUTSTREAM_INFO &info) override
   {
@@ -947,7 +944,7 @@ public:
   virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
     AP4_Ordinal sampleIndex;
-    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts*m_timeBaseInt) / m_timeBaseExt + m_presentationTimeOffset));
+    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts*m_timeBaseInt) / m_timeBaseExt));
     if (AP4_SUCCEEDED(SeekSample(m_track->GetId(), seekPos, sampleIndex, preceeding)))
     {
       if (m_decrypter)
@@ -960,7 +957,10 @@ public:
     return false;
   };
 
-  virtual void SetPTSOffset(uint64_t offset) override { FindTracker(m_track->GetId())->m_NextDts = m_ptsOffset = offset; };
+  virtual void SetPTSOffset(uint64_t offset) override
+  {
+    FindTracker(m_track->GetId())->m_NextDts = m_ptsOffset = offset;
+  };
 
   virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
   {
@@ -1101,7 +1101,6 @@ private:
 
   bool m_eos, m_started;
   int64_t m_dts, m_pts;
-  int64_t m_presentationTimeOffset;
   AP4_UI64 m_ptsOffset;
 
   uint64_t m_timeBaseExt, m_timeBaseInt;
@@ -1125,10 +1124,9 @@ private:
 class SubtitleSampleReader : public SampleReader
 {
 public:
-  SubtitleSampleReader(const std::string &url, AP4_UI32 streamId, const int64_t pto)
+  SubtitleSampleReader(const std::string &url, AP4_UI32 streamId)
     : m_pts(0)
     , m_streamId(streamId)
-    , m_presentationTimeOffset(pto * 1000)
     , m_eos(false)
     , m_codecHandler(nullptr)
   {
@@ -1157,12 +1155,13 @@ public:
   virtual bool EOS()const override { return m_eos; };
   virtual uint64_t DTS()const override { return m_pts; };
   virtual uint64_t PTS()const override { return m_pts; };
+  virtual uint64_t  Elapsed(uint64_t basePTS) { return m_pts > basePTS ? m_pts - basePTS : 0; };
   virtual AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
   virtual AP4_Result ReadSample() override
   {
     if (m_codecHandler.ReadNextSample(m_sample, m_sampleData))
     {
-      m_pts = m_sample.GetCts() * 1000 - m_presentationTimeOffset;
+      m_pts = m_sample.GetCts() * 1000;
       return AP4_SUCCESS;
     }
     m_eos = true;
@@ -1172,7 +1171,7 @@ public:
   virtual bool GetInformation(INPUTSTREAM_INFO &info) override { return false; };
   virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
-    if (m_codecHandler.TimeSeek(static_cast<uint64_t>((pts / 1000) + m_presentationTimeOffset)))
+    if (m_codecHandler.TimeSeek(pts / 1000))
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
@@ -1183,12 +1182,10 @@ public:
   virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
   virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
   virtual uint64_t GetDuration()const override { return m_sample.GetDuration() * 1000; };
-  virtual int64_t GetPTSDiff() const override { return 0; };
   virtual bool IsEncrypted()const override { return false; };
 private:
   uint64_t m_pts;
   AP4_UI32 m_streamId;
-  uint64_t m_presentationTimeOffset;
   bool m_eos;
 
   TTMLCodecHandler m_codecHandler;
@@ -1203,10 +1200,9 @@ private:
 class TSSampleReader : public SampleReader, public TSReader
 {
 public:
-  TSSampleReader(AP4_ByteStream *input, INPUTSTREAM_INFO::STREAM_TYPE type, AP4_UI32 streamId, const int64_t pto, uint32_t requiredMask)
+  TSSampleReader(AP4_ByteStream *input, INPUTSTREAM_INFO::STREAM_TYPE type, AP4_UI32 streamId, uint32_t requiredMask)
     : TSReader(input, requiredMask)
     , m_typeMask(1 << type)
-    , m_presentationTimeOffset((pto * 9) / 100)
   {
     m_typeMap[type] = streamId;
   };
@@ -1233,10 +1229,14 @@ public:
   };
 
   virtual bool EOS()const override { return m_eos; }
-
   virtual uint64_t DTS()const override { return m_dts; }
-
   virtual uint64_t PTS()const override { return m_pts; }
+  virtual uint64_t  Elapsed(uint64_t basePTS)
+  {
+    // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
+    int64_t playlistPTS = m_pts - (TSReader::GetPTSDiff() * 100LL / 9);
+    return playlistPTS > basePTS ? playlistPTS - basePTS : 0;
+  };
 
   virtual AP4_Result Start(bool &bStarted) override
   {
@@ -1258,8 +1258,8 @@ public:
   {
     if (ReadPacket())
     {
-      m_dts = (GetDts() == PTS_UNSET) ? DVD_NOPTS_VALUE : ((GetDts() - m_presentationTimeOffset) * 100) / 9;
-      m_pts = (GetPts() == PTS_UNSET) ? DVD_NOPTS_VALUE : ((GetPts() - m_presentationTimeOffset) * 100) / 9;
+      m_dts = (GetDts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetDts() * 100) / 9;
+      m_pts = (GetPts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetPts() * 100) / 9;
       return AP4_SUCCESS;
     }
     m_eos = true;
@@ -1279,8 +1279,8 @@ public:
 
   virtual bool TimeSeek(uint64_t pts, bool preceeding) override
   {
-    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts*9) / 100 + m_presentationTimeOffset));
-    if (TSReader::SeekTime(seekPos))
+    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts*9) / 100) + TSReader::GetPTSDiff());
+    if (TSReader::SeekTime(seekPos, preceeding))
     {
       m_started = true;
       return AP4_SUCCEEDED(ReadSample());
@@ -1299,13 +1299,11 @@ public:
   virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
   virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
   virtual uint64_t GetDuration()const override { return (TSReader::GetDuration() * 100) / 9; }
-  virtual int64_t GetPTSDiff() const { return TSReader::GetPTSDiff() * 100 / 9; }
   virtual bool IsEncrypted()const override { return false; };
 
 private:
   uint32_t m_typeMask; //Bit representation of INPUTSTREAM_INFO::STREAM_TYPES
   uint16_t m_typeMap[16];
-  uint64_t m_presentationTimeOffset;
   bool m_eos = false;
   bool m_started = false;
 
@@ -1347,7 +1345,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , height_(display_height)
   , changed_(false)
   , manual_streams_(false)
-  , last_pts_(0)
+  , elapsed_time_(0)
 {
   switch (manifest_type_)
   {
@@ -1938,8 +1936,7 @@ SampleReader *Session::GetNextSample()
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
-      last_pts_ = res->reader_->PTS();
-
+      elapsed_time_ = res->reader_->Elapsed(res->stream_.GetStartPTS());
     return res->reader_;
   }
   return 0;
@@ -1952,28 +1949,24 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)
     seekTime = 0;
-  uint64_t seekTimeDVD = static_cast<uint64_t>(seekTime * DVD_TIME_BASE) + GetPresentationTimeOffset();
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
-      int64_t ptsDiff((*b)->reader_->GetPTSDiff());
-      if (ptsDiff > static_cast<int64_t>(seekTimeDVD))
-        ptsDiff = seekTimeDVD;
-
-      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeDVD - ptsDiff) / DVD_TIME_BASE,
-        static_cast<double>(last_pts_) / DVD_TIME_BASE, bReset))
+      uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE) + (*b)->stream_.GetStartPTS();
+      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeCorrected) / DVD_TIME_BASE, preceeding, bReset))
       {
         if (bReset)
           (*b)->reader_->Reset(false);
-        if (!(*b)->reader_->TimeSeek(static_cast<uint64_t>(seekTime * DVD_TIME_BASE), preceeding))
+        if (!(*b)->reader_->TimeSeek(seekTimeCorrected, preceeding))
           (*b)->reader_->Reset(true);
         else
         {
-          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.4f) for Stream:%d continues at %llu", seekTime, (*b)->info_.m_pID, (*b)->reader_->PTS());
+          double destTime(static_cast<double>((*b)->reader_->Elapsed((*b)->stream_.GetStartPTS())) / DVD_TIME_BASE);
+          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.1lf) for Stream:%d continues at %0.1lf", seekTime, (*b)->info_.m_pID, destTime);
           if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
-            seekTime = static_cast<double>((*b)->reader_->PTS()) / DVD_TIME_BASE, preceeding = false;
+            seekTime = destTime, preceeding = false;
           ret = true;
         }
       }
@@ -2397,7 +2390,7 @@ void CInputStreamAdaptive::OpenStream(int streamid)
 
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
   {
-    stream->reader_ = new SubtitleSampleReader(rep->url_, streamid, m_session->GetPresentationTimeOffset());
+    stream->reader_ = new SubtitleSampleReader(rep->url_, streamid);
     return;
   }
 
@@ -2410,7 +2403,7 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
-    stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid, m_session->GetPresentationTimeOffset(),
+    stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid,
       (1U << stream->info_.m_streamType) | m_session->GetIncludedStreamMask());
     if (!static_cast<TSSampleReader*>(stream->reader_)->Initialize())
       return stream->disable();
@@ -2436,7 +2429,6 @@ void CInputStreamAdaptive::OpenStream(int streamid)
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
       m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
-      m_session->GetPresentationTimeOffset(),
       m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
   }
   else
@@ -2539,7 +2531,7 @@ int CInputStreamAdaptive::GetTotalTime()
   if (!m_session)
     return 0;
 
-  return static_cast<int>(m_session->GetTotalTime()*1000);
+  return static_cast<int>(m_session->GetTotalTimeMs());
 }
 
 int CInputStreamAdaptive::GetTime()
@@ -2547,7 +2539,7 @@ int CInputStreamAdaptive::GetTime()
   if (!m_session)
     return 0;
 
-  return static_cast<int>(m_session->GetPTS() / 1000);
+  return static_cast<int>(m_session->GetElapsedTimeMs());
 }
 
 bool CInputStreamAdaptive::CanPauseStream(void)

@@ -38,7 +38,7 @@ public:
 
   void Reset(bool resetPackets = true);
   bool StartStreaming(AP4_UI32 typeMask);
-  bool SeekTime(uint64_t timeInTs);
+  bool SeekTime(uint64_t timeInTs, bool preceeding);
   void SetPTSOffset(uint64_t offset) { m_PTSOffset = offset; };
 
   bool GetInformation(INPUTSTREAM_INFO &info);

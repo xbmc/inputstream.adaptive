@@ -428,6 +428,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
         rep->flags_ |= Representation::INITIALIZATION;
         rep->initialization_.range_begin_ = 0;
         rep->initialization_.range_end_ = rep->segments_.data[0].range_begin_ - 1;
+        rep->initialization_.pssh_set_ = 0;
       }
     }
   }

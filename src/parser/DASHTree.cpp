@@ -261,7 +261,6 @@ static uint8_t GetChannels(const char **attr)
 
 static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTree::SegmentTemplate &tpl)
 {
-  uint64_t pto(0);
   for (; *attr;)
   {
     if (strcmp((const char*)*attr, "timescale") == 0)
@@ -274,11 +273,8 @@ static void ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTre
       tpl.startNumber = atoi((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "initialization") == 0)
       tpl.initialization = (const char*)*(attr + 1);
-    else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
-      pto = atoll((const char*)*(attr + 1));
     attr += 2;
   }
-  tpl.presentationTimeOffset = tpl.timescale ? static_cast<uint64_t>((static_cast<double>(pto) / tpl.timescale) * 1000000)  : 0;
   tpl.media = baseURL + tpl.media;
 }
 
@@ -904,8 +900,6 @@ end(void *data, const char *el)
             }
             else if (strcmp(el, "SegmentTemplate") == 0)
             {
-              if (dash->current_representation_->segtpl_.presentationTimeOffset < dash->minPresentationOffset)
-                dash->minPresentationOffset = dash->current_representation_->segtpl_.presentationTimeOffset;
               dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
             }
           }
@@ -1042,8 +1036,6 @@ end(void *data, const char *el)
           }
           else if (strcmp(el, "SegmentTemplate") == 0)
           {
-            if (dash->current_adaptationset_->segtpl_.presentationTimeOffset < dash->minPresentationOffset)
-              dash->minPresentationOffset = dash->current_adaptationset_->segtpl_.presentationTimeOffset;
             dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
           }
         }

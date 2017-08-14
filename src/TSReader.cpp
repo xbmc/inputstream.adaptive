@@ -146,7 +146,7 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
 }
 
 // We assume that m_startpos is the current I-Frame position
-bool TSReader::SeekTime(uint64_t timeInTs)
+bool TSReader::SeekTime(uint64_t timeInTs, bool preceeding)
 {
   bool hasVideo(false);
   //look if we have video

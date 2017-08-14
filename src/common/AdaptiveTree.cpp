@@ -120,7 +120,7 @@ namespace adaptive
     Segment seg(*(rep->segments_[pos]));
 
     if (!timestamp)
-      fragmentDuration = static_cast<std::uint32_t>(static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_ / movie_timescale);
+      fragmentDuration = static_cast<std::uint32_t>((static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_) / movie_timescale);
     else
       fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - seg.startPTS_);
 

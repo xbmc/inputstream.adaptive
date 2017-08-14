@@ -36,6 +36,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
   , loading_seg_(nullptr)
   , thread_data_(nullptr)
   , segment_read_pos_(0)
+  , start_PTS_(0)
 {
 }
 
@@ -124,6 +125,7 @@ bool AdaptiveStream::download_segment()
   if (download(strURL.c_str(), media_headers_))
   {
     tree_.OnSegmentDownloaded(const_cast<AdaptiveTree::Representation*>(current_rep_), current_seg_);
+    start_PTS_ = (static_cast<double>(current_rep_->segments_[0]->startPTS_) / current_rep_->timescale_) * 1000000;
     return true;
   }
   return false;
@@ -237,7 +239,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     stopped_ = false;
   }
 
-  if (!thread_data_ && !stopped_)
+  if (!thread_data_)
   {
     thread_data_ = new THREADDATA();
     std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
@@ -346,7 +348,7 @@ bool AdaptiveStream::seek(uint64_t const pos)
   return false;
 }
 
-bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool &needReset)
+bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needReset)
 {
   if (!current_rep_ || stopped_)
     return false;
@@ -387,7 +389,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, double current_seconds, bool
       ResetSegment();
       thread_data_->signal_dl_.notify_one();
     }
-    else if (seek_seconds < current_seconds)
+    else if (!preceeding)
     {
       absolute_position_ -= segment_read_pos_;
       segment_read_pos_ = 0;

@@ -116,9 +116,8 @@ public:
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
   AP4_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
-  uint64_t GetPresentationTimeOffset() { return ~adaptiveTree_->minPresentationOffset ? adaptiveTree_->minPresentationOffset:0; };
-  uint64_t GetTotalTime()const { return adaptiveTree_->overallSeconds_; };
-  uint64_t GetPTS()const { return last_pts_; };
+  uint64_t GetTotalTimeMs()const { return adaptiveTree_->overallSeconds_ * 1000; };
+  uint64_t GetElapsedTimeMs()const { return elapsed_time_ / 1000; };
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
@@ -166,6 +165,6 @@ private:
   uint32_t fixed_bandwidth_;
   bool changed_;
   bool manual_streams_;
-  uint64_t last_pts_;
+  uint64_t elapsed_time_;
   uint8_t media_type_mask_;
 };
