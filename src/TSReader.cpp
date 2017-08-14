@@ -22,8 +22,6 @@
 
 TSReader::TSReader(AP4_ByteStream *stream, uint32_t requiredMask)
   : m_stream(stream)
-  , m_PTSOffset(~0ULL)
-  , m_PTSDiff(0)
   , m_requiredMask(requiredMask)
   , m_typeMask(0)
 {
@@ -195,13 +193,6 @@ bool TSReader::ReadPacket(bool scanStreamInfo)
 
     while (GetPacket())
     {
-      // m_PTSOffset is the current value in segment-list
-      // The difference is used to seek most probably directly to the correct segment
-      if (~m_PTSOffset && m_pkt.pts != PTS_UNSET)
-      {
-        m_PTSDiff = m_pkt.pts - m_PTSOffset;
-        m_PTSOffset = ~0ULL;
-      }
       if (scanStreamInfo)
       {
         if (m_pkt.streamChange)

@@ -148,6 +148,7 @@ namespace adaptive
       SegmentTemplate segtpl_;
       //SegmentList
       uint32_t duration_, timescale_;
+      uint32_t timescale_ext_, timescale_int_;
       uint64_t segmentBaseId_;
       uint64_t nextPTS_;
       Segment initialization_;
@@ -174,7 +175,26 @@ namespace adaptive
       const uint8_t get_psshset() const
       {
         return pssh_set_;
-      };
+      }
+
+      void SetScaling()
+      {
+        if (!timescale_)
+        {
+          timescale_ext_ = timescale_int_ = 1;
+          return;
+        }
+        timescale_ext_ = 1000000;
+        timescale_int_ = timescale_;
+        while (timescale_ext_ > 1)
+          if ((timescale_int_ / 10) * 10 == timescale_int_)
+          {
+            timescale_ext_ /= 10;
+            timescale_int_ /= 10;
+          }
+          else
+            break;
+      }
 
       static bool compare(const Representation* a, const Representation *b) { return a->bandwidth_ < b->bandwidth_; };
 

@@ -125,7 +125,7 @@ bool AdaptiveStream::download_segment()
   if (download(strURL.c_str(), media_headers_))
   {
     tree_.OnSegmentDownloaded(const_cast<AdaptiveTree::Representation*>(current_rep_), current_seg_);
-    start_PTS_ = (static_cast<double>(current_rep_->segments_[0]->startPTS_) / current_rep_->timescale_) * 1000000;
+    start_PTS_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
     return true;
   }
   return false;

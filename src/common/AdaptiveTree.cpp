@@ -169,7 +169,11 @@ namespace adaptive
     {
       std::sort((*bp)->adaptationSets_.begin(), (*bp)->adaptationSets_.end(), AdaptationSet::compare);
       for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
+      {
         std::sort((*ba)->repesentations_.begin(), (*ba)->repesentations_.end(), Representation::compare);
+        for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
+          (*br)->SetScaling();
+      }
     }
   }
 
