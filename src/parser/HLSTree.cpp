@@ -84,6 +84,12 @@ bool HLSTree::open(const char *url)
 {
   if (download(url, manifest_headers_))
   {
+#if FILEDEBUG
+    FILE *f = fopen("inputstream_adaptive_master.m3u8", "w");
+    fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
+    fclose(f);
+#endif
+
     std::string line;
     bool startCodeFound = false;
 
@@ -253,6 +259,11 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 
     if (download(rep->source_url_.c_str(), manifest_headers_))
     {
+#if FILEDEBUG
+      FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
+      fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
+      fclose(f);
+#endif
       bool byteRange(false);
       std::string line;
       std::string base_url;
@@ -314,10 +325,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
                 rep->containerType_ = CONTAINERTYPE_MP4;
               else
               {
-                rep->containerType_ = CONTAINERTYPE_NOTYPE;
+                rep->containerType_ = CONTAINERTYPE_INVALID;
                 continue;
               }
             }
+            else
+              //Fallback, assume .ts
+              rep->containerType_ = CONTAINERTYPE_TS;
           }
 
           if (!byteRange || rep->url_.empty())

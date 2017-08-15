@@ -84,6 +84,7 @@ namespace adaptive
     enum ContainerType : uint8_t
     {
       CONTAINERTYPE_NOTYPE,
+      CONTAINERTYPE_INVALID,
       CONTAINERTYPE_MP4,
       CONTAINERTYPE_TS
     };
