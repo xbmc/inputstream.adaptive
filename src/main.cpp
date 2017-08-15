@@ -2533,7 +2533,7 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double &st
 
   kodi::Log(ADDON_LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
 
-  return m_session->SeekTime(time * 0.001f, 0, !backwards);
+  return m_session->SeekTime(time * 0.001l, 0, !backwards);
 }
 
 //callback - will be called from kodi
