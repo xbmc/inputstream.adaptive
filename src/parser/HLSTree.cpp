@@ -19,6 +19,8 @@
 #include "HLSTree.h"
 #include <map>
 #include <string.h>
+#include <thread>
+
 #include "../log.h"
 #include "../aes_decrypter.h"
 #include "../helpers.h"
@@ -255,10 +257,17 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 {
   if ((rep->segments_.data.empty() || segmentId) && !rep->source_url_.empty())
   {
+    // If we are on the last segment, we have to make sure, that we get the next one, otherwise stream stopps
+    uint8_t numRetries(segmentId && segmentId-rep->segmentBaseId_ >= rep->segments_.data.size()-1 ? m_segmentIntervalSec : 0);
+
+LIVETRY:
     ClearStream();
 
     if (download(rep->source_url_.c_str(), manifest_headers_))
     {
+      Log(LOGLEVEL_DEBUG, "Prep: sid :%llu, base:%llu, size:%lu", segmentId, rep->segmentBaseId_, rep->segments_.data.size());
+
+
 #if FILEDEBUG
       FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
       fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
@@ -270,8 +279,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
 
       std::map<std::string, std::string> map;
       bool startCodeFound(false);
+      bool hasNewSegments(false);
       Segment segment;
-      uint64_t pts(rep->nextPTS_), segmentBaseId(0);
+      uint64_t pts(rep->nextPTS_), segmentBaseId(0), duration(0);
       size_t freeSegments(0);
       std::string::size_type segIdxPos(std::string::npos);
 
@@ -300,7 +310,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
         if (line.compare(0, 8, "#EXTINF:") == 0)
         {
           segment.startPTS_ = pts;
-          pts += static_cast<uint64_t>(atof(line.c_str() + 8) * rep->timescale_);
+          duration = static_cast<uint64_t>(atof(line.c_str() + 8) * rep->timescale_);
         }
         else if (line.compare(0, 17, "#EXT-X-BYTERANGE:") == 0)
         {
@@ -353,6 +363,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
           }
           if (!~rep->segmentBaseId_)
           {
+            pts += duration;
             rep->segments_.data.push_back(segment);
             rep->nextPTS_ = pts;
           }
@@ -364,10 +375,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
               if (byteRange)
                 delete rep->segments_[0]->url;
               rep->segments_.insert(segment);
+              hasNewSegments = true;
               ++rep->segmentBaseId_;
               --freeSegments;
               if (rep->expired_segments_)
                 --rep->expired_segments_;
+              pts += duration;
               rep->nextPTS_ = pts;
             }
             else if (byteRange)
@@ -383,7 +396,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
           segmentBaseId = atoll(line.c_str() + 22);
           Log(LOGLEVEL_DEBUG, "old base :%llu, new base:%llu, current:%llu", rep->segmentBaseId_, segmentBaseId, segmentId);
           if (segmentBaseId == rep->segmentBaseId_)
-            return true; //Nothing to do
+            break; //Nothing to do
           else if (!~rep->segmentBaseId_)
           {
             if (!segmentBaseId)
@@ -405,6 +418,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
             has_timeshift_buffer_ = false;
           }
         }
+        else if (line.compare(0, 22, "#EXT-X-TARGETDURATION:") == 0)
+          m_segmentIntervalSec = atoi(line.c_str() + 22);
         else if (line.compare(0, 11, "#EXT-X-KEY:") == 0)
         {
           if (!rep->pssh_set_)
@@ -434,6 +449,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
         {
           m_refreshPlayList = false;
         }
+      }
+
+      if (numRetries-- && !hasNewSegments)
+      {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        goto LIVETRY;
       }
 
       overallSeconds_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;

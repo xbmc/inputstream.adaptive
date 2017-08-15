@@ -212,7 +212,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     }
     //go at least 12 secs back
     uint64_t duration(current_rep_->get_segment(pos)->startPTS_ - current_rep_->get_segment(pos - 1)->startPTS_);
-    pos -= static_cast<uint32_t>((12 * current_rep_->timescale_) / duration);
+    pos -= static_cast<uint32_t>((12 * current_rep_->timescale_) / duration) + 1;
     current_seg_ = current_rep_->get_segment(pos < 0 ? 0: pos);
   }
   else
@@ -221,7 +221,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
   segment_buffer_.clear();
   segment_read_pos_ = 0;
 
-  if (!current_rep_->get_next_segment(current_seg_, tree_.has_timeshift_buffer_))
+  if (!current_rep_->get_next_segment(current_seg_))
   {
     absolute_position_ = ~0;
     stopped_ = true;
@@ -232,7 +232,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
 
     if (!(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::URLSEGMENTS)))
-      absolute_position_ = current_rep_->get_next_segment(current_seg_, tree_.has_timeshift_buffer_)->range_begin_;
+      absolute_position_ = current_rep_->get_next_segment(current_seg_)->range_begin_;
     else
       absolute_position_ = 0;
 
@@ -276,7 +276,7 @@ bool AdaptiveStream::ensureSegment()
   {
     //wait until worker is reeady for new segment
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
-    current_seg_ = current_rep_->get_next_segment(current_seg_, tree_.has_timeshift_buffer_);
+    current_seg_ = current_rep_->get_next_segment(current_seg_);
     if (current_seg_)
     {
       loading_seg_ = current_seg_;

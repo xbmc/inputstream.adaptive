@@ -61,6 +61,7 @@ namespace adaptive
 
     std::map<std::string, EXTGROUP> m_extGroups;
     bool m_refreshPlayList = true;
+    uint8_t m_segmentIntervalSec = 2;
     AESDecrypter *m_decrypter;
     uint8_t m_iv[16];
   };
