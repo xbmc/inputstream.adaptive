@@ -1436,6 +1436,8 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
 
 Session::~Session()
 {
+  kodi::Log(ADDON_LOG_DEBUG, "Session::~Session()");
+  adaptiveTree_->close();
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
@@ -1973,6 +1975,12 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   if (seekTime < 0)
     seekTime = 0;
 
+  if (adaptiveTree_->has_timeshift_buffer_ && seekTime > (static_cast<double>(GetTotalTimeMs()) / 1000) - 12)
+  {
+    seekTime = (static_cast<double>(GetTotalTimeMs()) / 1000) - 12;
+    preceeding = true;
+  }
+
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
@@ -2160,6 +2168,7 @@ public:
   virtual DemuxPacket* DemuxRead() override;
   virtual bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
   virtual void SetVideoResolution(int width, int height) override;
+  virtual bool PosTime(int ms) override;
   virtual int GetTotalTime() override;
   virtual int GetTime() override;
   virtual bool CanPauseStream() override;
@@ -2295,6 +2304,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
   kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
   caps.m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTS_IDEMUX |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_IDISPLAYTIME |
+    INPUTSTREAM_CAPABILITIES::SUPPORTS_IPOSTIME |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
 }
@@ -2526,14 +2536,10 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
   return NULL;
 }
 
+// Accurate search (PTS based)
 bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double &startpts)
 {
-  if (!m_session)
-    return false;
-
-  kodi::Log(ADDON_LOG_INFO, "DemuxSeekTime (%0.4lf)", time);
-
-  return m_session->SeekTime(time * 0.001f, 0, !backwards);
+  return true;
 }
 
 //callback - will be called from kodi
@@ -2547,6 +2553,16 @@ void CInputStreamAdaptive::SetVideoResolution(int width, int height)
     m_width = width;
     m_height = height;
   }
+}
+
+bool CInputStreamAdaptive::PosTime(int ms)
+{
+  if (!m_session)
+    return false;
+
+  kodi::Log(ADDON_LOG_INFO, "PosTime (%d)", ms);
+
+  return m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
 }
 
 int CInputStreamAdaptive::GetTotalTime()

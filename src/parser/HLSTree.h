@@ -34,6 +34,7 @@ namespace adaptive
     virtual ~HLSTree();
 
     virtual bool open(const char *url) override;
+    virtual void close() override { m_closing = true; };
     virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) override;
     virtual bool write_data(void *buffer, size_t buffer_size) override;
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize) override;
@@ -61,6 +62,7 @@ namespace adaptive
 
     std::map<std::string, EXTGROUP> m_extGroups;
     bool m_refreshPlayList = true;
+    bool m_closing = false;
     uint8_t m_segmentIntervalSec = 2;
     AESDecrypter *m_decrypter;
     uint8_t m_iv[16];

@@ -105,7 +105,7 @@ namespace adaptive
 
     struct SegmentTemplate
     {
-      SegmentTemplate() :startNumber(1), timescale(0), duration(0){};
+      SegmentTemplate() :startNumber(1), timescale(0), duration(0) {};
       std::string initialization;
       std::string media;
       unsigned int startNumber;
@@ -114,9 +114,9 @@ namespace adaptive
 
     struct Representation
     {
-      Representation() :bandwidth_(0), samplingRate_(0),  width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
+      Representation() :bandwidth_(0), samplingRate_(0), width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0), expired_segments_(0),
-        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), duration_(0), timescale_(0), segmentBaseId_(~0ULL), nextPTS_(0){};
+        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), duration_(0), timescale_(0), segmentBaseId_(~0ULL), nextPTS_(0) {};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -172,7 +172,7 @@ namespace adaptive
 
       const uint32_t get_segment_pos(const Segment *segment)const
       {
-        return segment ? segments_.data.empty() ? 0: segments_.pos(segment) : ~0;
+        return segment ? segments_.data.empty() ? 0 : segments_.pos(segment) : ~0;
       }
 
       const uint8_t get_psshset() const
@@ -205,8 +205,8 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0),  startPTS_(0) { language_ = "unk"; };
-      ~AdaptationSet(){ for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0), startPTS_(0) { language_ = "unk"; };
+      ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_;
       uint64_t startPTS_;
@@ -229,8 +229,8 @@ namespace adaptive
 
     struct Period
     {
-      Period(){};
-      ~Period(){ for (std::vector<AdaptationSet* >::const_iterator b(adaptationSets_.begin()), e(adaptationSets_.end()); b != e; ++b) delete *b; };
+      Period() {};
+      ~Period() { for (std::vector<AdaptationSet* >::const_iterator b(adaptationSets_.begin()), e(adaptationSets_.end()); b != e; ++b) delete *b; };
       std::vector<AdaptationSet*> adaptationSets_;
       std::string base_url_;
     }*current_period_;
@@ -257,7 +257,7 @@ namespace adaptive
       static const uint32_t MEDIA_VIDEO = 1;
       static const uint32_t MEDIA_AUDIO = 2;
 
-      PSSH(){};
+      PSSH() {};
       bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ && iv == other.iv; };
       std::string pssh_;
       std::string defaultKID_;
@@ -290,6 +290,7 @@ namespace adaptive
     virtual ~AdaptiveTree();
 
     virtual bool open(const char *url) = 0;
+    virtual void close() {};
     virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) { return true; };
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg) {};

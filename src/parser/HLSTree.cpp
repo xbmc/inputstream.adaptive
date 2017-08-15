@@ -258,7 +258,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
   if ((rep->segments_.data.empty() || segmentId) && !rep->source_url_.empty())
   {
     // If we are on the last segment, we have to make sure, that we get the next one, otherwise stream stopps
-    uint8_t numRetries(segmentId && segmentId-rep->segmentBaseId_ >= rep->segments_.data.size()-1 ? m_segmentIntervalSec : 0);
+    int16_t numRetries(segmentId && segmentId-rep->segmentBaseId_ >= rep->segments_.data.size()-1 ? m_segmentIntervalSec : 0);
 
 LIVETRY:
     ClearStream();
@@ -451,9 +451,15 @@ LIVETRY:
         }
       }
 
-      if (numRetries-- && !hasNewSegments)
+      if (numRetries > 0 && !hasNewSegments)
       {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        for (unsigned int i(0); i < 20; ++i)
+        {
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          if (!m_closing)
+            return false;
+        }
+        numRetries -= 2;
         goto LIVETRY;
       }
 
