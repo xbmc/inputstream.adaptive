@@ -937,7 +937,8 @@ public:
       return false;
 
     bool edchanged(false);
-    if (m_bSampleDescChanged && (info.m_ExtraSize != m_codecHandler->extra_data.GetDataSize()
+    if (m_bSampleDescChanged && m_codecHandler->extra_data.GetDataSize()
+      && (info.m_ExtraSize != m_codecHandler->extra_data.GetDataSize()
       || memcmp(info.m_ExtraData, m_codecHandler->extra_data.GetData(), info.m_ExtraSize)))
     {
       free((void*)(info.m_ExtraData));
