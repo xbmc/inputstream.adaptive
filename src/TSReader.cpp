@@ -156,13 +156,17 @@ bool TSReader::SeekTime(uint64_t timeInTs, bool preceeding)
     }
 
   uint64_t lastRecovery(static_cast<uint64_t>(m_startPos));
-  while (m_pkt.pts == PTS_UNSET || static_cast<uint64_t>(m_pkt.pts) < timeInTs)
+  while (m_pkt.pts == PTS_UNSET || !preceeding || static_cast<uint64_t>(m_pkt.pts) < timeInTs)
   {
     uint64_t thisFrameStart(m_AVContext->GetPosition());
     if (!ReadPacket())
       return false;
     if (!hasVideo || m_pkt.recoveryPoint || thisFrameStart == m_startPos)
+    {
       lastRecovery = thisFrameStart;
+      if (!preceeding && static_cast<uint64_t>(m_pkt.pts) >= timeInTs)
+        break;
+    }
   }
   m_AVContext->GoPosition(lastRecovery, true);
 

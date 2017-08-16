@@ -448,6 +448,8 @@ LIVETRY:
         else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
         {
           m_refreshPlayList = false;
+          if (!segmentId)
+            has_timeshift_buffer_ = false;
         }
       }
 

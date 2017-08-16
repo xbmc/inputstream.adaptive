@@ -63,6 +63,7 @@ ES_h264::ES_h264(uint16_t pes_pid)
   m_PPSRawId                    = -1;
   m_fpsRate = 0;
   m_fpsScale = 0;
+  m_recoveryPoint = false;
   Reset();
 }
 
@@ -96,7 +97,6 @@ void ES_h264::Parse(STREAM_PKT* pkt)
   size_t pOld = es_parsed, p = es_parsed;
   uint32_t startcode = m_StartCode;
   bool frameComplete = false;
-  m_recoveryPoint = false;
 
   while ((p + 3) < es_len)
   {
@@ -180,6 +180,7 @@ void ES_h264::Parse(STREAM_PKT* pkt)
     es_parsed = es_consumed;
     es_found_frame = false;
     es_frame_valid = true;
+    m_recoveryPoint = false;
   }
 }
 
@@ -190,6 +191,7 @@ void ES_h264::Reset()
   m_NeedIFrame = true;
   m_NeedSPS = true;
   m_NeedPPS = true;
+  m_recoveryPoint = false;
   memset(&m_streamData, 0, sizeof(m_streamData));
 }
 

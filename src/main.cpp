@@ -2174,6 +2174,7 @@ public:
   virtual int GetTime() override;
   virtual bool CanPauseStream() override;
   virtual bool CanSeekStream() override;
+  virtual bool IsRealTimeStream() override;
 
   std::shared_ptr<Session> GetSession() { return m_session; };
 
@@ -2599,6 +2600,11 @@ bool CInputStreamAdaptive::CanPauseStream(void)
 bool CInputStreamAdaptive::CanSeekStream(void)
 {
   return m_session && !m_session->IsLive();
+}
+
+bool CInputStreamAdaptive::IsRealTimeStream()
+{
+  return m_session && m_session->IsLive();
 }
 
 /*****************************************************************************************************/
