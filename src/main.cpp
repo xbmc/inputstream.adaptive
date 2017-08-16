@@ -2165,7 +2165,7 @@ public:
   virtual void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
   virtual struct INPUTSTREAM_INFO GetStream(int streamid) override;
   virtual void EnableStream(int streamid, bool enable) override;
-  virtual void OpenStream(int streamid) override;
+  virtual bool OpenStream(int streamid) override;
   virtual DemuxPacket* DemuxRead() override;
   virtual bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
   virtual void SetVideoResolution(int width, int height) override;
@@ -2370,17 +2370,18 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
   }
 }
 
-void CInputStreamAdaptive::OpenStream(int streamid)
+// We call true if a reset is required, otherwise false.
+bool CInputStreamAdaptive::OpenStream(int streamid)
 {
   kodi::Log(ADDON_LOG_DEBUG, "OpenStream(%d)", streamid);
 
   if (!m_session)
-    return;
+    return false;
 
   Session::STREAM *stream(m_session->GetStream(streamid));
 
   if (!stream || stream->enabled)
-    return;
+    return false;
 
   stream->enabled = true;
 
@@ -2404,7 +2405,7 @@ void CInputStreamAdaptive::OpenStream(int streamid)
     else
       stream->mainId_ = 0;
     m_IncludedStreams[stream->info_.m_streamType] = streamid;
-    return;
+    return false;
   }
 
   kodi::Log(ADDON_LOG_DEBUG, "Selecting stream with conditions: w: %u, h: %u, bw: %u",
@@ -2413,7 +2414,8 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   if (!stream->stream_.select_stream(true, false, stream->info_.m_pID >> 16))
   {
     kodi::Log(ADDON_LOG_ERROR, "Unable to select stream!");
-    return stream->disable();
+    stream->disable();
+    return false;
   }
 
   if (rep != stream->stream_.getRepresentation())
@@ -2425,7 +2427,7 @@ void CInputStreamAdaptive::OpenStream(int streamid)
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
   {
     stream->reader_ = new SubtitleSampleReader(rep->url_, streamid);
-    return;
+    return false;
   }
 
   AP4_Movie* movie(m_session->PrepareStream(stream));
@@ -2440,7 +2442,10 @@ void CInputStreamAdaptive::OpenStream(int streamid)
     stream->reader_ = new TSSampleReader(stream->input_, stream->info_.m_streamType, streamid,
       (1U << stream->info_.m_streamType) | m_session->GetIncludedStreamMask());
     if (!static_cast<TSSampleReader*>(stream->reader_)->Initialize())
-      return stream->disable();
+    {
+      stream->disable();
+      return false;
+    }
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {
@@ -2451,14 +2456,16 @@ void CInputStreamAdaptive::OpenStream(int streamid)
     if (movie == NULL)
     {
       kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
-      return stream->disable();
+      stream->disable();
+      return false;
     }
 
     AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
     if (!track)
     {
       kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-      return stream->disable();
+      stream->disable();
+      return false;
     }
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
@@ -2466,7 +2473,10 @@ void CInputStreamAdaptive::OpenStream(int streamid)
       m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
   }
   else
-    return stream->disable();
+  {
+    stream->disable();
+    return false;
+  }
 
   if (stream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
   {
@@ -2477,8 +2487,7 @@ void CInputStreamAdaptive::OpenStream(int streamid)
         stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_);
       }
   }
-
-  stream->reader_->GetInformation(stream->info_);
+  return stream->reader_->GetInformation(stream->info_);
 }
 
 
