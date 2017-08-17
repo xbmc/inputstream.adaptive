@@ -128,15 +128,16 @@ namespace adaptive
       uint32_t fpsRate_, fpsScale_;
       float aspect_;
       //Flags
-      static const unsigned int BYTERANGE = 0;
-      static const unsigned int INDEXRANGEEXACT = 1;
-      static const unsigned int TEMPLATE = 2;
-      static const unsigned int TIMELINE = 4;
-      static const unsigned int INITIALIZATION = 8;
-      static const unsigned int SEGMENTBASE = 16;
-      static const unsigned int SUBTITLESTREAM = 32;
-      static const unsigned int INCLUDEDSTREAM = 64;
-      static const unsigned int URLSEGMENTS = 128;
+      static const uint16_t BYTERANGE = 0;
+      static const uint16_t INDEXRANGEEXACT = 1;
+      static const uint16_t TEMPLATE = 2;
+      static const uint16_t TIMELINE = 4;
+      static const uint16_t INITIALIZATION = 8;
+      static const uint16_t SEGMENTBASE = 16;
+      static const uint16_t SUBTITLESTREAM = 32;
+      static const uint16_t INCLUDEDSTREAM = 64;
+      static const uint16_t URLSEGMENTS = 128;
+      static const uint16_t ENABLED = 256;
 
       uint16_t flags_;
       uint16_t hdcpVersion_;
@@ -290,7 +291,6 @@ namespace adaptive
     virtual ~AdaptiveTree();
 
     virtual bool open(const char *url) = 0;
-    virtual void close() {};
     virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) { return true; };
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg) {};

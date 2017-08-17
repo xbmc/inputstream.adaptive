@@ -451,8 +451,12 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     return false;
 
   uint32_t segid(current_rep_ ? current_rep_->get_segment_pos(current_seg_) : 0);
+  if (current_rep_)
+    const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &= ~adaptive::AdaptiveTree::Representation::ENABLED;
 
   current_rep_ = new_rep;
+
+  const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ |= adaptive::AdaptiveTree::Representation::ENABLED;
 
   if (observer_)
     observer_->OnStreamChange(this, segid);
@@ -485,6 +489,8 @@ void AdaptiveStream::info(std::ostream &s)
 void AdaptiveStream::stop()
 {
   stopped_ = true;
+  if (current_rep_)
+    const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &= ~adaptive::AdaptiveTree::Representation::ENABLED;
   if (thread_data_)
   {
     delete thread_data_;

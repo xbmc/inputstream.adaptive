@@ -458,7 +458,7 @@ LIVETRY:
         for (unsigned int i(0); i < 20; ++i)
         {
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          if (!m_closing)
+          if (!(rep->flags_ & Representation::ENABLED))
             return false;
         }
         numRetries -= 2;
