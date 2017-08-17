@@ -82,6 +82,7 @@ namespace TSDemux
     uint64_t Shift();
     void GoPosition(uint64_t pos, bool rp);
     uint64_t GetPosition() const;
+    uint64_t GetRecoveryPos() { return payload_unit_pos ? payload_unit_pos : av_pos; };
     uint64_t GetNextPosition() const;
     int ProcessTSPacket();
     int ProcessTSPayload();
@@ -110,6 +111,8 @@ namespace TSDemux
 
     // Raw packet buffer
     uint64_t av_pos;
+    uint64_t payload_unit_pos;
+    uint64_t prev_payload_unit_pos;
     size_t av_data_len;
     size_t av_pkt_size;
     unsigned char av_buf[AV_CONTEXT_PACKETSIZE];

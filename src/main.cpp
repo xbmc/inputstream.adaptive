@@ -774,7 +774,7 @@ public:
     , m_started(false)
     , m_dts(0)
     , m_pts(0)
-    , m_ptsDiff(DVD_NOPTS_VALUE)
+    , m_ptsDiff(0)
     , m_ptsOffs(~0ULL)
     , m_codecHandler(0)
     , m_defaultKey(0)
@@ -1331,7 +1331,7 @@ private:
 
   uint64_t m_pts = 0;
   uint64_t m_dts = 0;
-  int64_t m_ptsDiff = DVD_NOPTS_VALUE;
+  int64_t m_ptsDiff = 0;
   uint64_t m_ptsOffs = ~0ULL;
 };
 
