@@ -752,6 +752,10 @@ start(void *data, const char *el, const char **attr)
             if (sscanf((const char*)*(attr + 1), "%d:%d", &w, &h) == 2)
               dash->adpaspect_ = (float)w / h;
           }
+          else if (strcmp((const char*)*attr, "impaired") == 0)
+          {
+            dash->current_adaptationset_->impaired_ = strcmp((const char*)*(attr + 1), "true") == 0;
+          }
           attr += 2;
         }
         if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)

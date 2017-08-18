@@ -217,12 +217,13 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0), startPTS_(0), startNumber_(1) { language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0), startPTS_(0), startNumber_(1), impaired_(false){ language_ = "unk"; };
       ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_;
       uint64_t startPTS_;
       unsigned int startNumber_;
+      bool impaired_;
       std::string language_;
       std::string mimeType_;
       std::string base_url_;
@@ -305,7 +306,7 @@ namespace adaptive
     virtual bool open(const char *url) = 0;
     virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
-    virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg) {};
+    virtual void RefreshSegments(Representation *rep, const Segment *seg) {};
 
     uint8_t insert_psshset(StreamType type);
     bool has_type(StreamType t);

@@ -475,7 +475,7 @@ void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8
     AdaptiveTree::OnDataArrived(rep, seg, src, dst, dstOffset, dataSize);
 }
 
-void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg)
+void HLSTree::RefreshSegments(Representation *rep, const Segment *seg)
 {
   if (m_refreshPlayList)
   {
@@ -488,7 +488,7 @@ void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg)
         //Look if we have a new segment
         if (rep->newStartNumber_ + rep->newSegments_.data.size() > rep->startNumber_ + rep->segments_.data.size())
           break;
-        for (unsigned int i(0); i < 40; ++i)
+        for (unsigned int i(0); i < 20; ++i)
         {
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
           if (!(rep->flags_ & Representation::ENABLED))
@@ -497,7 +497,7 @@ void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg)
       }
       else
         break;
-      retryCount -= 4;
+      retryCount -= 2;
     }
   }
 }

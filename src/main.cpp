@@ -1804,6 +1804,7 @@ bool Session::initialize()
       }
 
       stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
+      stream.info_.m_flags = INPUTSTREAM_INFO::FLAG_NONE;
 
       switch (adp->type_)
       {
@@ -1812,6 +1813,8 @@ bool Session::initialize()
         break;
       case adaptive::AdaptiveTree::AUDIO:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+        if (adp->impaired_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_VISUAL_IMPAIRED;
         break;
       case adaptive::AdaptiveTree::SUBTITLE:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
@@ -1840,7 +1843,6 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_Width = rep->width_;
   stream.info_.m_Height = rep->height_;
   stream.info_.m_Aspect = rep->aspect_;
-  stream.info_.m_flags = INPUTSTREAM_INFO::FLAG_NONE;
 
   if (stream.info_.m_Aspect == 0.0f && stream.info_.m_Height)
     stream.info_.m_Aspect = (float)stream.info_.m_Width / stream.info_.m_Height;

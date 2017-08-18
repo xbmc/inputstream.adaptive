@@ -124,7 +124,6 @@ bool AdaptiveStream::download_segment()
 
   if (download(strURL.c_str(), media_headers_))
   {
-    tree_.OnSegmentDownloaded(const_cast<AdaptiveTree::Representation*>(current_rep_), current_seg_);
     start_PTS_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
     return true;
   }
@@ -277,6 +276,7 @@ bool AdaptiveStream::ensureSegment()
     //wait until worker is reeady for new segment
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
 
+    tree_.RefreshSegments(const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_), current_seg_);
     if (~current_rep_->newStartNumber_)
     {
       unsigned int segmentId(current_rep_->startNumber_ + current_rep_->get_segment_pos(current_seg_));
