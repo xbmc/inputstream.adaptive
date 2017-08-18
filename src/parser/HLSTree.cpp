@@ -253,21 +253,20 @@ bool HLSTree::open(const char *url)
   return false;
 }
 
-bool HLSTree::prepareRepresentation(Representation *rep, uint64_t segmentId)
+bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 {
-  if ((rep->segments_.data.empty() || segmentId) && !rep->source_url_.empty())
+  if (!rep->source_url_.empty())
   {
-    // If we are on the last segment, we have to make sure, that we get the next one, otherwise stream stopps
-    int16_t numRetries(segmentId && segmentId-rep->segmentBaseId_ >= rep->segments_.data.size()-1 ? m_segmentIntervalSec : 0);
-
-LIVETRY:
     ClearStream();
+
+    SPINCACHE<Segment> &segments(update ? rep->newSegments_ : rep->segments_);
+    if (rep->flags_ & Representation::URLSEGMENTS)
+      for (auto &s : segments.data)
+        delete[] s.url;
+    segments.clear();
 
     if (download(rep->source_url_.c_str(), manifest_headers_))
     {
-      Log(LOGLEVEL_DEBUG, "Prep: sid :%llu, base:%llu, size:%lu", segmentId, rep->segmentBaseId_, rep->segments_.data.size());
-
-
 #if FILEDEBUG
       FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
       fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
@@ -279,11 +278,9 @@ LIVETRY:
 
       std::map<std::string, std::string> map;
       bool startCodeFound(false);
-      bool hasNewSegments(false);
       Segment segment;
-      uint64_t pts(rep->nextPTS_), segmentBaseId(0), duration(0);
-      size_t freeSegments(0);
-      std::string::size_type segIdxPos(std::string::npos);
+      uint64_t pts(0);
+      (update ? rep->newStartNumber_ : rep->startNumber_) = 0;
 
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
@@ -310,7 +307,7 @@ LIVETRY:
         if (line.compare(0, 8, "#EXTINF:") == 0)
         {
           segment.startPTS_ = pts;
-          duration = static_cast<uint64_t>(atof(line.c_str() + 8) * rep->timescale_);
+          pts += static_cast<uint64_t>(atof(line.c_str() + 8) * rep->timescale_);
         }
         else if (line.compare(0, 17, "#EXT-X-BYTERANGE:") == 0)
         {
@@ -361,54 +358,15 @@ LIVETRY:
             else
               rep->url_ = url;
           }
-          if (!~rep->segmentBaseId_)
-          {
-            pts += duration;
-            rep->segments_.data.push_back(segment);
-            rep->nextPTS_ = pts;
-          }
-          else if (segmentBaseId)
-          {
-            if (segmentBaseId >= segmentId && freeSegments > 0)
-            {
-              Log(LOGLEVEL_DEBUG, "Inserting segment: :%llu", segmentBaseId);
-              if (byteRange)
-                delete rep->segments_[0]->url;
-              rep->segments_.insert(segment);
-              hasNewSegments = true;
-              ++rep->segmentBaseId_;
-              --freeSegments;
-              if (rep->expired_segments_)
-                --rep->expired_segments_;
-              pts += duration;
-              rep->nextPTS_ = pts;
-            }
-            else if (byteRange)
-              delete segment.url;
-            ++segmentBaseId;
-          }
-          else if (byteRange)
-            delete segment.url;
+          segments.data.push_back(segment);
           segment.startPTS_ = ~0ULL;
         }
-        else if (!segmentBaseId && line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
+        else if (line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
-          segmentBaseId = atoll(line.c_str() + 22);
-          Log(LOGLEVEL_DEBUG, "old base :%llu, new base:%llu, current:%llu", rep->segmentBaseId_, segmentBaseId, segmentId);
-          if (segmentBaseId == rep->segmentBaseId_)
-            break; //Nothing to do
-          else if (!~rep->segmentBaseId_)
-          {
-            if (!segmentBaseId)
-              has_timeshift_buffer_ = false;
-            continue;
-          }
-          //calculate first and last segment we have to replace
-          if (segmentBaseId > rep->segmentBaseId_ + rep->segments_.data.size()) //we have lost our window / game over
-            return false;
-          freeSegments = static_cast<size_t>(segmentId - rep->segmentBaseId_); // Number of slots to fill
-          segmentId += rep->segments_.data.size() - freeSegments; //First segmentId to be inserted
-          rep->expired_segments_ = segmentBaseId - rep->segmentBaseId_;
+          if (update)
+            rep->newStartNumber_ = atol(line.c_str() + 22);
+          else
+            rep->startNumber_ = atol(line.c_str() + 22);
         }
         else if (line.compare(0, 21, "#EXT-X-PLAYLIST-TYPE:") == 0)
         {
@@ -448,48 +406,32 @@ LIVETRY:
         else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
         {
           m_refreshPlayList = false;
-          if (!segmentId)
-            has_timeshift_buffer_ = false;
+          has_timeshift_buffer_ = false;
         }
       }
 
-      if (numRetries > 0 && !hasNewSegments)
-      {
-        for (unsigned int i(0); i < 20; ++i)
-        {
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          if (!(rep->flags_ & Representation::ENABLED))
-            return false;
-        }
-        numRetries -= 2;
-        goto LIVETRY;
-      }
-
-      overallSeconds_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;
-
-      if (!~rep->segmentBaseId_ && segmentBaseId)
-        rep->segmentBaseId_ = segmentBaseId;
+      overallSeconds_ = segments[0] ? (pts - segments[0]->startPTS_) / rep->timescale_ : 0;
 
       if (!byteRange)
         rep->flags_ |= Representation::URLSEGMENTS;
 
       // Insert Initialization Segment
-      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && rep->segments_.data[0].range_begin_ > 0)
+      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && segments.data[0].range_begin_ > 0)
       {
         rep->flags_ |= Representation::INITIALIZATION;
         rep->initialization_.range_begin_ = 0;
-        rep->initialization_.range_end_ = rep->segments_.data[0].range_begin_ - 1;
+        rep->initialization_.range_end_ = segments.data[0].range_begin_ - 1;
         rep->initialization_.pssh_set_ = 0;
       }
     }
+    if (segments.data.empty())
+    {
+      rep->source_url_.clear(); // disable this segment
+      return false;
+    }
+    return true;
   }
-
-  if (rep->segments_.data.empty())
-  {
-    rep->source_url_.clear(); // disable this segment
-    return false;
-  }
-  return true;
+  return false;
 };
 
 bool HLSTree::write_data(void *buffer, size_t buffer_size)
@@ -521,7 +463,7 @@ void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8
     if (!dstOffset)
     {
       if (pssh.iv.empty())
-        m_decrypter->ivFromSequence(m_iv, rep->segmentBaseId_ + rep->segments_.pos(seg));
+        m_decrypter->ivFromSequence(m_iv, rep->startNumber_ + rep->segments_.pos(seg));
       else
         memcpy(m_iv, pssh.iv.data(), 16);
     }
@@ -535,6 +477,27 @@ void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8
 
 void HLSTree::OnSegmentDownloaded(Representation *rep, const Segment *seg)
 {
-  if (m_refreshPlayList && rep->containerType_ == CONTAINERTYPE_TS && rep->segments_.pos(seg))
-    prepareRepresentation(rep, rep->segmentBaseId_ + rep->segments_.pos(seg));
+  if (m_refreshPlayList)
+  {
+    int retryCount((m_segmentIntervalSec+3) &~3);
+
+    while (prepareRepresentation(rep, true) && retryCount > 0)
+    {
+      if (rep->segments_.pos(seg) + 1 == rep->segments_.data.size())
+      {
+        //Look if we have a new segment
+        if (rep->newStartNumber_ + rep->newSegments_.data.size() > rep->startNumber_ + rep->segments_.data.size())
+          break;
+        for (unsigned int i(0); i < 40; ++i)
+        {
+          std::this_thread::sleep_for(std::chrono::milliseconds(100));
+          if (!(rep->flags_ & Representation::ENABLED))
+            return;
+        }
+      }
+      else
+        break;
+      retryCount -= 4;
+    }
+  }
 }

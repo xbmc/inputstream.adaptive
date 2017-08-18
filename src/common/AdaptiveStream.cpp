@@ -276,6 +276,20 @@ bool AdaptiveStream::ensureSegment()
   {
     //wait until worker is reeady for new segment
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
+
+    if (~current_rep_->newStartNumber_)
+    {
+      unsigned int segmentId(current_rep_->startNumber_ + current_rep_->get_segment_pos(current_seg_));
+      adaptive::AdaptiveTree::Representation* rep(const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_));
+
+      rep->segments_.swap(rep->newSegments_);
+      rep->startNumber_ = rep->newStartNumber_;
+      rep->newStartNumber_ = ~0;
+      if (segmentId < rep->startNumber_)
+        segmentId = rep->startNumber_;
+      current_seg_ = rep->get_segment(segmentId - rep->startNumber_);
+    }
+
     current_seg_ = current_rep_->get_next_segment(current_seg_);
     if (current_seg_)
     {

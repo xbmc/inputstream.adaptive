@@ -1840,6 +1840,8 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_Width = rep->width_;
   stream.info_.m_Height = rep->height_;
   stream.info_.m_Aspect = rep->aspect_;
+  stream.info_.m_flags = INPUTSTREAM_INFO::FLAG_NONE;
+
   if (stream.info_.m_Aspect == 0.0f && stream.info_.m_Height)
     stream.info_.m_Aspect = (float)stream.info_.m_Width / stream.info_.m_Height;
   stream.encrypted = rep->get_psshset() > 0;
@@ -2313,7 +2315,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 {
   static struct INPUTSTREAM_INFO dummy_info = {
-    INPUTSTREAM_INFO::TYPE_NONE, 0, "", "", STREAMCODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
+    INPUTSTREAM_INFO::TYPE_NONE, 0, 0, "", "", STREAMCODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
     0, 0, 0, 0, 0.0f,
     0, 0, 0, 0, 0,
     CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0 ,0};

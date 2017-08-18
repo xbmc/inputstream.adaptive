@@ -66,6 +66,18 @@ namespace adaptive
         basePos = 0;
     }
 
+    void swap(SPINCACHE<T> &other)
+    {
+      data.swap(other.data);
+      std::swap(basePos, other.basePos);
+    }
+
+    void clear()
+    {
+      data.clear();
+      basePos = 0;
+    }
+
     std::vector<T> data;
   };
 
@@ -105,10 +117,9 @@ namespace adaptive
 
     struct SegmentTemplate
     {
-      SegmentTemplate() :startNumber(1), timescale(0), duration(0) {};
+      SegmentTemplate() : timescale(0), duration(0) {};
       std::string initialization;
       std::string media;
-      unsigned int startNumber;
       unsigned int timescale, duration;
     };
 
@@ -116,7 +127,7 @@ namespace adaptive
     {
       Representation() :bandwidth_(0), samplingRate_(0), width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0), expired_segments_(0),
-        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), duration_(0), timescale_(0), segmentBaseId_(~0ULL), nextPTS_(0) {};
+        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), newStartNumber_(~0), duration_(0), timescale_(0) {};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -138,6 +149,7 @@ namespace adaptive
       static const uint16_t INCLUDEDSTREAM = 64;
       static const uint16_t URLSEGMENTS = 128;
       static const uint16_t ENABLED = 256;
+      static const uint16_t HASUPDATESEGMENTS = 512;
 
       uint16_t flags_;
       uint16_t hdcpVersion_;
@@ -148,13 +160,12 @@ namespace adaptive
       uint32_t expired_segments_;
       ContainerType containerType_;
       SegmentTemplate segtpl_;
+      unsigned int startNumber_, newStartNumber_;
       //SegmentList
       uint32_t duration_, timescale_;
       uint32_t timescale_ext_, timescale_int_;
-      uint64_t segmentBaseId_;
-      uint64_t nextPTS_;
       Segment initialization_;
-      SPINCACHE<Segment> segments_;
+      SPINCACHE<Segment> segments_, newSegments_;
       const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
       const Segment *get_next_segment(const Segment *seg)const
       {
@@ -206,11 +217,12 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0), startPTS_(0) { language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0), startPTS_(0), startNumber_(1) { language_ = "unk"; };
       ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_;
       uint64_t startPTS_;
+      unsigned int startNumber_;
       std::string language_;
       std::string mimeType_;
       std::string base_url_;
@@ -291,7 +303,7 @@ namespace adaptive
     virtual ~AdaptiveTree();
 
     virtual bool open(const char *url) = 0;
-    virtual bool prepareRepresentation(Representation *rep, uint64_t segmentId = 0) { return true; };
+    virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void OnSegmentDownloaded(Representation *rep, const Segment *seg) {};
 

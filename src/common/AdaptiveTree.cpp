@@ -61,8 +61,12 @@ namespace adaptive
       for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
         for (std::vector<Representation*>::const_iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
           if ((*br)->flags_ & Representation::URLSEGMENTS)
+          {
             for (std::vector<Segment>::iterator bs((*br)->segments_.data.begin()), es((*br)->segments_.data.end()); bs != es; ++bs)
               delete[] bs->url;
+            for (std::vector<Segment>::iterator bs((*br)->newSegments_.data.begin()), es((*br)->newSegments_.data.end()); bs != es; ++bs)
+              delete[] bs->url;
+          }
   }
 
   bool AdaptiveTree::has_type(StreamType t)
