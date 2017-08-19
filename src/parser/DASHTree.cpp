@@ -923,7 +923,7 @@ end(void *data, const char *el)
             {
               if (dash->current_pssh_.empty())
                 dash->current_pssh_ = "FILE";
-              dash->current_representation_->pssh_set_ = dash->insert_psshset(dash->current_adaptationset_->type_);
+              dash->current_representation_->pssh_set_ = static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
               dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
             }
           }
@@ -938,7 +938,7 @@ end(void *data, const char *el)
               if (!dash->current_hasRepURN_)
               {
                 dash->current_pssh_ = "FILE";
-                dash->current_representation_->pssh_set_ = dash->insert_psshset(dash->current_adaptationset_->type_);
+                dash->current_representation_->pssh_set_ = static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
                 dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
               }
               else
@@ -1059,7 +1059,7 @@ end(void *data, const char *el)
           {
             if (dash->current_pssh_.empty())
               dash->current_pssh_ = "FILE";
-            dash->adp_pssh_set_ = dash->insert_psshset(dash->current_adaptationset_->type_);
+            dash->adp_pssh_set_ = static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
             dash->currentNode_ &= ~DASHTree::MPDNODE_CONTENTPROTECTION;
           }
         }

@@ -370,7 +370,7 @@ bool SmoothTree::open(const char *url)
   uint8_t psshset(0);
 
   if (!current_defaultKID_.empty())
-    psshset = insert_psshset(STREAM_TYPE_COUNT);
+    psshset = static_cast<uint8_t>(insert_psshset(STREAM_TYPE_COUNT));
 
   for (std::vector<AdaptationSet*>::iterator ba(current_period_->adaptationSets_.begin()), ea(current_period_->adaptationSets_.end()); ba != ea; ++ba)
   {

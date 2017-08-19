@@ -141,7 +141,7 @@ namespace adaptive
     memcpy(dst + dstOffset, src, dataSize);
   }
 
-  uint8_t AdaptiveTree::insert_psshset(StreamType type)
+  uint16_t AdaptiveTree::insert_psshset(StreamType type)
   {
     if (!current_pssh_.empty())
     {
@@ -162,8 +162,12 @@ namespace adaptive
         pos = psshSets_.insert(psshSets_.end(), pssh);
       else
         pos->media_ |= pssh.media_;
-      return static_cast<uint8_t>(pos - psshSets_.begin());
+
+      ++psshSets_[pos - psshSets_.begin()].use_count_;
+      return static_cast<uint16_t>(pos - psshSets_.begin());
     }
+    else
+      ++psshSets_[0].use_count_;
     return 0;
   }
 

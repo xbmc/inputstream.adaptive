@@ -312,7 +312,7 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
 NEXTSEGMENT:
-  if (ensureSegment() && bytesToRead)
+  if (!stopped_ && ensureSegment() && bytesToRead)
   {
     while (true)
     {
@@ -347,7 +347,7 @@ bool AdaptiveStream::seek(uint64_t const pos)
 {
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
   // we seek only in the current segment
-  if (pos >= absolute_position_ - segment_read_pos_)
+  if (!stopped_ && pos >= absolute_position_ - segment_read_pos_)
   {
     segment_read_pos_ = static_cast<uint32_t>(pos - (absolute_position_ - segment_read_pos_));
 

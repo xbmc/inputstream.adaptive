@@ -112,7 +112,7 @@ namespace adaptive
         const char *url;
       };
       uint64_t startPTS_;
-      uint8_t pssh_set_;
+      uint16_t pssh_set_;
     };
 
     struct SegmentTemplate
@@ -156,7 +156,7 @@ namespace adaptive
 
       uint32_t indexRangeMin_, indexRangeMax_;
       uint8_t channelCount_, nalLengthSize_;
-      uint8_t pssh_set_;
+      uint16_t pssh_set_;
       uint32_t expired_segments_;
       ContainerType containerType_;
       SegmentTemplate segtpl_;
@@ -187,7 +187,7 @@ namespace adaptive
         return segment ? segments_.data.empty() ? 0 : segments_.pos(segment) : ~0;
       }
 
-      const uint8_t get_psshset() const
+      const uint16_t get_psshset() const
       {
         return pssh_set_;
       }
@@ -271,12 +271,13 @@ namespace adaptive
       static const uint32_t MEDIA_VIDEO = 1;
       static const uint32_t MEDIA_AUDIO = 2;
 
-      PSSH() {};
-      bool operator == (const PSSH &other) const { return pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ && iv == other.iv; };
+      PSSH() :media_(0), use_count_(0) {};
+      bool operator == (const PSSH &other) const { return !use_count_ || (pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ && iv == other.iv); };
       std::string pssh_;
       std::string defaultKID_;
       std::string iv;
       uint32_t media_;
+      uint32_t use_count_;
     };
     std::vector<PSSH> psshSets_;
 
@@ -308,7 +309,7 @@ namespace adaptive
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void RefreshSegments(Representation *rep, const Segment *seg) {};
 
-    uint8_t insert_psshset(StreamType type);
+    uint16_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
     double get_download_speed() const { return download_speed_; };

@@ -922,7 +922,7 @@ public:
 
   virtual uint64_t  Elapsed(uint64_t basePTS)
   {
-    int64_t manifestPTS = m_pts - m_ptsDiff;
+    uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
     return manifestPTS > basePTS ? manifestPTS - basePTS : 0;
   };
 
@@ -1250,7 +1250,7 @@ public:
   virtual uint64_t  Elapsed(uint64_t basePTS)
   {
     // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
-    int64_t playlistPTS = m_pts - m_ptsDiff;
+    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
     return playlistPTS > basePTS ? playlistPTS - basePTS : 0;
   };
 
@@ -2041,7 +2041,7 @@ void Session::CheckFragmentDuration(STREAM &stream)
   stream.segmentChanged = false;
 }
 
-const AP4_UI08 *Session::GetDefaultKeyId(const uint8_t index) const
+const AP4_UI08 *Session::GetDefaultKeyId(const uint16_t index) const
 {
   static const AP4_UI08 default_key[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
   if (adaptiveTree_->psshSets_[index].defaultKID_.size() == 16)
@@ -2328,7 +2328,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   if (stream)
   {
-    uint8_t cdmId(stream->stream_.getRepresentation()->pssh_set_);
+    uint8_t cdmId(static_cast<uint8_t>(stream->stream_.getRepresentation()->pssh_set_));
     if (stream->encrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
       kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);

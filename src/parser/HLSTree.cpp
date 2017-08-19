@@ -262,7 +262,10 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     SPINCACHE<Segment> &segments(update ? rep->newSegments_ : rep->segments_);
     if (rep->flags_ & Representation::URLSEGMENTS)
       for (auto &s : segments.data)
+      {
+        --psshSets_[s.pssh_set_].use_count_;
         delete[] s.url;
+      }
     segments.clear();
 
     if (download(rep->source_url_.c_str(), manifest_headers_))
