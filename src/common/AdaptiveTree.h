@@ -217,10 +217,10 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0), startPTS_(0), startNumber_(1), impaired_(false){ language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false){ language_ = "unk"; };
       ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
-      uint32_t timescale_;
+      uint32_t timescale_, duration_;
       uint64_t startPTS_;
       unsigned int startNumber_;
       bool impaired_;
@@ -230,6 +230,7 @@ namespace adaptive
       std::string codecs_;
       std::vector<Representation*> repesentations_;
       SPINCACHE<uint32_t> segment_durations_;
+      SegmentTemplate segtpl_;
 
       const uint32_t get_segment_duration(uint32_t pos)const
       {
@@ -237,16 +238,19 @@ namespace adaptive
       };
 
       static bool compare(const AdaptationSet* a, const AdaptationSet *b) { return a->type_ < b->type_; };
-
-      SegmentTemplate segtpl_;
     }*current_adaptationset_;
 
     struct Period
     {
-      Period() {};
+      Period(): timescale_(0), duration_(0), startPTS_(0), startNumber_(1) {};
       ~Period() { for (std::vector<AdaptationSet* >::const_iterator b(adaptationSets_.begin()), e(adaptationSets_.end()); b != e; ++b) delete *b; };
       std::vector<AdaptationSet*> adaptationSets_;
       std::string base_url_;
+      uint32_t duration_, timescale_;
+      uint64_t startPTS_;
+      unsigned int startNumber_;
+      SPINCACHE<uint32_t> segment_durations_;
+      SegmentTemplate segtpl_;
     }*current_period_;
 
     std::vector<Period*> periods_;
@@ -293,7 +297,7 @@ namespace adaptive
     uint16_t adpwidth_, adpheight_;
     uint32_t adpfpsRate_;
     float adpaspect_;
-    bool adp_timelined_;
+    bool adp_timelined_, period_timelined_;
 
     bool current_hasRepURN_, current_hasAdpURN_;
     std::string current_pssh_, current_defaultKID_, current_iv_;

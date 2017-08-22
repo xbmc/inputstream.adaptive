@@ -72,7 +72,11 @@ bool AdaptiveStream::download_segment()
     if (!(current_rep_->flags_ & AdaptiveTree::Representation::TEMPLATE))
     {
       if (current_rep_->flags_ & AdaptiveTree::Representation::URLSEGMENTS)
+      {
         strURL = current_seg_->url;
+        if (strURL.find("://", 0) == std::string::npos)
+          strURL = current_rep_->url_ + strURL;
+      }
       else
       {
         strURL = current_rep_->url_;
