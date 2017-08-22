@@ -82,9 +82,10 @@ void HLSTree::ClearStream()
   m_stream.clear();
 }
 
-bool HLSTree::open(const char *url)
+bool HLSTree::open(const std::string &url)
 {
-  if (download(url, manifest_headers_))
+  PreparePaths(url);
+  if (download(manifest_url_.c_str(), manifest_headers_))
   {
 #if FILEDEBUG
     FILE *f = fopen("inputstream_adaptive_master.m3u8", "w");

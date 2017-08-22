@@ -348,8 +348,10 @@ protection_end(void *data, const char *el)
 |   SmoothTree
 +---------------------------------------------------------------------*/
 
-bool SmoothTree::open(const char *url)
+bool SmoothTree::open(const std::string &url)
 {
+  PreparePaths(url);
+
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;
@@ -359,7 +361,7 @@ bool SmoothTree::open(const char *url)
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(url, manifest_headers_);
+  bool ret = download(manifest_url_.c_str(), manifest_headers_);
 
   XML_ParserFree(parser_);
   parser_ = 0;

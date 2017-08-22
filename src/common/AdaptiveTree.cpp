@@ -20,6 +20,7 @@
 #include <string.h>
 #include <algorithm>
 #include <stdlib.h>
+#include "../log.h"
 
 namespace adaptive
 {
@@ -37,6 +38,7 @@ namespace adaptive
 
   AdaptiveTree::AdaptiveTree()
     : current_period_(0)
+    , update_parameter_pos_(std::string::npos)
     , parser_(0)
     , currentNode_(0)
     , segcount_(0)
@@ -66,6 +68,8 @@ namespace adaptive
               delete[] bs->url;
             for (std::vector<Segment>::iterator bs((*br)->newSegments_.data.begin()), es((*br)->newSegments_.data.end()); bs != es; ++bs)
               delete[] bs->url;
+            if((*br)->flags_ & Representation::INITIALIZATION)
+              delete[] (*br)->initialization_.url;
           }
   }
 
@@ -99,7 +103,7 @@ namespace adaptive
 
   void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
   {
-    if (!has_timeshift_buffer_)
+    if (!has_timeshift_buffer_ || (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS) != 0)
       return;
 
     //Get a modifiable adaptationset
@@ -169,6 +173,46 @@ namespace adaptive
     else
       ++psshSets_[0].use_count_;
     return 0;
+  }
+
+  bool AdaptiveTree::PreparePaths(const std::string &url)
+  {
+    size_t paramPos = url.find('?');
+    base_url_ = (paramPos == std::string::npos) ? url : url.substr(0, paramPos);
+
+    paramPos = base_url_.find_last_of('/', base_url_.length());
+    if (paramPos == std::string::npos)
+    {
+      Log(LOGLEVEL_ERROR, "Invalid mpdURL: / expected (%s)", manifest_url_.c_str());
+      return false;
+    }
+    base_url_.resize(paramPos + 1);
+    base_domain_ = base_url_;
+
+    paramPos = base_url_.find_first_of('/', 8);
+    if (paramPos != std::string::npos)
+      base_domain_.resize(paramPos);
+
+    manifest_url_ = url;
+
+    std::string::size_type repPos = manifest_url_.find("$START_NUMBER$");
+    if (repPos != std::string::npos)
+    {
+      while (repPos && manifest_url_[repPos] != '&' && manifest_url_[repPos] != '?')--repPos;
+      if (repPos)
+      {
+        update_parameter_ = manifest_url_.substr(repPos);
+        manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
+        update_parameter_pos_ = update_parameter_.find("$START_NUMBER$");
+        if (manifest_url_.find("?") == std::string::npos)
+          update_parameter_[0] = '?';
+      }
+      else
+      {
+        Log(LOGLEVEL_ERROR, "Cannot find update parameter delimiter (%s)", manifest_url_.c_str());
+      }
+    }
+    return true;
   }
 
   void AdaptiveTree::SortTree()

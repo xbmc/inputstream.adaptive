@@ -491,7 +491,11 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   }
 
   /* lets download the initialization */
-  if ((current_seg_ = current_rep_->get_initialization()) && !download_segment())
+  current_seg_ = current_rep_->get_initialization();
+  if (!current_seg_ && current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZATION_PREFIXED)
+    current_seg_ = current_rep_->get_segment(segid);
+
+  if (current_seg_ && !download_segment())
     return false;
 
   current_seg_ = current_rep_->get_segment(segid);

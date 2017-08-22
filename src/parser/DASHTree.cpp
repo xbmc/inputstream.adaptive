@@ -380,6 +380,7 @@ start(void *data, const char *el, const char **attr)
           else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTLIST)
           {
             DASHTree::Segment seg;
+            seg.pssh_set_ = 0;
             if (strcmp(el, "SegmentURL") == 0)
             {
               for (; *attr;)
@@ -462,6 +463,7 @@ start(void *data, const char *el, const char **attr)
                   s.range_begin_ = (t += d);
                   s.startPTS_ += d;
                 }
+                dash->current_representation_->nextPts_ = s.startPTS_;
               }
               else //Failure
               {
@@ -641,6 +643,7 @@ start(void *data, const char *el, const char **attr)
           dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
           dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
           dash->current_representation_->duration_ = dash->current_adaptationset_->duration_;
+          dash->current_representation_->startNumber_ = dash->current_adaptationset_->startNumber_;
           dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
           dash->current_representation_->width_ = dash->adpwidth_;
           dash->current_representation_->height_ = dash->adpheight_;
@@ -799,6 +802,8 @@ start(void *data, const char *el, const char **attr)
             : stricmp((const char*)*(attr + 1), "audio") == 0 ? DASHTree::AUDIO
             : stricmp((const char*)*(attr + 1), "text") == 0 ? DASHTree::SUBTITLE
             : DASHTree::NOTYPE;
+          else if (strcmp((const char*)*attr, "id") == 0)
+            dash->current_adaptationset_->id = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "lang") == 0)
             dash->current_adaptationset_->language_ = ltranslate((const char*)*(attr + 1));
           else if (strcmp((const char*)*attr, "mimeType") == 0)
@@ -849,6 +854,8 @@ start(void *data, const char *el, const char **attr)
             dash->current_period_->duration_ = atoi((const char*)*(attr + 1));
           else if (strcmp((const char*)*attr, "timescale") == 0)
             dash->current_period_->timescale_ = atoi((const char*)*(attr + 1));
+          else if (strcmp((const char*)*attr, "startNumber") == 0)
+            dash->current_period_->startNumber_ = atoi((const char*)*(attr + 1));
           attr += 2;
         }
         if (dash->current_period_->timescale_)
@@ -1093,6 +1100,7 @@ end(void *data, const char *el)
                     seg.startPTS_ += duration, seg.range_begin_ += duration;
                     ++seg.range_end_;
                   }
+                  dash->current_representation_->nextPts_ = seg.startPTS_;
                   return;
                 }
               }
@@ -1110,6 +1118,9 @@ end(void *data, const char *el)
               ReplacePlaceHolders(dash->current_representation_->segtpl_.media, dash->current_representation_->id, dash->current_representation_->bandwidth_);
             }
           }
+          if ((dash->current_representation_->flags_ & AdaptiveTree::Representation::INITIALIZATION) == 0 && !dash->current_representation_->segments_.empty())
+            // we assume that we have a MOOV atom included in each segment (max 100k = youtube)
+            dash->current_representation_->flags_ |= AdaptiveTree::Representation::INITIALIZATION_PREFIXED;
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTDURATIONS)
         {
@@ -1206,6 +1217,7 @@ end(void *data, const char *el)
                   sb->startPTS_ = spts;
                   spts += *sdb;
                 }
+                (*b)->nextPts_ = spts;
               }
             }
           }
@@ -1268,23 +1280,27 @@ end(void *data, const char *el)
 |   DASHTree
 +---------------------------------------------------------------------*/
 
-bool DASHTree::open(const char *url)
+bool DASHTree::open(const std::string &url)
 {
+  PreparePaths(url);
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;
+
   XML_SetUserData(parser_, (void*)this);
   XML_SetElementHandler(parser_, start, end);
   XML_SetCharacterDataHandler(parser_, text);
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(url, manifest_headers_);
-  
+  bool ret = download(manifest_url_.c_str(), manifest_headers_);
+
   XML_ParserFree(parser_);
   parser_ = 0;
 
   SortTree();
+
+  last_update_time_ = std::chrono::steady_clock::now();
 
   return ret;
 }
@@ -1300,4 +1316,51 @@ bool DASHTree::write_data(void *buffer, size_t buffer_size)
     return false;
   }
   return true;
+}
+
+void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
+{
+  if (has_timeshift_buffer_ && !update_parameter_.empty())
+  {
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+    if (std::chrono::duration_cast<std::chrono::seconds>(now - last_update_time_).count() > 1)
+    {
+      last_update_time_ = now;
+      unsigned int nextStartNumber(rep->startNumber_ + rep->segments_.size());
+
+      char buf[32];
+      sprintf(buf, "%u", nextStartNumber);
+      std::string replaced(update_parameter_);
+      replaced.replace(update_parameter_pos_, 14, buf);
+
+      DASHTree updateTree;
+      if (updateTree.open(manifest_url_ + replaced))
+      {
+        std::vector<Period*>::const_iterator bpd(periods_.begin()), epd(periods_.end());
+        for (std::vector<Period*>::const_iterator bp(updateTree.periods_.begin()), ep(updateTree.periods_.end()); bp != ep && bpd != epd; ++bp, ++bpd)
+        {
+          for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
+          {
+            //Locate adaptationset
+            std::vector<AdaptationSet*>::const_iterator bad((*bpd)->adaptationSets_.begin()), ead((*bpd)->adaptationSets_.end());
+            for (; bad != ead && (*bad)->id != (*ba)->id; ++bad);
+            if (bad != ead)
+            {
+              for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
+              {
+                //Locate representation
+                std::vector<Representation*>::const_iterator brd((*bad)->repesentations_.begin()), erd((*bad)->repesentations_.end());
+                for (; brd != erd && (*brd)->id != (*br)->id; ++brd);
+                if (brd != erd && !(*br)->segments_.empty())
+                {
+                  //Here we go -> Insert new segments
+                  uint64_t ptsOffset = (*brd)->nextPts_ - (*br)->segments_[0]->startPTS_;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }

@@ -19,6 +19,7 @@
 #pragma once
 
 #include "../common/AdaptiveTree.h"
+#include <chrono>
 
 namespace adaptive
 {
@@ -27,8 +28,9 @@ namespace adaptive
   {
   public:
     DASHTree();
-    virtual bool open(const char *url) override;
+    virtual bool open(const std::string &url) override;
     virtual bool write_data(void *buffer, size_t buffer_size) override;
+    virtual void RefreshSegments(Representation *rep, const Segment *seg) override;
 
     enum
     {
@@ -48,5 +50,6 @@ namespace adaptive
       MPDNODE_SEGMENTTIMELINE = 1 << 14
     };
     uint64_t pts_helper_;
+    std::chrono::steady_clock::time_point last_update_time_;
   };
 }

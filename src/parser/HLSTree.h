@@ -33,7 +33,7 @@ namespace adaptive
     HLSTree(AESDecrypter *decrypter) : AdaptiveTree(), m_decrypter(decrypter) {};
     virtual ~HLSTree();
 
-    virtual bool open(const char *url) override;
+    virtual bool open(const std::string &url) override;
     virtual bool prepareRepresentation(Representation *rep, bool update = false) override;
     virtual bool write_data(void *buffer, size_t buffer_size) override;
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize) override;

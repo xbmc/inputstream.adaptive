@@ -78,6 +78,10 @@ namespace adaptive
       basePos = 0;
     }
 
+    bool empty() const { return data.empty(); };
+
+    size_t size() const { return data.size(); };
+
     std::vector<T> data;
   };
 
@@ -127,7 +131,7 @@ namespace adaptive
     {
       Representation() :bandwidth_(0), samplingRate_(0), width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0), expired_segments_(0),
-        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), newStartNumber_(~0), duration_(0), timescale_(0) {};
+        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), newStartNumber_(~0), nextPts_(0), duration_(0), timescale_(0) {};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -150,6 +154,8 @@ namespace adaptive
       static const uint16_t URLSEGMENTS = 128;
       static const uint16_t ENABLED = 256;
       static const uint16_t HASUPDATESEGMENTS = 512;
+      static const uint16_t INITIALIZATION_PREFIXED = 1024;
+
 
       uint16_t flags_;
       uint16_t hdcpVersion_;
@@ -161,6 +167,7 @@ namespace adaptive
       ContainerType containerType_;
       SegmentTemplate segtpl_;
       unsigned int startNumber_, newStartNumber_;
+      uint64_t nextPts_;
       //SegmentList
       uint32_t duration_, timescale_;
       uint32_t timescale_ext_, timescale_int_;
@@ -227,6 +234,7 @@ namespace adaptive
       std::string language_;
       std::string mimeType_;
       std::string base_url_;
+      std::string id;
       std::string codecs_;
       std::vector<Representation*> repesentations_;
       SPINCACHE<uint32_t> segment_durations_;
@@ -254,7 +262,8 @@ namespace adaptive
     }*current_period_;
 
     std::vector<Period*> periods_;
-    std::string base_url_, base_domain_;
+    std::string manifest_url_, base_url_, base_domain_, update_parameter_;
+    std::string::size_type update_parameter_pos_;
 
     /* XML Parsing*/
     XML_Parser parser_;
@@ -308,7 +317,7 @@ namespace adaptive
     AdaptiveTree();
     virtual ~AdaptiveTree();
 
-    virtual bool open(const char *url) = 0;
+    virtual bool open(const std::string &url) = 0;
     virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void RefreshSegments(Representation *rep, const Segment *seg) {};
@@ -326,6 +335,7 @@ namespace adaptive
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
+  bool PreparePaths(const std::string &url);
   void SortTree();
 private:
   std::mutex m_mutex;

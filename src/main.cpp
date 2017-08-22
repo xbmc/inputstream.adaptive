@@ -1552,22 +1552,6 @@ bool Session::initialize()
   }
 
   // Open mpd file
-  size_t paramPos = mpdFileURL_.find('?');
-  adaptiveTree_->base_url_ = (paramPos == std::string::npos) ? mpdFileURL_ : mpdFileURL_.substr(0, paramPos);
-
-  paramPos = adaptiveTree_->base_url_.find_last_of('/', adaptiveTree_->base_url_.length());
-  if (paramPos == std::string::npos)
-  {
-    kodi::Log(ADDON_LOG_ERROR, "Invalid mpdURL: / expected (%s)", mpdFileURL_.c_str());
-    return false;
-  }
-  adaptiveTree_->base_url_.resize(paramPos + 1);
-  adaptiveTree_->base_domain_ = adaptiveTree_->base_url_;
-
-  paramPos = adaptiveTree_->base_url_.find_first_of('/', 8);
-  if (paramPos != std::string::npos)
-    adaptiveTree_->base_domain_.resize(paramPos);
-
   if (!adaptiveTree_->open(mpdFileURL_.c_str()) || adaptiveTree_->empty())
   {
     kodi::Log(ADDON_LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
@@ -1906,7 +1890,9 @@ AP4_Movie *Session::PrepareStream(STREAM *stream)
   if (!adaptiveTree_->prepareRepresentation(const_cast<adaptive::AdaptiveTree::Representation *>(stream->stream_.getRepresentation())))
     return nullptr;
 
-  if (GetManifestType() == MANIFEST_TYPE_ISM && stream->stream_.getRepresentation()->get_initialization() == nullptr)
+  if (stream->stream_.getRepresentation()->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4
+    && (stream->stream_.getRepresentation()->flags_ & adaptive::AdaptiveTree::Representation::INITIALIZATION_PREFIXED) == 0
+    && stream->stream_.getRepresentation()->get_initialization() == nullptr)
   {
     //We'll create a Movie out of the things we got from manifest file
     //note: movie will be deleted in destructor of stream->input_file_
