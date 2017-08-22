@@ -1301,6 +1301,9 @@ public:
 
   virtual bool TimeSeek(uint64_t pts, bool preceeding) override
   {
+    if (!StartStreaming(m_typeMask))
+      return false;
+
     AP4_UI64 seekPos(((pts + m_ptsDiff ) * 9) / 100);
     if (TSReader::SeekTime(seekPos, preceeding))
     {
