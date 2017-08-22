@@ -24,6 +24,7 @@
 #include "DASHTree.h"
 #include "../oscompat.h"
 #include "../helpers.h"
+#include "../log.h"
 
 using namespace adaptive;
 
@@ -890,6 +891,7 @@ start(void *data, const char *el, const char **attr)
   else if (strcmp(el, "MPD") == 0)
   {
     const char *mpt(0), *tsbd(0);
+    bool bStatic(false);
 
     dash->overallSeconds_ = 0;
     dash->stream_start_ = time(0);
@@ -898,6 +900,10 @@ start(void *data, const char *el, const char **attr)
     {
       if (strcmp((const char*)*attr, "mediaPresentationDuration") == 0)
         mpt = (const char*)*(attr + 1);
+      else if (strcmp((const char*)*attr, "type") == 0)
+      {
+        bStatic = strcmp((const char*)*(attr + 1), "static") == 0;
+      }
       else if (strcmp((const char*)*attr, "timeShiftBufferDepth") == 0)
       {
         tsbd = (const char*)*(attr + 1);
@@ -917,7 +923,10 @@ start(void *data, const char *el, const char **attr)
     if (!~dash->available_time_)
       dash->available_time_ = dash->publish_time_;
 
-    if (!mpt) mpt = tsbd;
+    if (!mpt)
+      mpt = tsbd;
+    else if (bStatic)
+      dash->has_timeshift_buffer_ = false;
 
     if (mpt && *mpt++ == 'P' && *mpt++ == 'T')
     {
@@ -1320,7 +1329,9 @@ bool DASHTree::write_data(void *buffer, size_t buffer_size)
 
 void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
 {
-  if (has_timeshift_buffer_ && !update_parameter_.empty())
+  unsigned int freeSegments = rep->get_segment_pos(seg);
+
+  if (freeSegments && has_timeshift_buffer_ && !update_parameter_.empty())
   {
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
     if (std::chrono::duration_cast<std::chrono::seconds>(now - last_update_time_).count() > 1)
@@ -1348,6 +1359,10 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
             {
               for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
               {
+                //Youtube returns last smallest number in case the requested data is not available
+                if ((*br)->startNumber_ < nextStartNumber)
+                  continue;
+
                 //Locate representation
                 std::vector<Representation*>::const_iterator brd((*bad)->repesentations_.begin()), erd((*bad)->repesentations_.end());
                 for (; brd != erd && (*brd)->id != (*br)->id; ++brd);
@@ -1355,6 +1370,23 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
                 {
                   //Here we go -> Insert new segments
                   uint64_t ptsOffset = (*brd)->nextPts_ - (*br)->segments_[0]->startPTS_;
+                  unsigned int repFreeSegments(freeSegments);
+                  std::vector<Segment>::iterator bs((*br)->segments_.data.begin()), es((*br)->segments_.data.end());
+                  for (; bs != es && repFreeSegments; ++bs)
+                  {
+                    if ((*brd)->flags_ & Representation::URLSEGMENTS)
+                      delete[](*brd)->segments_[0]->url;
+                    bs->startPTS_ += ptsOffset;
+                    (*brd)->segments_.insert(*bs);
+                    if ((*brd)->flags_ & Representation::URLSEGMENTS)
+                      bs->url = nullptr;
+                    ++(*brd)->startNumber_;
+                    --repFreeSegments;
+                  }
+                  if (bs == es)
+                    (*brd)->nextPts_ += (*br)->nextPts_;
+                  else
+                    (*brd)->nextPts_ += bs->startPTS_;
                 }
               }
             }
