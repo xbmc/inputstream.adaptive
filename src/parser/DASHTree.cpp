@@ -512,8 +512,10 @@ start(void *data, const char *el, const char **attr)
                 ts = atoi((const char*)*(attr + 1));
               attr += 2;
             }
-            if (ts)
+            if (ts && dur)
             {
+              dash->current_representation_->duration_ = dur;
+              dash->current_representation_->timescale_ = ts;
               dash->current_representation_->segments_.data.reserve(dash->estimate_segcount(
                 dash->current_representation_->duration_,
                 dash->current_representation_->timescale_));
