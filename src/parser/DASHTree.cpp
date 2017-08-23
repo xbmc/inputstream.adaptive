@@ -20,6 +20,7 @@
 #include <cstring>
 #include <time.h>
 #include <float.h>
+#include <thread>
 
 #include "DASHTree.h"
 #include "../oscompat.h"
