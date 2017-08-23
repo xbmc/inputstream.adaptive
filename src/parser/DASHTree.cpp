@@ -411,6 +411,14 @@ start(void *data, const char *el, const char **attr)
                   seg.SetRange((const char*)*(attr + 1));
                   break;
                 }
+                else if (strcmp((const char*)*attr, "sourceURL") == 0)
+                {
+                  seg.range_begin_ = ~0ULL;
+                  size_t sz(strlen((const char*)*(attr + 1)) + 1);
+                  seg.url = new char[sz];
+                  memcpy(const_cast<char*>(seg.url), (const char*)*(attr + 1), sz);
+                  dash->current_representation_->flags_ |= DASHTree::Representation::URLSEGMENTS;
+                }
                 attr += 2;
               }
               dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
@@ -1343,8 +1351,11 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
       sprintf(buf, "%u", nextStartNumber);
       std::string replaced(update_parameter_);
       replaced.replace(update_parameter_pos_, 14, buf);
+      unsigned int retryCount(5);
 
+    NEXTLIVETRY:
       DASHTree updateTree;
+      bool someInserted(false);
       if (updateTree.open(manifest_url_ + replaced))
       {
         std::vector<Period*>::const_iterator bpd(periods_.begin()), epd(periods_.end());
@@ -1374,6 +1385,7 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
                   std::vector<Segment>::iterator bs((*br)->segments_.data.begin()), es((*br)->segments_.data.end());
                   for (; bs != es && repFreeSegments; ++bs)
                   {
+                    Log(LOGLEVEL_DEBUG, "DASH Update: insert repid: %s url: %s", (*br)->id.c_str(), bs->url);
                     if ((*brd)->flags_ & Representation::URLSEGMENTS)
                       delete[](*brd)->segments_[0]->url;
                     bs->startPTS_ += ptsOffset;
@@ -1382,6 +1394,7 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
                       bs->url = nullptr;
                     ++(*brd)->startNumber_;
                     --repFreeSegments;
+                    someInserted = true;
                   }
                   if (bs == es)
                     (*brd)->nextPts_ += (*br)->nextPts_;
@@ -1391,6 +1404,16 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
               }
             }
           }
+        }
+        if (!someInserted && retryCount-- && freeSegments + 1 >= rep->segments_.size())
+        {
+          for (unsigned int i(0); i < 20; ++i)
+          {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (!(rep->flags_ & Representation::ENABLED))
+              return;
+          }
+          goto NEXTLIVETRY;
         }
       }
     }

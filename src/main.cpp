@@ -2238,6 +2238,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.manifest_update_parameter") == 0)
     {
       mfup = props.m_ListItemProperties[i].m_strValue;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_update_parameter: %s", mfup);
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.stream_headers") == 0)
     {
@@ -2265,7 +2266,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 
   kodihost.SetProfilePath(props.m_profileFolder);
 
-  m_session = std::shared_ptr<Session>(new Session(manifest, props.m_strURL, lt, lk, ld, lsc, manh, medh, props.m_profileFolder, m_width, m_height));
+  m_session = std::shared_ptr<Session>(new Session(manifest, mpd_url.c_str(), lt, lk, ld, lsc, manh, medh, props.m_profileFolder, m_width, m_height));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize())
