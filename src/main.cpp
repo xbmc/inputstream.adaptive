@@ -2199,7 +2199,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
-  const char *lt(""), *lk(""), *ld(""), *lsc("");
+  const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup("");
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
@@ -2235,6 +2235,10 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       else if (strcmp(props.m_ListItemProperties[i].m_strValue, "hls") == 0)
         manifest = MANIFEST_TYPE_HLS;
     }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.manifest_update_parameter") == 0)
+    {
+      mfup = props.m_ListItemProperties[i].m_strValue;
+    }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.stream_headers") == 0)
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.stream_headers: %s", props.m_ListItemProperties[i].m_strValue);
@@ -2257,6 +2261,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     parseheader(manh, mpd_url.substr(posHeader + 1).c_str());
     mpd_url = mpd_url.substr(0, posHeader);
   }
+  mpd_url += mfup;
 
   kodihost.SetProfilePath(props.m_profileFolder);
 
