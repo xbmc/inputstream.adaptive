@@ -245,7 +245,12 @@ namespace adaptive
         return *segment_durations_[pos];
       };
 
-      static bool compare(const AdaptationSet* a, const AdaptationSet *b) { return a->type_ < b->type_; };
+      static bool compare(const AdaptationSet* a, const AdaptationSet *b)
+      {
+        if (a->type_ != b->type_)
+          return a->type_ < b->type_;
+        return !a->impaired_ && b->impaired_;
+      };
     }*current_adaptationset_;
 
     struct Period
