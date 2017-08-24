@@ -571,7 +571,7 @@ start(void *data, const char *el, const char **attr)
             }
           }
         }
-        else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
+        else if (dash->currentNode_ & (DASHTree::MPDNODE_SEGMENTTEMPLATE | DASHTree::MPDNODE_SEGMENTLIST))
         {
           if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTIMELINE)
           {
@@ -646,6 +646,18 @@ start(void *data, const char *el, const char **attr)
           dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_);
           dash->current_adaptationset_->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
           dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTTEMPLATE;
+        }
+        else if (strcmp(el, "SegmentList") == 0)
+        {
+          for (; *attr;)
+          {
+            if (strcmp((const char*)*attr, "duration") == 0)
+              dash->current_adaptationset_->duration_ = atoi((const char*)*(attr + 1));
+            else if (strcmp((const char*)*attr, "timescale") == 0)
+              dash->current_adaptationset_->timescale_ = atoi((const char*)*(attr + 1));
+            attr += 2;
+          }
+          dash->currentNode_ |= DASHTree::MPDNODE_SEGMENTLIST;
         }
         else if (strcmp(el, "Representation") == 0)
         {
@@ -1155,7 +1167,7 @@ end(void *data, const char *el)
             dash->currentNode_ &= ~DASHTree::MPDNODE_BASEURL;
           }
         }
-        else if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTEMPLATE)
+        else if (dash->currentNode_ & (DASHTree::MPDNODE_SEGMENTLIST | DASHTree::MPDNODE_SEGMENTTEMPLATE))
         {
           if (dash->currentNode_ & DASHTree::MPDNODE_SEGMENTTIMELINE)
           {
@@ -1165,6 +1177,10 @@ end(void *data, const char *el)
           else if (strcmp(el, "SegmentTemplate") == 0)
           {
             dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTTEMPLATE;
+          }
+          else if (strcmp(el, "SegmentList") == 0)
+          {
+            dash->currentNode_ &= ~DASHTree::MPDNODE_SEGMENTLIST;
           }
         }
         else if (dash->currentNode_ & DASHTree::MPDNODE_CONTENTPROTECTION)
