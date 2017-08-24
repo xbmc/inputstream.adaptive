@@ -1469,12 +1469,11 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
     kodi::Log(ADDON_LOG_DEBUG, "DECRYPTERPATH not specified in settings.xml");
     return;
   }
+  kodihost.SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
 
-  std::vector<std::string> searchPaths(2);
-  searchPaths[0] = kodi::vfs::TranslateSpecialProtocol(specialpath);
-  searchPaths[1] = kodi::GetAddonInfo("path");
-
-  kodihost.SetLibraryPath(searchPaths[0].c_str());
+  std::vector<std::string> searchPaths(1);
+  searchPaths[0] = kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/");
+  //searchPaths[1] = kodi::GetAddonInfo("path");
 
   std::vector<kodi::vfs::CDirEntry> items;
 
