@@ -522,7 +522,7 @@ public:
       AP4_DataBuffer &annexb_sps_pps, AP4_UI32 flags) { return AP4_ERROR_NOT_SUPPORTED; };
     virtual AP4_UI32 AddPool() { return 0; };
     virtual void RemovePool(AP4_UI32 poolid) {};
-    virtual const char* GetSessionId() { return nullptr; };
+    virtual const char* GetSessionId() { return NULL; };
 
     virtual AP4_Result DecryptSampleData(AP4_UI32 poolid, 
                                          AP4_DataBuffer& data_in,
