@@ -48,3 +48,6 @@ msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "Select streams without respecting HDCP status"
 
+msgctxt "#30115"
+msgid "Ignore Display Resolution"
+msgstr "Do not respect display resolution when selecting streams"
