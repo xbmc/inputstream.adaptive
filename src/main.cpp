@@ -1869,7 +1869,7 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   else if (rep->codecs_.find("avc") == 0
   || rep->codecs_.find("h264") == 0)
     strcpy(stream.info_.m_codecName, "h264");
-  else if (rep->codecs_.find("hevc") == 0 || rep->codecs_.find("hvc") == 0)
+  else if (rep->codecs_.find("hev") == 0 || rep->codecs_.find("hvc") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
   else if (rep->codecs_.find("vp9") == 0)
     strcpy(stream.info_.m_codecName, "vp9");
