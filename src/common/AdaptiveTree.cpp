@@ -53,6 +53,7 @@ namespace adaptive
     , average_download_speed_(0.0f)
     , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
     , included_types_(0)
+    , need_secure_decoder_(false)
   {
     psshSets_.push_back(PSSH());
   }

@@ -313,6 +313,7 @@ namespace adaptive
     float adpaspect_;
     bool adp_timelined_, period_timelined_;
 
+    bool need_secure_decoder_;
     bool current_hasRepURN_, current_hasAdpURN_;
     std::string current_pssh_, current_defaultKID_, current_iv_;
     std::string license_url_;

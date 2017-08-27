@@ -491,6 +491,15 @@ start(void *data, const char *el, const char **attr)
           {
             if (strcmp(el, "cenc:pssh") == 0)
               dash->currentNode_ |= DASHTree::MPDNODE_PSSH;
+            else if (strcmp(el, "widevine:license") == 0)
+            {
+              for (; *attr;)
+              {
+                if (strcmp((const char*)*attr, "robustness_level") == 0)
+                  dash->need_secure_decoder_ = strncmp((const char*)*(attr + 1), "HW", 2) == 0;
+                attr += 2;
+              }
+            }
           }
           else if (strcmp(el, "AudioChannelConfiguration") == 0)
           {
@@ -621,6 +630,15 @@ start(void *data, const char *el, const char **attr)
         {
           if (strcmp(el, "cenc:pssh") == 0)
             dash->currentNode_ |= DASHTree::MPDNODE_PSSH;
+          else if (strcmp(el, "widevine:license") == 0)
+          {
+            for (; *attr;)
+            {
+              if (strcmp((const char*)*attr, "robustness_level") == 0)
+                dash->need_secure_decoder_ = strncmp((const char*)*(attr + 1), "HW", 2) == 0;
+              attr += 2;
+            }
+          }
         }
         else if (strcmp(el, "ContentComponent") == 0)
         {

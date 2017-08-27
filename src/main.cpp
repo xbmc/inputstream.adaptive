@@ -1763,6 +1763,9 @@ bool Session::initialize()
         {
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session_ = true;
+          // Override this setting by information passed in manifest
+          if (!adaptiveTree_->need_secure_decoder_)
+            session.decrypter_caps_.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
       }
       else
