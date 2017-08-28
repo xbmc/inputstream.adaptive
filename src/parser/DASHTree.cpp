@@ -1223,7 +1223,7 @@ end(void *data, const char *el)
         {
           dash->currentNode_ &= ~DASHTree::MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
-          || dash->adp_pssh_set_ == 0xFF
+          || (dash->adp_pssh_set_ == 0xFF && dash->current_hasRepURN_)
           || dash->current_adaptationset_->repesentations_.empty())
           {
             delete dash->current_adaptationset_;
@@ -1233,6 +1233,13 @@ end(void *data, const char *el)
           {
             if (dash->adp_pssh_set_)
             {
+              if (dash->adp_pssh_set_ == 0xFF)
+              {
+                dash->current_pssh_ = "FILE";
+                dash->adp_pssh_set_ = static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
+                dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+              }
+
               for (std::vector<DASHTree::Representation*>::iterator
                 b(dash->current_adaptationset_->repesentations_.begin()),
                 e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
