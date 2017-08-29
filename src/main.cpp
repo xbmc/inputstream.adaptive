@@ -1487,7 +1487,7 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
     kodi::Log(ADDON_LOG_DEBUG, "Searching for decrypters in: %s", path->c_str());
 
     if (!kodi::vfs::GetDirectory(*path, "", items))
-      return;
+      continue;
 
     for (unsigned int i(0); i < items.size(); ++i)
     {
