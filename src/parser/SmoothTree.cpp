@@ -348,9 +348,9 @@ protection_end(void *data, const char *el)
 |   SmoothTree
 +---------------------------------------------------------------------*/
 
-bool SmoothTree::open(const std::string &url)
+bool SmoothTree::open(const std::string &url, const std::string &manifestUpdateParam)
 {
-  PreparePaths(url);
+  PreparePaths(url, manifestUpdateParam);
 
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)

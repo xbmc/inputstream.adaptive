@@ -1341,9 +1341,9 @@ end(void *data, const char *el)
 |   DASHTree
 +---------------------------------------------------------------------*/
 
-bool DASHTree::open(const std::string &url)
+bool DASHTree::open(const std::string &url, const std::string &manifestUpdateParam)
 {
-  PreparePaths(url);
+  PreparePaths(url, manifestUpdateParam);
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;

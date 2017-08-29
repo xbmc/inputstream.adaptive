@@ -176,7 +176,7 @@ namespace adaptive
     return 0;
   }
 
-  bool AdaptiveTree::PreparePaths(const std::string &url)
+  bool AdaptiveTree::PreparePaths(const std::string &url, const std::string &manifestUpdateParam)
   {
     size_t paramPos = url.find('?');
     base_url_ = (paramPos == std::string::npos) ? url : url.substr(0, paramPos);
@@ -196,23 +196,30 @@ namespace adaptive
 
     manifest_url_ = url;
 
-    std::string::size_type repPos = manifest_url_.find("$START_NUMBER$");
-    if (repPos != std::string::npos)
+    if (manifestUpdateParam.empty())
     {
-      while (repPos && manifest_url_[repPos] != '&' && manifest_url_[repPos] != '?')--repPos;
-      if (repPos)
+      std::string::size_type repPos = manifest_url_.find("$START_NUMBER$");
+      if (repPos != std::string::npos)
       {
-        update_parameter_ = manifest_url_.substr(repPos);
-        manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
-        update_parameter_pos_ = update_parameter_.find("$START_NUMBER$");
-        if (manifest_url_.find("?") == std::string::npos)
-          update_parameter_[0] = '?';
-      }
-      else
-      {
-        Log(LOGLEVEL_ERROR, "Cannot find update parameter delimiter (%s)", manifest_url_.c_str());
+        while (repPos && manifest_url_[repPos] != '&' && manifest_url_[repPos] != '?')--repPos;
+        if (repPos)
+        {
+          update_parameter_ = manifest_url_.substr(repPos);
+          manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
+          update_parameter_pos_ = update_parameter_.find("$START_NUMBER$");
+        }
+        else
+        {
+          Log(LOGLEVEL_ERROR, "Cannot find update parameter delimiter (%s)", manifest_url_.c_str());
+        }
       }
     }
+    else
+      update_parameter_ = manifestUpdateParam;
+
+    if (!update_parameter_.empty() && update_parameter_[0]=='&' && manifest_url_.find("?") == std::string::npos)
+      update_parameter_[0] = '?';
+
     return true;
   }
 

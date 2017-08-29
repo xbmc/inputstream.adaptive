@@ -323,7 +323,7 @@ namespace adaptive
     AdaptiveTree();
     virtual ~AdaptiveTree();
 
-    virtual bool open(const std::string &url) = 0;
+    virtual bool open(const std::string &url, const std::string &manifestUpdateParam) = 0;
     virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
     virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void RefreshSegments(Representation *rep, const Segment *seg) {};
@@ -341,7 +341,7 @@ namespace adaptive
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
-  bool PreparePaths(const std::string &url);
+  bool PreparePaths(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
 private:
   std::mutex m_mutex;

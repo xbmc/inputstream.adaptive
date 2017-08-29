@@ -82,9 +82,9 @@ void HLSTree::ClearStream()
   m_stream.clear();
 }
 
-bool HLSTree::open(const std::string &url)
+bool HLSTree::open(const std::string &url, const std::string &manifestUpdateParam)
 {
-  PreparePaths(url);
+  PreparePaths(url, manifestUpdateParam);
   if (download(manifest_url_.c_str(), manifest_headers_))
   {
 #if FILEDEBUG
