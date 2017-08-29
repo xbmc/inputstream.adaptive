@@ -1382,7 +1382,6 @@ bool DASHTree::write_data(void *buffer, size_t buffer_size)
 void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
 {
   unsigned int freeSegments = rep->get_segment_pos(seg);
-
   if (freeSegments && has_timeshift_buffer_ && !update_parameter_.empty())
   {
     std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -1400,7 +1399,7 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
     NEXTLIVETRY:
       DASHTree updateTree;
       bool someInserted(false);
-      if (updateTree.open(manifest_url_ + replaced))
+      if (updateTree.open(manifest_url_ + replaced, ""))
       {
         std::vector<Period*>::const_iterator bpd(periods_.begin()), epd(periods_.end());
         for (std::vector<Period*>::const_iterator bp(updateTree.periods_.begin()), ep(updateTree.periods_.end()); bp != ep && bpd != epd; ++bp, ++bpd)
