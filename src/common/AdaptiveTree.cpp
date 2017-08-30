@@ -206,7 +206,6 @@ namespace adaptive
         {
           update_parameter_ = manifest_url_.substr(repPos);
           manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
-          update_parameter_pos_ = update_parameter_.find("$START_NUMBER$");
         }
         else
         {
@@ -214,11 +213,17 @@ namespace adaptive
         }
       }
     }
-    else
+    else if (manifestUpdateParam == "ETAG")
+    {
       update_parameter_ = manifestUpdateParam;
+    }
 
-    if (!update_parameter_.empty() && update_parameter_[0]=='&' && manifest_url_.find("?") == std::string::npos)
-      update_parameter_[0] = '?';
+    if (!update_parameter_.empty())
+    {
+      update_parameter_pos_ = update_parameter_.find("$START_NUMBER$");
+      if (update_parameter_[0] == '&' && manifest_url_.find("?") == std::string::npos)
+        update_parameter_[0] = '?';
+    }
 
     return true;
   }

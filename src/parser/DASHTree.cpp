@@ -1388,19 +1388,33 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
     if (std::chrono::duration_cast<std::chrono::seconds>(now - last_update_time_).count() > 1)
     {
       last_update_time_ = now;
+
+      std::string replaced(update_parameter_);
       unsigned int nextStartNumber(rep->startNumber_ + rep->segments_.size());
 
-      char buf[32];
-      sprintf(buf, "%u", nextStartNumber);
-      std::string replaced(update_parameter_);
-      replaced.replace(update_parameter_pos_, 14, buf);
+      if (~update_parameter_pos_)
+      {
+        replaced = update_parameter_;
+        char buf[32];
+        sprintf(buf, "%u", nextStartNumber);
+        replaced.replace(update_parameter_pos_, 14, buf);
+      }
+      else if (etag_.empty())
+        return;
+
       unsigned int retryCount(5);
 
     NEXTLIVETRY:
       DASHTree updateTree;
+      updateTree.manifest_headers_ = manifest_headers_;
+      if (!~update_parameter_pos_)
+        updateTree.manifest_headers_["If-None-Match"] = etag_;
+
       bool someInserted(false);
       if (updateTree.open(manifest_url_ + replaced, ""))
       {
+        etag_ = updateTree.etag_;
+
         std::vector<Period*>::const_iterator bpd(periods_.begin()), epd(periods_.end());
         for (std::vector<Period*>::const_iterator bp(updateTree.periods_.begin()), ep(updateTree.periods_.end()); bp != ep && bpd != epd; ++bp, ++bpd)
         {
