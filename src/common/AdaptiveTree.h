@@ -234,7 +234,7 @@ namespace adaptive
       std::string language_;
       std::string mimeType_;
       std::string base_url_;
-      std::string id;
+      std::string id_, group_;
       std::string codecs_;
       std::vector<Representation*> repesentations_;
       SPINCACHE<uint32_t> segment_durations_;
@@ -269,7 +269,7 @@ namespace adaptive
     std::vector<Period*> periods_;
     std::string manifest_url_, base_url_, base_domain_, update_parameter_;
     std::string::size_type update_parameter_pos_;
-    std::string etag_;
+    std::string etag_, last_modified_;
 
     /* XML Parsing*/
     XML_Parser parser_;

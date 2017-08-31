@@ -845,7 +845,9 @@ start(void *data, const char *el, const char **attr)
             : stricmp((const char*)*(attr + 1), "text") == 0 ? DASHTree::SUBTITLE
             : DASHTree::NOTYPE;
           else if (strcmp((const char*)*attr, "id") == 0)
-            dash->current_adaptationset_->id = (const char*)*(attr + 1);
+            dash->current_adaptationset_->id_ = (const char*)*(attr + 1);
+          else if (strcmp((const char*)*attr, "group") == 0)
+            dash->current_adaptationset_->group_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "lang") == 0)
             dash->current_adaptationset_->language_ = ltranslate((const char*)*(attr + 1));
           else if (strcmp((const char*)*attr, "mimeType") == 0)
@@ -1389,7 +1391,7 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
     {
       last_update_time_ = now;
 
-      std::string replaced(update_parameter_);
+      std::string replaced;
       unsigned int nextStartNumber(rep->startNumber_ + rep->segments_.size());
 
       if (~update_parameter_pos_)
@@ -1408,12 +1410,17 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
       DASHTree updateTree;
       updateTree.manifest_headers_ = manifest_headers_;
       if (!~update_parameter_pos_)
-        updateTree.manifest_headers_["If-None-Match"] = etag_;
+      {
+        updateTree.manifest_headers_["If-None-Match"] = "\"" + etag_ + "\"";
+        if (!last_modified_.empty())
+          updateTree.manifest_headers_["If-Modified-Since"] = last_modified_;
+      }
 
       bool someInserted(false);
       if (updateTree.open(manifest_url_ + replaced, ""))
       {
         etag_ = updateTree.etag_;
+        last_modified_ = updateTree.last_modified_;
 
         std::vector<Period*>::const_iterator bpd(periods_.begin()), epd(periods_.end());
         for (std::vector<Period*>::const_iterator bp(updateTree.periods_.begin()), ep(updateTree.periods_.end()); bp != ep && bpd != epd; ++bp, ++bpd)
@@ -1422,13 +1429,13 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
           {
             //Locate adaptationset
             std::vector<AdaptationSet*>::const_iterator bad((*bpd)->adaptationSets_.begin()), ead((*bpd)->adaptationSets_.end());
-            for (; bad != ead && (*bad)->id != (*ba)->id; ++bad);
+            for (; bad != ead && ((*bad)->id_ != (*ba)->id_ || (*bad)->group_ != (*ba)->group_); ++bad);
             if (bad != ead)
             {
               for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
               {
                 //Youtube returns last smallest number in case the requested data is not available
-                if ((*br)->startNumber_ < nextStartNumber)
+                if (~update_parameter_pos_ && (*br)->startNumber_ < nextStartNumber)
                   continue;
 
                 //Locate representation
@@ -1436,27 +1443,48 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
                 for (; brd != erd && (*brd)->id != (*br)->id; ++brd);
                 if (brd != erd && !(*br)->segments_.empty())
                 {
-                  //Here we go -> Insert new segments
-                  uint64_t ptsOffset = (*brd)->nextPts_ - (*br)->segments_[0]->startPTS_;
-                  unsigned int repFreeSegments(freeSegments);
-                  std::vector<Segment>::iterator bs((*br)->segments_.data.begin()), es((*br)->segments_.data.end());
-                  for (; bs != es && repFreeSegments; ++bs)
+                  if (~update_parameter_pos_) // partitial update
                   {
-                    Log(LOGLEVEL_DEBUG, "DASH Update: insert repid: %s url: %s", (*br)->id.c_str(), bs->url);
-                    if ((*brd)->flags_ & Representation::URLSEGMENTS)
-                      delete[](*brd)->segments_[0]->url;
-                    bs->startPTS_ += ptsOffset;
-                    (*brd)->segments_.insert(*bs);
-                    if ((*brd)->flags_ & Representation::URLSEGMENTS)
-                      bs->url = nullptr;
-                    ++(*brd)->startNumber_;
-                    --repFreeSegments;
+                    //Here we go -> Insert new segments
+                    uint64_t ptsOffset = (*brd)->nextPts_ - (*br)->segments_[0]->startPTS_;
+                    unsigned int repFreeSegments(freeSegments);
+                    std::vector<Segment>::iterator bs((*br)->segments_.data.begin()), es((*br)->segments_.data.end());
+                    for (; bs != es && repFreeSegments; ++bs)
+                    {
+                      Log(LOGLEVEL_DEBUG, "DASH Update: insert repid: %s url: %s", (*br)->id.c_str(), bs->url);
+                      if ((*brd)->flags_ & Representation::URLSEGMENTS)
+                        delete[](*brd)->segments_[0]->url;
+                      bs->startPTS_ += ptsOffset;
+                      (*brd)->segments_.insert(*bs);
+                      if ((*brd)->flags_ & Representation::URLSEGMENTS)
+                        bs->url = nullptr;
+                      ++(*brd)->startNumber_;
+                      --repFreeSegments;
+                      someInserted = true;
+                    }
+                    if (bs == es)
+                      (*brd)->nextPts_ += (*br)->nextPts_;
+                    else
+                      (*brd)->nextPts_ += bs->startPTS_;
+                  }
+                  else //Full update, be careful with startnumbers!
+                  {
+                    (*br)->segments_.swap((*brd)->newSegments_);
+                    (*brd)->newStartNumber_ = (*brd)->startNumber_;
+                    if (!(*brd)->newSegments_.empty())
+                    {
+                      uint64_t searchPts = (*brd)->newSegments_[0]->startPTS_;
+                      for (const auto &s : (*brd)->segments_.data)
+                      {
+                        if (s.startPTS_ >= searchPts)
+                          break;
+                        ++(*brd)->newStartNumber_;
+                      }
+                    }
+                    Log(LOGLEVEL_DEBUG, "DASH Full update: repid: %s current_start:%u, new_start:%u",
+                      (*br)->id.c_str(), (*brd)->startNumber_, (*brd)->newStartNumber_);
                     someInserted = true;
                   }
-                  if (bs == es)
-                    (*brd)->nextPts_ += (*br)->nextPts_;
-                  else
-                    (*brd)->nextPts_ += bs->startPTS_;
                 }
               }
             }

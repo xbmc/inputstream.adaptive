@@ -104,7 +104,8 @@ namespace adaptive
 
   void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
   {
-    if (!has_timeshift_buffer_ || (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS) != 0)
+    if (!has_timeshift_buffer_ || !update_parameter_.empty() ||
+      (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS) != 0)
       return;
 
     //Get a modifiable adaptationset
@@ -213,7 +214,7 @@ namespace adaptive
         }
       }
     }
-    else if (manifestUpdateParam == "ETAG")
+    else if (manifestUpdateParam == "etag")
     {
       update_parameter_ = manifestUpdateParam;
     }

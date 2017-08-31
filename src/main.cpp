@@ -245,6 +245,7 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
   while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead));
 
   etag_ = file.GetProperty(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
+  last_modified_ = file.GetProperty(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
 
   //download_speed_ = file.GetFileDownloadSpeed();
 
