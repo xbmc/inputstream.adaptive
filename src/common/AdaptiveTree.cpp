@@ -138,6 +138,8 @@ namespace adaptive
     seg.range_begin_ += fragmentDuration;
     seg.range_end_ ++;
 
+    Log(LOGLEVEL_DEBUG, "AdaptiveTree: insert live segment: pts: %llu range_end: %llu", seg.startPTS_, seg.range_end_);
+
     for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
       (*b)->segments_.insert(seg);
   }
@@ -214,7 +216,7 @@ namespace adaptive
         }
       }
     }
-    else if (manifestUpdateParam == "etag")
+    else if (manifestUpdateParam == "full")
     {
       update_parameter_ = manifestUpdateParam;
     }

@@ -263,8 +263,9 @@ bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, s
   if (!file.CURLCreate(url))
     return false;
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable" , "0");
-  file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "Connection", "keep-alive");
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+  if (mediaHeaders.find("connection") == mediaHeaders.end())
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
 
   for (const auto &entry : mediaHeaders)
   {

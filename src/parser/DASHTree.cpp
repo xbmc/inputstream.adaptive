@@ -1401,8 +1401,6 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
         sprintf(buf, "%u", nextStartNumber);
         replaced.replace(update_parameter_pos_, 14, buf);
       }
-      else if (etag_.empty())
-        return;
 
       unsigned int retryCount(5);
 
@@ -1411,7 +1409,8 @@ void DASHTree::RefreshSegments(Representation *rep, const Segment *seg)
       updateTree.manifest_headers_ = manifest_headers_;
       if (!~update_parameter_pos_)
       {
-        updateTree.manifest_headers_["If-None-Match"] = "\"" + etag_ + "\"";
+        if (!etag_.empty())
+          updateTree.manifest_headers_["If-None-Match"] = "\"" + etag_ + "\"";
         if (!last_modified_.empty())
           updateTree.manifest_headers_["If-Modified-Since"] = last_modified_;
       }

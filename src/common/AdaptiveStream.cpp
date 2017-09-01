@@ -21,6 +21,7 @@
 #include <iostream>
 #include <cstring>
 #include "../oscompat.h"
+#include "../log.h"
 #include <math.h>
 
 using namespace adaptive;
@@ -141,7 +142,15 @@ void AdaptiveStream::worker()
   do {
     thread_data_->signal_dl_.wait(lckdl);
 
-    bool ret  = download_segment();
+    bool ret(download_segment());
+    unsigned int retryCount(10);
+
+    while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
+    {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
+      ret = download_segment();
+    }
 
     //Signal finished download
     {
