@@ -554,10 +554,10 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
     if (blocks[3][0] == 'J')
     {
       jsmn_parser jsn;
-      jsmntok_t tokens[100];
+      jsmntok_t tokens[256];
 
       jsmn_init(&jsn);
-      int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 100);
+      int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 256);
 
       std::vector<std::string> jsonVals = split(blocks[3].c_str()+2, ';');
 
