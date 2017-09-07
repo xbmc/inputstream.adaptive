@@ -1599,7 +1599,7 @@ bool Session::initialize()
     if (license_key_.empty())
       license_key_ = adaptiveTree_->license_url_;
 
-    kodi::Log(ADDON_LOG_DEBUG, "Entering encryption sectiom");
+    kodi::Log(ADDON_LOG_DEBUG, "Entering encryption section");
 
     if (license_key_.empty())
     {
