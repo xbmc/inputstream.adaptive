@@ -74,6 +74,8 @@ start(void *data, const char *el, const char **attr)
           }
           if (strcmp(el, "br") == 0)
             ttml->m_strXMLText += "\n";
+          if (strcmp(el, "p7:br") == 0)
+            ttml->m_strXMLText += "\n";
         }
         else if (strcmp(el, "p") == 0)
         {
@@ -84,7 +86,11 @@ start(void *data, const char *el, const char **attr)
           {
             if (strcmp((const char*)*attr, "begin") == 0)
               b = (const char*)*(attr + 1);
+            if (strcmp((const char*)*attr, "p7:begin") == 0)
+              b = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "end") == 0)
+              e = (const char*)*(attr + 1);
+            else if (strcmp((const char*)*attr, "p7:end") == 0)
               e = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "xml:id") == 0)
               id = (const char*)*(attr + 1);
@@ -202,12 +208,9 @@ bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale,
   XML_SetElementHandler(parser, start, end);
   XML_SetCharacterDataHandler(parser, text);
 
-  XML_Status retval = XML_Parse(parser, (const char*)buffer, buffer_size, done);
+  XML_Parse(parser, (const char*)buffer, buffer_size, done);
   XML_ParserFree(parser);
 
-  if (retval == XML_STATUS_ERROR)
-    return false;
-  
   while (m_pos < m_subTitles.size() && m_subTitles[m_pos].id != m_lastId)
     ++m_pos;
   
@@ -257,8 +260,9 @@ uint64_t TTML2SRT::GetTime(const char *tmchar)
   }
   else
   {
+    unsigned char delim;
     unsigned int th, tm, ts, tms;
-    sscanf(tmchar, "%u:%u:%u.%2u", &th, &tm, &ts, &tms);
+    sscanf(tmchar, "%u:%u:%u%[.:]%2u", &th, &tm, &ts, &delim, &tms);
     ret = th * 3600 + tm * 60 + ts;
     ret = ret * 1000 + tms * 10;
     ret = (ret * m_timescale) / 1000;
