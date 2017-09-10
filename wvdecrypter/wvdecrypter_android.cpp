@@ -31,6 +31,8 @@ using namespace SSD;
 
 SSD_HOST *host = 0;
 
+#define LOCLICENSE 1
+
 static void Log(SSD_HOST::LOGLEVEL loglevel, const char *format, ...)
 {
   char buffer[16384];
@@ -240,7 +242,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     return;
   }
 
-#ifdef _DEBUG
+#ifdef LOCLICENSE
   std::string strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init";
   FILE*f = fopen(strDbg.c_str(), "wb");
@@ -417,7 +419,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
     return false;
   }
 
-#ifdef _DEBUG
+#ifdef LOCLICENSE
   std::string strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge";
   FILE*f = fopen(strDbg.c_str(), "wb");
@@ -541,7 +543,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
     }
   }
 
-#ifdef _DEBUG
+#ifdef LOCLICENSE
   strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response";
   f = fopen(strDbg.c_str(), "wb");
