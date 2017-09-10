@@ -36,14 +36,8 @@ NativeLibrary LoadNativeLibrary(const std::string& library_path,
 
 // static
 void UnloadNativeLibrary(NativeLibrary library) {
-	if (library)
-	{
-		int ret = 0;//dlclose(library);
-		if (ret < 0) {
-			//DLOG(ERROR) << "dlclose failed: " << dlerror();
-			//NOTREACHED();
-		}
-	}
+	if (library) dlclose(library);
+        return;
 }
 
 // static
