@@ -236,8 +236,10 @@ start(void *data, const char *el, const char **attr)
       }
       attr += 2;
     }
-    if (timeScale)
-      dash->overallSeconds_ = duration / timeScale;
+    if (!timeScale)
+      timeScale = 10000000; //Defalt Smmoothstream frequency (10Khz)
+
+    dash->overallSeconds_ = duration / timeScale;
     dash->currentNode_ |= SmoothTree::SSMNODE_SSM;
     dash->minPresentationOffset = ~0ULL;
     dash->base_time_ = ~0ULL;
