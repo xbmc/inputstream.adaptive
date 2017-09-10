@@ -486,8 +486,12 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   std::string strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init";
   FILE*f = fopen(strDbg.c_str(), "wb");
-  fwrite(pssh.GetData(), 1, pssh.GetDataSize(), f);
-  fclose(f);
+  if (f) {
+    fwrite(pssh.GetData(), 1, pssh.GetDataSize(), f);
+    fclose(f);
+  }
+  else
+    Log(SSD_HOST::LL_DEBUG, "%s: could not open debug file for writing (init)!", __func__);
 #endif
 
   if (memcmp(pssh.GetData() + 4, "pssh", 4) == 0)
@@ -622,8 +626,12 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   std::string strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge";
   FILE*f = fopen(strDbg.c_str(), "wb");
-  fwrite(challenge_.GetData(), 1, challenge_.GetDataSize(), f);
-  fclose(f);
+  if (f) {
+    fwrite(challenge_.GetData(), 1, challenge_.GetDataSize(), f);
+    fclose(f);
+  }
+  else
+    Log(SSD_HOST::LL_DEBUG, "%s: could not open debug file for writing (challenge)!", __func__);
 #endif
 
   //Process placeholder in GET String
@@ -737,8 +745,12 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   strDbg = host->GetProfilePath();
   strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response";
   f = fopen(strDbg.c_str(), "wb");
-  fwrite(response.c_str(), 1, response.size(), f);
-  fclose(f);
+  if (f) {
+    fwrite(response.c_str(), 1, response.size(), f);
+    fclose(f);
+  }
+  else
+    Log(SSD_HOST::LL_DEBUG, "%s: could not open debug file for writing (response)!", __func__);
 #endif
 
   if (!blocks[3].empty())
