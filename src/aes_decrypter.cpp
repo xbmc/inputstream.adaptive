@@ -18,6 +18,8 @@
 
 #include "aes_decrypter.h"
 #include "Ap4Protection.h"
+#include <kodi/Filesystem.h>
+#include <vector>
 
 void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, const AP4_UI08 *src, AP4_UI08 *dst, size_t dataSize)
 {
@@ -55,4 +57,15 @@ void AESDecrypter::ivFromSequence(uint8_t *buffer, uint64_t sid)
 {
   memset(buffer, 0, 16);
   AP4_BytesFromUInt64BE(buffer + 8, sid);
+}
+
+bool AESDecrypter::RenewLicense(const std::string &pluginUrl)
+{
+  std::vector<kodi::vfs::CDirEntry> items;
+  if (kodi::vfs::GetDirectory(pluginUrl, "", items) && items.size() == 1)
+  {
+    m_licenseKey = items[0].Path();
+    return true;
+  }
+  return false;
 }

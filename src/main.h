@@ -129,7 +129,7 @@ public:
 
   //Observer Section
   virtual void OnSegmentChanged(adaptive::AdaptiveStream *stream) override;
-  virtual void OnStreamChange(adaptive::AdaptiveStream *stream, uint32_t segment) override;
+  virtual void OnStreamChange(adaptive::AdaptiveStream *stream) override;
 
 protected:
   void CheckFragmentDuration(STREAM &stream);

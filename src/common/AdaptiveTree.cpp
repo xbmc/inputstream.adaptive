@@ -20,6 +20,7 @@
 #include <string.h>
 #include <algorithm>
 #include <stdlib.h>
+#include <chrono>
 #include "../log.h"
 
 namespace adaptive
@@ -54,6 +55,9 @@ namespace adaptive
     , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
     , included_types_(0)
     , need_secure_decoder_(false)
+    , updateInterval_(~0)
+    , updateThread_(nullptr)
+    , lastUpdated_(std::chrono::system_clock::now())
   {
     psshSets_.push_back(PSSH());
   }
@@ -67,12 +71,37 @@ namespace adaptive
           {
             for (std::vector<Segment>::iterator bs((*br)->segments_.data.begin()), es((*br)->segments_.data.end()); bs != es; ++bs)
               delete[] bs->url;
-            for (std::vector<Segment>::iterator bs((*br)->newSegments_.data.begin()), es((*br)->newSegments_.data.end()); bs != es; ++bs)
-              delete[] bs->url;
             if((*br)->flags_ & Representation::INITIALIZATION)
               delete[] (*br)->initialization_.url;
           }
+
+    has_timeshift_buffer_ = false;
+    if (updateThread_)
+    {
+      {
+        std::lock_guard<std::mutex> lck(updateMutex_);
+        updateVar_.notify_one();
+      }
+      updateThread_->join();
+      delete updateThread_;
+    }
   }
+
+  void AdaptiveTree::FreeSegments(Representation *rep)
+  {
+    for (std::vector<Segment>::iterator bs(rep->segments_.data.begin()), es(rep->segments_.data.end()); bs != es; ++bs)
+    {
+      --psshSets_[bs->pssh_set_].use_count_;
+      if (rep->flags_ & Representation::URLSEGMENTS)
+        delete[] bs->url;
+    }
+    if ((rep->flags_ & (Representation::INITIALIZATION | Representation::URLSEGMENTS))
+      == (Representation::INITIALIZATION | Representation::URLSEGMENTS))
+      delete[]rep->initialization_.url;
+    rep->segments_.clear();
+    rep->current_segment_ = nullptr;
+  }
+
 
   bool AdaptiveTree::has_type(StreamType t)
   {
@@ -93,7 +122,7 @@ namespace adaptive
 
   void AdaptiveTree::set_download_speed(double speed)
   {
-    std::lock_guard<std::mutex> lck(m_mutex);
+    std::lock_guard<std::mutex> lck(treeMutex_);
 
     download_speed_ = speed;
     if (!average_download_speed_)
@@ -144,7 +173,7 @@ namespace adaptive
       (*b)->segments_.insert(seg);
   }
 
-  void AdaptiveTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
+  void AdaptiveTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
   { 
     memcpy(dst + dstOffset, src, dataSize);
   }
@@ -216,18 +245,22 @@ namespace adaptive
         }
       }
     }
-    else if (manifestUpdateParam == "full")
-    {
+    else
       update_parameter_ = manifestUpdateParam;
-    }
 
     if (!update_parameter_.empty())
     {
-      update_parameter_pos_ = update_parameter_.find("$START_NUMBER$");
-      if (update_parameter_[0] == '&' && manifest_url_.find("?") == std::string::npos)
-        update_parameter_[0] = '?';
+      if (update_parameter_ != "full")
+      {
+        if ((update_parameter_pos_ = update_parameter_.find("$START_NUMBER$")) != std::string::npos)
+        {
+          if (update_parameter_[0] == '&' && manifest_url_.find("?") == std::string::npos)
+            update_parameter_[0] = '?';
+        }
+        else
+          update_parameter_.clear();
+      }
     }
-
     return true;
   }
 
@@ -245,4 +278,32 @@ namespace adaptive
     }
   }
 
+  void AdaptiveTree::RefreshUpdateThread()
+  {
+    if (HasUpdateThread())
+    {
+      std::lock_guard<std::mutex> lck(updateMutex_);
+      updateVar_.notify_one();
+    }
+  }
+
+  void AdaptiveTree::StartUpdateThread()
+  {
+    if (!updateThread_ && ~updateInterval_ && has_timeshift_buffer_ && !update_parameter_.empty())
+      updateThread_ = new std::thread(&AdaptiveTree::SegmentUpdateWorker, this);
+  }
+
+  void AdaptiveTree::SegmentUpdateWorker()
+  {
+    std::unique_lock<std::mutex> updLck(updateMutex_);
+    while (~updateInterval_ && has_timeshift_buffer_)
+    {
+      if (updateVar_.wait_for(updLck, std::chrono::milliseconds(updateInterval_)) == std::cv_status::timeout)
+      {
+        std::lock_guard<std::mutex> lck(treeMutex_);
+        lastUpdated_ = std::chrono::system_clock::now();
+        RefreshSegments();
+      }
+    }
+  }
 } // namespace

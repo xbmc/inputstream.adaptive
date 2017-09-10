@@ -31,6 +31,7 @@ public:
   std::string convertIV(const std::string &input);
   void ivFromSequence(uint8_t *buffer, uint64_t sid);
   const std::string &getLicenseKey() const { return m_licenseKey; };
+  bool RenewLicense(const std::string &pluginUrl);
 private:
   std::string m_licenseKey;
 };

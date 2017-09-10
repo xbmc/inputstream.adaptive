@@ -249,6 +249,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
     }
     // Set Live as default
     has_timeshift_buffer_ = true;
+    update_parameter_ = "full";
     return true;
   }
   return false;
@@ -260,7 +261,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
   {
     ClearStream();
 
-    SPINCACHE<Segment> &segments(update ? rep->newSegments_ : rep->segments_);
+    SPINCACHE<Segment> newSegments;
+    unsigned int newStartNumber;
+    uint32_t segmentId(rep->getCurrentSegmentNumber());
+
+    SPINCACHE<Segment> &segments(update ? newSegments : rep->segments_);
+    FreeSegments(rep);
+
     if (rep->flags_ & Representation::URLSEGMENTS)
       for (auto &s : segments.data)
       {
@@ -284,7 +291,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       bool startCodeFound(false);
       Segment segment;
       uint64_t pts(0);
-      (update ? rep->newStartNumber_ : rep->startNumber_) = 0;
+      (update ? newStartNumber : rep->startNumber_) = 0;
 
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
@@ -368,7 +375,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         else if (line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
           if (update)
-            rep->newStartNumber_ = atol(line.c_str() + 22);
+            newStartNumber = atol(line.c_str() + 22);
           else
             rep->startNumber_ = atol(line.c_str() + 22);
         }
@@ -381,7 +388,11 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           }
         }
         else if (line.compare(0, 22, "#EXT-X-TARGETDURATION:") == 0)
-          m_segmentIntervalSec = atoi(line.c_str() + 22);
+        {
+          uint32_t newInterval = atoi(line.c_str() + 22) * 1500;
+          if (newInterval < updateInterval_)
+            updateInterval_ = newInterval;
+        }
         else if (line.compare(0, 11, "#EXT-X-KEY:") == 0)
         {
           if (!rep->pssh_set_)
@@ -433,6 +444,25 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       rep->source_url_.clear(); // disable this segment
       return false;
     }
+
+    if (update)
+    {
+      rep->segments_.swap(newSegments);
+      rep->startNumber_ = newStartNumber;
+      if (!segmentId || segmentId < rep->startNumber_)
+        rep->current_segment_ = nullptr;
+      else
+      {
+        if (segmentId >= rep->startNumber_ + rep->segments_.size())
+          segmentId = rep->startNumber_ + rep->segments_.size() - 1;
+        rep->current_segment_ = rep->get_segment(segmentId - rep->startNumber_);
+      }
+      if ((rep->flags_ & Representation::WAITFORSEGMENT) && rep->get_next_segment(rep->current_segment_))
+        rep->flags_ &= ~Representation::WAITFORSEGMENT;
+    }
+    else
+      StartUpdateThread();
+
     return true;
   }
   return false;
@@ -444,14 +474,15 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size)
   return true;
 }
 
-void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
+void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
 {
-  if (seg->pssh_set_)
+  if (psshSet)
   {
-    PSSH &pssh(psshSets_[seg->pssh_set_]);
+    PSSH &pssh(psshSets_[psshSet]);
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
+RETRY:
       ClearStream();
       std::map<std::string, std::string> headers;
       std::vector<std::string> keyParts(split(m_decrypter->getLicenseKey(), '|'));
@@ -461,13 +492,20 @@ void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8
       {
         pssh.defaultKID_ = m_stream.str();
       }
-      else
-        pssh.defaultKID_ = "0000000000000000";
+      else if (pssh.defaultKID_ != "0")
+      {
+        pssh.defaultKID_ = "0";
+        if (keyParts.size() >= 5 && !keyParts[4].empty() && m_decrypter->RenewLicense(keyParts[4]))
+          goto RETRY;
+      }
     }
-    if (!dstOffset)
+
+    if (pssh.defaultKID_ == "0")
+      memset(dst + dstOffset, 0, dataSize);
+    else if (!dstOffset)
     {
       if (pssh.iv.empty())
-        m_decrypter->ivFromSequence(m_iv, rep->startNumber_ + rep->segments_.pos(seg));
+        m_decrypter->ivFromSequence(m_iv, segNum);
       else
         memcpy(m_iv, pssh.iv.data(), 16);
     }
@@ -476,32 +514,28 @@ void HLSTree::OnDataArrived(Representation *rep, const Segment *seg, const uint8
       memcpy(m_iv, src + (dataSize - 16), 16);
   }
   else
-    AdaptiveTree::OnDataArrived(rep, seg, src, dst, dstOffset, dataSize);
+    AdaptiveTree::OnDataArrived(segNum, psshSet, src, dst, dstOffset, dataSize);
 }
 
-void HLSTree::RefreshSegments(Representation *rep, const Segment *seg)
+//Called each time before we switch to a new segment
+void HLSTree::RefreshSegments(Representation *rep, StreamType type)
 {
   if (m_refreshPlayList)
   {
-    int retryCount((m_segmentIntervalSec+3) &~3);
+    RefreshUpdateThread();
+    prepareRepresentation(rep, true);
+  }
+}
 
-    while (prepareRepresentation(rep, true) && retryCount > 0)
-    {
-      if (rep->segments_.pos(seg) + 1 == rep->segments_.data.size())
-      {
-        //Look if we have a new segment
-        if (rep->newStartNumber_ + rep->newSegments_.data.size() > rep->startNumber_ + rep->segments_.data.size())
-          break;
-        for (unsigned int i(0); i < 20; ++i)
-        {
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          if (!(rep->flags_ & Representation::ENABLED))
-            return;
-        }
-      }
-      else
-        break;
-      retryCount -= 2;
-    }
+//Called form update-thread
+void HLSTree::RefreshSegments()
+{
+  if (m_refreshPlayList)
+  {
+    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
+      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
+        for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
+          if ((*br)->flags_ & Representation::ENABLED)
+            prepareRepresentation((*br), true);
   }
 }

@@ -19,7 +19,6 @@
 #pragma once
 
 #include "../common/AdaptiveTree.h"
-#include <chrono>
 
 namespace adaptive
 {
@@ -30,26 +29,12 @@ namespace adaptive
     DASHTree();
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
     virtual bool write_data(void *buffer, size_t buffer_size) override;
-    virtual void RefreshSegments(Representation *rep, const Segment *seg) override;
+    virtual void RefreshSegments(Representation *rep, StreamType type) override;
 
-    enum
-    {
-      MPDNODE_MPD = 1 << 0,
-      MPDNODE_PERIOD = 1 << 1,
-      MPDNODE_ADAPTIONSET = 1 << 2,
-      MPDNODE_CONTENTPROTECTION = 1 << 3,
-      MPDNODE_REPRESENTATION = 1 << 4,
-      MPDNODE_BASEURL = 1 << 5,
-      MPDNODE_SEGMENTLIST = 1 << 6,
-      MPDNODE_INITIALIZATION = 1 << 7,
-      MPDNODE_SEGMENTURL = 1 << 8,
-      MPDNODE_SEGMENTDURATIONS = 1 << 9,
-      MPDNODE_S = 1 << 11,
-      MPDNODE_PSSH = 1 << 12,
-      MPDNODE_SEGMENTTEMPLATE = 1 << 13,
-      MPDNODE_SEGMENTTIMELINE = 1 << 14
-    };
+    void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
     uint64_t pts_helper_;
-    std::chrono::steady_clock::time_point last_update_time_;
+    uint32_t firstStartNumber_;
+  protected:
+    virtual void RefreshSegments() override;
   };
 }

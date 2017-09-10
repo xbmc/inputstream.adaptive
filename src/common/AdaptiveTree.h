@@ -23,7 +23,10 @@
 #include <map>
 #include <inttypes.h>
 #include "expat.h"
+#include <thread>
 #include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 namespace adaptive
 {
@@ -131,7 +134,7 @@ namespace adaptive
     {
       Representation() :bandwidth_(0), samplingRate_(0), width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0), expired_segments_(0),
-        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), newStartNumber_(~0), nextPts_(0), duration_(0), timescale_(0) {};
+        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), nextPts_(0), duration_(0), timescale_(0), current_segment_(nullptr) {};
       std::string url_;
       std::string id;
       std::string codecs_;
@@ -153,9 +156,8 @@ namespace adaptive
       static const uint16_t INCLUDEDSTREAM = 64;
       static const uint16_t URLSEGMENTS = 128;
       static const uint16_t ENABLED = 256;
-      static const uint16_t HASUPDATESEGMENTS = 512;
+      static const uint16_t WAITFORSEGMENT = 512;
       static const uint16_t INITIALIZATION_PREFIXED = 1024;
-
 
       uint16_t flags_;
       uint16_t hdcpVersion_;
@@ -166,13 +168,14 @@ namespace adaptive
       uint32_t expired_segments_;
       ContainerType containerType_;
       SegmentTemplate segtpl_;
-      unsigned int startNumber_, newStartNumber_;
+      unsigned int startNumber_;
       uint64_t nextPts_;
       //SegmentList
       uint32_t duration_, timescale_;
       uint32_t timescale_ext_, timescale_int_;
       Segment initialization_;
-      SPINCACHE<Segment> segments_, newSegments_;
+      SPINCACHE<Segment> segments_;
+      const Segment *current_segment_;
       const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
       const Segment *get_next_segment(const Segment *seg)const
       {
@@ -198,6 +201,16 @@ namespace adaptive
       {
         return pssh_set_;
       }
+
+      uint32_t getCurrentSegmentPos() const
+      {
+        return get_segment_pos(current_segment_);
+      };
+
+      uint32_t getCurrentSegmentNumber() const
+      {
+        return current_segment_ ? get_segment_pos(current_segment_) + startNumber_ : ~0U;
+      };
 
       void SetScaling()
       {
@@ -326,11 +339,12 @@ namespace adaptive
 
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) = 0;
     virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
-    virtual void OnDataArrived(Representation *rep, const Segment *seg, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
-    virtual void RefreshSegments(Representation *rep, const Segment *seg) {};
+    virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
+    virtual void RefreshSegments(Representation *rep, StreamType type) {};
 
     uint16_t insert_psshset(StreamType type);
     bool has_type(StreamType t);
+    void FreeSegments(Representation *rep);
     uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
     double get_download_speed() const { return download_speed_; };
     double get_average_download_speed() const { return average_download_speed_; };
@@ -339,13 +353,27 @@ namespace adaptive
 
     bool empty(){ return !current_period_ || current_period_->adaptationSets_.empty(); };
     const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
+    std::mutex &GetTreeMutex() { return treeMutex_; };
+    bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
+    void RefreshUpdateThread();
+    const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders);
   virtual bool write_data(void *buffer, size_t buffer_size) = 0;
   bool PreparePaths(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
+
+  // Live segment update section
+  virtual void StartUpdateThread();
+  virtual void RefreshSegments() {};
+
+  uint32_t updateInterval_;
+  std::mutex treeMutex_, updateMutex_;
+  std::condition_variable updateVar_;
+  std::thread *updateThread_;
+  std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
 private:
-  std::mutex m_mutex;
+  void SegmentUpdateWorker();
 };
 
 }
