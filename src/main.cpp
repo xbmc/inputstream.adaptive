@@ -1524,15 +1524,20 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
 
   std::vector<kodi::vfs::CDirEntry> items;
 
-  for (std::vector<std::string>::const_iterator path(searchPaths.begin()); !decrypter_ && path != searchPaths.end(); ++path)
+  for (std::size_t p(0); !decrypter_ && p < searchPaths.size(); ++p)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "Searching for decrypters in: %s", path->c_str());
+    kodi::Log(ADDON_LOG_DEBUG, "Searching for decrypters in: %s", searchPaths[p].c_str());
 
-    if (!kodi::vfs::GetDirectory(*path, "", items))
+    if (!kodi::vfs::GetDirectory(searchPaths[p], "", items))
       continue;
 
-    for (unsigned int i(0); i < items.size(); ++i)
+    for (std::size_t i(0); i < items.size(); ++i)
     {
+      if (items[i].IsFolder())
+      {
+        searchPaths.insert(std::end(searchPaths), items[i].Path().c_str());
+        continue;
+      }
       if (strncmp(items[i].Label().c_str(), "ssd_", 4) && strncmp(items[i].Label().c_str(), "libssd_", 7))
         continue;
 
