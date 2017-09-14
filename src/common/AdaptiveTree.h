@@ -105,7 +105,8 @@ namespace adaptive
       CONTAINERTYPE_NOTYPE,
       CONTAINERTYPE_INVALID,
       CONTAINERTYPE_MP4,
-      CONTAINERTYPE_TS
+      CONTAINERTYPE_TS,
+      CONTAINERTYPE_ADTS
     };
 
     // Node definition
@@ -358,8 +359,8 @@ namespace adaptive
     void RefreshUpdateThread();
     const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 protected:
-  virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders);
-  virtual bool write_data(void *buffer, size_t buffer_size) = 0;
+  virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr);
+  virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) = 0;
   bool PreparePaths(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
 

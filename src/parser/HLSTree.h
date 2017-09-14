@@ -35,7 +35,7 @@ namespace adaptive
 
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
     virtual bool prepareRepresentation(Representation *rep, bool update = false) override;
-    virtual bool write_data(void *buffer, size_t buffer_size) override;
+    virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
     virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize) override;
     virtual void RefreshSegments(Representation *rep, StreamType type) override;
 
@@ -43,8 +43,6 @@ namespace adaptive
     virtual void RefreshSegments() override;
 
   private:
-    void ClearStream();
-    std::stringstream m_stream;
     std::string m_audioCodec;
 
     struct EXTGROUP

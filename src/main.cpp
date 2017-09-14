@@ -222,7 +222,7 @@ protected:
 Kodi Streams implementation
 ********************************************************/
 
-bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::string, std::string> &manifestHeaders)
+bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque)
 {
   // open the file
   kodi::vfs::CFile file;
@@ -243,7 +243,7 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
   static const unsigned int CHUNKSIZE = 16384;
   char buf[CHUNKSIZE];
   size_t nbRead;
-  while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead));
+  while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead, opaque));
 
   etag_ = file.GetProperty(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
   last_modified_ = file.GetProperty(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
@@ -2346,8 +2346,16 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
   {
       iids.m_streamCount = 0;
       for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
-        if(m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type())
+        if (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type())
+        {
+          if (m_session->GetMediaTypeMask() != 0xFF)
+          {
+            const adaptive::AdaptiveTree::Representation *rep(m_session->GetStream(i)->stream_.getRepresentation());
+            if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+              continue;
+          }
           iids.m_streamIds[iids.m_streamCount++] = i;
+        }
   } else
       iids.m_streamCount = 0;
   return iids;

@@ -76,16 +76,11 @@ HLSTree::~HLSTree()
   delete m_decrypter;
 }
 
-void HLSTree::ClearStream()
-{
-  m_stream.str("");
-  m_stream.clear();
-}
-
 bool HLSTree::open(const std::string &url, const std::string &manifestUpdateParam)
 {
   PreparePaths(url, manifestUpdateParam);
-  if (download(manifest_url_.c_str(), manifest_headers_))
+  std::stringstream stream;
+  if (download(manifest_url_.c_str(), manifest_headers_, &stream))
   {
 #if FILEDEBUG
     FILE *f = fopen("inputstream_adaptive_master.m3u8", "w");
@@ -104,7 +99,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
 
     std::map<std::string, std::string> map;
 
-    while (std::getline(m_stream, line))
+    while (std::getline(stream, line))
     {
       if (!startCodeFound)
       {
@@ -259,11 +254,10 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 {
   if (!rep->source_url_.empty())
   {
-    ClearStream();
-
     SPINCACHE<Segment> newSegments;
     unsigned int newStartNumber;
     uint32_t segmentId(rep->getCurrentSegmentNumber());
+    std::stringstream stream;
 
     SPINCACHE<Segment> &segments(update ? newSegments : rep->segments_);
     FreeSegments(rep);
@@ -276,7 +270,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       }
     segments.clear();
 
-    if (download(rep->source_url_.c_str(), manifest_headers_))
+    if (download(rep->source_url_.c_str(), manifest_headers_, &stream))
     {
 #if FILEDEBUG
       FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -302,7 +296,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       if (bs != std::string::npos)
         base_url = rep->source_url_.substr(0, bs + 1);
 
-      while (std::getline(m_stream, line))
+      while (std::getline(stream, line))
       {
         if (!startCodeFound)
         {
@@ -339,6 +333,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
             {
               if (strncmp(line.c_str() + ext, ".ts", 3) == 0)
                 rep->containerType_ = CONTAINERTYPE_TS;
+              else if (strncmp(line.c_str() + ext, ".aac", 4) == 0)
+                rep->containerType_ = CONTAINERTYPE_ADTS;
               else if (strncmp(line.c_str() + ext, ".mp4", 4) == 0)
                 rep->containerType_ = CONTAINERTYPE_MP4;
               else
@@ -468,9 +464,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
   return false;
 };
 
-bool HLSTree::write_data(void *buffer, size_t buffer_size)
+bool HLSTree::write_data(void *buffer, size_t buffer_size, void *opaque)
 {
-  m_stream.write(static_cast<const char*>(buffer), buffer_size);
+  static_cast<std::stringstream*>(opaque)->write(static_cast<const char*>(buffer), buffer_size);
   return true;
 }
 
@@ -483,14 +479,14 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t
     if (pssh.defaultKID_.empty())
     {
 RETRY:
-      ClearStream();
+      std::stringstream stream;
       std::map<std::string, std::string> headers;
       std::vector<std::string> keyParts(split(m_decrypter->getLicenseKey(), '|'));
       if (keyParts.size() > 1)
         parseheader(headers, keyParts[1].c_str());
-      if (download(pssh.pssh_.c_str(), headers))
+      if (download(pssh.pssh_.c_str(), headers, &stream))
       {
-        pssh.defaultKID_ = m_stream.str();
+        pssh.defaultKID_ = stream.str();
       }
       else if (pssh.defaultKID_ != "0")
       {

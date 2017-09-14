@@ -1405,7 +1405,7 @@ bool DASHTree::open(const std::string &url, const std::string &manifestUpdatePar
   return ret;
 }
 
-bool DASHTree::write_data(void *buffer, size_t buffer_size)
+bool DASHTree::write_data(void *buffer, size_t buffer_size, void *opaque)
 {
   bool done(false);
   XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);

@@ -28,7 +28,7 @@ namespace adaptive
   public:
     DASHTree();
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
-    virtual bool write_data(void *buffer, size_t buffer_size) override;
+    virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
     virtual void RefreshSegments(Representation *rep, StreamType type) override;
 
     void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };

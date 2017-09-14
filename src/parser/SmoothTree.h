@@ -28,7 +28,7 @@ namespace adaptive
   public:
     SmoothTree();
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
-    virtual bool write_data(void *buffer, size_t buffer_size) override;
+    virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
 
     void parse_protection();
 
