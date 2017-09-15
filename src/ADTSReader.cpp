@@ -32,17 +32,21 @@ uint64_t ID3TAG::getSize(const uint8_t *data, unsigned int len, unsigned int shi
 ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
 {
   uint8_t buffer[64];
-  AP4_Position startPos;
+  unsigned int retCount(0);
 
-  PARSECODE ret(PARSE_NO_ID3);
+  while (!AP4_SUCCEEDED(stream->Read(buffer, HEADER_SIZE)))
+  {
+    if (retCount++)
+      return PARSE_FAIL;
+  }
 
-  if (!AP4_SUCCEEDED(stream->Tell(startPos)))
-    goto FAIL;
-
-  if (!AP4_SUCCEEDED(stream->Read(buffer, HEADER_SIZE)) || memcmp(buffer, "ID3", 3) != 0)
-    goto FAIL;
-
-  ret = PARSE_FAIL;
+  if (memcmp(buffer, "ID3", 3) != 0)
+  {
+    AP4_Position pos;
+    stream->Tell(pos);
+    stream->Seek(pos - HEADER_SIZE);
+    return PARSE_NO_ID3;
+  }
 
   m_majorVer = buffer[3];
   m_flags = buffer[5];
@@ -52,14 +56,14 @@ ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
   while (size > HEADER_SIZE)
   {
     if (!AP4_SUCCEEDED(stream->Read(buffer, HEADER_SIZE)))
-      goto FAIL;
+      return PARSE_FAIL;
 
     uint32_t frameSize = static_cast<uint32_t>(getSize(buffer + 4, 4, 8));
 
     if (memcmp(buffer, "PRIV", 4) == 0 && frameSize == 53)
     {
       if (!AP4_SUCCEEDED(stream->Read(buffer, frameSize)))
-        goto FAIL;
+        return PARSE_FAIL;
 
       if (strncmp(reinterpret_cast<const char*>(buffer), "com.apple.streaming.transportStreamTimestamp", 44) == 0 && buffer[44] == 0)
       {
@@ -75,9 +79,6 @@ ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
     size -= (HEADER_SIZE + frameSize);
   }
   return PARSE_SUCCESS;
-FAIL:
-  stream->Seek(startPos);
-  return ret;
 }
 
 /**********************************************************************************************************************************/
@@ -93,24 +94,20 @@ uint64_t ADTSFrame::getBE(const uint8_t *data, unsigned int len)
 
 bool ADTSFrame::parse(AP4_ByteStream *stream)
 {
-  AP4_Position startPos;
   uint8_t buffer[64];
-
-  if (!AP4_SUCCEEDED(stream->Tell(startPos)))
-    goto FAIL;
 
   static const uint32_t freqTable[13] = { 96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350 };
 
   if (!AP4_SUCCEEDED(stream->Read(buffer, 2)))
-    goto FAIL;
+    return false;
 
   m_outerHeader = static_cast<uint16_t>(getBE(buffer, 2));
   if ((m_outerHeader & 0xFFF6u) != 0xFFF0u)
-    goto FAIL;
+    return false;
 
   m_innerHeaderSize = (m_outerHeader & 1) ? 7 : 5; // 16 bit CRC
   if (!AP4_SUCCEEDED(stream->Read(buffer, m_innerHeaderSize)))
-    goto FAIL;
+    return false;
 
   m_innerHeader = getBE(buffer, m_innerHeaderSize);
   // add 0 crc to have bits on same place for crc / nocrc
@@ -129,13 +126,17 @@ bool ADTSFrame::parse(AP4_ByteStream *stream)
 
   m_dataBuffer.SetDataSize(m_totalSize);
   if (!AP4_SUCCEEDED(stream->Read(m_dataBuffer.UseData(), m_dataBuffer.GetDataSize())))
-    goto FAIL;
+    return false;
+
+  //ADTS Streams have padding, at EOF
+  AP4_Position pos, posNew;
+  stream->Tell(pos);
+  stream->Seek(pos + 16);
+  stream->Tell(posNew);
+  if (posNew - pos == 16)
+    stream->Seek(pos);
 
   return true;
-
-FAIL:
-  stream->Seek(startPos);
-  return false;
 }
 
 /**********************************************************************************************************************************/

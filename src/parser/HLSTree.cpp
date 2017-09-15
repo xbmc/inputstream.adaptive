@@ -474,6 +474,8 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t
 {
   if (psshSet)
   {
+    std::lock_guard<std::mutex> lck(treeMutex_);
+
     PSSH &pssh(psshSets_[psshSet]);
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
