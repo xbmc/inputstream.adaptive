@@ -36,6 +36,7 @@
 #include "parser/HLSTree.h"
 #include "parser/TTML.h"
 #include "TSReader.h"
+#include "ADTSReader.h"
 
 #ifdef _WIN32                   // windows
 #include "p8-platform/windows/dlfcn-win32.h"
@@ -1381,6 +1382,103 @@ private:
 };
 
 /*******************************************************
+|   ADTSSampleReader
+********************************************************/
+class ADTSSampleReader : public SampleReader, public ADTSReader
+{
+public:
+  ADTSSampleReader(AP4_ByteStream *input, AP4_UI32 streamId)
+    : ADTSReader(input)
+    , m_stream(dynamic_cast<AP4_DASHStream*>(input))
+    , m_streamId(streamId)
+  {
+  };
+
+  virtual bool EOS()const override { return m_eos; }
+  virtual uint64_t DTS()const override { return m_pts; }
+  virtual uint64_t PTS()const override { return m_pts; }
+  virtual uint64_t  Elapsed(uint64_t basePTS)
+  {
+    // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
+    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
+    return playlistPTS > basePTS ? playlistPTS - basePTS : 0;
+  };
+
+  virtual AP4_Result Start(bool &bStarted) override
+  {
+    bStarted = false;
+    if (m_started)
+      return AP4_SUCCESS;
+
+    m_started = bStarted = true;
+    return ReadSample();
+  }
+
+  virtual AP4_Result ReadSample() override
+  {
+    if (ReadPacket())
+    {
+      m_pts = (GetPts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetPts() * 100) / 9;
+
+      if (~m_ptsOffs)
+      {
+        m_ptsDiff = m_pts - m_ptsOffs;
+        m_ptsOffs = ~0ULL;
+      }
+      return AP4_SUCCESS;
+    }
+    if (!m_stream || !m_stream->waitingForSegment())
+      m_eos = true;
+    return AP4_ERROR_EOS;
+  }
+
+  virtual void Reset(bool bEOS) override
+  {
+    ADTSReader::Reset();
+    m_eos = bEOS;
+  }
+
+  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  {
+    return ADTSReader::GetInformation(info);
+  }
+
+  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  {
+    AP4_UI64 seekPos(((pts + m_ptsDiff) * 9) / 100);
+    if (ADTSReader::SeekTime(seekPos, preceeding))
+    {
+      m_started = true;
+      return AP4_SUCCEEDED(ReadSample());
+    }
+    return AP4_ERROR_EOS;
+  }
+
+  virtual void SetPTSOffset(uint64_t offset) override
+  {
+    m_ptsOffs = offset;
+  }
+
+  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  virtual uint32_t GetTimeScale()const override { return 90000; }
+  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
+  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  virtual uint64_t GetDuration()const override { return (ADTSReader::GetDuration() * 100) / 9; }
+  virtual bool IsEncrypted()const override { return false; };
+
+private:
+  bool m_eos = false;
+  bool m_started = false;
+  AP4_UI32 m_streamId = 0;
+  uint64_t m_pts = 0;
+  int64_t m_ptsDiff = 0;
+  uint64_t m_ptsOffs = ~0ULL;
+  AP4_DASHStream *m_stream;
+};
+
+
+/*******************************************************
 Main class Session
 ********************************************************/
 
@@ -2507,6 +2605,11 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       stream->disable();
       return false;
     }
+  }
+  else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
+  {
+    stream->input_ = new AP4_DASHStream(&stream->stream_);
+    stream->reader_ = new ADTSSampleReader(stream->input_, streamid);
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {
