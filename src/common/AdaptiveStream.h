@@ -133,5 +133,6 @@ namespace adaptive
     uint16_t download_pssh_set_;
     unsigned int download_segNum_;
     bool stopped_;
+    uint8_t m_iv[16];
   };
 };

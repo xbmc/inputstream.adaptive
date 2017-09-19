@@ -273,7 +273,7 @@ namespace adaptive
       ~Period() { for (std::vector<AdaptationSet* >::const_iterator b(adaptationSets_.begin()), e(adaptationSets_.end()); b != e; ++b) delete *b; };
       std::vector<AdaptationSet*> adaptationSets_;
       std::string base_url_;
-      uint32_t duration_, timescale_;
+      uint32_t timescale_, duration_;
       uint64_t startPTS_;
       unsigned int startNumber_;
       SPINCACHE<uint32_t> segment_durations_;
@@ -340,7 +340,7 @@ namespace adaptive
 
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) = 0;
     virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
-    virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
+    virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
     virtual void RefreshSegments(Representation *rep, StreamType type) {};
 
     uint16_t insert_psshset(StreamType type);

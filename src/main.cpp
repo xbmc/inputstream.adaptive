@@ -1389,8 +1389,8 @@ class ADTSSampleReader : public SampleReader, public ADTSReader
 public:
   ADTSSampleReader(AP4_ByteStream *input, AP4_UI32 streamId)
     : ADTSReader(input)
-    , m_stream(dynamic_cast<AP4_DASHStream*>(input))
     , m_streamId(streamId)
+    , m_stream(dynamic_cast<AP4_DASHStream*>(input))
   {
   };
 

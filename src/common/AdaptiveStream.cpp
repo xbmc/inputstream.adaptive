@@ -27,13 +27,13 @@
 using namespace adaptive;
 
 AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type)
-  :tree_(tree)
+  :thread_data_(nullptr)
+  , tree_(tree)
   , type_(type)
   , observer_(nullptr)
   , current_period_(tree_.periods_.empty() ? nullptr : tree_.periods_[0])
   , current_adp_(nullptr)
   , current_rep_(nullptr)
-  , thread_data_(nullptr)
   , segment_read_pos_(0)
   , currentPTSOffset_(0)
   , absolutePTSOffset_(0)
@@ -110,7 +110,7 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 
     size_t insertPos(segment_buffer_.size());
     segment_buffer_.resize(insertPos + buffer_size);
-    tree_.OnDataArrived(download_segNum_, download_pssh_set_, reinterpret_cast<const uint8_t*>(buffer),
+    tree_.OnDataArrived(download_segNum_, download_pssh_set_, m_iv, reinterpret_cast<const uint8_t*>(buffer),
       reinterpret_cast<uint8_t*>(&segment_buffer_[0]), insertPos, buffer_size);
   }
   thread_data_->signal_rw_.notify_one();
@@ -396,7 +396,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needR
   if (current_rep_->flags_ & AdaptiveTree::Representation::SUBTITLESTREAM)
     return true;
 
-  std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
+  std::unique_lock<std::mutex> lckTree(tree_.GetTreeMutex());
 
   uint32_t choosen_seg(~0);
 
@@ -427,7 +427,9 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needR
       //stop downloading chunks
       stopped_ = true;
       //wait until last reading operation stopped
+      lckTree.unlock(); //writing downloadrate takes the tree lock / avoid dead-lock
       std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
+      lckTree.lock();
       stopped_ = false;
       current_rep_->current_segment_ = newSeg;
       PrepareDownload(newSeg);

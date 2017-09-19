@@ -470,7 +470,7 @@ bool HLSTree::write_data(void *buffer, size_t buffer_size, void *opaque)
   return true;
 }
 
-void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
+void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
 {
   if (psshSet)
   {
@@ -499,20 +499,26 @@ RETRY:
     }
 
     if (pssh.defaultKID_ == "0")
+    {
       memset(dst + dstOffset, 0, dataSize);
+      return;
+    }
     else if (!dstOffset)
     {
       if (pssh.iv.empty())
-        m_decrypter->ivFromSequence(m_iv, segNum);
+        m_decrypter->ivFromSequence(iv, segNum);
       else
-        memcpy(m_iv, pssh.iv.data(), 16);
+      {
+        memset(iv, 0, 16);
+        memcpy(iv, pssh.iv.data(), pssh.iv.size() < 16 ? pssh.iv.size() : 16);
+      }
     }
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), m_iv, src, dst + dstOffset, dataSize);
+    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, src, dst + dstOffset, dataSize);
     if(dataSize >= 16)
-      memcpy(m_iv, src + (dataSize - 16), 16);
+      memcpy(iv, src + (dataSize - 16), 16);
   }
   else
-    AdaptiveTree::OnDataArrived(segNum, psshSet, src, dst, dstOffset, dataSize);
+    AdaptiveTree::OnDataArrived(segNum, psshSet, iv, src, dst, dstOffset, dataSize);
 }
 
 //Called each time before we switch to a new segment
