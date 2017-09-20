@@ -198,7 +198,12 @@ namespace adaptive
       if (pos == psshSets_.end())
         pos = psshSets_.insert(psshSets_.end(), pssh);
       else
-        pos->media_ |= pssh.media_;
+      {
+        if (pos->use_count_)
+          *pos = pssh;
+        else
+          pos->media_ |= pssh.media_;
+      }
 
       ++psshSets_[pos - psshSets_.begin()].use_count_;
       return static_cast<uint16_t>(pos - psshSets_.begin());

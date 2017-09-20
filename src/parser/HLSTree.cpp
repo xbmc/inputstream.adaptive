@@ -259,17 +259,6 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
 
-    SPINCACHE<Segment> &segments(update ? newSegments : rep->segments_);
-    FreeSegments(rep);
-
-    if (rep->flags_ & Representation::URLSEGMENTS)
-      for (auto &s : segments.data)
-      {
-        --psshSets_[s.pssh_set_].use_count_;
-        delete[] s.url;
-      }
-    segments.clear();
-
     if (download(rep->source_url_.c_str(), manifest_headers_, &stream))
     {
 #if FILEDEBUG
@@ -285,7 +274,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       bool startCodeFound(false);
       Segment segment;
       uint64_t pts(0);
-      (update ? newStartNumber : rep->startNumber_) = 0;
+      newStartNumber = 0;
 
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
@@ -365,15 +354,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
             else
               rep->url_ = url;
           }
-          segments.data.push_back(segment);
+          newSegments.data.push_back(segment);
           segment.startPTS_ = ~0ULL;
         }
         else if (line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
-          if (update)
-            newStartNumber = atol(line.c_str() + 22);
-          else
-            rep->startNumber_ = atol(line.c_str() + 22);
+          newStartNumber = atol(line.c_str() + 22);
         }
         else if (line.compare(0, 21, "#EXT-X-PLAYLIST-TYPE:") == 0)
         {
@@ -421,30 +407,34 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         }
       }
 
-      overallSeconds_ = segments[0] ? (pts - segments[0]->startPTS_) / rep->timescale_ : 0;
+      overallSeconds_ = newSegments[0] ? (pts - newSegments[0]->startPTS_) / rep->timescale_ : 0;
 
       if (!byteRange)
         rep->flags_ |= Representation::URLSEGMENTS;
 
       // Insert Initialization Segment
-      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && segments.data[0].range_begin_ > 0)
+      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && newSegments.data[0].range_begin_ > 0)
       {
         rep->flags_ |= Representation::INITIALIZATION;
         rep->initialization_.range_begin_ = 0;
-        rep->initialization_.range_end_ = segments.data[0].range_begin_ - 1;
+        rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
         rep->initialization_.pssh_set_ = 0;
       }
     }
-    if (segments.data.empty())
+
+    FreeSegments(rep);
+
+    if (newSegments.data.empty())
     {
       rep->source_url_.clear(); // disable this segment
       return false;
     }
 
+    rep->segments_.swap(newSegments);
+    rep->startNumber_ = newStartNumber;
+
     if (update)
     {
-      rep->segments_.swap(newSegments);
-      rep->startNumber_ = newStartNumber;
       if (!segmentId || segmentId < rep->startNumber_)
         rep->current_segment_ = nullptr;
       else
@@ -480,24 +470,33 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
-RETRY:
-      std::stringstream stream;
-      std::map<std::string, std::string> headers;
-      std::vector<std::string> keyParts(split(m_decrypter->getLicenseKey(), '|'));
-      if (keyParts.size() > 1)
-        parseheader(headers, keyParts[1].c_str());
-      if (download(pssh.pssh_.c_str(), headers, &stream))
+      //First look if we already have this URL resolved
+      for (std::vector<PSSH>::const_iterator b(psshSets_.begin()), e(psshSets_.end());b != e; ++b)
+        if (b->pssh_ == pssh.pssh_ && !b->defaultKID_.empty())
+        {
+          pssh.defaultKID_ = b->defaultKID_;
+          break;
+        }
+      if (pssh.defaultKID_.empty())
       {
-        pssh.defaultKID_ = stream.str();
-      }
-      else if (pssh.defaultKID_ != "0")
-      {
-        pssh.defaultKID_ = "0";
-        if (keyParts.size() >= 5 && !keyParts[4].empty() && m_decrypter->RenewLicense(keyParts[4]))
-          goto RETRY;
+      RETRY:
+        std::stringstream stream;
+        std::map<std::string, std::string> headers;
+        std::vector<std::string> keyParts(split(m_decrypter->getLicenseKey(), '|'));
+        if (keyParts.size() > 1)
+          parseheader(headers, keyParts[1].c_str());
+        if (download(pssh.pssh_.c_str(), headers, &stream))
+        {
+          pssh.defaultKID_ = stream.str();
+        }
+        else if (pssh.defaultKID_ != "0")
+        {
+          pssh.defaultKID_ = "0";
+          if (keyParts.size() >= 5 && !keyParts[4].empty() && m_decrypter->RenewLicense(keyParts[4]))
+            goto RETRY;
+        }
       }
     }
-
     if (pssh.defaultKID_ == "0")
     {
       memset(dst + dstOffset, 0, dataSize);
