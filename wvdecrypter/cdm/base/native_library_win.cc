@@ -13,7 +13,11 @@
 
 namespace base {
 
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+typedef HMODULE (WINAPI* LoadLibraryFunction)(const wchar_t* file_name, unsigned long res);
+#else
 typedef HMODULE (WINAPI* LoadLibraryFunction)(const wchar_t* file_name);
+#endif
 
 namespace {
 
@@ -47,7 +51,11 @@ NativeLibrary LoadNativeLibraryHelper(const std::string& library_path,
     }
   }
 
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+  HMODULE module = (*load_library_api)((wchar_t*)plugin_value.c_str(), 0);
+#else
   HMODULE module = (*load_library_api)((wchar_t*)plugin_value.c_str());
+#endif
   if (!module && error) {
     // GetLastError() needs to be called immediately after |load_library_api|.
     error->code = GetLastError();
@@ -70,17 +78,25 @@ std::string NativeLibraryLoadError::ToString() const
 // static
 NativeLibrary LoadNativeLibrary(const std::string& library_path,
                                 NativeLibraryLoadError* error) {
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+  return LoadNativeLibraryHelper(library_path, LoadPackagedLibrary, error);
+#else
   return LoadNativeLibraryHelper(library_path, LoadLibraryW, error);
+#endif
 }
 
 NativeLibrary LoadNativeLibraryDynamically(const std::string& library_path) {
   typedef HMODULE (WINAPI* LoadLibraryFunction)(const wchar_t* file_name);
 
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
+  return LoadNativeLibraryHelper(library_path, LoadPackagedLibrary, NULL);
+#else
   LoadLibraryFunction load_library;
   load_library = reinterpret_cast<LoadLibraryFunction>(
       GetProcAddress(GetModuleHandle(L"kernel32.dll"), "LoadLibraryW"));
 
   return LoadNativeLibraryHelper(library_path, load_library, NULL);
+#endif
 }
 
 // static

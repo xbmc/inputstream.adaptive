@@ -25,15 +25,19 @@ time_t _mkgmtime(struct tm *tm)
   time_t ret;
   char *tz;
 
+#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
   tz = getenv("TZ");
   setenv("TZ", "", 1);
   tzset();
+#endif
   ret = mktime(tm);
+#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
   if (tz)
     setenv("TZ", tz, 1);
   else
     unsetenv("TZ");
   tzset();
+#endif
   return ret;
 }
 #endif
