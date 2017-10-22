@@ -173,6 +173,8 @@ protected:
     AP4_Result ReadNextSample(AP4_Sample&     sample, 
                               AP4_DataBuffer* sample_data,
                               AP4_UI32&       track_id);
+    AP4_Result GetSample(AP4_UI32 track_id, AP4_Sample &sample, AP4_Ordinal sample_index);
+
     void       FlushQueue(Tracker* tracker);
     void       FlushQueues();
     void       Reset();

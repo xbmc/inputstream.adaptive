@@ -415,7 +415,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needR
   if (choosen_seg < current_rep_->expired_segments_)
     choosen_seg = current_rep_->expired_segments_;
 
-  if (!preceeding)
+  if (!preceeding && type_ == AdaptiveTree::VIDEO) //Assume that we have I-Frames only at segment start
     ++choosen_seg;
 
   const AdaptiveTree::Segment *old_seg(current_rep_->current_segment_), *newSeg(current_rep_->get_segment(choosen_seg));

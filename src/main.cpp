@@ -939,12 +939,6 @@ public:
     m_dts = (m_sample.GetDts() * m_timeBaseExt) / m_timeBaseInt;
     m_pts = (m_sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
 
-    if (~m_ptsOffs)
-    {
-      m_ptsDiff = m_pts - m_ptsOffs;
-      m_ptsOffs = ~0ULL;
-    }
-
     m_codecHandler->UpdatePPSId(m_sampleData);
 
     return AP4_SUCCESS;
@@ -1073,6 +1067,15 @@ protected:
       {
         m_sampleDescIndex = tfhd->GetSampleDescriptionIndex();
         UpdateSampleDescription();
+      }
+
+      //Correct PTS
+      AP4_Sample sample;
+      if (~m_ptsOffs && AP4_SUCCEEDED(GetSample(m_track->GetId(), sample, 0)))
+      {
+        int64_t pts = (sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
+        m_ptsDiff = pts - m_ptsOffs;
+        m_ptsOffs = ~0ULL;
       }
 
       if (m_protectedDesc)

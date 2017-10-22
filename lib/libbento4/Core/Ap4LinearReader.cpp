@@ -547,6 +547,23 @@ AP4_LinearReader::ReadNextSample(AP4_UI32        track_id,
 }
 
 /*----------------------------------------------------------------------
+|   AP4_LinearReader::GetSample
++---------------------------------------------------------------------*/
+AP4_Result AP4_LinearReader::GetSample(AP4_UI32 track_id, AP4_Sample &sample, AP4_Ordinal sample_index)
+{
+  // look for a sample from a specific track
+  Tracker* tracker = FindTracker(track_id);
+  if (tracker == NULL)
+    return AP4_ERROR_INVALID_PARAMETERS;
+
+  // don't continue if we've reached the end of that tracker
+  if (tracker->m_Eos)
+    return AP4_ERROR_EOS;
+
+  return tracker->m_SampleTable->GetSample(sample_index, sample);
+}
+
+/*----------------------------------------------------------------------
 |   AP4_LinearReader::SeekSample
 +---------------------------------------------------------------------*/
 AP4_Result
