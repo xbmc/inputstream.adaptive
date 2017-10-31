@@ -1968,7 +1968,7 @@ bool Session::initialize()
 
       UpdateStream(stream, caps);
 
-    } while (repId--);
+    } while (repId-- != (manual_streams_? 1 : 0));
   }
   return true;
 }
