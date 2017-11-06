@@ -7,10 +7,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 enable_language(CXX)
 
 find_package(Kodi REQUIRED)
-find_package(kodiplatform REQUIRED)
-find_package(p8-platform REQUIRED)
 
-set(ADP_SOURCES 
+set(ADP_SOURCES
 	src/main.cpp
 	src/common/AdaptiveTree.cpp
 	src/parser/DASHTree.cpp
@@ -42,11 +40,13 @@ set(ADP_HEADERS
 	src/ADTSReader.h
 	)
 
-list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
+if(WIN32)
+  find_package(p8-platform REQUIRED)
+  list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
+  include_directories(${p8-platform_INCLUDE_DIRS})
+endif()
 
 include_directories(${INCLUDES}
-                    ${kodiplatform_INCLUDE_DIRS}
-                    ${p8-platform_INCLUDE_DIRS}
                     ${KODI_INCLUDE_DIR}
                     lib/libbento4/Core
 )
