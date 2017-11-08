@@ -143,10 +143,10 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
         std::map<std::string, std::string>::iterator res;
         if ((res = map.find("URI")) != map.end())
         {
-          if (res->second.find("://", 0) == std::string::npos)
-            rep->source_url_ = base_url_ + res->second;
-          else if (res->second[0] == '/')
+          if (res->second[0] == '/')
             rep->source_url_ = base_domain_ + res->second;
+          else if (res->second.find("://", 0) == std::string::npos)
+            rep->source_url_ = base_url_ + res->second;
           else
             rep->source_url_ = res->second;
         }
@@ -198,10 +198,10 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
       }
       else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
       {
-        if (line.find("://", 0) == std::string::npos)
-          current_representation_->source_url_ = base_url_ + line;
-        else if (line[0] == '/')
+        if (line[0] == '/')
           current_representation_->source_url_ = base_domain_ + line;
+        else if (line.find("://", 0) == std::string::npos)
+          current_representation_->source_url_ = base_url_ + line;
         else
           current_representation_->source_url_ = line;
 
@@ -340,10 +340,10 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           if (!byteRange || rep->url_.empty())
           {
             std::string url;
-            if (line.find("://", 0) == std::string::npos)
-              url = base_url + line;
-            else if (line[0] == '/')
+            if (line[0] == '/')
               url = base_domain_ + line;
+            else if (line.find("://", 0) == std::string::npos)
+              url = base_url + line;
             else
               url = line;
             if (!byteRange)
@@ -391,10 +391,10 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
               return false;
             }
             current_pssh_ = map["URI"];
-            if (current_pssh_.find("://", 0) == std::string::npos)
-              current_pssh_ = base_url + current_pssh_;
-            else if (current_pssh_[0] == '/')
+            if (current_pssh_[0] == '/')
               current_pssh_ = base_domain_ + current_pssh_;
+            else if (current_pssh_.find("://", 0) == std::string::npos)
+              current_pssh_ = base_url + current_pssh_;
 
             current_iv_ = m_decrypter->convertIV(map["IV"]);
             segment.pssh_set_ = insert_psshset(NOTYPE);
