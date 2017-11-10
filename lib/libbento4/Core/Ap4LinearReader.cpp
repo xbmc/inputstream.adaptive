@@ -295,9 +295,10 @@ AP4_LinearReader::ProcessTrack(AP4_Track* track)
 |   AP4_LinearReader::ProcessMoof
 +---------------------------------------------------------------------*/
 AP4_Result
-AP4_LinearReader::ProcessMoof(AP4_ContainerAtom* moof, 
-                              AP4_Position       moof_offset, 
-                              AP4_Position       mdat_payload_offset)
+AP4_LinearReader::ProcessMoof(AP4_ContainerAtom* moof,
+  AP4_Position       moof_offset,
+  AP4_Position       mdat_payload_offset,
+  AP4_UI64 mdat_payload_size)
 {
     AP4_Result result;
    
@@ -318,13 +319,14 @@ AP4_LinearReader::ProcessMoof(AP4_ContainerAtom* moof,
         for (unsigned int j=0; j<ids.ItemCount(); j++) {
             if (ids.ItemCount()==1 || ids[j] == tracker->m_Track->GetId()) {
                 AP4_FragmentSampleTable* sample_table = NULL;
-                result = m_Fragment->CreateSampleTable(&m_Movie, 
-                                                       ids[j], 
-                                                       m_FragmentStream, 
-                                                       moof_offset, 
-                                                       mdat_payload_offset, 
-                                                       tracker->m_NextDts,
-                                                       sample_table);
+                result = m_Fragment->CreateSampleTable(&m_Movie,
+                  ids[j],
+                  m_FragmentStream,
+                  moof_offset,
+                  mdat_payload_offset,
+                  mdat_payload_size,
+                  tracker->m_NextDts,
+                  sample_table);
                 if (AP4_FAILED(result)) return result;
                 tracker->m_SampleTable = sample_table;
                 tracker->m_SampleTableIsOwned = true;
@@ -367,13 +369,11 @@ AP4_LinearReader::AdvanceFragment()
                     AP4_Position position = 0;
                     m_FragmentStream->Tell(position);
         
-                    // process the movie fragment
-                    result = ProcessMoof(moof, position-atom->GetSize(), position+8);
-                    if (AP4_FAILED(result)) return result;
-
                     // compute where the next fragment will be
                     AP4_UI32 size;
                     AP4_UI32 type;
+                    AP4_UI64 size_64 = 0;
+
                     m_FragmentStream->Tell(position);
                     result = m_FragmentStream->ReadUI32(size);
                     if (AP4_FAILED(result)) return AP4_SUCCESS; // can't read more
@@ -382,13 +382,19 @@ AP4_LinearReader::AdvanceFragment()
                     if (size == 0) {
                         m_NextFragmentPosition = 0;
                     } else if (size == 1) {
-                        AP4_UI64 size_64 = 0;
                         result = m_FragmentStream->ReadUI64(size_64);
                         if (AP4_FAILED(result)) return AP4_SUCCESS; // can't read more
                         m_NextFragmentPosition = position+size_64;
+                        size_64 -= 8;
                     } else {
                         m_NextFragmentPosition = position+size;
+                        size_64 = size;
                     }
+
+                    // process the movie fragment
+                    result = ProcessMoof(moof, position - atom->GetSize(), position + 8, size_64 - 8);
+                    if (AP4_FAILED(result)) return result;
+
                     return AP4_SUCCESS;
                 } else {
                     delete atom;

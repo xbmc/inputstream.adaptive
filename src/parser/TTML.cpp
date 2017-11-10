@@ -24,6 +24,11 @@ static void XMLCALL
 start(void *data, const char *el, const char **attr)
 {
   TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
+  const char *nssep;
+
+  if (el && (nssep = strchr(el, ':')))
+    el = nssep + 1;
+
   if (ttml->m_node & TTML2SRT::NODE_TT)
   {
     if (ttml->m_node & TTML2SRT::NODE_HEAD)
@@ -35,15 +40,17 @@ start(void *data, const char *el, const char **attr)
           TTML2SRT::STYLE style;
           for (; *attr;)
           {
-            if (strcmp((const char*)*attr, "xml:id") == 0)
+            if ((nssep = strchr((const char*)*attr, ':')))
+              *attr = nssep + 1;
+            if (strcmp((const char*)*attr, "id") == 0)
               style.id = (const char*)*(attr + 1);
-            else if (strcmp((const char*)*attr, "tts:color") == 0)
+            else if (strcmp((const char*)*attr, "color") == 0)
               style.color = (const char*)*(attr + 1);
-            else if (strcmp((const char*)*attr, "tts:textDecoration") == 0)
+            else if (strcmp((const char*)*attr, "textDecoration") == 0)
               style.underline = strcmp((const char*)*(attr + 1), "underline") == 0 ? 1 : strcmp((const char*)*(attr + 1), "noUnderline") == 0 ? 0 : 0xFF;
-            else if (strcmp((const char*)*attr, "tts:fontStyle") == 0)
+            else if (strcmp((const char*)*attr, "fontStyle") == 0)
               style.italic = strcmp((const char*)*(attr + 1), "italic") == 0 ? 1 : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0 : 0xFF;
-            else if (strcmp((const char*)*attr, "tts:fontWeight") == 0)
+            else if (strcmp((const char*)*attr, "fontWeight") == 0)
               style.bold = strcmp((const char*)*(attr + 1), "bold") == 0 ? 1 : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0 : 0xFF;
             attr += 2;
           }
@@ -66,8 +73,12 @@ start(void *data, const char *el, const char **attr)
           {
             const char *style(0);
             for (; *attr && !style; attr += 2)
+            {
+              if ((nssep = strchr((const char*)*attr, ':')))
+                *attr = nssep + 1;
               if (strcmp((const char*)*attr, "style") == 0)
                 style = (const char*)*(attr + 1);
+            }
             ttml->StackStyle(style);
 
             ttml->m_node |= TTML2SRT::NODE_SPAN;
@@ -82,11 +93,13 @@ start(void *data, const char *el, const char **attr)
 
           for (; *attr;)
           {
+            if ((nssep = strchr((const char*)*attr, ':')))
+              *attr = nssep + 1;
             if (strcmp((const char*)*attr, "begin") == 0)
               b = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "end") == 0)
               e = (const char*)*(attr + 1);
-            else if (strcmp((const char*)*attr, "xml:id") == 0)
+            else if (strcmp((const char*)*attr, "id") == 0)
               id = (const char*)*(attr + 1);
             attr += 2;
           }
@@ -101,8 +114,12 @@ start(void *data, const char *el, const char **attr)
     {
       const char *style(0);
       for (; *attr && !style; attr += 2)
+      {
+        if ((nssep = strchr((const char*)*attr, ':')))
+          *attr = nssep + 1;
         if (strcmp((const char*)*attr, "style") == 0)
           style = (const char*)*(attr + 1);
+      }
       ttml->StackStyle(style);
 
       ttml->m_node |= TTML2SRT::NODE_BODY;
@@ -115,7 +132,9 @@ start(void *data, const char *el, const char **attr)
     ttml->m_node |= TTML2SRT::NODE_TT;
     for (; *attr;)
     {
-      if (strcmp((const char*)*attr, "ttp:tickRate") == 0)
+      if ((nssep = strchr((const char*)*attr, ':')))
+        *attr = nssep + 1;
+      if (strcmp((const char*)*attr, "tickRate") == 0)
         ttml->m_tickRate = atoll((const char*)*(attr + 1));
       attr += 2;
     }
@@ -188,6 +207,7 @@ bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale,
   bool done(true);
   m_node = 0;
   m_pos =  0;
+  m_seekTime = 0;
   m_strXMLText.clear();
   m_subTitles.clear();
   m_timescale = timescale;
@@ -223,9 +243,15 @@ bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale,
 
 bool TTML2SRT::Prepare(uint64_t &pts, uint32_t &duration)
 {
+  if (m_seekTime)
+  {
+    for (m_pos = 0; m_pos < m_subTitles.size() && m_subTitles[m_pos].end < m_seekTime; ++m_pos);
+    m_seekTime = 0;
+  }
+
   if (m_pos >= m_subTitles.size())
     return false;
-  
+
   SUBTITLE &sub(m_subTitles[m_pos++]);
   pts = sub.start;
   duration = static_cast<uint32_t>(sub.end - sub.start);
@@ -242,13 +268,19 @@ bool TTML2SRT::Prepare(uint64_t &pts, uint32_t &duration)
 
 bool TTML2SRT::TimeSeek(uint64_t seekPos)
 {
-  for (m_pos = 0; m_pos < m_subTitles.size() && m_subTitles[m_pos].end < seekPos; ++m_pos);
+  m_seekTime = seekPos;
   return true;
+}
+
+void TTML2SRT::Reset()
+{
+  m_subTitles.clear();
+  m_pos = 0;
 }
 
 uint64_t TTML2SRT::GetTime(const char *tmchar)
 {
-  uint64_t ret;
+  uint64_t ret(0);
   if (tmchar[strlen(tmchar) - 1] == 't')
   {
     ret = atoll(tmchar) * m_timescale;
@@ -258,10 +290,13 @@ uint64_t TTML2SRT::GetTime(const char *tmchar)
   else
   {
     unsigned int th, tm, ts, tms;
-    sscanf(tmchar, "%u:%u:%u.%2u", &th, &tm, &ts, &tms);
-    ret = th * 3600 + tm * 60 + ts;
-    ret = ret * 1000 + tms * 10;
-    ret = (ret * m_timescale) / 1000;
+    char del;
+    if (sscanf(tmchar, "%u:%u:%u%c%2u", &th, &tm, &ts, &del, &tms) == 5)
+    {
+      ret = th * 3600 + tm * 60 + ts;
+      ret = ret * 1000 + tms * 10;
+      ret = (ret * m_timescale) / 1000;
+    }
   }
   return ret;
 }

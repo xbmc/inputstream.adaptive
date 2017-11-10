@@ -32,6 +32,7 @@ public:
 
   bool Prepare(uint64_t &pts, uint32_t &duration);
   bool TimeSeek(uint64_t seekPos);
+  void Reset();
 
   const void *GetData() const { return m_SRT.data(); };
   size_t GetDataSize() const { return m_SRT.size(); };
@@ -83,4 +84,5 @@ private:
 
   std::string m_SRT, m_lastId;
   uint64_t m_timescale, m_ptsOffset;
+  uint64_t m_seekTime;
 };

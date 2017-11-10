@@ -447,9 +447,11 @@ public:
   };
   virtual bool ExtraDataToAnnexB() { return false; };
   virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale, AP4_UI64 offSet) { return false; };
+  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) { return false; };
+  virtual void SetPTSOffset(AP4_UI64 offset) { };
   virtual bool TimeSeek(AP4_UI64 seekPos) { return true; };
+  virtual void Reset() { };
 
   AP4_SampleDescription *sample_description;
   AP4_DataBuffer extra_data;
@@ -693,12 +695,12 @@ class TTMLCodecHandler : public CodecHandler
 public:
   TTMLCodecHandler(AP4_SampleDescription *sd)
     :CodecHandler(sd)
-    ,ptsOffset(0)
+    ,m_ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale, AP4_UI64 offset) override
+  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
-    return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale, offset);
+    return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
   }
 
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) override
@@ -719,14 +721,25 @@ public:
     return false;
   }
 
+  virtual void SetPTSOffset(AP4_UI64 offset) override
+  {
+    m_ptsOffset = offset;
+  };
+
   virtual bool TimeSeek(AP4_UI64 seekPos) override
   {
     return m_ttml.TimeSeek(seekPos);
   };
 
+  virtual void Reset() override
+  {
+    m_ttml.Reset();
+  }
+
+
 private:
   TTML2SRT m_ttml;
-  AP4_UI64 ptsOffset;
+  AP4_UI64 m_ptsOffset;
 };
 
 /*******************************************************
@@ -932,7 +945,7 @@ public:
         m_singleSampleDecryptor->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, nullptr, 0, nullptr, nullptr);
       }
 
-      if (m_codecHandler->Transform(m_sampleData, m_track->GetMediaTimeScale(), (m_ptsOffs * m_timeBaseInt) / m_timeBaseExt))
+      if (m_codecHandler->Transform(m_sampleData, m_track->GetMediaTimeScale()))
         m_codecHandler->ReadNextSample(m_sample, m_sampleData);
     }
 
@@ -948,6 +961,8 @@ public:
   {
     AP4_LinearReader::Reset();
     m_eos = bEOS;
+    if (m_codecHandler)
+      m_codecHandler->Reset();
   }
 
   virtual bool EOS() const  override { return m_eos; };
@@ -1010,6 +1025,8 @@ public:
   {
     FindTracker(m_track->GetId())->m_NextDts = (offset * m_timeBaseInt) / m_timeBaseExt;
     m_ptsOffs = offset;
+    if (m_codecHandler)
+      m_codecHandler->SetPTSOffset((offset * m_timeBaseInt) / m_timeBaseExt);
   };
 
   virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
@@ -1031,11 +1048,12 @@ public:
 protected:
   virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
     AP4_Position       moof_offset,
-    AP4_Position       mdat_payload_offset) override
+    AP4_Position       mdat_payload_offset,
+    AP4_UI64 mdat_payload_size) override
   {
     AP4_Result result;
 
-    if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(moof, moof_offset, mdat_payload_offset))))
+    if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(moof, moof_offset, mdat_payload_offset, mdat_payload_size))))
     {
       AP4_ContainerAtom *traf = AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));
 
@@ -1071,10 +1089,13 @@ protected:
 
       //Correct PTS
       AP4_Sample sample;
-      if (~m_ptsOffs && AP4_SUCCEEDED(GetSample(m_track->GetId(), sample, 0)))
+      if (~m_ptsOffs)
       {
-        int64_t pts = (sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
-        m_ptsDiff = pts - m_ptsOffs;
+        if (AP4_SUCCEEDED(GetSample(m_track->GetId(), sample, 0)))
+        {
+          m_pts = m_dts = (sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
+          m_ptsDiff = m_pts - m_ptsOffs;
+        }
         m_ptsOffs = ~0ULL;
       }
 
@@ -1208,7 +1229,7 @@ public:
       result.AppendData(buf, nbRead);
     file.Close();
 
-    m_codecHandler.Transform(result, 1000, 0);
+    m_codecHandler.Transform(result, 1000);
   };
 
   virtual bool EOS()const override { return m_eos; };
