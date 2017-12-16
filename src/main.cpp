@@ -238,7 +238,14 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
   }
 
-  file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE);
+  if (!file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE))
+  {
+    kodi::Log(ADDON_LOG_ERROR, "Cannot download %s", url);
+    return false;
+  }
+
+  std::string effective_url = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+  kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url.c_str());
 
   // read the file
   static const unsigned int CHUNKSIZE = 16384;
