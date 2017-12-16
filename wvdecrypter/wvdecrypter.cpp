@@ -766,7 +766,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       jsmn_init(&jsn);
       int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 256);
 
-      std::vector<std::string> jsonVals = split(blocks[3].c_str()+2, ';');
+      std::vector<std::string> jsonVals = split(blocks[3].c_str() + 2, ';');
 
       // Find HDCP limit
       if (jsonVals.size() > 1)
@@ -805,6 +805,28 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       else
       {
         Log(SSD_HOST::LL_ERROR, "Unable to find %s in JSON string", blocks[3].c_str() + 2);
+        goto SSMFAIL;
+      }
+    }
+    else if (blocks[3][0] == 'H' && blocks[3].size() >= 2)
+    {
+      //Find the payload
+      std::string::size_type payloadPos = response.find("\r\n\r\n");
+      if (payloadPos != std::string::npos)
+      {
+        payloadPos += 4;
+        if (blocks[3][1] == 'B')
+          drm_.GetCdmAdapter()->UpdateSession(++promise_id_, session_.data(), session_.size(),
+            reinterpret_cast<const uint8_t*>(response.c_str() + payloadPos), response.size() - payloadPos);
+        else
+        {
+          Log(SSD_HOST::LL_ERROR, "Unsupported HTTP payload data type definition");
+          goto SSMFAIL;
+        }
+      }
+      else
+      {
+        Log(SSD_HOST::LL_ERROR, "Unable to find HTTP payload in response");
         goto SSMFAIL;
       }
     }
