@@ -390,8 +390,12 @@ bool AdaptiveStream::seek(uint64_t const pos)
 
 bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needReset)
 {
-  if (!current_rep_ || stopped_)
+  if (!current_rep_)
     return false;
+
+  if (stopped_)
+    // For subtitles which come in one file we should return true!
+    return current_rep_->segments_.empty();
 
   if (current_rep_->flags_ & AdaptiveTree::Representation::SUBTITLESTREAM)
     return true;
