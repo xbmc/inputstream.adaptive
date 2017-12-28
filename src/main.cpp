@@ -2005,6 +2005,7 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
 {
   const adaptive::AdaptiveTree::Representation *rep(stream.stream_.getRepresentation());
 
+  stream.info_.m_name[0] = 0;
   stream.info_.m_Width = rep->width_;
   stream.info_.m_Height = rep->height_;
   stream.info_.m_Aspect = rep->aspect_;
@@ -2503,7 +2504,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 {
   static struct INPUTSTREAM_INFO dummy_info = {
-    INPUTSTREAM_INFO::TYPE_NONE, 0, 0, "", "", STREAMCODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
+    INPUTSTREAM_INFO::TYPE_NONE, 0, 0, "", "", "", STREAMCODEC_PROFILE::CodecProfileUnknown, 0, 0, 0, "",
     0, 0, 0, 0, 0.0f,
     0, 0, 0, 0, 0,
     CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE ,0 ,0 ,0};
