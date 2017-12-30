@@ -194,7 +194,7 @@ public:
     const AP4_UI16* bytes_of_cleartext_data,
 
     // array of <subsample_count> integers. NULL if subsample_count is 0
-    const AP4_UI32* bytes_of_encrypted_data);
+    const AP4_UI32* bytes_of_encrypted_data) override;
 
   void GetCapabilities(const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps);
 
@@ -431,7 +431,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
   std::string::size_type insPos(blocks[0].find("{SSM}"));
   if (insPos != std::string::npos)
   {
-    if (insPos >= 0 && blocks[0][insPos - 1] == 'B')
+    if (insPos>0 && blocks[0][insPos - 1] == 'B')
     {
       std::string msgEncoded = b64_encode(key_request, key_request_size, true);
       blocks[0].replace(insPos - 1, 6, msgEncoded);
@@ -470,7 +470,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
     if (insPos != std::string::npos)
     {
       std::string::size_type sidSearchPos(insPos);
-      if (insPos >= 0)
+      if (insPos > 0)
       {
         if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
         {
@@ -489,7 +489,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
       insPos = blocks[2].find("{SID}", sidSearchPos);
       if (insPos != std::string::npos)
       {
-        if (insPos >= 0)
+        if (insPos > 0)
         {
           if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
           {
@@ -789,7 +789,7 @@ public:
     cdmsession_ = nullptr;
   };
 
-  virtual const char *SelectKeySytem(const char* keySystem)
+  virtual const char *SelectKeySytem(const char* keySystem) override
   {
     Log(SSD_HOST::LL_ERROR, "Key system request: %s", keySystem);
     if (strcmp(keySystem, "com.widevine.alpha") == 0)
@@ -806,7 +806,7 @@ public:
       return nullptr;
   }
 
-  virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate)
+  virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate) override
   {
     if (key_system_ == NONE)
       return false;
@@ -841,14 +841,14 @@ public:
       caps = { 0, 0, 0};
   }
 
-  virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid)
+  virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
   {
     if (decrypter)
       return static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->HasLicenseKey(keyid);
     return false;
   }
 
-  virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData)
+  virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
   {
     return false;
   }

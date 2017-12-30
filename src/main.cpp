@@ -45,7 +45,6 @@
 #endif
 
 #define DVD_TIME_BASE 1000000
-#define DVD_NOPTS_VALUE 0xFFF0000000000000ULL
 
 #undef CreateDirectory
 
@@ -790,7 +789,7 @@ public:
   virtual bool EOS()const override { return false; }
   virtual uint64_t  DTS()const override { return DVD_NOPTS_VALUE; }
   virtual uint64_t  PTS()const override { return DVD_NOPTS_VALUE; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override { return 0; }
+  virtual uint64_t  Elapsed(uint64_t basePTS) override { return 0ULL; }
   virtual AP4_Result Start(bool &bStarted) override { return AP4_SUCCESS; }
   virtual AP4_Result ReadSample() override { return AP4_SUCCESS; }
   virtual void Reset(bool bEOS) override {}
@@ -976,10 +975,10 @@ public:
   virtual uint64_t DTS()const override { return m_dts; };
   virtual uint64_t  PTS()const override { return m_pts; };
 
-  virtual uint64_t  Elapsed(uint64_t basePTS)
+  virtual uint64_t  Elapsed(uint64_t basePTS) override
   {
     uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
-    return manifestPTS > basePTS ? manifestPTS - basePTS : 0;
+    return manifestPTS > basePTS ? manifestPTS - basePTS : 0ULL;
   };
 
   virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
@@ -1242,7 +1241,7 @@ public:
   virtual bool EOS()const override { return m_eos; };
   virtual uint64_t DTS()const override { return m_pts; };
   virtual uint64_t PTS()const override { return m_pts; };
-  virtual uint64_t  Elapsed(uint64_t basePTS) { return m_pts > basePTS ? m_pts - basePTS : 0; };
+  virtual uint64_t  Elapsed(uint64_t basePTS) override { return m_pts > basePTS ? m_pts - basePTS : 0ULL; };
   virtual AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
   virtual AP4_Result ReadSample() override
   {
@@ -1319,11 +1318,11 @@ public:
   virtual bool EOS()const override { return m_eos; }
   virtual uint64_t DTS()const override { return m_dts; }
   virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS)
+  virtual uint64_t  Elapsed(uint64_t basePTS) override
   {
     // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0;
+    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
+    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
   };
 
   virtual AP4_Result Start(bool &bStarted) override
@@ -1428,11 +1427,11 @@ public:
   virtual bool EOS()const override { return m_eos; }
   virtual uint64_t DTS()const override { return m_pts; }
   virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS)
+  virtual uint64_t  Elapsed(uint64_t basePTS) override
   {
     // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0;
+    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
+    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
   };
 
   virtual AP4_Result Start(bool &bStarted) override

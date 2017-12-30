@@ -24,7 +24,7 @@ uint64_t ID3TAG::getSize(const uint8_t *data, unsigned int len, unsigned int shi
 {
   uint64_t size(0);
   const uint8_t *dataE(data + len);
-  for (data; data < dataE; ++data)
+  for (; data < dataE; ++data)
     size = size << shift | *data;
   return size;
 };
@@ -87,7 +87,7 @@ uint64_t ADTSFrame::getBE(const uint8_t *data, unsigned int len)
 {
   uint64_t size(0);
   const uint8_t *dataE(data + len);
-  for (data; data < dataE; ++data)
+  for (; data < dataE; ++data)
     size = size << 8 | *data;
   return size;
 };
