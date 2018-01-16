@@ -65,15 +65,7 @@ namespace adaptive
   AdaptiveTree::~AdaptiveTree()
   {
     for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
-      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
-        for (std::vector<Representation*>::const_iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
-          if ((*br)->flags_ & Representation::URLSEGMENTS)
-          {
-            for (std::vector<Segment>::iterator bs((*br)->segments_.data.begin()), es((*br)->segments_.data.end()); bs != es; ++bs)
-              delete[] bs->url;
-            if((*br)->flags_ & Representation::INITIALIZATION)
-              delete[] (*br)->initialization_.url;
-          }
+      delete *bp;
 
     has_timeshift_buffer_ = false;
     if (updateThread_)
@@ -159,9 +151,15 @@ namespace adaptive
     Segment seg(*(rep->segments_[pos]));
 
     if (!timestamp)
+    {
+      Log(LOGLEVEL_DEBUG, "AdaptiveTree: scale fragment duration: fdur:%u, rep-scale:%u, mov-scale:%u", fragmentDuration, rep->timescale_, movie_timescale);
       fragmentDuration = static_cast<std::uint32_t>((static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_) / movie_timescale);
+    }
     else
+    {
+      Log(LOGLEVEL_DEBUG, "AdaptiveTree: fragment duration from timestamp: ts:%llu, base:%llu, s-pts:%llu", timestamp, base_time_, seg.startPTS_);
       fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - seg.startPTS_);
+    }
 
     seg.startPTS_ += fragmentDuration;
     seg.range_begin_ += fragmentDuration;
