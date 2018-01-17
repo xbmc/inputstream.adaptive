@@ -483,9 +483,16 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
         std::stringstream stream;
         std::map<std::string, std::string> headers;
         std::vector<std::string> keyParts(split(m_decrypter->getLicenseKey(), '|'));
+        std::string url = pssh.pssh_.c_str();
+
+        if (keyParts.size() > 0 && !keyParts[0].empty())
+          if (url.find_first_of('?') == std::string::npos)
+            url += "?";
+          else url += "&";
+          url += keyParts[0];
         if (keyParts.size() > 1)
           parseheader(headers, keyParts[1].c_str());
-        if (download(pssh.pssh_.c_str(), headers, &stream))
+        if (download(url.c_str(), headers, &stream))
         {
           pssh.defaultKID_ = stream.str();
         }
