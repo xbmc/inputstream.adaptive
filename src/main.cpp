@@ -2050,14 +2050,16 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "h264");
   else if (rep->codecs_.find("hev") == 0 || rep->codecs_.find("hvc") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
-  else if (rep->codecs_.find("vp9") == 0)
+  /*else if (rep->codecs_.find("vp9") == 0)
     strcpy(stream.info_.m_codecName, "vp9");
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
   else if (rep->codecs_.find("vorbis") == 0)
-    strcpy(stream.info_.m_codecName, "vorbis");
+    strcpy(stream.info_.m_codecName, "vorbis");*/
   else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0)
     strcpy(stream.info_.m_codecName, "srt");
+  else
+    stream.valid = false;
 
   stream.info_.m_FpsRate = rep->fpsRate_;
   stream.info_.m_FpsScale = rep->fpsScale_;
@@ -2475,7 +2477,7 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
   {
       iids.m_streamCount = 0;
       for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
-        if (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type())
+        if (m_session->GetStream(i)->valid && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type()))
         {
           if (m_session->GetMediaTypeMask() != 0xFF)
           {

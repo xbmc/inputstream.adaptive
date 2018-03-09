@@ -88,7 +88,7 @@ public:
 
   struct STREAM
   {
-    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false) { memset(&info_, 0, sizeof(info_)); };
+    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false), valid(true) { memset(&info_, 0, sizeof(info_)); };
     ~STREAM() { disable(); free((void*)info_.m_ExtraData); };
     void disable();
 
@@ -101,6 +101,7 @@ public:
     INPUTSTREAM_INFO info_;
     SampleReader *reader_;
     bool segmentChanged;
+    bool valid;
   };
 
   void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
