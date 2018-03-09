@@ -380,24 +380,27 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           if (!rep->pssh_set_)
           {
             parseLine(line, 11, map);
-            if (map["METHOD"] != "AES-128")
+            if (map["METHOD"] != "NONE")
             {
-              Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
-              return false;
-            }
-            if (map["URI"].empty())
-            {
-              Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
-              return false;
-            }
-            current_pssh_ = map["URI"];
-            if (current_pssh_[0] == '/')
-              current_pssh_ = base_domain_ + current_pssh_;
-            else if (current_pssh_.find("://", 0) == std::string::npos)
-              current_pssh_ = base_url + current_pssh_;
+              if (map["METHOD"] != "AES-128")
+              {
+                Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+                return false;
+              }
+              if (map["URI"].empty())
+              {
+                Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+                return false;
+              }
+              current_pssh_ = map["URI"];
+              if (current_pssh_[0] == '/')
+                current_pssh_ = base_domain_ + current_pssh_;
+              else if (current_pssh_.find("://", 0) == std::string::npos)
+                current_pssh_ = base_url + current_pssh_;
 
-            current_iv_ = m_decrypter->convertIV(map["IV"]);
-            segment.pssh_set_ = insert_psshset(NOTYPE);
+              current_iv_ = m_decrypter->convertIV(map["IV"]);
+              segment.pssh_set_ = insert_psshset(NOTYPE);
+            }
           }
         }
         else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
