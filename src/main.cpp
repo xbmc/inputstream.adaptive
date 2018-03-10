@@ -2043,6 +2043,8 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   if (rep->codecs_.find("mp4a") == 0
   || rep->codecs_.find("aac") == 0)
     strcpy(stream.info_.m_codecName, "aac");
+  else if (rep->codecs_.find("dts") == 0)
+    strcpy(stream.info_.m_codecName, "dca");
   else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
     strcpy(stream.info_.m_codecName, "eac3");
   else if (rep->codecs_.find("avc") == 0
