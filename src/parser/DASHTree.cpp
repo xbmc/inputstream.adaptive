@@ -729,6 +729,8 @@ start(void *data, const char *el, const char **attr)
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
           dash->current_representation_->aspect_ = dash->adpaspect_;
+          dash->current_representation_->containerType_ = dash->adpContainerType_;
+
           dash->current_pssh_.clear();
           dash->current_hasRepURN_ = false;
 
@@ -764,6 +766,10 @@ start(void *data, const char *el, const char **attr)
                 else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application", 11) == 0)
                   dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
               }
+              if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/webm"))
+                dash->current_representation_->containerType_ = AdaptiveTree::CONTAINERTYPE_WEBM;
+              else if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/x-matroska"))
+                dash->current_representation_->containerType_ = AdaptiveTree::CONTAINERTYPE_MATROSKA;
             }
             attr += 2;
           }
@@ -866,6 +872,7 @@ start(void *data, const char *el, const char **attr)
         dash->adpfpsRate_ = 0;
         dash->adpaspect_ = 0.0f;
         dash->adp_pssh_set_ = 0;
+        dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_MP4;
         dash->current_hasAdpURN_ = false;
         dash->adp_timelined_ = dash->period_timelined_;
         dash->current_adaptationset_->timescale_ = dash->current_period_->timescale_;
@@ -919,6 +926,12 @@ start(void *data, const char *el, const char **attr)
           else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application", 11) == 0)
             dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
         }
+
+        if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/webm"))
+          dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_WEBM;
+        else if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/x-matroska"))
+          dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_MATROSKA;
+
         dash->segcount_ = 0;
         dash->currentNode_ |= MPDNODE_ADAPTIONSET;
       }

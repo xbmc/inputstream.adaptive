@@ -106,7 +106,9 @@ namespace adaptive
       CONTAINERTYPE_INVALID,
       CONTAINERTYPE_MP4,
       CONTAINERTYPE_TS,
-      CONTAINERTYPE_ADTS
+      CONTAINERTYPE_ADTS,
+      CONTAINERTYPE_WEBM,
+      CONTAINERTYPE_MATROSKA,
     };
 
     // Node definition
@@ -335,6 +337,7 @@ namespace adaptive
     uint16_t adpwidth_, adpheight_;
     uint32_t adpfpsRate_;
     float adpaspect_;
+    ContainerType adpContainerType_;
     bool adp_timelined_, period_timelined_;
 
     bool need_secure_decoder_;

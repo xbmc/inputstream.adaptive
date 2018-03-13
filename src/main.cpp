@@ -2052,15 +2052,21 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "h264");
   else if (rep->codecs_.find("hev") == 0 || rep->codecs_.find("hvc") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
-  /*else if (rep->codecs_.find("vp9") == 0)
+  else if (rep->codecs_.find("vp9") == 0)
     strcpy(stream.info_.m_codecName, "vp9");
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
   else if (rep->codecs_.find("vorbis") == 0)
-    strcpy(stream.info_.m_codecName, "vorbis");*/
+    strcpy(stream.info_.m_codecName, "vorbis");
   else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0)
     strcpy(stream.info_.m_codecName, "srt");
   else
+    stream.valid = false;
+
+  // We support currently only mp4 / ts / adts
+  if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4
+  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TS
+  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
     stream.valid = false;
 
   stream.info_.m_FpsRate = rep->fpsRate_;
