@@ -26,6 +26,7 @@
 #include <vector>
 #include <list>
 #include <algorithm>
+#include <thread>
 
 #ifndef WIDEVINECDMFILENAME
 #error  "WIDEVINECDMFILENAME must be set"
@@ -469,7 +470,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   , max_subsample_count_video_(0)
   , subsample_buffer_decrypt_(0)
   , subsample_buffer_video_(0)
-  , promise_id_(0)
+  , promise_id_(1)
   , drained_(true)
 {
   SetParentIsOwner(false);
@@ -496,7 +497,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
 
   if (memcmp(pssh.GetData() + 4, "pssh", 4) == 0)
   {
-    drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(0, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc,
+    drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(promise_id_++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc,
       reinterpret_cast<const uint8_t *>(pssh.GetData()), pssh.GetDataSize());
   }
   else
@@ -516,8 +517,11 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     memcpy(buf, proto, sizeof(proto));
     memcpy(&buf[32], pssh.GetData(), pssh.GetDataSize());
 
-    drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(0, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, buf, buf_size);
+    drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(promise_id_++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, buf, buf_size);
   }
+  int retrycount=0;
+  while (session_.empty() && ++retrycount < 100)
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
   if (session_.empty())
   {
