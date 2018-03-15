@@ -412,7 +412,7 @@ WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert)
   strBasePath += cSep;
   host->CreateDirectory(strBasePath.c_str());
 
-  wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter("com.widevine.alpha", strLibPath, strBasePath, media::CdmConfig(false, true), (dynamic_cast<media::CdmAdapterClient*>(this))));
+  wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter("com.widevine.alpha", strLibPath, strBasePath, media::CdmConfig(false, false), (dynamic_cast<media::CdmAdapterClient*>(this))));
   if (!wv_adapter->valid())
   {
     Log(SSD_HOST::LL_ERROR, "Unable to load widevine shared library (%s)", strLibPath.c_str());
