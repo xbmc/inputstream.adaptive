@@ -1921,7 +1921,7 @@ bool Session::initialize()
       }
 
       if (decrypter_ && init_data.GetDataSize() >= 4 && (session.single_sample_decryptor_
-        || (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, optionalKeyParameter)) != 0))
+        || (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, optionalKeyParameter, (const uint8_t *)defkid)) != 0))
       {
 
         decrypter_->GetCapabilities(

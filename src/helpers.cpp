@@ -22,10 +22,24 @@
 #include <stdlib.h>
 #include "Ap4DataBuffer.h"
 #include <map>
+#include <sstream>
 
 #ifndef BYTE
 typedef unsigned char BYTE;
 #endif
+
+std::string ToDecimal(const uint8_t *data, size_t data_size)
+{
+  std::stringstream ret;
+
+  if (data_size)
+    ret << data[0];
+
+  for (size_t i(1); i < data_size; ++i)
+    ret << ','  << static_cast<unsigned int>(data[i]);
+
+  return ret.str();
+}
 
 static const BYTE from_base64[] = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -325,6 +339,19 @@ void prkid2wvkid(const char *input, char *output)
     output[i] = input[remap[i]];
 }
 
+uint8_t* KIDtoUUID(const uint8_t* kid, uint8_t* dst)
+{
+  static const uint8_t hexmap[16] = { '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f' };
+  for (unsigned int i(0); i < 16; ++i)
+  {
+    if (i == 4 || i == 6 || i == 8 || i == 10)
+      *dst++ = '-';
+    *dst++ = hexmap[(uint8_t)(kid[i]) >> 4];
+    *dst++ = hexmap[(uint8_t)(kid[i]) & 15];
+  }
+  return dst;
+}
+
 bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data)
 {
   if (key.size() != 16 || license_data.empty())
@@ -375,17 +402,11 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
   } while (1);
   if (uuid)
   {
-    static const uint8_t hexmap[16] = { '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f' };
     memcpy(protoptr, kid, uuid - kid);
     protoptr += uuid - kid;
 
-    for (unsigned int i(0); i < 16; ++i)
-    {
-      if(i == 4 || i == 6 || i == 8 || i == 10)
-        *protoptr++ = '-';
-      *protoptr++ = hexmap[(uint8_t)(key.data()[i]) >> 4];
-      *protoptr++ = hexmap[(uint8_t)(key.data()[i]) & 15];
-    }
+    protoptr = KIDtoUUID((const uint8_t*)key.data(), protoptr);
+
     unsigned int sizeleft = ld_size - ((uuid - kid) + 6);
     memcpy(protoptr, uuid + 6, sizeleft);
     protoptr += sizeleft;

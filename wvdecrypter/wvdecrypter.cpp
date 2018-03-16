@@ -240,7 +240,7 @@ class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 {
 public:
   // methods
-  WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh);
+  WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, const uint8_t *defaultKeyId);
   virtual ~WV_CencSingleSampleDecrypter();
 
   void GetCapabilities(const uint8_t* key, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps);
@@ -295,6 +295,7 @@ private:
   WV_DRM &drm_;
   std::string session_;
   AP4_DataBuffer pssh_, challenge_;
+  uint8_t defaultKeyId_[16];
   struct WVSKEY
   {
     bool operator == (WVSKEY const &other) const { return keyid == other.keyid; };
@@ -465,7 +466,7 @@ void WV_DRM::OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG 
 |   WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
 
-WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh)
+WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, const uint8_t *defaultKeyId)
   : AP4_CencSingleSampleDecrypter(0)
   , drm_(drm)
   , pssh_(pssh)
@@ -487,6 +488,11 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   }
 
   drm_.insertssd(this);
+
+  if (defaultKeyId)
+    memcpy(defaultKeyId_, defaultKeyId, 16);
+  else
+    memset(defaultKeyId_, 0, 16);
 
 #ifdef LOCLICENSE
   std::string strDbg = host->GetProfilePath();
@@ -694,19 +700,28 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     insPos = blocks[2].find("{SSM}");
     if (insPos != std::string::npos)
     {
-      std::string::size_type sidSearchPos(insPos);
+      std::string::size_type sidPos(blocks[2].find("{SID}"));
+      std::string::size_type kidPos(blocks[2].find("{KID}"));
+      size_t size_written(0);
+
       if (insPos > 0)
       {
         if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
         {
           std::string msgEncoded = b64_encode(challenge_.GetData(), challenge_.GetDataSize(), blocks[2][insPos - 1] == 'B');
           blocks[2].replace(insPos - 1, 6, msgEncoded);
-          sidSearchPos += msgEncoded.size();
+          size_written = msgEncoded.size();
+        }
+        else if (blocks[2][insPos - 1] == 'D')
+        {
+          std::string msgEncoded = ToDecimal(challenge_.GetData(), challenge_.GetDataSize());
+          blocks[2].replace(insPos - 1, 6, msgEncoded);
+          size_written = msgEncoded.size();
         }
         else
         {
           blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(challenge_.GetData()), challenge_.GetDataSize());
-          sidSearchPos += challenge_.GetDataSize();
+          size_written = challenge_.GetDataSize();
         }
       }
       else
@@ -715,24 +730,44 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
         goto SSMFAIL;
       }
 
-      insPos = blocks[2].find("{SID}", sidSearchPos);
-      if (insPos != std::string::npos)
+      if (sidPos != std::string::npos && insPos < sidPos)
+        sidPos += size_written, sidPos -= 6;
+
+      if (kidPos != std::string::npos && insPos < kidPos)
+        kidPos += size_written, sidPos -= 6;
+
+      size_written = 0;
+
+      if (sidPos != std::string::npos)
       {
-        if (insPos > 0)
+        if (sidPos > 0)
         {
-          if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
+          if (blocks[2][sidPos - 1] == 'B' || blocks[2][sidPos - 1] == 'b')
           {
-            std::string msgEncoded = b64_encode(reinterpret_cast<const unsigned char*>(session_.data()),session_.size(), blocks[2][insPos - 1] == 'B');
-            blocks[2].replace(insPos - 1, 6, msgEncoded);
+            std::string msgEncoded = b64_encode(reinterpret_cast<const unsigned char*>(session_.data()),session_.size(), blocks[2][sidPos - 1] == 'B');
+            blocks[2].replace(sidPos - 1, 6, msgEncoded);
+            size_written = msgEncoded.size();
           }
           else
-            blocks[2].replace(insPos - 1, 6, session_.data(), session_.size());
+          {
+            blocks[2].replace(sidPos - 1, 6, session_.data(), session_.size());
+            size_written = session_.size();
+          }
         }
         else
         {
           Log(SSD_HOST::LL_ERROR, "Unsupported License request template (body / ?{SID})");
           goto SSMFAIL;
         }
+      }
+
+      if (kidPos != std::string::npos)
+      {
+        if (sidPos < kidPos)
+          kidPos += size_written, kidPos -= 6;
+        uint8_t uuid[36];
+        KIDtoUUID(defaultKeyId_, uuid);
+        blocks[2].replace(kidPos, 5, (const char*)uuid, 32);
       }
     }
     std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
@@ -1297,9 +1332,9 @@ public:
     return cdmsession_->GetCdmAdapter() != nullptr;
   }
 
-  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter) override
+  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid) override
   {
-    WV_CencSingleSampleDecrypter *decrypter = new WV_CencSingleSampleDecrypter(*cdmsession_, pssh);
+    WV_CencSingleSampleDecrypter *decrypter = new WV_CencSingleSampleDecrypter(*cdmsession_, pssh, defaultkeyid);
     if (!decrypter->GetSessionId())
     {
       delete decrypter;

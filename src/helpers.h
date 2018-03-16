@@ -27,6 +27,7 @@ class AP4_DataBuffer;
 
 bool b64_decode(const char *in, unsigned int in_len, uint8_t *out, unsigned int &out_len);
 
+std::string ToDecimal(const uint8_t *data, size_t data_size);
 std::string b64_encode(unsigned char const* in, unsigned int in_len, bool urlEncode);
 
 std::vector<std::string> split(const std::string& s, char seperator);
@@ -41,5 +42,6 @@ std::string avc_to_annexb(const std::string &avc);
 unsigned char HexNibble(char c);
 
 void prkid2wvkid(const char *input, char *output);
+uint8_t* KIDtoUUID(const uint8_t* kid, uint8_t* dst);
 bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data);
 void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString);
