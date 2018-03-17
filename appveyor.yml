@@ -14,6 +14,12 @@ environment:
       CONFIG: Release
     - GENERATOR: "Visual Studio 14 Win64"
       CONFIG: Release
+    - GENERATOR: "Visual Studio 14 Win64"
+      CONFIG: Release
+      WINSTORE: -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0.14393.0"
+    - GENERATOR: "Visual Studio 14 ARM"
+      CONFIG: Release
+      WINSTORE: -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION="10.0.14393.0"
 
 build_script:
   - cd ..
@@ -21,5 +27,5 @@ build_script:
   - cd %app_id%
   - mkdir build
   - cd build
-  - cmake -T host=x64 -G "%GENERATOR%" -DADDONS_TO_BUILD=%app_id% -DCMAKE_BUILD_TYPE=%CONFIG% -DADDON_SRC_PREFIX=../.. -DCMAKE_INSTALL_PREFIX=../../xbmc/addons -DPACKAGE_ZIP=1 ../../xbmc/cmake/addons
+  - cmake -T host=x64 -G "%GENERATOR%" %WINSTORE% -DADDONS_TO_BUILD=%app_id% -DCMAKE_BUILD_TYPE=%CONFIG% -DADDON_SRC_PREFIX=../.. -DCMAKE_INSTALL_PREFIX=../../xbmc/addons -DPACKAGE_ZIP=1 ../../xbmc/cmake/addons
   - cmake --build . --config %CONFIG% --target %app_id%

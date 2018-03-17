@@ -57,7 +57,7 @@ include_directories(${EXPAT_INCLUDE_DIRS})
 list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
 
 if(WIN32)
-  add_definitions(-DXML_STATIC)
+  add_definitions(-DXML_STATIC -D_CRT_NONSTDC_NO_DEPRECATE)
   list(APPEND DEPLIBS ws2_32)
 else()
   add_definitions(-D__STDC_FORMAT_MACROS)
