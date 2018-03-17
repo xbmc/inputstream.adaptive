@@ -1,0 +1,6 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+* text=auto
+
+# never modify line endings for patchs and diffs
+*.patch text eol=lf
+*.diff text eol=lf
