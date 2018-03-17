@@ -2064,7 +2064,8 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     stream.valid = false;
 
   // We support currently only mp4 / ts / adts
-  if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4
+  if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_NOTYPE
+  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4
   && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TS
   && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
     stream.valid = false;
