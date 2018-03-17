@@ -2485,7 +2485,11 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
   {
       iids.m_streamCount = 0;
       for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
-        if (m_session->GetStream(i)->valid && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type()))
+      {
+        uint8_t cdmId(static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
+        if (m_session->GetStream(i)->valid
+          && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type())
+          && !(m_session->GetDecrypterCaps(cdmId).flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID))
         {
           if (m_session->GetMediaTypeMask() != 0xFF)
           {
@@ -2495,6 +2499,7 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
           }
           iids.m_streamIds[iids.m_streamCount++] = i;
         }
+      }
   } else
       iids.m_streamCount = 0;
   return iids;

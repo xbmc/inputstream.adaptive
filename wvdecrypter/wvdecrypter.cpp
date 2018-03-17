@@ -253,9 +253,13 @@ public:
 
   void AddSessionKey(const uint8_t *data, size_t data_size, uint32_t status)
   {
-    keys_.push_back(WVSKEY());
-    keys_.back().keyid = std::string((const char*)data, data_size);
-    keys_.back().status = static_cast<cdm::KeyStatus>(status);
+    WVSKEY key;
+    std::vector<WVSKEY>::iterator res;
+
+    key.keyid = std::string((const char*)data, data_size);
+    if ((res = std::find(keys_.begin(), keys_.end(), key)) == keys_.end())
+      res = keys_.insert(res, key);
+    res->status = static_cast<cdm::KeyStatus>(status);
   }
   bool HasKeyId(const uint8_t *keyid);
 
@@ -293,6 +297,7 @@ private:
   AP4_DataBuffer pssh_, challenge_;
   struct WVSKEY
   {
+    bool operator == (WVSKEY const &other) const { return keyid == other.keyid; };
     std::string keyid;
     cdm::KeyStatus status;
   };
@@ -565,16 +570,18 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
   //caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
   //return;
 
-  if (media == SSD_DECRYPTER::SSD_CAPS::SSD_MEDIA_VIDEO)
-  {
-    for (auto k : keys_)
-      if (!key || memcmp(k.keyid.data(), key, 16) == 0)
+  for (auto k : keys_)
+    if (!key || memcmp(k.keyid.data(), key, 16) == 0)
+    {
+      if (k.status != 0)
       {
-        if (k.status != 0)
+        if (media == SSD_DECRYPTER::SSD_CAPS::SSD_MEDIA_VIDEO)
           caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
-        break;
+        else
+          caps.flags = SSD_DECRYPTER::SSD_CAPS::SSD_INVALID;
       }
-  }
+      break;
+    }
 
   if (caps.flags == SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
   {
@@ -594,7 +601,12 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
         encb[0] = 12;
         clearb[0] = 0;
         if (DecryptSampleData(poolid, in, out, iv, 1, clearb, encb) != AP4_SUCCESS)
-          caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
+        {
+          if (media == SSD_DECRYPTER::SSD_CAPS::SSD_MEDIA_VIDEO)
+            caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
+          else
+            caps.flags = SSD_DECRYPTER::SSD_CAPS::SSD_INVALID;
+        }
         else
         {
           caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT;

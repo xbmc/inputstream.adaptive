@@ -316,7 +316,7 @@ namespace adaptive
       static const uint32_t MEDIA_AUDIO = 2;
 
       PSSH() :media_(0), use_count_(0) {};
-      bool operator == (const PSSH &other) const { return !use_count_ || (pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ && iv == other.iv); };
+      bool operator == (const PSSH &other) const { return !use_count_ || (media_ == other.media_ && pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ && iv == other.iv); };
       std::string pssh_;
       std::string defaultKID_;
       std::string iv;

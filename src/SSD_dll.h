@@ -149,6 +149,7 @@ namespace SSD
       static const uint32_t SSD_HDCP_RESTRICTED = 8;
       static const uint32_t SSD_SINGLE_DECRYPT = 16;
       static const uint32_t SSD_SECURE_DECODER = 32;
+      static const uint32_t SSD_INVALID = 64;
 
       static const uint32_t SSD_MEDIA_VIDEO = 1;
       static const uint32_t SSD_MEDIA_AUDIO = 2;

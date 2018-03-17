@@ -186,22 +186,17 @@ namespace adaptive
       pssh.iv = current_iv_;
       switch (type)
       {
-      case VIDEO: pssh.media_ = PSSH::MEDIA_VIDEO; break;
-      case AUDIO: pssh.media_ = PSSH::MEDIA_AUDIO; break;
-      case STREAM_TYPE_COUNT: pssh.media_ = PSSH::MEDIA_VIDEO | PSSH::MEDIA_AUDIO; break;
-      default: pssh.media_ = 0; break;
+        case VIDEO: pssh.media_ = PSSH::MEDIA_VIDEO; break;
+        case AUDIO: pssh.media_ = PSSH::MEDIA_AUDIO; break;
+        case STREAM_TYPE_COUNT: pssh.media_ = PSSH::MEDIA_VIDEO | PSSH::MEDIA_AUDIO; break;
+        default: pssh.media_ = 0; break;
       }
 
       std::vector<PSSH>::iterator pos(std::find(psshSets_.begin() + 1, psshSets_.end(), pssh));
       if (pos == psshSets_.end())
         pos = psshSets_.insert(psshSets_.end(), pssh);
-      else
-      {
-        if (pos->use_count_)
-          *pos = pssh;
-        else
-          pos->media_ |= pssh.media_;
-      }
+      else if (!pos->use_count_)
+        *pos = pssh;
 
       ++psshSets_[pos - psshSets_.begin()].use_count_;
       return static_cast<uint16_t>(pos - psshSets_.begin());
