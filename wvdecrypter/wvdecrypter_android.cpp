@@ -642,6 +642,27 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
         goto SSMFAIL;
       }
     }
+    else if (blocks[3][0] == 'H' && blocks[3].size() >= 2)
+    {
+      //Find the payload
+      std::string::size_type payloadPos = response.find("\r\n\r\n");
+      if (payloadPos != std::string::npos)
+      {
+        payloadPos += 4;
+        if (blocks[3][1] == 'B')
+          status = AMediaDrm_provideKeyResponse(media_drm_.GetMediaDrm(), &session_id, reinterpret_cast<const uint8_t*>(response.c_str() + payloadPos), response.size() - payloadPos, &dummy_ksid);
+        else
+        {
+          Log(SSD_HOST::LL_ERROR, "Unsupported HTTP payload data type definition");
+          goto SSMFAIL;
+        }
+      }
+      else
+      {
+        Log(SSD_HOST::LL_ERROR, "Unable to find HTTP payload in response");
+        goto SSMFAIL;
+      }
+    }
     else
     {
       Log(SSD_HOST::LL_ERROR, "Unsupported License request template (response)");
