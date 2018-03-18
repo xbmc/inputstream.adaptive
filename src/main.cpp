@@ -38,6 +38,8 @@
 #include "TSReader.h"
 #include "ADTSReader.h"
 
+#include "Ap4Utils.h"
+
 #ifdef _WIN32                   // windows
 #include "p8-platform/windows/dlfcn-win32.h"
 #else // windows
@@ -1785,13 +1787,15 @@ bool Session::initialize()
       return false;
     }
 
-    AP4_DataBuffer init_data;
-    const char *optionalKeyParameter(nullptr);
-
     for (size_t ses(1); ses < cdm_sessions_.size(); ++ses)
     {
+      AP4_DataBuffer init_data;
+      const char *optionalKeyParameter(nullptr);
+
       if (adaptiveTree_->psshSets_[ses].pssh_ == "FILE")
       {
+        kodi::Log(ADDON_LOG_DEBUG, "Searching PSSH data in FILE");
+
         if (license_data_.empty())
         {
           std::string strkey(adaptiveTree_->supportedKeySystem_.substr(9));
@@ -1912,6 +1916,10 @@ bool Session::initialize()
 
       if (decrypter_ && defkid)
       {
+        char hexkid[36];
+        AP4_FormatHex(reinterpret_cast<const AP4_UI08*>(defkid), 16, hexkid), hexkid[32]=0;
+        kodi::Log(ADDON_LOG_DEBUG, "Initializing stream with KID: %s", hexkid);
+
         for (unsigned int i(1); i < ses; ++i)
           if (decrypter_ && decrypter_->HasLicenseKey(cdm_sessions_[i].single_sample_decryptor_, (const uint8_t *)defkid))
           {
@@ -1919,6 +1927,8 @@ bool Session::initialize()
             session.shared_single_sample_decryptor_ = true;
           }
       }
+      else if (!defkid)
+        kodi::Log(ADDON_LOG_WARNING, "Initializing stream with unknown KID!");
 
       if (decrypter_ && init_data.GetDataSize() >= 4 && (session.single_sample_decryptor_
         || (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, optionalKeyParameter, (const uint8_t *)defkid)) != 0))
