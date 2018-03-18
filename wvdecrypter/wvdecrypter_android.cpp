@@ -483,20 +483,20 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
       {
         if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
         {
-          std::string msgEncoded = b64_encode(challenge_.GetData(), challenge_.GetDataSize(), blocks[2][insPos - 1] == 'B');
+          std::string msgEncoded = b64_encode(key_request, key_request_size, blocks[2][insPos - 1] == 'B');
           blocks[2].replace(insPos - 1, 6, msgEncoded);
           size_written = msgEncoded.size();
         }
         else if (blocks[2][insPos - 1] == 'D')
         {
-          std::string msgEncoded = ToDecimal(challenge_.GetData(), challenge_.GetDataSize());
+          std::string msgEncoded = ToDecimal(key_request, key_request_size);
           blocks[2].replace(insPos - 1, 6, msgEncoded);
           size_written = msgEncoded.size();
         }
         else
         {
-          blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(challenge_.GetData()), challenge_.GetDataSize());
-          size_written = challenge_.GetDataSize();
+          blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(key_request), key_request_size);
+          size_written = key_request_size;
         }
       }
       else
@@ -519,14 +519,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
         {
           if (blocks[2][sidPos - 1] == 'B' || blocks[2][sidPos - 1] == 'b')
           {
-            std::string msgEncoded = b64_encode(reinterpret_cast<const unsigned char*>(session_.data()), session_.size(), blocks[2][sidPos - 1] == 'B');
+            std::string msgEncoded = b64_encode(session_id.ptr, session_id.length, blocks[2][sidPos - 1] == 'B');
             blocks[2].replace(sidPos - 1, 6, msgEncoded);
             size_written = msgEncoded.size();
           }
           else
           {
-            blocks[2].replace(sidPos - 1, 6, session_.data(), session_.size());
-            size_written = session_.size();
+            blocks[2].replace(sidPos - 1, 6, reinterpret_cast<const char*>(session_id.ptr), session_id.length);
+            size_written = session_id.length;
           }
         }
         else

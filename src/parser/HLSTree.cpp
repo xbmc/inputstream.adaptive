@@ -489,10 +489,13 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
         std::string url = pssh.pssh_.c_str();
 
         if (keyParts.size() > 0 && !keyParts[0].empty())
+        {
           if (url.find_first_of('?') == std::string::npos)
             url += "?";
-          else url += "&";
+          else
+            url += "&";
           url += keyParts[0];
+        }
         if (keyParts.size() > 1)
           parseheader(headers, keyParts[1].c_str());
         if (download(url.c_str(), headers, &stream))
