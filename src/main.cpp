@@ -1787,6 +1787,19 @@ bool Session::initialize()
       return false;
     }
 
+    std::string strkey(adaptiveTree_->supportedKeySystem_.substr(9));
+    size_t pos;
+    while ((pos = strkey.find('-')) != std::string::npos)
+      strkey.erase(pos, 1);
+    if (strkey.size() != 32)
+    {
+      kodi::Log(ADDON_LOG_ERROR, "Key system mismatch (%s)!", adaptiveTree_->supportedKeySystem_.c_str());
+      return false;
+    }
+
+    unsigned char key_system[16];
+    AP4_ParseHex(strkey.c_str(), key_system, 16);
+
     for (size_t ses(1); ses < cdm_sessions_.size(); ++ses)
     {
       AP4_DataBuffer init_data;
@@ -1798,21 +1811,8 @@ bool Session::initialize()
 
         if (license_data_.empty())
         {
-          std::string strkey(adaptiveTree_->supportedKeySystem_.substr(9));
-          size_t pos;
-          while ((pos = strkey.find('-')) != std::string::npos)
-            strkey.erase(pos, 1);
-          if (strkey.size() != 32)
-          {
-            kodi::Log(ADDON_LOG_ERROR, "Key system mismatch (%s)!", adaptiveTree_->supportedKeySystem_.c_str());
-            return false;
-          }
-
-          unsigned char key_system[16];
-          AP4_ParseHex(strkey.c_str(), key_system, 16);
-
-          Session::STREAM stream(*adaptiveTree_, adaptiveTree_->GetAdaptationSet(0)->type_);
-          stream.stream_.prepare_stream(adaptiveTree_->GetAdaptationSet(0), 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
+          Session::STREAM stream(*adaptiveTree_, adaptiveTree_->psshSets_[ses].adaptation_set_->type_);
+          stream.stream_.prepare_stream(adaptiveTree_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
 
           stream.enabled = true;
           stream.stream_.start_stream(0, width_, height_);

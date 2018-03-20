@@ -322,6 +322,7 @@ namespace adaptive
       std::string iv;
       uint32_t media_;
       uint32_t use_count_;
+      AdaptationSet *adaptation_set_;
     };
     std::vector<PSSH> psshSets_;
 
