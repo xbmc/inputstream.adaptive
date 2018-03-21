@@ -515,6 +515,9 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
   //Process body
   if (!blocks[2].empty())
   {
+    if (blocks[2][0] == '%')
+      blocks[2] = url_decode(blocks[2]);
+
     insPos = blocks[2].find("{SSM}");
     if (insPos != std::string::npos)
     {
