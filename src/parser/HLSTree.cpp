@@ -317,7 +317,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         {
           if (rep->containerType_ == CONTAINERTYPE_NOTYPE)
           {
-            std::string::size_type ext = line.rfind('.');
+            std::string::size_type paramPos = line.rfind('?');
+            std::string::size_type ext = line.rfind('.', paramPos);
             if (ext != std::string::npos)
             {
               if (strncmp(line.c_str() + ext, ".ts", 3) == 0)
