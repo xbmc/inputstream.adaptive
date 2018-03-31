@@ -85,6 +85,7 @@ public:
   virtual ~Session();
   bool initialize();
   SampleReader *GetNextSample();
+  void AlignStreams();
 
   struct STREAM
   {

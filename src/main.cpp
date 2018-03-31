@@ -47,6 +47,7 @@
 #endif
 
 #define DVD_TIME_BASE 1000000
+#define MAX_STREAM_ALIGN_SECONDS 5
 
 #undef CreateDirectory
 
@@ -2133,6 +2134,43 @@ AP4_Movie *Session::PrepareStream(STREAM *stream)
   return nullptr;
 }
 
+void Session::AlignStreams()
+{
+  uint64_t maxDts = 0;
+  STREAM *res(0), *waiting(0);
+  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+  {
+    bool bStarted(false);
+    if ((*b)->enabled && (*b)->reader_ && !(*b)->reader_->EOS()
+    && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
+    && (*b)->reader_->DTS() > maxDts)
+      maxDts = (*b)->reader_->DTS();
+  }
+  
+  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+  {
+    bool bStarted(false);
+    if ((*b)->enabled && (*b)->reader_ && !(*b)->reader_->EOS()
+        && AP4_SUCCEEDED((*b)->reader_->Start(bStarted)) && (*b)->reader_->DTS() < maxDts) {
+      if (maxDts - (*b)->reader_->DTS() > (MAX_STREAM_ALIGN_SECONDS * DVD_TIME_BASE)) {
+        //Dont try to align more than MAX_STREAM_ALIGN_SECONDS seconds:
+        kodi::Log(ADDON_LOG_INFO, "Skip aligning stream %d due to more than %d seconds difference.",(*b)->info_.m_streamType, MAX_STREAM_ALIGN_SECONDS);
+        continue;
+      }
+      kodi::Log(ADDON_LOG_INFO, "Align stream %d %" PRIu64 " to %" PRIu64,(*b)->info_.m_streamType, (*b)->reader_->DTS(), maxDts);
+      int maxAlignIterations(1000);
+      while ((*b)->enabled && (*b)->reader_ && !(*b)->reader_->EOS()
+        && AP4_SUCCEEDED((*b)->reader_->Start(bStarted)) && (*b)->reader_->DTS() < maxDts) {
+          (*b)->reader_->ReadSample();
+          if (maxAlignIterations-- <= 0) {
+            break;
+          }
+      }
+    }
+  }
+
+}
+
 SampleReader *Session::GetNextSample()
 {
   STREAM *res(0), *waiting(0);
@@ -2708,7 +2746,11 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_);
       }
   }
-  return stream->reader_->GetInformation(stream->info_);
+  bool ret = stream->reader_->GetInformation(stream->info_);
+  if (ret) {
+    m_session->AlignStreams();
+  }
+  return ret;
 }
 
 
@@ -2796,7 +2838,11 @@ bool CInputStreamAdaptive::PosTime(int ms)
 
   kodi::Log(ADDON_LOG_INFO, "PosTime (%d)", ms);
 
-  return m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
+  bool ret = m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
+  if (ret) {
+    m_session->AlignStreams();
+  }
+  return ret;
 }
 
 int CInputStreamAdaptive::GetTotalTime()
