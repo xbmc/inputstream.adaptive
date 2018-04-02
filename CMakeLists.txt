@@ -21,6 +21,7 @@ set(ADP_SOURCES
 	src/TSReader.cpp
 	src/aes_decrypter.cpp
 	src/ADTSReader.cpp
+  src/md5.cpp
 	)
 
 set(ADP_HEADERS
@@ -38,6 +39,7 @@ set(ADP_HEADERS
 	src/log.h
 	src/aes_decrypter.h
 	src/ADTSReader.h
+  src/md5.h
 	)
 
 if(WIN32)

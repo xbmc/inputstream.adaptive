@@ -19,6 +19,7 @@
 #include "cdm/media/cdm/cdm_adapter.h"
 #include "../src/helpers.h"
 #include "../src/SSD_dll.h"
+#include "../src/md5.h"
 #include "jsmn.h"
 #include "Ap4.h"
 
@@ -673,6 +674,15 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       Log(SSD_HOST::LL_ERROR, "Unsupported License request template (cmd)");
       return false;
     }
+  }
+
+  insPos = blocks[0].find("{HASH}");
+  if (insPos != std::string::npos)
+  {
+    MD5 md5;
+    md5.update(challenge_.GetData(), challenge_.GetDataSize());
+    md5.finalize();
+    blocks[0].replace(insPos, 6, md5.hexdigest());
   }
 
   void* file = host->CURLCreate(blocks[0].c_str());

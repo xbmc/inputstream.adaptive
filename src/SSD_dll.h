@@ -17,8 +17,11 @@ namespace SSD
       OPTION_PROTOCOL,
       OPTION_HEADER
     };
-    static const uint32_t version = 9;
-
+    static const uint32_t version = 10;
+#if defined(ANDROID)
+    virtual void* GetJNIEnv() = 0;
+    virtual int GetSDKVersion() = 0;
+#endif
     virtual const char *GetLibraryPath() const = 0;
     virtual const char *GetProfilePath() const = 0;
     virtual void* CURLCreate(const char* strURL) = 0;
