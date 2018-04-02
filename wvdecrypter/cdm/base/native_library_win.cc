@@ -31,8 +31,18 @@ NativeLibrary LoadNativeLibraryHelper(const std::string& library_path,
   // may have dependencies on DLLs in this directory.
   bool restore_directory = false;
   wchar_t current_directory[MAX_PATH];
-  std::wstring lp = std::wstring(library_path.begin(), library_path.end());
+  std::wstring lp;
   std::wstring plugin_path, plugin_value;
+
+  int len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, library_path.c_str(), (int)library_path.length(), NULL, 0);
+  if (len)
+  {
+    lp.resize(len);
+    len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, library_path.c_str(), (int)library_path.length(), &lp[0], len);
+  }
+  if (!len)
+    lp.assign(library_path.begin(), library_path.end());
+
   if (GetCurrentDirectory(MAX_PATH,current_directory))
   {
 	const wchar_t *res = wcsrchr(lp.c_str(), '\\');
