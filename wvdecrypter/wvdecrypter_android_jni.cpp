@@ -149,6 +149,8 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   {
     media_drm_->setPropertyString("privacyMode", "enable");
     media_drm_->setPropertyString("sessionSharing", "enable");
+    if (serverCert.GetDataSize())
+      media_drm_->setPropertyByteArray("serviceCertificate", std::vector<char>(serverCert.GetData(), serverCert.GetData() + serverCert.GetDataSize()));
   }
 
   Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, security-level: %s", media_drm_, strDeviceId.c_str(), strSecurityLevel.c_str());
@@ -597,6 +599,11 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   if (nbRead != 0)
   {
     Log(SSD_HOST::LL_ERROR, "Could not read full SessionMessage response");
+    goto SSMFAIL;
+  }
+  else if (response.empty())
+  {
+    Log(SSD_HOST::LL_ERROR, "Empty SessionMessage response - invalid");
     goto SSMFAIL;
   }
 

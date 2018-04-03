@@ -54,6 +54,7 @@ public:
 
   std::string getPropertyString(const std::string &propertyName) const;
   void setPropertyString(const std::string &propertyName, const std::string &value) const;
+  void setPropertyByteArray(const std::string &propertyName, const std::vector<char> &value) const;
 
   CJNIMediaDrmKeyRequest getKeyRequest(const std::vector<char> &scope,
     const std::vector<char> &init, const std::string &mimeType, int keyType,

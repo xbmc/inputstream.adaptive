@@ -87,6 +87,20 @@ void CJNIMediaDrm::setPropertyString(const std::string &propertyName, const std:
     jcast<jhstring>(propertyName), jcast<jhstring>(value));
 }
 
+void CJNIMediaDrm::setPropertyByteArray(const std::string &propertyName, const std::vector<char> &value) const
+{
+  JNIEnv *env = xbmc_jnienv();
+
+  jsize size = value.size();
+  jbyteArray value_ = env->NewByteArray(size);
+  jbyte *bytedata = (jbyte*)value.data();
+  env->SetByteArrayRegion(value_, 0, size, bytedata);
+
+  call_method<void>(m_object,
+    "setPropertyByteArray", "(Ljava/lang/String;[B)V",
+    jcast<jhstring>(propertyName), value_);
+}
+
 CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scope, 
   const std::vector<char> &init, const std::string &mimeType, int keyType,
   const std::map<std::string, std::string> &optionalParameters) const
