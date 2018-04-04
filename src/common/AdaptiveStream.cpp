@@ -286,6 +286,10 @@ bool AdaptiveStream::PrepareDownload(const AdaptiveTree::Segment *seg)
     download_headers_["Range"] = rangeHeader;
   else
     download_headers_.erase("Range");
+
+  if (!tree_.effective_url_.empty() && download_url_.find(tree_.base_url_) == 0)
+    download_url_.replace(0, tree_.base_url_.size(), tree_.effective_url_);
+
   return true;
 }
 
@@ -533,7 +537,10 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     loadingSeg = current_rep_->get_segment(segid);
 
   if (PrepareDownload(loadingSeg) && !download_segment())
+  {
+    stopped_ = true;
     return false;
+  }
 
   download_url_.clear();
 
