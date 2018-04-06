@@ -144,6 +144,9 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   xbmc_jnienv()->ExceptionClear();
   std::string strSecurityLevel = media_drm_->getPropertyString("securityLevel");
   xbmc_jnienv()->ExceptionClear();
+  std::string strSystemId = media_drm_->getPropertyString("systemId");
+  xbmc_jnienv()->ExceptionClear();
+
 
   if (key_system_ == WIDEVINE)
   {
@@ -153,7 +156,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
       media_drm_->setPropertyByteArray("serviceCertificate", std::vector<char>(serverCert.GetData(), serverCert.GetData() + serverCert.GetDataSize()));
   }
 
-  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, security-level: %s", media_drm_, strDeviceId.c_str(), strSecurityLevel.c_str());
+  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, systemId: %s security-level: %s", media_drm_, strDeviceId.c_str(), strSystemId.c_str(), strSecurityLevel.c_str());
 
   media_drm_->setOnEventListener(*listener);
 
