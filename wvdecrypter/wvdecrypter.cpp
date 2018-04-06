@@ -582,7 +582,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
   //caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
   //return;
 
-  for (auto k : keys_)
+  /*for (auto k : keys_)
     if (!key || memcmp(k.keyid.data(), key, 16) == 0)
     {
       if (k.status != 0)
@@ -594,7 +594,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
       }
       break;
     }
-
+    */
   if (caps.flags == SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
   {
     AP4_UI32 poolid(AddPool());
