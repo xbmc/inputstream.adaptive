@@ -117,6 +117,13 @@ public:
     return static_cast<kodi::vfs::CFile*>(file)->CURLAddOption(xbmcmap[opt], name, value);
   }
 
+  virtual const char* CURLGetProperty(void* file, CURLPROPERTY prop, const char *name) override
+  {
+    const FilePropertyTypes xbmcmap[] = { ADDON_FILE_PROPERTY_RESPONSE_HEADER };
+    m_strPropertyValue = static_cast<kodi::vfs::CFile*>(file)->GetPropertyValue(xbmcmap[prop], name);
+    return m_strPropertyValue.c_str();
+  }
+
   virtual bool CURLOpen(void* file)override
   {
     return static_cast<kodi::vfs::CFile*>(file)->CURLOpen(OpenFileFlags::READ_NO_CACHE);
@@ -185,7 +192,7 @@ public:
   }
 
 private:
-  std::string m_strProfilePath, m_strLibraryPath;
+  std::string m_strProfilePath, m_strLibraryPath, m_strPropertyValue;
 
 #if defined(ANDROID)
   kodi::platform::CInterfaceAndroidSystem m_androidSystem;

@@ -17,7 +17,11 @@ namespace SSD
       OPTION_PROTOCOL,
       OPTION_HEADER
     };
-    static const uint32_t version = 10;
+    enum CURLPROPERTY
+    {
+      PROPERTY_HEADER
+  };
+    static const uint32_t version = 11;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -26,6 +30,7 @@ namespace SSD
     virtual const char *GetProfilePath() const = 0;
     virtual void* CURLCreate(const char* strURL) = 0;
     virtual bool CURLAddOption(void* file, CURLOPTIONS opt, const char* name, const char* value) = 0;
+    virtual const char* CURLGetProperty(void* file, CURLPROPERTY prop, const char *name) = 0;
     virtual bool CURLOpen(void* file) = 0;
     virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize) = 0;
     virtual void CloseFile(void* file) = 0;

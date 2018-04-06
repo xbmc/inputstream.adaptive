@@ -307,6 +307,7 @@ private:
 
   AP4_UI16 hdcp_version_;
   AP4_UI32 hdcp_limit_;
+  AP4_UI32 resolution_limit_;
 
   unsigned int max_subsample_count_decrypt_, max_subsample_count_video_;
   cdm::SubsampleEntry *subsample_buffer_decrypt_, *subsample_buffer_video_;
@@ -473,6 +474,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   , pssh_(pssh)
   , hdcp_version_(99)
   , hdcp_limit_(0)
+  , resolution_limit_ (0)
   , max_subsample_count_decrypt_(0)
   , max_subsample_count_video_(0)
   , subsample_buffer_decrypt_(0)
@@ -574,6 +576,9 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
   if (keys_.empty())
     return;
 
+  if (!caps.hdcpLimit)
+    caps.hdcpLimit = resolution_limit_;
+
   //caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
   //return;
 
@@ -618,13 +623,13 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
         {
           caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT;
           caps.hdcpVersion = 99;
-          caps.hdcpLimit = 0;
+          caps.hdcpLimit = resolution_limit_;
         }
       }
       else
       {
         caps.hdcpVersion = 99;
-        caps.hdcpLimit = 0;
+        caps.hdcpLimit = resolution_limit_;
       }
     }
     catch (...) {
@@ -688,7 +693,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   void* file = host->CURLCreate(blocks[0].c_str());
 
   size_t nbRead;
-  std::string response;
+  std::string response, resLimit;
   char buf[2048];
 
   //Set our std headers
@@ -798,6 +803,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   // read the file
   while ((nbRead = host->ReadFile(file, buf, 1024)) > 0)
     response += std::string((const char*)buf, nbRead);
+
+  resLimit = host->CURLGetProperty(file, SSD_HOST::CURLPROPERTY::PROPERTY_HEADER, "X-Limit-Video");
+  if (!resLimit.empty())
+  {
+    std::string::size_type posMax = resLimit.find("max=", 0);
+    if (posMax != std::string::npos)
+      resolution_limit_ = atoi(resLimit.data() + (posMax + 4));
+  }
 
   host->CloseFile(file);
   file = 0;

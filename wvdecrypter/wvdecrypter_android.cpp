@@ -226,7 +226,7 @@ private:
     AP4_DataBuffer annexb_sps_pps_;
   };
   std::vector<FINFO> fragment_pool_;
-  AP4_UI32 hdcp_limit_;
+  AP4_UI32 hdcp_limit_, resolution_limit_;
 };
 
 struct SESSION
@@ -272,6 +272,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   , key_request_(nullptr)
   , key_request_size_(0)
   , hdcp_limit_(0)
+  , resolution_limit_(0)
 {
   SetParentIsOwner(false);
 
@@ -398,11 +399,14 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_
 {
   caps = { SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED, 0, hdcp_limit_ };
 
+  if (caps.hdcpLimit == 0)
+    caps.hdcpLimit = resolution_limit_;
+
   const char *property;
   AMediaDrm_getPropertyString(media_drm_.GetMediaDrm(), "securityLevel", &property);
   if (property && strcmp(property, "L1") == 0)
   {
-    caps.hdcpLimit = 0; //No restriction
+    caps.hdcpLimit = resolution_limit_; //No restriction
     caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
   }
   Log(SSD_HOST::LL_DEBUG, "GetCapabilities: hdcpLimit: %u", caps.hdcpLimit);
@@ -519,7 +523,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
   void* file = host->CURLCreate(blocks[0].c_str());
 
   size_t nbRead;
-  std::string response;
+  std::string response, resLimit;
   char buf[2048];
   media_status_t status;
   //Set our std headers
@@ -627,6 +631,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
   // read the file
   while ((nbRead = host->ReadFile(file, buf, 1024)) > 0)
     response += std::string((const char*)buf, nbRead);
+
+  resLimit = host->CURLGetProperty(file, SSD_HOST::CURLPROPERTY::PROPERTY_HEADER, "X-Limit-Video");
+  if (!resLimit.empty())
+  {
+    std::string::size_type posMax = resLimit.find("max=", 0);
+    if (posMax != std::string::npos)
+      resolution_limit_ = atoi(resLimit.data() + (posMax + 4));
+  }
 
   host->CloseFile(file);
   file = 0;
