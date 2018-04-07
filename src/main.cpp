@@ -251,7 +251,7 @@ protected:
 Kodi Streams implementation
 ********************************************************/
 
-bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque)
+bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque, bool scanEffectiveURL)
 {
   // open the file
   kodi::vfs::CFile file;
@@ -272,17 +272,20 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
     return false;
   }
 
-  effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-  kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url_.c_str());
+  if (scanEffectiveURL)
+  {
+    effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+    kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url_.c_str());
 
-  std::string::size_type paramPos = effective_url_.find_last_of('/', effective_url_.length());
-  if (paramPos != std::string::npos)
-    effective_url_.resize(paramPos + 1);
-  else
-    effective_url_.clear();
+    std::string::size_type paramPos = effective_url_.find_last_of('/', effective_url_.length());
+    if (paramPos != std::string::npos)
+      effective_url_.resize(paramPos + 1);
+    else
+      effective_url_.clear();
 
-  if (effective_url_ == base_url_)
-    effective_url_.clear();
+    if (effective_url_ == base_url_)
+      effective_url_.clear();
+  }
 
   // read the file
   static const unsigned int CHUNKSIZE = 16384;

@@ -259,7 +259,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
 
-    if (download(rep->source_url_.c_str(), manifest_headers_, &stream))
+    if (download(rep->source_url_.c_str(), manifest_headers_, &stream, false))
     {
 #if FILEDEBUG
       FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -499,7 +499,7 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
         }
         if (keyParts.size() > 1)
           parseheader(headers, keyParts[1].c_str());
-        if (download(url.c_str(), headers, &stream))
+        if (download(url.c_str(), headers, &stream, false))
         {
           pssh.defaultKID_ = stream.str();
         }
