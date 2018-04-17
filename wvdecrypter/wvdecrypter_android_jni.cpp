@@ -154,6 +154,14 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
     media_drm_->setPropertyString("sessionSharing", "enable");
     if (serverCert.GetDataSize())
       media_drm_->setPropertyByteArray("serviceCertificate", std::vector<char>(serverCert.GetData(), serverCert.GetData() + serverCert.GetDataSize()));
+    if (xbmc_jnienv()->ExceptionCheck())
+    {
+      Log(SSD_HOST::LL_ERROR, "Exception setting Service Certificate");
+      xbmc_jnienv()->ExceptionClear();
+      media_drm_->release();
+      delete media_drm_, media_drm_ = nullptr;
+      return;
+    }
   }
 
   Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, systemId: %s security-level: %s", media_drm_, strDeviceId.c_str(), strSystemId.c_str(), strSecurityLevel.c_str());
@@ -301,6 +309,13 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     optParams_["PRCustomData"] = optionalKeyParameter;
 
   session_id_ = media_drm_.GetMediaDrm()->openSession();
+  if (xbmc_jnienv()->ExceptionCheck())
+  {
+    Log(SSD_HOST::LL_ERROR, "Exception during open session");
+    xbmc_jnienv()->ExceptionClear();
+    return;
+  }
+
   if (session_id_.size() == 0)
   {
     Log(SSD_HOST::LL_ERROR, "Unable to open DRM session");
