@@ -706,6 +706,41 @@ public:
       naluLengthSize = hevc->GetNaluLengthSize();
     }
   }
+
+  virtual bool ExtraDataToAnnexB() override
+  {
+    if (AP4_HevcSampleDescription *hevc = AP4_DYNAMIC_CAST(AP4_HevcSampleDescription, sample_description))
+    {
+      const AP4_Array<AP4_HvccAtom::Sequence>& sequences = hevc->GetSequences();
+
+      if (!sequences.ItemCount())
+      {
+        kodi::Log(ADDON_LOG_WARNING, "No available sequences for HEVC codec extra data");
+        return false;
+      }
+
+      //calculate the size for annexb
+      size_t sz(0);
+      for (const AP4_HvccAtom::Sequence *b(&sequences[0]), *e(&sequences[sequences.ItemCount()]); b != e; ++b)
+        for (const AP4_DataBuffer *bn(&b->m_Nalus[0]), *en(&b->m_Nalus[b->m_Nalus.ItemCount()]); bn != en; ++bn)
+          sz += (4 + bn->GetDataSize());
+
+      extra_data.SetDataSize(sz);
+      uint8_t *cursor(extra_data.UseData());
+
+      for (const AP4_HvccAtom::Sequence *b(&sequences[0]), *e(&sequences[sequences.ItemCount()]); b != e; ++b)
+        for (const AP4_DataBuffer *bn(&b->m_Nalus[0]), *en(&b->m_Nalus[b->m_Nalus.ItemCount()]); bn != en; ++bn)
+        {
+          cursor[0] = cursor[1] = cursor[2] = 0; cursor[3] = 1;
+          memcpy(cursor + 4, bn->GetData(), bn->GetDataSize());
+          cursor += bn->GetDataSize() + 4;
+        }
+      kodi::Log(ADDON_LOG_DEBUG, "Converted %lu bytes HEVC codec extradata", extra_data.GetDataSize());
+      return true;
+    }
+    kodi::Log(ADDON_LOG_WARNING, "No HevcSampleDescription - annexb extradata not available");
+    return false;
+  }
 };
 
 /***********************   MPEG   ************************/
@@ -1194,6 +1229,7 @@ private:
       m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(desc);
       desc = m_protectedDesc->GetOriginalSampleDescription();
     }
+    kodi::Log(ADDON_LOG_DEBUG, "UpdateSampleDescription: codec %d", desc->GetFormat());
     switch (desc->GetFormat())
     {
     case AP4_SAMPLE_FORMAT_AVC1:
@@ -1204,6 +1240,8 @@ private:
       break;
     case AP4_SAMPLE_FORMAT_HEV1:
     case AP4_SAMPLE_FORMAT_HVC1:
+    case AP4_SAMPLE_FORMAT_DVHE:
+    case AP4_SAMPLE_FORMAT_DVH1:
       m_codecHandler = new HEVCCodecHandler(desc);
       break;
     case AP4_SAMPLE_FORMAT_MP4A:
