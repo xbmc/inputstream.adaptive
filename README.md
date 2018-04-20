@@ -1,4 +1,4 @@
-# inputstream.adaptive (2.2.15)
+# inputstream.adaptive (2.2.16)
 
 This is an adaptive file addon for kodi's new InputStream Interface.
 
