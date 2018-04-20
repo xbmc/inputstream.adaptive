@@ -277,11 +277,11 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
     effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
     kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url_.c_str());
 
-    std::string::size_type paramPos = effective_url_.find_first_of('?', effective_url_.length());
+    std::string::size_type paramPos = effective_url_.find_first_of('?');
     if (paramPos != std::string::npos)
       effective_url_.resize(paramPos);
 
-    paramPos = effective_url_.find_last_of('/', effective_url_.length());
+    paramPos = effective_url_.find_last_of('/');
     if (paramPos != std::string::npos)
       effective_url_.resize(paramPos + 1);
     else
