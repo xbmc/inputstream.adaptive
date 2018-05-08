@@ -127,8 +127,10 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
 
   if (key_system_ == WIDEVINE)
   {
-    AMediaDrm_setPropertyString(media_drm_, "privacyMode", "enable");
-    AMediaDrm_setPropertyString(media_drm_, "sessionSharing", "enable");
+    if (serverCert.GetDataSize())
+      AMediaDrm_setPropertyByteArray(media_drm_, "serviceCertificate", serverCert.GetData(), serverCert.GetDataSize());
+    //AMediaDrm_setPropertyString(media_drm_, "privacyMode", "enable");
+    //AMediaDrm_setPropertyString(media_drm_, "sessionSharing", "enable");
   }
 
   Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, security-level: %s", media_drm_, strDeviceId.c_str(), strSecurityLevel.c_str());

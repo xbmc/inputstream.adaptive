@@ -58,18 +58,9 @@ std::vector<char> CJNIMediaDrm::openSession() const
 
 void CJNIMediaDrm::closeSession(const std::vector<char> & sessionId) const
 {
-  jsize size;
   JNIEnv *env = xbmc_jnienv();
-
-  size = sessionId.size();
-  jbyteArray SID = env->NewByteArray(size);
-  jbyte *bytedata = (jbyte*)sessionId.data();
-  env->SetByteArrayRegion(SID, 0, size, bytedata);
-
   call_method<void>(m_object,
-    "closeSession", "([B)V", SID);
-
-  env->DeleteLocalRef(SID);
+    "closeSession", "([B)V", jcast<jhbyteArray, std::vector<char> >(sessionId));
 }
 
 std::string CJNIMediaDrm::getPropertyString(const std::string &propertyName) const
@@ -90,17 +81,9 @@ void CJNIMediaDrm::setPropertyString(const std::string &propertyName, const std:
 void CJNIMediaDrm::setPropertyByteArray(const std::string &propertyName, const std::vector<char> &value) const
 {
   JNIEnv *env = xbmc_jnienv();
-
-  jsize size = value.size();
-  jbyteArray value_ = env->NewByteArray(size);
-  jbyte *bytedata = (jbyte*)value.data();
-  env->SetByteArrayRegion(value_, 0, size, bytedata);
-
   call_method<void>(m_object,
     "setPropertyByteArray", "(Ljava/lang/String;[B)V",
-    jcast<jhstring>(propertyName), value_);
-
-  env->DeleteLocalRef(value_);
+    jcast<jhstring>(propertyName), jcast<jhbyteArray, std::vector<char> >(value));
 }
 
 CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scope, 
@@ -109,16 +92,6 @@ CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scop
 {
   JNIEnv *env = xbmc_jnienv();
 
-  jsize size = scope.size();
-  jbyteArray scope_ = env->NewByteArray(size);
-  jbyte *bytedata = (jbyte*)scope.data();
-  env->SetByteArrayRegion(scope_, 0, size, bytedata);
-
-  size = init.size();
-  jbyteArray init_ = env->NewByteArray(size);
-  bytedata = (jbyte*)init.data();
-  env->SetByteArrayRegion(init_, 0, size, bytedata);
-
   CJNIHashMap hashMap;
   for (const auto &item : optionalParameters)
     hashMap.put(jcast<jhstring>(item.first), jcast<jhstring>(item.second));
@@ -126,10 +99,8 @@ CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scop
   CJNIMediaDrmKeyRequest result =
     call_method<jhobject>(m_object,
       "getKeyRequest", "([B[BLjava/lang/String;ILjava/util/HashMap;)Landroid/media/MediaDrm$KeyRequest;",
-      scope_, init_, jcast<jhstring>(mimeType), keyType, hashMap.get_raw());
-
-  env->DeleteLocalRef(scope_);
-  env->DeleteLocalRef(init_);
+      jcast<jhbyteArray, std::vector<char> >(scope), jcast<jhbyteArray, std::vector<char> >(init),
+      jcast<jhstring>(mimeType), keyType, hashMap.get_raw());
 
   return result;
 }
@@ -137,28 +108,15 @@ CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scop
 std::vector<char> CJNIMediaDrm::provideKeyResponse(const std::vector<char> &scope, const std::vector<char> &response) const
 {
   JNIEnv *env = xbmc_jnienv();
-
-  jsize size = scope.size();
-  jbyteArray scope_ = env->NewByteArray(size);
-  jbyte *bytedata = (jbyte*)scope.data();
-  env->SetByteArrayRegion(scope_, 0, size, bytedata);
-
-  size = response.size();
-  jbyteArray response_ = env->NewByteArray(size);
-  bytedata = (jbyte*)response.data();
-  env->SetByteArrayRegion(response_, 0, size, bytedata);
-
   jhbyteArray array = call_method<jhbyteArray>(m_object,
-    "provideKeyResponse", "([B[B)[B", scope_, response_);
+    "provideKeyResponse", "([B[B)[B", jcast<jhbyteArray, std::vector<char> >(scope),
+    jcast<jhbyteArray, std::vector<char> >(response));
 
-  size = env->GetArrayLength(array.get());
+  jsize size = env->GetArrayLength(array.get());
 
   std::vector<char> result;
   result.resize(size);
   env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
-
-  env->DeleteLocalRef(scope_);
-  env->DeleteLocalRef(response_);
 
   return result;
 }
@@ -172,31 +130,15 @@ CJNIMediaDrmProvisionRequest CJNIMediaDrm::getProvisionRequest() const
 void CJNIMediaDrm::provideProvisionResponse(const std::vector<char> &response) const
 {
   JNIEnv *env = xbmc_jnienv();
-
-  jsize size = response.size();
-  jbyteArray response_ = env->NewByteArray(size);
-  jbyte *bytedata = (jbyte*)response.data();
-  env->SetByteArrayRegion(response_, 0, size, bytedata);
-
   call_method<void>(m_object,
-    "provideProvisionResponse", "([B)V", response_);
-
-  env->DeleteLocalRef(response_);
+    "provideProvisionResponse", "([B)V", jcast<jhbyteArray, std::vector<char> >(response));
 }
 
 void CJNIMediaDrm::removeKeys(const std::vector<char> &sessionId) const
 {
   JNIEnv *env = xbmc_jnienv();
-
-  jsize size = sessionId.size();
-  jbyteArray SID = env->NewByteArray(size);
-  jbyte *bytedata = (jbyte*)sessionId.data();
-  env->SetByteArrayRegion(SID, 0, size, bytedata);
-
   call_method<void>(m_object,
-    "removeKeys", "([B)V", SID);
-
-  env->DeleteLocalRef(SID);
+    "removeKeys", "([B)V", jcast<jhbyteArray, std::vector<char> >(sessionId));
 }
 
 void CJNIMediaDrm::setOnEventListener(const CJNIMediaDrmOnEventListener &listener) const
