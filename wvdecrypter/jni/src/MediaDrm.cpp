@@ -99,6 +99,8 @@ void CJNIMediaDrm::setPropertyByteArray(const std::string &propertyName, const s
   call_method<void>(m_object,
     "setPropertyByteArray", "(Ljava/lang/String;[B)V",
     jcast<jhstring>(propertyName), value_);
+
+  env->DeleteLocalRef(value_);
 }
 
 CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scope, 
@@ -178,6 +180,8 @@ void CJNIMediaDrm::provideProvisionResponse(const std::vector<char> &response) c
 
   call_method<void>(m_object,
     "provideProvisionResponse", "([B)V", response_);
+
+  env->DeleteLocalRef(response_);
 }
 
 void CJNIMediaDrm::removeKeys(const std::vector<char> &sessionId) const

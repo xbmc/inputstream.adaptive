@@ -150,10 +150,12 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
 
   if (key_system_ == WIDEVINE)
   {
-    media_drm_->setPropertyString("privacyMode", "enable");
-    media_drm_->setPropertyString("sessionSharing", "enable");
+    //media_drm_->setPropertyString("sessionSharing", "enable");
     if (serverCert.GetDataSize())
       media_drm_->setPropertyByteArray("serviceCertificate", std::vector<char>(serverCert.GetData(), serverCert.GetData() + serverCert.GetDataSize()));
+    else //Force service certificate
+      media_drm_->setPropertyString("privacyMode", "enable");
+
     if (xbmc_jnienv()->ExceptionCheck())
     {
       Log(SSD_HOST::LL_ERROR, "Exception setting Service Certificate");
@@ -165,8 +167,6 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   }
 
   Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, systemId: %s security-level: %s", media_drm_, strDeviceId.c_str(), strSystemId.c_str(), strSecurityLevel.c_str());
-
-  media_drm_->setOnEventListener(*listener);
 
   if (license_url_.find('|') == std::string::npos)
   {
@@ -182,6 +182,11 @@ WV_DRM::~WV_DRM()
   if (media_drm_)
   {
     media_drm_->release();
+    if (xbmc_jnienv()->ExceptionCheck())
+    {
+      Log(SSD_HOST::LL_ERROR, "Exception releasing media drm");
+      xbmc_jnienv()->ExceptionClear();
+    }
     delete media_drm_, media_drm_ = nullptr;
   }
 }
@@ -331,7 +336,17 @@ WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
   if (!session_id_.empty())
   {
     media_drm_.GetMediaDrm()->removeKeys(session_id_);
+    if (xbmc_jnienv()->ExceptionCheck())
+    {
+      Log(SSD_HOST::LL_ERROR, "Exception removeKeys");
+      xbmc_jnienv()->ExceptionClear();
+    }
     media_drm_.GetMediaDrm()->closeSession(session_id_);
+    if (xbmc_jnienv()->ExceptionCheck())
+    {
+      Log(SSD_HOST::LL_ERROR, "Exception closeSession");
+      xbmc_jnienv()->ExceptionClear();
+    }
   }
 }
 
@@ -367,7 +382,6 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
   Log(SSD_HOST::LL_ERROR, "PrivisionData request: drm:%p" , media_drm_.GetMediaDrm());
 
   jni::CJNIMediaDrmProvisionRequest request = media_drm_.GetMediaDrm()->getProvisionRequest();
-
   if (xbmc_jnienv()->ExceptionCheck())
   {
     Log(SSD_HOST::LL_ERROR, "Exception on getProvisionRequest");
@@ -405,7 +419,6 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
     provData.insert(provData.end(), buf, buf + nbRead);
 
   media_drm_.GetMediaDrm()->provideProvisionResponse(provData);
-
   if (xbmc_jnienv()->ExceptionCheck())
   {
     Log(SSD_HOST::LL_ERROR, "Exception on provideProvisionResponse");
