@@ -2154,6 +2154,12 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   else
     stream.valid = false;
 
+#if defined(ANDROID)
+  //Currently no eac3 secure streams are supported
+  if (strcmp(stream.info_.m_codecName, "eac3") == 0 && (caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0)
+    stream.valid = false;
+#endif
+
   // We support currently only mp4 / ts / adts
   if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_NOTYPE
   && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4
