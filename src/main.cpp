@@ -484,13 +484,16 @@ public:
     AP4_GenericAudioSampleDescription* asd(nullptr);
     if (sample_description && (asd = dynamic_cast<AP4_GenericAudioSampleDescription*>(sample_description)))
     {
-      if (asd->GetChannelCount() != info.m_Channels
-        || asd->GetSampleRate() != info.m_SampleRate
-        || asd->GetSampleSize() != info.m_BitsPerSample)
+      if ((!info.m_Channels && asd->GetChannelCount() != info.m_Channels)
+        || (!info.m_SampleRate && asd->GetSampleRate() != info.m_SampleRate)
+        || (!info.m_BitsPerSample && asd->GetSampleSize() != info.m_BitsPerSample))
       {
-        info.m_Channels = asd->GetChannelCount();
-        info.m_SampleRate = asd->GetSampleRate();
-        info.m_BitsPerSample = asd->GetSampleSize();
+        if (!info.m_Channels)
+          info.m_Channels = asd->GetChannelCount();
+        if (!info.m_SampleRate)
+          info.m_SampleRate = asd->GetSampleRate();
+        if (!info.m_BitsPerSample)
+          info.m_BitsPerSample = asd->GetSampleSize();
         return true;
       }
     }
