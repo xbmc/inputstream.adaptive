@@ -274,7 +274,51 @@ namespace adaptive
       {
         if (a->type_ != b->type_)
           return a->type_ < b->type_;
-        return !a->impaired_ && b->impaired_;
+        if (a->impaired_ != b->impaired_)
+          return !a->impaired_ && b->impaired_;
+        if (a->language_ != b->language_)
+          return a->language_ < b->language_;
+
+        if (a->type_ == AUDIO)
+        {
+          if (a->repesentations_[0]->codecs_ != b->repesentations_[0]->codecs_)
+            return a->repesentations_[0]->codecs_ < b->repesentations_[0]->codecs_;
+
+          if (a->repesentations_[0]->channelCount_ != b->repesentations_[0]->channelCount_)
+            return a->repesentations_[0]->channelCount_ != b->repesentations_[0]->channelCount_;
+        }
+        return false;
+      };
+
+      static bool compareCodecs(const std::string &a, const std::string &b)
+      {
+        std::string::size_type posa = a.find_first_of('.');
+        std::string::size_type posb = a.find_first_of('.');
+        if (posa == posb)
+          return a.compare(0, posa, b, 0, posb) == 0;
+        return false;
+      };
+
+      static bool mergeable(const AdaptationSet* a, const AdaptationSet *b)
+      {
+        if (a->type_ == b->type_
+          && a->timescale_ == b->timescale_
+          && a->duration_ == b->duration_
+          && a->startPTS_ == b->startPTS_
+          && a->startNumber_ == b->startNumber_
+          && a->impaired_ == b->impaired_
+          && a->language_ == b->language_
+          && a->mimeType_ == b->mimeType_
+          && a->base_url_ == b->base_url_
+          && a->id_ == b->id_
+          && a->group_ == b->group_
+          && compareCodecs(a->codecs_, b->codecs_))
+        {
+          return a->type_ == AUDIO
+            && a->repesentations_[0]->channelCount_ == b->repesentations_[0]->channelCount_
+            && compareCodecs(a->repesentations_[0]->codecs_, b->repesentations_[0]->codecs_);
+        }
+        return false;
       };
     }*current_adaptationset_;
 
@@ -371,6 +415,8 @@ namespace adaptive
     bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
     void RefreshUpdateThread();
     const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
+    void RemovePSSHSet(uint16_t pssh_set);
+
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr, bool scanEffectiveURL = true);
   virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) = 0;
@@ -386,6 +432,7 @@ protected:
   std::condition_variable updateVar_;
   std::thread *updateThread_;
   std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+
 private:
   void SegmentUpdateWorker();
 };

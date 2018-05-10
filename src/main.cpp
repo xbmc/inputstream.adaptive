@@ -2024,7 +2024,9 @@ bool Session::initialize()
           adaptiveTree_->psshSets_[ses].media_,
           session.decrypter_caps_);
 
-        if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
+        if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID)
+          adaptiveTree_->RemovePSSHSet(static_cast<std::uint16_t>(ses));
+        else if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session_ = true;
@@ -2595,8 +2597,7 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
       {
         uint8_t cdmId(static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
         if (m_session->GetStream(i)->valid
-          && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type())
-          && !(m_session->GetDecrypterCaps(cdmId).flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID))
+          && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type()))
         {
           if (m_session->GetMediaTypeMask() != 0xFF)
           {

@@ -268,6 +268,21 @@ namespace adaptive
     for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
     {
       std::stable_sort((*bp)->adaptationSets_.begin(), (*bp)->adaptationSets_.end(), AdaptationSet::compare);
+
+      // Merge AUDIO streams, some provider pass everythng in own Audio sets
+      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea;)
+      {
+        if ((*ba)->type_ == AUDIO && ba + 1 != ea && AdaptationSet::mergeable(*ba, *(ba + 1)))
+        {
+          (*(ba + 1))->repesentations_.insert((*(ba + 1))->repesentations_.end(), (*ba)->repesentations_.begin(), (*ba)->repesentations_.end());
+          (*ba)->repesentations_.clear();
+          ba = (*bp)->adaptationSets_.erase(ba);
+          ea = (*bp)->adaptationSets_.end();
+        }
+        else
+          ++ba;
+      }
+
       for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
       {
         std::sort((*ba)->repesentations_.begin(), (*ba)->repesentations_.end(), Representation::compare);
@@ -275,6 +290,21 @@ namespace adaptive
           (*br)->SetScaling();
       }
     }
+  }
+
+  void AdaptiveTree::RemovePSSHSet(uint16_t pssh_set)
+  {
+    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
+      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
+        for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er;)
+          if ((*br)->pssh_set_ == pssh_set)
+          {
+            delete *br;
+            br = (*ba)->repesentations_.erase(br);
+            er = (*ba)->repesentations_.end();
+          }
+          else
+            ++br;
   }
 
   void AdaptiveTree::RefreshUpdateThread()
