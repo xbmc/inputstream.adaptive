@@ -270,7 +270,7 @@ namespace adaptive
       std::stable_sort((*bp)->adaptationSets_.begin(), (*bp)->adaptationSets_.end(), AdaptationSet::compare);
 
       // Merge AUDIO streams, some provider pass everythng in own Audio sets
-      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea;)
+      for (std::vector<AdaptationSet*>::iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea;)
       {
         if ((*ba)->type_ == AUDIO && ba + 1 != ea && AdaptationSet::mergeable(*ba, *(ba + 1)))
         {
