@@ -27,10 +27,10 @@ using namespace jni;
 
 static std::string s_className =  "org/xbmc/kodi/interfaces/XBMCMediaDrmOnEventListener";
 
-CJNIMediaDrmOnEventListener::CJNIMediaDrmOnEventListener(const std::string &dexPath)
+CJNIMediaDrmOnEventListener::CJNIMediaDrmOnEventListener(const CJNIClassLoader *classLoader)
   : CJNIBase(s_className)
 {
-  jhclass clazz = CJNIClassLoader(dexPath).loadClass(GetDotClassName(s_className));
+  jhclass clazz = classLoader->loadClass(GetDotClassName(s_className));
 
   JNINativeMethod methods[] =
   {

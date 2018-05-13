@@ -28,7 +28,7 @@ public:
   CJNIClassLoader(const jni::jhobject &object) : CJNIBase(object) {};
   ~CJNIClassLoader() {};
 
-  jni::jhclass loadClass(std::string className);
+  jni::jhclass loadClass(std::string className) const;
 
 private:
   CJNIClassLoader();

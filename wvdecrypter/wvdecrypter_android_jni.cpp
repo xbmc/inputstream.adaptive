@@ -19,6 +19,7 @@
 #include "jni/src/MediaDrm.h"
 #include "jni/src/MediaDrmOnEventListener.h"
 #include "jni/src/UUID.h"
+#include "ClassLoader.h"
 
 #include "../src/helpers.h"
 #include "../src/SSD_dll.h"
@@ -936,8 +937,8 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 class WVDecrypter : public SSD_DECRYPTER, public jni::CJNIMediaDrmOnEventListener
 {
 public:
-  WVDecrypter(const std::string &dexPath)
-    : CJNIMediaDrmOnEventListener(dexPath)
+  WVDecrypter(const CJNIClassLoader *classLoader)
+    : CJNIMediaDrmOnEventListener(classLoader)
     , key_system_(NONE)
     , cdmsession_(nullptr)
   {
@@ -1095,7 +1096,6 @@ private:
   WV_DRM *cdmsession_;
   std::vector<WV_CencSingleSampleDecrypter*> decrypterList;
   std::mutex decrypterListMutex;
-
 #ifdef DRMTHREAD
   std::mutex jniMutex_;
   std::condition_variable jniCondition_;
@@ -1116,6 +1116,8 @@ extern "C" {
 #define MODULE_API
 #endif
 
+  CJNIClassLoader *classLoader;
+
   SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h, uint32_t host_version)
   {
     if (host_version != SSD_HOST::version)
@@ -1128,11 +1130,23 @@ extern "C" {
 
     std::string apkPath = getenv("XBMC_ANDROID_APK");
 
-    return new WVDecrypter(apkPath);
+    classLoader = new CJNIClassLoader(apkPath);
+    if (xbmc_jnienv()->ExceptionCheck())
+    {
+      Log(SSD_HOST::LL_ERROR, "Failed to create JNI::ClassLoader");
+      xbmc_jnienv()->ExceptionDescribe();
+      xbmc_jnienv()->ExceptionClear();
+
+      delete classLoader, classLoader = nullptr;
+
+      return nullptr;
+    }
+    return new WVDecrypter(classLoader);
   };
 
   void MODULE_API DeleteDecryptorInstance(class SSD_DECRYPTER *d)
   {
+    delete classLoader, classLoader = nullptr;
     delete static_cast<WVDecrypter*>(d);
   }
 };

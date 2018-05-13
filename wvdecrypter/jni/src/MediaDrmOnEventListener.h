@@ -21,6 +21,9 @@
 
 #include "JNIBase.h"
 
+
+class CJNIClassLoader;
+
 namespace jni
 {
 
@@ -29,7 +32,7 @@ class CJNIMediaDrm;
 class CJNIMediaDrmOnEventListener : public CJNIBase, public CJNIInterfaceImplem<CJNIMediaDrmOnEventListener>
 {
 public:
-  CJNIMediaDrmOnEventListener(const std::string &dexPath);
+  CJNIMediaDrmOnEventListener(const CJNIClassLoader *classLoader);
   explicit CJNIMediaDrmOnEventListener(const jhobject &object) : CJNIBase(object) {}
   virtual ~CJNIMediaDrmOnEventListener();
 
