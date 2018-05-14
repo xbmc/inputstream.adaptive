@@ -70,6 +70,21 @@ std::string CJNIMediaDrm::getPropertyString(const std::string &propertyName) con
     jcast<jhstring>(propertyName)));
 }
 
+std::vector<char> CJNIMediaDrm::getPropertyByteArray(const std::string &propertyName) const
+{
+  JNIEnv *env = xbmc_jnienv();
+  jhbyteArray array = call_method<jhbyteArray>(m_object,
+    "getPropertyByteArray", "(Ljava/lang/String;)[B",
+      jcast<jhstring>(propertyName));
+
+  jsize size = env->GetArrayLength(array.get());
+
+  std::vector<char> result;
+  result.resize(size);
+  env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
+
+  return result;
+}
 
 void CJNIMediaDrm::setPropertyString(const std::string &propertyName, const std::string &value) const
 {

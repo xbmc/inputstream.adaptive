@@ -76,11 +76,15 @@ public:
     return keysystemId[key_system_-1];
   }
   WV_KEYSYSTEM GetKeySystemType() const { return key_system_; };
+  void SaveServiceCertificate();
 
 private:
+  void LoadServiceCertificate();
+
   WV_KEYSYSTEM key_system_;
   jni::CJNIMediaDrm *media_drm_;
   std::string license_url_;
+  std::string m_strBasePath;
 };
 
 WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &serverCert, jni::CJNIMediaDrmOnEventListener *listener)
@@ -113,6 +117,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   strBasePath += buffer;
   strBasePath += cSep;
   host->CreateDirectory(strBasePath.c_str());
+  m_strBasePath = strBasePath;
 
   int64_t mostSigBits(0), leastSigBits(0);
   const uint8_t *keySystem = GetKeySystem();
@@ -154,8 +159,8 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
     //media_drm_->setPropertyString("sessionSharing", "enable");
     if (serverCert.GetDataSize())
       media_drm_->setPropertyByteArray("serviceCertificate", std::vector<char>(serverCert.GetData(), serverCert.GetData() + serverCert.GetDataSize()));
-    else //Force service certificate
-      media_drm_->setPropertyString("privacyMode", "enable");
+    else
+      LoadServiceCertificate();
 
     if (xbmc_jnienv()->ExceptionCheck())
     {
@@ -189,6 +194,72 @@ WV_DRM::~WV_DRM()
       xbmc_jnienv()->ExceptionClear();
     }
     delete media_drm_, media_drm_ = nullptr;
+  }
+}
+
+void WV_DRM::LoadServiceCertificate()
+{
+  std::string filename = m_strBasePath + "service_certificate";
+  char* data(nullptr);
+  size_t sz(0);
+  FILE *f = fopen(filename.c_str(), "rb");
+
+  if (f)
+  {
+    fseek(f, 0L, SEEK_END);
+    sz = ftell(f);
+    fseek(f, 0L, SEEK_SET);
+    if (sz > 8 && (data = (char*)malloc(sz)))
+      fread(data, 1, sz, f);
+    fclose(f);
+  }
+  if (data)
+  {
+    auto now = std::chrono::system_clock::now();
+    uint64_t certTime = *((uint64_t*)data), nowTime = std::chrono::time_point_cast<std::chrono::seconds>(now).time_since_epoch().count();
+
+    if (certTime < nowTime && nowTime - certTime < 86400)
+      media_drm_->setPropertyByteArray("serviceCertificate", std::vector<char>(data + 8, data + sz));
+    else
+      free(data), data = nullptr;
+  }
+  if (!data)
+  {
+    Log(SSD_HOST::LL_DEBUG, "Requesting new Service Certificate");
+    media_drm_->setPropertyString("privacyMode", "enable");
+  }
+  else
+  {
+    Log(SSD_HOST::LL_DEBUG, "Use stored Service Certificate");
+    free(data), data = nullptr;
+  }
+}
+
+void WV_DRM::SaveServiceCertificate()
+{
+  std::vector<char> sc = media_drm_->getPropertyByteArray("serviceCertificate");
+  if (xbmc_jnienv()->ExceptionCheck())
+  {
+    Log(SSD_HOST::LL_INFO, "Exception retrieving Service Certificate");
+    xbmc_jnienv()->ExceptionClear();
+    return;
+  }
+
+  if (sc.empty())
+  {
+    Log(SSD_HOST::LL_INFO, "Empty Service Certificate");
+    return;
+  }
+
+  std::string filename = m_strBasePath + "service_certificate";
+  FILE *f = fopen(filename.c_str(), "wb");
+  if (f)
+  {
+    auto now = std::chrono::system_clock::now();
+    uint64_t nowTime = std::chrono::time_point_cast<std::chrono::seconds>(now).time_since_epoch().count();
+    fwrite((char*)&nowTime, 1, sizeof(uint64_t), f);
+    fwrite(sc.data(), 1, sc.size(), f);
+    fclose(f);
   }
 }
 
@@ -714,10 +785,10 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
           uint8_t decoded[2048];
 
           b64_decode(response.c_str() + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start, decoded, decoded_size);
-          keySetId_ = media_drm_.GetMediaDrm()->provideKeyResponse(session_id_, std::vector<char>(decoded, decoded + decoded_size));
+          response = std::string(reinterpret_cast<char*>(decoded), decoded_size);
         }
         else
-          keySetId_ = media_drm_.GetMediaDrm()->provideKeyResponse(session_id_, std::vector<char>(response.c_str() + tokens[i + 1].start, response.c_str() + tokens[i + 1].end));
+          response = std::string(response.c_str() + tokens[i + 1].start, response.c_str() + tokens[i + 1].end);
       }
       else
       {
@@ -733,7 +804,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       {
         payloadPos += 4;
         if (blocks[3][1] == 'B')
-          keySetId_ = media_drm_.GetMediaDrm()->provideKeyResponse(session_id_, std::vector<char>(response.c_str() + payloadPos, response.c_str() + response.size()));
+          response = std::string(response.c_str() + payloadPos, response.c_str() + response.size());
         else
         {
           Log(SSD_HOST::LL_ERROR, "Unsupported HTTP payload data type definition");
@@ -752,15 +823,18 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       goto SSMFAIL;
     }
   }
-  else //its binary - simply push the returned data as update
-    keySetId_ = media_drm_.GetMediaDrm()->provideKeyResponse(session_id_, std::vector<char>(response.begin(), response.end()));
 
+  keySetId_ = media_drm_.GetMediaDrm()->provideKeyResponse(session_id_, std::vector<char>(response.data(), response.data() + response.size()));
   if (xbmc_jnienv()->ExceptionCheck())
   {
     Log(SSD_HOST::LL_INFO, "Exception in provideKeyResponse");
     xbmc_jnienv()->ExceptionClear();
     return false;
   }
+
+  if (keyRequestData.size() == 2)
+   media_drm_.SaveServiceCertificate();
+
   return true;
 
 SSMFAIL:
