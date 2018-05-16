@@ -285,7 +285,7 @@ namespace adaptive
             return a->repesentations_[0]->codecs_ < b->repesentations_[0]->codecs_;
 
           if (a->repesentations_[0]->channelCount_ != b->repesentations_[0]->channelCount_)
-            return a->repesentations_[0]->channelCount_ != b->repesentations_[0]->channelCount_;
+            return a->repesentations_[0]->channelCount_ < b->repesentations_[0]->channelCount_;
         }
         return false;
       };
