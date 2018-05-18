@@ -33,7 +33,7 @@ std::string ToDecimal(const uint8_t *data, size_t data_size)
   std::stringstream ret;
 
   if (data_size)
-    ret << data[0];
+    ret << static_cast<unsigned int>(data[0]);
 
   for (size_t i(1); i < data_size; ++i)
     ret << ','  << static_cast<unsigned int>(data[i]);

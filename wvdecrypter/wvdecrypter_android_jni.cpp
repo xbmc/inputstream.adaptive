@@ -650,7 +650,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
         sidPos += size_written, sidPos -= 6;
 
       if (kidPos != std::string::npos && insPos < kidPos)
-        kidPos += size_written, sidPos -= 6;
+        kidPos += size_written, kidPos -= 6;
 
       size_written = 0;
 
