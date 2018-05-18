@@ -89,6 +89,12 @@ public:
     return m_androidSystem.GetSDKVersion();
   };
 
+  virtual const char *GetClassName() override
+  {
+    m_retvalHelper = m_androidSystem.GetClassName();
+    return m_retvalHelper.c_str();
+  };
+
 #endif
   virtual const char *GetLibraryPath() const override
   {
@@ -196,6 +202,7 @@ private:
 
 #if defined(ANDROID)
   kodi::platform::CInterfaceAndroidSystem m_androidSystem;
+  std::string m_retvalHelper;
 #endif
 }*kodihost;
 

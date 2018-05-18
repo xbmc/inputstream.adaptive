@@ -33,6 +33,8 @@ public:
   const jni::jhobject& get_raw() const { return m_object; }
   static void SetSDKVersion(int);
   static int GetSDKVersion();
+  static void SetBaseClassName(const std::string &className);
+  static const std::string &GetBaseClassName();
   const static std::string ExceptionToString();
 
   static int RESULT_OK;
@@ -52,6 +54,7 @@ protected:
 private:
   std::string m_className;
   static int m_sdk_version;
+  static std::string m_baseClassName;
 };
 
 template <typename I>

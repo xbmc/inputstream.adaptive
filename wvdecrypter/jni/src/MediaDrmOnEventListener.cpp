@@ -25,12 +25,12 @@
 
 using namespace jni;
 
-static std::string s_className =  "org/xbmc/kodi/interfaces/XBMCMediaDrmOnEventListener";
+static std::string s_className =  "/interfaces/XBMCMediaDrmOnEventListener";
 
 CJNIMediaDrmOnEventListener::CJNIMediaDrmOnEventListener(const CJNIClassLoader *classLoader)
-  : CJNIBase(s_className)
+  : CJNIBase(GetBaseClassName() + s_className)
 {
-  jhclass clazz = classLoader->loadClass(GetDotClassName(s_className));
+  jhclass clazz = classLoader->loadClass(GetDotClassName(GetClassName()));
 
   JNINativeMethod methods[] =
   {

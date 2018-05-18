@@ -27,6 +27,7 @@ using namespace jni;
 int CJNIBase::m_sdk_version = -1;
 int CJNIBase::RESULT_OK = -1;
 int CJNIBase::RESULT_CANCELED = 0;
+std::string CJNIBase::m_baseClassName;
 
 CJNIBase::CJNIBase(std::string classname)
 {
@@ -55,6 +56,16 @@ void CJNIBase::SetSDKVersion(int version)
 int CJNIBase::GetSDKVersion()
 {
   return m_sdk_version;
+}
+
+void CJNIBase::SetBaseClassName(const std::string &classname)
+{
+  m_baseClassName = classname;
+}
+
+const std::string &CJNIBase::GetBaseClassName()
+{
+  return m_baseClassName;
 }
 
 const std::string CJNIBase::GetDotClassName(const std::string & classname)

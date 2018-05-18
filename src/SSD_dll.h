@@ -25,6 +25,7 @@ namespace SSD
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
+    virtual const char *GetClassName() = 0;
 #endif
     virtual const char *GetLibraryPath() const = 0;
     virtual const char *GetProfilePath() const = 0;

@@ -1199,8 +1199,9 @@ extern "C" {
     host = h;
 
     CJNIBase::SetSDKVersion(host->GetSDKVersion());
+    CJNIBase::SetBaseClassName(host->GetClassName());
 
-    Log(SSD_HOST::LL_DEBUG, "WVDecrypter JNI, SDK version: %d", CJNIBase::GetSDKVersion());
+    Log(SSD_HOST::LL_DEBUG, "WVDecrypter JNI, SDK version: %d, class: %s", CJNIBase::GetSDKVersion(), CJNIBase::GetBaseClassName().c_str());
 
     std::string apkPath = getenv("XBMC_ANDROID_APK");
 
