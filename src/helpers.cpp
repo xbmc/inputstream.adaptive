@@ -339,7 +339,7 @@ void prkid2wvkid(const char *input, char *output)
     output[i] = input[remap[i]];
 }
 
-uint8_t* KIDtoUUID(const uint8_t* kid, uint8_t* dst)
+char* KIDtoUUID(const uint8_t* kid, char* dst)
 {
   static const uint8_t hexmap[16] = { '0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f' };
   for (unsigned int i(0); i < 16; ++i)
@@ -405,7 +405,7 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
     memcpy(protoptr, kid, uuid - kid);
     protoptr += uuid - kid;
 
-    protoptr = KIDtoUUID((const uint8_t*)key.data(), protoptr);
+    protoptr = reinterpret_cast<uint8_t*>(KIDtoUUID((const uint8_t*)key.data(), reinterpret_cast<char*>(protoptr)));
 
     unsigned int sizeleft = ld_size - ((uuid - kid) + 6);
     memcpy(protoptr, uuid + 6, sizeleft);

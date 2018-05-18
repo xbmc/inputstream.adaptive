@@ -783,9 +783,17 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       {
         if (sidPos < kidPos)
           kidPos += size_written, kidPos -= 6;
-        uint8_t uuid[36];
-        KIDtoUUID(defaultKeyId_, uuid);
-        blocks[2].replace(kidPos, 5, (const char*)uuid, 32);
+        char uuid[36];
+        if (blocks[2][kidPos - 1] == 'H')
+        {
+          AP4_FormatHex(defaultKeyId_, 16, uuid);
+          blocks[2].replace(kidPos - 1, 6, (const char*)uuid, 32);
+        }
+        else
+        {
+          KIDtoUUID(defaultKeyId_, uuid);
+          blocks[2].replace(kidPos, 5, (const char*)uuid, 36);
+        }
       }
     }
     std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
