@@ -366,37 +366,8 @@ bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, s
 
 bool KodiAdaptiveStream::parseIndexRange()
 {
-  // open the file
-  kodi::Log(ADDON_LOG_DEBUG, "Downloading %s for SIDX generation", getRepresentation()->url_.c_str());
-
-  kodi::vfs::CFile file;
-  if (!file.CURLCreate(getRepresentation()->url_))
-    return false;
-
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-  char rangebuf[64];
-  sprintf(rangebuf, "bytes=%u-%u", getRepresentation()->indexRangeMin_, getRepresentation()->indexRangeMax_);
-  file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "Range", rangebuf);
-  if (!file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE | OpenFileFlags::READ_AUDIO_VIDEO))
-  {
-    kodi::Log(ADDON_LOG_ERROR, "Download SIDX retrieval failed");
-    return false;
-  }
-
-  // read the file into AP4_MemoryByteStream
-  AP4_MemoryByteStream byteStream;
-
-  char buf[16384];
-  size_t nbRead, nbReadOverall = 0;
-  while ((nbRead = file.Read(buf, 16384)) > 0 && ~nbRead && AP4_SUCCEEDED(byteStream.Write(buf, nbRead))) nbReadOverall += nbRead;
-  file.Close();
-
-  if (nbReadOverall != getRepresentation()->indexRangeMax_ - getRepresentation()->indexRangeMin_ +1)
-  {
-    kodi::Log(ADDON_LOG_ERROR, "Size of downloaded SIDX section differs from expected");
-    return false;
-  }
-  byteStream.Seek(0);
+  kodi::Log(ADDON_LOG_DEBUG, "Build segments from SIDX atom...");
+  AP4_DASHStream byteStream(this);
 
   adaptive::AdaptiveTree::Representation *rep(const_cast<adaptive::AdaptiveTree::Representation*>(getRepresentation()));
   adaptive::AdaptiveTree::AdaptationSet *adp(const_cast<adaptive::AdaptiveTree::AdaptationSet*>(getAdaptationSet()));
@@ -410,11 +381,14 @@ bool KodiAdaptiveStream::parseIndexRange()
       kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
       return false;
     }
-    rep->flags_ |= adaptive::AdaptiveTree::Representation::INITIALIZATION;
-    rep->initialization_.range_begin_ = 0;
-    AP4_Position pos;
-    byteStream.Tell(pos);
-    rep->initialization_.range_end_ = pos - 1;
+    if (1/*!(rep->flags_ & adaptive::AdaptiveTree::Representation::INITIALIZATION)*/)
+    {
+      rep->flags_ |= adaptive::AdaptiveTree::Representation::INITIALIZATION;
+      rep->initialization_.range_begin_ = 0;
+      AP4_Position pos;
+      byteStream.Tell(pos);
+      rep->initialization_.range_end_ = pos - 1;
+    }
   }
 
   adaptive::AdaptiveTree::Segment seg;
@@ -849,6 +823,7 @@ public:
   virtual bool EOS()const = 0;
   virtual uint64_t  DTS()const = 0;
   virtual uint64_t  PTS()const = 0;
+  virtual uint64_t  DTSorPTS()const { return DTS() < PTS() ? DTS() : PTS(); };
   virtual uint64_t  Elapsed(uint64_t basePTS) = 0;
   virtual AP4_Result Start(bool &bStarted) = 0;
   virtual AP4_Result ReadSample() = 0;
@@ -2234,7 +2209,7 @@ SampleReader *Session::GetNextSample()
     bool bStarted(false);
     if ((*b)->enabled && (*b)->reader_ && !(*b)->reader_->EOS()
     && AP4_SUCCEEDED((*b)->reader_->Start(bStarted))
-    && (!res || (*b)->reader_->DTS() < res->reader_->DTS()))
+    && (!res || (*b)->reader_->DTSorPTS() < res->reader_->DTSorPTS()))
       ((*b)->stream_.waitingForSegment(true) ? waiting : res) = *b;
 
     if (bStarted && ((*b)->reader_->GetInformation((*b)->info_)))

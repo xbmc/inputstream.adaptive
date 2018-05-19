@@ -212,13 +212,43 @@ bool AdaptiveStream::restart_stream()
   return true;
 }
 
+void AdaptiveStream::ReplacePlacehoder(std::string &url, uint64_t index, uint64_t timeStamp)
+{
+  std::string::size_type lenReplace(7);
+  std::string::size_type np(url.find("$Number"));
+  uint64_t value(index); //StartNumber
+  char rangebuf[128];
+
+  if (np == std::string::npos)
+  {
+    lenReplace = 5;
+    np = url.find("$Time");
+    value = timeStamp; //Timestamp
+  }
+  np += lenReplace;
+
+  std::string::size_type npe(url.find('$', np));
+
+  char fmt[16];
+  if (np == npe)
+    strcpy(fmt, "%" PRIu64);
+  else
+    strcpy(fmt, url.substr(np, npe - np).c_str());
+
+  sprintf(rangebuf, fmt, value);
+  url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
+}
+
 bool AdaptiveStream::PrepareDownload(const AdaptiveTree::Segment *seg)
 {
   if (!seg)
     return false;
 
-  currentPTSOffset_ = (seg->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
-  absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+  if (!current_rep_->segments_.empty())
+  {
+    currentPTSOffset_ = (seg->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+    absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+  }
 
   if (observer_ && seg != &current_rep_->initialization_)
     observer_->OnSegmentChanged(this);
@@ -244,37 +274,21 @@ bool AdaptiveStream::PrepareDownload(const AdaptiveTree::Segment *seg)
     }
     else if (seg != &current_rep_->initialization_) //templated segment
     {
-      std::string media = current_rep_->segtpl_.media;
-      std::string::size_type lenReplace(7);
-      std::string::size_type np(media.find("$Number"));
-      uint64_t value(seg->range_end_); //StartNumber
-
-      if (np == std::string::npos)
-      {
-        lenReplace = 5;
-        np = media.find("$Time");
-        value = seg->range_begin_; //Timestamp
-      }
-      np += lenReplace;
-
-      std::string::size_type npe(media.find('$', np));
-
-      char fmt[16];
-      if (np == npe)
-        strcpy(fmt, "%" PRIu64);
-      else
-        strcpy(fmt, media.substr(np, npe - np).c_str());
-
-      sprintf(rangebuf, fmt, value);
-      media.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
-      download_url_ = media;
+      download_url_ = current_rep_->segtpl_.media;
+      ReplacePlacehoder(download_url_, seg->range_end_, seg->range_begin_);
     }
     else //templated initialization segment
       download_url_ = current_rep_->url_;
   }
   else
   {
-    download_url_ = current_rep_->url_;
+    if (current_rep_->flags_ & AdaptiveTree::Representation::TEMPLATE)
+    {
+      download_url_ = current_rep_->segtpl_.media;
+      ReplacePlacehoder(download_url_, current_rep_->startNumber_, 0);
+    }
+    else
+      download_url_ = current_rep_->url_;
     sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_, seg->range_end_);
     rangeHeader = rangebuf;
   }
@@ -520,15 +534,35 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   if (observer_)
     observer_->OnStreamChange(this);
 
+  stopped_ = false;
   /* If we have indexRangeExact SegmentBase, update SegmentList from SIDX */
-  if (current_rep_->indexRangeMax_)
+  if (current_rep_->flags_ & AdaptiveTree::Representation::SEGMENTBASE)
   {
-    AdaptiveTree::Representation *rep(const_cast<AdaptiveTree::Representation *>(current_rep_));
-    if (!parseIndexRange())
+    AdaptiveTree::Segment seg;
+    seg.range_begin_ = current_rep_->indexRangeMin_;
+    seg.range_end_ = current_rep_->indexRangeMax_;
+
+    if (PrepareDownload(&seg) && !download_segment())
+    {
+      stopped_ = true;
       return false;
+    }
+
+    // Signal that there is no data coming
+    download_url_.clear();
+
+    AdaptiveTree::Representation *rep(const_cast<AdaptiveTree::Representation *>(current_rep_));
+    absolute_position_ = 0;
+    if (!parseIndexRange())
+    {
+      stopped_ = true;
+      return false;
+    }
     rep->indexRangeMin_ = rep->indexRangeMax_ = 0;
     absolute_position_ = 0;
-    stopped_ = false;
+    segment_buffer_.clear();
+    segment_read_pos_ = 0;
+    rep->flags_ &= ~AdaptiveTree::Representation::SEGMENTBASE;
   }
 
   /* lets download the initialization */

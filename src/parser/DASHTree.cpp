@@ -300,6 +300,11 @@ static unsigned int ParseSegmentTemplate(const char **attr, std::string baseURL,
   if (tpl.media.compare(0, 7, "http://") != 0
   && tpl.media.compare(0, 8, "https://") != 0)
     tpl.media = baseURL + tpl.media;
+
+  if (!tpl.initialization.empty()
+    && tpl.initialization.compare(0, 7, "http://") != 0
+    && tpl.initialization.compare(0, 8, "https://") != 0)
+    tpl.initialization = baseURL + tpl.initialization;
   return startNumber;
 }
 
@@ -324,8 +329,14 @@ static time_t getTime(const char* timeStr)
 
 static void AddDuration(const char* dur, uint64_t& retVal, uint32_t scale)
 {
-  if (dur && *dur++ == 'P' && *dur++ == 'T')
+  if (dur && dur[0] == 'P')
   {
+    dur = strchr(dur + 1, 'T');
+    if (dur)
+      ++dur;
+    else
+      return;
+
     const char *next = strchr(dur, 'H');
     if (next) {
       retVal += static_cast<uint64_t>(atof(dur) * 3600 * scale);
@@ -781,6 +792,23 @@ start(void *data, const char *el, const char **attr)
           && dash->current_adaptationset_->mimeType_ == "application/ttml+xml")
             dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
 
+          dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
+          if (!dash->current_adaptationset_->segtpl_.media.empty())
+          {
+            dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
+            ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
+              dash->current_representation_->id,
+              dash->current_representation_->bandwidth_);
+
+            if (!dash->current_representation_->segtpl_.initialization.empty())
+            {
+              dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
+              ReplacePlaceHolders(dash->current_representation_->segtpl_.initialization,
+                dash->current_representation_->id,
+                dash->current_representation_->bandwidth_);
+              dash->current_representation_->url_ = dash->current_representation_->segtpl_.initialization;
+            }
+          }
           dash->currentNode_ |= MPDNODE_REPRESENTATION;
         }
         else if (strcmp(el, "SegmentDurations") == 0)
@@ -1149,11 +1177,10 @@ end(void *data, const char *el)
 
             if (dash->current_representation_->segments_.data.empty())
             {
-              bool isSegmentTpl(!dash->current_representation_->segtpl_.media.empty());
-              DASHTree::SegmentTemplate &tpl(isSegmentTpl ? dash->current_representation_->segtpl_ : dash->current_adaptationset_->segtpl_);
+              DASHTree::SegmentTemplate &tpl(dash->current_representation_->segtpl_);
 
-              if (!tpl.media.empty() && dash->overallSeconds_ > 0
-                && tpl.timescale > 0 && (tpl.duration > 0 || dash->current_adaptationset_->segment_durations_.data.size()))
+              if (!tpl.media.empty() && dash->overallSeconds_ > 0 && tpl.timescale > 0 &&
+                (tpl.duration > 0 || dash->current_adaptationset_->segment_durations_.data.size()))
               {
                 unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.data.empty()? dash->current_adaptationset_->segment_durations_.data.size():
                   (unsigned int)((double)dash->overallSeconds_ / (((double)tpl.duration) / tpl.timescale)) + 1;
@@ -1168,14 +1195,6 @@ end(void *data, const char *el)
                   if (!tpl.initialization.empty())
                   {
                     seg.range_end_ = ~0;
-                    if (!isSegmentTpl)
-                    {
-                      dash->current_representation_->url_ += tpl.initialization;
-                      ReplacePlaceHolders(dash->current_representation_->url_, dash->current_representation_->id, dash->current_representation_->bandwidth_);
-                      dash->current_representation_->segtpl_.media = tpl.media;
-                      ReplacePlaceHolders(dash->current_representation_->segtpl_.media, dash->current_representation_->id, dash->current_representation_->bandwidth_);
-                    }
-
                     dash->current_representation_->initialization_ = seg;
                     dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
                   }
@@ -1186,11 +1205,11 @@ end(void *data, const char *el)
                   if (dash->adp_timelined_)
                     dash->current_representation_->flags_ |= AdaptiveTree::Representation::TIMELINE;
 
-                  seg.range_end_ = isSegmentTpl ? dash->current_representation_->startNumber_: dash->current_adaptationset_->startNumber_;
+                  seg.range_end_ = dash->current_representation_->startNumber_;
                   seg.startPTS_ = dash->current_adaptationset_->startPTS_ - (dash->base_time_)*dash->current_adaptationset_->timescale_;
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
-                  if (!timeBased && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
+                  if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
                     seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration);
 
                   for (;countSegs;--countSegs)

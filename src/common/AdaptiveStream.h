@@ -83,6 +83,8 @@ namespace adaptive
     bool download_segment();
     void worker();
     int SecondsSinceUpdate() const;
+    static void ReplacePlacehoder(std::string &url, uint64_t index, uint64_t timeStamp);
+
 
     struct THREADDATA
     {
