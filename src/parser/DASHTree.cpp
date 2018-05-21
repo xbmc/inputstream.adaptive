@@ -943,9 +943,11 @@ start(void *data, const char *el, const char **attr)
               dash->adpaspect_ = (float)w / h;
           }
           else if (strcmp((const char*)*attr, "impaired") == 0)
-          {
             dash->current_adaptationset_->impaired_ = strcmp((const char*)*(attr + 1), "true") == 0;
-          }
+          else if (strcmp((const char*)*attr, "original") == 0)
+            dash->current_adaptationset_->original_ = strcmp((const char*)*(attr + 1), "true") == 0;
+          else if (strcmp((const char*)*attr, "default") == 0)
+            dash->current_adaptationset_->default_ = strcmp((const char*)*(attr + 1), "true") == 0;
           attr += 2;
         }
         if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)

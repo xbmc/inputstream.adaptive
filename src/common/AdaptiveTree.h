@@ -249,13 +249,13 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false){ language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false){ language_ = "unk"; };
       ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_, duration_;
       uint64_t startPTS_;
       unsigned int startNumber_;
-      bool impaired_;
+      bool impaired_, original_, default_;
       std::string language_;
       std::string mimeType_;
       std::string base_url_;
@@ -274,13 +274,18 @@ namespace adaptive
       {
         if (a->type_ != b->type_)
           return a->type_ < b->type_;
-        if (a->impaired_ != b->impaired_)
-          return !a->impaired_ && b->impaired_;
         if (a->language_ != b->language_)
           return a->language_ < b->language_;
+        if (a->default_ != b->default_)
+          return a->default_;
 
         if (a->type_ == AUDIO)
         {
+          if (a->impaired_ != b->impaired_)
+            return !a->impaired_;
+          if (a->original_ != b->original_)
+            return a->original_;
+
           if (a->repesentations_[0]->codecs_ != b->repesentations_[0]->codecs_)
             return a->repesentations_[0]->codecs_ < b->repesentations_[0]->codecs_;
 
@@ -307,6 +312,8 @@ namespace adaptive
           && a->startPTS_ == b->startPTS_
           && a->startNumber_ == b->startNumber_
           && a->impaired_ == b->impaired_
+          && a->original_ == b->original_
+          && a->default_ == b->default_
           && a->language_ == b->language_
           && a->mimeType_ == b->mimeType_
           && a->base_url_ == b->base_url_

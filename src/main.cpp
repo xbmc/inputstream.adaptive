@@ -2057,6 +2057,10 @@ bool Session::initialize()
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
         if (adp->impaired_)
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_VISUAL_IMPAIRED;
+        if (adp->default_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
+        if (adp->original_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_ORIGINAL;
         break;
       case adaptive::AdaptiveTree::SUBTITLE:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
