@@ -616,7 +616,7 @@ start(void *data, const char *el, const char **attr)
             {
               ReplacePlaceHolders(dash->current_representation_->segtpl_.initialization, dash->current_representation_->id, dash->current_representation_->bandwidth_);
               dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
-              dash->current_representation_->url_ += dash->current_representation_->segtpl_.initialization;
+              dash->current_representation_->url_ = dash->current_representation_->segtpl_.initialization;
               dash->current_representation_->timescale_ = dash->current_representation_->segtpl_.timescale;
             }
             dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
