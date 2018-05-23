@@ -1075,7 +1075,15 @@ end(void *data, const char *el)
           if (dash->currentNode_ & MPDNODE_SEGMENTTIMELINE)
           {
             if (strcmp(el, "SegmentTimeline") == 0)
+            {
+              if (!dash->overallSeconds_ && dash->current_adaptationset_->segtpl_.timescale)
+              {
+                for (auto dur : dash->current_adaptationset_->segment_durations_.data)
+                  dash->overallSeconds_ += dur;
+                dash->overallSeconds_ /= dash->current_adaptationset_->segtpl_.timescale;
+              }
               dash->currentNode_ &= ~MPDNODE_SEGMENTTIMELINE;
+            }
           }
           else if (strcmp(el, "SegmentTemplate") == 0)
           {

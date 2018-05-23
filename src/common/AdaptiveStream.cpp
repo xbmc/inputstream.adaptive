@@ -565,6 +565,8 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     rep->flags_ &= ~AdaptiveTree::Representation::SEGMENTBASE;
   }
 
+  stopped_ = false;
+
   /* lets download the initialization */
   const AdaptiveTree::Segment *loadingSeg = current_rep_->get_initialization();
   if (!loadingSeg && current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZATION_PREFIXED)
