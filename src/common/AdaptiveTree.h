@@ -261,6 +261,7 @@ namespace adaptive
       std::string base_url_;
       std::string id_, group_;
       std::string codecs_;
+      std::string audio_track_id_;
       std::vector<Representation*> repesentations_;
       SPINCACHE<uint32_t> segment_durations_;
       SegmentTemplate segtpl_;
@@ -281,6 +282,9 @@ namespace adaptive
 
         if (a->type_ == AUDIO)
         {
+          if (a->audio_track_id_ != b->audio_track_id_)
+            return a->audio_track_id_ < b->audio_track_id_;
+
           if (a->impaired_ != b->impaired_)
             return !a->impaired_;
           if (a->original_ != b->original_)
@@ -317,6 +321,7 @@ namespace adaptive
           && a->language_ == b->language_
           && a->mimeType_ == b->mimeType_
           && a->base_url_ == b->base_url_
+          && a->audio_track_id_ == b->audio_track_id_
           && a->id_ == b->id_
           && a->group_ == b->group_
           && compareCodecs(a->codecs_, b->codecs_))

@@ -2069,7 +2069,8 @@ bool Session::initialize()
         break;
       }
       stream.info_.m_pID = i | (repId << 16);
-      strcpy(stream.info_.m_language, adp->language_.c_str());
+      strncpy(stream.info_.m_language, adp->language_.c_str(), sizeof(stream.info_.m_language) - 1);
+      stream.info_.m_language[sizeof(stream.info_.m_language) - 1] = 0;
       stream.info_.m_ExtraData = nullptr;
       stream.info_.m_ExtraSize = 0;
       stream.info_.m_features = 0;
