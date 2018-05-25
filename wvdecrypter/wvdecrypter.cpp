@@ -484,7 +484,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
 {
   SetParentIsOwner(false);
 
-  if (pssh.GetDataSize() > 256)
+  if (pssh.GetDataSize() > 4096)
   {
     Log(SSD_HOST::LL_ERROR, "Init_data with length: %u seems not to be cenc init data!", pssh.GetDataSize());
     return;
@@ -517,7 +517,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   else
   {
     unsigned int buf_size = 32 + pssh.GetDataSize();
-    uint8_t buf[1024];
+    uint8_t buf[4096 + 32];
 
     // This will request a new session and initializes session_id and message members in cdm_adapter.
     // message will be used to create a license request in the step after CreateSession call.
@@ -525,7 +525,9 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     static uint8_t proto[] = { 0x00, 0x00, 0x00, 0x63, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00, 0x00, 0xed, 0xef, 0x8b, 0xa9,
       0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x00 };
 
-    proto[3] = static_cast<uint8_t>(buf_size);
+    proto[2] = static_cast<uint8_t>((buf_size >> 8) & 0xFF);
+    proto[3] = static_cast<uint8_t>(buf_size & 0xFF);
+    proto[30] = static_cast<uint8_t>((pssh.GetDataSize() >> 8) & 0xFF);
     proto[31] = static_cast<uint8_t>(pssh.GetDataSize());
 
     memcpy(buf, proto, sizeof(proto));
