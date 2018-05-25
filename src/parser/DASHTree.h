@@ -34,6 +34,7 @@ namespace adaptive
     void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
     uint64_t pts_helper_;
     uint32_t firstStartNumber_;
+    uint64_t current_period_start_;
   protected:
     virtual void RefreshSegments() override;
   };

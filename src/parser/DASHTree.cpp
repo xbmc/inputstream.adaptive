@@ -138,13 +138,20 @@ static void AddDuration(const char* dur, uint64_t& retVal, uint32_t scale)
 {
   if (dur && dur[0] == 'P')
   {
-    dur = strchr(dur + 1, 'T');
+    ++dur;
+    const char *next = strchr(dur, 'D');
+    if (next) {
+      retVal += static_cast<uint64_t>(atof(dur) * 86400 * scale);
+      dur = next + 1;
+    }
+
+    dur = strchr(dur, 'T');
     if (dur)
       ++dur;
     else
       return;
 
-    const char *next = strchr(dur, 'H');
+    next = strchr(dur, 'H');
     if (next) {
       retVal += static_cast<uint64_t>(atof(dur) * 3600 * scale);
       dur = next + 1;
@@ -822,6 +829,15 @@ start(void *data, const char *el, const char **attr)
       dash->current_period_->base_url_ = dash->base_url_;
       dash->periods_.push_back(dash->current_period_);
       dash->period_timelined_ = false;
+      dash->current_period_start_ = 0;
+
+      for (; *attr;)
+      {
+        if (strcmp((const char*)*attr, "start") == 0)
+          AddDuration((const char*)*(attr + 1), dash->current_period_start_, 1);
+        attr += 2;
+      }
+
       dash->currentNode_ |= MPDNODE_PERIOD;
     }
   }
@@ -1022,7 +1038,7 @@ end(void *data, const char *el)
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
-                    seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_)*tpl.timescale) / tpl.duration);
+                    seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration);
 
                   for (;countSegs;--countSegs)
                   {
