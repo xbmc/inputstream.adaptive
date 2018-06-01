@@ -891,8 +891,8 @@ start(void *data, const char *el, const char **attr)
 
     AddDuration(mpt, dash->overallSeconds_, 1);
 
-    if (dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > dash->overallSeconds_)
-      dash->base_time_ = dash->publish_time_ - dash->available_time_ - dash->overallSeconds_;
+    if (!dash->base_time_ && dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > dash->overallSeconds_ + 60)
+      dash->base_time_ = dash->publish_time_ - dash->available_time_ - dash->overallSeconds_ - 60;
     dash->minPresentationOffset = ~0ULL;
 
     dash->currentNode_ |= MPDNODE_MPD;
@@ -1332,6 +1332,7 @@ void DASHTree::RefreshSegments()
 
     DASHTree updateTree;
     updateTree.manifest_headers_ = manifest_headers_;
+    updateTree.base_time_ = base_time_;
     if (!~update_parameter_pos_)
     {
       if (!etag_.empty())
