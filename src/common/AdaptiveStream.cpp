@@ -406,6 +406,24 @@ bool AdaptiveStream::seek(uint64_t const pos)
   return false;
 }
 
+uint64_t AdaptiveStream::getMaxTimeMs()
+{
+  if (current_rep_->flags_ & AdaptiveTree::Representation::SUBTITLESTREAM)
+    return 0;
+
+  if (current_rep_->segments_.empty())
+    return 0;
+
+  uint32_t duration = current_rep_->segments_.size() > 1
+    ? current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ - current_rep_->segments_[current_rep_->segments_.size() - 2]->startPTS_
+    : 0;
+
+  uint64_t timeExt = ((current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ + duration)
+    * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+
+  return  (timeExt - absolutePTSOffset_) / 1000;
+}
+
 bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needReset)
 {
   if (!current_rep_)

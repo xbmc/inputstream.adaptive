@@ -56,6 +56,7 @@ namespace adaptive
     unsigned int getWidth() const { return width_; };
     unsigned int getHeight() const { return height_; };
     unsigned int getBandwidth() const { return bandwidth_; };
+    uint64_t getMaxTimeMs();
 
     unsigned int get_type()const{ return type_; };
 

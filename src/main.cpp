@@ -2246,10 +2246,17 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   if (seekTime < 0)
     seekTime = 0;
 
-  if (adaptiveTree_->has_timeshift_buffer_ && seekTime > (static_cast<double>(GetTotalTimeMs()) / 1000) - 12)
+  if (adaptiveTree_->has_timeshift_buffer_)
   {
-    seekTime = (static_cast<double>(GetTotalTimeMs()) / 1000) - 12;
-    preceeding = true;
+    uint64_t curTime, maxTime(0);
+    for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+      if ((*b)->enabled && (curTime = (*b)->stream_.getMaxTimeMs()) && curTime > maxTime)
+        maxTime = curTime;
+    if (seekTime > (static_cast<double>(maxTime) / 1000) - 12)
+    {
+      seekTime = (static_cast<double>(maxTime) / 1000) - 12;
+      preceeding = true;
+    }
   }
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
