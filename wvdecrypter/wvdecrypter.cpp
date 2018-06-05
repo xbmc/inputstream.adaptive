@@ -1289,7 +1289,16 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
     if (ret == cdm::Status::kSuccess || (cdm_in.data && ret == cdm::Status::kNeedMoreData))
       return VC_NONE;
     else
+    {
+      if (ret == cdm::Status::kNoKey)
+      {
+        char buf[36]; buf[32] = 0;
+        AP4_FormatHex(cdm_in.key_id, cdm_in.key_id_size, buf);
+        Log(SSD_HOST::LL_ERROR, "DecodeVideo: kNoKey for key %s", buf);
+        return VC_EOF;
+      }
       return VC_ERROR;
+    }
   }
   else if (picture)
   {
