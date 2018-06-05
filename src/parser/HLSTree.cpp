@@ -281,9 +281,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       segment.startPTS_ = ~0ULL;
       segment.pssh_set_ = 0;
 
-      std::string::size_type bs = rep->source_url_.rfind('/');
-      if (bs != std::string::npos)
-        base_url = rep->source_url_.substr(0, bs + 1);
+      std::string::size_type paramPos = rep->source_url_.find('?');
+      base_url = (paramPos == std::string::npos) ? rep->source_url_ : rep->source_url_.substr(0, paramPos);
+
+      paramPos = base_url.rfind('/');
+      if (paramPos != std::string::npos)
+        base_url = base_url.substr(0, paramPos + 1);
 
       while (std::getline(stream, line))
       {
