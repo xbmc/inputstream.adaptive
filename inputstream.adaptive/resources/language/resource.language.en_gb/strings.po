@@ -51,3 +51,43 @@ msgstr "Select streams without respecting HDCP status"
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "Do not respect display resolution when selecting streams"
+
+msgctxt "#30150"
+msgid "Max"
+msgstr ""
+
+msgctxt "#30151"
+msgid "480p"
+msgstr ""
+
+msgctxt "#30152"
+msgid "640p"
+msgstr ""
+
+msgctxt "#30153"
+msgid "720p"
+msgstr ""
+
+msgctxt "#30154"
+msgid "1080p"
+msgstr ""
+
+msgctxt "#30155"
+msgid "Auto"
+msgstr ""
+
+msgctxt "#30156"
+msgid "Manual"
+msgstr ""
+
+msgctxt "#30157"
+msgid "All"
+msgstr ""
+
+msgctxt "#30158"
+msgid "Audio"
+msgstr ""
+
+msgctxt "#30159"
+msgid "Video"
+msgstr ""

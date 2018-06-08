@@ -168,4 +168,5 @@ private:
   bool manual_streams_;
   uint64_t elapsed_time_;
   uint8_t media_type_mask_;
+  bool ignore_display_;
 };

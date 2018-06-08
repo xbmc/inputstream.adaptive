@@ -1666,6 +1666,9 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   default:
     media_type_mask_ = static_cast<uint8_t>(~0);
   }
+
+  ignore_display_ = kodi::GetSettingBoolean("IGNOREDISPLAY");
+
   if (*strCert)
   {
     unsigned int sz(strlen(strCert)), dstsz((sz * 3) / 4);
@@ -2027,6 +2030,8 @@ bool Session::initialize()
     }
   }
 
+  bool hdcpOverride = kodi::GetSettingBoolean("HDCPOVERRIDE");
+
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
     size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
@@ -2039,7 +2044,7 @@ bool Session::initialize()
       uint32_t hdcpLimit(caps.hdcpLimit);
       uint16_t hdcpVersion(caps.hdcpVersion);
 
-      if (kodi::GetSettingBoolean("HDCPOVERRIDE"))
+      if (hdcpOverride)
       {
         hdcpLimit = 0;
         hdcpVersion = 99;
@@ -2325,7 +2330,7 @@ const AP4_UI08 *Session::GetDefaultKeyId(const uint16_t index) const
 
 std::uint16_t Session::GetVideoWidth() const
 {
-  std::uint16_t ret(kodi::GetSettingBoolean("IGNOREDISPLAY") ? 8192: width_);
+  std::uint16_t ret(ignore_display_ ? 8192: width_);
   switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
   {
   case 1:
@@ -2348,7 +2353,7 @@ std::uint16_t Session::GetVideoWidth() const
 
 std::uint16_t Session::GetVideoHeight() const
 {
-  std::uint16_t ret(kodi::GetSettingBoolean("IGNOREDISPLAY") ? 8192 : height_);
+  std::uint16_t ret(ignore_display_ ? 8192 : height_);
   switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
   {
   case 1:
