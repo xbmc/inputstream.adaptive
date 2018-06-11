@@ -1206,12 +1206,13 @@ extern "C" {
       return 0;
     host = h;
 
+
     CJNIBase::SetSDKVersion(host->GetSDKVersion());
     CJNIBase::SetBaseClassName(host->GetClassName());
 
     Log(SSD_HOST::LL_DEBUG, "WVDecrypter JNI, SDK version: %d, class: %s", CJNIBase::GetSDKVersion(), CJNIBase::GetBaseClassName().c_str());
 
-    std::string apkPath = getenv("XBMC_ANDROID_APK");
+    std::string apkPath = getenv("KODI_ANDROID_APK");
 
     classLoader = new CJNIClassLoader(apkPath);
     if (xbmc_jnienv()->ExceptionCheck())
