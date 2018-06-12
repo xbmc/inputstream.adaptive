@@ -1203,7 +1203,7 @@ extern "C" {
   SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h, uint32_t host_version)
   {
     if (host_version != SSD_HOST::version)
-      return 0;
+      return nullptr;
     host = h;
 
 
@@ -1212,7 +1212,14 @@ extern "C" {
 
     Log(SSD_HOST::LL_DEBUG, "WVDecrypter JNI, SDK version: %d, class: %s", CJNIBase::GetSDKVersion(), CJNIBase::GetBaseClassName().c_str());
 
-    std::string apkPath = getenv("KODI_ANDROID_APK");
+    const char *apkEnv = getenv("XBMC_ANDROID_APK");
+    if (!apkEnv)
+      apkEnv = getenv("KODI_ANDROID_APK");
+
+    if (!apkEnv)
+      return nullptr;
+
+    std::string apkPath = apkEnv;
 
     classLoader = new CJNIClassLoader(apkPath);
     if (xbmc_jnienv()->ExceptionCheck())
