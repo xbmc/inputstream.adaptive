@@ -1593,8 +1593,19 @@ void Session::STREAM::disable()
   }
 }
 
-Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strUpdateParam, const char *strLicType, const char* strLicKey, const char* strLicData, const char* strCert,
-  const std::map<std::string, std::string> &manifestHeaders, const std::map<std::string, std::string> &mediaHeaders, const char* profile_path, uint16_t display_width, uint16_t display_height)
+Session::Session(MANIFEST_TYPE manifestType,
+  const char *strURL,
+  const char *strUpdateParam,
+  const char *strLicType,
+  const char* strLicKey,
+  const char* strLicData,
+  const char* strCert,
+  const std::map<std::string, std::string> &manifestHeaders,
+  const std::map<std::string, std::string> &mediaHeaders,
+  const char* profile_path,
+  uint16_t display_width,
+  uint16_t display_height,
+  const char *ov_audio)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , mpdUpdateParam_(strUpdateParam)
@@ -1603,6 +1614,7 @@ Session::Session(MANIFEST_TYPE manifestType, const char *strURL, const char *str
   , license_data_(strLicData)
   , media_headers_(mediaHeaders)
   , profile_path_(profile_path)
+  , ov_audio_(ov_audio)
   , decrypterModule_(0)
   , decrypter_(0)
   , secure_video_session_(false)
@@ -2066,7 +2078,7 @@ bool Session::initialize()
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_VISUAL_IMPAIRED;
         if (adp->default_)
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
-        if (adp->original_)
+        if (adp->original_ || (!ov_audio_.empty() && adp->language_ == ov_audio_))
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_ORIGINAL;
         break;
       case adaptive::AdaptiveTree::SUBTITLE:
@@ -2497,7 +2509,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
-  const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup("");
+  const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup(""), *ov_audio("");
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
@@ -2545,6 +2557,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       medh = manh;
       mpd_url = mpd_url.substr(0, mpd_url.find("|"));
     }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.original_audio_language") == 0)
+      ov_audio = props.m_ListItemProperties[i].m_strValue;
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -2563,7 +2577,20 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 
   kodihost->SetProfilePath(props.m_profileFolder);
 
-  m_session = std::shared_ptr<Session>(new Session(manifest, mpd_url.c_str(), mfup, lt, lk, ld, lsc, manh, medh, props.m_profileFolder, m_width, m_height));
+  m_session = std::shared_ptr<Session>(new Session(
+    manifest,
+    mpd_url.c_str(),
+    mfup,
+    lt,
+    lk,
+    ld,
+    lsc,
+    manh,
+    medh,
+    props.m_profileFolder,
+    m_width,
+    m_height,
+    ov_audio));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize())

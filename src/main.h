@@ -79,9 +79,19 @@ enum MANIFEST_TYPE
 class Session: public adaptive::AdaptiveStreamObserver
 {
 public:
-  Session(MANIFEST_TYPE manifestType, const char *strURL, const char *strUpdateParam, const char *strLicType, const char* strLicKey, const char* strLicData,
-  const char* strCert, const std::map<std::string, std::string> &manifestHeaders, const std::map<std::string, std::string> &mediaHeaders,
-  const char* profile_path, uint16_t display_width, uint16_t display_height);
+  Session(MANIFEST_TYPE manifestType,
+    const char *strURL,
+    const char *strUpdateParam,
+    const char *strLicType,
+    const char* strLicKey,
+    const char* strLicData,
+    const char* strCert,
+    const std::map<std::string, std::string> &manifestHeaders,
+    const std::map<std::string, std::string> &mediaHeaders,
+    const char* profile_path,
+    uint16_t display_width,
+    uint16_t display_height,
+    const char *ov_audio);
   virtual ~Session();
   bool initialize();
   SampleReader *GetNextSample();
@@ -144,6 +154,7 @@ private:
   std::map<std::string, std::string> media_headers_;
   AP4_DataBuffer server_certificate_;
   std::string profile_path_;
+  std::string ov_audio_;
   void * decrypterModule_;
   SSD::SSD_DECRYPTER *decrypter_;
 
