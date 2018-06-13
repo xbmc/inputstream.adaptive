@@ -64,9 +64,6 @@ namespace adaptive
 
   AdaptiveTree::~AdaptiveTree()
   {
-    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
-      delete *bp;
-
     has_timeshift_buffer_ = false;
     if (updateThread_)
     {
@@ -77,6 +74,10 @@ namespace adaptive
       updateThread_->join();
       delete updateThread_;
     }
+
+    std::lock_guard<std::mutex> lck(treeMutex_);
+    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
+      delete *bp;
   }
 
   void AdaptiveTree::FreeSegments(Representation *rep)
