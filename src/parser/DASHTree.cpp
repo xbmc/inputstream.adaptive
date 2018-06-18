@@ -1034,7 +1034,10 @@ end(void *data, const char *el)
                     dash->current_representation_->flags_ |= AdaptiveTree::Representation::TIMELINE;
 
                   seg.range_end_ = dash->current_representation_->startNumber_;
-                  seg.startPTS_ = dash->current_adaptationset_->startPTS_ - (dash->base_time_)*dash->current_adaptationset_->timescale_;
+                  if (dash->current_adaptationset_->startPTS_ > dash->base_time_*dash->current_adaptationset_->timescale_)
+                    seg.startPTS_ = dash->current_adaptationset_->startPTS_ - dash->base_time_*dash->current_adaptationset_->timescale_;
+                  else
+                    seg.startPTS_ = 0;
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
