@@ -351,6 +351,7 @@ namespace adaptive
     std::string manifest_url_, base_url_, effective_url_, base_domain_, update_parameter_;
     std::string::size_type update_parameter_pos_;
     std::string etag_, last_modified_;
+    std::string media_renewal_url_;
 
     /* XML Parsing*/
     XML_Parser parser_;

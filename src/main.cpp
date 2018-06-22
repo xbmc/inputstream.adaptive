@@ -318,8 +318,11 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
 
 bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, std::string> &mediaHeaders)
 {
-  // open the file
+  bool retry = true;
   kodi::vfs::CFile file;
+
+RETRY:
+  // open the file
   if (!file.CURLCreate(url))
     return false;
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable" , "0");
@@ -332,36 +335,53 @@ bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, s
     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
   }
 
-  file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE | OpenFileFlags::READ_AUDIO_VIDEO);
-
-  // read the file
-  char *buf = (char*)malloc(32*1024);
-  size_t nbRead, nbReadOverall = 0;
-  while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead)) nbReadOverall+= nbRead;
-  free(buf);
-
-  if (!nbReadOverall)
+  if (file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE | OpenFileFlags::READ_AUDIO_VIDEO))
   {
-    kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
-    return false;
-  }
+    // read the file
+    char *buf = (char*)malloc(32 * 1024);
+    size_t nbRead, nbReadOverall = 0;
+    while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead)) nbReadOverall += nbRead;
+    free(buf);
 
-  double current_download_speed_ = file.GetFileDownloadSpeed();
-  //Calculate the new downloadspeed to 1MB
-  static const size_t ref_packet = 1024 * 1024;
-  if (nbReadOverall >= ref_packet)
-    set_download_speed(current_download_speed_);
-  else
+    if (!nbReadOverall)
+    {
+      kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
+      return false;
+    }
+
+    double current_download_speed_ = file.GetFileDownloadSpeed();
+    //Calculate the new downloadspeed to 1MB
+    static const size_t ref_packet = 1024 * 1024;
+    if (nbReadOverall >= ref_packet)
+      set_download_speed(current_download_speed_);
+    else
+    {
+      double ratio = (double)nbReadOverall / ref_packet;
+      set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
+    }
+
+    file.Close();
+
+    kodi::Log(ADDON_LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
+    return nbRead == 0;
+  }
+  else if (retry)
   {
-    double ratio = (double)nbReadOverall / ref_packet;
-    set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
+    retry = false;
+    std::string response = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, nullptr);
+    kodi::Log(ADDON_LOG_WARNING, "Download %s failed: %s", url, response.c_str());
+
+    if (response.find("HTTP 403") != std::string::npos && !getMediaRenewalUrl().empty())
+    {
+      std::vector<kodi::vfs::CDirEntry> items;
+      if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
+      {
+        setEffectiveURL(items[0].Path());
+        goto RETRY;
+      }
+    }
   }
-
-  file.Close();
-
-  kodi::Log(ADDON_LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
-
-  return nbRead == 0;
+  return false;
 }
 
 bool KodiAdaptiveStream::parseIndexRange()
@@ -1600,6 +1620,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   const char* strLicKey,
   const char* strLicData,
   const char* strCert,
+  const char* strMediaRenewalUrl,
   const std::map<std::string, std::string> &manifestHeaders,
   const std::map<std::string, std::string> &mediaHeaders,
   const char* profile_path,
@@ -1689,7 +1710,7 @@ Session::Session(MANIFEST_TYPE manifestType,
     server_certificate_.SetDataSize(dstsz);
   }
   adaptiveTree_->manifest_headers_ = manifestHeaders;
-
+  adaptiveTree_->media_renewal_url_ = strMediaRenewalUrl;
 }
 
 Session::~Session()
@@ -2509,7 +2530,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
-  const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup(""), *ov_audio("");
+  const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup(""), *ov_audio(""), *mru("");
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
@@ -2559,6 +2580,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.original_audio_language") == 0)
       ov_audio = props.m_ListItemProperties[i].m_strValue;
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.media_renewal_url") == 0)
+      mru = props.m_ListItemProperties[i].m_strValue;
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -2585,6 +2608,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     lk,
     ld,
     lsc,
+    mru,
     manh,
     medh,
     props.m_profileFolder,

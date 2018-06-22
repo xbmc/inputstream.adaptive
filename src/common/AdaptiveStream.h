@@ -78,6 +78,8 @@ namespace adaptive
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
     bool PrepareDownload(const AdaptiveTree::Segment *seg);
+    void setEffectiveURL(const std::string url) { tree_.effective_url_ = url; };
+    const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
   private:
     // Segment download section
     void ResetSegment();
