@@ -258,8 +258,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     unsigned int newStartNumber;
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
+    std::string download_url = rep->source_url_.c_str();
 
-    if (download(rep->source_url_.c_str(), manifest_headers_, &stream, false))
+    if (!effective_url_.empty() && download_url.find(base_url_) == 0)
+      download_url.replace(0, base_url_.size(), effective_url_);
+
+    if (download(download_url.c_str(), manifest_headers_, &stream, false))
     {
 #if FILEDEBUG
       FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
