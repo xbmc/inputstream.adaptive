@@ -135,6 +135,8 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
         adp->type_ = type;
         adp->language_ =  map["LANGUAGE"];
         adp->timescale_ = 1000000;
+        adp->name_ = map["NAME"];
+        adp->default_ = map["DEFAULT"] == "YES";
 
         rep->codecs_ = group.m_codec;
         rep->timescale_ = 1000000;
