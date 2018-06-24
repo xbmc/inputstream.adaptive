@@ -151,6 +151,9 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
             rep->source_url_ = base_url_ + res->second;
           else
             rep->source_url_ = res->second;
+
+          if (!manifest_parameter_.empty() && rep->source_url_.find('?') == std::string::npos)
+            rep->source_url_ += manifest_parameter_;
         }
         else
         {
@@ -206,6 +209,9 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
           current_representation_->source_url_ = base_url_ + line;
         else
           current_representation_->source_url_ = line;
+
+        if (!manifest_parameter_.empty() && current_representation_->source_url_.find('?') == std::string::npos)
+          current_representation_->source_url_ += manifest_parameter_;
 
         //Ignore duplicate reps
         for (auto const *rep : current_adaptationset_->repesentations_)

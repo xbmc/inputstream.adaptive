@@ -212,6 +212,8 @@ namespace adaptive
   {
     size_t paramPos = url.find('?');
     base_url_ = (paramPos == std::string::npos) ? url : url.substr(0, paramPos);
+    if (paramPos != std::string::npos)
+      manifest_parameter_= url.substr(paramPos);
 
     paramPos = base_url_.find_last_of('/', base_url_.length());
     if (paramPos == std::string::npos)
