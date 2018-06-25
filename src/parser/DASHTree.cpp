@@ -934,11 +934,21 @@ end(void *data, const char *el)
               while (dash->strXMLText_.size() && (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
                 dash->strXMLText_.erase(dash->strXMLText_.begin());
 
+              std::string url;
               if (dash->strXMLText_.compare(0, 7, "http://") == 0
                 || dash->strXMLText_.compare(0, 8, "https://") == 0)
-                dash->current_representation_->url_ = dash->strXMLText_;
+                url = dash->strXMLText_;
               else
-                dash->current_representation_->url_ += dash->strXMLText_;
+                url = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
+
+              if (dash->current_representation_->flags_ & AdaptiveTree::Representation::TEMPLATE)
+              {
+                if (dash->current_representation_->flags_ & AdaptiveTree::Representation::INITIALIZATION)
+                  dash->current_representation_->url_ = url + dash->current_representation_->url_.substr(dash->current_adaptationset_->base_url_.size());
+                dash->current_representation_->segtpl_.media = url + dash->current_representation_->segtpl_.media.substr(dash->current_adaptationset_->base_url_.size());
+              }
+              else
+                dash->current_representation_->url_ = url;
               dash->currentNode_ &= ~MPDNODE_BASEURL;
             }
           }
