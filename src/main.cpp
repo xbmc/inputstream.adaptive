@@ -329,6 +329,7 @@ RETRY:
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
   if (mediaHeaders.find("connection") == mediaHeaders.end())
     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
+  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
 
   for (const auto &entry : mediaHeaders)
   {
@@ -337,49 +338,59 @@ RETRY:
 
   if (file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE | OpenFileFlags::READ_AUDIO_VIDEO))
   {
-    // read the file
-    char *buf = (char*)malloc(32 * 1024);
-    size_t nbRead, nbReadOverall = 0;
-    while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead)) nbReadOverall += nbRead;
-    free(buf);
+    int returnCode = -1;
+    std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
+    std::string::size_type posResponseCode = proto.find(' ');
+    if (posResponseCode != std::string::npos)
+      returnCode = atoi(proto.c_str() + (posResponseCode + 1));
 
-    if (!nbReadOverall)
+    size_t nbRead = ~0UL;
+
+    if (returnCode == 403 && retry && !getMediaRenewalUrl().empty())
     {
-      kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
-      return false;
-    }
-
-    double current_download_speed_ = file.GetFileDownloadSpeed();
-    //Calculate the new downloadspeed to 1MB
-    static const size_t ref_packet = 1024 * 1024;
-    if (nbReadOverall >= ref_packet)
-      set_download_speed(current_download_speed_);
-    else
-    {
-      double ratio = (double)nbReadOverall / ref_packet;
-      set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
-    }
-
-    file.Close();
-
-    kodi::Log(ADDON_LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
-    return nbRead == 0;
-  }
-  else if (retry)
-  {
-    retry = false;
-    std::string response = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, nullptr);
-    kodi::Log(ADDON_LOG_WARNING, "Download %s failed: %s", url, response.c_str());
-
-    if (response.find("HTTP 403") != std::string::npos && !getMediaRenewalUrl().empty())
-    {
+      retry = false;
       std::vector<kodi::vfs::CDirEntry> items;
       if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
       {
+        kodi::Log(ADDON_LOG_DEBUG, "Renewed URL: %s", items[0].Path().c_str());
         setEffectiveURL(items[0].Path());
         goto RETRY;
       }
+      else
+        kodi::Log(ADDON_LOG_ERROR, "Retrieving renewal URL failed (%s)", getMediaRenewalUrl().c_str());
     }
+    else if (returnCode >= 400)
+    {
+      kodi::Log(ADDON_LOG_ERROR, "Download %s failed with error: %d", returnCode);
+    }
+    else
+    {
+      // read the file
+      char *buf = (char*)malloc(32 * 1024);
+      size_t nbReadOverall = 0;
+      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead)) nbReadOverall += nbRead;
+      free(buf);
+
+      if (!nbReadOverall)
+      {
+        kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
+        return false;
+      }
+
+      double current_download_speed_ = file.GetFileDownloadSpeed();
+      //Calculate the new downloadspeed to 1MB
+      static const size_t ref_packet = 1024 * 1024;
+      if (nbReadOverall >= ref_packet)
+        set_download_speed(current_download_speed_);
+      else
+      {
+        double ratio = (double)nbReadOverall / ref_packet;
+        set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
+      }
+      kodi::Log(ADDON_LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
+    }
+    file.Close();
+    return nbRead == 0;
   }
   return false;
 }
