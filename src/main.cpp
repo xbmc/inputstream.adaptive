@@ -1851,7 +1851,10 @@ bool Session::initialize()
     kodi::Log(ADDON_LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
     return false;
   }
-  kodi::Log(ADDON_LOG_INFO, "Successfully parsed .mpd file. #Streams: %d Download speed: %0.4f Bytes/s", adaptiveTree_->periods_[0]->adaptationSets_.size(), adaptiveTree_->download_speed_);
+  kodi::Log(ADDON_LOG_INFO, "Successfully parsed .mpd file. #Streams: %d Type: %s, Download speed: %0.4f Bytes/s", 
+    adaptiveTree_->periods_[0]->adaptationSets_.size(),
+    adaptiveTree_->has_timeshift_buffer_ ? "live" : "VOD",
+    adaptiveTree_->download_speed_);
 
   if (adaptiveTree_->encryptionState_ == adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
   {

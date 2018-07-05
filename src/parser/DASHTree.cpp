@@ -854,7 +854,10 @@ start(void *data, const char *el, const char **attr)
     for (; *attr;)
     {
       if (strcmp((const char*)*attr, "mediaPresentationDuration") == 0)
+      {
         mpt = (const char*)*(attr + 1);
+        bStatic = true;
+      }
       else if (strcmp((const char*)*attr, "type") == 0)
       {
         bStatic = strcmp((const char*)*(attr + 1), "static") == 0;
@@ -886,8 +889,7 @@ start(void *data, const char *el, const char **attr)
 
     if (!mpt)
       mpt = tsbd;
-    else if (bStatic)
-      dash->has_timeshift_buffer_ = false;
+    dash->has_timeshift_buffer_ = !bStatic;
 
     AddDuration(mpt, dash->overallSeconds_, 1);
 
