@@ -361,7 +361,7 @@ RETRY:
     }
     else if (returnCode >= 400)
     {
-      kodi::Log(ADDON_LOG_ERROR, "Download %s failed with error: %d", returnCode);
+      kodi::Log(ADDON_LOG_ERROR, "Download %s failed with error: %d", url, returnCode);
     }
     else
     {
