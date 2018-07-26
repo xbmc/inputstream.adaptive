@@ -40,7 +40,7 @@ namespace TSDemux
         int log2_max_pic_order_cnt_lsb;
         int delta_pic_order_always_zero_flag;
         int raw_data_size;
-        uint8_t raw_data[32];
+        uint8_t raw_data[64];
       } sps[256];
 
       struct PPS
@@ -48,7 +48,7 @@ namespace TSDemux
         uint8_t sps;
         uint8_t pic_order_present_flag;
         uint16_t raw_data_size;
-        uint8_t raw_data[32];
+        uint8_t raw_data[64];
       } pps[256];
 
       struct VCL_NAL
