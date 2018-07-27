@@ -277,6 +277,10 @@ namespace adaptive
       {
         if ((*ba)->type_ == AUDIO && ba + 1 != ea && AdaptationSet::mergeable(*ba, *(ba + 1)))
         {
+          for (size_t i(1); i < psshSets_.size(); ++i)
+            if (psshSets_[i].adaptation_set_ == *ba)
+              psshSets_[i].adaptation_set_ = *(ba + 1);
+
           (*(ba + 1))->repesentations_.insert((*(ba + 1))->repesentations_.end(), (*ba)->repesentations_.begin(), (*ba)->repesentations_.end());
           (*ba)->repesentations_.clear();
           ba = (*bp)->adaptationSets_.erase(ba);
