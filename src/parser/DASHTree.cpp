@@ -330,7 +330,7 @@ start(void *data, const char *el, const char **attr)
                 else
                   s.range_end_ = dash->current_representation_->segments_.data.back().range_end_ + 1;
                 s.range_begin_ = s.startPTS_ = t;
-                s.startPTS_ -= (dash->base_time_)*dash->current_representation_->segtpl_.timescale;
+                s.startPTS_ -= dash->base_time_*dash->current_representation_->segtpl_.timescale;
                 
                 for (; r; --r)
                 {
@@ -893,8 +893,9 @@ start(void *data, const char *el, const char **attr)
 
     AddDuration(mpt, dash->overallSeconds_, 1);
 
-    if (!dash->base_time_ && dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > dash->overallSeconds_ + 60)
-      dash->base_time_ = dash->publish_time_ - dash->available_time_ - dash->overallSeconds_ - 60;
+    uint64_t overallsecs(dash->overallSeconds_ ? dash->overallSeconds_ + 60 : 86400);
+    if (!dash->base_time_ && dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > overallsecs)
+      dash->base_time_ = dash->publish_time_ - dash->available_time_ - overallsecs;
     dash->minPresentationOffset = ~0ULL;
 
     dash->currentNode_ |= MPDNODE_MPD;
@@ -1445,6 +1446,7 @@ void DASHTree::RefreshSegments()
 
                   Log(LOGLEVEL_DEBUG, "DASH Full update (w/o startnum): repid: %s current_start:%u",
                     (*br)->id.c_str(), (*brd)->startNumber_);
+                  overallSeconds_ = updateTree.overallSeconds_;
                 }
                 else if ((*br)->startNumber_ > (*brd)->startNumber_ 
                   || ((*br)->startNumber_ == (*brd)->startNumber_ 
