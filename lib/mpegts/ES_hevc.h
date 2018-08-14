@@ -91,6 +91,7 @@ namespace TSDemux
 
     uint32_t        m_StartCode;
     int             m_LastStartPos;
+    bool            m_NeedVPS;
     bool            m_NeedSPS;
     bool            m_NeedPPS;
     int             m_Width;

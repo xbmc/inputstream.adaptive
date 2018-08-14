@@ -116,6 +116,7 @@ void ES_hevc::Reset()
   ElementaryStream::Reset();
   m_StartCode = 0xffffffff;
   m_LastStartPos = -1;
+  m_NeedVPS = true;
   m_NeedSPS = true;
   m_NeedPPS = true;
   memset(&m_streamData, 0, sizeof(m_streamData));
@@ -177,6 +178,12 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
     switch (hdr.nal_unit_type)
     {
     case NAL_VPS_NUT:
+      if (m_NeedVPS)
+      {
+        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+        stream_info.extra_data_size += NumBytesInNalUnit;
+        m_NeedVPS = false;
+      }
        break;
 
     case NAL_SPS_NUT:
@@ -188,7 +195,12 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
         return;
       }
       Parse_SPS(buf, NumBytesInNalUnit, hdr);
-      m_NeedSPS = false;
+      if (m_NeedSPS)
+      {
+        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+        stream_info.extra_data_size += NumBytesInNalUnit;
+        m_NeedSPS = false;
+      }
       break;
     }
 
@@ -201,7 +213,12 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
         return;
       }
       Parse_PPS(buf, NumBytesInNalUnit);
-      m_NeedPPS = false;
+      if (m_NeedPPS)
+      {
+        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+        stream_info.extra_data_size += NumBytesInNalUnit;
+        m_NeedPPS = false;
+      }
       break;
     }
 
