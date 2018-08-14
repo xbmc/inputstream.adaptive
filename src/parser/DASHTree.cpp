@@ -1373,7 +1373,7 @@ void DASHTree::RefreshSegments()
         {
           //Locate adaptationset
           std::vector<AdaptationSet*>::const_iterator bad((*bpd)->adaptationSets_.begin()), ead((*bpd)->adaptationSets_.end());
-          for (; bad != ead && ((*bad)->id_ != (*ba)->id_ || (*bad)->group_ != (*ba)->group_); ++bad);
+          for (; bad != ead && ((*bad)->id_ != (*ba)->id_ || (*bad)->group_ != (*ba)->group_ || (*bad)->type_ != (*ba)->type_); ++bad);
           if (bad != ead)
           {
             for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)

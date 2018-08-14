@@ -336,6 +336,7 @@ bool AdaptiveStream::ensureSegment()
     {
       current_rep_->flags_ |= AdaptiveTree::Representation::WAITFORSEGMENT;
       Log(LOGLEVEL_DEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
     }
     else
