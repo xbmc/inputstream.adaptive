@@ -1833,7 +1833,7 @@ void Session::DisposeDecrypter()
 |   initialize
 +---------------------------------------------------------------------*/
 
-bool Session::initialize()
+bool Session::initialize(const std::uint8_t config)
 {
   if (!adaptiveTree_)
     return false;
@@ -1899,7 +1899,7 @@ bool Session::initialize()
       return false;
     }
 
-    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_))
+    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, config))
     {
       kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
       return false;
@@ -2549,6 +2549,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
+  std::uint8_t config(0);
+
   for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
   {
     if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_type") == 0)
@@ -2565,6 +2567,12 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_data: [not shown]");
       ld = props.m_ListItemProperties[i].m_strValue;
+    }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_flags") == 0)
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_flags: %s", props.m_ListItemProperties[i].m_strValue);
+      if (strstr(props.m_ListItemProperties[i].m_strValue, "persistent_storage") != nullptr)
+        config |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.server_certificate") == 0)
     {
@@ -2632,7 +2640,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     ov_audio));
   m_session->SetVideoResolution(m_width, m_height);
 
-  if (!m_session->initialize())
+  if (!m_session->initialize(config))
   {
     m_session = nullptr;
     return false;

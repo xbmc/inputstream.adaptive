@@ -1081,7 +1081,7 @@ public:
       return nullptr;
   }
 
-  virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate) override
+  virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate, const uint8_t config) override
   {
     if (key_system_ == NONE)
       return false;

@@ -175,9 +175,11 @@ namespace SSD
       uint32_t hdcpLimit; // If set, streams wich wxh > this value cannot be played.
     };
 
+    static const uint8_t CONFIG_PERSISTENTSTORAGE = 1;
+
     // Return supported URN if type matches to capabilities, otherwise null
     virtual const char *SelectKeySytem(const char* keySystem) = 0;
-    virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate) = 0;
+    virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate, const uint8_t config) = 0;
     virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid) = 0;
     virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 

@@ -332,7 +332,7 @@ private:
 class WV_DRM : public media::CdmAdapterClient
 {
 public:
-  WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert);
+  WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert, const uint8_t config);
   virtual ~WV_DRM();
 
   virtual void OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG msg, const uint8_t *data, size_t data_size, uint32_t status) override;
@@ -382,7 +382,7 @@ private:
   std::vector<WV_CencSingleSampleDecrypter*> ssds;
 };
 
-WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert)
+WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert, const uint8_t config)
   : license_url_(licenseURL)
   , host_instance_(0)
 {
@@ -420,7 +420,12 @@ WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert)
   strBasePath += cSep;
   host->CreateDirectory(strBasePath.c_str());
 
-  wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter("com.widevine.alpha", strLibPath, strBasePath, media::CdmConfig(false, false), (dynamic_cast<media::CdmAdapterClient*>(this))));
+  wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter(
+    "com.widevine.alpha",
+    strLibPath,
+    strBasePath,
+    media::CdmConfig(false, (config & SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE) != 0),
+    dynamic_cast<media::CdmAdapterClient*>(this)));
   if (!wv_adapter->valid())
   {
     Log(SSD_HOST::LL_ERROR, "Unable to load widevine shared library (%s)", strLibPath.c_str());
@@ -1370,9 +1375,9 @@ public:
     return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
-  virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate) override
+  virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate, const uint8_t config) override
   {
-    cdmsession_ = new WV_DRM(licenseURL, serverCertificate);
+    cdmsession_ = new WV_DRM(licenseURL, serverCertificate, config);
 
     return cdmsession_->GetCdmAdapter() != nullptr;
   }
