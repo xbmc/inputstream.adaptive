@@ -94,7 +94,7 @@ public:
     uint16_t display_height,
     const char *ov_audio);
   virtual ~Session();
-  bool initialize(const std::uint8_t config);
+  bool initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
   SampleReader *GetNextSample();
 
   struct STREAM

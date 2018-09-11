@@ -1833,7 +1833,7 @@ void Session::DisposeDecrypter()
 |   initialize
 +---------------------------------------------------------------------*/
 
-bool Session::initialize(const std::uint8_t config)
+bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 {
   if (!adaptiveTree_)
     return false;
@@ -1868,6 +1868,9 @@ bool Session::initialize(const std::uint8_t config)
     buf = kodi::GetSettingInt("MINBANDWIDTH"); min_bandwidth = buf;
     buf = kodi::GetSettingInt("MAXBANDWIDTH"); max_bandwidth = buf;
   }
+
+  if (max_bandwidth == 0 || max_bandwidth > max_user_bandwidth)
+    max_bandwidth = max_user_bandwidth;
 
   // create SESSION::STREAM objects. One for each AdaptationSet
   unsigned int i(0);
@@ -2550,6 +2553,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
   std::uint8_t config(0);
+  uint32_t max_user_bandwidth = 0;
 
   for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
   {
@@ -2605,6 +2609,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       ov_audio = props.m_ListItemProperties[i].m_strValue;
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.media_renewal_url") == 0)
       mru = props.m_ListItemProperties[i].m_strValue;
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.max_bandwidth") == 0)
+      max_user_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -2640,7 +2646,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     ov_audio));
   m_session->SetVideoResolution(m_width, m_height);
 
-  if (!m_session->initialize(config))
+  if (!m_session->initialize(config, max_user_bandwidth))
   {
     m_session = nullptr;
     return false;
