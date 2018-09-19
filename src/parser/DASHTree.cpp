@@ -1349,6 +1349,7 @@ void DASHTree::RefreshSegments()
     DASHTree updateTree;
     updateTree.manifest_headers_ = manifest_headers_;
     updateTree.base_time_ = base_time_;
+    updateTree.supportedKeySystem_ = supportedKeySystem_;
     if (!~update_parameter_pos_)
     {
       if (!etag_.empty())
