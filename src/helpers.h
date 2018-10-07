@@ -45,3 +45,5 @@ void prkid2wvkid(const char *input, char *output);
 char* KIDtoUUID(const uint8_t* kid, char* dst);
 bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data);
 void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString);
+
+#define MKTAG(a,b,c,d) ((a) | ((b) << 8) | ((c) << 16) | ((unsigned)(d) << 24))

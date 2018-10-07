@@ -387,7 +387,7 @@ RETRY:
         double ratio = (double)nbReadOverall / ref_packet;
         set_download_speed((get_download_speed() * (1.0 - ratio)) + current_download_speed_*ratio);
       }
-      kodi::Log(ADDON_LOG_DEBUG, "Download %s finished, average download speed: %0.4lf", url, get_download_speed());
+      kodi::Log(ADDON_LOG_DEBUG, "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url, get_download_speed(), current_download_speed_);
     }
     file.Close();
     return nbRead == 0;
@@ -2180,6 +2180,10 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
 
   strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
   stream.info_.m_codecInternalName[pos] = 0;
+  stream.info_.m_codecFourCC = 0;
+  stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNKNOWN;
+  stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
+  kodi::Log(ADDON_LOG_DEBUG, "XXX codec: %s", rep->codecs_.c_str());
 
   if (rep->codecs_.find("mp4a") == 0
   || rep->codecs_.find("aac") == 0)
@@ -2191,8 +2195,14 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   else if (rep->codecs_.find("avc") == 0
   || rep->codecs_.find("h264") == 0)
     strcpy(stream.info_.m_codecName, "h264");
-  else if (rep->codecs_.find("hev") == 0 || rep->codecs_.find("hvc") == 0)
+  else if (rep->codecs_.find("hev") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
+  else if (rep->codecs_.find("hvc") == 0)
+  {
+    stream.info_.m_codecFourCC = MKTAG(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]);
+    kodi::Log(ADDON_LOG_DEBUG, "XXX fourCC:%d", stream.info_.m_codecFourCC);
+    strcpy(stream.info_.m_codecName, "hevc");
+  }
   else if (rep->codecs_.find("vp9") == 0)
     strcpy(stream.info_.m_codecName, "vp9");
   else if (rep->codecs_.find("opus") == 0)
