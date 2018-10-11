@@ -86,5 +86,14 @@
         </setting>
       </group>
     </category>
+    <category id="expert" label="30120">
+      <group id="0">
+        <setting id="PRERELEASEFEATURES" type="boolean" label="30121">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
+      </group>
+    </category>
   </section>
 </settings>

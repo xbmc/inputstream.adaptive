@@ -331,7 +331,7 @@ start(void *data, const char *el, const char **attr)
                   s.range_end_ = dash->current_representation_->segments_.data.back().range_end_ + 1;
                 s.range_begin_ = s.startPTS_ = t;
                 s.startPTS_ -= dash->base_time_*dash->current_representation_->segtpl_.timescale;
-                
+
                 for (; r; --r)
                 {
                   dash->current_representation_->segments_.data.push_back(s);
@@ -1053,8 +1053,13 @@ end(void *data, const char *el)
                     seg.startPTS_ = 0;
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
-                  if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_ && dash->stream_start_ - dash->available_time_ > dash->overallSeconds_) //we need to adjust the start-segment
-                    seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration);
+                  if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_)
+                  {
+                    if (dash->stream_start_ - dash->available_time_ - dash->current_period_start_ > dash->overallSeconds_) //we need to adjust the start-segment
+                      seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration);
+                    else if (preReleaseFeatures && dash->stream_start_ - dash->available_time_ - dash->current_period_start_ > 0)
+                      seg.range_end_ -= static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->current_period_start_)*tpl.timescale) / tpl.duration);
+                  }
 
                   for (;countSegs;--countSegs)
                   {

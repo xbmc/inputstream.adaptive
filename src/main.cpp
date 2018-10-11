@@ -56,6 +56,9 @@
 
 #define SAFE_DELETE(p)       do { delete (p);     (p)=NULL; } while (0)
 
+//extern definition in helpers.h
+bool preReleaseFeatures = false;
+
 void Log(const LogLevel loglevel, const char* format, ...)
 {
   char buffer[16384];
@@ -1697,6 +1700,8 @@ Session::Session(MANIFEST_TYPE manifestType,
   int buf = kodi::GetSettingInt("STREAMSELECTION");
   kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", buf);
   manual_streams_ = buf != 0;
+
+  preReleaseFeatures = kodi::GetSettingBoolean("PRERELEASEFEATURES");
 
   buf = kodi::GetSettingInt("MEDIATYPE");
   switch (buf)

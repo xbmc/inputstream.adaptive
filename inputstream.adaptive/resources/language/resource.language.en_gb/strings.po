@@ -52,6 +52,14 @@ msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "Do not respect display resolution when selecting streams"
 
+msgctxt "#30120"
+msgid "Expert"
+msgstr ""
+
+msgctxt "#30121"
+msgid "Enable Pre-Release Features"
+msgstr ""
+
 msgctxt "#30150"
 msgid "Max"
 msgstr ""
