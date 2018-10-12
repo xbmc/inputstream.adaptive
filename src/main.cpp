@@ -1702,6 +1702,8 @@ Session::Session(MANIFEST_TYPE manifestType,
   manual_streams_ = buf != 0;
 
   preReleaseFeatures = kodi::GetSettingBoolean("PRERELEASEFEATURES");
+  if (preReleaseFeatures)
+    kodi::Log(ADDON_LOG_INFO, "PRERELEASEFEATURES enabled!");
 
   buf = kodi::GetSettingInt("MEDIATYPE");
   switch (buf)

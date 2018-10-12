@@ -1055,10 +1055,8 @@ end(void *data, const char *el)
 
                   if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_)
                   {
-                    if (dash->stream_start_ - dash->available_time_ - dash->current_period_start_ > dash->overallSeconds_) //we need to adjust the start-segment
-                      seg.range_end_ += static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration);
-                    else if (preReleaseFeatures && dash->stream_start_ - dash->available_time_ - dash->current_period_start_ > 0)
-                      seg.range_end_ -= static_cast<uint64_t>(((dash->stream_start_ - dash->available_time_ - dash->current_period_start_)*tpl.timescale) / tpl.duration);
+                    if (preReleaseFeatures || dash->stream_start_ - dash->available_time_ - dash->current_period_start_ > dash->overallSeconds_) //we need to adjust the start-segment
+                      seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration;
                   }
 
                   for (;countSegs;--countSegs)
