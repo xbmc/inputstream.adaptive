@@ -759,6 +759,26 @@ public:
     kodi::Log(ADDON_LOG_WARNING, "No HevcSampleDescription - annexb extradata not available");
     return false;
   }
+
+  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  {
+    if (!info.m_FpsRate)
+    {
+      if (AP4_HevcSampleDescription *hevc = AP4_DYNAMIC_CAST(AP4_HevcSampleDescription, sample_description))
+      {
+        bool ret = false;
+        if (hevc->GetConstantFrameRate() && hevc->GetAverageFrameRate())
+        {
+          info.m_FpsRate = hevc->GetAverageFrameRate();
+          info.m_FpsScale = 256;
+          ret = true;
+        }
+        return ret;
+      }
+    }
+    return false;
+  }
+
 };
 
 /***********************   MPEG   ************************/
