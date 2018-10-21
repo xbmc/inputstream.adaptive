@@ -1054,10 +1054,7 @@ end(void *data, const char *el)
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_)
-                  {
-                    if (preReleaseFeatures || dash->stream_start_ - dash->available_time_ - dash->current_period_start_ > dash->overallSeconds_) //we need to adjust the start-segment
-                      seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration;
-                  }
+                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration;
 
                   for (;countSegs;--countSegs)
                   {
