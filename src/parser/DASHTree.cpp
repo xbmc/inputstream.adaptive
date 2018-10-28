@@ -1422,24 +1422,35 @@ void DASHTree::RefreshSegments()
                 {
                   //TODO: check if first element or size differs
                   unsigned int segmentId((*brd)->getCurrentSegmentNumber());
-                  if (!(*br)->segments_.empty())
+                  if ((*br)->segments_[0]->startPTS_ == (*brd)->segments_[0]->startPTS_)
                   {
-                    uint64_t searchPts = (*br)->segments_[0]->startPTS_;
+                    uint64_t search_re = (*br)->segments_[0]->range_end_;
                     for (const auto &s : (*brd)->segments_.data)
                     {
-                      if (s.startPTS_ >= searchPts)
+                      if (s.range_end_ >= search_re)
                         break;
                       ++(*brd)->startNumber_;
                     }
-                    (*br)->segments_.swap((*brd)->segments_);
-                    if (!~segmentId || segmentId < (*brd)->startNumber_)
-                      (*brd)->current_segment_ = nullptr;
-                    else
+                  }
+                  else
+                  {
+                    uint64_t search_pts = (*br)->segments_[0]->startPTS_;
+                    for (const auto &s : (*brd)->segments_.data)
                     {
-                      if (segmentId >= (*brd)->startNumber_ + (*brd)->segments_.size())
-                        segmentId = (*brd)->startNumber_ + (*brd)->segments_.size() - 1;
-                      (*brd)->current_segment_ = (*brd)->get_segment(segmentId - (*brd)->startNumber_);
+                      if (s.startPTS_ >= search_pts)
+                        break;
+                      ++(*brd)->startNumber_;
                     }
+                  }
+
+                  (*br)->segments_.swap((*brd)->segments_);
+                  if (!~segmentId || segmentId < (*brd)->startNumber_)
+                    (*brd)->current_segment_ = nullptr;
+                  else
+                  {
+                    if (segmentId >= (*brd)->startNumber_ + (*brd)->segments_.size())
+                      segmentId = (*brd)->startNumber_ + (*brd)->segments_.size() - 1;
+                    (*brd)->current_segment_ = (*brd)->get_segment(segmentId - (*brd)->startNumber_);
                   }
 
                   if (((*brd)->flags_ & Representation::WAITFORSEGMENT) && (*brd)->get_next_segment((*brd)->current_segment_))
