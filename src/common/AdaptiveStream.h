@@ -77,9 +77,10 @@ namespace adaptive
     virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
-    bool PrepareDownload(const AdaptiveTree::Segment *seg);
-    void setEffectiveURL(const std::string url) { tree_.effective_url_ = url; };
+    bool prepareDownload(const AdaptiveTree::Segment *seg);
+    void setEffectiveURL(const std::string url) { tree_.effective_url_ = url; if (tree_.effective_url_.back() != '/') tree_.effective_url_ += '/'; };
     const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
+    std::string buildDownloadUrl(const std::string &url);
   private:
     // Segment download section
     void ResetSegment();

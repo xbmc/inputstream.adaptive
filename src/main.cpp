@@ -323,6 +323,7 @@ bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, s
 {
   bool retry = true;
   kodi::vfs::CFile file;
+  std::string newUrl;
 
 RETRY:
   // open the file
@@ -357,6 +358,8 @@ RETRY:
       {
         kodi::Log(ADDON_LOG_DEBUG, "Renewed URL: %s", items[0].Path().c_str());
         setEffectiveURL(items[0].Path());
+        newUrl = buildDownloadUrl(url);
+        url = newUrl.c_str();
         goto RETRY;
       }
       else
@@ -1896,7 +1899,7 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     buf = kodi::GetSettingInt("MAXBANDWIDTH"); max_bandwidth = buf;
   }
 
-  if (max_bandwidth == 0 || max_bandwidth > max_user_bandwidth)
+  if (max_bandwidth == 0 || (max_user_bandwidth && max_bandwidth > max_user_bandwidth))
     max_bandwidth = max_user_bandwidth;
 
   // create SESSION::STREAM objects. One for each AdaptationSet

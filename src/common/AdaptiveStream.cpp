@@ -205,7 +205,7 @@ bool AdaptiveStream::restart_stream()
     return false;
 
   /* lets download the initialization */
-  if (PrepareDownload(current_rep_->get_initialization()) && !download_segment())
+  if (prepareDownload(current_rep_->get_initialization()) && !download_segment())
     return false;
   download_url_.clear();
 
@@ -239,7 +239,7 @@ void AdaptiveStream::ReplacePlacehoder(std::string &url, uint64_t index, uint64_
   url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
 }
 
-bool AdaptiveStream::PrepareDownload(const AdaptiveTree::Segment *seg)
+bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
 {
   if (!seg)
     return false;
@@ -307,6 +307,17 @@ bool AdaptiveStream::PrepareDownload(const AdaptiveTree::Segment *seg)
   return true;
 }
 
+std::string AdaptiveStream::buildDownloadUrl(const std::string &url)
+{
+  if (!tree_.effective_url_.empty() && url.find(tree_.base_url_) == 0)
+  {
+    std::string newUrl(url);
+    newUrl.replace(0, tree_.base_url_.size(), tree_.effective_url_);
+    return newUrl;
+  }
+  return url;
+}
+
 bool AdaptiveStream::ensureSegment()
 {
   if (stopped_)
@@ -328,7 +339,7 @@ bool AdaptiveStream::ensureSegment()
     if (nextSegment)
     {
       current_rep_->current_segment_ = nextSegment;
-      PrepareDownload(nextSegment);
+      prepareDownload(nextSegment);
       ResetSegment();
       thread_data_->signal_dl_.notify_one();
     }
@@ -473,7 +484,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needR
       lckTree.lock();
       stopped_ = false;
       current_rep_->current_segment_ = newSeg;
-      PrepareDownload(newSeg);
+      prepareDownload(newSeg);
       absolute_position_ = 0;
       ResetSegment();
       thread_data_->signal_dl_.notify_one();
@@ -561,7 +572,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     seg.range_begin_ = current_rep_->indexRangeMin_;
     seg.range_end_ = current_rep_->indexRangeMax_;
 
-    if (PrepareDownload(&seg) && !download_segment())
+    if (prepareDownload(&seg) && !download_segment())
     {
       stopped_ = true;
       return false;
@@ -591,7 +602,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   if (!loadingSeg && current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZATION_PREFIXED)
     loadingSeg = current_rep_->get_segment(segid);
 
-  if (PrepareDownload(loadingSeg) && !download_segment())
+  if (prepareDownload(loadingSeg) && !download_segment())
   {
     stopped_ = true;
     return false;
