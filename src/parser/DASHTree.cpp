@@ -86,7 +86,7 @@ static uint8_t GetChannels(const char **attr)
   return 0;
 }
 
-static unsigned int ParseSegmentTemplate(const char **attr, std::string baseURL, DASHTree::SegmentTemplate &tpl)
+static unsigned int ParseSegmentTemplate(const char **attr, std::string baseURL, std::string baseDomain, DASHTree::SegmentTemplate &tpl)
 {
   unsigned int startNumber(1);
   for (; *attr;)
@@ -105,13 +105,23 @@ static unsigned int ParseSegmentTemplate(const char **attr, std::string baseURL,
   }
 
   if (tpl.media.compare(0, 7, "http://") != 0
-  && tpl.media.compare(0, 8, "https://") != 0)
-    tpl.media = baseURL + tpl.media;
+    && tpl.media.compare(0, 8, "https://") != 0)
+  {
+    if (!tpl.media.empty() && tpl.media[0] == '/')
+      tpl.media = baseDomain + tpl.media;
+    else
+      tpl.media = baseURL + tpl.media;
+  }
 
   if (!tpl.initialization.empty()
     && tpl.initialization.compare(0, 7, "http://") != 0
     && tpl.initialization.compare(0, 8, "https://") != 0)
-    tpl.initialization = baseURL + tpl.initialization;
+  {
+    if (!tpl.initialization.empty() && tpl.initialization[0] == '/')
+      tpl.initialization = baseDomain + tpl.initialization;
+    else
+      tpl.initialization = baseURL + tpl.initialization;
+  }
   return startNumber;
 }
 
@@ -423,7 +433,7 @@ start(void *data, const char *el, const char **attr)
           {
             dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
 
-            dash->current_representation_->startNumber_ = ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->current_representation_->segtpl_);
+            dash->current_representation_->startNumber_ = ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->base_domain_, dash->current_representation_->segtpl_);
             ReplacePlaceHolders(dash->current_representation_->segtpl_.media, dash->current_representation_->id, dash->current_representation_->bandwidth_);
             dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
             if (!dash->current_representation_->segtpl_.initialization.empty())
@@ -527,7 +537,7 @@ start(void *data, const char *el, const char **attr)
         }
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
-          dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_);
+          dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_, dash->base_domain_, dash->current_adaptationset_->segtpl_);
           dash->current_adaptationset_->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
           dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
         }
@@ -787,7 +797,7 @@ start(void *data, const char *el, const char **attr)
       }
       else if (strcmp(el, "SegmentTemplate") == 0)
       {
-        dash->current_period_->startNumber_ = ParseSegmentTemplate(attr, dash->current_period_->base_url_, dash->current_period_->segtpl_);
+        dash->current_period_->startNumber_ = ParseSegmentTemplate(attr, dash->current_period_->base_url_, dash->base_domain_, dash->current_period_->segtpl_);
         dash->current_period_->timescale_ = dash->current_period_->segtpl_.timescale;
         dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
       }
@@ -941,6 +951,8 @@ end(void *data, const char *el)
               if (dash->strXMLText_.compare(0, 7, "http://") == 0
                 || dash->strXMLText_.compare(0, 8, "https://") == 0)
                 url = dash->strXMLText_;
+              else if (!dash->strXMLText_.empty() && dash->strXMLText_[0] == '/')
+                url = dash->base_domain_ + dash->strXMLText_;
               else
                 url = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
 
@@ -1218,6 +1230,8 @@ end(void *data, const char *el)
           if (dash->strXMLText_.compare(0, 7, "http://") == 0
             || dash->strXMLText_.compare(0, 8, "https://") == 0)
             dash->current_period_->base_url_ = dash->strXMLText_;
+          else if (!dash->strXMLText_.empty() && dash->strXMLText_[0] == '/')
+            dash->current_period_->base_url_ = dash->base_domain_ + dash->strXMLText_;
           else
             dash->current_period_->base_url_ += dash->strXMLText_;
           dash->currentNode_ &= ~MPDNODE_BASEURL;
@@ -1250,6 +1264,8 @@ end(void *data, const char *el)
         if (dash->strXMLText_.compare(0, 7, "http://") == 0
           || dash->strXMLText_.compare(0, 8, "https://") == 0)
           dash->base_url_ = dash->strXMLText_;
+        else if (!dash->strXMLText_.empty() && dash->strXMLText_[0] == '/')
+          dash->base_url_ = dash->base_domain_ + dash->strXMLText_;
         else
           dash->base_url_ += dash->strXMLText_;
         dash->currentNode_ &= ~MPDNODE_BASEURL;
