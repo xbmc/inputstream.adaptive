@@ -2216,7 +2216,6 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_codecFourCC = 0;
   stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNKNOWN;
   stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
-  kodi::Log(ADDON_LOG_DEBUG, "XXX codec: %s", rep->codecs_.c_str());
 
   if (rep->codecs_.find("mp4a") == 0
   || rep->codecs_.find("aac") == 0)
@@ -2233,7 +2232,6 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   else if (rep->codecs_.find("hvc") == 0)
   {
     stream.info_.m_codecFourCC = MKTAG(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]);
-    kodi::Log(ADDON_LOG_DEBUG, "XXX fourCC:%d", stream.info_.m_codecFourCC);
     strcpy(stream.info_.m_codecName, "hevc");
   }
   else if (rep->codecs_.find("vp9") == 0)

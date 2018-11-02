@@ -876,7 +876,11 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
         for (i = 0; i < numTokens; ++i)
           if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[0].size() == static_cast<unsigned int>(tokens[i].end - tokens[i].start)
             && strncmp(response.c_str() + tokens[i].start, jsonVals[0].c_str(), tokens[i].end - tokens[i].start) == 0)
+          {
+            if (i + 1 < numTokens && tokens[i + 1].type == JSMN_ARRAY && tokens[i + 1].size == 1)
+              ++i;
             break;
+          }
       }
       else
         i = numTokens;
