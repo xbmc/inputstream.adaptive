@@ -2116,6 +2116,9 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
+    if (adp->repesentations_.empty())
+      continue;
+
     size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
 
     do {
