@@ -47,11 +47,14 @@ std::vector<char> CJNIMediaDrm::openSession() const
   jhbyteArray array = call_method<jhbyteArray>(m_object,
     "openSession", "()[B");
 
-  jsize size = env->GetArrayLength(array.get());
-
   std::vector<char> result;
-  result.resize(size);
-  env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
+
+  if (!env->ExceptionCheck())
+  {
+    jsize size = env->GetArrayLength(array.get());
+    result.resize(size);
+    env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
+  }
 
   return result;
 }

@@ -300,7 +300,6 @@ public:
 
   void GetCapabilities(const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps);
 
-  void RequestProvision() { provisionRequested = true; };
   void RequestNewKeys() { keyUpdateRequested = true; };
 
 private:
@@ -338,6 +337,7 @@ private:
 WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t* defaultKeyId)
   : AP4_CencSingleSampleDecrypter(0)
   , media_drm_(drm)
+  , provisionRequested(false)
   , keyUpdateRequested(false)
   , hdcp_limit_(0)
   , resolution_limit_(0)
@@ -385,12 +385,24 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   if (optionalKeyParameter)
     optParams_["PRCustomData"] = optionalKeyParameter;
 
+RETRY_OPEN:
   session_id_ = media_drm_.GetMediaDrm()->openSession();
   if (xbmc_jnienv()->ExceptionCheck())
   {
-    Log(SSD_HOST::LL_ERROR, "Exception during open session");
     xbmc_jnienv()->ExceptionClear();
-    return;
+    if (!provisionRequested)
+    {
+      Log(SSD_HOST::LL_ERROR, "Exception during open session - provisioning...");
+      provisionRequested = true;
+      if (!ProvisionRequest())
+        return;
+      goto RETRY_OPEN;
+    }
+    else
+    {
+      Log(SSD_HOST::LL_ERROR, "Exception during open session - abort");
+      return;
+    }
   }
 
   if (session_id_.size() == 0)
