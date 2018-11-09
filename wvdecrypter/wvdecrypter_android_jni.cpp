@@ -630,6 +630,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
     {
       std::string::size_type sidPos(blocks[2].find("{SID}"));
       std::string::size_type kidPos(blocks[2].find("{KID}"));
+
+      char fullDecode = 0;
+      if (insPos && sidPos > 0 && kidPos > 0 && blocks[2][0] == 'B' && blocks[2][1] == '{')
+      {
+        fullDecode = blocks[2][0];
+        blocks[2] = blocks[2].substr(2, blocks[2].size() - 3);
+      }
+
       size_t size_written(0);
 
       if (insPos > 0)
@@ -705,6 +713,9 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
           blocks[2].replace(kidPos, 5, (const char*)uuid, 36);
         }
       }
+
+      if (fullDecode)
+        blocks[2] = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), fullDecode == 'B');
     }
     std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
     host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
