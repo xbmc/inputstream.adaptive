@@ -636,6 +636,11 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       {
         fullDecode = blocks[2][0];
         blocks[2] = blocks[2].substr(2, blocks[2].size() - 3);
+        insPos -= 2;
+        if (kidPos != std::string::npos)
+          kidPos -= 2;
+        if (sidPos != std::string::npos)
+          sidPos -= 2;
       }
 
       size_t size_written(0);
