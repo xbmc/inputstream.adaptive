@@ -35,6 +35,7 @@
 #include "parser/SmoothTree.h"
 #include "parser/HLSTree.h"
 #include "parser/TTML.h"
+#include "parser/WebVTT.h"
 #include "TSReader.h"
 #include "ADTSReader.h"
 
@@ -869,6 +870,60 @@ private:
   AP4_UI64 m_ptsOffset;
 };
 
+/***********************   TTML   ************************/
+
+class WebVTTCodecHandler : public CodecHandler
+{
+public:
+  WebVTTCodecHandler(AP4_SampleDescription *sd)
+    :CodecHandler(sd)
+    , m_ptsOffset(0)
+  {};
+
+  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  {
+    return m_webVtt.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
+  }
+
+  virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) override
+  {
+    uint64_t pts;
+    uint32_t dur;
+
+    if (m_webVtt.Prepare(pts, dur))
+    {
+      buf.SetData(static_cast<const AP4_Byte*>(m_webVtt.GetData()), m_webVtt.GetDataSize());
+      sample.SetDts(pts);
+      sample.SetCtsDelta(0);
+      sample.SetDuration(dur);
+      return true;
+    }
+    else
+      buf.SetDataSize(0);
+    return false;
+  }
+
+  virtual void SetPTSOffset(AP4_UI64 offset) override
+  {
+    m_ptsOffset = offset;
+  };
+
+  virtual bool TimeSeek(AP4_UI64 seekPos) override
+  {
+    return m_webVtt.TimeSeek(seekPos);
+  };
+
+  virtual void Reset() override
+  {
+    m_webVtt.Reset();
+  }
+
+
+private:
+  WebVTT m_webVtt;
+  AP4_UI64 m_ptsOffset;
+};
+
 /*******************************************************
 |   SampleReader
 ********************************************************/
@@ -1292,6 +1347,9 @@ private:
     case AP4_SAMPLE_FORMAT_STPP:
       m_codecHandler = new TTMLCodecHandler(desc);
       break;
+    case AP4_SAMPLE_FORMAT_WVTT:
+      m_codecHandler = new WebVTTCodecHandler(desc);
+      break;
     default:
       m_codecHandler = new CodecHandler(desc);
       break;
@@ -1335,11 +1393,10 @@ private:
 class SubtitleSampleReader : public SampleReader
 {
 public:
-  SubtitleSampleReader(const std::string &url, AP4_UI32 streamId)
+  SubtitleSampleReader(const std::string &url, AP4_UI32 streamId, const std::string &codecInternalName)
     : m_pts(0)
     , m_streamId(streamId)
     , m_eos(false)
-    , m_codecHandler(nullptr)
   {
     // open the file
     kodi::vfs::CFile file;
@@ -1360,7 +1417,11 @@ public:
       result.AppendData(buf, nbRead);
     file.Close();
 
-    m_codecHandler.Transform(result, 1000);
+    if (codecInternalName == "wvtt")
+      m_codecHandler = new WebVTTCodecHandler(nullptr);
+    else
+      m_codecHandler = new TTMLCodecHandler(nullptr);
+    m_codecHandler->Transform(result, 1000);
   };
 
   virtual bool EOS()const override { return m_eos; };
@@ -1370,7 +1431,7 @@ public:
   virtual AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
   virtual AP4_Result ReadSample() override
   {
-    if (m_codecHandler.ReadNextSample(m_sample, m_sampleData))
+    if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
     {
       m_pts = m_sample.GetCts() * 1000;
       return AP4_SUCCESS;
@@ -1382,7 +1443,7 @@ public:
   virtual bool GetInformation(INPUTSTREAM_INFO &info) override { return false; };
   virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
-    if (m_codecHandler.TimeSeek(pts / 1000))
+    if (m_codecHandler->TimeSeek(pts / 1000))
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
@@ -1399,7 +1460,7 @@ private:
   AP4_UI32 m_streamId;
   bool m_eos;
 
-  TTMLCodecHandler m_codecHandler;
+  CodecHandler *m_codecHandler;
 
   AP4_Sample m_sample;
   AP4_DataBuffer m_sampleData;
@@ -2240,7 +2301,7 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "opus");
   else if (rep->codecs_.find("vorbis") == 0)
     strcpy(stream.info_.m_codecName, "vorbis");
-  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0)
+  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0 || rep->codecs_.find("wvtt") == 0)
     strcpy(stream.info_.m_codecName, "srt");
   else
     stream.valid = false;
@@ -2855,7 +2916,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
   {
-    stream->reader_ = new SubtitleSampleReader(rep->url_, streamid);
+    stream->reader_ = new SubtitleSampleReader(rep->url_, streamid, stream->info_.m_codecInternalName);
     return false;
   }
 

@@ -15,6 +15,7 @@ set(ADP_SOURCES
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
 	src/parser/TTML.cpp
+	src/parser/WebVTT.cpp
 	src/common/AdaptiveStream.cpp
 	src/helpers.cpp
 	src/oscompat.cpp
@@ -35,6 +36,7 @@ set(ADP_HEADERS
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
 	src/parser/TTML.h
+	src/parser/WebVTT.h
 	src/TSReader.h
 	src/log.h
 	src/aes_decrypter.h

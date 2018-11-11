@@ -613,7 +613,8 @@ start(void *data, const char *el, const char **attr)
           }
 
           if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE
-          && dash->current_adaptationset_->mimeType_ == "application/ttml+xml")
+          && (dash->current_adaptationset_->mimeType_ == "application/ttml+xml"
+            || dash->current_adaptationset_->mimeType_ == "text/vtt"))
             dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
 
           dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
