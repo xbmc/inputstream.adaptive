@@ -44,7 +44,8 @@ enum
   MPDNODE_S = 1 << 11,
   MPDNODE_PSSH = 1 << 12,
   MPDNODE_SEGMENTTEMPLATE = 1 << 13,
-  MPDNODE_SEGMENTTIMELINE = 1 << 14
+  MPDNODE_SEGMENTTIMELINE = 1 << 14,
+  MPDNODE_ROLE = 1 << 15
 };
 
 static const char* ltranslate(const char * in)
@@ -669,6 +670,22 @@ start(void *data, const char *el, const char **attr)
           dash->strXMLText_.clear();
           dash->currentNode_ |= MPDNODE_BASEURL;
         }
+        else if (strcmp(el, "Role") == 0)
+        {
+          if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE)
+          {
+            for (; *attr;)
+            {
+              if (strcmp((const char*)*attr, "value") == 0)
+              {
+                if (strcmp((const char*)*(attr + 1), "forced") == 0)
+                  dash->current_adaptationset_->forced_ = true;
+                break;
+              }
+              attr += 2;
+            }
+          }
+        }
       }
       else if (dash->currentNode_ & (MPDNODE_SEGMENTLIST | MPDNODE_SEGMENTTEMPLATE))
       {
@@ -784,7 +801,8 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->type_ = DASHTree::VIDEO;
           else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
             dash->current_adaptationset_->type_ = DASHTree::AUDIO;
-          else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application", 11) == 0)
+          else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application", 11) == 0
+          || strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
             dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
         }
 

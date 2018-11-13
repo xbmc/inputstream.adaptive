@@ -2217,6 +2217,8 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         break;
       case adaptive::AdaptiveTree::SUBTITLE:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
+        if (adp->forced_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_FORCED;
         break;
       default:
         break;

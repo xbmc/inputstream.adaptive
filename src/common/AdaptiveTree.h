@@ -249,13 +249,13 @@ namespace adaptive
 
     struct AdaptationSet
     {
-      AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false){ language_ = "unk"; };
+      AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
       ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_, duration_;
       uint64_t startPTS_;
       unsigned int startNumber_;
-      bool impaired_, original_, default_;
+      bool impaired_, original_, default_, forced_;
       std::string language_;
       std::string mimeType_;
       std::string base_url_;
