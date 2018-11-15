@@ -604,7 +604,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   void* file = host->CURLCreate(blocks[0].c_str());
 
   size_t nbRead;
-  std::string response, resLimit;
+  std::string response, resLimit, contentType;
   char buf[2048];
 
   //Set our std headers
@@ -737,6 +737,8 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
     response += std::string((const char*)buf, nbRead);
 
   resLimit = host->CURLGetProperty(file, SSD_HOST::CURLPROPERTY::PROPERTY_HEADER, "X-Limit-Video");
+  contentType = host->CURLGetProperty(file, SSD_HOST::CURLPROPERTY::PROPERTY_HEADER, "Content-Type");
+
   if (!resLimit.empty())
   {
     std::string::size_type posMax = resLimit.find("max=", 0);
@@ -780,7 +782,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   fclose(f);
 #endif
 
-  if (!blocks[3].empty())
+  if (!blocks[3].empty() && (keyRequestData.size() > 2 || contentType.find("application/octet-stream") == std::string::npos))
   {
     if (blocks[3][0] == 'J')
     {

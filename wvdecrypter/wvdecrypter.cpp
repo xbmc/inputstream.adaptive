@@ -702,7 +702,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   size_t nbRead;
   std::string response, resLimit, contentType;
   char buf[2048];
-  bool serverCertRequest, binaryResponse;
+  bool serverCertRequest;
 
   //Set our std headers
   host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
