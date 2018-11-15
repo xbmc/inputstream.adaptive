@@ -700,8 +700,9 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   void* file = host->CURLCreate(blocks[0].c_str());
 
   size_t nbRead;
-  std::string response, resLimit;
+  std::string response, resLimit, contentType;
   char buf[2048];
+  bool serverCertRequest, binaryResponse;
 
   //Set our std headers
   host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
@@ -729,7 +730,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       std::string::size_type kidPos(blocks[2].find("{KID}"));
 
       char fullDecode = 0;
-      if (insPos && sidPos > 0 && kidPos > 0 && blocks[2][0] == 'B' && blocks[2][1] == '{')
+      if (insPos > 1 && sidPos > 1 && kidPos > 1 && (blocks[2][0] == 'b' || blocks[2][0] == 'B') && blocks[2][1] == '{')
       {
         fullDecode = blocks[2][0];
         blocks[2] = blocks[2].substr(2, blocks[2].size() - 3);
@@ -823,6 +824,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
   }
 
+  serverCertRequest = challenge_.GetDataSize() == 2;
   challenge_.SetDataSize(0);
 
   if (!host->CURLOpen(file))
@@ -836,6 +838,8 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     response += std::string((const char*)buf, nbRead);
 
   resLimit = host->CURLGetProperty(file, SSD_HOST::CURLPROPERTY::PROPERTY_HEADER, "X-Limit-Video");
+  contentType = host->CURLGetProperty(file, SSD_HOST::CURLPROPERTY::PROPERTY_HEADER, "Content-Type");
+
   if (!resLimit.empty())
   {
     std::string::size_type posMax = resLimit.find("max=", 0);
@@ -864,7 +868,10 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
     Log(SSD_HOST::LL_DEBUG, "%s: could not open debug file for writing (response)!", __func__);
 #endif
 
-  if (!blocks[3].empty())
+  if (serverCertRequest && contentType.find("application/octet-stream") == std::string::npos)
+    serverCertRequest = false;
+
+  if (!blocks[3].empty() && !serverCertRequest)
   {
     if (blocks[3][0] == 'J')
     {
@@ -1129,7 +1136,10 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   }
 
   if (!fragInfo.key_)
+  {
+    Log(SSD_HOST::LL_DEBUG, "DecryptSampleData: No Key");
     return AP4_ERROR_INVALID_PARAMETERS;
+  }
 
   // the output has the same size as the input
   data_out.SetDataSize(data_in.GetDataSize());
@@ -1140,7 +1150,9 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   // check input parameters
   if (iv == NULL) return AP4_ERROR_INVALID_PARAMETERS;
   if (subsample_count) {
-    if (bytes_of_cleartext_data == NULL || bytes_of_encrypted_data == NULL) {
+    if (bytes_of_cleartext_data == NULL || bytes_of_encrypted_data == NULL)
+    {
+      Log(SSD_HOST::LL_DEBUG, "DecryptSampleData: inputparams invalid");
       return AP4_ERROR_INVALID_PARAMETERS;
     }
   }
@@ -1229,6 +1241,13 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
       memcpy(data_out.UseData() + absPos, decrypt_out_.GetData() + cipherPos, bytes_of_encrypted_data[i]);
       absPos += bytes_of_encrypted_data[i], cipherPos += bytes_of_encrypted_data[i];
     }
+  }
+
+  if (ret != cdm::Status::kSuccess)
+  {
+    char buf[36]; buf[32] = 0;
+    AP4_FormatHex(fragInfo.key_, 16, buf);
+    Log(SSD_HOST::LL_DEBUG, "DecryptSampleData: Decrypt failed with error: %d and key: %s", ret, buf);
   }
 
   return (ret == cdm::Status::kSuccess) ? AP4_SUCCESS : AP4_ERROR_INVALID_PARAMETERS;

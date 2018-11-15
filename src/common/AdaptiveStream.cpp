@@ -426,7 +426,7 @@ uint64_t AdaptiveStream::getMaxTimeMs()
   if (current_rep_->segments_.empty())
     return 0;
 
-  uint32_t duration = current_rep_->segments_.size() > 1
+  uint64_t duration = current_rep_->segments_.size() > 1
     ? current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ - current_rep_->segments_[current_rep_->segments_.size() - 2]->startPTS_
     : 0;
 

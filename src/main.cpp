@@ -2133,14 +2133,25 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         kodi::Log(ADDON_LOG_DEBUG, "Initializing stream with KID: %s", hexkid);
 
         for (unsigned int i(1); i < ses; ++i)
-          if (decrypter_ && decrypter_->HasLicenseKey(cdm_sessions_[i].single_sample_decryptor_, (const uint8_t *)defkid))
+          if (decrypter_->HasLicenseKey(cdm_sessions_[i].single_sample_decryptor_, (const uint8_t *)defkid))
           {
             session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
             session.shared_single_sample_decryptor_ = true;
+            break;
           }
       }
       else if (!defkid)
-        kodi::Log(ADDON_LOG_WARNING, "Initializing stream with unknown KID!");
+      {
+        for (unsigned int i(1); i < ses; ++i)
+          if (adaptiveTree_->psshSets_[ses].pssh_ == adaptiveTree_->psshSets_[i].pssh_)
+          {
+            session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
+            session.shared_single_sample_decryptor_ = true;
+            break;
+          }
+        if (!session.single_sample_decryptor_)
+          kodi::Log(ADDON_LOG_WARNING, "Initializing stream with unknown KID!");
+      }
 
       if (decrypter_ && init_data.GetDataSize() >= 4 && (session.single_sample_decryptor_
         || (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(init_data, optionalKeyParameter, (const uint8_t *)defkid)) != 0))
