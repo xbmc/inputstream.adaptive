@@ -2591,7 +2591,7 @@ public:
   virtual bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
   virtual bool AddData(const DemuxPacket &packet) override;
   virtual VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
-  virtual const char *GetName() override;
+  virtual const char *GetName() override { return m_name.c_str(); };
   virtual void Reset() override;
 
 private:
@@ -2602,6 +2602,7 @@ private:
 
   std::shared_ptr<Session> m_session;
   unsigned int m_state;
+  std::string m_name;
 };
 
 /*******************************************************/
@@ -3124,6 +3125,7 @@ CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance)
   : CInstanceVideoCodec(instance)
   , m_session(nullptr)
   , m_state(0)
+  , m_name("inputstream.adaptive.decoder")
 {
 }
 
@@ -3152,6 +3154,16 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA &initData)
   m_state &= ~STATE_WAIT_EXTRADATA;
 
   kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open");
+
+  m_name = "inputstream.adaptive";
+  switch (initData.codec)
+  {
+  case VIDEOCODEC_INITDATA::CodecVp8: m_name += ".vp8"; break;
+  case VIDEOCODEC_INITDATA::CodecH264: m_name += ".h264"; break;
+  case VIDEOCODEC_INITDATA::CodecVp9: m_name += ".vp9"; break;
+  default:;
+  }
+  m_name += ".decoder";
 
   std::string sessionId(initData.cryptoInfo.m_CryptoSessionId, initData.cryptoInfo.m_CryptoSessionIdSize);
   AP4_CencSingleSampleDecrypter *ssd(m_session->GetSingleSampleDecrypter(sessionId));
@@ -3205,11 +3217,6 @@ VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE &picture)
   };
 
   return vrvm[m_session->GetDecrypter()->DecodeVideo(dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), nullptr, reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
-}
-
-const char *CVideoCodecAdaptive::GetName()
-{
-  return "inputstream.adaptive.decoder";
 }
 
 void CVideoCodecAdaptive::Reset()
