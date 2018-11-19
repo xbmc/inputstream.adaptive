@@ -501,19 +501,43 @@ public:
   virtual bool GetInformation(INPUTSTREAM_INFO &info)
   {
     AP4_GenericAudioSampleDescription* asd(nullptr);
-    if (sample_description && (asd = dynamic_cast<AP4_GenericAudioSampleDescription*>(sample_description)))
+    if (sample_description)
     {
-      if ((!info.m_Channels && asd->GetChannelCount() != info.m_Channels)
-        || (!info.m_SampleRate && asd->GetSampleRate() != info.m_SampleRate)
-        || (!info.m_BitsPerSample && asd->GetSampleSize() != info.m_BitsPerSample))
+      if (asd = dynamic_cast<AP4_GenericAudioSampleDescription*>(sample_description))
       {
-        if (!info.m_Channels)
-          info.m_Channels = asd->GetChannelCount();
-        if (!info.m_SampleRate)
-          info.m_SampleRate = asd->GetSampleRate();
-        if (!info.m_BitsPerSample)
-          info.m_BitsPerSample = asd->GetSampleSize();
-        return true;
+        if ((!info.m_Channels && asd->GetChannelCount() != info.m_Channels)
+          || (!info.m_SampleRate && asd->GetSampleRate() != info.m_SampleRate)
+          || (!info.m_BitsPerSample && asd->GetSampleSize() != info.m_BitsPerSample))
+        {
+          if (!info.m_Channels)
+            info.m_Channels = asd->GetChannelCount();
+          if (!info.m_SampleRate)
+            info.m_SampleRate = asd->GetSampleRate();
+          if (!info.m_BitsPerSample)
+            info.m_BitsPerSample = asd->GetSampleSize();
+          return true;
+        }
+      }
+      else
+      {
+        //Netflix Framerate
+        AP4_Atom *atom;
+        AP4_UnknownUuidAtom *nxfr;
+        static const AP4_UI08 uuid[16] = { 0x4e,0x65,0x74,0x66,0x6c,0x69,0x78,0x46,0x72,0x61,0x6d,0x65,0x52,0x61,0x74,0x65 };
+
+        if ((atom = sample_description->GetDetails().GetChild(static_cast<const AP4_UI08*>(uuid), 0))
+          && (nxfr = dynamic_cast<AP4_UnknownUuidAtom*>(atom)) && nxfr->GetData().GetDataSize() == 10)
+        {
+          AP4_UI16 fpsRate = nxfr->GetData().GetData()[7] | nxfr->GetData().GetData()[6] << 8;
+          AP4_UI16 fpsScale = nxfr->GetData().GetData()[9] | nxfr->GetData().GetData()[8] << 8;
+
+          if (info.m_FpsScale != fpsScale || info.m_FpsRate != fpsRate)
+          {
+            info.m_FpsScale = fpsScale;
+            info.m_FpsRate = fpsRate;
+            return true;
+          }
+        }
       }
     }
     return false;
