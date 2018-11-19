@@ -821,23 +821,24 @@ public:
       extra_data.SetData(aac->GetDecoderInfo().GetData(), aac->GetDecoderInfo().GetDataSize());
   }
 
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+};
+
+/***********************   VP9   ************************/
+
+class VP9CodecHandler : public CodecHandler
+{
+public:
+  VP9CodecHandler(AP4_SampleDescription *sd)
+    :CodecHandler(sd)
   {
-    AP4_AudioSampleDescription *asd;
-    if (sample_description && (asd = AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, sample_description)))
+    if (AP4_Atom *atom = sample_description->GetDetails().GetChild(AP4_ATOM_TYPE_VPCC, 0))
     {
-      if (asd->GetChannelCount() != info.m_Channels
-        || asd->GetSampleRate() != info.m_SampleRate
-        || asd->GetSampleSize() != info.m_BitsPerSample)
-      {
-        info.m_Channels = asd->GetChannelCount();
-        info.m_SampleRate = asd->GetSampleRate();
-        info.m_BitsPerSample = asd->GetSampleSize();
-        return true;
-      }
+      AP4_VpcCAtom *vpcc(AP4_DYNAMIC_CAST(AP4_VpcCAtom, atom));
+      if (vpcc)
+        extra_data.SetData(vpcc->GetData().GetData(), vpcc->GetData().GetDataSize());
     }
-    return false;
   }
+
 };
 
 /***********************   TTML   ************************/
@@ -1373,6 +1374,9 @@ private:
       break;
     case AP4_SAMPLE_FORMAT_WVTT:
       m_codecHandler = new WebVTTCodecHandler(desc);
+      break;
+    case AP4_SAMPLE_FORMAT_VP09:
+      m_codecHandler = new VP9CodecHandler(desc);
       break;
     default:
       m_codecHandler = new CodecHandler(desc);

@@ -93,6 +93,7 @@ const AP4_UI32 AP4_SAMPLE_FORMAT_VC_1 = AP4_ATOM_TYPE('v','c','-','1');
 const AP4_UI32 AP4_SAMPLE_FORMAT_STPP = AP4_ATOM_TYPE('s','t','p','p');
 const AP4_UI32 AP4_SAMPLE_FORMAT_XML_ = AP4_ATOM_TYPE('x','m','l',' ');
 const AP4_UI32 AP4_SAMPLE_FORMAT_WVTT = AP4_ATOM_TYPE('w','v','t','t');
+const AP4_UI32 AP4_SAMPLE_FORMAT_VP09 = AP4_ATOM_TYPE('v','p','0','9');
 
 const char*
 AP4_GetFormatName(AP4_UI32 format);

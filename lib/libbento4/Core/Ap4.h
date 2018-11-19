@@ -313,6 +313,7 @@
 #include "../Codecs/Ap4AdtsParser.h"
 #include "../Codecs/Ap4AvcParser.h"
 #include "Ap4SegmentBuilder.h"
+#include "Ap4VpcCAtom.h"
 
 /*----------------------------------------------------------------------
 |   global functions
