@@ -503,7 +503,7 @@ public:
     AP4_GenericAudioSampleDescription* asd(nullptr);
     if (sample_description)
     {
-      if (asd = dynamic_cast<AP4_GenericAudioSampleDescription*>(sample_description))
+      if ((asd = dynamic_cast<AP4_GenericAudioSampleDescription*>(sample_description)))
       {
         if ((!info.m_Channels && asd->GetChannelCount() != info.m_Channels)
           || (!info.m_SampleRate && asd->GetSampleRate() != info.m_SampleRate)

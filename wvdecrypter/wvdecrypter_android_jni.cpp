@@ -537,7 +537,7 @@ bool WV_CencSingleSampleDecrypter::KeyUpdateRequest(bool waitKeys)
   optParams_.clear();
 
   std::vector<char> keyRequestData = keyRequest.getData();
-  Log(SSD_HOST::LL_DEBUG, "Key request successful size: %lu/*, type:%d*/", keyRequestData.size()/*, keyRequest.getRequestType()*/);
+  Log(SSD_HOST::LL_DEBUG, "Key request successful size: %lu", keyRequestData.size());
 
   if (!SendSessionMessage(keyRequestData))
     return false;

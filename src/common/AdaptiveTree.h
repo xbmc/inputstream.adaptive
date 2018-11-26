@@ -300,6 +300,12 @@ namespace adaptive
           if (a->repesentations_[0]->channelCount_ != b->repesentations_[0]->channelCount_)
             return a->repesentations_[0]->channelCount_ < b->repesentations_[0]->channelCount_;
         }
+        else if (a->type_ == SUBTITLE)
+        {
+          if (a->forced_ != b->forced_)
+            return a->forced_;
+        }
+
         return false;
       };
 
