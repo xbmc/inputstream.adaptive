@@ -680,6 +680,8 @@ start(void *data, const char *el, const char **attr)
               {
                 if (strcmp((const char*)*(attr + 1), "forced") == 0)
                   dash->current_adaptationset_->forced_ = true;
+                else
+                  dash->current_adaptationset_->default_ = true;
                 break;
               }
               attr += 2;

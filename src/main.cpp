@@ -2258,6 +2258,8 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
         if (adp->forced_)
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_FORCED;
+        if (adp->default_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
         break;
       default:
         break;
