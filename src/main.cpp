@@ -264,6 +264,12 @@ Kodi Streams implementation
 
 bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque, bool scanEffectiveURL)
 {
+  std::string dummy_str;
+  return adaptive::AdaptiveTree::download_ext(url, manifestHeaders, opaque, scanEffectiveURL, false, dummy_str);
+}
+
+bool adaptive::AdaptiveTree::download_ext(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque, bool scanEffectiveURL, bool returnCookies, std::string &cookies)
+{
   // open the file
   kodi::vfs::CFile file;
   if (!file.CURLCreate(url))
@@ -310,6 +316,27 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
 
   etag_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
   last_modified_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
+  
+  if (returnCookies)
+  {
+    const std::vector<std::string> c = file.GetPropertyValues(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Set-Cookie");
+    
+    cookies = "";
+    bool first = true;
+    for (const auto &entry : c)
+    {
+      std::string::size_type pos(entry.find(';'));
+      if (pos != std::string::npos)
+      {
+        if (first)
+          first = false;
+        else
+          cookies += "; ";
+
+        cookies += entry.substr(0, pos);
+      }
+    }
+  }
 
   //download_speed_ = file.GetFileDownloadSpeed();
 

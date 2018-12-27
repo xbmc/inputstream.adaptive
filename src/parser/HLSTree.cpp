@@ -80,7 +80,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
 {
   PreparePaths(url, manifestUpdateParam);
   std::stringstream stream;
-  if (download(manifest_url_.c_str(), manifest_headers_, &stream))
+  if (download_ext(manifest_url_.c_str(), manifest_headers_, &stream, true, true, manifest_cookies))
   {
 #if FILEDEBUG
     FILE *f = fopen("inputstream_adaptive_master.m3u8", "w");
@@ -516,8 +516,10 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
             url += "&";
           url += keyParts[0];
         }
-        if (keyParts.size() > 1)
+        if (keyParts.size() > 1 && !keyParts[1].empty())
           parseheader(headers, keyParts[1].c_str());
+        if (keyParts.size() > 2 && keyParts[2].compare("manifest_cookies") == 0 && manifest_cookies.size() > 0)
+          headers["Cookie"] = manifest_cookies;
         if (download(url.c_str(), headers, &stream, false))
         {
           pssh.defaultKID_ = stream.str();
