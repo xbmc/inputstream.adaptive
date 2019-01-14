@@ -389,7 +389,7 @@ start(void *data, const char *el, const char **attr)
           }
           else if (strcmp(el, "SegmentList") == 0)
           {
-            uint32_t dur(0), ts(0);
+            uint32_t dur(0), ts(1);
             for (; *attr;)
             {
               if (strcmp((const char*)*attr, "duration") == 0)
