@@ -145,9 +145,10 @@ static void XMLCALL
 text(void *data, const char *s, int len)
 {
   TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
-  
+
   if (ttml->m_node & TTML2SRT::NODE_P)
-    ttml->m_strXMLText += std::string(s, len);
+    if (len > 1 || s[len - 1] != '\n')
+      ttml->m_strXMLText += std::string(s, len);
 }
 
 static void XMLCALL
@@ -290,11 +291,14 @@ uint64_t TTML2SRT::GetTime(const char *tmchar)
   else
   {
     unsigned int th, tm, ts, tms;
-    char del;
-    if (sscanf(tmchar, "%u:%u:%u%c%2u", &th, &tm, &ts, &del, &tms) == 5)
+    char del, ctms[3];
+    if (sscanf(tmchar, "%u:%u:%u%c%3c", &th, &tm, &ts, &del, ctms) == 5)
     {
+      sscanf(ctms, "%3u", &tms);
+      if (strlen(ctms) == 2)
+        tms = tms*10;
       ret = th * 3600 + tm * 60 + ts;
-      ret = ret * 1000 + tms * 10;
+      ret = ret * 1000 + tms;
       ret = (ret * m_timescale) / 1000;
     }
   }
@@ -332,7 +336,7 @@ void TTML2SRT::StackText()
     if (!curStyle.color.empty())
     {
       strFmt = "<font color=" + curStyle.color + ">";
-      strFmtEnd = "</color>";
+      strFmtEnd = "</font>";
     }
     if (curStyle.bold == 1)
     {
