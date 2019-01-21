@@ -2133,7 +2133,11 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         if (manifest_type_ == MANIFEST_TYPE_ISM)
         {
           if (license_type_ == "com.widevine.alpha")
+          {
+            if (license_data_.empty())
+              license_data_ = "e0tJRH0="; // {KID}
             create_ism_license(adaptiveTree_->psshSets_[ses].defaultKID_, license_data_, init_data);
+          }
           else
           {
             init_data.SetData(reinterpret_cast<const uint8_t*>(adaptiveTree_->psshSets_[ses].pssh_.data()), adaptiveTree_->psshSets_[ses].pssh_.size());

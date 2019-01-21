@@ -248,20 +248,13 @@ public:
   virtual const char *GetSessionId() override;
   void SetSession(const char* session, uint32_t session_size, const uint8_t *data, size_t data_size)
   {
+    std::lock_guard<std::mutex> lock(renewal_lock_);
+
     session_ = std::string(session, session_size);
     challenge_.SetData(data, data_size);
   }
 
-  void AddSessionKey(const uint8_t *data, size_t data_size, uint32_t status)
-  {
-    WVSKEY key;
-    std::vector<WVSKEY>::iterator res;
-
-    key.keyid = std::string((const char*)data, data_size);
-    if ((res = std::find(keys_.begin(), keys_.end(), key)) == keys_.end())
-      res = keys_.insert(res, key);
-    res->status = static_cast<cdm::KeyStatus>(status);
-  }
+  void AddSessionKey(const uint8_t *data, size_t data_size, uint32_t status);
   bool HasKeyId(const uint8_t *keyid);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id, const AP4_UI08 *key, const AP4_UI08 nal_length_size,
@@ -291,6 +284,7 @@ public:
   void ResetVideo();
 
 private:
+  void CheckLicenseRenewal();
   bool SendSessionMessage();
 
   WV_DRM &drm_;
@@ -326,6 +320,7 @@ private:
   bool drained_;
 
   std::list<CdmVideoFrame> videoFrames_;
+  std::mutex renewal_lock_;
 };
 
 
@@ -537,9 +532,11 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
 
     memcpy(buf, proto, sizeof(proto));
     memcpy(&buf[32], pssh.GetData(), pssh.GetDataSize());
+    pssh_.SetData(buf, buf_size);
 
     drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(promise_id_++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, buf, buf_size);
   }
+
   int retrycount=0;
   while (session_.empty() && ++retrycount < 100)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -649,6 +646,16 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
 const char *WV_CencSingleSampleDecrypter::GetSessionId()
 {
   return session_.empty()? nullptr : session_.c_str();
+}
+
+void WV_CencSingleSampleDecrypter::CheckLicenseRenewal()
+{
+  {
+    std::lock_guard<std::mutex> lock(renewal_lock_);
+    if (!challenge_.GetDataSize())
+      return;
+  }
+  SendSessionMessage();
 }
 
 bool WV_CencSingleSampleDecrypter::SendSessionMessage()
@@ -965,6 +972,17 @@ SSMFAIL:
   return false;
 }
 
+void WV_CencSingleSampleDecrypter::AddSessionKey(const uint8_t *data, size_t data_size, uint32_t status)
+{
+  WVSKEY key;
+  std::vector<WVSKEY>::iterator res;
+
+  key.keyid = std::string((const char*)data, data_size);
+  if ((res = std::find(keys_.begin(), keys_.end(), key)) == keys_.end())
+    res = keys_.insert(res, key);
+  res->status = static_cast<cdm::KeyStatus>(status);
+}
+
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter::SetKeyId
 +---------------------------------------------------------------------*/
@@ -1097,24 +1115,30 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
         if (clrb_out) *clrb_out += (4 - fragInfo.nal_length_size_);
         ++nalunitcount;
 
-        if (nalsize + fragInfo.nal_length_size_ + nalunitsum > *bytes_of_cleartext_data + *bytes_of_encrypted_data)
-        {
-          Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %u) %u -> %u ",
-            static_cast<unsigned int>(fragInfo.nal_length_size_),
-            static_cast<unsigned int>(nalsize + fragInfo.nal_length_size_ + nalunitsum),
-            *bytes_of_cleartext_data + *bytes_of_encrypted_data);
-          return AP4_ERROR_NOT_SUPPORTED;
-        }
-        else if (!iv)
+        if (!iv)
         {
           nalunitsum = 0;
         }
-        else if (nalsize + fragInfo.nal_length_size_ + nalunitsum == *bytes_of_cleartext_data + *bytes_of_encrypted_data)
+        else if (nalsize + fragInfo.nal_length_size_ + nalunitsum >= *bytes_of_cleartext_data + *bytes_of_encrypted_data)
         {
-          ++bytes_of_cleartext_data;
-          ++bytes_of_encrypted_data;
-          ++clrb_out;
-          --subsample_count;
+          AP4_UI32 summedBytes(0);
+          do
+          {
+            summedBytes += *bytes_of_cleartext_data + *bytes_of_encrypted_data;
+            ++bytes_of_cleartext_data;
+            ++bytes_of_encrypted_data;
+            ++clrb_out;
+            --subsample_count;
+          } while (subsample_count && nalsize + fragInfo.nal_length_size_ + nalunitsum > summedBytes);
+
+          if (nalsize + fragInfo.nal_length_size_ + nalunitsum > summedBytes)
+          {
+            Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %u) %u -> %u ",
+              static_cast<unsigned int>(fragInfo.nal_length_size_),
+              static_cast<unsigned int>(nalsize + fragInfo.nal_length_size_ + nalunitsum),
+              summedBytes);
+            return AP4_ERROR_NOT_SUPPORTED;
+          }
           nalunitsum = 0;
         }
         else
@@ -1229,6 +1253,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   CdmDecryptedBlock cdm_out;
   cdm_out.SetDecryptedBuffer(&buf);
 
+  //LICENSERENEWAL: CheckLicenseRenewal();
   cdm::Status ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
 
   if (ret == cdm::Status::kSuccess && useSingleDecrypt)
@@ -1320,6 +1345,7 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
       drained_ = false;
 
     //DecryptAndDecode calls Alloc wich cals kodi VideoCodec. Set instance handle.
+    //LICENSERENEWAL: CheckLicenseRenewal();
     CdmVideoFrame frame;
     cdm::Status ret = drm_.DecryptAndDecodeFrame(hostInstance, cdm_in, &frame);
 

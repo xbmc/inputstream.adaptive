@@ -894,22 +894,30 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
         if (clrb_out) *clrb_out += (4 - fragInfo.nal_length_size_);
         ++nalunitcount;
 
-        if (nalsize + fragInfo.nal_length_size_ + nalunitsum > *bytes_of_cleartext_data + *bytes_of_encrypted_data)
-        {
-          Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %d) %d -> %d ", fragInfo.nal_length_size_,
-            nalsize + fragInfo.nal_length_size_ + nalunitsum, *bytes_of_cleartext_data + *bytes_of_encrypted_data);
-          return AP4_ERROR_NOT_SUPPORTED;
-        }
-        else if (!iv)
+        if (!iv)
         {
           nalunitsum = 0;
         }
-        else if (nalsize + fragInfo.nal_length_size_ + nalunitsum == *bytes_of_cleartext_data + *bytes_of_encrypted_data)
+        else if (nalsize + fragInfo.nal_length_size_ + nalunitsum >= *bytes_of_cleartext_data + *bytes_of_encrypted_data)
         {
-          ++bytes_of_cleartext_data;
-          ++bytes_of_encrypted_data;
-          ++clrb_out;
-          --subsample_count;
+          AP4_UI32 summedBytes(0);
+          do
+          {
+            summedBytes += *bytes_of_cleartext_data + *bytes_of_encrypted_data;
+            ++bytes_of_cleartext_data;
+            ++bytes_of_encrypted_data;
+            ++clrb_out;
+            --subsample_count;
+          } while (subsample_count && nalsize + fragInfo.nal_length_size_ + nalunitsum > summedBytes);
+
+          if (nalsize + fragInfo.nal_length_size_ + nalunitsum > summedBytes)
+          {
+            Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %u) %u -> %u ",
+              static_cast<unsigned int>(fragInfo.nal_length_size_),
+              static_cast<unsigned int>(nalsize + fragInfo.nal_length_size_ + nalunitsum),
+              summedBytes);
+            return AP4_ERROR_NOT_SUPPORTED;
+          }
           nalunitsum = 0;
         }
         else
