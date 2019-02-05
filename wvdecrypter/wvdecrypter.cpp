@@ -880,15 +880,26 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
 
   if (!blocks[3].empty() && !serverCertRequest)
   {
-    if (blocks[3][0] == 'J')
+    if (blocks[3][0] == 'J' || (blocks[3][0] == 'B' && blocks[3][1] == 'J'))
     {
+      int dataPos = 2;
+
+      if (response.size() >= 3 && blocks[3][0] == 'B')
+      {
+        unsigned int decoded_size = 2048;
+        uint8_t decoded[2048];
+        b64_decode(response.c_str(), response.size(), decoded, decoded_size);
+        response = std::string(reinterpret_cast<const char*>(decoded), decoded_size);
+        dataPos = 3;
+      }
+
       jsmn_parser jsn;
       jsmntok_t tokens[256];
 
       jsmn_init(&jsn);
       int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 256);
 
-      std::vector<std::string> jsonVals = split(blocks[3].c_str() + 2, ';');
+      std::vector<std::string> jsonVals = split(blocks[3].c_str() + dataPos, ';');
 
       // Find HDCP limit
       if (jsonVals.size() > 1)
@@ -917,7 +928,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
 
       if (i < numTokens)
       {
-        if (blocks[3][1] == 'B')
+        if (blocks[3][dataPos - 1] == 'B')
         {
           unsigned int decoded_size = 2048;
           uint8_t decoded[2048];
@@ -955,6 +966,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
         Log(SSD_HOST::LL_ERROR, "Unable to find HTTP payload in response");
         goto SSMFAIL;
       }
+    }
+    else if (blocks[3][0] == 'B' && blocks[3].size() == 1)
+    {
+      unsigned int decoded_size = 2048;
+      uint8_t decoded[2048];
+      b64_decode(response.c_str(), response.size(), decoded, decoded_size);
+      drm_.GetCdmAdapter()->UpdateSession(++promise_id_, session_.data(), session_.size(),
+        reinterpret_cast<const uint8_t*>(decoded), decoded_size);
     }
     else
     {
