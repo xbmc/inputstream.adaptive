@@ -880,7 +880,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
 
   if (!blocks[3].empty() && !serverCertRequest)
   {
-    if (blocks[3][0] == 'J' || (blocks[3][0] == 'B' && blocks[3][1] == 'J'))
+    if (blocks[3][0] == 'J' || (blocks[3].size() > 1 && blocks[3][0] == 'B' && blocks[3][1] == 'J'))
     {
       int dataPos = 2;
 
