@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.3.13"
+  version="2.3.14"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -16,5 +16,9 @@
     <summary lang="en">InputStream client for adaptive streams</summary>
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
+	<news>
+v2.3.14 (2019-02-10)
+- Add WebM container parser
+	</news>
   </extension>
 </addon>
