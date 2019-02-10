@@ -73,6 +73,8 @@ namespace adaptive
     uint64_t GetCurrentPTSOffset() { return currentPTSOffset_; };
     uint64_t GetAbsolutePTSOffset() { return absolutePTSOffset_; };
     bool waitingForSegment(bool checkTime = false) const;
+    void FixateInitialization(bool on);
+    void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
   protected:
     virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
@@ -140,5 +142,7 @@ namespace adaptive
     unsigned int download_segNum_;
     bool stopped_;
     uint8_t m_iv[16];
+    bool m_fixateInitialization;
+    uint64_t m_segmentFileOffset;
   };
 };

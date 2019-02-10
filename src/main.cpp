@@ -38,6 +38,7 @@
 #include "parser/WebVTT.h"
 #include "TSReader.h"
 #include "ADTSReader.h"
+#include "WebmReader.h"
 
 #include "Ap4Utils.h"
 
@@ -253,6 +254,8 @@ public:
   void AddReference() override {};
   void Release()override      {};
   bool waitingForSegment() const { return stream_->waitingForSegment(); }
+  void FixateInitialization(bool on) { stream_->FixateInitialization(on); }
+  void SetSegmentFileOffset(uint64_t offset) { stream_->SetSegmentFileOffset(offset); }
 protected:
   // members
   adaptive::AdaptiveStream *stream_;
@@ -306,6 +309,7 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
   static const unsigned int CHUNKSIZE = 16384;
   char buf[CHUNKSIZE];
   size_t nbRead;
+
   while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead, opaque));
 
   etag_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
@@ -410,76 +414,112 @@ bool KodiAdaptiveStream::parseIndexRange()
   adaptive::AdaptiveTree::Representation *rep(const_cast<adaptive::AdaptiveTree::Representation*>(getRepresentation()));
   adaptive::AdaptiveTree::AdaptationSet *adp(const_cast<adaptive::AdaptiveTree::AdaptationSet*>(getAdaptationSet()));
 
-  if (!getRepresentation()->indexRangeMin_)
+  if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
   {
-    AP4_File f(byteStream, AP4_DefaultAtomFactory::Instance, true);
-    AP4_Movie* movie = f.GetMovie();
-    if (movie == NULL)
-    {
-      kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+    if (!rep->indexRangeMin_)
       return false;
-    }
-    if (1/*!(rep->flags_ & adaptive::AdaptiveTree::Representation::INITIALIZATION)*/)
+    WebmReader reader(&byteStream);
+    std::vector<WebmReader::CUEPOINT> cuepoints;
+    reader.GetCuePoints(cuepoints);
+
+    if (!cuepoints.empty())
     {
-      rep->flags_ |= adaptive::AdaptiveTree::Representation::INITIALIZATION;
-      rep->initialization_.range_begin_ = 0;
-      AP4_Position pos;
-      byteStream.Tell(pos);
-      rep->initialization_.range_end_ = pos - 1;
+      adaptive::AdaptiveTree::Segment seg;
+
+      rep->timescale_ = 1000;
+      rep->SetScaling();
+
+      rep->segments_.data.reserve(cuepoints.size());
+      adp->segment_durations_.data.reserve(cuepoints.size());
+
+      for (const WebmReader::CUEPOINT &cue : cuepoints)
+      {
+        seg.startPTS_ = cue.pts;
+        seg.range_begin_ = cue.pos_start;
+        seg.range_end_ = cue.pos_end;
+        rep->segments_.data.push_back(seg);
+
+        if (adp->segment_durations_.data.size() < rep->segments_.data.size())
+          adp->segment_durations_.data.push_back(static_cast<const uint32_t>(cue.duration));
+      }
+      return true;
     }
   }
 
-  adaptive::AdaptiveTree::Segment seg;
-  seg.startPTS_ = 0;
-  unsigned int numSIDX(1);
-
-  do
+  if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {
-    AP4_Atom *atom(NULL);
-    if (AP4_FAILED(AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(byteStream, atom)))
+    if (!rep->indexRangeMin_)
     {
-      kodi::Log(ADDON_LOG_ERROR, "Unable to create SIDX from IndexRange bytes");
-      return false;
+      AP4_File f(byteStream, AP4_DefaultAtomFactory::Instance, true);
+      AP4_Movie* movie = f.GetMovie();
+      if (movie == NULL)
+      {
+        kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+        return false;
+      }
+      if (1/*!(rep->flags_ & adaptive::AdaptiveTree::Representation::INITIALIZATION)*/)
+      {
+        rep->flags_ |= adaptive::AdaptiveTree::Representation::INITIALIZATION;
+        rep->initialization_.range_begin_ = 0;
+        AP4_Position pos;
+        byteStream.Tell(pos);
+        rep->initialization_.range_end_ = pos - 1;
+      }
     }
 
-    if (atom->GetType() == AP4_ATOM_TYPE_MOOF)
-    {
-      delete atom;
-      break;
-    }
-    else if (atom->GetType() != AP4_ATOM_TYPE_SIDX)
-    {
-      delete atom;
-      continue;
-    }
+    adaptive::AdaptiveTree::Segment seg;
+    seg.startPTS_ = 0;
+    unsigned int numSIDX(1);
 
-    AP4_SidxAtom *sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
-    const AP4_Array<AP4_SidxAtom::Reference> &refs(sidx->GetReferences());
-    if (refs[0].m_ReferenceType == 1)
+    do
     {
-      numSIDX = refs.ItemCount();
-      delete atom;
-      continue;
-    }
-    AP4_Position pos;
-    byteStream.Tell(pos);
-    seg.range_end_ = pos + getRepresentation()->indexRangeMin_ + sidx->GetFirstOffset() - 1;
-    rep->timescale_ = sidx->GetTimeScale();
-    rep->SetScaling();
+      AP4_Atom *atom(NULL);
+      if (AP4_FAILED(AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(byteStream, atom)))
+      {
+        kodi::Log(ADDON_LOG_ERROR, "Unable to create SIDX from IndexRange bytes");
+        return false;
+      }
 
-    for (unsigned int i(0); i < refs.ItemCount(); ++i)
-    {
-      seg.range_begin_ = seg.range_end_ + 1;
-      seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
-      rep->segments_.data.push_back(seg);
-      if (adp->segment_durations_.data.size() < rep->segments_.data.size())
-        adp->segment_durations_.data.push_back(refs[i].m_SubsegmentDuration);
-      seg.startPTS_ += refs[i].m_SubsegmentDuration;
-    }
-    delete atom;
-    --numSIDX;
-  } while (numSIDX);
-  return true;
+      if (atom->GetType() == AP4_ATOM_TYPE_MOOF)
+      {
+        delete atom;
+        break;
+      }
+      else if (atom->GetType() != AP4_ATOM_TYPE_SIDX)
+      {
+        delete atom;
+        continue;
+      }
+
+      AP4_SidxAtom *sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
+      const AP4_Array<AP4_SidxAtom::Reference> &refs(sidx->GetReferences());
+      if (refs[0].m_ReferenceType == 1)
+      {
+        numSIDX = refs.ItemCount();
+        delete atom;
+        continue;
+      }
+      AP4_Position pos;
+      byteStream.Tell(pos);
+      seg.range_end_ = pos + getRepresentation()->indexRangeMin_ + sidx->GetFirstOffset() - 1;
+      rep->timescale_ = sidx->GetTimeScale();
+      rep->SetScaling();
+
+      for (unsigned int i(0); i < refs.ItemCount(); ++i)
+      {
+        seg.range_begin_ = seg.range_end_ + 1;
+        seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
+        rep->segments_.data.push_back(seg);
+        if (adp->segment_durations_.data.size() < rep->segments_.data.size())
+          adp->segment_durations_.data.push_back(refs[i].m_SubsegmentDuration);
+        seg.startPTS_ += refs[i].m_SubsegmentDuration;
+      }
+      delete atom;
+      --numSIDX;
+    } while (numSIDX);
+    return true;
+  }
+  return false;
 }
 
 /*******************************************************
@@ -1723,6 +1763,125 @@ private:
 
 
 /*******************************************************
+|   WebmSampleReader
+********************************************************/
+class WebmSampleReader : public SampleReader, public WebmReader
+{
+public:
+  WebmSampleReader(AP4_ByteStream *input, AP4_UI32 streamId)
+    : WebmReader(input)
+    , m_streamId(streamId)
+    , m_stream(dynamic_cast<AP4_DASHStream*>(input))
+  {
+  };
+
+  virtual bool EOS()const override { return m_eos; }
+  virtual uint64_t DTS()const override { return m_dts; }
+  virtual uint64_t PTS()const override { return m_pts; }
+  virtual uint64_t  Elapsed(uint64_t basePTS) override
+  {
+    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
+    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
+  };
+
+  bool Initialize()
+  {
+    m_stream->FixateInitialization(true);
+    bool ret = WebmReader::Initialize();
+    WebmReader::Reset();
+    m_stream->FixateInitialization(false);
+    m_stream->SetSegmentFileOffset(GetCueOffset());
+    return ret;
+  }
+
+  virtual AP4_Result Start(bool &bStarted) override
+  {
+    bStarted = false;
+    if (m_started)
+      return AP4_SUCCESS;
+    m_started = bStarted = true;
+    return ReadSample();
+  }
+
+  virtual AP4_Result ReadSample() override
+  {
+    if (ReadPacket())
+    {
+      m_dts = GetDts() * 1000;
+      m_pts = GetPts() * 1000;
+
+      if (~m_ptsOffs)
+      {
+        m_ptsDiff = m_pts - m_ptsOffs;
+        m_ptsOffs = ~0ULL;
+      }
+      return AP4_SUCCESS;
+    }
+    if (!m_stream || !m_stream->waitingForSegment())
+      m_eos = true;
+    return AP4_ERROR_EOS;
+  }
+
+  virtual void Reset(bool bEOS) override
+  {
+    WebmReader::Reset();
+    m_eos = bEOS;
+  }
+
+  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  {
+    bool ret = WebmReader::GetInformation(info);
+    // kodi supports VP9 without extrada since addon api version was introduced.
+    // For older kodi versions (without api version) we have to fake extra-data
+    if (!info.m_ExtraSize && info.m_codecName == "vp9" && kodi::addon::CAddonBase::m_strGlobalApiVersion.empty())
+    {
+      info.m_ExtraSize = 4;
+      uint8_t *annexb = static_cast<uint8_t*>(malloc(4));
+      annexb[0] = annexb[1] = annexb[2] = 0;
+      annexb[3] = 1;
+      info.m_ExtraData = annexb;
+      return true;
+    }
+    return ret;
+  }
+
+  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  {
+    AP4_UI64 seekPos(((pts + m_ptsDiff) * 9) / 100);
+    if (WebmReader::SeekTime(seekPos, preceeding))
+    {
+      m_started = true;
+      return AP4_SUCCEEDED(ReadSample());
+    }
+    return AP4_ERROR_EOS;
+  }
+
+  virtual void SetPTSOffset(uint64_t offset) override
+  {
+    m_ptsOffs = offset;
+  }
+
+  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  virtual uint32_t GetTimeScale()const override { return 1000; }
+  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
+  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  virtual uint64_t GetDuration()const override { return WebmReader::GetDuration() *1000; }
+  virtual bool IsEncrypted()const override { return false; };
+
+private:
+  AP4_UI32 m_streamId = 0;
+  bool m_eos = false;
+  bool m_started = false;
+
+  uint64_t m_pts = 0;
+  uint64_t m_dts = 0;
+  int64_t m_ptsDiff = 0;
+  uint64_t m_ptsOffs = ~0ULL;
+  AP4_DASHStream *m_stream;
+};
+
+/*******************************************************
 Main class Session
 ********************************************************/
 
@@ -2342,7 +2501,7 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     stream.info_.m_codecFourCC = MKTAG(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]);
     strcpy(stream.info_.m_codecName, "hevc");
   }
-  else if (rep->codecs_.find("vp9") == 0)
+  else if (rep->codecs_.find("vp9") == 0 || rep->codecs_.find("vp09") == 0)
     strcpy(stream.info_.m_codecName, "vp9");
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
@@ -2357,7 +2516,8 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_NOTYPE
   && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4
   && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TS
-  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
+  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS
+  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
     stream.valid = false;
 
   stream.info_.m_FpsRate = rep->fpsRate_;
@@ -2494,12 +2654,12 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 
 void Session::OnSegmentChanged(adaptive::AdaptiveStream *stream)
 {
-  for (std::vector<STREAM*>::iterator s(streams_.begin()), e(streams_.end()); s != e; ++s)
-    if (&(*s)->stream_ == stream)
+  for (STREAM *s : streams_)
+    if (&s->stream_ == stream)
     {
-      if((*s)->reader_)
-        (*s)->reader_->SetPTSOffset((*s)->stream_.GetCurrentPTSOffset());
-      (*s)->segmentChanged = true;
+      if(s->reader_)
+        s->reader_->SetPTSOffset(s->stream_.GetCurrentPTSOffset());
+      s->segmentChanged = true;
       break;
     }
 }
@@ -2989,6 +3149,16 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->reader_ = new ADTSSampleReader(stream->input_, streamid);
+  }
+  else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
+  {
+    stream->input_ = new AP4_DASHStream(&stream->stream_);
+    stream->reader_ = new WebmSampleReader(stream->input_, streamid);
+    if (!static_cast<WebmSampleReader*>(stream->reader_)->Initialize())
+    {
+      stream->disable();
+      return false;
+    }
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {

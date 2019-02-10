@@ -140,8 +140,8 @@ public:
   CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
   //Observer Section
-  virtual void OnSegmentChanged(adaptive::AdaptiveStream *stream) override;
-  virtual void OnStreamChange(adaptive::AdaptiveStream *stream) override;
+  void OnSegmentChanged(adaptive::AdaptiveStream *stream) override;
+  void OnStreamChange(adaptive::AdaptiveStream *stream) override;
 
 protected:
   void CheckFragmentDuration(STREAM &stream);

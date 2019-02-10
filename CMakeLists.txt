@@ -22,7 +22,8 @@ set(ADP_SOURCES
 	src/TSReader.cpp
 	src/aes_decrypter.cpp
 	src/ADTSReader.cpp
-  src/md5.cpp
+	src/md5.cpp
+	src/WebmReader.cpp
 	)
 
 set(ADP_HEADERS
@@ -41,7 +42,8 @@ set(ADP_HEADERS
 	src/log.h
 	src/aes_decrypter.h
 	src/ADTSReader.h
-  src/md5.h
+	src/md5.h
+	src/WebmReader.h
 	)
 
 if(WIN32)
@@ -53,6 +55,7 @@ endif()
 include_directories(${INCLUDES}
                     ${KODI_INCLUDE_DIR}
                     lib/libbento4/Core
+                    lib/webm_parser/include
 )
 
 include(FindEXPAT)
@@ -71,6 +74,8 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 add_subdirectory(lib/mpegts)
 
+add_subdirectory(lib/webm_parser)
+
 if(NOT CORE_SYSTEM_NAME STREQUAL ios)
   add_subdirectory(wvdecrypter)
   set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
@@ -87,6 +92,7 @@ endif()
 
 list(APPEND DEPLIBS bento4)
 list(APPEND DEPLIBS mpegts)
+list(APPEND DEPLIBS webm_parser)
 
 build_addon(inputstream.adaptive ADP DEPLIBS)
 

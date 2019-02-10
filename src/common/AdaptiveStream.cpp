@@ -38,6 +38,8 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
   , currentPTSOffset_(0)
   , absolutePTSOffset_(0)
   , lastUpdated_(std::chrono::system_clock::now())
+  , m_fixateInitialization(false)
+  , m_segmentFileOffset(0)
 {
 }
 
@@ -250,7 +252,7 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
     absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
   }
 
-  if (observer_ && seg != &current_rep_->initialization_)
+  if (observer_ && seg != &current_rep_->initialization_ && ~seg->startPTS_)
     observer_->OnSegmentChanged(this);
 
   char rangebuf[128], *rangeHeader(0);
@@ -268,7 +270,11 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
       else
       {
         download_url_ = current_rep_->url_;
-        sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_, seg->range_end_);
+        uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
+        if (~seg->range_end_)
+          sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
+        else
+          sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
         rangeHeader = rangebuf;
       }
     }
@@ -289,7 +295,11 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
     }
     else
       download_url_ = current_rep_->url_;
-    sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_, seg->range_end_);
+    uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
+    if (~seg->range_end_)
+      sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
+    else
+      sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
     rangeHeader = rangebuf;
   }
 
@@ -335,6 +345,9 @@ bool AdaptiveStream::ensureSegment()
       lastUpdated_ = std::chrono::system_clock::now();
     }
 
+    if (m_fixateInitialization)
+      return false;
+
     const AdaptiveTree::Segment *nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
     if (nextSegment)
     {
@@ -365,7 +378,7 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
 NEXTSEGMENT:
-  if (!stopped_ && ensureSegment() && bytesToRead)
+  if (ensureSegment() && bytesToRead)
   {
     while (true)
     {
@@ -514,6 +527,11 @@ bool AdaptiveStream::waitingForSegment(bool checkTime) const
   return false;
 }
 
+void AdaptiveStream::FixateInitialization(bool on)
+{
+  m_fixateInitialization = on && !current_rep_->current_segment_;
+}
+
 bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId)
 {
   AdaptiveTree::Representation *new_rep(0), *min_rep(0);
@@ -571,6 +589,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     AdaptiveTree::Segment seg;
     seg.range_begin_ = current_rep_->indexRangeMin_;
     seg.range_end_ = current_rep_->indexRangeMax_;
+    seg.startPTS_ = ~0ULL;
 
     if (prepareDownload(&seg) && !download_segment())
     {
