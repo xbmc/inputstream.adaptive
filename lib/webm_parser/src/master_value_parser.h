@@ -151,6 +151,24 @@ class MasterValueParser : public ElementParser {
   // it has been fully parsed.
   struct TagNotifyOnParseComplete {};
 
+  // Helper struct that will be std::true_type if Tag is in Tags, or
+   // std::false_type otherwise.
+  template <typename Tag, typename... Tags>
+  struct HasTag;
+
+  // Base condition: Tags is empty, so it trivially does not contain Tag.
+  template <typename Tag>
+  struct HasTag<Tag> : std::false_type {};
+
+  // If the head of the Tags list is a different tag, skip it and check the
+  // remaining tags.
+  template <typename Tag, typename DifferentTag, typename... Tags>
+  struct HasTag<Tag, DifferentTag, Tags...> : HasTag<Tag, Tags...> {};
+
+  // If the head of the Tags list is the same as Tag, then we're done.
+  template <typename Tag, typename... Tags>
+  struct HasTag<Tag, Tag, Tags...> : std::true_type {};
+
   // A factory that will create a std::pair<Id, std::unique_ptr<ElementParser>>.
   // Users and subclasses are not meant to use this class directly, as it is an
   // internal implementation detail of this class. Subclasses should use
@@ -402,24 +420,6 @@ class MasterValueParser : public ElementParser {
   const ElementMetadata& child_metadata() const {
     return master_parser_.child_metadata();
   }
-
-  // Helper struct that will be std::true_type if Tag is in Tags, or
-  // std::false_type otherwise.
-  template <typename Tag, typename... Tags>
-  struct HasTag;
-
-  // Base condition: Tags is empty, so it trivially does not contain Tag.
-  template <typename Tag>
-  struct HasTag<Tag> : std::false_type {};
-
-  // If the head of the Tags list is a different tag, skip it and check the
-  // remaining tags.
-  template <typename Tag, typename DifferentTag, typename... Tags>
-  struct HasTag<Tag, DifferentTag, Tags...> : HasTag<Tag, Tags...> {};
-
-  // If the head of the Tags list is the same as Tag, then we're done.
-  template <typename Tag, typename... Tags>
-  struct HasTag<Tag, Tag, Tags...> : std::true_type {};
 
   template <typename Base, typename F, typename... Tags>
   class ChildParser : public Base {
