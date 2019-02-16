@@ -518,6 +518,10 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
         }
         if (keyParts.size() > 1)
           parseheader(headers, keyParts[1].c_str());
+
+        if (!effective_url_.empty() && url.find(base_url_) == 0)
+	        url.replace(0, base_url_.size(), effective_url_);
+
         if (download(url.c_str(), headers, &stream, false))
         {
           pssh.defaultKID_ = stream.str();
