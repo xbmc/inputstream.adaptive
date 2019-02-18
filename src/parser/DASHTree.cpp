@@ -563,7 +563,7 @@ start(void *data, const char *el, const char **attr)
           dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
           dash->current_representation_->duration_ = dash->current_adaptationset_->duration_;
           dash->current_representation_->startNumber_ = dash->current_adaptationset_->startNumber_;
-          dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
+          dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
           dash->current_representation_->width_ = dash->adpwidth_;
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
@@ -1044,7 +1044,7 @@ end(void *data, const char *el)
               else
               {
                 delete dash->current_representation_;
-                dash->current_adaptationset_->repesentations_.pop_back();
+                dash->current_adaptationset_->representations_.pop_back();
                 return;
               }
             }
@@ -1182,7 +1182,7 @@ end(void *data, const char *el)
           dash->currentNode_ &= ~MPDNODE_ADAPTIONSET;
           if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE
           || (dash->adp_pssh_set_ == 0xFF && dash->current_hasRepURN_)
-          || dash->current_adaptationset_->repesentations_.empty())
+          || dash->current_adaptationset_->representations_.empty())
           {
             delete dash->current_adaptationset_;
             dash->current_period_->adaptationSets_.pop_back();
@@ -1199,8 +1199,8 @@ end(void *data, const char *el)
               }
 
               for (std::vector<DASHTree::Representation*>::iterator
-                b(dash->current_adaptationset_->repesentations_.begin()),
-                e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
+                b(dash->current_adaptationset_->representations_.begin()),
+                e(dash->current_adaptationset_->representations_.end()); b != e; ++b)
                 if (!(*b)->pssh_set_)
                   (*b)->pssh_set_ = dash->adp_pssh_set_;
             }
@@ -1209,8 +1209,8 @@ end(void *data, const char *el)
               && !dash->current_adaptationset_->segtpl_.media.empty())
             {
               for (std::vector<DASHTree::Representation*>::iterator 
-                b(dash->current_adaptationset_->repesentations_.begin()), 
-                e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
+                b(dash->current_adaptationset_->representations_.begin()), 
+                e(dash->current_adaptationset_->representations_.end()); b != e; ++b)
               {
                 if (!(*b)->duration_ || !(*b)->timescale_)
                 {
@@ -1223,8 +1223,8 @@ end(void *data, const char *el)
             //If representation are not timelined, we have to adjust startPTS_ in rep::segments
             {
               for (std::vector<DASHTree::Representation*>::iterator
-                b(dash->current_adaptationset_->repesentations_.begin()),
-                e(dash->current_adaptationset_->repesentations_.end()); b != e; ++b)
+                b(dash->current_adaptationset_->representations_.begin()),
+                e(dash->current_adaptationset_->representations_.end()); b != e; ++b)
               {
                 if ((*b)->flags_ & DASHTree::Representation::TIMELINE)
                   continue;
@@ -1366,7 +1366,7 @@ void DASHTree::RefreshSegments()
     {
       for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
         for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
-          for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
+          for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
           {
             if ((*br)->startNumber_ + (*br)->segments_.size() < nextStartNumber)
               nextStartNumber = (*br)->startNumber_ + (*br)->segments_.size();
@@ -1414,10 +1414,10 @@ void DASHTree::RefreshSegments()
           for (; bad != ead && ((*bad)->id_ != (*ba)->id_ || (*bad)->group_ != (*ba)->group_ || (*bad)->type_ != (*ba)->type_); ++bad);
           if (bad != ead)
           {
-            for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
+            for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
             {
               //Locate representation
-              std::vector<Representation*>::const_iterator brd((*bad)->repesentations_.begin()), erd((*bad)->repesentations_.end());
+              std::vector<Representation*>::const_iterator brd((*bad)->representations_.begin()), erd((*bad)->representations_.end());
               for (; brd != erd && (*brd)->id != (*br)->id; ++brd);
               if (brd != erd && !(*br)->segments_.empty())
               {

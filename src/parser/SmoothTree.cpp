@@ -137,7 +137,7 @@ start(void *data, const char *el, const char **attr)
 
         dash->current_representation_->segtpl_.media.replace(pos, 9, bw);
         dash->current_representation_->bandwidth_ = atoi(bw);
-        dash->current_adaptationset_->repesentations_.push_back(dash->current_representation_);
+        dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
       }
       else if (strcmp(el, "c") == 0)
       {
@@ -286,7 +286,7 @@ end(void *data, const char *el)
     {
       if (strcmp(el, "StreamIndex") == 0)
       {
-        if (dash->current_adaptationset_->repesentations_.empty()
+        if (dash->current_adaptationset_->representations_.empty()
         || dash->current_adaptationset_->segment_durations_.data.empty())
           dash->current_period_->adaptationSets_.pop_back();
         else
@@ -379,7 +379,7 @@ bool SmoothTree::open(const std::string &url, const std::string &manifestUpdateP
 
   for (std::vector<AdaptationSet*>::iterator ba(current_period_->adaptationSets_.begin()), ea(current_period_->adaptationSets_.end()); ba != ea; ++ba)
   {
-    for (std::vector<SmoothTree::Representation*>::iterator b((*ba)->repesentations_.begin()), e((*ba)->repesentations_.end()); b != e; ++b)
+    for (std::vector<SmoothTree::Representation*>::iterator b((*ba)->representations_.begin()), e((*ba)->representations_.end()); b != e; ++b)
     {
       (*b)->segments_.data.resize((*ba)->segment_durations_.data.size());
       std::vector<uint32_t>::iterator bsd((*ba)->segment_durations_.data.begin());
