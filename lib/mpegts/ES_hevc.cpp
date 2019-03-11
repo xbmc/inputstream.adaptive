@@ -57,6 +57,9 @@ void ES_hevc::Parse(STREAM_PKT* pkt)
   uint32_t startcode = m_StartCode;
   bool frameComplete = false;
 
+  if (m_NeedSPS)
+    stream_info.extra_data_size = 0;
+
   while (p < es_len)
   {
     startcode = startcode << 8 | es_buf[p++];
