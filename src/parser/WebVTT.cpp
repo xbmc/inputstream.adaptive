@@ -89,8 +89,8 @@ bool WebVTT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale, u
           strText.resize(strText.size() -1);
         if (strText.find("&rlm;", 0, 5) == 0)
         {
-          strText.replace(0, 5, "\0xE2\0x80\0xAB");
-          strText += "\0xE2\0x80\0xAC";
+          strText.replace(0, 5, "\0xE2\0x80\0x8F");
+          strText += "\0xE2\0x80\0x8F";
         }
         else if (strText.find("&lrm;", 0, 5) == 0)
         {
