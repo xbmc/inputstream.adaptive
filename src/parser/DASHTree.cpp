@@ -178,7 +178,24 @@ static void AddDuration(const char* dur, uint64_t& retVal, uint32_t scale)
   }
 }
 
-bool ParseContentProtection(const char **attr, DASHTree *dash)
+void ParseDefaultKid(const char* defaultKID, DASHTree* dash)
+{
+  if (defaultKID && strlen(defaultKID) == 36)
+  {
+    dash->current_defaultKID_.resize(16);
+    for (unsigned int i(0); i < 16; ++i)
+    {
+      if (i == 4 || i == 6 || i == 8 || i == 10)
+        ++defaultKID;
+      dash->current_defaultKID_[i] = HexNibble(*defaultKID) << 4;
+      ++defaultKID;
+      dash->current_defaultKID_[i] |= HexNibble(*defaultKID);
+      ++defaultKID;
+    }
+  }
+}
+
+bool ParseContentProtection(const char** attr, DASHTree* dash)
 {
   dash->strXMLText_.clear();
   dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
@@ -193,7 +210,8 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
       else
       {
         urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
-        break;
+        if (dash->current_defaultKID_.size() == 16)
+          break;
       }
     }
     else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
@@ -204,18 +222,15 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
   {
     dash->currentNode_ |= MPDNODE_CONTENTPROTECTION;
     dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+	if (dash->current_defaultKID_.size() != 16)
+	{
+      ParseDefaultKid(defaultKID, dash);
+	}
     return true;
   }
-  else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
+  else if (mpdFound)
   {
-    dash->current_defaultKID_.resize(16);
-    for (unsigned int i(0); i < 16; ++i)
-    {
-      if (i == 4 || i == 6 || i == 8 || i == 10)
-        ++defaultKID;
-      dash->current_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
-      dash->current_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
-    }
+    ParseDefaultKid(defaultKID, dash);
   }
   // Return if we have URN or not
   return !mpdFound;
