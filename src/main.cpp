@@ -2245,12 +2245,12 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
                   {
                     AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
                     if (tenc)
-                      adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)tenc->GetDefaultKid());
+                      adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)tenc->GetDefaultKid(), 16);
                     else
                     {
                       AP4_PiffTrackEncryptionAtom* piff(AP4_DYNAMIC_CAST(AP4_PiffTrackEncryptionAtom, schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
                       if (piff)
-                        adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)piff->GetDefaultKid());
+                        adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)piff->GetDefaultKid(), 16);
                     }
                   }
                 }
