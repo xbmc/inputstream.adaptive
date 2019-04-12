@@ -136,6 +136,8 @@ start(void *data, const char *el, const char **attr)
         *attr = nssep + 1;
       if (strcmp((const char*)*attr, "tickRate") == 0)
         ttml->m_tickRate = atoll((const char*)*(attr + 1));
+      else if (strcmp((const char*)*attr, "frameRate") == 0)
+        ttml->m_frameRate = atoll((const char*)*(attr + 1));
       attr += 2;
     }
   }
@@ -290,15 +292,22 @@ uint64_t TTML2SRT::GetTime(const char *tmchar)
   }
   else
   {
-    unsigned int th, tm, ts, tms;
-    char del, ctms[3];
-    if (sscanf(tmchar, "%u:%u:%u%c%3c", &th, &tm, &ts, &del, ctms) == 5)
+    unsigned int th, tm, ts, tf;
+    char del, ctf [4];
+    if (sscanf(tmchar, "%u:%u:%u%c%s", &th, &tm, &ts, &del, ctf) == 5)
     {
-      sscanf(ctms, "%3u", &tms);
-      if (strlen(ctms) == 2)
-        tms = tms*10;
+      sscanf(ctf, "%u", &tf);
+      if (strlen(ctf) == 2 && del == '.')
+        tf = tf * 10;
+      else if (strlen(ctf) == 2 && del == ':')
+      {
+        if (m_frameRate)
+          tf = (tf * 1000 / m_frameRate);
+        else
+          tf = (tf * 1000 / 30);
+      }
       ret = th * 3600 + tm * 60 + ts;
-      ret = ret * 1000 + tms;
+      ret = ret * 1000 + tf;
       ret = (ret * m_timescale) / 1000;
     }
   }
