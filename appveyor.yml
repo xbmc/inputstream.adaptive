@@ -23,7 +23,7 @@ environment:
 
 build_script:
   - cd ..
-  - git clone --depth=1 --branch master https://github.com/xbmc/xbmc.git
+  - git clone --depth=1 --branch Leia https://github.com/xbmc/xbmc.git
   - cd %app_id%
   - mkdir build
   - cd build
