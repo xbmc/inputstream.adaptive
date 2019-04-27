@@ -268,15 +268,13 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
           download_url_ = current_rep_->url_ + download_url_;
       }
       else
-      {
         download_url_ = current_rep_->url_;
-        uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
-        if (~seg->range_end_)
-          sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
-        else
-          sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
-        rangeHeader = rangebuf;
-      }
+      uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
+      if (~seg->range_end_)
+        sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
+      else
+        sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
+      rangeHeader = rangebuf;
     }
     else if (seg != &current_rep_->initialization_) //templated segment
     {
