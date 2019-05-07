@@ -20,8 +20,9 @@
             <options>
               <option label="30150">0</option> <!-- Max -->
               <option label="30151">1</option>  <!-- 480p -->
-              <option label="30153">2</option>  <!-- 720p -->
-              <option label="30154">3</option> <!-- 1080p -->
+              <option label="30152">2</option>  <!-- 640p -->
+              <option label="30153">3</option>  <!-- 720p -->
+              <option label="30154">4</option> <!-- 1080p -->
             </options>
           </constraints>
           <control type="spinner" format="string" />
