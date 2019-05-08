@@ -137,7 +137,8 @@ namespace adaptive
     {
       Representation() :bandwidth_(0), samplingRate_(0), width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
         flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0), expired_segments_(0),
-        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), nextPts_(0), duration_(0), timescale_(0), current_segment_(nullptr) {};
+        containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), nextPts_(0), duration_(0), timescale_(0), current_segment_(nullptr),
+	      unparsed_hls_rep_(""){};
       ~Representation() {
         if (flags_ & Representation::URLSEGMENTS)
         {
@@ -188,6 +189,7 @@ namespace adaptive
       Segment initialization_;
       SPINCACHE<Segment> segments_;
       const Segment *current_segment_;
+      std::string unparsed_hls_rep_;
       const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
       const Segment *get_next_segment(const Segment *seg)const
       {

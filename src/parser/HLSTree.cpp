@@ -282,7 +282,23 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     if (!effective_url_.empty() && download_url.find(base_url_) == 0)
       download_url.replace(0, base_url_.size(), effective_url_);
 
-    if (download(download_url.c_str(), manifest_headers_, &stream, false))
+	  bool download_successful = download(download_url.c_str(), manifest_headers_, &stream, false);
+	  
+    if (!download_successful)
+    {
+      if (rep->unparsed_hls_rep_.size() > 0)
+      {
+        Log(LOGLEVEL_ERROR, "Playlist refresh failed, attempting to use previous.");
+        stream.str(rep->unparsed_hls_rep_);
+        download_successful = true;
+      }
+    }
+    else
+    {
+      rep->unparsed_hls_rep_ = stream.str();
+    }
+
+    if (download_successful)
     {
 #if FILEDEBUG
       FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
