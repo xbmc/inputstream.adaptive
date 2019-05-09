@@ -210,6 +210,27 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
           m_audioCodec = getAudioCodec(map["CODECS"]);
         }
       }
+      else if (line.compare(0, 8, "#EXTINF:") == 0)
+      {
+        //Uh, this is not a multi - bitrate playlist
+        current_adaptationset_ = new AdaptationSet();
+        current_adaptationset_->type_ = VIDEO;
+        current_adaptationset_->timescale_ = 1000000;
+        current_period_->adaptationSets_.push_back(current_adaptationset_);
+
+        current_representation_ = new Representation();
+        current_representation_->timescale_ = 1000000;
+        current_representation_->bandwidth_ = 0;
+        current_representation_->codecs_ = getVideoCodec("");
+        current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
+        current_representation_->source_url_ = url;
+        current_adaptationset_->repesentations_.push_back(current_representation_);
+
+        // We assume audio is included
+        included_types_ |= 1U << AUDIO;
+        m_audioCodec = getAudioCodec("");
+        break;
+      }
       else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
       {
         if (line[0] == '/')
