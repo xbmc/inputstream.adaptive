@@ -450,18 +450,18 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
         rep->initialization_.pssh_set_ = 0;
       }
+
+      FreeSegments(rep);
+
+      if (newSegments.data.empty())
+      {
+        rep->source_url_.clear(); // disable this segment
+        return false;
+      }
+
+      rep->segments_.swap(newSegments);
+      rep->startNumber_ = newStartNumber;
     }
-
-    FreeSegments(rep);
-
-    if (newSegments.data.empty())
-    {
-      rep->source_url_.clear(); // disable this segment
-      return false;
-    }
-
-    rep->segments_.swap(newSegments);
-    rep->startNumber_ = newStartNumber;
 
     if (update)
     {
