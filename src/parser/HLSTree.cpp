@@ -56,16 +56,16 @@ static void parseResolution(std::uint16_t &width, std::uint16_t &height, const s
 
 static std::string getVideoCodec(const std::string &codecs)
 {
-  if (codecs.empty() || codecs.find("avc1.") != std::string::npos)
+  if (codecs.empty())
     return "h264";
-  else if (!codecs.empty())
-  {
-    if (codecs.find("hvc1.") != std::string::npos)
-      return "hvc1";
-    else if (codecs.find("hev1.") != std::string::npos)
-      return "hev1";
-  }
-  return "";
+  else if (codecs.find("avc1.") != std::string::npos)
+    return "h264";
+  else if (codecs.find("hvc1.") != std::string::npos)
+    return "hvc1";
+  else if (codecs.find("hev1.") != std::string::npos)
+    return "hev1";
+  else
+    return "";
 }
 
 static std::string getAudioCodec(const std::string &codecs)
@@ -75,7 +75,7 @@ static std::string getAudioCodec(const std::string &codecs)
   else if (codecs.find("ac-3") != std::string::npos)
     return "ac-3";
   else
-    return  "aac";
+    return "aac";
 }
 
 HLSTree::~HLSTree()
