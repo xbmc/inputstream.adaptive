@@ -1836,7 +1836,7 @@ public:
     bool ret = WebmReader::GetInformation(info);
     // kodi supports VP9 without extrada since addon api version was introduced.
     // For older kodi versions (without api version) we have to fake extra-data
-    if (!info.m_ExtraSize && info.m_codecName == "vp9" && kodi::addon::CAddonBase::m_strGlobalApiVersion.empty())
+    if (!info.m_ExtraSize && strcmp(info.m_codecName, "vp9") == 0 && kodi::addon::CAddonBase::m_strGlobalApiVersion.empty())
     {
       info.m_ExtraSize = 4;
       uint8_t *annexb = static_cast<uint8_t*>(malloc(4));
