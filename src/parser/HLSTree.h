@@ -56,7 +56,7 @@ namespace adaptive
         {
           m_codec = codec;
           for (auto &set : m_sets)
-            set->repesentations_[0]->codecs_ = codec;
+            set->representations_[0]->codecs_ = codec;
         }
       }
     };

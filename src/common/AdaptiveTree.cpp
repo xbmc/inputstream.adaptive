@@ -168,7 +168,7 @@ namespace adaptive
 
     Log(LOGLEVEL_DEBUG, "AdaptiveTree: insert live segment: pts: %llu range_end: %llu", seg.startPTS_, seg.range_end_);
 
-    for (std::vector<Representation*>::iterator b(adpm->repesentations_.begin()), e(adpm->repesentations_.end()); b != e; ++b)
+    for (std::vector<Representation*>::iterator b(adpm->representations_.begin()), e(adpm->representations_.end()); b != e; ++b)
       (*b)->segments_.insert(seg);
   }
 
@@ -281,8 +281,8 @@ namespace adaptive
             if (psshSets_[i].adaptation_set_ == *ba)
               psshSets_[i].adaptation_set_ = *(ba + 1);
 
-          (*(ba + 1))->repesentations_.insert((*(ba + 1))->repesentations_.end(), (*ba)->repesentations_.begin(), (*ba)->repesentations_.end());
-          (*ba)->repesentations_.clear();
+          (*(ba + 1))->representations_.insert((*(ba + 1))->representations_.end(), (*ba)->representations_.begin(), (*ba)->representations_.end());
+          (*ba)->representations_.clear();
           ba = (*bp)->adaptationSets_.erase(ba);
           ea = (*bp)->adaptationSets_.end();
         }
@@ -292,8 +292,8 @@ namespace adaptive
 
       for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
       {
-        std::sort((*ba)->repesentations_.begin(), (*ba)->repesentations_.end(), Representation::compare);
-        for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
+        std::sort((*ba)->representations_.begin(), (*ba)->representations_.end(), Representation::compare);
+        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
           (*br)->SetScaling();
       }
     }
@@ -303,12 +303,12 @@ namespace adaptive
   {
     for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
       for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
-        for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er;)
+        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er;)
           if ((*br)->pssh_set_ == pssh_set)
           {
             delete *br;
-            br = (*ba)->repesentations_.erase(br);
-            er = (*ba)->repesentations_.end();
+            br = (*ba)->representations_.erase(br);
+            er = (*ba)->representations_.end();
           }
           else
             ++br;
