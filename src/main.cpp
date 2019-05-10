@@ -297,7 +297,10 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
 
     paramPos = effective_url_.find_last_of('/');
     if (paramPos != std::string::npos)
+    {
+      effective_filename_ = effective_url_.substr(paramPos + 1);
       effective_url_.resize(paramPos + 1);
+    }
     else
       effective_url_.clear();
 
