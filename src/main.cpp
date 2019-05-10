@@ -2379,15 +2379,15 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
-    if (adp->repesentations_.empty())
+    if (adp->representations_.empty())
       continue;
 
-    size_t repId = manual_streams_ ? adp->repesentations_.size() : 0;
+    size_t repId = manual_streams_ ? adp->representations_.size() : 0;
 
     do {
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
-      const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->repesentations_[0]->get_psshset()));
+      const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->representations_[0]->get_psshset()));
 
       uint32_t hdcpLimit(caps.hdcpLimit);
       uint16_t hdcpVersion(caps.hdcpVersion);
