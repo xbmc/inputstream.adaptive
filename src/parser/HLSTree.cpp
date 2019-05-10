@@ -223,7 +223,10 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
         current_representation_->bandwidth_ = 0;
         current_representation_->codecs_ = getVideoCodec("");
         current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
-        current_representation_->source_url_ = url;
+        if (!effective_url_.empty())
+          current_representation_->source_url_ = effective_url_ + "/" + effective_filename_;
+        else
+          current_representation_->source_url_ = url;
         current_adaptationset_->representations_.push_back(current_representation_);
 
         // We assume audio is included
