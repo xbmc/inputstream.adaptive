@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.3.17"
+  version="2.3.18"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,9 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.3.18 (2019-05-11)
+- align settings with internal resolution check
+- [HLS] support single playlists
 
 v2.3.17 (2019-04-16)
 - Fix KID's with 0 char inside
