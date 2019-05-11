@@ -56,16 +56,16 @@ static void parseResolution(std::uint16_t &width, std::uint16_t &height, const s
 
 static std::string getVideoCodec(const std::string &codecs)
 {
-  if (codecs.empty() || codecs.find("avc1.") != std::string::npos)
+  if (codecs.empty())
     return "h264";
-  else if (!codecs.empty())
-  {
-    if (codecs.find("hvc1.") != std::string::npos)
-      return "hvc1";
-    else if (codecs.find("hev1.") != std::string::npos)
-      return "hev1";
-  }
-  return "";
+  else if (codecs.find("avc1.") != std::string::npos)
+    return "h264";
+  else if (codecs.find("hvc1.") != std::string::npos)
+    return "hvc1";
+  else if (codecs.find("hev1.") != std::string::npos)
+    return "hev1";
+  else
+    return "";
 }
 
 static std::string getAudioCodec(const std::string &codecs)
@@ -75,7 +75,7 @@ static std::string getAudioCodec(const std::string &codecs)
   else if (codecs.find("ac-3") != std::string::npos)
     return "ac-3";
   else
-    return  "aac";
+    return "aac";
 }
 
 HLSTree::~HLSTree()
@@ -136,7 +136,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
 
         AdaptationSet *adp = new AdaptationSet();
         Representation *rep = new Representation();
-        adp->repesentations_.push_back(rep);
+        adp->representations_.push_back(rep);
         group.m_sets.push_back(adp);
 
         adp->type_ = type;
@@ -192,7 +192,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
           current_period_->adaptationSets_.push_back(current_adaptationset_);
         }
         current_representation_ = new Representation();
-        current_adaptationset_->repesentations_.push_back(current_representation_);
+        current_adaptationset_->representations_.push_back(current_representation_);
         current_representation_->timescale_ = 1000000;
         current_representation_->codecs_ = getVideoCodec(map["CODECS"]);
         current_representation_->bandwidth_ = atoi(map["BANDWIDTH"].c_str());
@@ -210,6 +210,30 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
           m_audioCodec = getAudioCodec(map["CODECS"]);
         }
       }
+      else if (line.compare(0, 8, "#EXTINF:") == 0)
+      {
+        //Uh, this is not a multi - bitrate playlist
+        current_adaptationset_ = new AdaptationSet();
+        current_adaptationset_->type_ = VIDEO;
+        current_adaptationset_->timescale_ = 1000000;
+        current_period_->adaptationSets_.push_back(current_adaptationset_);
+
+        current_representation_ = new Representation();
+        current_representation_->timescale_ = 1000000;
+        current_representation_->bandwidth_ = 0;
+        current_representation_->codecs_ = getVideoCodec("");
+        current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
+        if (!effective_url_.empty())
+          current_representation_->source_url_ = effective_url_ + "/" + effective_filename_;
+        else
+          current_representation_->source_url_ = url;
+        current_adaptationset_->representations_.push_back(current_representation_);
+
+        // We assume audio is included
+        included_types_ |= 1U << AUDIO;
+        m_audioCodec = getAudioCodec("");
+        break;
+      }
       else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
       {
         if (line[0] == '/')
@@ -225,12 +249,12 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
           current_representation_->source_url_ += manifest_parameter_;
 
         //Ignore duplicate reps
-        for (auto const *rep : current_adaptationset_->repesentations_)
+        for (auto const *rep : current_adaptationset_->representations_)
           if (rep != current_representation_ &&  rep->source_url_ == current_representation_->source_url_)
           {
             delete current_representation_;
             current_representation_ = nullptr;
-            current_adaptationset_->repesentations_.pop_back();
+            current_adaptationset_->representations_.pop_back();
             break;
           }
       }
@@ -250,7 +274,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
         current_representation_->timescale_ = 1000000;
         current_representation_->codecs_ = m_audioCodec;
         current_representation_->flags_ = Representation::INCLUDEDSTREAM;
-        current_adaptationset_->repesentations_.push_back(current_representation_);
+        current_adaptationset_->representations_.push_back(current_representation_);
       }
 
       //Register external adaptationsets
@@ -450,18 +474,18 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
         rep->initialization_.pssh_set_ = 0;
       }
+
+      FreeSegments(rep);
+
+      if (newSegments.data.empty())
+      {
+        rep->source_url_.clear(); // disable this segment
+        return false;
+      }
+
+      rep->segments_.swap(newSegments);
+      rep->startNumber_ = newStartNumber;
     }
-
-    FreeSegments(rep);
-
-    if (newSegments.data.empty())
-    {
-      rep->source_url_.clear(); // disable this segment
-      return false;
-    }
-
-    rep->segments_.swap(newSegments);
-    rep->startNumber_ = newStartNumber;
 
     if (update)
     {
@@ -581,7 +605,7 @@ void HLSTree::RefreshSegments()
   {
     for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
       for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
-        for (std::vector<Representation*>::iterator br((*ba)->repesentations_.begin()), er((*ba)->repesentations_.end()); br != er; ++br)
+        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
           if ((*br)->flags_ & Representation::ENABLED)
             prepareRepresentation((*br), true);
   }

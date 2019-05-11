@@ -250,7 +250,7 @@ namespace adaptive
     struct AdaptationSet
     {
       AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
-      ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(repesentations_.begin()), e(repesentations_.end()); b != e; ++b) delete *b; };
+      ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
       StreamType type_;
       uint32_t timescale_, duration_;
       uint64_t startPTS_;
@@ -263,7 +263,7 @@ namespace adaptive
       std::string codecs_;
       std::string audio_track_id_;
       std::string name_;
-      std::vector<Representation*> repesentations_;
+      std::vector<Representation*> representations_;
       SPINCACHE<uint32_t> segment_durations_;
       SegmentTemplate segtpl_;
 
@@ -294,11 +294,11 @@ namespace adaptive
           if (a->original_ != b->original_)
             return a->original_;
 
-          if (a->repesentations_[0]->codecs_ != b->repesentations_[0]->codecs_)
-            return a->repesentations_[0]->codecs_ < b->repesentations_[0]->codecs_;
+          if (a->representations_[0]->codecs_ != b->representations_[0]->codecs_)
+            return a->representations_[0]->codecs_ < b->representations_[0]->codecs_;
 
-          if (a->repesentations_[0]->channelCount_ != b->repesentations_[0]->channelCount_)
-            return a->repesentations_[0]->channelCount_ < b->repesentations_[0]->channelCount_;
+          if (a->representations_[0]->channelCount_ != b->representations_[0]->channelCount_)
+            return a->representations_[0]->channelCount_ < b->representations_[0]->channelCount_;
         }
         else if (a->type_ == SUBTITLE)
         {
@@ -338,8 +338,8 @@ namespace adaptive
           && compareCodecs(a->codecs_, b->codecs_))
         {
           return a->type_ == AUDIO
-            && a->repesentations_[0]->channelCount_ == b->repesentations_[0]->channelCount_
-            && compareCodecs(a->repesentations_[0]->codecs_, b->repesentations_[0]->codecs_);
+            && a->representations_[0]->channelCount_ == b->representations_[0]->channelCount_
+            && compareCodecs(a->representations_[0]->codecs_, b->representations_[0]->codecs_);
         }
         return false;
       };
@@ -359,7 +359,7 @@ namespace adaptive
     }*current_period_;
 
     std::vector<Period*> periods_;
-    std::string manifest_url_, base_url_, effective_url_, base_domain_, update_parameter_;
+    std::string manifest_url_, base_url_, effective_url_, effective_filename_, base_domain_, update_parameter_;
     std::string::size_type update_parameter_pos_;
     std::string etag_, last_modified_;
     std::string media_renewal_url_;

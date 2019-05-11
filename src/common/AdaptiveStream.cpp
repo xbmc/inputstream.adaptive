@@ -536,11 +536,11 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
 {
   AdaptiveTree::Representation *new_rep(0), *min_rep(0);
 
-  if (!repId || repId > current_adp_->repesentations_.size())
+  if (!repId || repId > current_adp_->representations_.size())
   {
     unsigned int bestScore(~0);
 
-    for (std::vector<AdaptiveTree::Representation*>::const_iterator br(current_adp_->repesentations_.begin()), er(current_adp_->repesentations_.end()); br != er; ++br)
+    for (std::vector<AdaptiveTree::Representation*>::const_iterator br(current_adp_->representations_.begin()), er(current_adp_->representations_.end()); br != er; ++br)
     {
       unsigned int score;
       if ((*br)->bandwidth_ <= bandwidth_ && (*br)->hdcpVersion_ <= hdcpVersion_
@@ -556,7 +556,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     }
   }
   else
-    new_rep = current_adp_->repesentations_[current_adp_->repesentations_.size() - repId];
+    new_rep = current_adp_->representations_[current_adp_->representations_.size() - repId];
 
   if (!new_rep)
     new_rep = min_rep;
