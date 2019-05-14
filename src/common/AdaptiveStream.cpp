@@ -529,7 +529,7 @@ bool AdaptiveStream::waitingForSegment(bool checkTime) const
 
 void AdaptiveStream::FixateInitialization(bool on)
 {
-  m_fixateInitialization = on && !current_rep_->current_segment_;
+  m_fixateInitialization = on && current_rep_->get_initialization() != nullptr;
 }
 
 bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId)
