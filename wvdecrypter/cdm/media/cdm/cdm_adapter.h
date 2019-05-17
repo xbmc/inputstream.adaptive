@@ -191,12 +191,23 @@ public: //Misc
 	virtual ~CdmAdapter();
 	bool valid(){ return library_ != 0; };
 private:
-  virtual void Initialize(const std::string& cdm_path);
+  using InitializeCdmModuleFunc = void(*)();
+  using DeinitializeCdmModuleFunc = void(*)();
+  using GetCdmVersionFunc = char* (*)();
+  using CreateCdmFunc = void* (*)(int cdm_interface_version,
+    const char* key_system,
+    uint32_t key_system_size,
+    GetCdmHostFunc get_cdm_host_func,
+    void* user_data);
+
+
+  virtual void Initialize();
   void SendClientMessage(const char* session, uint32_t session_size, CdmAdapterClient::CDMADPMSG msg, const uint8_t *data, size_t data_size, uint32_t status);
 
   // Keep a reference to the CDM.
   base::NativeLibrary library_;
 
+  std::string cdm_path_;
   std::string cdm_base_path_;
   CdmAdapterClient *client_;
   std::mutex client_mutex_, decrypt_mutex_;
