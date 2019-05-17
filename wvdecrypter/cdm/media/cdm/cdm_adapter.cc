@@ -39,7 +39,7 @@ uint64_t gtc()
 
 namespace {
 
-static void* GetCdmHost(int host_interface_version, void* user_data)
+void* GetCdmHost(int host_interface_version, void* user_data)
 {
   if (!user_data)
     return nullptr;
@@ -59,21 +59,6 @@ static void* GetCdmHost(int host_interface_version, void* user_data)
   }
 }
 
-// Returns a pointer to the requested CDM upon success.
-// Returns NULL if an error occurs or the requested |cdm_interface_version| or
-// |key_system| is not supported or another error occurs.
-// The caller should cast the returned pointer to the type matching
-// |cdm_interface_version|.
-// Caller retains ownership of arguments and must call Destroy() on the returned
-// object.
-typedef void* (*CreateCdmFunc)(int cdm_interface_version,
-  const char* key_system,
-  uint32_t key_system_size,
-  GetCdmHostFunc get_cdm_host_func,
-  void* user_data);
-
-typedef void (*INITIALIZE_CDM_MODULE_FN)();
-
 }  // namespace
 
 void timerfunc(std::shared_ptr<CdmAdapter> adp, uint64_t delay, void* context)
@@ -92,6 +77,7 @@ CdmAdapter::CdmAdapter(
   const CdmConfig& cdm_config,
   CdmAdapterClient *client)
 : library_(0)
+, cdm_path_(cdm_path)
 , cdm_base_path_(base_path)
 , client_(client)
 , key_system_(key_system)
@@ -100,7 +86,7 @@ CdmAdapter::CdmAdapter(
 , cdm8_(0), cdm9_(0), cdm10_(0)
 {
   //DCHECK(!key_system_.empty());
-  Initialize(cdm_path);
+  Initialize();
 }
 
 CdmAdapter::~CdmAdapter()
@@ -114,14 +100,14 @@ CdmAdapter::~CdmAdapter()
   else
     return;
 
-  INITIALIZE_CDM_MODULE_FN deinit_cdm_func = reinterpret_cast<INITIALIZE_CDM_MODULE_FN>(base::GetFunctionPointerFromNativeLibrary(library_, "DeinitializeCdmModule"));
+  DeinitializeCdmModuleFunc deinit_cdm_func = reinterpret_cast<DeinitializeCdmModuleFunc>(base::GetFunctionPointerFromNativeLibrary(library_, "DeinitializeCdmModule"));
   if (deinit_cdm_func)
     deinit_cdm_func();
 
   base::UnloadNativeLibrary(library_);
 }
 
-void CdmAdapter::Initialize(const std::string& cdm_path)
+void CdmAdapter::Initialize()
 {
   if (cdm8_ || cdm9_ || cdm10_)
   {
@@ -137,14 +123,14 @@ void CdmAdapter::Initialize(const std::string& cdm_path)
 
   base::NativeLibraryLoadError error;
 #if defined(OS_WIN)
-  library_ = base::LoadNativeLibraryDynamically(cdm_path);
+  library_ = base::LoadNativeLibraryDynamically(cdm_path_);
 #else
   library_ = base::LoadNativeLibrary(cdm_path, 0);
 #endif
   if (!library_)
     return;
 
-  INITIALIZE_CDM_MODULE_FN init_cdm_func = reinterpret_cast<INITIALIZE_CDM_MODULE_FN>(base::GetFunctionPointerFromNativeLibrary(library_, "InitializeCdmModule"));
+  InitializeCdmModuleFunc init_cdm_func = reinterpret_cast<InitializeCdmModuleFunc>(base::GetFunctionPointerFromNativeLibrary(library_, MAKE_STRING(INITIALIZE_CDM_MODULE)));
   if (init_cdm_func)
     init_cdm_func();
 
@@ -156,13 +142,23 @@ void CdmAdapter::Initialize(const std::string& cdm_path)
     return;
   }
 
+  GetCdmVersionFunc get_cdm_verion_func = reinterpret_cast<GetCdmVersionFunc>(base::GetFunctionPointerFromNativeLibrary(library_, "GetCdmVersion"));
+  if (get_cdm_verion_func)
+  {
+    std::string version = get_cdm_verion_func();
+    version = "CDM version: " + version;
+    client_->CDMLog(version.c_str());
+  }
+
   cdm10_ = static_cast<cdm::ContentDecryptionModule_10*>(create_cdm_func(10, key_system_.data(), key_system_.size(), GetCdmHost, this));
 
   if (!cdm10_)
+  {
     cdm9_ = static_cast<cdm::ContentDecryptionModule_9*>(create_cdm_func(9, key_system_.data(), key_system_.size(), GetCdmHost, this));
 
-  if (!cdm9_)
-    cdm8_ = reinterpret_cast<cdm::ContentDecryptionModule_8*>(create_cdm_func(8, key_system_.data(), key_system_.size(), GetCdmHost, this));
+    if (!cdm9_)
+      cdm8_ = reinterpret_cast<cdm::ContentDecryptionModule_8*>(create_cdm_func(8, key_system_.data(), key_system_.size(), GetCdmHost, this));
+  }
 
   if (cdm8_ || cdm9_ || cdm10_)
   {
@@ -322,7 +318,10 @@ cdm::Status CdmAdapter::Decrypt(const cdm::InputBuffer& encrypted_buffer,
   else if (cdm9_)
     ret = cdm9_->Decrypt(encrypted_buffer, decrypted_buffer);
   else if (cdm10_)
-    ret = cdm10_->Decrypt(encrypted_buffer, decrypted_buffer);
+  {
+    cdm::InputBuffer_2 tmp(encrypted_buffer);
+    ret = cdm10_->Decrypt(tmp, decrypted_buffer);
+  }
 
   active_buffer_ = 0;
   return ret;
@@ -570,9 +569,9 @@ void CdmAdapter::OnSessionMessage(const char* session_id, uint32_t session_id_si
 void CdmAdapter::RequestStorageId(uint32_t version)
 {
   if (cdm9_)
-    cdm9_->OnStorageId(version, nullptr, 0);
+    cdm9_->OnStorageId(1, nullptr, 0);
   else if (cdm10_)
-    cdm10_->OnStorageId(version, nullptr, 0);
+    cdm10_->OnStorageId(1, nullptr, 0);
 }
 
 void CdmAdapter::OnInitialized(bool success)

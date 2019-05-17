@@ -13,6 +13,12 @@
 #include <stddef.h>  // For size_t.
 #include <string.h>  // For memcpy.
 
+// INITIALIZE_CDM_MODULE is a macro in api/content_decryption_module.h.
+// However, we need to pass it as a string to GetFunctionPointer() once it
+// is expanded.
+#define STRINGIFY(X) #X
+#define MAKE_STRING(X) STRINGIFY(X)
+
 // Put this in the declarations for a class to be uncopyable.
 #define DISALLOW_COPY(TypeName) \
   TypeName(const TypeName&) = delete

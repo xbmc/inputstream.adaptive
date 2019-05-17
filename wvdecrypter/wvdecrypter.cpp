@@ -435,6 +435,7 @@ WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert, const u
   if (license_url_.find('|') == std::string::npos)
     license_url_ += "|Content-Type=application%2Fx-www-form-urlencoded|widevine2Challenge=B{SSM}&includeHdcpTestKeyInLicense=true|JBlicense;hdcpEnforcementResolutionPixels";
 
+  //wv_adapter->GetStatusForPolicy();
   //wv_adapter->QueryOutputProtectionStatus();
 }
 
@@ -509,12 +510,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     Log(SSD_HOST::LL_DEBUG, "%s: could not open debug file for writing (init)!", __func__);
 #endif
 
-  if (memcmp(pssh.GetData() + 4, "pssh", 4) == 0)
-  {
-    drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(promise_id_++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc,
-      reinterpret_cast<const uint8_t *>(pssh.GetData()), pssh.GetDataSize());
-  }
-  else
+  if (memcmp(pssh.GetData() + 4, "pssh", 4) != 0)
   {
     unsigned int buf_size = 32 + pssh.GetDataSize();
     uint8_t buf[4096 + 32];
@@ -533,9 +529,10 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     memcpy(buf, proto, sizeof(proto));
     memcpy(&buf[32], pssh.GetData(), pssh.GetDataSize());
     pssh_.SetData(buf, buf_size);
-
-    drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(promise_id_++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, buf, buf_size);
   }
+
+  drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(promise_id_++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc,
+    reinterpret_cast<const uint8_t *>(pssh_.GetData()), pssh_.GetDataSize());
 
   int retrycount=0;
   while (session_.empty() && ++retrycount < 100)
