@@ -21,7 +21,9 @@ int clock_gettime(int clk_id, struct timespec* t) {
   t->tv_nsec = now.tv_usec * 1000;
   return 0;
 }
+#ifndef CLOCK_REALTIME
 #define CLOCK_REALTIME 1
+#endif
 #endif
 
 namespace media {
@@ -125,7 +127,7 @@ void CdmAdapter::Initialize()
 #if defined(OS_WIN)
   library_ = base::LoadNativeLibraryDynamically(cdm_path_);
 #else
-  library_ = base::LoadNativeLibrary(cdm_path, 0);
+  library_ = base::LoadNativeLibrary(cdm_path_, 0);
 #endif
   if (!library_)
     return;
