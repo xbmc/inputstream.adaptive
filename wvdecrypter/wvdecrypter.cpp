@@ -158,79 +158,7 @@ private:
   void *instance_;
 };
 
-class CdmVideoFrame : public cdm::VideoFrame {
-public:
-  CdmVideoFrame() :m_buffer(0) {};
 
-  virtual void SetFormat(cdm::VideoFormat format) override
-  {
-    m_format = format;
-  }
-
-  virtual cdm::VideoFormat Format() const override
-  {
-    return m_format;
-  }
-
-  virtual void SetSize(cdm::Size size) override
-  {
-    m_size = size;
-  }
-
-  virtual cdm::Size Size() const override
-  {
-    return m_size;
-  }
-
-  virtual void SetFrameBuffer(cdm::Buffer* frame_buffer) override
-  {
-    m_buffer = frame_buffer;
-  }
-
-  virtual cdm::Buffer* FrameBuffer() override
-  {
-    return m_buffer;
-  }
-
-  virtual void SetPlaneOffset(VideoPlane plane, uint32_t offset) override
-  {
-    m_planeOffsets[plane] = offset;
-  }
-
-  virtual uint32_t PlaneOffset(VideoPlane plane) override
-  {
-    return m_planeOffsets[plane];
-  }
-
-  virtual void SetStride(VideoPlane plane, uint32_t stride) override
-  {
-    m_stride[plane] = stride;
-  }
-
-  virtual uint32_t Stride(VideoPlane plane) override
-  {
-    return m_stride[plane];
-  }
-
-  virtual void SetTimestamp(int64_t timestamp) override
-  {
-    m_pts = timestamp;
-  }
-
-  virtual int64_t Timestamp() const override
-  {
-    return m_pts;
-  }
-private:
-  cdm::VideoFormat m_format;
-  cdm::Buffer *m_buffer;
-  cdm::Size m_size;
-
-  uint32_t m_planeOffsets[cdm::VideoFrame::kMaxPlanes];
-  uint32_t m_stride[cdm::VideoFrame::kMaxPlanes];
-
-  uint64_t m_pts;
-};
 
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter
@@ -319,7 +247,7 @@ private:
   uint32_t promise_id_;
   bool drained_;
 
-  std::list<CdmVideoFrame> videoFrames_;
+  std::list<media::CdmVideoFrame> videoFrames_;
   std::mutex renewal_lock_;
 };
 
@@ -361,7 +289,7 @@ public:
   media::CdmAdapter *GetCdmAdapter() { return wv_adapter.get(); };
   const std::string &GetLicenseURL() { return license_url_; };
 
-  cdm::Status DecryptAndDecodeFrame(void* hostInstance, cdm::InputBuffer &cdm_in, cdm::VideoFrame *frame)
+  cdm::Status DecryptAndDecodeFrame(void* hostInstance, cdm::InputBuffer_2 &cdm_in, media::CdmVideoFrame *frame)
   {
     host_instance_ = hostInstance;
     cdm::Status ret = wv_adapter->DecryptAndDecodeFrame(cdm_in, frame);
@@ -1204,7 +1132,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   }
 
   // transform ap4 format into cmd format
-  cdm::InputBuffer cdm_in;
+  cdm::InputBuffer_2 cdm_in;
   if (subsample_count > max_subsample_count_decrypt_)
   {
     subsample_buffer_decrypt_ = (cdm::SubsampleEntry*)realloc(subsample_buffer_decrypt_, subsample_count*sizeof(cdm::SubsampleEntry));
@@ -1264,6 +1192,9 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   cdm_in.key_id = fragInfo.key_;
   cdm_in.key_id_size = 16;
   cdm_in.subsamples = subsample_buffer_decrypt_;
+  cdm_in.encryption_scheme = cdm::EncryptionScheme::kCenc;
+  cdm_in.timestamp = 0;
+  cdm_in.pattern = { 0,0 };
 
   CdmBuffer buf((useSingleDecrypt) ? &decrypt_out_ : &data_out);
   CdmDecryptedBlock cdm_out;
@@ -1296,7 +1227,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 
 bool WV_CencSingleSampleDecrypter::OpenVideoDecoder(const SSD_VIDEOINITDATA *initData)
 {
-  cdm::VideoDecoderConfig vconfig;
+  cdm::VideoDecoderConfig_3 vconfig;
   vconfig.codec = static_cast<cdm::VideoCodec>(initData->codec);
   vconfig.coded_size.width = initData->width;
   vconfig.coded_size.height = initData->height;
@@ -1304,6 +1235,8 @@ bool WV_CencSingleSampleDecrypter::OpenVideoDecoder(const SSD_VIDEOINITDATA *ini
   vconfig.extra_data_size = initData->extraDataSize;
   vconfig.format = static_cast<cdm::VideoFormat> (initData->videoFormats[0]);
   vconfig.profile = static_cast<cdm::VideoCodecProfile>(initData->codecProfile);
+  vconfig.color_space = { 2, 2, 2, cdm::ColorRange::kInvalid };
+  vconfig.encryption_scheme = cdm::EncryptionScheme::kCenc;
 
   cdm::Status ret = drm_.GetCdmAdapter()->InitializeVideoDecoder(vconfig);
   videoFrames_.clear();
@@ -1322,7 +1255,7 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
     if (videoFrames_.size() == 4)
       return VC_ERROR;
 
-    cdm::InputBuffer cdm_in;
+    cdm::InputBuffer_2 cdm_in;
 
     if (sample->numSubSamples) {
       if (sample->clearBytes == NULL || sample->cipherBytes == NULL) {
@@ -1352,6 +1285,8 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
     cdm_in.iv = sample->iv;
     cdm_in.iv_size = sample->iv ? 16 : 0;
     cdm_in.timestamp = sample->pts;
+    cdm_in.encryption_scheme = cdm::EncryptionScheme::kCenc;
+    cdm_in.pattern = { 0,0 };
 
     uint8_t unencryptedKID = 0x31;
     cdm_in.key_id = sample->kid ? sample->kid : &unencryptedKID;
@@ -1362,12 +1297,12 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
 
     //DecryptAndDecode calls Alloc wich cals kodi VideoCodec. Set instance handle.
     //LICENSERENEWAL: CheckLicenseRenewal();
-    CdmVideoFrame frame;
+    media::CdmVideoFrame frame;
     cdm::Status ret = drm_.DecryptAndDecodeFrame(hostInstance, cdm_in, &frame);
 
     if (ret == cdm::Status::kSuccess)
     {
-      std::list<CdmVideoFrame>::iterator f(videoFrames_.begin());
+      std::list<media::CdmVideoFrame>::iterator f(videoFrames_.begin());
       while (f != videoFrames_.end() && f->Timestamp() < frame.Timestamp())++f;
       videoFrames_.insert(f, frame);
     }
@@ -1390,7 +1325,7 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
   {
     if (videoFrames_.size() == 4 || (videoFrames_.size() && (picture->flags & SSD_PICTURE::FLAG_DRAIN)))
     {
-      CdmVideoFrame &videoFrame_(videoFrames_.front());
+      media::CdmVideoFrame &videoFrame_(videoFrames_.front());
 
       picture->width = videoFrame_.Size().width;
       picture->height = videoFrame_.Size().height;
@@ -1399,10 +1334,10 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
       picture->decodedDataSize = videoFrame_.FrameBuffer()->Size();
       picture->buffer = static_cast<CdmFixedBuffer*>(videoFrame_.FrameBuffer())->Buffer();
 
-      for (unsigned int i(0); i < cdm::VideoFrame::kMaxPlanes; ++i)
+      for (unsigned int i(0); i < cdm::VideoPlane::kMaxPlanes; ++i)
       {
-        picture->planeOffsets[i] = videoFrame_.PlaneOffset(static_cast<cdm::VideoFrame::VideoPlane>(i));
-        picture->stride[i] = videoFrame_.Stride(static_cast<cdm::VideoFrame::VideoPlane>(i));
+        picture->planeOffsets[i] = videoFrame_.PlaneOffset(static_cast<cdm::VideoPlane>(i));
+        picture->stride[i] = videoFrame_.Stride(static_cast<cdm::VideoPlane>(i));
       }
       picture->videoFormat = static_cast<SSD::SSD_VIDEOFORMAT>(videoFrame_.Format());
       videoFrame_.SetFrameBuffer(nullptr); //marker for "No Picture"

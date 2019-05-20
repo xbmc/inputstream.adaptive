@@ -83,7 +83,7 @@
         </setting>
         <setting id="WIDEVINE_API" type="integer">
           <level>4</level>
-          <default>9</default>
+          <default>10</default>
         </setting>
       </group>
     </category>
