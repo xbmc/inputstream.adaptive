@@ -136,6 +136,7 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
         info.m_ExtraData = (uint8_t*)realloc((void*)info.m_ExtraData, tsInfo.m_stream->stream_info.extra_data_size);
         memcpy((void*)info.m_ExtraData, tsInfo.m_stream->stream_info.extra_data, tsInfo.m_stream->stream_info.extra_data_size);
         info.m_ExtraSize = tsInfo.m_stream->stream_info.extra_data_size;
+        ret = true;
       }
       return ret;
     }
