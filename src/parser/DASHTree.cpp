@@ -191,10 +191,7 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
       if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
         mpdFound = true;
       else
-      {
         urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
-        break;
-      }
     }
     else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
       defaultKID = (const char*)*(attr + 1);
@@ -204,9 +201,8 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
   {
     dash->currentNode_ |= MPDNODE_CONTENTPROTECTION;
     dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
-    return true;
   }
-  else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
+  if ((urnFound || mpdFound) && defaultKID && strlen(defaultKID) == 36)
   {
     dash->current_defaultKID_.resize(16);
     for (unsigned int i(0); i < 16; ++i)
@@ -218,7 +214,7 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
     }
   }
   // Return if we have URN or not
-  return !mpdFound;
+  return urnFound || !mpdFound;
 }
 
 /*----------------------------------------------------------------------
