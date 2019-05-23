@@ -35,6 +35,7 @@ namespace adaptive
     uint64_t pts_helper_;
     uint32_t firstStartNumber_;
     uint64_t current_period_start_;
+    std::string current_playready_wrmheader_;
   protected:
     virtual void RefreshSegments() override;
   };
