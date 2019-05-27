@@ -809,7 +809,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       if (jsonVals.size() > 1)
       {
         for (; i < numTokens; ++i)
-          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[1].size() == tokens[i].end - tokens[i].start
+          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[1].size() == static_cast<unsigned int>(tokens[i].end - tokens[i].start)
             && strncmp(response.c_str() + tokens[i].start, jsonVals[1].c_str(), tokens[i].end - tokens[i].start) == 0)
             break;
         if (i < numTokens)
@@ -819,16 +819,20 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       if (jsonVals.size() > 0)
       {
         for (i = 0; i < numTokens; ++i)
-          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[0].size() == tokens[i].end - tokens[i].start
+          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 && jsonVals[0].size() == static_cast<unsigned int>(tokens[i].end - tokens[i].start)
             && strncmp(response.c_str() + tokens[i].start, jsonVals[0].c_str(), tokens[i].end - tokens[i].start) == 0)
+          {
+            if (i + 1 < numTokens && tokens[i + 1].type == JSMN_ARRAY && tokens[i + 1].size == 1)
+              ++i;
             break;
+          }
       }
       else
         i = numTokens;
 
       if (i < numTokens)
       {
-        if (blocks[3][1] == 'B')
+        if (blocks[3][dataPos - 1] == 'B')
         {
           unsigned int decoded_size = 2048;
           uint8_t decoded[2048];
