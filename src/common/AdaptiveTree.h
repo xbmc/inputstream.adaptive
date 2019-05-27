@@ -116,11 +116,8 @@ namespace adaptive
     {
       void SetRange(const char *range);
       uint64_t range_begin_; //Either byterange start or timestamp or ~0
-      union
-      {
-        uint64_t range_end_; //Either byterange end or sequence_id or char* if range_begin is ~0
-        const char *url;
-      };
+      uint64_t range_end_; //Either byterange end or sequence_id if range_begin is ~0
+      const char *url;
       uint64_t startPTS_;
       uint16_t pssh_set_;
     };
