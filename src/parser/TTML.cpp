@@ -302,7 +302,7 @@ uint64_t TTML2SRT::GetTime(const char *tmchar)
       else if (strlen(ctf) == 2 && del == ':')
       {
         if (m_frameRate)
-          tf = (tf * 1000 / m_frameRate);
+          tf = static_cast<unsigned int>((tf * 1000) / m_frameRate);
         else
           tf = (tf * 1000 / 30);
       }
