@@ -24,6 +24,7 @@
 
 #include "SmoothTree.h"
 #include "../oscompat.h"
+#include "PRProtectionParser.h"
 #include "../helpers.h"
 
 using namespace adaptive;
@@ -279,7 +280,11 @@ end(void *data, const char *el)
       else if (strcmp(el, "Protection") == 0)
       {
         dash->currentNode_ &= ~(SmoothTree::SSMNODE_PROTECTION| SmoothTree::SSMNODE_PROTECTIONTEXT);
-        dash->parse_protection();
+        PRProtectionParser parser(dash->strXMLText_);
+        dash->current_defaultKID_ = parser.getKID();
+        dash->license_url_ = parser.getLicenseURL();
+        dash->current_pssh_ = parser.getPSSH();
+        dash->strXMLText_.clear();
       }
     }
     else if (dash->currentNode_ & SmoothTree::SSMNODE_STREAMINDEX)
@@ -302,50 +307,7 @@ end(void *data, const char *el)
   }
 }
 
-/*----------------------------------------------------------------------
-|   expat protection start
-+---------------------------------------------------------------------*/
-static void XMLCALL
-protection_start(void *data, const char *el, const char **attr)
-{
-  SmoothTree *dash(reinterpret_cast<SmoothTree*>(data));
-  dash->strXMLText_.clear();
-}
 
-/*----------------------------------------------------------------------
-|   expat protection text
-+---------------------------------------------------------------------*/
-static void XMLCALL
-protection_text(void *data, const char *s, int len)
-{
-  SmoothTree *dash(reinterpret_cast<SmoothTree*>(data));
-  dash->strXMLText_ += std::string(s, len);
-}
-
-/*----------------------------------------------------------------------
-|   expat protection end
-+---------------------------------------------------------------------*/
-static void XMLCALL
-protection_end(void *data, const char *el)
-{
-	SmoothTree *dash(reinterpret_cast<SmoothTree*>(data));
-  if (strcmp(el, "KID") == 0)
-  {
-    uint8_t buffer[32];
-    unsigned int buffer_size(32);
-    b64_decode(dash->strXMLText_.data(), dash->strXMLText_.size(), buffer, buffer_size);
-
-    if (buffer_size == 16)
-    {
-      dash->current_defaultKID_.resize(16);
-      prkid2wvkid(reinterpret_cast<const char *>(buffer), &dash->current_defaultKID_[0]);
-    }
-  }
-  else if (strcmp(el, "LA_URL") == 0)
-  {
-    dash->license_url_ = dash->strXMLText_;
-  }
-}
 
 /*----------------------------------------------------------------------
 |   SmoothTree
@@ -409,54 +371,4 @@ bool SmoothTree::write_data(void *buffer, size_t buffer_size, void *opaque)
   if (retval == XML_STATUS_ERROR)
     return false;
   return true;
-}
-
-void SmoothTree::parse_protection()
-{
-  if (strXMLText_.empty())
-    return;
-
-  //(p)repair the content
-  std::string::size_type pos = 0;
-  while ((pos = strXMLText_.find('\n', 0)) != std::string::npos)
-    strXMLText_.erase(pos, 1);
-
-  while (strXMLText_.size() & 3)
-    strXMLText_ += "=";
-
-  unsigned int xml_size = strXMLText_.size();
-  uint8_t *buffer = (uint8_t*)malloc(xml_size), *xml_start(buffer);
-
-  if (!b64_decode(strXMLText_.c_str(), xml_size, buffer, xml_size))
-  {
-    free(buffer);
-    return;
-  }
-
-  current_pssh_ = std::string(reinterpret_cast<char*>(buffer), xml_size);
-
-  while (xml_size && *xml_start != '<')
-  {
-    xml_start++;
-    xml_size--;
-  }
-
-  XML_Parser pp = XML_ParserCreate("UTF-16");
-  if (!pp)
-  {
-    free(buffer);
-    return;
-  }
-
-  XML_SetUserData(pp, (void*)this);
-  XML_SetElementHandler(pp, protection_start, protection_end);
-  XML_SetCharacterDataHandler(pp, protection_text);
-
-  bool done(false);
-  XML_Parse(pp, (const char*)(xml_start), xml_size, done);
-
-  XML_ParserFree(pp);
-  free(buffer);
-
-  strXMLText_.clear();
 }

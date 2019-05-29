@@ -1,5 +1,5 @@
 /*
-*      Copyright (C) 2016-2016 peak3d
+*      Copyright (C) 2019 peak3d
 *      http://www.peak3d.de
 *
 *  This Program is free software; you can redistribute it and/or modify
@@ -18,28 +18,27 @@
 
 #pragma once
 
-#include "../common/AdaptiveTree.h"
+#include <string>
 
 namespace adaptive
 {
 
-  class SmoothTree : public AdaptiveTree
+  class PRProtectionParser
   {
   public:
-    SmoothTree();
-    virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
-    virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
+    PRProtectionParser(std::string wrmheader);
+    std::string getKID() const { return m_strKID; };
+    std::string getLicenseURL() const { return m_strLicenseURL; };
+    std::string getPSSH() const { return m_strPSSH; };
 
-    enum
-    {
-      SSMNODE_SSM = 1 << 0,
-      SSMNODE_PROTECTION = 1 << 1,
-      SSMNODE_STREAMINDEX = 1 << 2,
-      SSMNODE_PROTECTIONHEADER = 1 << 3,
-      SSMNODE_PROTECTIONTEXT = 1 << 4
-    };
+    void setKID(const std::string kid) { m_strKID = kid; };
+    void setLicenseURL(const std::string licenseURL) { m_strLicenseURL = licenseURL; };
 
-    uint64_t pts_helper_;
+    std::string m_strXMLText;
+  private:
+    std::string m_strKID;
+    std::string m_strLicenseURL;
+    std::string m_strPSSH;
   };
 
-}
+} // namespace

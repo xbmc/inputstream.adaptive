@@ -26,6 +26,7 @@
 #include "../oscompat.h"
 #include "../helpers.h"
 #include "../log.h"
+#include "PRProtectionParser.h"
 
 using namespace adaptive;
 
@@ -45,7 +46,8 @@ enum
   MPDNODE_PSSH = 1 << 12,
   MPDNODE_SEGMENTTEMPLATE = 1 << 13,
   MPDNODE_SEGMENTTIMELINE = 1 << 14,
-  MPDNODE_ROLE = 1 << 15
+  MPDNODE_ROLE = 1 << 15,
+  MPDNODE_PLAYREADYWRMHEADER = 1 << 16
 };
 
 static const char* ltranslate(const char * in)
@@ -191,10 +193,7 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
       if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
         mpdFound = true;
       else
-      {
         urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
-        break;
-      }
     }
     else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
       defaultKID = (const char*)*(attr + 1);
@@ -204,9 +203,8 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
   {
     dash->currentNode_ |= MPDNODE_CONTENTPROTECTION;
     dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
-    return true;
   }
-  else if (mpdFound && defaultKID && strlen(defaultKID) == 36)
+  if ((urnFound || mpdFound) && defaultKID && strlen(defaultKID) == 36)
   {
     dash->current_defaultKID_.resize(16);
     for (unsigned int i(0); i < 16; ++i)
@@ -218,7 +216,7 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
     }
   }
   // Return if we have URN or not
-  return !mpdFound;
+  return urnFound || !mpdFound;
 }
 
 /*----------------------------------------------------------------------
@@ -688,6 +686,11 @@ start(void *data, const char *el, const char **attr)
             }
           }
         }
+        else if (strcmp(el, "mspr:pro") == 0)
+        {
+          dash->strXMLText_.clear();
+          dash->currentNode_ |= MPDNODE_PLAYREADYWRMHEADER;
+        }
       }
       else if (dash->currentNode_ & (MPDNODE_SEGMENTLIST | MPDNODE_SEGMENTTEMPLATE))
       {
@@ -755,6 +758,7 @@ start(void *data, const char *el, const char **attr)
         dash->current_adaptationset_->segment_durations_ = dash->current_period_->segment_durations_;
         dash->current_adaptationset_->segtpl_ = dash->current_period_->segtpl_;
         dash->current_adaptationset_->startNumber_ = dash->current_period_->startNumber_;
+        dash->current_playready_wrmheader_.clear();
 
         for (; *attr;)
         {
@@ -940,7 +944,7 @@ static void XMLCALL
 text(void *data, const char *s, int len)
 {
   DASHTree *dash(reinterpret_cast<DASHTree*>(data));
-  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH))
+  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER))
     dash->strXMLText_ += std::string(s, len);
 }
 
@@ -1177,6 +1181,11 @@ end(void *data, const char *el)
             dash->currentNode_ &= ~MPDNODE_CONTENTPROTECTION;
           }
         }
+        else if (dash->currentNode_ & MPDNODE_PLAYREADYWRMHEADER)
+        {
+          dash->current_playready_wrmheader_ = dash->strXMLText_;
+          dash->currentNode_ &= ~MPDNODE_PLAYREADYWRMHEADER;
+        }
         else if (strcmp(el, "AdaptationSet") == 0)
         {
           dash->currentNode_ &= ~MPDNODE_ADAPTIONSET;
@@ -1194,6 +1203,8 @@ end(void *data, const char *el)
               if (dash->adp_pssh_set_ == 0xFF)
               {
                 dash->current_pssh_ = "FILE";
+                if (dash->current_defaultKID_.empty() && !dash->current_playready_wrmheader_.empty())
+                  dash->current_defaultKID_ = PRProtectionParser(dash->current_playready_wrmheader_).getKID();
                 dash->adp_pssh_set_ = static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
                 dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
               }

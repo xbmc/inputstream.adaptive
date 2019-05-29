@@ -26,7 +26,7 @@
 class TTML2SRT
 {
 public:
-  TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_timescale(0), m_ptsOffset(0) { m_styleStack.push_back(STYLE()); };
+  TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_frameRate(0), m_timescale(0), m_ptsOffset(0) { m_styleStack.push_back(STYLE()); };
 
   bool Parse(const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset);
 
@@ -75,7 +75,7 @@ public:
   static const uint32_t NODE_SPAN = 1 << 13;
 
   uint32_t m_node, m_pos;
-  uint64_t m_tickRate;
+  uint64_t m_tickRate, m_frameRate;
 private:
   uint64_t GetTime(const char * tm);
 
