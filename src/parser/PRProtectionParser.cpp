@@ -61,7 +61,7 @@ static void XMLCALL
     {
       char kid[17]; kid[16] = 0;
       prkid2wvkid(reinterpret_cast<const char *>(buffer), kid);
-      parser->setKID(kid);
+      parser->setKID(std::string(kid, 16));
     }
   }
   else if (strcmp(el, "LA_URL") == 0)
