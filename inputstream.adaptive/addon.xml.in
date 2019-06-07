@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.3.20"
+  version="2.3.21"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,8 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.3.21 (2019-06-07)
+- [DASH] initialize segment::range_begin_ for URL segments (youtube)
 
 v2.3.20 (2019-06-07)
 - Fix parsing PR ContentProtection KID
