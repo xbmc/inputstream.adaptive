@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.3.19"
+  version="2.3.20"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,9 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+
+v2.3.20 (2019-06-07)
+- Fix parsing PR ContentProtection KID
 
 v2.3.19 (2019-06-02)
 - [widevine] remove API 8 / Add API 11
