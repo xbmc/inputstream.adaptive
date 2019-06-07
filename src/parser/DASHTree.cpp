@@ -258,6 +258,7 @@ start(void *data, const char *el, const char **attr)
           {
             DASHTree::Segment seg;
             seg.pssh_set_ = 0;
+            seg.range_begin_ = ~0ULL;
             if (strcmp(el, "SegmentURL") == 0)
             {
               for (; *attr;)
