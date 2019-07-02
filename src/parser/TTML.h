@@ -39,6 +39,7 @@ public:
 
   bool StackSubTitle(const char *s, const char *e, const char *id);
   void StackText();
+  void StyleText();
 
   void StackStyle(const char* styleId);
   void UnstackStyle();
@@ -64,7 +65,7 @@ public:
   };
 
   // helper
-  std::string m_strXMLText;
+  std::string m_strXMLText, m_strSubtitle;
 
   static const uint32_t NODE_TT = 1 << 0;
   static const uint32_t NODE_HEAD = 1 << 1;
