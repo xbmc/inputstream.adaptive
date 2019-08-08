@@ -270,6 +270,13 @@ start(void *data, const char *el, const char **attr)
                 }
                 else if (strcmp((const char*)*attr, "media") == 0)
                 {
+                  if (dash->current_representation_->segments_.data.empty())
+                  {
+                    seg.startPTS_ = dash->base_time_ + dash->current_representation_->ptsOffset_;
+                    seg.range_end_ = dash->current_representation_->startNumber_;
+                  }
+                  else
+                    seg.startPTS_ = dash->current_representation_->nextPts_ + dash->current_representation_->duration_;
                   dash->current_representation_->flags_ |= DASHTree::Representation::URLSEGMENTS;
                   size_t sz(strlen((const char*)*(attr + 1)) + 1);
                   seg.url = new char[sz];
@@ -277,6 +284,7 @@ start(void *data, const char *el, const char **attr)
                 }
                 attr += 2;
               }
+              dash->current_representation_->nextPts_ = seg.startPTS_;
               dash->current_representation_->segments_.data.push_back(seg);
             }
             else if (strcmp(el, "Initialization") == 0)
@@ -388,15 +396,23 @@ start(void *data, const char *el, const char **attr)
           }
           else if (strcmp(el, "SegmentList") == 0)
           {
-            uint32_t dur(0), ts(1);
+            uint32_t dur(0), ts(1), pto(0), sn(0);
             for (; *attr;)
             {
               if (strcmp((const char*)*attr, "duration") == 0)
                 dur = atoi((const char*)*(attr + 1));
               else if (strcmp((const char*)*attr, "timescale") == 0)
                 ts = atoi((const char*)*(attr + 1));
+              else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
+                pto = atoi((const char*)*(attr + 1));
+              else if (strcmp((const char*)*attr, "startNumber") == 0)
+                sn = atoi((const char*)*(attr + 1));
               attr += 2;
             }
+            if (pto)
+              dash->current_representation_->ptsOffset_ = pto;
+            if (sn)
+                dash->current_representation_->startNumber_ = sn;
             if (ts && dur)
             {
               dash->current_representation_->duration_ = dur;
