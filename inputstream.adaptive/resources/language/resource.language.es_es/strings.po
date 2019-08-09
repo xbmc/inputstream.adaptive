@@ -14,7 +14,7 @@ msgstr ""
 
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "General"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
@@ -22,7 +22,7 @@ msgstr "Min. Ancho de banda (Bit/s)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Max. Ancho de banda (Bit/s)"
+msgstr "Máx. Ancho de banda (Bit/s)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
@@ -30,7 +30,7 @@ msgstr "Ruta Decrypter"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Max. Resolución decodificador general"
+msgstr "Máx. Resolución decodificador general"
 
 msgctxt "#30111"
 msgid "Stream Selection"
