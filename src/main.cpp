@@ -2126,9 +2126,14 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
   }
 
-  // Open mpd file
-  if (!adaptiveTree_->open(mpdFileURL_.c_str(), mpdUpdateParam_.c_str()) || adaptiveTree_->empty())
+  // Open mpd file with mpd location redirect support
+  bool mpdSuccess;
+  while ((mpdSuccess = adaptiveTree_->open(mpdFileURL_.c_str(), mpdUpdateParam_.c_str())) && !adaptiveTree_->location_.empty())
   {
+    mpdFileURL_ = adaptiveTree_->location_;
+    adaptiveTree_->location_.clear();
+  }
+  if (!mpdSuccess || adaptiveTree_->empty()) {
     kodi::Log(ADDON_LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
     return false;
   }

@@ -375,7 +375,7 @@ namespace adaptive
 
     double download_speed_, average_download_speed_;
 
-    std::string supportedKeySystem_;
+    std::string supportedKeySystem_, location_;
     struct PSSH
     {
       static const uint32_t MEDIA_VIDEO = 1;
