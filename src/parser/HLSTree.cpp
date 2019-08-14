@@ -379,8 +379,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
                 rep->containerType_ = CONTAINERTYPE_MP4;
               else
               {
-                rep->containerType_ = CONTAINERTYPE_INVALID;
-                continue;
+                //Fallback, assume .ts
+                rep->containerType_ = CONTAINERTYPE_TS;
               }
             }
             else
