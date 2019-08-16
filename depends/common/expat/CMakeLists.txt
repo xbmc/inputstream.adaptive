@@ -1,6 +1,5 @@
+cmake_minimum_required(VERSION 3.5)
 project(expat)
-
-cmake_minimum_required(VERSION 2.8)
 
 include(ExternalProject)
 
