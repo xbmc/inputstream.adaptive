@@ -33,6 +33,7 @@ using namespace adaptive;
 enum
 {
   MPDNODE_MPD = 1 << 0,
+  MPDNODE_LOCATION = 1 << 0,
   MPDNODE_PERIOD = 1 << 1,
   MPDNODE_ADAPTIONSET = 1 << 2,
   MPDNODE_CONTENTPROTECTION = 1 << 3,
@@ -245,6 +246,9 @@ start(void *data, const char *el, const char **attr)
 
   if (dash->currentNode_ & MPDNODE_MPD)
   {
+    if (dash->currentNode_ & MPDNODE_LOCATION)
+    {
+    }
     if (dash->currentNode_ & MPDNODE_PERIOD)
     {
       if (dash->currentNode_ & MPDNODE_ADAPTIONSET)
@@ -876,6 +880,11 @@ start(void *data, const char *el, const char **attr)
 
       dash->currentNode_ |= MPDNODE_PERIOD;
     }
+    else if (strcmp(el, "Location") == 0)
+    {
+      dash->strXMLText_.clear();
+      dash->currentNode_ |= MPDNODE_LOCATION;
+    }
   }
   else if (strcmp(el, "MPD") == 0)
   {
@@ -945,7 +954,7 @@ static void XMLCALL
 text(void *data, const char *s, int len)
 {
   DASHTree *dash(reinterpret_cast<DASHTree*>(data));
-  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER))
+  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER | MPDNODE_LOCATION))
     dash->strXMLText_ += std::string(s, len);
 }
 
@@ -1303,6 +1312,15 @@ end(void *data, const char *el)
           dash->base_url_ += dash->strXMLText_;
         dash->currentNode_ &= ~MPDNODE_BASEURL;
       }
+    }
+    else if (strcmp(el, "Location") == 0)
+    {
+      while (dash->strXMLText_.size() && (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
+        dash->strXMLText_.erase(dash->strXMLText_.begin());
+      if (dash->strXMLText_.compare(0, 7, "http://") == 0
+        || dash->strXMLText_.compare(0, 8, "https://") == 0)
+        dash->location_ = dash->strXMLText_;
+      dash->currentNode_ &= ~MPDNODE_LOCATION;
     }
     else if (strcmp(el, "MPD") == 0)
     {
