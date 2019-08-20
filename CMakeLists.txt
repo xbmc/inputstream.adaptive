@@ -49,9 +49,9 @@ set(ADP_HEADERS
 	)
 
 if(WIN32)
-  find_package(p8-platform REQUIRED)
-  list(APPEND DEPLIBS ${p8-platform_LIBRARIES})
-  include_directories(${p8-platform_INCLUDE_DIRS})
+  find_package(dlfcn-win32 REQUIRED)
+  list(APPEND DEPLIBS ${dlfcn-win32_LIBRARIES})
+  include_directories(${dlfcn-win32_INCLUDE_DIRS})
 endif()
 
 include_directories(${INCLUDES}

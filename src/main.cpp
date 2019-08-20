@@ -42,11 +42,7 @@
 
 #include "Ap4Utils.h"
 
-#ifdef _WIN32                   // windows
-#include "p8-platform/windows/dlfcn-win32.h"
-#else // windows
-#include <dlfcn.h>              // linux+osx
-#endif
+#include <dlfcn.h>
 
 #if defined(ANDROID)
 #include <kodi/platform/android/System.h>
