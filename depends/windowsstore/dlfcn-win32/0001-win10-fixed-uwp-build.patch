@@ -1,0 +1,151 @@
+From f85366b1044fff7b4ea9162c3edcd8278c3e06ff Mon Sep 17 00:00:00 2001
+From: Alwin Esch <alwin.esch@web.de>
+Date: Thu, 22 Aug 2019 19:30:12 +0100
+Subject: [PATCH] [win10] fixed uwp build
+
+---
+ dlfcn.c | 43 ++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 38 insertions(+), 5 deletions(-)
+
+diff --git a/dlfcn.c b/dlfcn.c
+index 69670d1..2d77ca8 100644
+--- a/dlfcn.c
++++ b/dlfcn.c
+@@ -19,6 +19,7 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+  */
+ 
++#define _CRT_SECURE_NO_WARNINGS
+ #ifdef _DEBUG
+ #define _CRTDBG_MAP_ALLOC
+ #include <stdlib.h>
+@@ -193,6 +194,7 @@ static void save_err_ptr_str( const void *ptr )
+ /* Load Psapi.dll at runtime, this avoids linking caveat */
+ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded )
+ {
++#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_APP)
+     static BOOL (WINAPI *EnumProcessModulesPtr)(HANDLE, HMODULE *, DWORD, LPDWORD);
+     HMODULE psapi;
+ 
+@@ -206,20 +208,26 @@ static BOOL MyEnumProcessModules( HANDLE hProcess, HMODULE *lphModule, DWORD cb,
+     }
+ 
+     return EnumProcessModulesPtr( hProcess, lphModule, cb, lpcbNeeded );
++#else
++  return 0;
++#endif
+ }
+ 
+ void *dlopen( const char *file, int mode )
+ {
+-    HMODULE hModule;
+-    UINT uMode;
++    HMODULE hModule = NULL;
++    UINT uMode = 0;
+ 
+     current_error = NULL;
+ 
+     /* Do not let Windows display the critical-error-handler message box */
++#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_APP)
+     uMode = SetErrorMode( SEM_FAILCRITICALERRORS );
++#endif
+ 
+     if( file == 0 )
+     {
++#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_APP) // what is replacement of GMH on UWP?
+         /* POSIX says that if the value of file is 0, a handle on a global
+          * symbol object must be provided. That object must be able to access
+          * all symbols from the original program file, and any objects loaded
+@@ -234,6 +242,7 @@ void *dlopen( const char *file, int mode )
+ 
+         if( !hModule )
+             save_err_ptr_str( file );
++#endif
+     }
+     else
+     {
+@@ -264,11 +273,29 @@ void *dlopen( const char *file, int mode )
+          * to UNIX's search paths (start with system folders instead of current
+          * folder).
+          */
++#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY == WINAPI_FAMILY_APP)
++        int result = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, lpFileName, strlen(lpFileName), NULL, 0);
++        if (result == 0)
++          return NULL;
++
++        wchar_t* newStr = (wchar_t*)malloc(result*sizeof(wchar_t));
++        result = MultiByteToWideChar( CP_UTF8, MB_ERR_INVALID_CHARS, lpFileName, strlen(lpFileName), newStr, result );
++        if (result == 0)
++        {
++          free( newStr );
++          return NULL;
++        }
++
++        hModule = LoadPackagedLibrary( newStr, 0 );
++        free( newStr );
++        dwProcModsAfter = 0;
++#else // WINAPI_PARTITION_DESKTOP
+         hModule = LoadLibraryExA(lpFileName, NULL, 
+                                 LOAD_WITH_ALTERED_SEARCH_PATH );
+ 
+         if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
+             dwProcModsAfter = 0;
++#endif
+ 
+         /* If the object was loaded with RTLD_LOCAL, add it to list of local
+          * objects, so that its symbols cannot be retrieved even if the handle for
+@@ -288,7 +315,9 @@ void *dlopen( const char *file, int mode )
+     }
+ 
+     /* Return to previous state of the error-mode bit flags. */
++#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_APP)
+     SetErrorMode( uMode );
++#endif
+ 
+     return (void *) hModule;
+ }
+@@ -321,12 +350,14 @@ void *dlsym( void *handle, const char *name )
+ {
+     FARPROC symbol;
+     HMODULE hCaller;
+-    HMODULE hModule;
+-    HANDLE hCurrentProc;
++    HMODULE hModule = 0;
++    HANDLE hCurrentProc = 0;
+ 
+     current_error = NULL;
+     symbol = NULL;
+     hCaller = NULL;
++
++#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_APP) // what is replacement of GMH on UWP?
+     hModule = GetModuleHandle( NULL );
+     hCurrentProc = GetCurrentProcess( );
+ 
+@@ -358,6 +389,7 @@ void *dlsym( void *handle, const char *name )
+         if(!hCaller)
+             goto end;
+     }
++#endif
+ 
+     if( handle != RTLD_NEXT )
+     {
+@@ -370,7 +402,7 @@ void *dlsym( void *handle, const char *name )
+     /* If the handle for the original program file is passed, also search
+      * in all globally loaded objects.
+      */
+-
++#if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY != WINAPI_FAMILY_APP)
+     if( hModule == handle || handle == RTLD_NEXT )
+     {
+         HMODULE *modules;
+@@ -410,6 +442,7 @@ void *dlsym( void *handle, const char *name )
+             }
+         }
+     }
++#endif
+ 
+ end:
+     if( symbol == NULL )
+-- 
+2.19.2.windows.1
+
