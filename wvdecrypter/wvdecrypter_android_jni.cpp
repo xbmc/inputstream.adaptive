@@ -146,7 +146,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
     return;
   }
 
-  std::string strDeviceId = media_drm_->getPropertyString("deviceUniqueId");
+  std::vector<char> strDeviceId = media_drm_->getPropertyByteArray("deviceUniqueId");
   xbmc_jnienv()->ExceptionClear();
   std::string strSecurityLevel = media_drm_->getPropertyString("securityLevel");
   xbmc_jnienv()->ExceptionClear();
@@ -172,7 +172,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
     }
   }
 
-  Log(SSD_HOST::LL_DEBUG, "Successful instanciated media_drm: %p, deviceid: %s, systemId: %s security-level: %s", media_drm_, strDeviceId.c_str(), strSystemId.c_str(), strSecurityLevel.c_str());
+  Log(SSD_HOST::LL_DEBUG, "Successful instanciated deviceUniqueIdSize: %ld,systemId: %s security-level: %s", strDeviceId.size(), strSystemId.c_str(), strSecurityLevel.c_str());
 
   if (license_url_.find('|') == std::string::npos)
   {
@@ -385,6 +385,15 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   if (optionalKeyParameter)
     optParams_["PRCustomData"] = optionalKeyParameter;
 
+  /*
+  std::vector<char> pui = media_drm_.GetMediaDrm()->getPropertyByteArray("provisioningUniqueId");
+  if (pui.size() > 0)
+  {
+    std::string encoded = b64_encode(reinterpret_cast<const uint8_t*>(pui.data()), pui.size(), false);
+    optParams_["CDMID"] = encoded;;
+  }
+  */
+
 RETRY_OPEN:
   session_id_ = media_drm_.GetMediaDrm()->openSession();
   if (xbmc_jnienv()->ExceptionCheck())
@@ -413,6 +422,8 @@ RETRY_OPEN:
 
   memcpy(session_id_char_, session_id_.data(), session_id_.size());
   session_id_char_[session_id_.size()] = 0;
+
+  Log(SSD_HOST::LL_DEBUG, "SessionId: %s, SecurityLevel: %d, MaxSecurityLevel: %d", session_id_char_, media_drm_.GetMediaDrm()->getSecurityLevel(session_id_), media_drm_.GetMediaDrm()->getMaxSecurityLevel());
 }
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
@@ -556,6 +567,10 @@ bool WV_CencSingleSampleDecrypter::KeyUpdateRequest(bool waitKeys)
     }
   }
   Log(SSD_HOST::LL_DEBUG, "License update successful");
+  std::map<std::string, std::string> keyStatus = media_drm_.GetMediaDrm()->queryKeyStatus(session_id_);
+  Log(SSD_HOST::LL_DEBUG, "Key Status (%ld):", keyStatus.size());
+  for (auto const& ks : keyStatus)
+    Log(SSD_HOST::LL_DEBUG, "-> %s -> %s", ks.first.c_str(), ks.second.c_str());
   return true;
 }
 
