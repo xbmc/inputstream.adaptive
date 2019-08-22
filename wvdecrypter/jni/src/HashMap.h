@@ -31,7 +31,8 @@ public:
   CJNIHashMap();
   virtual ~CJNIHashMap() {}
 
-  virtual jhstring put(const jhstring key, const jhstring value);
+  jhstring put(const jhstring key, const jhstring value);
+  jhobject entrySet();
 };
 
 }
