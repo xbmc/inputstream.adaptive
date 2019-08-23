@@ -1436,6 +1436,9 @@ void DASHTree::RefreshSegments()
     updateTree.manifest_headers_ = manifest_headers_;
     updateTree.base_time_ = base_time_;
     updateTree.supportedKeySystem_ = supportedKeySystem_;
+    //Location element should be used on updates
+    updateTree.location_ = location_;
+
     if (!~update_parameter_pos_)
     {
       if (!etag_.empty())
@@ -1448,6 +1451,7 @@ void DASHTree::RefreshSegments()
     {
       etag_ = updateTree.etag_;
       last_modified_ = updateTree.last_modified_;
+      location_ = updateTree.location_;
 
       //Youtube returns last smallest number in case the requested data is not available
       if (~update_parameter_pos_ && updateTree.firstStartNumber_ < nextStartNumber)
