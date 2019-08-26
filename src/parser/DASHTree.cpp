@@ -33,15 +33,16 @@ using namespace adaptive;
 enum
 {
   MPDNODE_MPD = 1 << 0,
-  MPDNODE_PERIOD = 1 << 1,
-  MPDNODE_ADAPTIONSET = 1 << 2,
-  MPDNODE_CONTENTPROTECTION = 1 << 3,
-  MPDNODE_REPRESENTATION = 1 << 4,
-  MPDNODE_BASEURL = 1 << 5,
-  MPDNODE_SEGMENTLIST = 1 << 6,
-  MPDNODE_INITIALIZATION = 1 << 7,
-  MPDNODE_SEGMENTURL = 1 << 8,
-  MPDNODE_SEGMENTDURATIONS = 1 << 9,
+  MPDNODE_LOCATION = 1 << 1,
+  MPDNODE_PERIOD = 1 << 2,
+  MPDNODE_ADAPTIONSET = 1 << 3,
+  MPDNODE_CONTENTPROTECTION = 1 << 4,
+  MPDNODE_REPRESENTATION = 1 << 5,
+  MPDNODE_BASEURL = 1 << 6,
+  MPDNODE_SEGMENTLIST = 1 << 7,
+  MPDNODE_INITIALIZATION = 1 << 8,
+  MPDNODE_SEGMENTURL = 1 << 9,
+  MPDNODE_SEGMENTDURATIONS = 1 << 10,
   MPDNODE_S = 1 << 11,
   MPDNODE_PSSH = 1 << 12,
   MPDNODE_SEGMENTTEMPLATE = 1 << 13,
@@ -245,6 +246,9 @@ start(void *data, const char *el, const char **attr)
 
   if (dash->currentNode_ & MPDNODE_MPD)
   {
+    if (dash->currentNode_ & MPDNODE_LOCATION)
+    {
+    }
     if (dash->currentNode_ & MPDNODE_PERIOD)
     {
       if (dash->currentNode_ & MPDNODE_ADAPTIONSET)
@@ -270,6 +274,13 @@ start(void *data, const char *el, const char **attr)
                 }
                 else if (strcmp((const char*)*attr, "media") == 0)
                 {
+                  if (dash->current_representation_->segments_.data.empty())
+                  {
+                    seg.startPTS_ = dash->base_time_ + dash->current_representation_->ptsOffset_;
+                    seg.range_end_ = dash->current_representation_->startNumber_;
+                  }
+                  else
+                    seg.startPTS_ = dash->current_representation_->nextPts_ + dash->current_representation_->duration_;
                   dash->current_representation_->flags_ |= DASHTree::Representation::URLSEGMENTS;
                   size_t sz(strlen((const char*)*(attr + 1)) + 1);
                   seg.url = new char[sz];
@@ -277,6 +288,7 @@ start(void *data, const char *el, const char **attr)
                 }
                 attr += 2;
               }
+              dash->current_representation_->nextPts_ = seg.startPTS_;
               dash->current_representation_->segments_.data.push_back(seg);
             }
             else if (strcmp(el, "Initialization") == 0)
@@ -388,15 +400,23 @@ start(void *data, const char *el, const char **attr)
           }
           else if (strcmp(el, "SegmentList") == 0)
           {
-            uint32_t dur(0), ts(1);
+            uint32_t dur(0), ts(1), pto(0), sn(0);
             for (; *attr;)
             {
               if (strcmp((const char*)*attr, "duration") == 0)
                 dur = atoi((const char*)*(attr + 1));
               else if (strcmp((const char*)*attr, "timescale") == 0)
                 ts = atoi((const char*)*(attr + 1));
+              else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
+                pto = atoi((const char*)*(attr + 1));
+              else if (strcmp((const char*)*attr, "startNumber") == 0)
+                sn = atoi((const char*)*(attr + 1));
               attr += 2;
             }
+            if (pto)
+              dash->current_representation_->ptsOffset_ = pto;
+            if (sn)
+                dash->current_representation_->startNumber_ = sn;
             if (ts && dur)
             {
               dash->current_representation_->duration_ = dur;
@@ -876,6 +896,11 @@ start(void *data, const char *el, const char **attr)
 
       dash->currentNode_ |= MPDNODE_PERIOD;
     }
+    else if (strcmp(el, "Location") == 0)
+    {
+      dash->strXMLText_.clear();
+      dash->currentNode_ |= MPDNODE_LOCATION;
+    }
   }
   else if (strcmp(el, "MPD") == 0)
   {
@@ -945,7 +970,7 @@ static void XMLCALL
 text(void *data, const char *s, int len)
 {
   DASHTree *dash(reinterpret_cast<DASHTree*>(data));
-  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER))
+  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER | MPDNODE_LOCATION))
     dash->strXMLText_ += std::string(s, len);
 }
 
@@ -1304,6 +1329,18 @@ end(void *data, const char *el)
         dash->currentNode_ &= ~MPDNODE_BASEURL;
       }
     }
+    else if (dash->currentNode_ & MPDNODE_LOCATION)
+    {
+      if (strcmp(el, "Location") == 0)
+      {
+        while (dash->strXMLText_.size() && (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
+          dash->strXMLText_.erase(dash->strXMLText_.begin());
+        if (dash->strXMLText_.compare(0, 7, "http://") == 0
+          || dash->strXMLText_.compare(0, 8, "https://") == 0)
+          dash->location_ = dash->strXMLText_;
+        dash->currentNode_ &= ~MPDNODE_LOCATION;
+      }
+    }
     else if (strcmp(el, "MPD") == 0)
     {
       dash->currentNode_ &= ~MPDNODE_MPD;
@@ -1399,6 +1436,9 @@ void DASHTree::RefreshSegments()
     updateTree.manifest_headers_ = manifest_headers_;
     updateTree.base_time_ = base_time_;
     updateTree.supportedKeySystem_ = supportedKeySystem_;
+    //Location element should be used on updates
+    updateTree.location_ = location_;
+
     if (!~update_parameter_pos_)
     {
       if (!etag_.empty())
@@ -1411,6 +1451,7 @@ void DASHTree::RefreshSegments()
     {
       etag_ = updateTree.etag_;
       last_modified_ = updateTree.last_modified_;
+      location_ = updateTree.location_;
 
       //Youtube returns last smallest number in case the requested data is not available
       if (~update_parameter_pos_ && updateTree.firstStartNumber_ < nextStartNumber)

@@ -87,4 +87,15 @@ private:
   //Video section
   uint32_t m_width = 0;
   uint32_t m_height = 0;
+  STREAMCODEC_PROFILE m_codecProfile = CodecProfileUnknown;
+  bool m_metadataChanged = true;
+
+#if INPUTSTREAM_VERSION_LEVEL > 0
+  INPUTSTREAM_INFO::COLORSPACE m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNSPECIFIED; /*!< @brief definition of colorspace */
+  INPUTSTREAM_INFO::COLORRANGE m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;     /*!< @brief color range if available */
+  INPUTSTREAM_INFO::COLORPRIMARIES m_colorPrimaries = INPUTSTREAM_INFO::COLORPRIMARY_UNSPECIFIED;
+  INPUTSTREAM_INFO::COLORTRC m_colorTransferCharacteristic = INPUTSTREAM_INFO::COLORTRC_UNSPECIFIED;
+  INPUTSTREAM_MASTERING_METADATA* m_masteringMetadata = nullptr;
+  INPUTSTREAM_CONTENTLIGHT_METADATA* m_contentLightMetadata = nullptr;
+#endif
 };

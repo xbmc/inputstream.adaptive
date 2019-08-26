@@ -42,11 +42,7 @@
 
 #include "Ap4Utils.h"
 
-#ifdef _WIN32                   // windows
-#include "p8-platform/windows/dlfcn-win32.h"
-#else // windows
-#include <dlfcn.h>              // linux+osx
-#endif
+#include <dlfcn.h>
 
 #if defined(ANDROID)
 #include <kodi/platform/android/System.h>
@@ -2126,9 +2122,9 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
   }
 
-  // Open mpd file
-  if (!adaptiveTree_->open(mpdFileURL_.c_str(), mpdUpdateParam_.c_str()) || adaptiveTree_->empty())
-  {
+  // Open mpd file with mpd location redirect support  bool mpdSuccess;
+  std::string mpdUrl = adaptiveTree_->location_.empty() ? mpdFileURL_.c_str() : adaptiveTree_->location_;
+  if (!adaptiveTree_->open(mpdUrl.c_str(), mpdUpdateParam_.c_str()) || adaptiveTree_->empty()) {
     kodi::Log(ADDON_LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
     return false;
   }
@@ -2484,9 +2480,16 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
   stream.info_.m_codecInternalName[pos] = 0;
   stream.info_.m_codecFourCC = 0;
+
+#if INPUTSTREAM_VERSION_LEVEL > 0
+  stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNSPECIFIED;
+  stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
+  stream.info_.m_colorPrimaries = INPUTSTREAM_INFO::COLORPRIMARY_UNSPECIFIED;
+  stream.info_.m_colorTransferCharacteristic = INPUTSTREAM_INFO::COLORTRC_UNSPECIFIED;
+#else
   stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNKNOWN;
   stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
-
+#endif
   if (rep->codecs_.find("mp4a") == 0
   || rep->codecs_.find("aac") == 0)
     strcpy(stream.info_.m_codecName, "aac");
@@ -2505,7 +2508,13 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "hevc");
   }
   else if (rep->codecs_.find("vp9") == 0 || rep->codecs_.find("vp09") == 0)
+  {
     strcpy(stream.info_.m_codecName, "vp9");
+#if INPUTSTREAM_VERSION_LEVEL > 0
+    if ((pos = rep->codecs_.find(".")) != std::string::npos)
+      stream.info_.m_codecProfile = static_cast<STREAMCODEC_PROFILE>(VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1)));
+#endif
+  }
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
   else if (rep->codecs_.find("vorbis") == 0)

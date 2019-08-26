@@ -1,0 +1,10 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -83,7 +83,6 @@
+     add_definitions(-D_CRT_SECURE_NO_WARNINGS -wd4996)
+ endif(MSVC)
+ if(WIN32)
+-    set(CMAKE_DEBUG_POSTFIX "d" CACHE STRING "Add a suffix, usually d on Windows")
+ endif(WIN32)
+ 
+ set(expat_SRCS

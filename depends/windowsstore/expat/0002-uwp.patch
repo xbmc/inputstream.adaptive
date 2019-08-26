@@ -1,0 +1,64 @@
+--- a/lib/loadlibrary.c
++++ b/lib/loadlibrary.c
+@@ -33,6 +33,8 @@
+ #if defined(_WIN32)
+ 
+ #include <windows.h>
++#endif
++#if defined(_WIN32) && (!defined(WINAPI_FAMILY_PARTITION) || WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP | WINAPI_PARTITION_SYSTEM))
+ #include <tchar.h>
+ 
+ 
+--- a/lib/xmlparse.c
++++ b/lib/xmlparse.c
+@@ -767,6 +767,7 @@
+ 
+ #ifdef _WIN32
+ 
++#if !defined(WINAPI_FAMILY) || WINAPI_FAMILY != WINAPI_FAMILY_APP
+ typedef BOOLEAN (APIENTRY *RTLGENRANDOM_FUNC)(PVOID, ULONG);
+ HMODULE _Expat_LoadLibrary(LPCTSTR filename);  /* see loadlibrary.c */
+ 
+@@ -794,6 +795,26 @@
+ 
+   return success;
+ }
++#else
++#include <bcrypt.h>
++
++/* Obtain entropy on Windows 10 UWP */
++static int
++writeRandomBytes_RtlGenRandom(void * target, size_t count) {
++  int success = 0;
++
++  NTSTATUS bcrypt;
++  BCRYPT_ALG_HANDLE cryptprovider = NULL;
++  bcrypt = BCryptOpenAlgorithmProvider(&cryptprovider, BCRYPT_RNG_ALGORITHM, NULL, 0);
++  if (BCRYPT_SUCCESS(bcrypt)) {
++    bcrypt = BCryptGenRandom(cryptprovider, target, (ULONG)count, 0);
++    success = BCRYPT_SUCCESS(bcrypt) ? 1 : 0;
++    BCryptCloseAlgorithmProvider(cryptprovider, 0);
++  }
++
++  return success;
++}
++#endif
+ 
+ #endif /* _WIN32 */
+ 
+@@ -829,6 +850,7 @@
+ 
+ static unsigned long
+ ENTROPY_DEBUG(const char * label, unsigned long entropy) {
++#if !defined(_WIN32) || !defined(WINAPI_FAMILY_PARTITION) || WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP | WINAPI_PARTITION_SYSTEM)
+   const char * const EXPAT_ENTROPY_DEBUG = getenv("EXPAT_ENTROPY_DEBUG");
+   if (EXPAT_ENTROPY_DEBUG && ! strcmp(EXPAT_ENTROPY_DEBUG, "1")) {
+     fprintf(stderr, "Entropy: %s --> 0x%0*lx (%lu bytes)\n",
+@@ -836,6 +858,7 @@
+         (int)sizeof(entropy) * 2, entropy,
+         (unsigned long)sizeof(entropy));
+   }
++#endif
+   return entropy;
+ }
+ 
