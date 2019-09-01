@@ -20,6 +20,9 @@
 v2.4.0 (2019-08-16)
 - Update Kodi VFS API 1.0.3
 - Build script cleanups
+- Implement VP9 static HDR metadata
+- MPD: location attibute added
+- MPD: livestream bugfixes (uninitialized startPTS)
 
 v2.3.22 (2019-06-14)
 - Bento4: sample duration workaround (24/1)
