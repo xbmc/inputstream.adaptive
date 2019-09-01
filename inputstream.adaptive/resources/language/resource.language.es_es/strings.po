@@ -18,19 +18,19 @@ msgstr "General"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Min. Ancho de banda (Bit/s)"
+msgstr "Min. ancho de banda (Bit/s)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Máx. Ancho de banda (Bit/s)"
+msgstr "Máx. ancho de banda (Bit/s)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Ruta Decrypter"
+msgstr "Ruta de descifrador"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Máx. Resolución decodificador general"
+msgstr "Máx. resolución decodificador general"
 
 msgctxt "#30111"
 msgid "Stream Selection"
@@ -42,11 +42,11 @@ msgstr "Media"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Max. Resolución decodificación segura"
+msgstr "Max. resolución decodificación segura"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Anular estado HDCP"
+msgstr "Anular estado de HDCP"
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
