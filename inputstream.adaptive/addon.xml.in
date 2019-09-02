@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.4.1"
+  version="2.5.0"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,9 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.5.0 (2019-09-02)
+- New major versions for Matrix
+
 v2.4.0 (2019-08-16)
 - Update Kodi VFS API 1.0.3
 - Build script cleanups
