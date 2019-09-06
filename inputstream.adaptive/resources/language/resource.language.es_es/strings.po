@@ -26,7 +26,7 @@ msgstr "Máx. Ancho de banda (Bit/s)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Ruta Decrypter"
+msgstr "Ruta decodificador"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
