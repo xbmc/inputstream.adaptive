@@ -38,7 +38,8 @@ namespace adaptive
   }
 
   AdaptiveTree::AdaptiveTree()
-    : current_period_(0)
+    : current_period_(nullptr)
+    , next_period_(nullptr)
     , update_parameter_pos_(std::string::npos)
     , parser_(0)
     , currentNode_(0)
@@ -50,16 +51,13 @@ namespace adaptive
     , base_time_(0)
     , minPresentationOffset(0)
     , has_timeshift_buffer_(false)
+    , has_overall_seconds_(false)
     , download_speed_(0.0)
     , average_download_speed_(0.0f)
-    , encryptionState_(ENCRYTIONSTATE_UNENCRYPTED)
-    , included_types_(0)
-    , need_secure_decoder_(false)
     , updateInterval_(~0)
     , updateThread_(nullptr)
     , lastUpdated_(std::chrono::system_clock::now())
   {
-    psshSets_.push_back(PSSH());
   }
 
   AdaptiveTree::~AdaptiveTree()
@@ -84,7 +82,7 @@ namespace adaptive
   {
     for (std::vector<Segment>::iterator bs(rep->segments_.data.begin()), es(rep->segments_.data.end()); bs != es; ++bs)
     {
-      --psshSets_[bs->pssh_set_].use_count_;
+      --current_period_->psshSets_[bs->pssh_set_].use_count_;
       if (rep->flags_ & Representation::URLSEGMENTS)
         delete[] bs->url;
     }
@@ -181,31 +179,56 @@ namespace adaptive
   {
     if (!current_pssh_.empty())
     {
-      PSSH pssh;
+      Period::PSSH pssh;
       pssh.pssh_ = current_pssh_;
       pssh.defaultKID_ = current_defaultKID_;
       pssh.iv = current_iv_;
       pssh.adaptation_set_ = current_adaptationset_;
       switch (type)
       {
-        case VIDEO: pssh.media_ = PSSH::MEDIA_VIDEO; break;
-        case AUDIO: pssh.media_ = PSSH::MEDIA_AUDIO; break;
-        case STREAM_TYPE_COUNT: pssh.media_ = PSSH::MEDIA_VIDEO | PSSH::MEDIA_AUDIO; break;
-        default: pssh.media_ = 0; break;
+      case VIDEO: pssh.media_ = Period::PSSH::MEDIA_VIDEO; break;
+      case AUDIO: pssh.media_ = Period::PSSH::MEDIA_AUDIO; break;
+      case STREAM_TYPE_COUNT: pssh.media_ = Period::PSSH::MEDIA_VIDEO | Period::PSSH::MEDIA_AUDIO; break;
+      default: pssh.media_ = 0; break;
       }
+      return current_period_->InsertPSSHSet(&pssh);
+    }
+    else
+      return current_period_->InsertPSSHSet(nullptr);
+  }
 
-      std::vector<PSSH>::iterator pos(std::find(psshSets_.begin() + 1, psshSets_.end(), pssh));
+  uint16_t AdaptiveTree::Period::InsertPSSHSet(PSSH* pssh)
+  {
+    if (pssh)
+    {
+      std::vector<Period::PSSH>::iterator pos(std::find(psshSets_.begin() + 1, psshSets_.end(), *pssh));
       if (pos == psshSets_.end())
-        pos = psshSets_.insert(psshSets_.end(), pssh);
+        pos = psshSets_.insert(psshSets_.end(), *pssh);
       else if (!pos->use_count_)
-        *pos = pssh;
+        *pos = *pssh;
 
       ++psshSets_[pos - psshSets_.begin()].use_count_;
       return static_cast<uint16_t>(pos - psshSets_.begin());
     }
     else
+    {
       ++psshSets_[0].use_count_;
-    return 0;
+      return 0;
+    }
+  }
+
+  void AdaptiveTree::Period::RemovePSSHSet(uint16_t pssh_set)
+  {
+    for (std::vector<AdaptationSet*>::const_iterator ba(adaptationSets_.begin()), ea(adaptationSets_.end()); ba != ea; ++ba)
+      for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er;)
+        if ((*br)->pssh_set_ == pssh_set)
+        {
+          delete *br;
+          br = (*ba)->representations_.erase(br);
+          er = (*ba)->representations_.end();
+        }
+        else
+          ++br;
   }
 
   bool AdaptiveTree::PreparePaths(const std::string &url, const std::string &manifestUpdateParam)
@@ -277,9 +300,9 @@ namespace adaptive
       {
         if ((*ba)->type_ == AUDIO && ba + 1 != ea && AdaptationSet::mergeable(*ba, *(ba + 1)))
         {
-          for (size_t i(1); i < psshSets_.size(); ++i)
-            if (psshSets_[i].adaptation_set_ == *ba)
-              psshSets_[i].adaptation_set_ = *(ba + 1);
+          for (size_t i(1); i < (*bp)->psshSets_.size(); ++i)
+            if ((*bp)->psshSets_[i].adaptation_set_ == *ba)
+              (*bp)->psshSets_[i].adaptation_set_ = *(ba + 1);
 
           (*(ba + 1))->representations_.insert((*(ba + 1))->representations_.end(), (*ba)->representations_.begin(), (*ba)->representations_.end());
           (*ba)->representations_.clear();
@@ -297,21 +320,6 @@ namespace adaptive
           (*br)->SetScaling();
       }
     }
-  }
-
-  void AdaptiveTree::RemovePSSHSet(uint16_t pssh_set)
-  {
-    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
-      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
-        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er;)
-          if ((*br)->pssh_set_ == pssh_set)
-          {
-            delete *br;
-            br = (*ba)->representations_.erase(br);
-            er = (*ba)->representations_.end();
-          }
-          else
-            ++br;
   }
 
   void AdaptiveTree::RefreshUpdateThread()
