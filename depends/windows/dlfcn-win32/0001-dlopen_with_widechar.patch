@@ -1,0 +1,26 @@
+diff --git a/dlfcn.c b/dlfcn.c
+index 69670d1..8d2dbc0 100644
+--- a/dlfcn.c
++++ b/dlfcn.c
+@@ -264,8 +264,19 @@ void *dlopen( const char *file, int mode )
+          * to UNIX's search paths (start with system folders instead of current
+          * folder).
+          */
+-        hModule = LoadLibraryExA(lpFileName, NULL, 
+-                                LOAD_WITH_ALTERED_SEARCH_PATH );
++        int wide_len = MultiByteToWideChar(CP_UTF8, 0, lpFileName, -1, 0, 0);
++        if (wide_len > 0)
++        {
++          wchar_t* lpFileNameW = (wchar_t*)malloc(wide_len * sizeof(wchar_t));
++          MultiByteToWideChar(CP_UTF8, 0, lpFileName, -1, lpFileNameW, wide_len);
++
++          hModule = LoadLibraryExW(lpFileNameW, NULL, 
++                                  LOAD_WITH_ALTERED_SEARCH_PATH );
++
++          free(lpFileNameW);
++        }
++        else
++          hModule = 0;
+ 
+         if( MyEnumProcessModules( hCurrentProc, NULL, 0, &dwProcModsAfter ) == 0 )
+             dwProcModsAfter = 0;
