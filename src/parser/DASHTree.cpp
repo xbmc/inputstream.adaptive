@@ -274,13 +274,6 @@ start(void *data, const char *el, const char **attr)
                 }
                 else if (strcmp((const char*)*attr, "media") == 0)
                 {
-                  if (dash->current_representation_->segments_.data.empty())
-                  {
-                    seg.startPTS_ = dash->base_time_ + dash->current_representation_->ptsOffset_;
-                    seg.range_end_ = dash->current_representation_->startNumber_;
-                  }
-                  else
-                    seg.startPTS_ = dash->current_representation_->nextPts_ + dash->current_representation_->duration_;
                   dash->current_representation_->flags_ |= DASHTree::Representation::URLSEGMENTS;
                   size_t sz(strlen((const char*)*(attr + 1)) + 1);
                   seg.url = new char[sz];
@@ -288,6 +281,15 @@ start(void *data, const char *el, const char **attr)
                 }
                 attr += 2;
               }
+
+              if (dash->current_representation_->segments_.data.empty())
+              {
+                seg.startPTS_ = dash->base_time_ + dash->current_representation_->ptsOffset_;
+                seg.range_end_ = dash->current_representation_->startNumber_;
+              }
+              else
+                seg.startPTS_ = dash->current_representation_->nextPts_ + dash->current_representation_->duration_;
+
               dash->current_representation_->nextPts_ = seg.startPTS_;
               dash->current_representation_->segments_.data.push_back(seg);
             }
