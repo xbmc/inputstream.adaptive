@@ -166,6 +166,7 @@ public:
 protected:
   void CheckFragmentDuration(STREAM &stream);
   void GetSupportedDecrypterURN(std::string &key_system);
+  void DisposeSampleDecrypter();
   void DisposeDecrypter();
 
 private:

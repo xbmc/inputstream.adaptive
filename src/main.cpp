@@ -2089,14 +2089,19 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
   }
 }
 
+void Session::DisposeSampleDecrypter()
+{
+  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
+    if (!b->shared_single_sample_decryptor_)
+      decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+}
+
 void Session::DisposeDecrypter()
 {
   if (!decrypterModule_)
     return;
 
-  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
-    if (!b->shared_single_sample_decryptor_)
-      decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+  DisposeSampleDecrypter();
 
   typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER *);
   DeleteDecryptorInstanceFunc disposefn((DeleteDecryptorInstanceFunc)dlsym(decrypterModule_, "DeleteDecryptorInstance"));
@@ -2181,6 +2186,8 @@ bool Session::InitializePeriod()
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
+  DisposeSampleDecrypter();
+
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
 
