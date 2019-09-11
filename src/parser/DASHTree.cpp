@@ -278,15 +278,15 @@ start(void *data, const char *el, const char **attr)
                   size_t sz(strlen((const char*)*(attr + 1)) + 1);
                   seg.url = new char[sz];
                   memcpy((char*)seg.url, (const char*)*(attr + 1), sz);
+
+                  if (dash->current_representation_->segments_.data.empty())
+                    seg.range_end_ = dash->current_representation_->startNumber_;
                 }
                 attr += 2;
               }
 
               if (dash->current_representation_->segments_.data.empty())
-              {
                 seg.startPTS_ = dash->base_time_ + dash->current_representation_->ptsOffset_;
-                seg.range_end_ = dash->current_representation_->startNumber_;
-              }
               else
                 seg.startPTS_ = dash->current_representation_->nextPts_ + dash->current_representation_->duration_;
 

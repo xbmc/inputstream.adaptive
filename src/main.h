@@ -156,6 +156,7 @@ public:
   const char* GetChapterName(int ch) const;
   int64_t GetChapterPos(int ch) const;
   bool SeekChapter(int ch);
+  uint64_t GetChapterStartTime() { return chapter_start_time_; };
   double GetChapterSeekTime() { return chapter_seek_time_; };
   void ResetChapterSeekTime() { chapter_seek_time_ = 0; };
 
