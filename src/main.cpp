@@ -2911,12 +2911,12 @@ public:
   CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive *parent);
   virtual ~CVideoCodecAdaptive();
 
-  virtual bool Open(VIDEOCODEC_INITDATA &initData) override;
-  virtual bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
-  virtual bool AddData(const DemuxPacket &packet) override;
-  virtual VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
-  virtual const char *GetName() override { return m_name.c_str(); };
-  virtual void Reset() override;
+  bool Open(VIDEOCODEC_INITDATA &initData) override;
+  bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
+  bool AddData(const DemuxPacket &packet) override;
+  VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
+  const char *GetName() override { return m_name.c_str(); };
+  void Reset() override;
 
 private:
   enum STATE : unsigned int
@@ -3636,8 +3636,8 @@ class CMyAddon
 public:
   CMyAddon();
   virtual ~CMyAddon();
-  virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
-  virtual ADDON_STATUS CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version);
+  ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+  ADDON_STATUS CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version) override;
 };
 
 CMyAddon::CMyAddon()
