@@ -326,7 +326,8 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
 
 bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, std::string> &mediaHeaders)
 {
-  bool retry = true;
+  bool retry_403 = true;
+  bool retry_MRT = true;
   kodi::vfs::CFile file;
   std::string newUrl;
 
@@ -355,10 +356,15 @@ RETRY:
 
     size_t nbRead = ~0UL;
 
-    if ((returnCode == 403 || (getMediaRenewalTime() > 0  && SecondsSinceMediaRenewal() >= getMediaRenewalTime())) && retry && !getMediaRenewalUrl().empty())
+    if (((returnCode == 403 && retry_403) || (getMediaRenewalTime() > 0  && SecondsSinceMediaRenewal() >= getMediaRenewalTime() && retry_MRT)) && !getMediaRenewalUrl().empty())
     {
       UpdateSecondsSinceMediaRenewal();
-      retry = false;
+      
+      if (returnCode == 403)
+        retry_403 = false;
+      else
+        retry_MRT = false;
+        
       std::vector<kodi::vfs::CDirEntry> items;
       if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
       {
