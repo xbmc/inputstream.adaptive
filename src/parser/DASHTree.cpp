@@ -51,6 +51,8 @@ enum
   MPDNODE_PLAYREADYWRMHEADER = 1 << 16
 };
 
+static const char* CONTENTPROTECTION_TAG = "ContentProtection";
+
 static const char* ltranslate(const char * in)
 {
   if (strlen(in) == 2 || strlen(in) == 3
@@ -471,7 +473,7 @@ start(void *data, const char *el, const char **attr)
             }
             dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
           }
-          else if (strcmp(el, "ContentProtection") == 0)
+          else if (strcmp(el, CONTENTPROTECTION_TAG) == 0)
           {
             if (!dash->current_representation_->pssh_set_ || dash->current_representation_->pssh_set_ == 0xFF)
             {
@@ -579,6 +581,24 @@ start(void *data, const char *el, const char **attr)
           }
           dash->currentNode_ |= MPDNODE_SEGMENTLIST;
         }
+        else if (strcmp(el, "Role") == 0)
+        {
+          bool schemeOk = false;
+          const char* value = nullptr;
+          for (; *attr;)
+          {
+            if (strcmp((const char*)*attr, "schemeIdUri") == 0)
+            {
+              if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:role:2011") == 0)
+                schemeOk = true;
+            }
+            else if (strcmp((const char*)*attr, "value") == 0)
+              value = (const char*)*(attr + 1);
+            attr += 2;
+          }
+          if (schemeOk && value && strcmp(value, "subtitle") == 0)
+            dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+        }
         else if (strcmp(el, "Representation") == 0)
         {
           dash->current_representation_ = new DASHTree::Representation();
@@ -643,6 +663,10 @@ start(void *data, const char *el, const char **attr)
             || dash->current_adaptationset_->mimeType_ == "text/vtt"))
             dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
 
+          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE
+            && dash->current_representation_->codecs_ == "wvtt")
+            dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+
           dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
           if (!dash->current_adaptationset_->segtpl_.media.empty())
           {
@@ -676,7 +700,7 @@ start(void *data, const char *el, const char **attr)
           }
           dash->currentNode_ |= MPDNODE_SEGMENTDURATIONS;
         }
-        else if (strcmp(el, "ContentProtection") == 0)
+        else if (strcmp(el, CONTENTPROTECTION_TAG) == 0)
         {
           if (!dash->adp_pssh_set_ || dash->adp_pssh_set_== 0xFF)
           {
