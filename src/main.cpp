@@ -3325,9 +3325,14 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
     if (!track)
     {
-      kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-      stream->disable();
-      return false;
+      if (stream->stream_.get_type() == adaptive::AdaptiveTree::SUBTITLE)
+        track = movie->GetTrack(AP4_Track::TYPE_TEXT);
+      if (!track)
+      {
+        kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
+        stream->disable();
+        return false;
+      }
     }
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
