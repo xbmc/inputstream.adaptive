@@ -376,7 +376,8 @@ public:
 
     std::vector<AdaptationSet*> adaptationSets_;
     std::string base_url_, id_;
-    uint32_t timescale_ = 1, startNumber_ = 1;
+    uint32_t timescale_ = 1000, startNumber_ = 1;
+    uint64_t start_ = 0;
     uint64_t startPTS_ = 0;
     uint64_t duration_ = 0;
     unsigned int  encryptionState_ = ENCRYTIONSTATE_UNENCRYPTED;
