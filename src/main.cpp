@@ -584,7 +584,7 @@ public:
   };
   virtual bool ExtraDataToAnnexB() { return false; };
   virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) { return false; };
   virtual void SetPTSOffset(AP4_UI64 offset) { };
   virtual bool TimeSeek(AP4_UI64 seekPos) { return true; };
@@ -891,7 +891,7 @@ public:
     ,m_ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
     return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
   }
@@ -945,9 +945,9 @@ public:
     , m_ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
-    return m_webVtt.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
+    return m_webVtt.Parse(pts, duration, buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
   }
 
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) override
@@ -1193,7 +1193,7 @@ public:
         m_singleSampleDecryptor->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, nullptr, 0, nullptr, nullptr);
       }
 
-      if (m_codecHandler->Transform(m_sampleData, m_track->GetMediaTimeScale()))
+      if (m_codecHandler->Transform(m_sample.GetDts(), m_sample.GetDuration(), m_sampleData, m_track->GetMediaTimeScale()))
         m_codecHandler->ReadNextSample(m_sample, m_sampleData);
     }
 
@@ -1489,7 +1489,7 @@ public:
       m_codecHandler = new WebVTTCodecHandler(nullptr);
     else
       m_codecHandler = new TTMLCodecHandler(nullptr);
-    m_codecHandler->Transform(result, 1000);
+    m_codecHandler->Transform(0, 0, result, 1000);
   };
 
   virtual bool EOS()const override { return m_eos; };
