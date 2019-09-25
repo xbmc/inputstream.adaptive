@@ -1403,7 +1403,7 @@ end(void *data, const char *el)
           if (dash->has_overall_seconds_)
             dash->overallSeconds_ -= (*b)->duration_ / (*b)->timescale_;
           delete *b;
-          dash->periods_.erase(b);
+          b = dash->periods_.erase(b);
         }
         else
         {
