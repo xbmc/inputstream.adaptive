@@ -387,6 +387,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
 
   /*
   std::vector<char> pui = media_drm_.GetMediaDrm()->getPropertyByteArray("provisioningUniqueId");
+  xbmc_jnienv()->ExceptionClear();
   if (pui.size() > 0)
   {
     std::string encoded = b64_encode(reinterpret_cast<const uint8_t*>(pui.data()), pui.size(), false);

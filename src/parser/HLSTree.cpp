@@ -167,7 +167,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
         else
         {
           rep->flags_ = Representation::INCLUDEDSTREAM;
-          included_types_ |= 1U << type;
+          current_period_->included_types_ |= 1U << type;
         }
 
         if ((res = map.find("CHANNELS")) != map.end())
@@ -206,7 +206,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
         else
         {
           // We assume audio is included
-          included_types_ |= 1U << AUDIO;
+          current_period_->included_types_ |= 1U << AUDIO;
           m_audioCodec = getAudioCodec(map["CODECS"]);
         }
       }
@@ -230,7 +230,7 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
         current_adaptationset_->representations_.push_back(current_representation_);
 
         // We assume audio is included
-        included_types_ |= 1U << AUDIO;
+        current_period_->included_types_ |= 1U << AUDIO;
         m_audioCodec = getAudioCodec("");
         break;
       }
@@ -520,12 +520,12 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
   {
     std::lock_guard<std::mutex> lck(treeMutex_);
 
-    PSSH &pssh(psshSets_[psshSet]);
+    Period::PSSH &pssh(current_period_->psshSets_[psshSet]);
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
       //First look if we already have this URL resolved
-      for (std::vector<PSSH>::const_iterator b(psshSets_.begin()), e(psshSets_.end());b != e; ++b)
+      for (std::vector<Period::PSSH>::const_iterator b(current_period_->psshSets_.begin()), e(current_period_->psshSets_.end());b != e; ++b)
         if (b->pssh_ == pssh.pssh_ && !b->defaultKID_.empty())
         {
           pssh.defaultKID_ = b->defaultKID_;

@@ -31,7 +31,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
   , tree_(tree)
   , type_(type)
   , observer_(nullptr)
-  , current_period_(tree_.periods_.empty() ? nullptr : tree_.periods_[0])
+  , current_period_(tree_.current_period_)
   , current_adp_(nullptr)
   , current_rep_(nullptr)
   , segment_read_pos_(0)
@@ -376,6 +376,9 @@ bool AdaptiveStream::ensureSegment()
 
 uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
 {
+  if (stopped_)
+    return false;
+
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
 NEXTSEGMENT:
@@ -412,7 +415,11 @@ NEXTSEGMENT:
 
 bool AdaptiveStream::seek(uint64_t const pos)
 {
+  if (stopped_)
+    return false;
+
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
+
   // we seek only in the current segment
   if (!stopped_ && pos >= absolute_position_ - segment_read_pos_)
   {

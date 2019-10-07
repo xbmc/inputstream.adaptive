@@ -18,6 +18,7 @@
 
 #include "main.h"
 
+#include <algorithm>
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
@@ -583,7 +584,7 @@ public:
   };
   virtual bool ExtraDataToAnnexB() { return false; };
   virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) { return false; };
   virtual void SetPTSOffset(AP4_UI64 offset) { };
   virtual bool TimeSeek(AP4_UI64 seekPos) { return true; };
@@ -890,7 +891,7 @@ public:
     ,m_ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
     return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
   }
@@ -944,9 +945,9 @@ public:
     , m_ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
-    return m_webVtt.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
+    return m_webVtt.Parse(pts, duration, buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
   }
 
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) override
@@ -1192,7 +1193,7 @@ public:
         m_singleSampleDecryptor->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, nullptr, 0, nullptr, nullptr);
       }
 
-      if (m_codecHandler->Transform(m_sampleData, m_track->GetMediaTimeScale()))
+      if (m_codecHandler->Transform(m_sample.GetDts(), m_sample.GetDuration(), m_sampleData, m_track->GetMediaTimeScale()))
         m_codecHandler->ReadNextSample(m_sample, m_sampleData);
     }
 
@@ -1218,8 +1219,8 @@ public:
 
   virtual uint64_t  Elapsed(uint64_t basePTS) override
   {
-    uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
-    return manifestPTS > basePTS ? manifestPTS - basePTS : 0ULL;
+    //uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
+    return m_pts > basePTS ? m_pts - basePTS : 0ULL;
   };
 
   virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
@@ -1488,7 +1489,7 @@ public:
       m_codecHandler = new WebVTTCodecHandler(nullptr);
     else
       m_codecHandler = new TTMLCodecHandler(nullptr);
-    m_codecHandler->Transform(result, 1000);
+    m_codecHandler->Transform(0, 0, result, 1000);
   };
 
   virtual bool EOS()const override { return m_eos; };
@@ -1929,6 +1930,8 @@ Session::Session(MANIFEST_TYPE manifestType,
   , changed_(false)
   , manual_streams_(false)
   , elapsed_time_(0)
+  , chapter_start_time_(0)
+  , chapter_seek_time_(0.0)
 {
   switch (manifest_type_)
   {
@@ -2086,14 +2089,20 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
   }
 }
 
+void Session::DisposeSampleDecrypter()
+{
+  if (decrypter_)
+    for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
+      if (!b->shared_single_sample_decryptor_)
+        decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+}
+
 void Session::DisposeDecrypter()
 {
   if (!decrypterModule_)
     return;
 
-  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
-    if (!b->shared_single_sample_decryptor_)
-      decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+  DisposeSampleDecrypter();
 
   typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER *);
   DeleteDecryptorInstanceFunc disposefn((DeleteDecryptorInstanceFunc)dlsym(decrypterModule_, "DeleteDecryptorInstance"));
@@ -2128,12 +2137,34 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     kodi::Log(ADDON_LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
     return false;
   }
-  kodi::Log(ADDON_LOG_INFO, "Successfully parsed .mpd file. #Streams: %d Type: %s, Download speed: %0.4f Bytes/s", 
-    adaptiveTree_->periods_[0]->adaptationSets_.size(),
+  kodi::Log(ADDON_LOG_INFO, "Successfully parsed .mpd file. #Periods: %ld, #Streams in first period: %ld, Type: %s, Download speed: %0.4f Bytes/s",
+    adaptiveTree_->periods_.size(),
+    adaptiveTree_->current_period_->adaptationSets_.size(),
     adaptiveTree_->has_timeshift_buffer_ ? "live" : "VOD",
     adaptiveTree_->download_speed_);
 
-  if (adaptiveTree_->encryptionState_ == adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
+  drmConfig_ = config;
+  maxUserBandwidth_ = max_user_bandwidth;
+
+  return InitializePeriod();
+}
+
+bool Session::InitializePeriod()
+{
+  if (adaptiveTree_->next_period_)
+  {
+    adaptiveTree_->current_period_ = adaptiveTree_->next_period_;
+    adaptiveTree_->next_period_ = nullptr;
+  }
+
+  chapter_start_time_ = 0;
+  for (adaptive::AdaptiveTree::Period* p : adaptiveTree_->periods_)
+    if (p == adaptiveTree_->current_period_)
+      break;
+    else
+      chapter_start_time_ += (p->duration_ * DVD_TIME_BASE) / p->timescale_;
+
+  if (adaptiveTree_->current_period_->encryptionState_ == adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
   {
     kodi::Log(ADDON_LOG_ERROR, "Unable to handle decryption. Unsupported!");
     return false;
@@ -2146,8 +2177,8 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     buf = kodi::GetSettingInt("MAXBANDWIDTH"); max_bandwidth = buf;
   }
 
-  if (max_bandwidth == 0 || (max_user_bandwidth && max_bandwidth > max_user_bandwidth))
-    max_bandwidth = max_user_bandwidth;
+  if (max_bandwidth == 0 || (maxUserBandwidth_ && max_bandwidth > maxUserBandwidth_))
+    max_bandwidth = maxUserBandwidth_;
 
   // create SESSION::STREAM objects. One for each AdaptationSet
   unsigned int i(0);
@@ -2156,11 +2187,13 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
-  cdm_sessions_.resize(adaptiveTree_->psshSets_.size());
+  DisposeSampleDecrypter();
+
+  cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
 
   // Try to initialize an SingleSampleDecryptor
-  if (adaptiveTree_->encryptionState_)
+  if (adaptiveTree_->current_period_->encryptionState_)
   {
     if (license_key_.empty())
       license_key_ = adaptiveTree_->license_url_;
@@ -2179,7 +2212,7 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       return false;
     }
 
-    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, config))
+    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
     {
       kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
       return false;
@@ -2203,14 +2236,14 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       AP4_DataBuffer init_data;
       const char *optionalKeyParameter(nullptr);
 
-      if (adaptiveTree_->psshSets_[ses].pssh_ == "FILE")
+      if (adaptiveTree_->current_period_->psshSets_[ses].pssh_ == "FILE")
       {
         kodi::Log(ADDON_LOG_DEBUG, "Searching PSSH data in FILE");
 
         if (license_data_.empty())
         {
-          Session::STREAM stream(*adaptiveTree_, adaptiveTree_->psshSets_[ses].adaptation_set_->type_);
-          stream.stream_.prepare_stream(adaptiveTree_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
+          Session::STREAM stream(*adaptiveTree_, adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_->type_);
+          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
 
           stream.enabled = true;
           stream.stream_.start_stream(0, width_, height_);
@@ -2232,10 +2265,10 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
             if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
             {
               init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
-              if (adaptiveTree_->psshSets_[ses].defaultKID_.empty())
+              if (adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty())
               {
                 if (pssh[i]->GetKid(0))
-                  adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)pssh[i]->GetKid(0), 16);
+                  adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ = std::string((const char*)pssh[i]->GetKid(0), 16);
                 else if (AP4_Track *track = movie->GetTrack(TIDC[stream.stream_.get_type()]))
                 {
                   AP4_ProtectedSampleDescription *m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(track->GetSampleDescription(0));
@@ -2244,12 +2277,12 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
                   {
                     AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
                     if (tenc)
-                      adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)tenc->GetDefaultKid(), 16);
+                      adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ = std::string((const char*)tenc->GetDefaultKid(), 16);
                     else
                     {
                       AP4_PiffTrackEncryptionAtom* piff(AP4_DYNAMIC_CAST(AP4_PiffTrackEncryptionAtom, schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
                       if (piff)
-                        adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)piff->GetDefaultKid(), 16);
+                        adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ = std::string((const char*)piff->GetDefaultKid(), 16);
                     }
                   }
                 }
@@ -2265,9 +2298,9 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
           }
           stream.disable();
         }
-        else if (!adaptiveTree_->psshSets_[ses].defaultKID_.empty())
+        else if (!adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty())
         {
-          init_data.SetData((AP4_Byte*)adaptiveTree_->psshSets_[ses].defaultKID_.data(), 16);
+          init_data.SetData((AP4_Byte*)adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data(), 16);
 
           uint8_t ld[1024];
           unsigned int ld_size(1014);
@@ -2294,11 +2327,12 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
           {
             if (license_data_.empty())
               license_data_ = "e0tJRH0="; // {KID}
-            create_ism_license(adaptiveTree_->psshSets_[ses].defaultKID_, license_data_, init_data);
+            create_ism_license(adaptiveTree_->current_period_->psshSets_[ses].defaultKID_, license_data_, init_data);
           }
           else
           {
-            init_data.SetData(reinterpret_cast<const uint8_t*>(adaptiveTree_->psshSets_[ses].pssh_.data()), adaptiveTree_->psshSets_[ses].pssh_.size());
+            init_data.SetData(reinterpret_cast<const uint8_t*>(adaptiveTree_->current_period_->psshSets_[ses].pssh_.data()),
+              adaptiveTree_->current_period_->psshSets_[ses].pssh_.size());
             optionalKeyParameter = license_data_.empty() ? nullptr : license_data_.c_str();
           }
         }
@@ -2306,20 +2340,24 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         {
           init_data.SetBufferSize(1024);
           unsigned int init_data_size(1024);
-          b64_decode(adaptiveTree_->psshSets_[ses].pssh_.data(), adaptiveTree_->psshSets_[ses].pssh_.size(), init_data.UseData(), init_data_size);
+          b64_decode(adaptiveTree_->current_period_->psshSets_[ses].pssh_.data(),
+            adaptiveTree_->current_period_->psshSets_[ses].pssh_.size(),
+            init_data.UseData(), init_data_size);
           init_data.SetDataSize(init_data_size);
         }
       }
 
       CDMSESSION &session(cdm_sessions_[ses]);
-      const char *defkid = adaptiveTree_->psshSets_[ses].defaultKID_.empty() ? nullptr : adaptiveTree_->psshSets_[ses].defaultKID_.data();
+      const char *defkid = adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty()
+        ? nullptr
+        : adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data();
       session.single_sample_decryptor_ = nullptr;
       session.shared_single_sample_decryptor_ = false;
 
       if (decrypter_ && defkid)
       {
         char hexkid[36];
-        AP4_FormatHex(reinterpret_cast<const AP4_UI08*>(defkid), 16, hexkid), hexkid[32]=0;
+        AP4_FormatHex(reinterpret_cast<const AP4_UI08*>(defkid), 16, hexkid), hexkid[32] = 0;
         kodi::Log(ADDON_LOG_DEBUG, "Initializing stream with KID: %s", hexkid);
 
         for (unsigned int i(1); i < ses; ++i)
@@ -2333,7 +2371,7 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       else if (!defkid)
       {
         for (unsigned int i(1); i < ses; ++i)
-          if (adaptiveTree_->psshSets_[ses].pssh_ == adaptiveTree_->psshSets_[i].pssh_)
+          if (adaptiveTree_->current_period_->psshSets_[ses].pssh_ == adaptiveTree_->current_period_->psshSets_[i].pssh_)
           {
             session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
             session.shared_single_sample_decryptor_ = true;
@@ -2350,17 +2388,17 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         decrypter_->GetCapabilities(
           session.single_sample_decryptor_,
           (const uint8_t *)defkid,
-          adaptiveTree_->psshSets_[ses].media_,
+          adaptiveTree_->current_period_->psshSets_[ses].media_,
           session.decrypter_caps_);
 
         if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID)
-          adaptiveTree_->RemovePSSHSet(static_cast<std::uint16_t>(ses));
+          adaptiveTree_->current_period_->RemovePSSHSet(static_cast<std::uint16_t>(ses));
         else if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session_ = true;
           // Override this setting by information passed in manifest
-          if (!adaptiveTree_->need_secure_decoder_)
+          if (!adaptiveTree_->current_period_->need_secure_decoder_)
             session.decrypter_caps_.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
       }
@@ -2436,7 +2474,7 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
       UpdateStream(stream, caps);
 
-    } while (repId-- != (manual_streams_? 1 : 0));
+    } while (repId-- != (manual_streams_ ? 1 : 0));
   }
   return true;
 }
@@ -2606,7 +2644,7 @@ SampleReader *Session::GetNextSample()
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
-      elapsed_time_ = res->reader_->Elapsed(res->stream_.GetAbsolutePTSOffset());
+      elapsed_time_ = res->reader_->Elapsed(res->stream_.GetAbsolutePTSOffset()) + chapter_start_time_;
     return res->reader_;
   }
   else if (waiting)
@@ -2624,6 +2662,29 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)
     seekTime = 0;
+
+  // Check if we leave our current period
+  double chapterTime(0);
+  std::vector<adaptive::AdaptiveTree::Period *>::const_iterator pi;
+  for (pi = adaptiveTree_->periods_.cbegin(); pi != adaptiveTree_->periods_.cend(); ++pi)
+  {
+    chapterTime += double((*pi)->duration_) / (*pi)->timescale_;
+    if (chapterTime > seekTime)
+      break;
+  }
+
+  if (pi == adaptiveTree_->periods_.end())
+    --pi;
+  chapterTime -= double((*pi)->duration_) / (*pi)->timescale_;
+
+  if ((*pi) != adaptiveTree_->current_period_)
+  {
+    SeekChapter((pi - adaptiveTree_->periods_.begin()) + 1);
+    chapter_seek_time_ = seekTime;
+    return true;
+  }
+
+  seekTime -= chapterTime;
 
   if (adaptiveTree_->has_timeshift_buffer_)
   {
@@ -2697,8 +2758,8 @@ void Session::CheckFragmentDuration(STREAM &stream)
 const AP4_UI08 *Session::GetDefaultKeyId(const uint16_t index) const
 {
   static const AP4_UI08 default_key[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
-  if (adaptiveTree_->psshSets_[index].defaultKID_.size() == 16)
-    return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->psshSets_[index].defaultKID_.data());
+  if (adaptiveTree_->current_period_->psshSets_[index].defaultKID_.size() == 16)
+    return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->current_period_->psshSets_[index].defaultKID_.data());
   return default_key;
 }
 
@@ -2761,7 +2822,7 @@ uint32_t Session::GetIncludedStreamMask() const
   const INPUTSTREAM_INFO::STREAM_TYPE adp2ips[] = { INPUTSTREAM_INFO::TYPE_NONE, INPUTSTREAM_INFO::TYPE_VIDEO, INPUTSTREAM_INFO::TYPE_AUDIO, INPUTSTREAM_INFO::TYPE_SUBTITLE};
   uint32_t res(0);
   for (unsigned int i(0); i < 4; ++i)
-    if (adaptiveTree_->included_types_ & (1U << i))
+    if (adaptiveTree_->current_period_->included_types_ & (1U << i))
       res |= (1U << adp2ips[i]);
   return res;
 }
@@ -2776,6 +2837,64 @@ CRYPTO_INFO::CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE;
 }
 
+int Session::GetChapter() const
+{
+  if (adaptiveTree_)
+  {
+    std::vector<adaptive::AdaptiveTree::Period *>::const_iterator res = std::find(
+      adaptiveTree_->periods_.cbegin(),
+      adaptiveTree_->periods_.cend(),
+      adaptiveTree_->current_period_);
+    if (res != adaptiveTree_->periods_.cend())
+      return (res - adaptiveTree_->periods_.cbegin()) + 1;
+  }
+  return -1;
+}
+
+int Session::GetChapterCount() const
+{
+  if (adaptiveTree_)
+    return adaptiveTree_->periods_.size();
+  return 0;
+}
+
+const char* Session::GetChapterName(int ch) const
+{
+  --ch;
+  if (ch >=0 && ch < static_cast<int>(adaptiveTree_->periods_.size()))
+    return adaptiveTree_->periods_[ch]->id_.c_str();
+  return "[Unknown]";
+}
+
+int64_t Session::GetChapterPos(int ch) const
+{
+  int64_t sum(0);
+  --ch;
+
+  for (; ch; --ch)
+    sum += (adaptiveTree_->periods_[ch - 1]->duration_ * DVD_TIME_BASE) / adaptiveTree_->periods_[ch - 1]->timescale_;
+  return sum / DVD_TIME_BASE;
+}
+
+bool Session::SeekChapter(int ch)
+{
+  if (adaptiveTree_->next_period_)
+    return true;
+
+  --ch;
+  if (ch >= 0 && ch < static_cast<int>(adaptiveTree_->periods_.size())
+    && adaptiveTree_->periods_[ch] != adaptiveTree_->current_period_)
+  {
+    adaptiveTree_->next_period_ = adaptiveTree_->periods_[ch];
+    for (STREAM *stream : streams_)
+      if (stream->reader_)
+        stream->reader_->Reset(true);
+
+    return true;
+  }
+
+  return false;
+}
 
 /***************************  Interface *********************************/
 
@@ -2793,12 +2912,12 @@ public:
   CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive *parent);
   virtual ~CVideoCodecAdaptive();
 
-  virtual bool Open(VIDEOCODEC_INITDATA &initData) override;
-  virtual bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
-  virtual bool AddData(const DemuxPacket &packet) override;
-  virtual VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
-  virtual const char *GetName() override { return m_name.c_str(); };
-  virtual void Reset() override;
+  bool Open(VIDEOCODEC_INITDATA &initData) override;
+  bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
+  bool AddData(const DemuxPacket &packet) override;
+  VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
+  const char *GetName() override { return m_name.c_str(); };
+  void Reset() override;
 
 private:
   enum STATE : unsigned int
@@ -2819,25 +2938,33 @@ class CInputStreamAdaptive
   : public kodi::addon::CInstanceInputStream
 {
 public:
-  CInputStreamAdaptive(KODI_HANDLE instance);
-  virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+  CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion);
+  ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
 
-  virtual bool Open(INPUTSTREAM& props) override;
-  virtual void Close() override;
-  virtual struct INPUTSTREAM_IDS GetStreamIds() override;
-  virtual void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
-  virtual struct INPUTSTREAM_INFO GetStream(int streamid) override;
-  virtual void EnableStream(int streamid, bool enable) override;
-  virtual bool OpenStream(int streamid) override;
-  virtual DemuxPacket* DemuxRead() override;
-  virtual bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
-  virtual void SetVideoResolution(int width, int height) override;
-  virtual bool PosTime(int ms) override;
-  virtual int GetTotalTime() override;
-  virtual int GetTime() override;
-  virtual bool CanPauseStream() override;
-  virtual bool CanSeekStream() override;
-  virtual bool IsRealTimeStream() override;
+  bool Open(INPUTSTREAM& props) override;
+  void Close() override;
+  struct INPUTSTREAM_IDS GetStreamIds() override;
+  void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
+  struct INPUTSTREAM_INFO GetStream(int streamid) override;
+  void EnableStream(int streamid, bool enable) override;
+  bool OpenStream(int streamid) override;
+  DemuxPacket* DemuxRead() override;
+  bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
+  void SetVideoResolution(int width, int height) override;
+  bool PosTime(int ms) override;
+  int GetTotalTime() override;
+  int GetTime() override;
+  bool CanPauseStream() override;
+  bool CanSeekStream() override;
+  bool IsRealTimeStream() override;
+
+#if INPUTSTREAM_VERSION_LEVEL > 1
+  int GetChapter() override;
+  int GetChapterCount() override;
+  const char* GetChapterName(int ch) override;
+  int64_t GetChapterPos(int ch) override;
+  bool SeekChapter(int ch) override;
+#endif
 
   std::shared_ptr<Session> GetSession() { return m_session; };
 
@@ -2845,10 +2972,15 @@ private:
   std::shared_ptr<Session> m_session;
   int m_width, m_height;
   uint16_t m_IncludedStreams[16];
+  bool m_checkChapterSeek = false;
 };
 
-CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance)
+CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion)
+#if INPUTSTREAM_VERSION_LEVEL > 1
+  : CInstanceInputStream(instance, kodiVersion)
+#else
   : CInstanceInputStream(instance)
+#endif
   , m_session(nullptr)
   , m_width(1280)
   , m_height(720)
@@ -2989,22 +3121,24 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
 
   if(m_session)
   {
-      iids.m_streamCount = 0;
-      for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+    int chapter = m_session->GetChapter();
+    iids.m_streamCount = 0;
+
+    for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+    {
+      uint8_t cdmId(static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
+      if (m_session->GetStream(i)->valid
+        && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type()))
       {
-        uint8_t cdmId(static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
-        if (m_session->GetStream(i)->valid
-          && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type()))
+        if (m_session->GetMediaTypeMask() != 0xFF)
         {
-          if (m_session->GetMediaTypeMask() != 0xFF)
-          {
-            const adaptive::AdaptiveTree::Representation *rep(m_session->GetStream(i)->stream_.getRepresentation());
-            if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
-              continue;
-          }
-          iids.m_streamIds[iids.m_streamCount++] = i;
+          const adaptive::AdaptiveTree::Representation *rep(m_session->GetStream(i)->stream_.getRepresentation());
+          if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+            continue;
         }
+        iids.m_streamIds[iids.m_streamCount++] = i + chapter * 1000;
       }
+    }
   } else
       iids.m_streamCount = 0;
   return iids;
@@ -3018,6 +3152,9 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
     INPUTSTREAM_CAPABILITIES::SUPPORTS_IPOSTIME |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
+#if INPUTSTREAM_VERSION_LEVEL > 1
+  caps.m_mask |= INPUTSTREAM_CAPABILITIES::SUPPORTS_ICHAPTER;
+#endif
 }
 
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
@@ -3030,7 +3167,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
 
-  Session::STREAM *stream(m_session->GetStream(streamid));
+  Session::STREAM *stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
 
   if (stream)
   {
@@ -3063,7 +3200,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
   if (!m_session)
     return;
 
-  Session::STREAM *stream(m_session->GetStream(streamid));
+  Session::STREAM *stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
 
   if (!enable && stream && stream->enabled)
   {
@@ -3088,7 +3225,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (!m_session)
     return false;
 
-  Session::STREAM *stream(m_session->GetStream(streamid));
+  Session::STREAM *stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
 
   if (!stream || stream->enabled)
     return false;
@@ -3188,9 +3325,14 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
     if (!track)
     {
-      kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-      stream->disable();
-      return false;
+      if (stream->stream_.get_type() == adaptive::AdaptiveTree::SUBTITLE)
+        track = movie->GetTrack(AP4_Track::TYPE_TEXT);
+      if (!track)
+      {
+        kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
+        stream->disable();
+        return false;
+      }
     }
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
@@ -3220,6 +3362,16 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 {
   if (!m_session)
     return NULL;
+
+  if (m_checkChapterSeek)
+  {
+    m_checkChapterSeek = false;
+    if (m_session->GetChapterSeekTime() > 0)
+    {
+      m_session->SeekTime(m_session->GetChapterSeekTime());
+      m_session->ResetChapterSeekTime();
+    }
+  }
 
   SampleReader *sr(m_session->GetNextSample());
 
@@ -3257,8 +3409,8 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 
     if (iSize)
     {
-      p->dts = static_cast<double>(sr->DTS());
-      p->pts = static_cast<double>(sr->PTS());
+      p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
+      p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
       p->duration = static_cast<double>(sr->GetDuration());
       p->iStreamId = sr->GetStreamId();
       p->iGroupId = 0;
@@ -3269,6 +3421,19 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
     //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
     sr->ReadSample();
+    return p;
+  }
+
+  int currentChapter = m_session->GetChapter();
+  if (m_session->SeekChapter(currentChapter + 1))
+  {
+    m_checkChapterSeek = true;
+    for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+      EnableStream(i + currentChapter * 1000, false);
+    m_session->InitializePeriod();
+    DemuxPacket *p = AllocateDemuxPacket(0);
+    p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+    kodi::Log(ADDON_LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
     return p;
   }
   return NULL;
@@ -3335,6 +3500,32 @@ bool CInputStreamAdaptive::IsRealTimeStream()
   return m_session && m_session->IsLive();
 }
 
+#if INPUTSTREAM_VERSION_LEVEL > 1
+int CInputStreamAdaptive::GetChapter()
+{
+  return m_session ? m_session->GetChapter() : 0;
+}
+
+int CInputStreamAdaptive::GetChapterCount()
+{
+  return m_session ? m_session->GetChapterCount() : 0;
+}
+
+const char* CInputStreamAdaptive::GetChapterName(int ch)
+{
+  return m_session ? m_session->GetChapterName(ch) : 0;
+}
+
+int64_t CInputStreamAdaptive::GetChapterPos(int ch)
+{
+  return m_session ? m_session->GetChapterPos(ch) : 0;
+}
+
+bool CInputStreamAdaptive::SeekChapter(int ch)
+{
+  return m_session ? m_session->SeekChapter(ch) : false;
+}
+#endif
 /*****************************************************************************************************/
 
 CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance)
@@ -3451,7 +3642,8 @@ class CMyAddon
 public:
   CMyAddon();
   virtual ~CMyAddon();
-  virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+  ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+  ADDON_STATUS CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version) override;
 };
 
 CMyAddon::CMyAddon()
@@ -3466,9 +3658,14 @@ CMyAddon::~CMyAddon()
 
 ADDON_STATUS CMyAddon::CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance)
 {
+  return CreateInstanceEx(instanceType, instanceID, instance, addonInstance, "");
+}
+
+ADDON_STATUS CMyAddon::CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version)
+{
   if (instanceType == ADDON_INSTANCE_INPUTSTREAM)
   {
-    addonInstance = new CInputStreamAdaptive(instance);
+    addonInstance = new CInputStreamAdaptive(instance, version);
     kodihost = new KodiHost();
     return ADDON_STATUS_OK;
   }

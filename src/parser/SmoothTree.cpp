@@ -213,8 +213,8 @@ start(void *data, const char *el, const char **attr)
     else if (strcmp(el, "Protection") == 0)
     {
       dash->currentNode_ |= SmoothTree::SSMNODE_PROTECTION;
-      dash->encryptionState_ = SmoothTree::ENCRYTIONSTATE_SUPPORTED;
-      dash->need_secure_decoder_ = true;
+      dash->current_period_->encryptionState_ = SmoothTree::ENCRYTIONSTATE_SUPPORTED;
+      dash->current_period_->need_secure_decoder_ = true;
 	  }
   }
   else if (strcmp(el, "SmoothStreamingMedia") == 0)
