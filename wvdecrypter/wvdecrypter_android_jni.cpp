@@ -424,7 +424,8 @@ RETRY_OPEN:
   memcpy(session_id_char_, session_id_.data(), session_id_.size());
   session_id_char_[session_id_.size()] = 0;
 
-  Log(SSD_HOST::LL_DEBUG, "SessionId: %s, SecurityLevel: %d, MaxSecurityLevel: %d", session_id_char_, media_drm_.GetMediaDrm()->getSecurityLevel(session_id_), media_drm_.GetMediaDrm()->getMaxSecurityLevel());
+  if (media_drm_.GetKeySystemType() == WIDEVINE)
+    Log(SSD_HOST::LL_DEBUG, "SessionId: %s, SecurityLevel: %d, MaxSecurityLevel: %d", session_id_char_, media_drm_.GetMediaDrm()->getSecurityLevel(session_id_), media_drm_.GetMediaDrm()->getMaxSecurityLevel());
 }
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
