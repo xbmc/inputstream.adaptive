@@ -200,7 +200,7 @@ private:
   uint32_t fixed_bandwidth_;
   uint32_t maxUserBandwidth_;
   bool changed_;
-  bool manual_streams_;
+  int manual_streams_;
   uint64_t elapsed_time_, chapter_start_time_; // In DVD_TIME_BASE
   double chapter_seek_time_; // In seconds
   uint8_t media_type_mask_;

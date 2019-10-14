@@ -48,6 +48,7 @@
             <options>
               <option label="30155">0</option> <!-- Auto -->
               <option label="30156">1</option>  <!-- Manual -->
+              <option label="30160">2</option>  <!-- Manual video -->
             </options>
           </constraints>
           <control type="spinner" format="string" />

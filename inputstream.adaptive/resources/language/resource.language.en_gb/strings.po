@@ -99,3 +99,7 @@ msgstr ""
 msgctxt "#30159"
 msgid "Video"
 msgstr ""
+
+msgctxt "#30160"
+msgid "Manual video"
+msgstr "Show all video streams"
