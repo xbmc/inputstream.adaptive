@@ -1,0 +1,105 @@
+# Kodi Media Center language file
+# Addon Name: Inputstream.adaptive
+# Addon id: inputstream.adaptive
+# Addon Provider: peak3d
+
+msgid ""
+msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30100"
+msgid "Algemeen"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Min. Bandbreedte (Bit/s)"
+msgstr "De minimum bandbreedte voor de video stream."
+
+msgctxt "#30102"
+msgid "Max. Bandbreedte (Bit/s)"
+msgstr "De maximum bandbreedte voor de video stream. 0=ongelimiteerd"
+
+msgctxt "#30103"
+msgid "Decrypter pad"
+msgstr "Absoluut pad naar de folder met de decrypters"
+
+msgctxt "#30110"
+msgid "Max. Resolutie algemene decoder"
+msgstr "Maximum Resolutie"
+
+msgctxt "#30111"
+msgid "Stream Selectie"
+msgstr "Stream Selectie"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "Media"
+
+msgctxt "#30113"
+msgid "Max. Resolutie beveiligde decoder"
+msgstr "Maximum toegelaten resolutie indien decodering gebeurt via een beveiligd pad"
+
+msgctxt "#30114"
+msgid "Negeer HDCP status"
+msgstr "Selecteer streams zonder rekening te houden met de HDCP status"
+
+msgctxt "#30115"
+msgid "Negeer Scherm Resolutie"
+msgstr "Selecteer streams zonder rekening te houden met de scherm resolutie"
+
+msgctxt "#30120"
+msgid "Expert"
+msgstr ""
+
+msgctxt "#30121"
+msgid "Activeer Pre-Release Functionaliteit"
+msgstr ""
+
+msgctxt "#30150"
+msgid "Max"
+msgstr ""
+
+msgctxt "#30151"
+msgid "480p"
+msgstr ""
+
+msgctxt "#30152"
+msgid "640p"
+msgstr ""
+
+msgctxt "#30153"
+msgid "720p"
+msgstr ""
+
+msgctxt "#30154"
+msgid "1080p"
+msgstr ""
+
+msgctxt "#30155"
+msgid "Automatisch"
+msgstr ""
+
+msgctxt "#30156"
+msgid "Manueel"
+msgstr ""
+
+msgctxt "#30157"
+msgid "Alle"
+msgstr ""
+
+msgctxt "#30158"
+msgid "Audio"
+msgstr ""
+
+msgctxt "#30159"
+msgid "Video"
+msgstr ""
+
+msgctxt "#30160"
+msgid "Manueel video"
+msgstr "Toon all video streams"
