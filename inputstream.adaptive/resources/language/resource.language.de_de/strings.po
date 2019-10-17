@@ -86,7 +86,7 @@ msgstr "Automatisch"
 
 msgctxt "#30156"
 msgid "Manual"
-msgstr "Manuel"
+msgstr "Manuell"
 
 msgctxt "#30157"
 msgid "All"
