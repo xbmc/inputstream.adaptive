@@ -28,6 +28,7 @@
 #include <kodi/StreamCodec.h>
 #include <kodi/addon-instance/VideoCodec.h>
 #include "DemuxCrypto.h"
+#include <TimingConstants.h>
 
 #include "aes_decrypter.h"
 #include "helpers.h"
@@ -2954,6 +2955,7 @@ public:
   bool PosTime(int ms) override;
   int GetTotalTime() override;
   int GetTime() override;
+  bool GetTimes(INPUTSTREAM_TIMES &times) override;
   bool CanPauseStream() override;
   bool CanSeekStream() override;
   bool IsRealTimeStream() override;
@@ -3149,6 +3151,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
   kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
   caps.m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTS_IDEMUX |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_IDISPLAYTIME |
+    INPUTSTREAM_CAPABILITIES::SUPPORTS_ITIME |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_IPOSTIME |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
@@ -3483,6 +3486,30 @@ int CInputStreamAdaptive::GetTime()
 
   int timeMs = static_cast<int>(m_session->GetElapsedTimeMs());
   return timeMs;
+}
+
+bool CInputStreamAdaptive::GetTimes(INPUTSTREAM_TIMES &times)
+{
+  if (!m_session)
+    return false;
+
+  if (m_session->IsLive())
+  {
+    times.startTime = time(nullptr) - (m_session->GetTotalTimeMs() / 1000);
+    times.ptsStart = 0;
+    times.ptsBegin = 0;
+    times.ptsEnd = (m_session->GetTotalTimeMs() / 1000) * DVD_TIME_BASE;
+  }
+  else // VOD
+  {
+    times.startTime = 0;
+    times.ptsStart = 0;
+    times.ptsBegin = 0;
+    //times.ptsEnd = static_cast<int64_t>(m_session->GetCurrentDuration()) * DVD_TIME_BASE;
+    times.ptsEnd = static_cast<int64_t>(m_session->GetTotalTimeMs() / 1000) * DVD_TIME_BASE; // We need the total duration in seconds of the VOD viewing here.
+  }
+  
+  return true;
 }
 
 bool CInputStreamAdaptive::CanPauseStream(void)
