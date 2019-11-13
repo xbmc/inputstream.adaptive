@@ -1582,7 +1582,17 @@ void DASHTree::RefreshSegments()
                 {
                   //TODO: check if first element or size differs
                   unsigned int segmentId((*brd)->getCurrentSegmentNumber());
-                  if ((*br)->segments_[0]->startPTS_ == (*brd)->segments_[0]->startPTS_)
+                  if ((*br)->flags_ & DASHTree::Representation::TIMELINE)
+                  {
+                    uint64_t search_pts = (*br)->segments_[0]->range_begin_;
+                    for (const auto &s : (*brd)->segments_.data)
+                    {
+                      if (s.range_begin_ >= search_pts)
+                        break;
+                      ++(*brd)->startNumber_;
+                    }
+                  }
+                  else if ((*br)->segments_[0]->startPTS_ == (*brd)->segments_[0]->startPTS_)
                   {
                     uint64_t search_re = (*br)->segments_[0]->range_end_;
                     for (const auto &s : (*brd)->segments_.data)
