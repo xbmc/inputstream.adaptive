@@ -598,11 +598,17 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   if (current_rep_->flags_ & AdaptiveTree::Representation::SEGMENTBASE)
   {
     AdaptiveTree::Segment seg;
-    seg.range_begin_ = current_rep_->indexRangeMin_;
-    seg.range_end_ = current_rep_->indexRangeMax_;
-    seg.startPTS_ = ~0ULL;
+    const AdaptiveTree::Segment *downloadSeg;
 
-    if (prepareDownload(&seg) && !download_segment())
+    if (!(downloadSeg = current_rep_->get_initialization()))
+    {
+      seg.range_begin_ = current_rep_->indexRangeMin_;
+      seg.range_end_ = current_rep_->indexRangeMax_;
+      seg.startPTS_ = ~0ULL;
+      downloadSeg = &seg;
+    }
+
+    if (prepareDownload(downloadSeg) && !download_segment())
     {
       stopped_ = true;
       return false;
