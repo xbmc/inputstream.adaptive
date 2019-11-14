@@ -2242,7 +2242,7 @@ bool Session::InitializePeriod()
         if (license_data_.empty())
         {
           Session::STREAM stream(*adaptiveTree_, adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_->type_);
-          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
+          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, media_headers_);
 
           stream.enabled = true;
           stream.stream_.start_stream(0, width_, height_);
