@@ -2433,7 +2433,7 @@ bool Session::InitializePeriod()
 
     // Select good video stream
     adaptive::AdaptiveStream defaultVideoStream(*adaptiveTree_, adaptive::AdaptiveTree::StreamType::VIDEO);
-    if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO && manual_streams == 2)
+    if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO && manual_streams_ == 2)
       defaultVideoStream.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, 0, media_headers_);
 
     size_t repId = manual_streams ? adp->representations_.size() : 0;
@@ -2561,6 +2561,11 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     if ((pos = rep->codecs_.find(".")) != std::string::npos)
       stream.info_.m_codecProfile = static_cast<STREAMCODEC_PROFILE>(VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1)));
 #endif
+  }
+  else if (rep->codecs_.find("dvhe") == 0)
+  {
+    strcpy(stream.info_.m_codecName, "dvhe");
+    stream.info_.m_codecFourCC = MKTAG(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]);
   }
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
