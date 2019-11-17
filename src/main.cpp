@@ -2564,8 +2564,8 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   }
   else if (rep->codecs_.find("dvhe") == 0)
   {
-    strcpy(stream.info_.m_codecName, "dvhe");
-    stream.info_.m_codecFourCC = MKTAG(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]);
+    strcpy(stream.info_.m_codecName, "hevc");
+    stream.info_.m_codecFourCC = MKTAG('d', 'v', 'h', 'e');
   }
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
