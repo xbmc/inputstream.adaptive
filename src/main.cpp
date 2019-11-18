@@ -32,6 +32,7 @@
 #include "aes_decrypter.h"
 #include "helpers.h"
 #include "log.h"
+#include "oscompat.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
 #include "parser/HLSTree.h"
@@ -1911,7 +1912,8 @@ Session::Session(MANIFEST_TYPE manifestType,
   const char* profile_path,
   uint16_t display_width,
   uint16_t display_height,
-  const char *ov_audio)
+  const char *ov_audio,
+  bool play_timeshift_buffer)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , mpdUpdateParam_(strUpdateParam)
@@ -1927,8 +1929,9 @@ Session::Session(MANIFEST_TYPE manifestType,
   , adaptiveTree_(0)
   , width_(display_width)
   , height_(display_height)
+  , play_timeshift_buffer_(play_timeshift_buffer)
   , changed_(false)
-  , manual_streams_(false)
+  , manual_streams_(0)
   , elapsed_time_(0)
   , chapter_start_time_(0)
   , chapter_seek_time_(0.0)
@@ -1970,15 +1973,14 @@ Session::Session(MANIFEST_TYPE manifestType,
   max_secure_resolution_ = kodi::GetSettingInt("MAXRESOLUTIONSECURE");
   kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTIONSECURE selected: %d ", max_secure_resolution_);
 
-  int buf = kodi::GetSettingInt("STREAMSELECTION");
-  kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", buf);
-  manual_streams_ = buf != 0;
+  manual_streams_ = kodi::GetSettingInt("STREAMSELECTION");
+  kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", manual_streams_);
 
   preReleaseFeatures = kodi::GetSettingBoolean("PRERELEASEFEATURES");
   if (preReleaseFeatures)
     kodi::Log(ADDON_LOG_INFO, "PRERELEASEFEATURES enabled!");
 
-  buf = kodi::GetSettingInt("MEDIATYPE");
+  int buf = kodi::GetSettingInt("MEDIATYPE");
   switch (buf)
   {
   case 1:
@@ -2243,10 +2245,10 @@ bool Session::InitializePeriod()
         if (license_data_.empty())
         {
           Session::STREAM stream(*adaptiveTree_, adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_->type_);
-          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
+          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, media_headers_);
 
           stream.enabled = true;
-          stream.stream_.start_stream(0, width_, height_);
+          stream.stream_.start_stream(~0, width_, height_, play_timeshift_buffer_);
           stream.stream_.select_stream(true, false, stream.info_.m_pID >> 16);
 
           stream.input_ = new AP4_DASHStream(&stream.stream_);
@@ -2419,21 +2421,29 @@ bool Session::InitializePeriod()
     if (adp->representations_.empty())
       continue;
 
-    size_t repId = manual_streams_ ? adp->representations_.size() : 0;
+    bool manual_streams = adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO ? manual_streams_ != 0 : manual_streams_ == 1;
+
+    const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->representations_[0]->get_psshset()));
+
+    uint32_t hdcpLimit(caps.hdcpLimit);
+    uint16_t hdcpVersion(caps.hdcpVersion);
+
+    if (hdcpOverride)
+    {
+      hdcpLimit = 0;
+      hdcpVersion = 99;
+    }
+
+    // Select good video stream
+    adaptive::AdaptiveStream defaultVideoStream(*adaptiveTree_, adaptive::AdaptiveTree::StreamType::VIDEO);
+    if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO && manual_streams_ == 2)
+      defaultVideoStream.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, 0, media_headers_);
+
+    size_t repId = manual_streams ? adp->representations_.size() : 0;
 
     do {
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
-      const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->representations_[0]->get_psshset()));
-
-      uint32_t hdcpLimit(caps.hdcpLimit);
-      uint16_t hdcpVersion(caps.hdcpVersion);
-
-      if (hdcpOverride)
-      {
-        hdcpLimit = 0;
-        hdcpVersion = 99;
-      }
 
       stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
       stream.info_.m_flags = INPUTSTREAM_INFO::FLAG_NONE;
@@ -2444,6 +2454,8 @@ bool Session::InitializePeriod()
       {
       case adaptive::AdaptiveTree::VIDEO:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+        if (manual_streams && stream.stream_.getRepresentation() == defaultVideoStream.getRepresentation())
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
         break;
       case adaptive::AdaptiveTree::AUDIO:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
@@ -2474,7 +2486,7 @@ bool Session::InitializePeriod()
 
       UpdateStream(stream, caps);
 
-    } while (repId-- != (manual_streams_ ? 1 : 0));
+    } while (repId-- != (manual_streams ? 1 : 0));
   }
   return true;
 }
@@ -2552,6 +2564,11 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     if ((pos = rep->codecs_.find(".")) != std::string::npos)
       stream.info_.m_codecProfile = static_cast<STREAMCODEC_PROFILE>(VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1)));
 #endif
+  }
+  else if (rep->codecs_.find("dvhe") == 0)
+  {
+    strcpy(stream.info_.m_codecName, "hevc");
+    stream.info_.m_codecFourCC = MKTAG('d', 'v', 'h', 'e');
   }
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
@@ -2854,7 +2871,7 @@ int Session::GetChapter() const
 int Session::GetChapterCount() const
 {
   if (adaptiveTree_)
-    return adaptiveTree_->periods_.size();
+    return adaptiveTree_->periods_.size() > 1 ? adaptiveTree_->periods_.size() : 0;
   return 0;
 }
 
@@ -2973,6 +2990,7 @@ private:
   int m_width, m_height;
   uint16_t m_IncludedStreams[16];
   bool m_checkChapterSeek = false;
+  bool m_playTimeshiftBuffer = false;
 };
 
 CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion)
@@ -3065,6 +3083,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       mru = props.m_ListItemProperties[i].m_strValue;
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.max_bandwidth") == 0)
       max_user_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.play_timeshift_buffer") == 0)
+      m_playTimeshiftBuffer = stricmp(props.m_ListItemProperties[i].m_strValue, "true") == 0;
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -3097,7 +3117,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     props.m_profileFolder,
     m_width,
     m_height,
-    ov_audio));
+    ov_audio,
+    m_playTimeshiftBuffer));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize(config, max_user_bandwidth))
@@ -3232,7 +3253,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   stream->enabled = true;
 
-  stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight());
+  stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight(), m_playTimeshiftBuffer);
   const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
 
   // If we select a dummy (=inside video) stream, open the video part

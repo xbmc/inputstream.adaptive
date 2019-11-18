@@ -3,38 +3,29 @@
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
 
-msgid ""
-msgstr ""
-
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Allmänt"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "The minimum bandwidth which should not be deceeded."
+msgstr "Lägsta bandbredd (Bit/s)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
+msgstr "Högsta bandbredd (Bit/s)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Absolute path to the folder containing the decrypters"
+msgstr "Dekrypteringssökväg"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maximum Resolution"
+msgstr "Högsta upplösning för allmän avkodare"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Stream Selection"
+msgstr "Strömval"
 
 msgctxt "#30112"
 msgid "Media"
@@ -42,64 +33,64 @@ msgstr "Media"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maximum allowed resolution if decoded through secure path"
+msgstr "Högsta upplösning för säker avkodare"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Select streams without respecting HDCP status"
+msgstr "Åsidosätt HDCP-status"
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Do not respect display resolution when selecting streams"
+msgstr "Ignorera skärmupplösningen"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Expert"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr ""
+msgstr "Aktivera förhandsutgivningsfunktioner"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr ""
+msgstr "Högsta"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 msgctxt "#30156"
 msgid "Manual"
-msgstr ""
+msgstr "Manuell"
 
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Alla"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Ljud"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Video"
 
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Show all video streams"
+msgstr "Manuell video"

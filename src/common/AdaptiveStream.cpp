@@ -40,6 +40,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
   , lastUpdated_(std::chrono::system_clock::now())
   , m_fixateInitialization(false)
   , m_segmentFileOffset(0)
+  , play_timeshift_buffer_(false)
 {
 }
 
@@ -148,9 +149,9 @@ bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
   return select_stream(false, true, repId);
 }
 
-bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height)
+bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer)
 {
-  if (!~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size()>1)
+  if (!play_timeshift_buffer && !~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size()>1)
   {
     std::int32_t pos;
     if (tree_.has_timeshift_buffer_ || tree_.available_time_>= tree_.stream_start_)
@@ -180,6 +181,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
   {
     width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
     height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
+    play_timeshift_buffer_ = play_timeshift_buffer;
 
     if (!(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::URLSEGMENTS)))
       absolute_position_ = current_rep_->get_next_segment(current_rep_->current_segment_)->range_begin_;
@@ -203,7 +205,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
 
 bool AdaptiveStream::restart_stream()
 {
-  if (!start_stream(~0, width_, height_))
+  if (!start_stream(~0, width_, height_, play_timeshift_buffer_))
     return false;
 
   /* lets download the initialization */
@@ -289,19 +291,22 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
   }
   else
   {
-    if (current_rep_->flags_ & AdaptiveTree::Representation::TEMPLATE)
+    if (current_rep_->flags_ & AdaptiveTree::Representation::TEMPLATE && seg != &current_rep_->initialization_)
     {
       download_url_ = current_rep_->segtpl_.media;
       ReplacePlacehoder(download_url_, current_rep_->startNumber_, 0);
     }
     else
       download_url_ = current_rep_->url_;
-    uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
-    if (~seg->range_end_)
-      sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
-    else
-      sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
-    rangeHeader = rangebuf;
+    if (~seg->range_begin_)
+    {
+      uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
+      if (~seg->range_end_)
+        sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
+      else
+        sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
+      rangeHeader = rangebuf;
+    }
   }
 
   download_segNum_ = current_rep_->startNumber_ + current_rep_->get_segment_pos(seg);
@@ -595,11 +600,17 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   if (current_rep_->flags_ & AdaptiveTree::Representation::SEGMENTBASE)
   {
     AdaptiveTree::Segment seg;
-    seg.range_begin_ = current_rep_->indexRangeMin_;
-    seg.range_end_ = current_rep_->indexRangeMax_;
-    seg.startPTS_ = ~0ULL;
+    const AdaptiveTree::Segment *downloadSeg;
 
-    if (prepareDownload(&seg) && !download_segment())
+    if (!(downloadSeg = current_rep_->get_initialization()))
+    {
+      seg.range_begin_ = current_rep_->indexRangeMin_;
+      seg.range_end_ = current_rep_->indexRangeMax_;
+      seg.startPTS_ = ~0ULL;
+      downloadSeg = &seg;
+    }
+
+    if (prepareDownload(downloadSeg) && !download_segment())
     {
       stopped_ = true;
       return false;
