@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.5.1"
+  version="2.5.2"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,13 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.5.2 (2019-11-18)
+- More languages added
+- DolbyVision codec (dvhe) support, kodi changes required to get it work
+- Add property to start LiveStreams from beginning (play_timeshift_buffer)
+- Pass media_headers when downloading pssh-search segment
+- Minor DASH full update / timing / url generation fixes
+
 v2.5.1 (2019-10-07)
 - Language spain added
 - multi period support
