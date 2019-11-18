@@ -32,6 +32,7 @@
 #include "aes_decrypter.h"
 #include "helpers.h"
 #include "log.h"
+#include "oscompat.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
 #include "parser/HLSTree.h"
@@ -1911,7 +1912,8 @@ Session::Session(MANIFEST_TYPE manifestType,
   const char* profile_path,
   uint16_t display_width,
   uint16_t display_height,
-  const char *ov_audio)
+  const char *ov_audio,
+  bool play_timeshift_buffer)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , mpdUpdateParam_(strUpdateParam)
@@ -1927,6 +1929,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   , adaptiveTree_(0)
   , width_(display_width)
   , height_(display_height)
+  , play_timeshift_buffer_(play_timeshift_buffer)
   , changed_(false)
   , manual_streams_(0)
   , elapsed_time_(0)
@@ -2245,7 +2248,7 @@ bool Session::InitializePeriod()
           stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, media_headers_);
 
           stream.enabled = true;
-          stream.stream_.start_stream(0, width_, height_);
+          stream.stream_.start_stream(~0, width_, height_, play_timeshift_buffer_);
           stream.stream_.select_stream(true, false, stream.info_.m_pID >> 16);
 
           stream.input_ = new AP4_DASHStream(&stream.stream_);
@@ -2987,6 +2990,7 @@ private:
   int m_width, m_height;
   uint16_t m_IncludedStreams[16];
   bool m_checkChapterSeek = false;
+  bool m_playTimeshiftBuffer = false;
 };
 
 CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion)
@@ -3079,6 +3083,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       mru = props.m_ListItemProperties[i].m_strValue;
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.max_bandwidth") == 0)
       max_user_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.play_timeshift_buffer") == 0)
+      m_playTimeshiftBuffer = stricmp(props.m_ListItemProperties[i].m_strValue, "true") == 0;
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -3111,7 +3117,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     props.m_profileFolder,
     m_width,
     m_height,
-    ov_audio));
+    ov_audio,
+    m_playTimeshiftBuffer));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize(config, max_user_bandwidth))
@@ -3246,7 +3253,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   stream->enabled = true;
 
-  stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight());
+  stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight(), m_playTimeshiftBuffer);
   const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
 
   // If we select a dummy (=inside video) stream, open the video part

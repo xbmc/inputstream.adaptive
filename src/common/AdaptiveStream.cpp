@@ -40,6 +40,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type
   , lastUpdated_(std::chrono::system_clock::now())
   , m_fixateInitialization(false)
   , m_segmentFileOffset(0)
+  , play_timeshift_buffer_(false)
 {
 }
 
@@ -148,9 +149,9 @@ bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
   return select_stream(false, true, repId);
 }
 
-bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height)
+bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer)
 {
-  if (!~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size()>1)
+  if (!play_timeshift_buffer && !~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size()>1)
   {
     std::int32_t pos;
     if (tree_.has_timeshift_buffer_ || tree_.available_time_>= tree_.stream_start_)
@@ -180,6 +181,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
   {
     width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
     height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
+    play_timeshift_buffer_ = play_timeshift_buffer;
 
     if (!(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::URLSEGMENTS)))
       absolute_position_ = current_rep_->get_next_segment(current_rep_->current_segment_)->range_begin_;
@@ -203,7 +205,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
 
 bool AdaptiveStream::restart_stream()
 {
-  if (!start_stream(~0, width_, height_))
+  if (!start_stream(~0, width_, height_, play_timeshift_buffer_))
     return false;
 
   /* lets download the initialization */

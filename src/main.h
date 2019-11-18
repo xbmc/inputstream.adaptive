@@ -92,7 +92,8 @@ public:
     const char* profile_path,
     uint16_t display_width,
     uint16_t display_height,
-    const char *ov_audio);
+    const char *ov_audio,
+    bool play_timeshift_buffer);
   virtual ~Session();
   bool initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
   bool InitializePeriod();
@@ -206,4 +207,5 @@ private:
   uint8_t media_type_mask_;
   uint8_t drmConfig_;
   bool ignore_display_;
+  bool play_timeshift_buffer_;
 };
