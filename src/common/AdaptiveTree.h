@@ -142,7 +142,11 @@ public:
   {
     Representation() :bandwidth_(0), samplingRate_(0), width_(0), height_(0), fpsRate_(0), fpsScale_(1), aspect_(0.0f),
       flags_(0), hdcpVersion_(0), indexRangeMin_(0), indexRangeMax_(0), channelCount_(0), nalLengthSize_(0), pssh_set_(0), expired_segments_(0),
-      containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), ptsOffset_(0), nextPts_(0), duration_(0), timescale_(0), current_segment_(nullptr) {};
+      containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), ptsOffset_(0), nextPts_(0), duration_(0), timescale_(0), current_segment_(nullptr)
+    {
+      initialization_.range_begin_ = initialization_.range_end_ = ~0ULL;
+      initialization_.url = nullptr;
+    };
     ~Representation() {
       if (flags_ & Representation::URLSEGMENTS)
       {
@@ -376,7 +380,8 @@ public:
 
     std::vector<AdaptationSet*> adaptationSets_;
     std::string base_url_, id_;
-    uint32_t timescale_ = 1, startNumber_ = 1;
+    uint32_t timescale_ = 1000, startNumber_ = 1;
+    uint64_t start_ = 0;
     uint64_t startPTS_ = 0;
     uint64_t duration_ = 0;
     unsigned int  encryptionState_ = ENCRYTIONSTATE_UNENCRYPTED;

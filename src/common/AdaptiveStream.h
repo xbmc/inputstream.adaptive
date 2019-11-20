@@ -47,7 +47,7 @@ namespace adaptive
       const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
       uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
       const std::map<std::string, std::string> &media_headers);
-    bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height);
+    bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer);
     bool restart_stream();
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
     void stop();
@@ -148,5 +148,6 @@ namespace adaptive
     uint8_t m_iv[16];
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
+    bool play_timeshift_buffer_;
   };
 };

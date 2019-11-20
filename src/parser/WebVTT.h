@@ -28,7 +28,7 @@ class WebVTT
 public:
   WebVTT() :m_pos(0), m_tickRate(0), m_timescale(0), m_ptsOffset(0) { };
 
-  bool Parse(const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset);
+  bool Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset);
 
   bool Prepare(uint64_t &pts, uint32_t &duration);
   bool TimeSeek(uint64_t seekPos);
@@ -39,8 +39,11 @@ public:
 
   struct SUBTITLE
   {
+    SUBTITLE() = default;
+    SUBTITLE(uint64_t start)
+      : start(start) {};
     std::string id;
-    uint64_t start, end;
+    uint64_t start = 0, end = ~0;
     std::vector<std::string> text;
   };
 

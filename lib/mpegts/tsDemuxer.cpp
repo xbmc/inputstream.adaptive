@@ -39,6 +39,7 @@ using namespace TSDemux;
 AVContext::AVContext(TSDemuxer* const demux, uint64_t pos, uint16_t channel)
   : av_pos(pos)
   , payload_unit_pos(0)
+  , prev_payload_unit_pos(0)
   , av_data_len(FLUTS_NORMAL_TS_PACKETSIZE)
   , av_pkt_size(0)
   , is_configured(false)
@@ -68,6 +69,7 @@ void AVContext::Reset(void)
   payload = NULL;
   payload_len = 0;
   payload_unit_pos = 0;
+  prev_payload_unit_pos = 0;
   packet = NULL;
 }
 
