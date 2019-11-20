@@ -1220,8 +1220,8 @@ public:
 
   virtual uint64_t  Elapsed(uint64_t basePTS) override
   {
-    //uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
-    return m_pts > basePTS ? m_pts - basePTS : 0ULL;
+    uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
+    return manifestPTS > basePTS ? manifestPTS - basePTS : 0ULL;
   };
 
   virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
@@ -2730,7 +2730,8 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
         else
         {
           double destTime(static_cast<double>((*b)->reader_->Elapsed((*b)->stream_.GetAbsolutePTSOffset())) / DVD_TIME_BASE);
-          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.1lf) for Stream:%d continues at %0.1lf", seekTime, (*b)->info_.m_pID, destTime);
+          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (DTS: %llu)",
+            seekTime, (*b)->info_.m_pID, destTime, (*b)->reader_->DTS());
           if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
             seekTime = destTime, preceeding = false;
           ret = true;
