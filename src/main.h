@@ -142,6 +142,7 @@ public:
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
   AP4_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
+  uint64_t GetTimeshiftBufferDurationMs()const { return adaptiveTree_->overallSeconds_ * 1000; };
   uint64_t GetTotalTimeMs()const { return adaptiveTree_->overallSeconds_ * 1000; };
   uint64_t GetElapsedTimeMs()const { return elapsed_time_ / 1000; };
   uint64_t PTSToElapsed(uint64_t pts);
@@ -154,6 +155,9 @@ public:
   const AP4_UI08 *GetDefaultKeyId(const uint16_t index) const;
   uint32_t GetIncludedStreamMask() const;
   CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
+  bool GetLiveTimes(INPUTSTREAM_TIMES &times);
+  uint64_t GetPTSStart() const { return pts_start_; };
+  void SetInitialPTSStart();
 
   int GetChapter() const;
   int GetChapterCount() const;
@@ -212,4 +216,6 @@ private:
   uint8_t drmConfig_;
   bool ignore_display_;
   bool play_timeshift_buffer_;
+  time_t start_time_;
+  uint64_t pts_start_ = 0;
 };

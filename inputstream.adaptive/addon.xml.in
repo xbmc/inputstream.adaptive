@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.5.3"
+  version="2.6.0"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,9 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.6.0 (2019-11-21)
+- Implemnet GetTimes()
+
 v2.5.3 (2019-11-21)
 - Fix retrieving SIDX from indexRange streams (youtube)
 - Rework seek (use lead stream)

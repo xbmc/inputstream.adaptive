@@ -28,6 +28,7 @@
 #include <kodi/StreamCodec.h>
 #include <kodi/addon-instance/VideoCodec.h>
 #include "DemuxCrypto.h"
+#include <TimingConstants.h>
 
 #include "aes_decrypter.h"
 #include "helpers.h"
@@ -1933,6 +1934,9 @@ Session::Session(MANIFEST_TYPE manifestType,
   default:;
   };
 
+  // we initialist this here so it has a value before DemuxRead is called
+  start_time_ = time(nullptr);
+
   std::string fn(profile_path_ + "bandwidth.bin");
   FILE* f = fopen(fn.c_str(), "rb");
   if (f)
@@ -2773,7 +2777,14 @@ void Session::OnSegmentChanged(adaptive::AdaptiveStream *stream)
     if (&s->stream_ == stream)
     {
       if(s->reader_)
+      {
         s->reader_->SetPTSOffset(s->stream_.GetCurrentPTSOffset());
+        // if (pts_start_ == 0)
+        // {
+        //   pts_start_ = s->reader_->PTS();
+        //   start_time_ = time(nullptr);
+        // }
+      }
       s->segmentChanged = true;
       break;
     }
@@ -2938,6 +2949,50 @@ bool Session::SeekChapter(int ch)
   return false;
 }
 
+bool Session::GetLiveTimes(INPUTSTREAM_TIMES &times)
+{
+  if (pts_start_ == 0)
+  {
+    times.startTime = start_time_;
+    times.ptsStart = 0;
+    times.ptsBegin = 0;
+    times.ptsEnd = 0;
+  }
+  else
+  {
+    //V1
+    times.startTime = start_time_;
+    times.ptsStart = pts_start_;
+    uint64_t bufferStart = GetTimeshiftBufferStart();
+    times.ptsBegin = bufferStart < pts_start_ ? pts_start_ : bufferStart;
+    times.ptsEnd = bufferStart + (GetTimeshiftBufferDurationMs() * 1000);
+    // times.ptsBegin = GetTimeshiftBufferStart();
+    // times.ptsEnd = times.ptsBegin + (GetTimeshiftBufferDurationMs() * 1000);
+
+    kodi::Log(ADDON_LOG_NOTICE, "XXXX StartTime: %lld, ptsStart: %lld, ptsBegin: %lld, ptsEnd: %lld", times.startTime, pts_start_, static_cast<uint64_t>(times.ptsBegin), static_cast<uint64_t>(times.ptsEnd));
+
+    //V2
+    // time_t now = time(nullptr);
+    // times.startTime = now;
+    // times.ptsStart = GetTimeshiftBufferStart();
+    // times.ptsBegin = times.ptsStart;
+    // times.ptsEnd = times.ptsBegin + (GetTimeshiftBufferDurationMs() * 1000);
+  }
+
+  kodi::Log(ADDON_LOG_NOTICE, "XXXX BuferSizeMs: %lld", GetTimeshiftBufferDurationMs());
+
+  return true;
+}
+
+void Session::SetInitialPTSStart()
+{
+  if (pts_start_ == 0)
+  {
+    start_time_ = time(nullptr);
+    pts_start_ = GetTimeshiftBufferStart() + ((GetTimeshiftBufferDurationMs() - 20000) * 1000);
+  }
+}
+
 /***************************  Interface *********************************/
 
 class CInputStreamAdaptive;
@@ -2996,6 +3051,7 @@ public:
   bool PosTime(int ms) override;
   int GetTotalTime() override;
   int GetTime() override;
+  bool GetTimes(INPUTSTREAM_TIMES &times) override;
   bool CanPauseStream() override;
   bool CanSeekStream() override;
   bool IsRealTimeStream() override;
@@ -3195,6 +3251,7 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
   kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
   caps.m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTS_IDEMUX |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_IDISPLAYTIME |
+    INPUTSTREAM_CAPABILITIES::SUPPORTS_ITIME |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_IPOSTIME |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
@@ -3456,6 +3513,9 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 
     if (iSize)
     {
+      if (m_session->GetPTSStart() == 0)
+        m_session->SetInitialPTSStart();
+
       p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
       p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
       p->duration = static_cast<double>(sr->GetDuration());
@@ -3510,7 +3570,7 @@ bool CInputStreamAdaptive::PosTime(int ms)
   if (!m_session)
     return false;
 
-  kodi::Log(ADDON_LOG_INFO, "PosTime (%d)", ms);
+  kodi::Log(ADDON_LOG_NOTICE, "PosTime (%d)", ms);
 
   return m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
 }
@@ -3532,6 +3592,27 @@ int CInputStreamAdaptive::GetTime()
   return timeMs;
 }
 
+bool CInputStreamAdaptive::GetTimes(INPUTSTREAM_TIMES &times)
+{
+  if (!m_session)
+    return false;
+
+  if (m_session->IsLive())
+  {
+    m_session->GetLiveTimes(times);
+  }
+  else // VOD
+  {
+    times.startTime = 0;
+    times.ptsStart = 0;
+    times.ptsBegin = 0;
+    //times.ptsEnd = static_cast<int64_t>(m_session->GetCurrentDuration()) * DVD_TIME_BASE;
+    times.ptsEnd = static_cast<int64_t>(m_session->GetTotalTimeMs() / 1000) * DVD_TIME_BASE; // We need the total duration in seconds of the VOD viewing here.
+  }
+
+  return true;
+}
+
 bool CInputStreamAdaptive::CanPauseStream(void)
 {
   return true;
@@ -3539,7 +3620,7 @@ bool CInputStreamAdaptive::CanPauseStream(void)
 
 bool CInputStreamAdaptive::CanSeekStream(void)
 {
-  return m_session && !m_session->IsLive();
+  return m_session != nullptr;// && !m_session->IsLive();
 }
 
 bool CInputStreamAdaptive::IsRealTimeStream()
