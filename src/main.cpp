@@ -2643,8 +2643,8 @@ uint64_t Session::PTSToElapsed(uint64_t pts)
 {
   if (timing_stream_)
   {
-    uint64_t manifest_time = (pts > timing_stream_->reader_->GetPTSDiff()) ? pts - timing_stream_->reader_->GetPTSDiff() : 0;
-    return manifest_time > timing_stream_->stream_.GetAbsolutePTSOffset() ? manifest_time - timing_stream_->stream_.GetAbsolutePTSOffset() : 0ULL;
+    uint64_t manifest_time = (pts - timing_stream_->reader_->GetPTSDiff() > 0) ? pts - timing_stream_->reader_->GetPTSDiff() : 0;
+    return (manifest_time > timing_stream_->stream_.GetAbsolutePTSOffset()) ? manifest_time - timing_stream_->stream_.GetAbsolutePTSOffset() : 0ULL;
   }
   else
     return pts;
