@@ -131,7 +131,8 @@ public:
   void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
   AP4_Movie *PrepareStream(STREAM *stream);
 
-  STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  STREAM* GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  void EnableStream(STREAM* stream, bool enable);
   unsigned int GetStreamCount() const { return streams_.size(); };
   const char *GetCDMSession(int nSet) { return cdm_sessions_[nSet].cdm_session_str_; };;
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
@@ -143,6 +144,8 @@ public:
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
   uint64_t GetTotalTimeMs()const { return adaptiveTree_->overallSeconds_ * 1000; };
   uint64_t GetElapsedTimeMs()const { return elapsed_time_ / 1000; };
+  uint64_t PTSToElapsed(uint64_t pts);
+  uint64_t GetTimeshiftBufferStart();
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
@@ -195,6 +198,7 @@ private:
   adaptive::AdaptiveTree *adaptiveTree_;
 
   std::vector<STREAM*> streams_;
+  STREAM* timing_stream_;
 
   uint16_t width_, height_;
   int max_resolution_, max_secure_resolution_;

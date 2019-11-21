@@ -1002,13 +1002,13 @@ public:
   virtual uint64_t  DTS()const = 0;
   virtual uint64_t  PTS()const = 0;
   virtual uint64_t  DTSorPTS()const { return DTS() < PTS() ? DTS() : PTS(); };
-  virtual uint64_t  Elapsed(uint64_t basePTS) = 0;
   virtual AP4_Result Start(bool &bStarted) = 0;
   virtual AP4_Result ReadSample() = 0;
   virtual void Reset(bool bEOS) = 0;
   virtual bool GetInformation(INPUTSTREAM_INFO &info) = 0;
   virtual bool TimeSeek(uint64_t pts, bool preceeding) = 0;
   virtual void SetPTSOffset(uint64_t offset) = 0;
+  virtual int64_t GetPTSDiff() const = 0;
   virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) = 0;
   virtual uint32_t GetTimeScale()const = 0;
   virtual AP4_UI32 GetStreamId()const = 0;
@@ -1029,26 +1029,26 @@ class DummyReader: public SampleReader
 {
 public:
   virtual ~DummyReader() = default;
-  virtual bool EOS()const override { return false; }
-  virtual uint64_t  DTS()const override { return DVD_NOPTS_VALUE; }
-  virtual uint64_t  PTS()const override { return DVD_NOPTS_VALUE; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override { return 0ULL; }
-  virtual AP4_Result Start(bool &bStarted) override { return AP4_SUCCESS; }
-  virtual AP4_Result ReadSample() override { return AP4_SUCCESS; }
-  virtual void Reset(bool bEOS) override {}
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override { return false; }
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override { return false; }
-  virtual void SetPTSOffset(uint64_t offset) override {}
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale() const override { return 1; }
-  virtual AP4_UI32 GetStreamId() const override { return 0; }
-  virtual AP4_Size GetSampleDataSize() const override { return 0; }
-  virtual const AP4_Byte *GetSampleData() const override { return nullptr; }
-  virtual uint64_t GetDuration() const override { return 0; }
-  virtual bool IsEncrypted() const override { return false; }
-  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
-  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
-  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override { return true; };
+  bool EOS()const override { return false; }
+  uint64_t  DTS()const override { return DVD_NOPTS_VALUE; }
+  uint64_t  PTS()const override { return DVD_NOPTS_VALUE; }
+  AP4_Result Start(bool &bStarted) override { return AP4_SUCCESS; }
+  AP4_Result ReadSample() override { return AP4_SUCCESS; }
+  void Reset(bool bEOS) override {}
+  bool GetInformation(INPUTSTREAM_INFO &info) override { return false; }
+  bool TimeSeek(uint64_t pts, bool preceeding) override { return false; }
+  void SetPTSOffset(uint64_t offset) override {}
+  int64_t GetPTSDiff() const override { return 0; }
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale() const override { return 1; }
+  AP4_UI32 GetStreamId() const override { return 0; }
+  AP4_Size GetSampleDataSize() const override { return 0; }
+  const AP4_Byte *GetSampleData() const override { return nullptr; }
+  uint64_t GetDuration() const override { return 0; }
+  bool IsEncrypted() const override { return false; }
+  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
+  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
+  bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override { return true; };
 }DummyReader;
 
 /*******************************************************
@@ -1129,7 +1129,7 @@ public:
     delete m_codecHandler;
   }
 
-  virtual AP4_Result Start(bool &bStarted) override
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1139,7 +1139,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     AP4_Result result;
     if (!m_codecHandler || !m_codecHandler->ReadNextSample(m_sample, m_sampleData))
@@ -1206,7 +1206,7 @@ public:
     return AP4_SUCCESS;
   };
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     AP4_LinearReader::Reset();
     m_eos = bEOS;
@@ -1214,22 +1214,15 @@ public:
       m_codecHandler->Reset();
   }
 
-  virtual bool EOS() const  override { return m_eos; };
-  virtual uint64_t DTS()const override { return m_dts; };
-  virtual uint64_t  PTS()const override { return m_pts; };
-
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    //uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
-    return m_pts > basePTS ? m_pts - basePTS : 0ULL;
-  };
-
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
-  virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
-  virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
-  virtual uint64_t GetDuration()const override { return (m_sample.GetDuration() * m_timeBaseExt) / m_timeBaseInt; };
-  virtual bool IsEncrypted()const override { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_decrypter != nullptr; };
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool EOS() const  override { return m_eos; };
+  uint64_t DTS()const override { return m_dts; };
+  uint64_t  PTS()const override { return m_pts; };
+  AP4_UI32 GetStreamId()const override { return m_streamId; };
+  AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
+  const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
+  uint64_t GetDuration()const override { return (m_sample.GetDuration() * m_timeBaseExt) / m_timeBaseInt; };
+  bool IsEncrypted()const override { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_decrypter != nullptr; };
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     if (!m_codecHandler)
       return false;
@@ -1254,10 +1247,10 @@ public:
     return edchanged;
   }
 
-  virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
+  bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
     AP4_Ordinal sampleIndex;
-    AP4_UI64 seekPos(static_cast<AP4_UI64>(((pts + m_ptsDiff) * m_timeBaseInt) / m_timeBaseExt));
+    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts * m_timeBaseInt) / m_timeBaseExt));
     if (AP4_SUCCEEDED(SeekSample(m_track->GetId(), seekPos, sampleIndex, preceeding)))
     {
       if (m_decrypter)
@@ -1270,7 +1263,7 @@ public:
     return false;
   };
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     FindTracker(m_track->GetId())->m_NextDts = (offset * m_timeBaseInt) / m_timeBaseExt;
     m_ptsOffs = offset;
@@ -1278,7 +1271,9 @@ public:
       m_codecHandler->SetPTSOffset((offset * m_timeBaseInt) / m_timeBaseExt);
   };
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
   {
     if (m_nextDuration)
     {
@@ -1292,10 +1287,10 @@ public:
     }
     return true;
   };
-  virtual uint32_t GetTimeScale()const override { return m_track->GetMediaTimeScale(); };
+  uint32_t GetTimeScale()const override { return m_track->GetMediaTimeScale(); };
 
 protected:
-  virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
+  AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
     AP4_Position       moof_offset,
     AP4_Position       mdat_payload_offset,
     AP4_UI64 mdat_payload_size) override
@@ -1493,12 +1488,11 @@ public:
     m_codecHandler->Transform(0, 0, result, 1000);
   };
 
-  virtual bool EOS()const override { return m_eos; };
-  virtual uint64_t DTS()const override { return m_pts; };
-  virtual uint64_t PTS()const override { return m_pts; };
-  virtual uint64_t  Elapsed(uint64_t basePTS) override { return m_pts > basePTS ? m_pts - basePTS : 0ULL; };
-  virtual AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
-  virtual AP4_Result ReadSample() override
+  bool EOS()const override { return m_eos; };
+  uint64_t DTS()const override { return m_pts; };
+  uint64_t PTS()const override { return m_pts; };
+  AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
+  AP4_Result ReadSample() override
   {
     if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
     {
@@ -1508,22 +1502,23 @@ public:
     m_eos = true;
     return AP4_ERROR_EOS;
   }
-  virtual void Reset(bool bEOS) override {};
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override { return false; };
-  virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
+  void Reset(bool bEOS) override {};
+  bool GetInformation(INPUTSTREAM_INFO &info) override { return false; };
+  bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
     if (m_codecHandler->TimeSeek(pts / 1000))
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
-  virtual void SetPTSOffset(uint64_t offset) override {};
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; };
-  virtual uint32_t GetTimeScale()const override { return 1000; };
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
-  virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
-  virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
-  virtual uint64_t GetDuration()const override { return m_sample.GetDuration() * 1000; };
-  virtual bool IsEncrypted()const override { return false; };
+  void SetPTSOffset(uint64_t offset) override {};
+  int64_t GetPTSDiff() const override { return 0; }
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; };
+  uint32_t GetTimeScale()const override { return 1000; };
+  AP4_UI32 GetStreamId()const override { return m_streamId; };
+  AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
+  const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
+  uint64_t GetDuration()const override { return m_sample.GetDuration() * 1000; };
+  bool IsEncrypted()const override { return false; };
 private:
   uint64_t m_pts;
   AP4_UI32 m_streamId;
@@ -1549,7 +1544,7 @@ public:
     m_typeMap[type] = m_typeMap[INPUTSTREAM_INFO::TYPE_NONE] = streamId;
   };
 
-  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask |= (1 << type);
@@ -1557,30 +1552,23 @@ public:
       StartStreaming(m_typeMask);
   };
 
-  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask = (1 << type);
   };
 
-  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override
+  bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override
   {
     m_typeMask &= ~(1 << type);
     StartStreaming(m_typeMask);
     return m_typeMask == 0;
   };
 
-  virtual bool EOS()const override { return m_eos; }
-  virtual uint64_t DTS()const override { return m_dts; }
-  virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
-  };
-
-  virtual AP4_Result Start(bool &bStarted) override
+  bool EOS()const override { return m_eos; }
+  uint64_t DTS()const override { return m_dts; }
+  uint64_t PTS()const override { return m_pts; }
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1596,7 +1584,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     if (ReadPacket())
     {
@@ -1615,23 +1603,23 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     TSReader::Reset();
     m_eos = bEOS;
   }
 
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     return TSReader::GetInformation(info);
   }
 
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  bool TimeSeek(uint64_t pts, bool preceeding) override
   {
     if (!StartStreaming(m_typeMask))
       return false;
 
-    AP4_UI64 seekPos(((pts + m_ptsDiff ) * 9) / 100);
+    AP4_UI64 seekPos((pts * 9) / 100);
     if (TSReader::SeekTime(seekPos, preceeding))
     {
       m_started = true;
@@ -1640,18 +1628,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     m_ptsOffs = offset;
   }
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale()const override { return 90000; }
-  virtual AP4_UI32 GetStreamId()const override { return m_typeMap[GetStreamType()]; }
-  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
-  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
-  virtual uint64_t GetDuration()const override { return (TSReader::GetDuration() * 100) / 9; }
-  virtual bool IsEncrypted()const override { return false; };
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale()const override { return 90000; }
+  AP4_UI32 GetStreamId()const override { return m_typeMap[GetStreamType()]; }
+  AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  uint64_t GetDuration()const override { return (TSReader::GetDuration() * 100) / 9; }
+  bool IsEncrypted()const override { return false; };
 
 private:
   uint32_t m_typeMask; //Bit representation of INPUTSTREAM_INFO::STREAM_TYPES
@@ -1679,17 +1669,10 @@ public:
   {
   };
 
-  virtual bool EOS()const override { return m_eos; }
-  virtual uint64_t DTS()const override { return m_pts; }
-  virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
-  };
-
-  virtual AP4_Result Start(bool &bStarted) override
+  bool EOS()const override { return m_eos; }
+  uint64_t DTS()const override { return m_pts; }
+  uint64_t PTS()const override { return m_pts; }
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1699,7 +1682,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     if (ReadPacket())
     {
@@ -1717,20 +1700,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     ADTSReader::Reset();
     m_eos = bEOS;
   }
 
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     return ADTSReader::GetInformation(info);
   }
 
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  bool TimeSeek(uint64_t pts, bool preceeding) override
   {
-    AP4_UI64 seekPos(((pts + m_ptsDiff) * 9) / 100);
+    AP4_UI64 seekPos((pts * 9) / 100);
     if (ADTSReader::SeekTime(seekPos, preceeding))
     {
       m_started = true;
@@ -1739,18 +1722,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     m_ptsOffs = offset;
   }
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale()const override { return 90000; }
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
-  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
-  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
-  virtual uint64_t GetDuration()const override { return (ADTSReader::GetDuration() * 100) / 9; }
-  virtual bool IsEncrypted()const override { return false; };
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale()const override { return 90000; }
+  AP4_UI32 GetStreamId()const override { return m_streamId; }
+  AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  uint64_t GetDuration()const override { return (ADTSReader::GetDuration() * 100) / 9; }
+  bool IsEncrypted()const override { return false; };
 
 private:
   bool m_eos = false;
@@ -1776,14 +1761,9 @@ public:
   {
   };
 
-  virtual bool EOS()const override { return m_eos; }
-  virtual uint64_t DTS()const override { return m_dts; }
-  virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
-  };
+  bool EOS()const override { return m_eos; }
+  uint64_t DTS()const override { return m_dts; }
+  uint64_t PTS()const override { return m_pts; }
 
   bool Initialize()
   {
@@ -1795,7 +1775,7 @@ public:
     return ret;
   }
 
-  virtual AP4_Result Start(bool &bStarted) override
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1804,7 +1784,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     if (ReadPacket())
     {
@@ -1823,13 +1803,13 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     WebmReader::Reset();
     m_eos = bEOS;
   }
 
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     bool ret = WebmReader::GetInformation(info);
     // kodi supports VP9 without extrada since addon api version was introduced.
@@ -1846,9 +1826,9 @@ public:
     return ret;
   }
 
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  bool TimeSeek(uint64_t pts, bool preceeding) override
   {
-    AP4_UI64 seekPos(((pts + m_ptsDiff) * 9) / 100);
+    AP4_UI64 seekPos((pts * 9) / 100);
     if (WebmReader::SeekTime(seekPos, preceeding))
     {
       m_started = true;
@@ -1857,18 +1837,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     m_ptsOffs = offset;
   }
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale()const override { return 1000; }
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
-  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
-  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
-  virtual uint64_t GetDuration()const override { return WebmReader::GetDuration() *1000; }
-  virtual bool IsEncrypted()const override { return false; };
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale()const override { return 1000; }
+  AP4_UI32 GetStreamId()const override { return m_streamId; }
+  AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  uint64_t GetDuration()const override { return WebmReader::GetDuration() *1000; }
+  bool IsEncrypted()const override { return false; };
 
 private:
   AP4_UI32 m_streamId = 0;
@@ -1929,12 +1911,13 @@ Session::Session(MANIFEST_TYPE manifestType,
   , adaptiveTree_(0)
   , width_(display_width)
   , height_(display_height)
-  , play_timeshift_buffer_(play_timeshift_buffer)
+  , timing_stream_(nullptr)
   , changed_(false)
   , manual_streams_(0)
   , elapsed_time_(0)
   , chapter_start_time_(0)
   , chapter_seek_time_(0.0)
+  , play_timeshift_buffer_(play_timeshift_buffer)
 {
   switch (manifest_type_)
   {
@@ -2640,6 +2623,41 @@ AP4_Movie *Session::PrepareStream(STREAM *stream)
   return nullptr;
 }
 
+void Session::EnableStream(STREAM* stream, bool enable)
+{
+  if (enable)
+  {
+    if (!timing_stream_)
+      timing_stream_ = stream;
+    stream->enabled = true;
+  }
+  else
+  {
+    if (stream == timing_stream_)
+      timing_stream_ = nullptr;
+    stream->disable();
+  }
+}
+
+uint64_t Session::PTSToElapsed(uint64_t pts)
+{
+  if (timing_stream_)
+  {
+    uint64_t manifest_time = (pts - timing_stream_->reader_->GetPTSDiff() > 0) ? pts - timing_stream_->reader_->GetPTSDiff() : 0;
+    return (manifest_time > timing_stream_->stream_.GetAbsolutePTSOffset()) ? manifest_time - timing_stream_->stream_.GetAbsolutePTSOffset() : 0ULL;
+  }
+  else
+    return pts;
+}
+
+uint64_t Session::GetTimeshiftBufferStart()
+{
+  if (timing_stream_)
+    return timing_stream_->stream_.GetAbsolutePTSOffset() + timing_stream_->reader_->GetPTSDiff();
+  else
+    return 0ULL;
+}
+
 SampleReader *Session::GetNextSample()
 {
   STREAM *res(0), *waiting(0);
@@ -2661,7 +2679,7 @@ SampleReader *Session::GetNextSample()
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
-      elapsed_time_ = res->reader_->Elapsed(res->stream_.GetAbsolutePTSOffset()) + chapter_start_time_;
+      elapsed_time_ = PTSToElapsed(res->reader_->PTS());
     return res->reader_;
   }
   else if (waiting)
@@ -2716,12 +2734,18 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     }
   }
 
+  uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE);
+  if (timing_stream_)
+  {
+    seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
+    seekTimeCorrected += timing_stream_->reader_->GetPTSDiff();
+  }
+
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
-      uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE) + (*b)->stream_.GetAbsolutePTSOffset();
-      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeCorrected) / DVD_TIME_BASE, preceeding, bReset))
+      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) / DVD_TIME_BASE, preceeding, bReset))
       {
         if (bReset)
           (*b)->reader_->Reset(false);
@@ -2729,10 +2753,11 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
           (*b)->reader_->Reset(true);
         else
         {
-          double destTime(static_cast<double>((*b)->reader_->Elapsed((*b)->stream_.GetAbsolutePTSOffset())) / DVD_TIME_BASE);
-          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.1lf) for Stream:%d continues at %0.1lf", seekTime, (*b)->info_.m_pID, destTime);
+          double destTime(static_cast<double>(PTSToElapsed((*b)->reader_->PTS())) / DVD_TIME_BASE);
+          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)",
+            seekTime, (*b)->info_.m_pID, destTime, (*b)->reader_->PTS());
           if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
-            seekTime = destTime, preceeding = false;
+            seekTime = destTime, seekTimeCorrected = (*b)->reader_->PTS(), preceeding = false;
           ret = true;
         }
       }
@@ -3234,7 +3259,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
     const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
     if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
       m_IncludedStreams[stream->info_.m_streamType] = 0;
-    stream->disable();
+    m_session->EnableStream(stream, false);
   }
 }
 
@@ -3375,6 +3400,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_);
       }
   }
+  m_session->EnableStream(stream, true);
   return stream->reader_->GetInformation(stream->info_);
 }
 

@@ -1214,7 +1214,7 @@ end(void *data, const char *el)
           {
             if (strcmp(el, "SegmentTimeline") == 0)
             {
-              if (!!dash->current_period_->duration_ && dash->current_adaptationset_->segtpl_.timescale)
+              if (!dash->current_period_->duration_ && dash->current_adaptationset_->segtpl_.timescale)
               {
                 dash->current_period_->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
                 uint64_t sum(0);

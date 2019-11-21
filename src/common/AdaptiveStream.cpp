@@ -602,7 +602,8 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     AdaptiveTree::Segment seg;
     const AdaptiveTree::Segment *downloadSeg;
 
-    if (!(downloadSeg = current_rep_->get_initialization()))
+    // If indexRangeMin is set, we have a "real" SIDX stream position -> use it instead init segment
+    if (current_rep_->indexRangeMin_ || !(downloadSeg = current_rep_->get_initialization()))
     {
       seg.range_begin_ = current_rep_->indexRangeMin_;
       seg.range_end_ = current_rep_->indexRangeMax_;
