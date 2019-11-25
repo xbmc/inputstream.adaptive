@@ -2679,7 +2679,7 @@ SampleReader *Session::GetNextSample()
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
-      elapsed_time_ = PTSToElapsed(res->reader_->PTS());
+      elapsed_time_ = PTSToElapsed(res->reader_->PTS()) + chapter_start_time_;
     return res->reader_;
   }
   else if (waiting)
