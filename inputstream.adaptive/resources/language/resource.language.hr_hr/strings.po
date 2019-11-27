@@ -2,104 +2,108 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
-
 msgid ""
 msgstr ""
-
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Language: hr_HR\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: arvvoid\n"
+"Language-Team: arvvoid\n"
+"X-Generator: Poedit 2.2.4\n"
 
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Opće"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "The minimum bandwidth which should not be deceeded."
+msgstr "Minimalna propusnost (bit/s)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
+msgstr "Maksimalna propusnost (bit/s)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Absolute path to the folder containing the decrypters"
+msgstr "Apsolutni put do mape koja sadrži dekripter"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maximum Resolution"
+msgstr "Maksimalna rezolucija opći dekoder"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Stream Selection"
+msgstr "Odabir stream-a"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr "Media"
+msgstr "Mediji"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maximum allowed resolution if decoded through secure path"
+msgstr "Maksimalna rezolucija za sigurni dekoder"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Select streams without respecting HDCP status"
+msgstr "Zanemari HDCP status"
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Do not respect display resolution when selecting streams"
+msgstr "Zanemari rezoluciju ekrana"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Stručnjak"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr ""
+msgstr "Omogući eksperimentalne značajke"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr ""
+msgstr "Maks"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 msgctxt "#30156"
 msgid "Manual"
-msgstr ""
+msgstr "Ručno"
 
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Sve"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Audio"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Video"
 
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Show all video streams"
+msgstr "Ručni video"
