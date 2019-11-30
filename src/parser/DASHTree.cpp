@@ -835,6 +835,8 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->audio_track_id_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "impaired") == 0)
             dash->current_adaptationset_->impaired_ = strcmp((const char*)*(attr + 1), "true") == 0;
+          else if (strcmp((const char*)*attr, "forced") == 0)
+            dash->current_adaptationset_->forced_ = strcmp((const char*)*(attr + 1), "true") == 0;
           else if (strcmp((const char*)*attr, "original") == 0)
             dash->current_adaptationset_->original_ = strcmp((const char*)*(attr + 1), "true") == 0;
           else if (strcmp((const char*)*attr, "default") == 0)
