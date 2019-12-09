@@ -312,6 +312,8 @@ public:
       }
       else if (a->type_ == SUBTITLE)
       {
+        if (a->impaired_ != b->impaired_)
+          return !a->impaired_;
         if (a->forced_ != b->forced_)
           return a->forced_;
       }

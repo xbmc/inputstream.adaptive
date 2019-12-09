@@ -2451,6 +2451,8 @@ bool Session::InitializePeriod()
         break;
       case adaptive::AdaptiveTree::SUBTITLE:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
+        if (adp->impaired_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_HEARING_IMPAIRED;
         if (adp->forced_)
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_FORCED;
         if (adp->default_)
