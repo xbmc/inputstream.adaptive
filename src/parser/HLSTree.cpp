@@ -435,12 +435,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
             {
               if (map["METHOD"] != "AES-128")
               {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
                 return false;
               }
               if (map["URI"].empty())
               {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
                 return false;
               }
               current_pssh_ = map["URI"];
@@ -458,6 +458,37 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         {
           m_refreshPlayList = false;
           has_timeshift_buffer_ = false;
+        }
+        else if (line.compare(0, 11, "#EXT-X-MAP:") == 0)
+        {
+          parseLine(line, 11, map);
+          if (!map["URI"].empty())
+          {
+            if (!map["BYTERANGE"].empty())
+            {
+              continue;
+            }
+            std::string uri = map["URI"];
+            
+            if (rep->url_.empty())
+            {
+              std::string url;
+              if (uri[0] == '/')
+                url = base_domain_ + map["URI"];
+              else if (uri.find("://", 0) == std::string::npos)
+                url = base_url + uri;
+              else
+                url = uri;
+              rep->url_ = url;
+              segment.url = new char[url.size() + 1];
+              memcpy((char*)segment.url, url.c_str(), url.size() + 1);
+              segment.range_begin_ = ~0ULL;
+              segment.startPTS_ = ~0ULL;
+              segment.pssh_set_ = 0;
+              rep->flags_ |= Representation::INITIALIZATION;
+              rep->initialization_ = segment;
+            }
+          }
         }
       }
 

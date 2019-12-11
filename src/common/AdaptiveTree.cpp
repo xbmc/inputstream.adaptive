@@ -86,9 +86,6 @@ namespace adaptive
       if (rep->flags_ & Representation::URLSEGMENTS)
         delete[] bs->url;
     }
-    if ((rep->flags_ & (Representation::INITIALIZATION | Representation::URLSEGMENTS))
-      == (Representation::INITIALIZATION | Representation::URLSEGMENTS))
-      delete[]rep->initialization_.url;
     rep->segments_.clear();
     rep->current_segment_ = nullptr;
   }
