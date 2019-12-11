@@ -487,6 +487,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
               segment.pssh_set_ = 0;
               rep->flags_ |= Representation::INITIALIZATION;
               rep->initialization_ = segment;
+              rep->containerType_ = CONTAINERTYPE_MP4;
             }
           }
         }
