@@ -469,26 +469,21 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
               continue;
             }
             std::string uri = map["URI"];
-            
-            if (rep->url_.empty())
-            {
-              std::string url;
-              if (uri[0] == '/')
-                url = base_domain_ + map["URI"];
-              else if (uri.find("://", 0) == std::string::npos)
-                url = base_url + uri;
-              else
-                url = uri;
-              rep->url_ = url;
-              segment.url = new char[url.size() + 1];
-              memcpy((char*)segment.url, url.c_str(), url.size() + 1);
-              segment.range_begin_ = ~0ULL;
-              segment.startPTS_ = ~0ULL;
-              segment.pssh_set_ = 0;
-              rep->flags_ |= Representation::INITIALIZATION;
-              rep->initialization_ = segment;
-              rep->containerType_ = CONTAINERTYPE_MP4;
-            }
+            std::string url;
+            if (uri[0] == '/')
+              url = base_domain_ + map["URI"];
+            else if (uri.find("://", 0) == std::string::npos)
+              url = base_url + uri;
+            else
+              url = uri;
+            segment.url = new char[url.size() + 1];
+            memcpy((char*)segment.url, url.c_str(), url.size() + 1);
+            segment.range_begin_ = ~0ULL;
+            segment.startPTS_ = ~0ULL;
+            segment.pssh_set_ = 0;
+            rep->flags_ |= Representation::INITIALIZATION;
+            rep->initialization_ = segment;
+            rep->containerType_ = CONTAINERTYPE_MP4;
           }
         }
       }
