@@ -17,7 +17,7 @@ msgstr "Általános"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Minimális sávszélesség (Bit/s), ami alá nem csökkenhet.."
+msgstr "Minimális sávszélesség (Bit/s), ami alá nem csökkenhet."
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
