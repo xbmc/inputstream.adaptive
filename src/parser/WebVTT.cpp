@@ -114,6 +114,14 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
             strText.resize(strText.size() - 1);
           replace(strText, "&lrm;", "\xE2\x80\xAA");
           replace(strText, "&rlm;", "\xE2\x80\xAB");
+          replaceAll(strText, "\xd9\x91", "");
+          replaceAll(strText, "\xd9\x8e", "");
+          replaceAll(strText, "\xd9\x8b", "");
+          replaceAll(strText, "\xd9\x8f", "");
+          replaceAll(strText, "\xd9\x8c", "");
+          replaceAll(strText, "\xd9\x90", "");
+          replaceAll(strText, "\xd9\x8d", "");
+          replaceAll(strText, "\xd9\x92", "");          
           if (!strText.empty())
             m_subTitles.back().text.push_back(strText);
           else
