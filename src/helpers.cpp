@@ -172,6 +172,26 @@ std::string b64_encode(unsigned char const* in, unsigned int in_len, bool urlEnc
   return ret;
 }
 
+bool replace(std::string& s, const std::string& from, const std::string& to)
+{
+    size_t start_pos = s.find(from);
+    if (start_pos == std::string::npos)
+        return false;
+    s.replace(start_pos, from.length(), to);
+    return true;
+}
+
+void replaceAll(std::string& s, const std::string& from, const std::string& to)
+{
+    if (from.empty())
+        return;
+    size_t pos = 0;
+    while ((pos = s.find(from, pos)) != std::string::npos) {
+        s.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+}
+
 std::vector<std::string> split(const std::string& s, char seperator)
 {
   std::vector<std::string> output;

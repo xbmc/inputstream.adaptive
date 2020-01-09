@@ -17,6 +17,7 @@
 */
 
 #include "WebVTT.h"
+#include "../helpers.h"
 #include <cstring>
 
 bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
@@ -111,10 +112,8 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
           strText = std::string(cbuf, next - cbuf);
           if (!strText.empty() && strText.back() == '\r')
             strText.resize(strText.size() - 1);
-          if (strText.find("&rlm;", 0, 5) == 0)
-            strText.replace(0, 5, "\0xE2\0x80\0xAB");
-          else if (strText.find("&lrm;", 0, 5) == 0)
-            strText.replace(0, 5, "\0xE2\0x80\0xAA");
+          replace(strText, "&lrm;", "\xE2\x80\xAA");
+          replace(strText, "&rlm;", "\xE2\x80\xAB");
           if (!strText.empty())
             m_subTitles.back().text.push_back(strText);
           else

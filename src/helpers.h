@@ -30,6 +30,9 @@ bool b64_decode(const char *in, unsigned int in_len, uint8_t *out, unsigned int 
 std::string ToDecimal(const uint8_t *data, size_t data_size);
 std::string b64_encode(unsigned char const* in, unsigned int in_len, bool urlEncode);
 
+bool replace(std::string& s, const std::string& from, const std::string& to);
+void replaceAll(std::string& s, const std::string& from, const std::string& to);
+
 std::vector<std::string> split(const std::string& s, char seperator);
 
 std::string &trim(std::string &src);
