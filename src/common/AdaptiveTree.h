@@ -193,7 +193,8 @@ public:
     uint64_t nextPts_;
     //SegmentList
     uint64_t ptsOffset_;
-    uint32_t duration_, timescale_;
+    uint64_t duration_;
+    uint32_t timescale_;
     uint32_t timescale_ext_, timescale_int_;
     Segment initialization_;
     SPINCACHE<Segment> segments_;
@@ -262,7 +263,8 @@ public:
     AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
     StreamType type_;
-    uint32_t timescale_, duration_;
+    uint32_t timescale_;
+    uint64_t duration_;
     uint64_t startPTS_;
     unsigned int startNumber_;
     bool impaired_, original_, default_, forced_;
@@ -438,7 +440,7 @@ public:
 
   bool has_type(StreamType t);
   void FreeSegments(Representation *rep);
-  uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
+  uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
   double get_download_speed() const { return download_speed_; };
   double get_average_download_speed() const { return average_download_speed_; };
   void set_download_speed(double speed);

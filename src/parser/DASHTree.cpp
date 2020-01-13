@@ -1150,6 +1150,8 @@ end(void *data, const char *el)
 
                   if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_)
                   {
+                    if (!tpl.duration)
+                      tpl.duration = static_cast<unsigned int>((overallSeconds * tpl.timescale) / dash->current_adaptationset_->segment_durations_.data.size());
                     seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ - overallSeconds)*tpl.timescale) / tpl.duration;
                     seg.range_end_ -= (dash->current_period_->start_ * tpl.timescale) / (1000 * tpl.duration);
                   }
