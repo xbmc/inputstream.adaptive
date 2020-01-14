@@ -1,0 +1,105 @@
+# Kodi Media Center language file
+# Addon Name: Inputstream.adaptive
+# Addon id: inputstream.adaptive
+# Addon Provider: peak3d
+
+msgid ""
+msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30100"
+msgid "General"
+msgstr "Γενικά"
+
+msgctxt "#30101"
+msgid "Min. Bandwidth (Bit/s)"
+msgstr "Το ελάχιστο εύρος το οποίο δεν πρέπει να ξεπεραστεί"
+
+msgctxt "#30102"
+msgid "Max. Bandwidth (Bit/s)"
+msgstr "To μέγιστο εύρος το οποίο δεν πρέπει να ξεπεραστεί. 0=απεριόριστο"
+
+msgctxt "#30103"
+msgid "Decrypter path"
+msgstr "Απόλυτη διάδρομή φακέλου που περιέχει τους αποκρυπτογραφητές"
+
+msgctxt "#30110"
+msgid "Max. Resolution general decoder"
+msgstr "Μέγιστη ανάλυση"
+
+msgctxt "#30111"
+msgid "Stream Selection"
+msgstr "Επιλογή ροής"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "Πολυμέσα"
+
+msgctxt "#30113"
+msgid "Max. Resolution secure decoder"
+msgstr "Μέγιστη επιτρεπτή ανάλυση όταν αποκωδικοποιηθεί μέσω ασφαλούς διαδρομής"
+
+msgctxt "#30114"
+msgid "Override HDCP status"
+msgstr "Επιλογή ροών χωρίς σεβασμό της κατάστασης του HDCP"
+
+msgctxt "#30115"
+msgid "Ignore Display Resolution"
+msgstr "Να μην ληφθεί υπ'οψην η ανάλυση οθόνης κατά την επιλογή ροών"
+
+msgctxt "#30120"
+msgid "Expert"
+msgstr "Ειδικός"
+
+msgctxt "#30121"
+msgid "Enable Pre-Release Features"
+msgstr "Ενεργοποίηση χαρακτηριστικών προ-εκδόσεων"
+
+msgctxt "#30150"
+msgid "Max"
+msgstr "Μέγιστο"
+
+msgctxt "#30151"
+msgid "480p"
+msgstr ""
+
+msgctxt "#30152"
+msgid "640p"
+msgstr ""
+
+msgctxt "#30153"
+msgid "720p"
+msgstr ""
+
+msgctxt "#30154"
+msgid "1080p"
+msgstr ""
+
+msgctxt "#30155"
+msgid "Auto"
+msgstr "Αυτόματο"
+
+msgctxt "#30156"
+msgid "Manual"
+msgstr "Χειροκίνητο"
+
+msgctxt "#30157"
+msgid "All"
+msgstr "Όλα"
+
+msgctxt "#30158"
+msgid "Audio"
+msgstr "Ήχος"
+
+msgctxt "#30159"
+msgid "Video"
+msgstr "Βίντεο"
+
+msgctxt "#30160"
+msgid "Manual video"
+msgstr "Δείξε όλες τις ροές βίντεο"
