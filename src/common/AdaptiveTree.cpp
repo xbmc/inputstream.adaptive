@@ -57,6 +57,7 @@ namespace adaptive
     , updateInterval_(~0)
     , updateThread_(nullptr)
     , lastUpdated_(std::chrono::system_clock::now())
+    , lastMediaRenewal_(std::chrono::system_clock::now())
   {
   }
 

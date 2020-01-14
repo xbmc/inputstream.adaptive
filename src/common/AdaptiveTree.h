@@ -400,6 +400,7 @@ public:
   std::string::size_type update_parameter_pos_;
   std::string etag_, last_modified_;
   std::string media_renewal_url_;
+  uint32_t media_renewal_time_;
   std::string manifest_parameter_;
 
   /* XML Parsing*/
@@ -453,6 +454,7 @@ public:
   bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
+  const std::chrono::time_point<std::chrono::system_clock> GetLastMediaRenewal() const { return lastMediaRenewal_; };
 
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr, bool scanEffectiveURL = true);
@@ -469,6 +471,7 @@ protected:
   std::condition_variable updateVar_;
   std::thread *updateThread_;
   std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+  std::chrono::time_point<std::chrono::system_clock> lastMediaRenewal_;
 
 private:
   void SegmentUpdateWorker();
