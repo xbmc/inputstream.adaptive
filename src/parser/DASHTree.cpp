@@ -1428,7 +1428,11 @@ bool DASHTree::open(const std::string &url, const std::string &manifestUpdatePar
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(manifest_url_.c_str(), manifest_headers_) && !periods_.empty();
+  std::string download_url = manifest_url_;
+  if (!effective_url_.empty() && download_url.find(base_url_) == 0)
+    download_url.replace(0, base_url_.size(), effective_url_);
+
+  bool ret = download(download_url.c_str(), manifest_headers_) && !periods_.empty();
 
   XML_ParserFree(parser_);
   parser_ = 0;
@@ -1502,6 +1506,8 @@ void DASHTree::RefreshSegments()
     updateTree.supportedKeySystem_ = supportedKeySystem_;
     //Location element should be used on updates
     updateTree.location_ = location_;
+    updateTree.effective_url_ = effective_url_;
+    updateTree.effective_filename_ = effective_filename_;
 
     if (!~update_parameter_pos_)
     {
