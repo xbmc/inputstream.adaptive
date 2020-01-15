@@ -1980,6 +1980,10 @@ Session::Session(MANIFEST_TYPE manifestType,
   case 2:
     media_type_mask_ = static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO;
     break;
+  case 3:
+    media_type_mask_ = (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO)
+                     | (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::SUBTITLE);
+    break;
   default:
     media_type_mask_ = static_cast<uint8_t>(~0);
   }
