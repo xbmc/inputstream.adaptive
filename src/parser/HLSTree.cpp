@@ -299,6 +299,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
   {
     SPINCACHE<Segment> newSegments;
     unsigned int newStartNumber;
+    Segment newInitialization;
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
     std::string download_url = rep->source_url_.c_str();
@@ -314,6 +315,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       fclose(f);
 #endif
       bool byteRange(false);
+      bool segmentInitialization(false);
       std::string line;
       std::string base_url;
 
@@ -468,6 +470,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
             {
               continue;
             }
+            segmentInitialization = true;
             std::string uri = map["URI"];
             std::string url;
             if (uri[0] == '/')
@@ -476,13 +479,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
               url = base_url + uri;
             else
               url = uri;
-            segment.url = new char[url.size() + 1];
-            memcpy((char*)segment.url, url.c_str(), url.size() + 1);
-            segment.range_begin_ = ~0ULL;
-            segment.startPTS_ = ~0ULL;
-            segment.pssh_set_ = 0;
+            newInitialization.url = new char[url.size() + 1];
+            memcpy((char*)newInitialization.url, url.c_str(), url.size() + 1);
+            newInitialization.range_begin_ = ~0ULL;
+            newInitialization.startPTS_ = ~0ULL;
+            newInitialization.pssh_set_ = 0;
             rep->flags_ |= Representation::INITIALIZATION;
-            rep->initialization_ = segment;
             rep->containerType_ = CONTAINERTYPE_MP4;
           }
         }
@@ -512,6 +514,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 
       rep->segments_.swap(newSegments);
       rep->startNumber_ = newStartNumber;
+
+      if (segmentInitialization)
+        std::swap(rep->initialization_, newInitialization);
     }
 
     if (update)
