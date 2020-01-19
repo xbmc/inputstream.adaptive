@@ -87,6 +87,7 @@ public:
     const char* strLicData,
     const char* strCert,
     const char* strMediaRenewalUrl,
+    const uint32_t intMediaRenewalTime,
     const std::map<std::string, std::string> &manifestHeaders,
     const std::map<std::string, std::string> &mediaHeaders,
     const char* profile_path,

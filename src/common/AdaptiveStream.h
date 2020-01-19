@@ -82,7 +82,10 @@ namespace adaptive
     bool prepareDownload(const AdaptiveTree::Segment *seg);
     void setEffectiveURL(const std::string url) { tree_.effective_url_ = url; if (tree_.effective_url_.back() != '/') tree_.effective_url_ += '/'; };
     const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
+    const uint32_t& getMediaRenewalTime() const { return tree_.media_renewal_time_; };
     std::string buildDownloadUrl(const std::string &url);
+    int SecondsSinceMediaRenewal() const;
+    void UpdateSecondsSinceMediaRenewal();
   private:
     // Segment download section
     void ResetSegment();
@@ -133,6 +136,7 @@ namespace adaptive
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+    std::chrono::time_point<std::chrono::system_clock> lastMediaRenewal_;
 
     uint16_t width_, height_;
     uint32_t bandwidth_;

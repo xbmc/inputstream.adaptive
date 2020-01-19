@@ -193,7 +193,8 @@ public:
     uint64_t nextPts_;
     //SegmentList
     uint64_t ptsOffset_;
-    uint32_t duration_, timescale_;
+    uint64_t duration_;
+    uint32_t timescale_;
     uint32_t timescale_ext_, timescale_int_;
     Segment initialization_;
     SPINCACHE<Segment> segments_;
@@ -262,7 +263,8 @@ public:
     AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
     StreamType type_;
-    uint32_t timescale_, duration_;
+    uint32_t timescale_;
+    uint64_t duration_;
     uint64_t startPTS_;
     unsigned int startNumber_;
     bool impaired_, original_, default_, forced_;
@@ -312,6 +314,8 @@ public:
       }
       else if (a->type_ == SUBTITLE)
       {
+        if (a->impaired_ != b->impaired_)
+          return !a->impaired_;
         if (a->forced_ != b->forced_)
           return a->forced_;
       }
@@ -396,6 +400,7 @@ public:
   std::string::size_type update_parameter_pos_;
   std::string etag_, last_modified_;
   std::string media_renewal_url_;
+  uint32_t media_renewal_time_;
   std::string manifest_parameter_;
 
   /* XML Parsing*/
@@ -436,7 +441,7 @@ public:
 
   bool has_type(StreamType t);
   void FreeSegments(Representation *rep);
-  uint32_t estimate_segcount(uint32_t duration, uint32_t timescale);
+  uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
   double get_download_speed() const { return download_speed_; };
   double get_average_download_speed() const { return average_download_speed_; };
   void set_download_speed(double speed);
@@ -449,6 +454,7 @@ public:
   bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
+  const std::chrono::time_point<std::chrono::system_clock> GetLastMediaRenewal() const { return lastMediaRenewal_; };
 
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr, bool scanEffectiveURL = true);
@@ -465,6 +471,7 @@ protected:
   std::condition_variable updateVar_;
   std::thread *updateThread_;
   std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+  std::chrono::time_point<std::chrono::system_clock> lastMediaRenewal_;
 
 private:
   void SegmentUpdateWorker();

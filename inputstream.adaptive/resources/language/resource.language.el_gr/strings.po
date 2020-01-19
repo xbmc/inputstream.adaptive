@@ -14,55 +14,55 @@ msgstr ""
 
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Γενικά"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "The minimum bandwidth which should not be deceeded."
+msgstr "Το ελάχιστο εύρος το οποίο δεν πρέπει να ξεπεραστεί"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
+msgstr "To μέγιστο εύρος το οποίο δεν πρέπει να ξεπεραστεί. 0=απεριόριστο"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Absolute path to the folder containing the decrypters"
+msgstr "Απόλυτη διάδρομή φακέλου που περιέχει τους αποκρυπτογραφητές"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maximum Resolution"
+msgstr "Μέγιστη ανάλυση"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Stream Selection"
+msgstr "Επιλογή ροής"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr "Media"
+msgstr "Πολυμέσα"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maximum allowed resolution if decoded through secure path"
+msgstr "Μέγιστη επιτρεπτή ανάλυση όταν αποκωδικοποιηθεί μέσω ασφαλούς διαδρομής"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Select streams without respecting HDCP status"
+msgstr "Επιλογή ροών χωρίς σεβασμό της κατάστασης του HDCP"
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Do not respect display resolution when selecting streams"
+msgstr "Να μην ληφθεί υπ'οψην η ανάλυση οθόνης κατά την επιλογή ροών"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Ειδικός"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr ""
+msgstr "Ενεργοποίηση χαρακτηριστικών προ-εκδόσεων"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr ""
+msgstr "Μέγιστο"
 
 msgctxt "#30151"
 msgid "480p"
@@ -82,28 +82,24 @@ msgstr ""
 
 msgctxt "#30155"
 msgid "Auto"
-msgstr ""
+msgstr "Αυτόματο"
 
 msgctxt "#30156"
 msgid "Manual"
-msgstr ""
+msgstr "Χειροκίνητο"
 
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Όλα"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Ήχος"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Βίντεο"
 
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Show all video streams"
-
-msgctxt "#30161"
-msgid "Video + Subtitles"
-msgstr ""
+msgstr "Δείξε όλες τις ροές βίντεο"

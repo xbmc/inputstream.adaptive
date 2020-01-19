@@ -57,6 +57,7 @@ namespace adaptive
     , updateInterval_(~0)
     , updateThread_(nullptr)
     , lastUpdated_(std::chrono::system_clock::now())
+    , lastMediaRenewal_(std::chrono::system_clock::now())
   {
   }
 
@@ -105,7 +106,7 @@ namespace adaptive
     return false;
   }
 
-  uint32_t AdaptiveTree::estimate_segcount(uint32_t duration, uint32_t timescale)
+  uint32_t AdaptiveTree::estimate_segcount(uint64_t duration, uint32_t timescale)
   {
     duration /= timescale;
     return static_cast<uint32_t>((overallSeconds_ / duration)*1.01);

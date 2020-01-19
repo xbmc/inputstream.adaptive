@@ -327,7 +327,8 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
 
 bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, std::string> &mediaHeaders)
 {
-  bool retry = true;
+  bool retry_403 = true;
+  bool retry_MRT = true;
   kodi::vfs::CFile file;
   std::string newUrl;
 
@@ -356,9 +357,15 @@ RETRY:
 
     size_t nbRead = ~0UL;
 
-    if (returnCode == 403 && retry && !getMediaRenewalUrl().empty())
+    if (((returnCode == 403 && retry_403) || (getMediaRenewalTime() > 0  && SecondsSinceMediaRenewal() >= getMediaRenewalTime() && retry_MRT)) && !getMediaRenewalUrl().empty())
     {
-      retry = false;
+      UpdateSecondsSinceMediaRenewal();
+      
+      if (returnCode == 403)
+        retry_403 = false;
+      else
+        retry_MRT = false;
+        
       std::vector<kodi::vfs::CDirEntry> items;
       if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
       {
@@ -1889,6 +1896,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   const char* strLicData,
   const char* strCert,
   const char* strMediaRenewalUrl,
+  const uint32_t intMediaRenewalTime,
   const std::map<std::string, std::string> &manifestHeaders,
   const std::map<std::string, std::string> &mediaHeaders,
   const char* profile_path,
@@ -1972,6 +1980,10 @@ Session::Session(MANIFEST_TYPE manifestType,
   case 2:
     media_type_mask_ = static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO;
     break;
+  case 3:
+    media_type_mask_ = (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO)
+                     | (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::SUBTITLE);
+    break;
   default:
     media_type_mask_ = static_cast<uint8_t>(~0);
   }
@@ -1987,6 +1999,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   }
   adaptiveTree_->manifest_headers_ = manifestHeaders;
   adaptiveTree_->media_renewal_url_ = strMediaRenewalUrl;
+  adaptiveTree_->media_renewal_time_ = intMediaRenewalTime;
 }
 
 Session::~Session()
@@ -2451,6 +2464,8 @@ bool Session::InitializePeriod()
         break;
       case adaptive::AdaptiveTree::SUBTITLE:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
+        if (adp->impaired_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_HEARING_IMPAIRED;
         if (adp->forced_)
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_FORCED;
         if (adp->default_)
@@ -2679,7 +2694,7 @@ SampleReader *Session::GetNextSample()
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
-      elapsed_time_ = PTSToElapsed(res->reader_->PTS());
+      elapsed_time_ = PTSToElapsed(res->reader_->PTS()) + chapter_start_time_;
     return res->reader_;
   }
   else if (waiting)
@@ -3046,6 +3061,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
   const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup(""), *ov_audio(""), *mru("");
+  uint32_t mrt = 0;
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
@@ -3103,11 +3119,25 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       mpd_url = mpd_url.substr(0, mpd_url.find("|"));
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.original_audio_language") == 0)
+    {
       ov_audio = props.m_ListItemProperties[i].m_strValue;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.original_audio_language: %s", ov_audio);
+    }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.media_renewal_url") == 0)
+    {  
       mru = props.m_ListItemProperties[i].m_strValue;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_url: %s", mru);
+    }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.media_renewal_time") == 0)
+    {
+      mrt = atoi(props.m_ListItemProperties[i].m_strValue);
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_time: %d", mrt);
+    }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.max_bandwidth") == 0)
+    {
       max_user_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.max_bandwidth: %d", max_user_bandwidth);
+    }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.play_timeshift_buffer") == 0)
       m_playTimeshiftBuffer = stricmp(props.m_ListItemProperties[i].m_strValue, "true") == 0;
   }
@@ -3137,6 +3167,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     ld,
     lsc,
     mru,
+    mrt,
     manh,
     medh,
     props.m_profileFolder,

@@ -596,8 +596,16 @@ start(void *data, const char *el, const char **attr)
               value = (const char*)*(attr + 1);
             attr += 2;
           }
-          if (schemeOk && value && strcmp(value, "subtitle") == 0)
-            dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+          if (schemeOk && value)
+          {
+            if (strcmp(value, "subtitle") == 0)
+              dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+            //Legacy compatibility
+            if (strcmp(value, "forced") == 0)
+              dash->current_adaptationset_->forced_ = true;
+            if (strcmp(value, "main") == 0)
+              dash->current_adaptationset_->default_ = true;
+          }
         }
         else if (strcmp(el, "Representation") == 0)
         {
@@ -719,24 +727,6 @@ start(void *data, const char *el, const char **attr)
           dash->strXMLText_.clear();
           dash->currentNode_ |= MPDNODE_BASEURL;
         }
-        else if (strcmp(el, "Role") == 0)
-        {
-          if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE)
-          {
-            for (; *attr;)
-            {
-              if (strcmp((const char*)*attr, "value") == 0)
-              {
-                if (strcmp((const char*)*(attr + 1), "forced") == 0)
-                  dash->current_adaptationset_->forced_ = true;
-                else
-                  dash->current_adaptationset_->default_ = true;
-                break;
-              }
-              attr += 2;
-            }
-          }
-        }
         else if (strcmp(el, "mspr:pro") == 0)
         {
           dash->strXMLText_.clear();
@@ -845,6 +835,8 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->audio_track_id_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "impaired") == 0)
             dash->current_adaptationset_->impaired_ = strcmp((const char*)*(attr + 1), "true") == 0;
+          else if (strcmp((const char*)*attr, "forced") == 0)
+            dash->current_adaptationset_->forced_ = strcmp((const char*)*(attr + 1), "true") == 0;
           else if (strcmp((const char*)*attr, "original") == 0)
             dash->current_adaptationset_->original_ = strcmp((const char*)*(attr + 1), "true") == 0;
           else if (strcmp((const char*)*attr, "default") == 0)
@@ -1158,6 +1150,8 @@ end(void *data, const char *el)
 
                   if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_)
                   {
+                    if (!tpl.duration)
+                      tpl.duration = static_cast<unsigned int>((overallSeconds * tpl.timescale) / dash->current_adaptationset_->segment_durations_.data.size());
                     seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ - overallSeconds)*tpl.timescale) / tpl.duration;
                     seg.range_end_ -= (dash->current_period_->start_ * tpl.timescale) / (1000 * tpl.duration);
                   }
@@ -1434,7 +1428,11 @@ bool DASHTree::open(const std::string &url, const std::string &manifestUpdatePar
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(manifest_url_.c_str(), manifest_headers_) && !periods_.empty();
+  std::string download_url = manifest_url_;
+  if (!effective_url_.empty() && download_url.find(base_url_) == 0)
+    download_url.replace(0, base_url_.size(), effective_url_);
+
+  bool ret = download(download_url.c_str(), manifest_headers_) && !periods_.empty();
 
   XML_ParserFree(parser_);
   parser_ = 0;
@@ -1508,6 +1506,8 @@ void DASHTree::RefreshSegments()
     updateTree.supportedKeySystem_ = supportedKeySystem_;
     //Location element should be used on updates
     updateTree.location_ = location_;
+    updateTree.effective_url_ = effective_url_;
+    updateTree.effective_filename_ = effective_filename_;
 
     if (!~update_parameter_pos_)
     {
