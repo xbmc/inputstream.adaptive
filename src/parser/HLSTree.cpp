@@ -299,6 +299,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
   {
     SPINCACHE<Segment> newSegments;
     unsigned int newStartNumber;
+    Segment newInitialization;
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
     std::string download_url = rep->source_url_.c_str();
@@ -314,6 +315,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       fclose(f);
 #endif
       bool byteRange(false);
+      bool segmentInitialization(false);
       std::string line;
       std::string base_url;
 
@@ -435,12 +437,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
             {
               if (map["METHOD"] != "AES-128")
               {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
                 return false;
               }
               if (map["URI"].empty())
               {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: ", map["METHOD"].c_str());
+                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
                 return false;
               }
               current_pssh_ = map["URI"];
@@ -458,6 +460,33 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         {
           m_refreshPlayList = false;
           has_timeshift_buffer_ = false;
+        }
+        else if (line.compare(0, 11, "#EXT-X-MAP:") == 0)
+        {
+          parseLine(line, 11, map);
+          if (!map["URI"].empty())
+          {
+            if (!map["BYTERANGE"].empty())
+            {
+              continue;
+            }
+            segmentInitialization = true;
+            std::string uri = map["URI"];
+            std::string url;
+            if (uri[0] == '/')
+              url = base_domain_ + map["URI"];
+            else if (uri.find("://", 0) == std::string::npos)
+              url = base_url + uri;
+            else
+              url = uri;
+            newInitialization.url = new char[url.size() + 1];
+            memcpy((char*)newInitialization.url, url.c_str(), url.size() + 1);
+            newInitialization.range_begin_ = ~0ULL;
+            newInitialization.startPTS_ = ~0ULL;
+            newInitialization.pssh_set_ = 0;
+            rep->flags_ |= Representation::INITIALIZATION;
+            rep->containerType_ = CONTAINERTYPE_MP4;
+          }
         }
       }
 
@@ -485,6 +514,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 
       rep->segments_.swap(newSegments);
       rep->startNumber_ = newStartNumber;
+
+      if (segmentInitialization)
+        std::swap(rep->initialization_, newInitialization);
     }
 
     if (update)
