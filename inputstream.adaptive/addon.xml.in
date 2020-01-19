@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.5.3"
+  version="2.5.4"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,15 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.5.4 (2020-01-19)
+- [HLS] url based initialization segment
+- [DASH] Use effective URL for manifest update
+- Implement Media Renewal Time
+- Fixed WebVTT rlm and lrm
+- Fixed and improved subtitle properties)
+- Add multiple languages
+- [DASH] Fix zero devision segfault
+
 v2.5.3 (2019-11-21)
 - Fix retrieving SIDX from indexRange streams (youtube)
 - Rework seek (use lead stream)
