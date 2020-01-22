@@ -3428,7 +3428,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       if (m_IncludedStreams[i])
       {
         stream->reader_->AddStreamType(static_cast<INPUTSTREAM_INFO::STREAM_TYPE>(i), m_IncludedStreams[i]);
-        stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_);
+        stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i] - m_session->GetChapter() * 1000)->info_);
       }
   }
   m_session->EnableStream(stream, true);
