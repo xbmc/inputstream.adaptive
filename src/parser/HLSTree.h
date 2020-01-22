@@ -38,6 +38,7 @@ namespace adaptive
     virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
     virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize) override;
     virtual void RefreshSegments(Representation *rep, StreamType type) override;
+    virtual bool processManifest(std::stringstream& stream, const std::string &url);
 
   protected:
     virtual void RefreshSegments() override;
@@ -65,6 +66,7 @@ namespace adaptive
     bool m_refreshPlayList = true;
     uint8_t m_segmentIntervalSec = 4;
     AESDecrypter *m_decrypter;
+    std::stringstream manifest_stream;
   };
 
 } // namespace
