@@ -102,3 +102,8 @@ msgstr "Videó"
 msgctxt "#30160"
 msgid "Manual video"
 msgstr "Minden videó stream mutatása"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr "Videó + feliratok"
+
