@@ -2754,10 +2754,10 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   {
     seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
     int64_t ptsDiff = timing_stream_->reader_->GetPTSDiff();
-    if (ptsDiff < 0 && seekTimeCorrected + ptsDiff < seekTimeCorrected)
-      seekTimeCorrected += ptsDiff;
-    else
+    if (ptsDiff < 0 && seekTimeCorrected + ptsDiff > seekTimeCorrected)
       seekTimeCorrected = 0;
+    else
+      seekTimeCorrected += ptsDiff;
 
   }
 
