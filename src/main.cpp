@@ -2753,7 +2753,12 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   if (timing_stream_)
   {
     seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
-    seekTimeCorrected += timing_stream_->reader_->GetPTSDiff();
+    int64_t ptsDiff = timing_stream_->reader_->GetPTSDiff();
+    if (ptsDiff < 0 && seekTimeCorrected + ptsDiff > seekTimeCorrected)
+      seekTimeCorrected = 0;
+    else
+      seekTimeCorrected += ptsDiff;
+
   }
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
