@@ -112,8 +112,8 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
           strText = std::string(cbuf, next - cbuf);
           if (!strText.empty() && strText.back() == '\r')
             strText.resize(strText.size() - 1);
-          replace(strText, "&lrm;", "\xE2\x80\xAA");
-          replace(strText, "&rlm;", "\xE2\x80\xAB");
+          replaceAll(strText, "&lrm;", "\xE2\x80\xAA", true);
+          replaceAll(strText, "&rlm;", "\xE2\x80\xAB", true);
           if (!strText.empty())
             m_subTitles.back().text.push_back(strText);
           else
