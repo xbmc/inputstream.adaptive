@@ -171,13 +171,14 @@ end(void *data, const char *el)
             if (strcmp(el, "span") == 0)
             {
               ttml->m_node &= ~TTML2SRT::NODE_SPAN;
-              ttml->StackText();
+              ttml->StyleText();
               ttml->UnstackStyle();
             }
           }
           else if (strcmp(el, "p") == 0)
           {
             ttml->m_node &= ~TTML2SRT::NODE_P;
+            ttml->StyleText();
             ttml->StackText();
           }
         }
@@ -336,7 +337,7 @@ bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
   return true;
 }
 
-void TTML2SRT::StackText()
+void TTML2SRT::StyleText()
 {
   if (!m_strXMLText.empty())
   {
@@ -358,11 +359,16 @@ void TTML2SRT::StackText()
       strFmtEnd = "</i>" + strFmtEnd;
     }
 
-    m_subTitles.back().text.push_back(strFmt + m_strXMLText + strFmtEnd);
+    m_strSubtitle += strFmt + m_strXMLText + strFmtEnd;
     m_strXMLText.clear();
   }
 }
 
+void TTML2SRT::StackText()
+{
+  m_subTitles.back().text.push_back(m_strSubtitle);
+  m_strSubtitle.clear();
+}
 
 void TTML2SRT::StackStyle(const char* styleId)
 {

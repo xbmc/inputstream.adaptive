@@ -971,7 +971,7 @@ public:
 
   virtual const char *SelectKeySytem(const char* keySystem) override
   {
-    Log(SSD_HOST::LL_ERROR, "Key system request: %s", keySystem);
+    Log(SSD_HOST::LL_DEBUG, "Key system request: %s", keySystem);
     if (strcmp(keySystem, "com.widevine.alpha") == 0)
     {
       key_system_ = WIDEVINE;

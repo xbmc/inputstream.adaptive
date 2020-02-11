@@ -33,15 +33,16 @@ using namespace adaptive;
 enum
 {
   MPDNODE_MPD = 1 << 0,
-  MPDNODE_PERIOD = 1 << 1,
-  MPDNODE_ADAPTIONSET = 1 << 2,
-  MPDNODE_CONTENTPROTECTION = 1 << 3,
-  MPDNODE_REPRESENTATION = 1 << 4,
-  MPDNODE_BASEURL = 1 << 5,
-  MPDNODE_SEGMENTLIST = 1 << 6,
-  MPDNODE_INITIALIZATION = 1 << 7,
-  MPDNODE_SEGMENTURL = 1 << 8,
-  MPDNODE_SEGMENTDURATIONS = 1 << 9,
+  MPDNODE_LOCATION = 1 << 1,
+  MPDNODE_PERIOD = 1 << 2,
+  MPDNODE_ADAPTIONSET = 1 << 3,
+  MPDNODE_CONTENTPROTECTION = 1 << 4,
+  MPDNODE_REPRESENTATION = 1 << 5,
+  MPDNODE_BASEURL = 1 << 6,
+  MPDNODE_SEGMENTLIST = 1 << 7,
+  MPDNODE_INITIALIZATION = 1 << 8,
+  MPDNODE_SEGMENTURL = 1 << 9,
+  MPDNODE_SEGMENTDURATIONS = 1 << 10,
   MPDNODE_S = 1 << 11,
   MPDNODE_PSSH = 1 << 12,
   MPDNODE_SEGMENTTEMPLATE = 1 << 13,
@@ -49,6 +50,8 @@ enum
   MPDNODE_ROLE = 1 << 15,
   MPDNODE_PLAYREADYWRMHEADER = 1 << 16
 };
+
+static const char* CONTENTPROTECTION_TAG = "ContentProtection";
 
 static const char* ltranslate(const char * in)
 {
@@ -183,7 +186,7 @@ static void AddDuration(const char* dur, uint64_t& retVal, uint32_t scale)
 bool ParseContentProtection(const char **attr, DASHTree *dash)
 {
   dash->strXMLText_.clear();
-  dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
+  dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
   bool urnFound(false), mpdFound(false);
   const char *defaultKID(0);
   for (; *attr;)
@@ -202,7 +205,7 @@ bool ParseContentProtection(const char **attr, DASHTree *dash)
   if (urnFound)
   {
     dash->currentNode_ |= MPDNODE_CONTENTPROTECTION;
-    dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+    dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
   }
   if ((urnFound || mpdFound) && defaultKID && strlen(defaultKID) == 36)
   {
@@ -245,6 +248,9 @@ start(void *data, const char *el, const char **attr)
 
   if (dash->currentNode_ & MPDNODE_MPD)
   {
+    if (dash->currentNode_ & MPDNODE_LOCATION)
+    {
+    }
     if (dash->currentNode_ & MPDNODE_PERIOD)
     {
       if (dash->currentNode_ & MPDNODE_ADAPTIONSET)
@@ -274,9 +280,19 @@ start(void *data, const char *el, const char **attr)
                   size_t sz(strlen((const char*)*(attr + 1)) + 1);
                   seg.url = new char[sz];
                   memcpy((char*)seg.url, (const char*)*(attr + 1), sz);
+
+                  if (dash->current_representation_->segments_.data.empty())
+                    seg.range_end_ = dash->current_representation_->startNumber_;
                 }
                 attr += 2;
               }
+
+              if (dash->current_representation_->segments_.data.empty())
+                seg.startPTS_ = dash->base_time_ + dash->current_representation_->ptsOffset_;
+              else
+                seg.startPTS_ = dash->current_representation_->nextPts_ + dash->current_representation_->duration_;
+
+              dash->current_representation_->nextPts_ = seg.startPTS_;
               dash->current_representation_->segments_.data.push_back(seg);
             }
             else if (strcmp(el, "Initialization") == 0)
@@ -327,8 +343,9 @@ start(void *data, const char *el, const char **attr)
                 DASHTree::Segment s;
                 if (dash->current_representation_->segments_.data.empty())
                 {
+                  uint64_t overallSeconds = dash->current_period_->duration_ ? dash->current_period_->duration_ / dash->current_period_->timescale_ : dash->overallSeconds_;
                   if (dash->current_representation_->segtpl_.duration && dash->current_representation_->segtpl_.timescale)
-                    dash->current_representation_->segments_.data.reserve((unsigned int)((double)dash->overallSeconds_ / (((double)dash->current_representation_->segtpl_.duration) / dash->current_representation_->segtpl_.timescale)) + 1);
+                    dash->current_representation_->segments_.data.reserve((unsigned int)((double)overallSeconds / (((double)dash->current_representation_->segtpl_.duration) / dash->current_representation_->segtpl_.timescale)) + 1);
 
                   if (dash->current_representation_->flags_ & DASHTree::Representation::INITIALIZATION)
                   {
@@ -372,7 +389,7 @@ start(void *data, const char *el, const char **attr)
               for (; *attr;)
               {
                 if (strcmp((const char*)*attr, "robustness_level") == 0)
-                  dash->need_secure_decoder_ = strncmp((const char*)*(attr + 1), "HW", 2) == 0;
+                  dash->current_period_->need_secure_decoder_ = strncmp((const char*)*(attr + 1), "HW", 2) == 0;
                 attr += 2;
               }
             }
@@ -388,15 +405,26 @@ start(void *data, const char *el, const char **attr)
           }
           else if (strcmp(el, "SegmentList") == 0)
           {
-            uint32_t dur(0), ts(1);
+            uint32_t dur(0), ts(1), pto(0), sn(0);
             for (; *attr;)
             {
               if (strcmp((const char*)*attr, "duration") == 0)
                 dur = atoi((const char*)*(attr + 1));
               else if (strcmp((const char*)*attr, "timescale") == 0)
                 ts = atoi((const char*)*(attr + 1));
+              else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
+                pto = atoi((const char*)*(attr + 1));
+              else if (strcmp((const char*)*attr, "startNumber") == 0)
+                sn = atoi((const char*)*(attr + 1));
               attr += 2;
             }
+            if (sn)
+            {
+              dash->current_representation_->startNumber_ = sn;
+              pto += sn * dur;
+            }
+            if (pto)
+              dash->current_representation_->ptsOffset_ = pto;
             if (ts && dur)
             {
               dash->current_representation_->duration_ = dur;
@@ -445,7 +473,7 @@ start(void *data, const char *el, const char **attr)
             }
             dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
           }
-          else if (strcmp(el, "ContentProtection") == 0)
+          else if (strcmp(el, CONTENTPROTECTION_TAG) == 0)
           {
             if (!dash->current_representation_->pssh_set_ || dash->current_representation_->pssh_set_ == 0xFF)
             {
@@ -511,7 +539,7 @@ start(void *data, const char *el, const char **attr)
             for (; *attr;)
             {
               if (strcmp((const char*)*attr, "robustness_level") == 0)
-                dash->need_secure_decoder_ = strncmp((const char*)*(attr + 1), "HW", 2) == 0;
+                dash->current_period_->need_secure_decoder_ = strncmp((const char*)*(attr + 1), "HW", 2) == 0;
               attr += 2;
             }
           }
@@ -552,6 +580,32 @@ start(void *data, const char *el, const char **attr)
             attr += 2;
           }
           dash->currentNode_ |= MPDNODE_SEGMENTLIST;
+        }
+        else if (strcmp(el, "Role") == 0)
+        {
+          bool schemeOk = false;
+          const char* value = nullptr;
+          for (; *attr;)
+          {
+            if (strcmp((const char*)*attr, "schemeIdUri") == 0)
+            {
+              if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:role:2011") == 0)
+                schemeOk = true;
+            }
+            else if (strcmp((const char*)*attr, "value") == 0)
+              value = (const char*)*(attr + 1);
+            attr += 2;
+          }
+          if (schemeOk && value)
+          {
+            if (strcmp(value, "subtitle") == 0)
+              dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+            //Legacy compatibility
+            if (strcmp(value, "forced") == 0)
+              dash->current_adaptationset_->forced_ = true;
+            if (strcmp(value, "main") == 0)
+              dash->current_adaptationset_->default_ = true;
+          }
         }
         else if (strcmp(el, "Representation") == 0)
         {
@@ -617,6 +671,10 @@ start(void *data, const char *el, const char **attr)
             || dash->current_adaptationset_->mimeType_ == "text/vtt"))
             dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
 
+          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE
+            && dash->current_representation_->codecs_ == "wvtt")
+            dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+
           dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
           if (!dash->current_adaptationset_->segtpl_.media.empty())
           {
@@ -650,7 +708,7 @@ start(void *data, const char *el, const char **attr)
           }
           dash->currentNode_ |= MPDNODE_SEGMENTDURATIONS;
         }
-        else if (strcmp(el, "ContentProtection") == 0)
+        else if (strcmp(el, CONTENTPROTECTION_TAG) == 0)
         {
           if (!dash->adp_pssh_set_ || dash->adp_pssh_set_== 0xFF)
           {
@@ -668,24 +726,6 @@ start(void *data, const char *el, const char **attr)
         {
           dash->strXMLText_.clear();
           dash->currentNode_ |= MPDNODE_BASEURL;
-        }
-        else if (strcmp(el, "Role") == 0)
-        {
-          if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE)
-          {
-            for (; *attr;)
-            {
-              if (strcmp((const char*)*attr, "value") == 0)
-              {
-                if (strcmp((const char*)*(attr + 1), "forced") == 0)
-                  dash->current_adaptationset_->forced_ = true;
-                else
-                  dash->current_adaptationset_->default_ = true;
-                break;
-              }
-              attr += 2;
-            }
-          }
         }
         else if (strcmp(el, "mspr:pro") == 0)
         {
@@ -795,6 +835,8 @@ start(void *data, const char *el, const char **attr)
             dash->current_adaptationset_->audio_track_id_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "impaired") == 0)
             dash->current_adaptationset_->impaired_ = strcmp((const char*)*(attr + 1), "true") == 0;
+          else if (strcmp((const char*)*attr, "forced") == 0)
+            dash->current_adaptationset_->forced_ = strcmp((const char*)*(attr + 1), "true") == 0;
           else if (strcmp((const char*)*attr, "original") == 0)
             dash->current_adaptationset_->original_ = strcmp((const char*)*(attr + 1), "true") == 0;
           else if (strcmp((const char*)*attr, "default") == 0)
@@ -865,16 +907,24 @@ start(void *data, const char *el, const char **attr)
       dash->current_period_->base_url_ = dash->base_url_;
       dash->periods_.push_back(dash->current_period_);
       dash->period_timelined_ = false;
-      dash->current_period_start_ = 0;
+      dash->current_period_->start_ = 0;
 
       for (; *attr;)
       {
         if (strcmp((const char*)*attr, "start") == 0)
-          AddDuration((const char*)*(attr + 1), dash->current_period_start_, 1);
+          AddDuration((const char*)*(attr + 1), dash->current_period_->start_, 1000);
+        else if (strcmp((const char*)*attr, "id") == 0)
+          dash->current_period_->id_ = (const char*)*(attr + 1);
+        else if (strcmp((const char*)*attr, "duration") == 0)
+          AddDuration((const char*)*(attr + 1), dash->current_period_->duration_, 1000);
         attr += 2;
       }
-
       dash->currentNode_ |= MPDNODE_PERIOD;
+    }
+    else if (strcmp(el, "Location") == 0)
+    {
+      dash->strXMLText_.clear();
+      dash->currentNode_ |= MPDNODE_LOCATION;
     }
   }
   else if (strcmp(el, "MPD") == 0)
@@ -928,6 +978,7 @@ start(void *data, const char *el, const char **attr)
     dash->has_timeshift_buffer_ = !bStatic;
 
     AddDuration(mpt, dash->overallSeconds_, 1);
+    dash->has_overall_seconds_ = dash->overallSeconds_ > 0;
 
     uint64_t overallsecs(dash->overallSeconds_ ? dash->overallSeconds_ + 60 : 86400);
     if (!dash->base_time_ && dash->publish_time_ && dash->available_time_ && dash->publish_time_ - dash->available_time_ > overallsecs)
@@ -945,7 +996,7 @@ static void XMLCALL
 text(void *data, const char *s, int len)
 {
   DASHTree *dash(reinterpret_cast<DASHTree*>(data));
-  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER))
+  if (dash->currentNode_ & (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER | MPDNODE_LOCATION))
     dash->strXMLText_ += std::string(s, len);
 }
 
@@ -1000,6 +1051,11 @@ end(void *data, const char *el)
               dash->currentNode_ &= ~MPDNODE_SEGMENTLIST;
               if (!dash->segcount_)
                 dash->segcount_ = dash->current_representation_->segments_.data.size();
+              if (!dash->current_period_->duration_ && dash->current_representation_->timescale_)
+              {
+                dash->current_period_->timescale_ = dash->current_representation_->timescale_;
+                dash->current_period_->duration_ = dash->current_representation_->duration_ * dash->current_representation_->segments_.data.size();
+              }
             }
           }
           else if (dash->currentNode_ & MPDNODE_SEGMENTTEMPLATE)
@@ -1044,7 +1100,7 @@ end(void *data, const char *el)
               {
                 dash->current_pssh_ = "FILE";
                 dash->current_representation_->pssh_set_ = static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
-                dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+                dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
               }
               else
               {
@@ -1058,11 +1114,12 @@ end(void *data, const char *el)
             {
               DASHTree::SegmentTemplate &tpl(dash->current_representation_->segtpl_);
 
-              if (!tpl.media.empty() && dash->overallSeconds_ > 0 && tpl.timescale > 0 &&
+              uint64_t overallSeconds = dash->current_period_->duration_ ? dash->current_period_->duration_ / dash->current_period_->timescale_ : dash->overallSeconds_;
+              if (!tpl.media.empty() && overallSeconds > 0 && tpl.timescale > 0 &&
                 (tpl.duration > 0 || dash->current_adaptationset_->segment_durations_.data.size()))
               {
                 unsigned int countSegs = !dash->current_adaptationset_->segment_durations_.data.empty()? dash->current_adaptationset_->segment_durations_.data.size():
-                  (unsigned int)((double)dash->overallSeconds_ / (((double)tpl.duration) / tpl.timescale)) + 1;
+                  (unsigned int)((double)overallSeconds / (((double)tpl.duration) / tpl.timescale)) + 1;
 
                 if (countSegs < 65536)
                 {
@@ -1092,7 +1149,12 @@ end(void *data, const char *el)
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
                   if (!timeBased && dash->has_timeshift_buffer_ && dash->available_time_)
-                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ - dash->overallSeconds_ - dash->current_period_start_)*tpl.timescale) / tpl.duration;
+                  {
+                    if (!tpl.duration)
+                      tpl.duration = static_cast<unsigned int>((overallSeconds * tpl.timescale) / dash->current_adaptationset_->segment_durations_.data.size());
+                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ - overallSeconds)*tpl.timescale) / tpl.duration;
+                    seg.range_end_ -= (dash->current_period_->start_ * tpl.timescale) / (1000 * tpl.duration);
+                  }
 
                   for (;countSegs;--countSegs)
                   {
@@ -1146,11 +1208,13 @@ end(void *data, const char *el)
           {
             if (strcmp(el, "SegmentTimeline") == 0)
             {
-              if (!dash->overallSeconds_ && dash->current_adaptationset_->segtpl_.timescale)
+              if (!dash->current_period_->duration_ && dash->current_adaptationset_->segtpl_.timescale)
               {
+                dash->current_period_->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
+                uint64_t sum(0);
                 for (auto dur : dash->current_adaptationset_->segment_durations_.data)
-                  dash->overallSeconds_ += dur;
-                dash->overallSeconds_ /= dash->current_adaptationset_->segtpl_.timescale;
+                  sum += dur;
+                dash->current_period_->duration_ = sum;
               }
               dash->currentNode_ &= ~MPDNODE_SEGMENTTIMELINE;
             }
@@ -1207,7 +1271,7 @@ end(void *data, const char *el)
                 if (dash->current_defaultKID_.empty() && !dash->current_playready_wrmheader_.empty())
                   dash->current_defaultKID_ = PRProtectionParser(dash->current_playready_wrmheader_).getKID();
                 dash->adp_pssh_set_ = static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
-                dash->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
+                dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
               }
 
               for (std::vector<DASHTree::Representation*>::iterator
@@ -1304,8 +1368,44 @@ end(void *data, const char *el)
         dash->currentNode_ &= ~MPDNODE_BASEURL;
       }
     }
+    else if (dash->currentNode_ & MPDNODE_LOCATION)
+    {
+      if (strcmp(el, "Location") == 0)
+      {
+        while (dash->strXMLText_.size() && (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
+          dash->strXMLText_.erase(dash->strXMLText_.begin());
+        if (dash->strXMLText_.compare(0, 7, "http://") == 0
+          || dash->strXMLText_.compare(0, 8, "https://") == 0)
+          dash->location_ = dash->strXMLText_;
+        dash->currentNode_ &= ~MPDNODE_LOCATION;
+      }
+    }
     else if (strcmp(el, "MPD") == 0)
     {
+      //cleanup periods
+      for (std::vector<AdaptiveTree::Period*>::iterator b(dash->periods_.begin()); b != dash->periods_.end();)
+      {
+        if (dash->has_overall_seconds_ && !(*b)->duration_)
+        {
+          if (b + 1 == dash->periods_.end())
+            (*b)->duration_ = ((dash->overallSeconds_ * 1000 - (*b)->start_) * (*b)->timescale_) / 1000;
+          else
+            (*b)->duration_ = (((*(b+1))->start_ - (*b)->start_) * (*b)->timescale_) / 1000;
+        }
+        if ((*b)->adaptationSets_.empty())
+        {
+          if (dash->has_overall_seconds_)
+            dash->overallSeconds_ -= (*b)->duration_ / (*b)->timescale_;
+          delete *b;
+          b = dash->periods_.erase(b);
+        }
+        else
+        {
+          if (!dash->has_overall_seconds_)
+            dash->overallSeconds_ += (*b)->duration_ / (*b)->timescale_;
+          ++b;
+        }
+      }
       dash->currentNode_ &= ~MPDNODE_MPD;
     }
   }
@@ -1328,13 +1428,18 @@ bool DASHTree::open(const std::string &url, const std::string &manifestUpdatePar
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(manifest_url_.c_str(), manifest_headers_);
+  std::string download_url = manifest_url_;
+  if (!effective_url_.empty() && download_url.find(base_url_) == 0)
+    download_url.replace(0, base_url_.size(), effective_url_);
+
+  bool ret = download(download_url.c_str(), manifest_headers_) && !periods_.empty();
 
   XML_ParserFree(parser_);
   parser_ = 0;
 
   if (ret)
   {
+    current_period_ = periods_[0];
     SortTree();
     StartUpdateThread();
   }
@@ -1399,6 +1504,11 @@ void DASHTree::RefreshSegments()
     updateTree.manifest_headers_ = manifest_headers_;
     updateTree.base_time_ = base_time_;
     updateTree.supportedKeySystem_ = supportedKeySystem_;
+    //Location element should be used on updates
+    updateTree.location_ = location_;
+    updateTree.effective_url_ = effective_url_;
+    updateTree.effective_filename_ = effective_filename_;
+
     if (!~update_parameter_pos_)
     {
       if (!etag_.empty())
@@ -1411,6 +1521,7 @@ void DASHTree::RefreshSegments()
     {
       etag_ = updateTree.etag_;
       last_modified_ = updateTree.last_modified_;
+      location_ = updateTree.location_;
 
       //Youtube returns last smallest number in case the requested data is not available
       if (~update_parameter_pos_ && updateTree.firstStartNumber_ < nextStartNumber)
@@ -1471,7 +1582,17 @@ void DASHTree::RefreshSegments()
                 {
                   //TODO: check if first element or size differs
                   unsigned int segmentId((*brd)->getCurrentSegmentNumber());
-                  if ((*br)->segments_[0]->startPTS_ == (*brd)->segments_[0]->startPTS_)
+                  if ((*br)->flags_ & DASHTree::Representation::TIMELINE)
+                  {
+                    uint64_t search_pts = (*br)->segments_[0]->range_begin_;
+                    for (const auto &s : (*brd)->segments_.data)
+                    {
+                      if (s.range_begin_ >= search_pts)
+                        break;
+                      ++(*brd)->startNumber_;
+                    }
+                  }
+                  else if ((*br)->segments_[0]->startPTS_ == (*brd)->segments_[0]->startPTS_)
                   {
                     uint64_t search_re = (*br)->segments_[0]->range_end_;
                     for (const auto &s : (*brd)->segments_.data)

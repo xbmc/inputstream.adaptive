@@ -47,7 +47,7 @@ namespace adaptive
       const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
       uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
       const std::map<std::string, std::string> &media_headers);
-    bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height);
+    bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer);
     bool restart_stream();
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
     void stop();
@@ -82,7 +82,10 @@ namespace adaptive
     bool prepareDownload(const AdaptiveTree::Segment *seg);
     void setEffectiveURL(const std::string url) { tree_.effective_url_ = url; if (tree_.effective_url_.back() != '/') tree_.effective_url_ += '/'; };
     const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
+    const uint32_t& getMediaRenewalTime() const { return tree_.media_renewal_time_; };
     std::string buildDownloadUrl(const std::string &url);
+    int SecondsSinceMediaRenewal() const;
+    void UpdateSecondsSinceMediaRenewal();
   private:
     // Segment download section
     void ResetSegment();
@@ -133,6 +136,7 @@ namespace adaptive
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+    std::chrono::time_point<std::chrono::system_clock> lastMediaRenewal_;
 
     uint16_t width_, height_;
     uint32_t bandwidth_;
@@ -144,5 +148,6 @@ namespace adaptive
     uint8_t m_iv[16];
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
+    bool play_timeshift_buffer_;
   };
 };

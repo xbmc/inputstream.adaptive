@@ -80,12 +80,14 @@ std::vector<char> CJNIMediaDrm::getPropertyByteArray(const std::string &property
     "getPropertyByteArray", "(Ljava/lang/String;)[B",
       jcast<jhstring>(propertyName));
 
-  jsize size = env->GetArrayLength(array.get());
-
   std::vector<char> result;
-  result.resize(size);
-  env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
 
+  if (!env->ExceptionCheck())
+  {
+    jsize size = env->GetArrayLength(array.get());
+    result.resize(size);
+    env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
+  }
   return result;
 }
 
@@ -147,14 +149,12 @@ CJNIMediaDrmProvisionRequest CJNIMediaDrm::getProvisionRequest() const
 
 void CJNIMediaDrm::provideProvisionResponse(const std::vector<char> &response) const
 {
-  JNIEnv *env = xbmc_jnienv();
   call_method<void>(m_object,
     "provideProvisionResponse", "([B)V", jcast<jhbyteArray, std::vector<char> >(response));
 }
 
 void CJNIMediaDrm::removeKeys(const std::vector<char> &sessionId) const
 {
-  JNIEnv *env = xbmc_jnienv();
   call_method<void>(m_object,
     "removeKeys", "([B)V", jcast<jhbyteArray, std::vector<char> >(sessionId));
 }
@@ -164,4 +164,49 @@ void CJNIMediaDrm::setOnEventListener(const CJNIMediaDrmOnEventListener &listene
   call_method<void>(m_object, "setOnEventListener",
     "(Landroid/media/MediaDrm$OnEventListener;)V",
     listener.get_raw());
+}
+
+std::map<std::string, std::string> CJNIMediaDrm::queryKeyStatus(const std::vector<char> &sessionId) const
+{
+  if (CJNIBase::GetSDKVersion() >= 23)
+  {
+    std::map<std::string, std::string> result;
+
+    CJNIHashMap hashMap = call_method<jhobject>(m_object,
+      "queryKeyStatus", "([B)Ljava/util/HashMap;", jcast<jhbyteArray, std::vector<char> >(sessionId));
+    // Get a set with Map.entry from hashmap
+    jhobject entrySet = hashMap.entrySet();
+    // Get the Iterator
+    jhobject iterator =  call_method<jhobject>(entrySet, "iterator", "()Ljava/util/Iterator;");
+    while (call_method<jboolean>(iterator, "hasNext", "()Z"))
+    {
+      jhobject next = call_method<jhobject>(iterator, "next", "()Ljava/util/Map$Entry;");
+      std::string key = jcast<std::string>(call_method<jhstring>(next, "getKey", "()Ljava/lang/Object;"));
+      std::string value = jcast<std::string>(call_method<jhstring>(next, "getValue", "()Ljava/lang/Object;"));
+      result[key] = value;
+    }
+    return result;
+  }
+  return std::map<std::string, std::string>();
+}
+
+int CJNIMediaDrm::getSecurityLevel(const std::vector<char> &sessionId) const
+{
+  if (CJNIBase::GetSDKVersion() >= 28)
+  {
+    return call_method<int>(m_object,
+      "getSecurityLevel", "([B)I", jcast<jhbyteArray, std::vector<char> >(sessionId));
+  }
+  return -1;
+}
+
+
+int CJNIMediaDrm::getMaxSecurityLevel() const
+{
+  if (CJNIBase::GetSDKVersion() >= 28)
+  {
+    return call_static_method<int>(GetClassName().c_str(),
+      "getMaxSecurityLevel", "()I");
+  }
+  return -1;
 }

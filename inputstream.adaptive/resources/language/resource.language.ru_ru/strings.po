@@ -1,0 +1,105 @@
+﻿# Kodi Media Center language file
+# Addon Name: Inputstream.adaptive
+# Addon id: inputstream.adaptive
+# Addon Provider: peak3d
+
+msgid ""
+msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ru\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30100"
+msgid "General"
+msgstr "Общие"
+
+msgctxt "#30101"
+msgid "Min. Bandwidth (Bit/s)"
+msgstr "Мин. пропускная способность (Бит/с)"
+
+msgctxt "#30102"
+msgid "Max. Bandwidth (Bit/s)"
+msgstr "Макс. пропускная способность (Бит/с)"
+
+msgctxt "#30103"
+msgid "Decrypter path"
+msgstr "Путь к декодеру"
+
+msgctxt "#30110"
+msgid "Max. Resolution general decoder"
+msgstr "Макс. разрешение общего декодера"
+
+msgctxt "#30111"
+msgid "Stream Selection"
+msgstr "Выбор потока"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "Медиа"
+
+msgctxt "#30113"
+msgid "Max. Resolution secure decoder"
+msgstr "Макс. разрешение защищенного декодера"
+
+msgctxt "#30114"
+msgid "Override HDCP status"
+msgstr "Переопределить статус HDCP"
+
+msgctxt "#30115"
+msgid "Ignore Display Resolution"
+msgstr "Игнорировать разрешение экрана"
+
+msgctxt "#30120"
+msgid "Expert"
+msgstr "Экспертные"
+
+msgctxt "#30121"
+msgid "Enable Pre-Release Features"
+msgstr "Включить предрелизные возможности"
+
+msgctxt "#30150"
+msgid "Max"
+msgstr "Макс"
+
+msgctxt "#30151"
+msgid "480p"
+msgstr ""
+
+msgctxt "#30152"
+msgid "640p"
+msgstr ""
+
+msgctxt "#30153"
+msgid "720p"
+msgstr ""
+
+msgctxt "#30154"
+msgid "1080p"
+msgstr ""
+
+msgctxt "#30155"
+msgid "Auto"
+msgstr "Авто"
+
+msgctxt "#30156"
+msgid "Manual"
+msgstr "Вручную"
+
+msgctxt "#30157"
+msgid "All"
+msgstr "Все"
+
+msgctxt "#30158"
+msgid "Audio"
+msgstr "Аудио"
+
+msgctxt "#30159"
+msgid "Video"
+msgstr "Видео"
+
+msgctxt "#30160"
+msgid "Manual video"
+msgstr "Видео вручную"

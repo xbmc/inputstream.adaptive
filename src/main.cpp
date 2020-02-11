@@ -18,6 +18,7 @@
 
 #include "main.h"
 
+#include <algorithm>
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +32,7 @@
 #include "aes_decrypter.h"
 #include "helpers.h"
 #include "log.h"
+#include "oscompat.h"
 #include "parser/DASHTree.h"
 #include "parser/SmoothTree.h"
 #include "parser/HLSTree.h"
@@ -42,11 +44,7 @@
 
 #include "Ap4Utils.h"
 
-#ifdef _WIN32                   // windows
-#include "p8-platform/windows/dlfcn-win32.h"
-#else // windows
-#include <dlfcn.h>              // linux+osx
-#endif
+#include <dlfcn.h>
 
 #if defined(ANDROID)
 #include <kodi/platform/android/System.h>
@@ -329,7 +327,8 @@ bool adaptive::AdaptiveTree::download(const char* url, const std::map<std::strin
 
 bool KodiAdaptiveStream::download(const char* url, const std::map<std::string, std::string> &mediaHeaders)
 {
-  bool retry = true;
+  bool retry_403 = true;
+  bool retry_MRT = true;
   kodi::vfs::CFile file;
   std::string newUrl;
 
@@ -358,9 +357,15 @@ RETRY:
 
     size_t nbRead = ~0UL;
 
-    if (returnCode == 403 && retry && !getMediaRenewalUrl().empty())
+    if (((returnCode == 403 && retry_403) || (getMediaRenewalTime() > 0  && SecondsSinceMediaRenewal() >= getMediaRenewalTime() && retry_MRT)) && !getMediaRenewalUrl().empty())
     {
-      retry = false;
+      UpdateSecondsSinceMediaRenewal();
+      
+      if (returnCode == 403)
+        retry_403 = false;
+      else
+        retry_MRT = false;
+        
       std::vector<kodi::vfs::CDirEntry> items;
       if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
       {
@@ -587,7 +592,7 @@ public:
   };
   virtual bool ExtraDataToAnnexB() { return false; };
   virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) { return false; };
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) { return false; };
   virtual void SetPTSOffset(AP4_UI64 offset) { };
   virtual bool TimeSeek(AP4_UI64 seekPos) { return true; };
@@ -894,7 +899,7 @@ public:
     ,m_ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
     return m_ttml.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
   }
@@ -948,9 +953,9 @@ public:
     , m_ptsOffset(0)
   {};
 
-  virtual bool Transform(AP4_DataBuffer &buf, AP4_UI64 timescale) override
+  virtual bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer &buf, AP4_UI64 timescale) override
   {
-    return m_webVtt.Parse(buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
+    return m_webVtt.Parse(pts, duration, buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
   }
 
   virtual bool ReadNextSample(AP4_Sample &sample, AP4_DataBuffer &buf) override
@@ -1004,13 +1009,13 @@ public:
   virtual uint64_t  DTS()const = 0;
   virtual uint64_t  PTS()const = 0;
   virtual uint64_t  DTSorPTS()const { return DTS() < PTS() ? DTS() : PTS(); };
-  virtual uint64_t  Elapsed(uint64_t basePTS) = 0;
   virtual AP4_Result Start(bool &bStarted) = 0;
   virtual AP4_Result ReadSample() = 0;
   virtual void Reset(bool bEOS) = 0;
   virtual bool GetInformation(INPUTSTREAM_INFO &info) = 0;
   virtual bool TimeSeek(uint64_t pts, bool preceeding) = 0;
   virtual void SetPTSOffset(uint64_t offset) = 0;
+  virtual int64_t GetPTSDiff() const = 0;
   virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) = 0;
   virtual uint32_t GetTimeScale()const = 0;
   virtual AP4_UI32 GetStreamId()const = 0;
@@ -1031,26 +1036,26 @@ class DummyReader: public SampleReader
 {
 public:
   virtual ~DummyReader() = default;
-  virtual bool EOS()const override { return false; }
-  virtual uint64_t  DTS()const override { return DVD_NOPTS_VALUE; }
-  virtual uint64_t  PTS()const override { return DVD_NOPTS_VALUE; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override { return 0ULL; }
-  virtual AP4_Result Start(bool &bStarted) override { return AP4_SUCCESS; }
-  virtual AP4_Result ReadSample() override { return AP4_SUCCESS; }
-  virtual void Reset(bool bEOS) override {}
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override { return false; }
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override { return false; }
-  virtual void SetPTSOffset(uint64_t offset) override {}
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale() const override { return 1; }
-  virtual AP4_UI32 GetStreamId() const override { return 0; }
-  virtual AP4_Size GetSampleDataSize() const override { return 0; }
-  virtual const AP4_Byte *GetSampleData() const override { return nullptr; }
-  virtual uint64_t GetDuration() const override { return 0; }
-  virtual bool IsEncrypted() const override { return false; }
-  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
-  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
-  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override { return true; };
+  bool EOS()const override { return false; }
+  uint64_t  DTS()const override { return DVD_NOPTS_VALUE; }
+  uint64_t  PTS()const override { return DVD_NOPTS_VALUE; }
+  AP4_Result Start(bool &bStarted) override { return AP4_SUCCESS; }
+  AP4_Result ReadSample() override { return AP4_SUCCESS; }
+  void Reset(bool bEOS) override {}
+  bool GetInformation(INPUTSTREAM_INFO &info) override { return false; }
+  bool TimeSeek(uint64_t pts, bool preceeding) override { return false; }
+  void SetPTSOffset(uint64_t offset) override {}
+  int64_t GetPTSDiff() const override { return 0; }
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale() const override { return 1; }
+  AP4_UI32 GetStreamId() const override { return 0; }
+  AP4_Size GetSampleDataSize() const override { return 0; }
+  const AP4_Byte *GetSampleData() const override { return nullptr; }
+  uint64_t GetDuration() const override { return 0; }
+  bool IsEncrypted() const override { return false; }
+  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
+  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override {};
+  bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override { return true; };
 }DummyReader;
 
 /*******************************************************
@@ -1131,7 +1136,7 @@ public:
     delete m_codecHandler;
   }
 
-  virtual AP4_Result Start(bool &bStarted) override
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1141,7 +1146,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     AP4_Result result;
     if (!m_codecHandler || !m_codecHandler->ReadNextSample(m_sample, m_sampleData))
@@ -1196,7 +1201,7 @@ public:
         m_singleSampleDecryptor->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, nullptr, 0, nullptr, nullptr);
       }
 
-      if (m_codecHandler->Transform(m_sampleData, m_track->GetMediaTimeScale()))
+      if (m_codecHandler->Transform(m_sample.GetDts(), m_sample.GetDuration(), m_sampleData, m_track->GetMediaTimeScale()))
         m_codecHandler->ReadNextSample(m_sample, m_sampleData);
     }
 
@@ -1208,7 +1213,7 @@ public:
     return AP4_SUCCESS;
   };
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     AP4_LinearReader::Reset();
     m_eos = bEOS;
@@ -1216,22 +1221,15 @@ public:
       m_codecHandler->Reset();
   }
 
-  virtual bool EOS() const  override { return m_eos; };
-  virtual uint64_t DTS()const override { return m_dts; };
-  virtual uint64_t  PTS()const override { return m_pts; };
-
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    uint64_t manifestPTS = (m_pts > m_ptsDiff) ? m_pts - m_ptsDiff : 0;
-    return manifestPTS > basePTS ? manifestPTS - basePTS : 0ULL;
-  };
-
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
-  virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
-  virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
-  virtual uint64_t GetDuration()const override { return (m_sample.GetDuration() * m_timeBaseExt) / m_timeBaseInt; };
-  virtual bool IsEncrypted()const override { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_decrypter != nullptr; };
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool EOS() const  override { return m_eos; };
+  uint64_t DTS()const override { return m_dts; };
+  uint64_t  PTS()const override { return m_pts; };
+  AP4_UI32 GetStreamId()const override { return m_streamId; };
+  AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
+  const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
+  uint64_t GetDuration()const override { return (m_sample.GetDuration() * m_timeBaseExt) / m_timeBaseInt; };
+  bool IsEncrypted()const override { return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 && m_decrypter != nullptr; };
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     if (!m_codecHandler)
       return false;
@@ -1256,10 +1254,10 @@ public:
     return edchanged;
   }
 
-  virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
+  bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
     AP4_Ordinal sampleIndex;
-    AP4_UI64 seekPos(static_cast<AP4_UI64>(((pts + m_ptsDiff) * m_timeBaseInt) / m_timeBaseExt));
+    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts * m_timeBaseInt) / m_timeBaseExt));
     if (AP4_SUCCEEDED(SeekSample(m_track->GetId(), seekPos, sampleIndex, preceeding)))
     {
       if (m_decrypter)
@@ -1272,7 +1270,7 @@ public:
     return false;
   };
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     FindTracker(m_track->GetId())->m_NextDts = (offset * m_timeBaseInt) / m_timeBaseExt;
     m_ptsOffs = offset;
@@ -1280,7 +1278,9 @@ public:
       m_codecHandler->SetPTSOffset((offset * m_timeBaseInt) / m_timeBaseExt);
   };
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override
   {
     if (m_nextDuration)
     {
@@ -1294,10 +1294,10 @@ public:
     }
     return true;
   };
-  virtual uint32_t GetTimeScale()const override { return m_track->GetMediaTimeScale(); };
+  uint32_t GetTimeScale()const override { return m_track->GetMediaTimeScale(); };
 
 protected:
-  virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
+  AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
     AP4_Position       moof_offset,
     AP4_Position       mdat_payload_offset,
     AP4_UI64 mdat_payload_size) override
@@ -1492,15 +1492,14 @@ public:
       m_codecHandler = new WebVTTCodecHandler(nullptr);
     else
       m_codecHandler = new TTMLCodecHandler(nullptr);
-    m_codecHandler->Transform(result, 1000);
+    m_codecHandler->Transform(0, 0, result, 1000);
   };
 
-  virtual bool EOS()const override { return m_eos; };
-  virtual uint64_t DTS()const override { return m_pts; };
-  virtual uint64_t PTS()const override { return m_pts; };
-  virtual uint64_t  Elapsed(uint64_t basePTS) override { return m_pts > basePTS ? m_pts - basePTS : 0ULL; };
-  virtual AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
-  virtual AP4_Result ReadSample() override
+  bool EOS()const override { return m_eos; };
+  uint64_t DTS()const override { return m_pts; };
+  uint64_t PTS()const override { return m_pts; };
+  AP4_Result Start(bool &bStarted) override { m_eos = false; return AP4_SUCCESS; };
+  AP4_Result ReadSample() override
   {
     if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
     {
@@ -1510,22 +1509,23 @@ public:
     m_eos = true;
     return AP4_ERROR_EOS;
   }
-  virtual void Reset(bool bEOS) override {};
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override { return false; };
-  virtual bool TimeSeek(uint64_t  pts, bool preceeding) override
+  void Reset(bool bEOS) override {};
+  bool GetInformation(INPUTSTREAM_INFO &info) override { return false; };
+  bool TimeSeek(uint64_t  pts, bool preceeding) override
   {
     if (m_codecHandler->TimeSeek(pts / 1000))
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
-  virtual void SetPTSOffset(uint64_t offset) override {};
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; };
-  virtual uint32_t GetTimeScale()const override { return 1000; };
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; };
-  virtual AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
-  virtual const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
-  virtual uint64_t GetDuration()const override { return m_sample.GetDuration() * 1000; };
-  virtual bool IsEncrypted()const override { return false; };
+  void SetPTSOffset(uint64_t offset) override {};
+  int64_t GetPTSDiff() const override { return 0; }
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; };
+  uint32_t GetTimeScale()const override { return 1000; };
+  AP4_UI32 GetStreamId()const override { return m_streamId; };
+  AP4_Size GetSampleDataSize()const override { return m_sampleData.GetDataSize(); };
+  const AP4_Byte *GetSampleData()const override { return m_sampleData.GetData(); };
+  uint64_t GetDuration()const override { return m_sample.GetDuration() * 1000; };
+  bool IsEncrypted()const override { return false; };
 private:
   uint64_t m_pts;
   AP4_UI32 m_streamId;
@@ -1551,7 +1551,7 @@ public:
     m_typeMap[type] = m_typeMap[INPUTSTREAM_INFO::TYPE_NONE] = streamId;
   };
 
-  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask |= (1 << type);
@@ -1559,30 +1559,23 @@ public:
       StartStreaming(m_typeMask);
   };
 
-  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask = (1 << type);
   };
 
-  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override
+  bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override
   {
     m_typeMask &= ~(1 << type);
     StartStreaming(m_typeMask);
     return m_typeMask == 0;
   };
 
-  virtual bool EOS()const override { return m_eos; }
-  virtual uint64_t DTS()const override { return m_dts; }
-  virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
-  };
-
-  virtual AP4_Result Start(bool &bStarted) override
+  bool EOS()const override { return m_eos; }
+  uint64_t DTS()const override { return m_dts; }
+  uint64_t PTS()const override { return m_pts; }
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1598,7 +1591,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     if (ReadPacket())
     {
@@ -1617,23 +1610,23 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     TSReader::Reset();
     m_eos = bEOS;
   }
 
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     return TSReader::GetInformation(info);
   }
 
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  bool TimeSeek(uint64_t pts, bool preceeding) override
   {
     if (!StartStreaming(m_typeMask))
       return false;
 
-    AP4_UI64 seekPos(((pts + m_ptsDiff ) * 9) / 100);
+    AP4_UI64 seekPos((pts * 9) / 100);
     if (TSReader::SeekTime(seekPos, preceeding))
     {
       m_started = true;
@@ -1642,18 +1635,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     m_ptsOffs = offset;
   }
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale()const override { return 90000; }
-  virtual AP4_UI32 GetStreamId()const override { return m_typeMap[GetStreamType()]; }
-  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
-  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
-  virtual uint64_t GetDuration()const override { return (TSReader::GetDuration() * 100) / 9; }
-  virtual bool IsEncrypted()const override { return false; };
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale()const override { return 90000; }
+  AP4_UI32 GetStreamId()const override { return m_typeMap[GetStreamType()]; }
+  AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  uint64_t GetDuration()const override { return (TSReader::GetDuration() * 100) / 9; }
+  bool IsEncrypted()const override { return false; };
 
 private:
   uint32_t m_typeMask; //Bit representation of INPUTSTREAM_INFO::STREAM_TYPES
@@ -1681,17 +1676,10 @@ public:
   {
   };
 
-  virtual bool EOS()const override { return m_eos; }
-  virtual uint64_t DTS()const override { return m_pts; }
-  virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    // TSReader::GetPTSDiff() is the difference between playlist PTS and real PTS relative to current segment
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
-  };
-
-  virtual AP4_Result Start(bool &bStarted) override
+  bool EOS()const override { return m_eos; }
+  uint64_t DTS()const override { return m_pts; }
+  uint64_t PTS()const override { return m_pts; }
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1701,7 +1689,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     if (ReadPacket())
     {
@@ -1719,20 +1707,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     ADTSReader::Reset();
     m_eos = bEOS;
   }
 
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     return ADTSReader::GetInformation(info);
   }
 
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  bool TimeSeek(uint64_t pts, bool preceeding) override
   {
-    AP4_UI64 seekPos(((pts + m_ptsDiff) * 9) / 100);
+    AP4_UI64 seekPos((pts * 9) / 100);
     if (ADTSReader::SeekTime(seekPos, preceeding))
     {
       m_started = true;
@@ -1741,18 +1729,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     m_ptsOffs = offset;
   }
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale()const override { return 90000; }
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
-  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
-  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
-  virtual uint64_t GetDuration()const override { return (ADTSReader::GetDuration() * 100) / 9; }
-  virtual bool IsEncrypted()const override { return false; };
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale()const override { return 90000; }
+  AP4_UI32 GetStreamId()const override { return m_streamId; }
+  AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  uint64_t GetDuration()const override { return (ADTSReader::GetDuration() * 100) / 9; }
+  bool IsEncrypted()const override { return false; };
 
 private:
   bool m_eos = false;
@@ -1778,14 +1768,9 @@ public:
   {
   };
 
-  virtual bool EOS()const override { return m_eos; }
-  virtual uint64_t DTS()const override { return m_dts; }
-  virtual uint64_t PTS()const override { return m_pts; }
-  virtual uint64_t  Elapsed(uint64_t basePTS) override
-  {
-    uint64_t playlistPTS = (static_cast<int64_t>(m_pts) > m_ptsDiff) ? m_pts - m_ptsDiff : 0ULL;
-    return playlistPTS > basePTS ? playlistPTS - basePTS : 0ULL;
-  };
+  bool EOS()const override { return m_eos; }
+  uint64_t DTS()const override { return m_dts; }
+  uint64_t PTS()const override { return m_pts; }
 
   bool Initialize()
   {
@@ -1797,7 +1782,7 @@ public:
     return ret;
   }
 
-  virtual AP4_Result Start(bool &bStarted) override
+  AP4_Result Start(bool &bStarted) override
   {
     bStarted = false;
     if (m_started)
@@ -1806,7 +1791,7 @@ public:
     return ReadSample();
   }
 
-  virtual AP4_Result ReadSample() override
+  AP4_Result ReadSample() override
   {
     if (ReadPacket())
     {
@@ -1825,13 +1810,13 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void Reset(bool bEOS) override
+  void Reset(bool bEOS) override
   {
     WebmReader::Reset();
     m_eos = bEOS;
   }
 
-  virtual bool GetInformation(INPUTSTREAM_INFO &info) override
+  bool GetInformation(INPUTSTREAM_INFO &info) override
   {
     bool ret = WebmReader::GetInformation(info);
     // kodi supports VP9 without extrada since addon api version was introduced.
@@ -1848,9 +1833,9 @@ public:
     return ret;
   }
 
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) override
+  bool TimeSeek(uint64_t pts, bool preceeding) override
   {
-    AP4_UI64 seekPos(((pts + m_ptsDiff) * 9) / 100);
+    AP4_UI64 seekPos((pts * 9) / 100);
     if (WebmReader::SeekTime(seekPos, preceeding))
     {
       m_started = true;
@@ -1859,18 +1844,20 @@ public:
     return AP4_ERROR_EOS;
   }
 
-  virtual void SetPTSOffset(uint64_t offset) override
+  void SetPTSOffset(uint64_t offset) override
   {
     m_ptsOffs = offset;
   }
 
-  virtual bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
-  virtual uint32_t GetTimeScale()const override { return 1000; }
-  virtual AP4_UI32 GetStreamId()const override { return m_streamId; }
-  virtual AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
-  virtual const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
-  virtual uint64_t GetDuration()const override { return WebmReader::GetDuration() *1000; }
-  virtual bool IsEncrypted()const override { return false; };
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
+
+  bool GetNextFragmentInfo(uint64_t &ts, uint64_t &dur) override { return false; }
+  uint32_t GetTimeScale()const override { return 1000; }
+  AP4_UI32 GetStreamId()const override { return m_streamId; }
+  AP4_Size GetSampleDataSize()const override { return GetPacketSize(); }
+  const AP4_Byte *GetSampleData()const override { return GetPacketData(); }
+  uint64_t GetDuration()const override { return WebmReader::GetDuration() *1000; }
+  bool IsEncrypted()const override { return false; };
 
 private:
   AP4_UI32 m_streamId = 0;
@@ -1909,12 +1896,14 @@ Session::Session(MANIFEST_TYPE manifestType,
   const char* strLicData,
   const char* strCert,
   const char* strMediaRenewalUrl,
+  const uint32_t intMediaRenewalTime,
   const std::map<std::string, std::string> &manifestHeaders,
   const std::map<std::string, std::string> &mediaHeaders,
   const char* profile_path,
   uint16_t display_width,
   uint16_t display_height,
-  const char *ov_audio)
+  const char *ov_audio,
+  bool play_timeshift_buffer)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , mpdUpdateParam_(strUpdateParam)
@@ -1930,9 +1919,13 @@ Session::Session(MANIFEST_TYPE manifestType,
   , adaptiveTree_(0)
   , width_(display_width)
   , height_(display_height)
+  , timing_stream_(nullptr)
   , changed_(false)
-  , manual_streams_(false)
+  , manual_streams_(0)
   , elapsed_time_(0)
+  , chapter_start_time_(0)
+  , chapter_seek_time_(0.0)
+  , play_timeshift_buffer_(play_timeshift_buffer)
 {
   switch (manifest_type_)
   {
@@ -1971,15 +1964,14 @@ Session::Session(MANIFEST_TYPE manifestType,
   max_secure_resolution_ = kodi::GetSettingInt("MAXRESOLUTIONSECURE");
   kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTIONSECURE selected: %d ", max_secure_resolution_);
 
-  int buf = kodi::GetSettingInt("STREAMSELECTION");
-  kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", buf);
-  manual_streams_ = buf != 0;
+  manual_streams_ = kodi::GetSettingInt("STREAMSELECTION");
+  kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", manual_streams_);
 
   preReleaseFeatures = kodi::GetSettingBoolean("PRERELEASEFEATURES");
   if (preReleaseFeatures)
     kodi::Log(ADDON_LOG_INFO, "PRERELEASEFEATURES enabled!");
 
-  buf = kodi::GetSettingInt("MEDIATYPE");
+  int buf = kodi::GetSettingInt("MEDIATYPE");
   switch (buf)
   {
   case 1:
@@ -1987,6 +1979,10 @@ Session::Session(MANIFEST_TYPE manifestType,
     break;
   case 2:
     media_type_mask_ = static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO;
+    break;
+  case 3:
+    media_type_mask_ = (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO)
+                     | (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::SUBTITLE);
     break;
   default:
     media_type_mask_ = static_cast<uint8_t>(~0);
@@ -2003,6 +1999,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   }
   adaptiveTree_->manifest_headers_ = manifestHeaders;
   adaptiveTree_->media_renewal_url_ = strMediaRenewalUrl;
+  adaptiveTree_->media_renewal_time_ = intMediaRenewalTime;
 }
 
 Session::~Session()
@@ -2090,14 +2087,20 @@ void Session::GetSupportedDecrypterURN(std::string &key_system)
   }
 }
 
+void Session::DisposeSampleDecrypter()
+{
+  if (decrypter_)
+    for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
+      if (!b->shared_single_sample_decryptor_)
+        decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+}
+
 void Session::DisposeDecrypter()
 {
   if (!decrypterModule_)
     return;
 
-  for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e; ++b)
-    if (!b->shared_single_sample_decryptor_)
-      decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+  DisposeSampleDecrypter();
 
   typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER *);
   DeleteDecryptorInstanceFunc disposefn((DeleteDecryptorInstanceFunc)dlsym(decrypterModule_, "DeleteDecryptorInstance"));
@@ -2126,18 +2129,40 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
   }
 
-  // Open mpd file
-  if (!adaptiveTree_->open(mpdFileURL_.c_str(), mpdUpdateParam_.c_str()) || adaptiveTree_->empty())
-  {
+  // Open mpd file with mpd location redirect support  bool mpdSuccess;
+  std::string mpdUrl = adaptiveTree_->location_.empty() ? mpdFileURL_.c_str() : adaptiveTree_->location_;
+  if (!adaptiveTree_->open(mpdUrl.c_str(), mpdUpdateParam_.c_str()) || adaptiveTree_->empty()) {
     kodi::Log(ADDON_LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
     return false;
   }
-  kodi::Log(ADDON_LOG_INFO, "Successfully parsed .mpd file. #Streams: %d Type: %s, Download speed: %0.4f Bytes/s", 
-    adaptiveTree_->periods_[0]->adaptationSets_.size(),
+  kodi::Log(ADDON_LOG_INFO, "Successfully parsed .mpd file. #Periods: %ld, #Streams in first period: %ld, Type: %s, Download speed: %0.4f Bytes/s",
+    adaptiveTree_->periods_.size(),
+    adaptiveTree_->current_period_->adaptationSets_.size(),
     adaptiveTree_->has_timeshift_buffer_ ? "live" : "VOD",
     adaptiveTree_->download_speed_);
 
-  if (adaptiveTree_->encryptionState_ == adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
+  drmConfig_ = config;
+  maxUserBandwidth_ = max_user_bandwidth;
+
+  return InitializePeriod();
+}
+
+bool Session::InitializePeriod()
+{
+  if (adaptiveTree_->next_period_)
+  {
+    adaptiveTree_->current_period_ = adaptiveTree_->next_period_;
+    adaptiveTree_->next_period_ = nullptr;
+  }
+
+  chapter_start_time_ = 0;
+  for (adaptive::AdaptiveTree::Period* p : adaptiveTree_->periods_)
+    if (p == adaptiveTree_->current_period_)
+      break;
+    else
+      chapter_start_time_ += (p->duration_ * DVD_TIME_BASE) / p->timescale_;
+
+  if (adaptiveTree_->current_period_->encryptionState_ == adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
   {
     kodi::Log(ADDON_LOG_ERROR, "Unable to handle decryption. Unsupported!");
     return false;
@@ -2150,8 +2175,8 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     buf = kodi::GetSettingInt("MAXBANDWIDTH"); max_bandwidth = buf;
   }
 
-  if (max_bandwidth == 0 || (max_user_bandwidth && max_bandwidth > max_user_bandwidth))
-    max_bandwidth = max_user_bandwidth;
+  if (max_bandwidth == 0 || (maxUserBandwidth_ && max_bandwidth > maxUserBandwidth_))
+    max_bandwidth = maxUserBandwidth_;
 
   // create SESSION::STREAM objects. One for each AdaptationSet
   unsigned int i(0);
@@ -2160,11 +2185,13 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
-  cdm_sessions_.resize(adaptiveTree_->psshSets_.size());
+  DisposeSampleDecrypter();
+
+  cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
 
   // Try to initialize an SingleSampleDecryptor
-  if (adaptiveTree_->encryptionState_)
+  if (adaptiveTree_->current_period_->encryptionState_)
   {
     if (license_key_.empty())
       license_key_ = adaptiveTree_->license_url_;
@@ -2183,7 +2210,7 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       return false;
     }
 
-    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, config))
+    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
     {
       kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
       return false;
@@ -2207,17 +2234,17 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       AP4_DataBuffer init_data;
       const char *optionalKeyParameter(nullptr);
 
-      if (adaptiveTree_->psshSets_[ses].pssh_ == "FILE")
+      if (adaptiveTree_->current_period_->psshSets_[ses].pssh_ == "FILE")
       {
         kodi::Log(ADDON_LOG_DEBUG, "Searching PSSH data in FILE");
 
         if (license_data_.empty())
         {
-          Session::STREAM stream(*adaptiveTree_, adaptiveTree_->psshSets_[ses].adaptation_set_->type_);
-          stream.stream_.prepare_stream(adaptiveTree_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, std::map<std::string, std::string>());
+          Session::STREAM stream(*adaptiveTree_, adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_->type_);
+          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, media_headers_);
 
           stream.enabled = true;
-          stream.stream_.start_stream(0, width_, height_);
+          stream.stream_.start_stream(~0, width_, height_, play_timeshift_buffer_);
           stream.stream_.select_stream(true, false, stream.info_.m_pID >> 16);
 
           stream.input_ = new AP4_DASHStream(&stream.stream_);
@@ -2236,10 +2263,10 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
             if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
             {
               init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
-              if (adaptiveTree_->psshSets_[ses].defaultKID_.empty())
+              if (adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty())
               {
                 if (pssh[i]->GetKid(0))
-                  adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)pssh[i]->GetKid(0), 16);
+                  adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ = std::string((const char*)pssh[i]->GetKid(0), 16);
                 else if (AP4_Track *track = movie->GetTrack(TIDC[stream.stream_.get_type()]))
                 {
                   AP4_ProtectedSampleDescription *m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(track->GetSampleDescription(0));
@@ -2248,12 +2275,12 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
                   {
                     AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
                     if (tenc)
-                      adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)tenc->GetDefaultKid(), 16);
+                      adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ = std::string((const char*)tenc->GetDefaultKid(), 16);
                     else
                     {
                       AP4_PiffTrackEncryptionAtom* piff(AP4_DYNAMIC_CAST(AP4_PiffTrackEncryptionAtom, schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
                       if (piff)
-                        adaptiveTree_->psshSets_[ses].defaultKID_ = std::string((const char*)piff->GetDefaultKid(), 16);
+                        adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ = std::string((const char*)piff->GetDefaultKid(), 16);
                     }
                   }
                 }
@@ -2269,9 +2296,9 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
           }
           stream.disable();
         }
-        else if (!adaptiveTree_->psshSets_[ses].defaultKID_.empty())
+        else if (!adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty())
         {
-          init_data.SetData((AP4_Byte*)adaptiveTree_->psshSets_[ses].defaultKID_.data(), 16);
+          init_data.SetData((AP4_Byte*)adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data(), 16);
 
           uint8_t ld[1024];
           unsigned int ld_size(1014);
@@ -2298,11 +2325,12 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
           {
             if (license_data_.empty())
               license_data_ = "e0tJRH0="; // {KID}
-            create_ism_license(adaptiveTree_->psshSets_[ses].defaultKID_, license_data_, init_data);
+            create_ism_license(adaptiveTree_->current_period_->psshSets_[ses].defaultKID_, license_data_, init_data);
           }
           else
           {
-            init_data.SetData(reinterpret_cast<const uint8_t*>(adaptiveTree_->psshSets_[ses].pssh_.data()), adaptiveTree_->psshSets_[ses].pssh_.size());
+            init_data.SetData(reinterpret_cast<const uint8_t*>(adaptiveTree_->current_period_->psshSets_[ses].pssh_.data()),
+              adaptiveTree_->current_period_->psshSets_[ses].pssh_.size());
             optionalKeyParameter = license_data_.empty() ? nullptr : license_data_.c_str();
           }
         }
@@ -2310,20 +2338,24 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         {
           init_data.SetBufferSize(1024);
           unsigned int init_data_size(1024);
-          b64_decode(adaptiveTree_->psshSets_[ses].pssh_.data(), adaptiveTree_->psshSets_[ses].pssh_.size(), init_data.UseData(), init_data_size);
+          b64_decode(adaptiveTree_->current_period_->psshSets_[ses].pssh_.data(),
+            adaptiveTree_->current_period_->psshSets_[ses].pssh_.size(),
+            init_data.UseData(), init_data_size);
           init_data.SetDataSize(init_data_size);
         }
       }
 
       CDMSESSION &session(cdm_sessions_[ses]);
-      const char *defkid = adaptiveTree_->psshSets_[ses].defaultKID_.empty() ? nullptr : adaptiveTree_->psshSets_[ses].defaultKID_.data();
+      const char *defkid = adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty()
+        ? nullptr
+        : adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data();
       session.single_sample_decryptor_ = nullptr;
       session.shared_single_sample_decryptor_ = false;
 
       if (decrypter_ && defkid)
       {
         char hexkid[36];
-        AP4_FormatHex(reinterpret_cast<const AP4_UI08*>(defkid), 16, hexkid), hexkid[32]=0;
+        AP4_FormatHex(reinterpret_cast<const AP4_UI08*>(defkid), 16, hexkid), hexkid[32] = 0;
         kodi::Log(ADDON_LOG_DEBUG, "Initializing stream with KID: %s", hexkid);
 
         for (unsigned int i(1); i < ses; ++i)
@@ -2337,7 +2369,7 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       else if (!defkid)
       {
         for (unsigned int i(1); i < ses; ++i)
-          if (adaptiveTree_->psshSets_[ses].pssh_ == adaptiveTree_->psshSets_[i].pssh_)
+          if (adaptiveTree_->current_period_->psshSets_[ses].pssh_ == adaptiveTree_->current_period_->psshSets_[i].pssh_)
           {
             session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
             session.shared_single_sample_decryptor_ = true;
@@ -2354,17 +2386,17 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         decrypter_->GetCapabilities(
           session.single_sample_decryptor_,
           (const uint8_t *)defkid,
-          adaptiveTree_->psshSets_[ses].media_,
+          adaptiveTree_->current_period_->psshSets_[ses].media_,
           session.decrypter_caps_);
 
         if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID)
-          adaptiveTree_->RemovePSSHSet(static_cast<std::uint16_t>(ses));
+          adaptiveTree_->current_period_->RemovePSSHSet(static_cast<std::uint16_t>(ses));
         else if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session_ = true;
           // Override this setting by information passed in manifest
-          if (!adaptiveTree_->need_secure_decoder_)
+          if (!adaptiveTree_->current_period_->need_secure_decoder_)
             session.decrypter_caps_.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
       }
@@ -2385,21 +2417,29 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     if (adp->representations_.empty())
       continue;
 
-    size_t repId = manual_streams_ ? adp->representations_.size() : 0;
+    bool manual_streams = adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO ? manual_streams_ != 0 : manual_streams_ == 1;
+
+    const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->representations_[0]->get_psshset()));
+
+    uint32_t hdcpLimit(caps.hdcpLimit);
+    uint16_t hdcpVersion(caps.hdcpVersion);
+
+    if (hdcpOverride)
+    {
+      hdcpLimit = 0;
+      hdcpVersion = 99;
+    }
+
+    // Select good video stream
+    adaptive::AdaptiveStream defaultVideoStream(*adaptiveTree_, adaptive::AdaptiveTree::StreamType::VIDEO);
+    if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO && manual_streams_ == 2)
+      defaultVideoStream.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, 0, media_headers_);
+
+    size_t repId = manual_streams ? adp->representations_.size() : 0;
 
     do {
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
-      const SSD::SSD_DECRYPTER::SSD_CAPS &caps(GetDecrypterCaps(adp->representations_[0]->get_psshset()));
-
-      uint32_t hdcpLimit(caps.hdcpLimit);
-      uint16_t hdcpVersion(caps.hdcpVersion);
-
-      if (hdcpOverride)
-      {
-        hdcpLimit = 0;
-        hdcpVersion = 99;
-      }
 
       stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
       stream.info_.m_flags = INPUTSTREAM_INFO::FLAG_NONE;
@@ -2410,6 +2450,8 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       {
       case adaptive::AdaptiveTree::VIDEO:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+        if (manual_streams && stream.stream_.getRepresentation() == defaultVideoStream.getRepresentation())
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
         break;
       case adaptive::AdaptiveTree::AUDIO:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
@@ -2422,6 +2464,8 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
         break;
       case adaptive::AdaptiveTree::SUBTITLE:
         stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
+        if (adp->impaired_)
+          stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_HEARING_IMPAIRED;
         if (adp->forced_)
           stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_FORCED;
         if (adp->default_)
@@ -2440,7 +2484,7 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
       UpdateStream(stream, caps);
 
-    } while (repId-- != (manual_streams_? 1 : 0));
+    } while (repId-- != (manual_streams ? 1 : 0));
   }
   return true;
 }
@@ -2484,9 +2528,16 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   strncpy(stream.info_.m_codecInternalName, rep->codecs_.c_str(), pos);
   stream.info_.m_codecInternalName[pos] = 0;
   stream.info_.m_codecFourCC = 0;
+
+#if INPUTSTREAM_VERSION_LEVEL > 0
+  stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNSPECIFIED;
+  stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
+  stream.info_.m_colorPrimaries = INPUTSTREAM_INFO::COLORPRIMARY_UNSPECIFIED;
+  stream.info_.m_colorTransferCharacteristic = INPUTSTREAM_INFO::COLORTRC_UNSPECIFIED;
+#else
   stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNKNOWN;
   stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
-
+#endif
   if (rep->codecs_.find("mp4a") == 0
   || rep->codecs_.find("aac") == 0)
     strcpy(stream.info_.m_codecName, "aac");
@@ -2505,7 +2556,18 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "hevc");
   }
   else if (rep->codecs_.find("vp9") == 0 || rep->codecs_.find("vp09") == 0)
+  {
     strcpy(stream.info_.m_codecName, "vp9");
+#if INPUTSTREAM_VERSION_LEVEL > 0
+    if ((pos = rep->codecs_.find(".")) != std::string::npos)
+      stream.info_.m_codecProfile = static_cast<STREAMCODEC_PROFILE>(VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1)));
+#endif
+  }
+  else if (rep->codecs_.find("dvhe") == 0)
+  {
+    strcpy(stream.info_.m_codecName, "hevc");
+    stream.info_.m_codecFourCC = MKTAG('d', 'v', 'h', 'e');
+  }
   else if (rep->codecs_.find("opus") == 0)
     strcpy(stream.info_.m_codecName, "opus");
   else if (rep->codecs_.find("vorbis") == 0)
@@ -2576,6 +2638,41 @@ AP4_Movie *Session::PrepareStream(STREAM *stream)
   return nullptr;
 }
 
+void Session::EnableStream(STREAM* stream, bool enable)
+{
+  if (enable)
+  {
+    if (!timing_stream_)
+      timing_stream_ = stream;
+    stream->enabled = true;
+  }
+  else
+  {
+    if (stream == timing_stream_)
+      timing_stream_ = nullptr;
+    stream->disable();
+  }
+}
+
+uint64_t Session::PTSToElapsed(uint64_t pts)
+{
+  if (timing_stream_)
+  {
+    uint64_t manifest_time = (pts - timing_stream_->reader_->GetPTSDiff() > 0) ? pts - timing_stream_->reader_->GetPTSDiff() : 0;
+    return (manifest_time > timing_stream_->stream_.GetAbsolutePTSOffset()) ? manifest_time - timing_stream_->stream_.GetAbsolutePTSOffset() : 0ULL;
+  }
+  else
+    return pts;
+}
+
+uint64_t Session::GetTimeshiftBufferStart()
+{
+  if (timing_stream_)
+    return timing_stream_->stream_.GetAbsolutePTSOffset() + timing_stream_->reader_->GetPTSDiff();
+  else
+    return 0ULL;
+}
+
 SampleReader *Session::GetNextSample()
 {
   STREAM *res(0), *waiting(0);
@@ -2597,7 +2694,7 @@ SampleReader *Session::GetNextSample()
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
-      elapsed_time_ = res->reader_->Elapsed(res->stream_.GetAbsolutePTSOffset());
+      elapsed_time_ = PTSToElapsed(res->reader_->PTS()) + chapter_start_time_;
     return res->reader_;
   }
   else if (waiting)
@@ -2616,6 +2713,29 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   if (seekTime < 0)
     seekTime = 0;
 
+  // Check if we leave our current period
+  double chapterTime(0);
+  std::vector<adaptive::AdaptiveTree::Period *>::const_iterator pi;
+  for (pi = adaptiveTree_->periods_.cbegin(); pi != adaptiveTree_->periods_.cend(); ++pi)
+  {
+    chapterTime += double((*pi)->duration_) / (*pi)->timescale_;
+    if (chapterTime > seekTime)
+      break;
+  }
+
+  if (pi == adaptiveTree_->periods_.end())
+    --pi;
+  chapterTime -= double((*pi)->duration_) / (*pi)->timescale_;
+
+  if ((*pi) != adaptiveTree_->current_period_)
+  {
+    SeekChapter((pi - adaptiveTree_->periods_.begin()) + 1);
+    chapter_seek_time_ = seekTime;
+    return true;
+  }
+
+  seekTime -= chapterTime;
+
   if (adaptiveTree_->has_timeshift_buffer_)
   {
     uint64_t curTime, maxTime(0);
@@ -2629,12 +2749,23 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     }
   }
 
+  uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE);
+  if (timing_stream_)
+  {
+    seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
+    int64_t ptsDiff = timing_stream_->reader_->GetPTSDiff();
+    if (ptsDiff < 0 && seekTimeCorrected + ptsDiff > seekTimeCorrected)
+      seekTimeCorrected = 0;
+    else
+      seekTimeCorrected += ptsDiff;
+
+  }
+
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
       bool bReset;
-      uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE) + (*b)->stream_.GetAbsolutePTSOffset();
-      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeCorrected) / DVD_TIME_BASE, preceeding, bReset))
+      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) / DVD_TIME_BASE, preceeding, bReset))
       {
         if (bReset)
           (*b)->reader_->Reset(false);
@@ -2642,10 +2773,11 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
           (*b)->reader_->Reset(true);
         else
         {
-          double destTime(static_cast<double>((*b)->reader_->Elapsed((*b)->stream_.GetAbsolutePTSOffset())) / DVD_TIME_BASE);
-          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.1lf) for Stream:%d continues at %0.1lf", seekTime, (*b)->info_.m_pID, destTime);
+          double destTime(static_cast<double>(PTSToElapsed((*b)->reader_->PTS())) / DVD_TIME_BASE);
+          kodi::Log(ADDON_LOG_INFO, "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)",
+            seekTime, (*b)->info_.m_pID, destTime, (*b)->reader_->PTS());
           if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
-            seekTime = destTime, preceeding = false;
+            seekTime = destTime, seekTimeCorrected = (*b)->reader_->PTS(), preceeding = false;
           ret = true;
         }
       }
@@ -2688,8 +2820,8 @@ void Session::CheckFragmentDuration(STREAM &stream)
 const AP4_UI08 *Session::GetDefaultKeyId(const uint16_t index) const
 {
   static const AP4_UI08 default_key[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
-  if (adaptiveTree_->psshSets_[index].defaultKID_.size() == 16)
-    return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->psshSets_[index].defaultKID_.data());
+  if (adaptiveTree_->current_period_->psshSets_[index].defaultKID_.size() == 16)
+    return reinterpret_cast<const AP4_UI08 *>(adaptiveTree_->current_period_->psshSets_[index].defaultKID_.data());
   return default_key;
 }
 
@@ -2752,7 +2884,7 @@ uint32_t Session::GetIncludedStreamMask() const
   const INPUTSTREAM_INFO::STREAM_TYPE adp2ips[] = { INPUTSTREAM_INFO::TYPE_NONE, INPUTSTREAM_INFO::TYPE_VIDEO, INPUTSTREAM_INFO::TYPE_AUDIO, INPUTSTREAM_INFO::TYPE_SUBTITLE};
   uint32_t res(0);
   for (unsigned int i(0); i < 4; ++i)
-    if (adaptiveTree_->included_types_ & (1U << i))
+    if (adaptiveTree_->current_period_->included_types_ & (1U << i))
       res |= (1U << adp2ips[i]);
   return res;
 }
@@ -2767,6 +2899,64 @@ CRYPTO_INFO::CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE;
 }
 
+int Session::GetChapter() const
+{
+  if (adaptiveTree_)
+  {
+    std::vector<adaptive::AdaptiveTree::Period *>::const_iterator res = std::find(
+      adaptiveTree_->periods_.cbegin(),
+      adaptiveTree_->periods_.cend(),
+      adaptiveTree_->current_period_);
+    if (res != adaptiveTree_->periods_.cend())
+      return (res - adaptiveTree_->periods_.cbegin()) + 1;
+  }
+  return -1;
+}
+
+int Session::GetChapterCount() const
+{
+  if (adaptiveTree_)
+    return adaptiveTree_->periods_.size() > 1 ? adaptiveTree_->periods_.size() : 0;
+  return 0;
+}
+
+const char* Session::GetChapterName(int ch) const
+{
+  --ch;
+  if (ch >=0 && ch < static_cast<int>(adaptiveTree_->periods_.size()))
+    return adaptiveTree_->periods_[ch]->id_.c_str();
+  return "[Unknown]";
+}
+
+int64_t Session::GetChapterPos(int ch) const
+{
+  int64_t sum(0);
+  --ch;
+
+  for (; ch; --ch)
+    sum += (adaptiveTree_->periods_[ch - 1]->duration_ * DVD_TIME_BASE) / adaptiveTree_->periods_[ch - 1]->timescale_;
+  return sum / DVD_TIME_BASE;
+}
+
+bool Session::SeekChapter(int ch)
+{
+  if (adaptiveTree_->next_period_)
+    return true;
+
+  --ch;
+  if (ch >= 0 && ch < static_cast<int>(adaptiveTree_->periods_.size())
+    && adaptiveTree_->periods_[ch] != adaptiveTree_->current_period_)
+  {
+    adaptiveTree_->next_period_ = adaptiveTree_->periods_[ch];
+    for (STREAM *stream : streams_)
+      if (stream->reader_)
+        stream->reader_->Reset(true);
+
+    return true;
+  }
+
+  return false;
+}
 
 /***************************  Interface *********************************/
 
@@ -2784,12 +2974,12 @@ public:
   CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive *parent);
   virtual ~CVideoCodecAdaptive();
 
-  virtual bool Open(VIDEOCODEC_INITDATA &initData) override;
-  virtual bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
-  virtual bool AddData(const DemuxPacket &packet) override;
-  virtual VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
-  virtual const char *GetName() override { return m_name.c_str(); };
-  virtual void Reset() override;
+  bool Open(VIDEOCODEC_INITDATA &initData) override;
+  bool Reconfigure(VIDEOCODEC_INITDATA &initData) override;
+  bool AddData(const DemuxPacket &packet) override;
+  VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE &picture) override;
+  const char *GetName() override { return m_name.c_str(); };
+  void Reset() override;
 
 private:
   enum STATE : unsigned int
@@ -2810,25 +3000,33 @@ class CInputStreamAdaptive
   : public kodi::addon::CInstanceInputStream
 {
 public:
-  CInputStreamAdaptive(KODI_HANDLE instance);
-  virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+  CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion);
+  ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
 
-  virtual bool Open(INPUTSTREAM& props) override;
-  virtual void Close() override;
-  virtual struct INPUTSTREAM_IDS GetStreamIds() override;
-  virtual void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
-  virtual struct INPUTSTREAM_INFO GetStream(int streamid) override;
-  virtual void EnableStream(int streamid, bool enable) override;
-  virtual bool OpenStream(int streamid) override;
-  virtual DemuxPacket* DemuxRead() override;
-  virtual bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
-  virtual void SetVideoResolution(int width, int height) override;
-  virtual bool PosTime(int ms) override;
-  virtual int GetTotalTime() override;
-  virtual int GetTime() override;
-  virtual bool CanPauseStream() override;
-  virtual bool CanSeekStream() override;
-  virtual bool IsRealTimeStream() override;
+  bool Open(INPUTSTREAM& props) override;
+  void Close() override;
+  struct INPUTSTREAM_IDS GetStreamIds() override;
+  void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
+  struct INPUTSTREAM_INFO GetStream(int streamid) override;
+  void EnableStream(int streamid, bool enable) override;
+  bool OpenStream(int streamid) override;
+  DemuxPacket* DemuxRead() override;
+  bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
+  void SetVideoResolution(int width, int height) override;
+  bool PosTime(int ms) override;
+  int GetTotalTime() override;
+  int GetTime() override;
+  bool CanPauseStream() override;
+  bool CanSeekStream() override;
+  bool IsRealTimeStream() override;
+
+#if INPUTSTREAM_VERSION_LEVEL > 1
+  int GetChapter() override;
+  int GetChapterCount() override;
+  const char* GetChapterName(int ch) override;
+  int64_t GetChapterPos(int ch) override;
+  bool SeekChapter(int ch) override;
+#endif
 
   std::shared_ptr<Session> GetSession() { return m_session; };
 
@@ -2836,10 +3034,16 @@ private:
   std::shared_ptr<Session> m_session;
   int m_width, m_height;
   uint16_t m_IncludedStreams[16];
+  bool m_checkChapterSeek = false;
+  bool m_playTimeshiftBuffer = false;
 };
 
-CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance)
+CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion)
+#if INPUTSTREAM_VERSION_LEVEL > 1
+  : CInstanceInputStream(instance, kodiVersion)
+#else
   : CInstanceInputStream(instance)
+#endif
   , m_session(nullptr)
   , m_width(1280)
   , m_height(720)
@@ -2862,6 +3066,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
   const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup(""), *ov_audio(""), *mru("");
+  uint32_t mrt = 0;
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
@@ -2919,11 +3124,27 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       mpd_url = mpd_url.substr(0, mpd_url.find("|"));
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.original_audio_language") == 0)
+    {
       ov_audio = props.m_ListItemProperties[i].m_strValue;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.original_audio_language: %s", ov_audio);
+    }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.media_renewal_url") == 0)
+    {  
       mru = props.m_ListItemProperties[i].m_strValue;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_url: %s", mru);
+    }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.media_renewal_time") == 0)
+    {
+      mrt = atoi(props.m_ListItemProperties[i].m_strValue);
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_time: %d", mrt);
+    }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.max_bandwidth") == 0)
+    {
       max_user_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.max_bandwidth: %d", max_user_bandwidth);
+    }
+    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.play_timeshift_buffer") == 0)
+      m_playTimeshiftBuffer = stricmp(props.m_ListItemProperties[i].m_strValue, "true") == 0;
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -2951,12 +3172,14 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     ld,
     lsc,
     mru,
+    mrt,
     manh,
     medh,
     props.m_profileFolder,
     m_width,
     m_height,
-    ov_audio));
+    ov_audio,
+    m_playTimeshiftBuffer));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->initialize(config, max_user_bandwidth))
@@ -2980,22 +3203,24 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
 
   if(m_session)
   {
-      iids.m_streamCount = 0;
-      for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+    int chapter = m_session->GetChapter();
+    iids.m_streamCount = 0;
+
+    for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+    {
+      uint8_t cdmId(static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
+      if (m_session->GetStream(i)->valid
+        && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type()))
       {
-        uint8_t cdmId(static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
-        if (m_session->GetStream(i)->valid
-          && (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << m_session->GetStream(i)->stream_.get_type()))
+        if (m_session->GetMediaTypeMask() != 0xFF)
         {
-          if (m_session->GetMediaTypeMask() != 0xFF)
-          {
-            const adaptive::AdaptiveTree::Representation *rep(m_session->GetStream(i)->stream_.getRepresentation());
-            if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
-              continue;
-          }
-          iids.m_streamIds[iids.m_streamCount++] = i;
+          const adaptive::AdaptiveTree::Representation *rep(m_session->GetStream(i)->stream_.getRepresentation());
+          if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+            continue;
         }
+        iids.m_streamIds[iids.m_streamCount++] = i + chapter * 1000;
       }
+    }
   } else
       iids.m_streamCount = 0;
   return iids;
@@ -3009,6 +3234,9 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES &caps)
     INPUTSTREAM_CAPABILITIES::SUPPORTS_IPOSTIME |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK |
     INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
+#if INPUTSTREAM_VERSION_LEVEL > 1
+  caps.m_mask |= INPUTSTREAM_CAPABILITIES::SUPPORTS_ICHAPTER;
+#endif
 }
 
 struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
@@ -3021,7 +3249,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
 
-  Session::STREAM *stream(m_session->GetStream(streamid));
+  Session::STREAM *stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
 
   if (stream)
   {
@@ -3054,7 +3282,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
   if (!m_session)
     return;
 
-  Session::STREAM *stream(m_session->GetStream(streamid));
+  Session::STREAM *stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
 
   if (!enable && stream && stream->enabled)
   {
@@ -3067,7 +3295,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
     const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
     if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
       m_IncludedStreams[stream->info_.m_streamType] = 0;
-    stream->disable();
+    m_session->EnableStream(stream, false);
   }
 }
 
@@ -3079,14 +3307,14 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (!m_session)
     return false;
 
-  Session::STREAM *stream(m_session->GetStream(streamid));
+  Session::STREAM *stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
 
   if (!stream || stream->enabled)
     return false;
 
   stream->enabled = true;
 
-  stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight());
+  stream->stream_.start_stream(~0, m_session->GetVideoWidth(), m_session->GetVideoHeight(), m_playTimeshiftBuffer);
   const adaptive::AdaptiveTree::Representation *rep(stream->stream_.getRepresentation());
 
   // If we select a dummy (=inside video) stream, open the video part
@@ -3179,9 +3407,14 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     AP4_Track *track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
     if (!track)
     {
-      kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-      stream->disable();
-      return false;
+      if (stream->stream_.get_type() == adaptive::AdaptiveTree::SUBTITLE)
+        track = movie->GetTrack(AP4_Track::TYPE_TEXT);
+      if (!track)
+      {
+        kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
+        stream->disable();
+        return false;
+      }
     }
 
     stream->reader_ = new FragmentedSampleReader(stream->input_, movie, track, streamid,
@@ -3200,9 +3433,10 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       if (m_IncludedStreams[i])
       {
         stream->reader_->AddStreamType(static_cast<INPUTSTREAM_INFO::STREAM_TYPE>(i), m_IncludedStreams[i]);
-        stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i])->info_);
+        stream->reader_->GetInformation(m_session->GetStream(m_IncludedStreams[i] - m_session->GetChapter() * 1000)->info_);
       }
   }
+  m_session->EnableStream(stream, true);
   return stream->reader_->GetInformation(stream->info_);
 }
 
@@ -3211,6 +3445,16 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 {
   if (!m_session)
     return NULL;
+
+  if (m_checkChapterSeek)
+  {
+    m_checkChapterSeek = false;
+    if (m_session->GetChapterSeekTime() > 0)
+    {
+      m_session->SeekTime(m_session->GetChapterSeekTime());
+      m_session->ResetChapterSeekTime();
+    }
+  }
 
   SampleReader *sr(m_session->GetNextSample());
 
@@ -3248,8 +3492,8 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 
     if (iSize)
     {
-      p->dts = static_cast<double>(sr->DTS());
-      p->pts = static_cast<double>(sr->PTS());
+      p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
+      p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
       p->duration = static_cast<double>(sr->GetDuration());
       p->iStreamId = sr->GetStreamId();
       p->iGroupId = 0;
@@ -3260,6 +3504,19 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
     //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
     sr->ReadSample();
+    return p;
+  }
+
+  int currentChapter = m_session->GetChapter();
+  if (m_session->SeekChapter(currentChapter + 1))
+  {
+    m_checkChapterSeek = true;
+    for (unsigned int i(1); i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+      EnableStream(i + currentChapter * 1000, false);
+    m_session->InitializePeriod();
+    DemuxPacket *p = AllocateDemuxPacket(0);
+    p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
+    kodi::Log(ADDON_LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
     return p;
   }
   return NULL;
@@ -3326,6 +3583,32 @@ bool CInputStreamAdaptive::IsRealTimeStream()
   return m_session && m_session->IsLive();
 }
 
+#if INPUTSTREAM_VERSION_LEVEL > 1
+int CInputStreamAdaptive::GetChapter()
+{
+  return m_session ? m_session->GetChapter() : 0;
+}
+
+int CInputStreamAdaptive::GetChapterCount()
+{
+  return m_session ? m_session->GetChapterCount() : 0;
+}
+
+const char* CInputStreamAdaptive::GetChapterName(int ch)
+{
+  return m_session ? m_session->GetChapterName(ch) : 0;
+}
+
+int64_t CInputStreamAdaptive::GetChapterPos(int ch)
+{
+  return m_session ? m_session->GetChapterPos(ch) : 0;
+}
+
+bool CInputStreamAdaptive::SeekChapter(int ch)
+{
+  return m_session ? m_session->SeekChapter(ch) : false;
+}
+#endif
 /*****************************************************************************************************/
 
 CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance)
@@ -3442,7 +3725,8 @@ class CMyAddon
 public:
   CMyAddon();
   virtual ~CMyAddon();
-  virtual ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+  ADDON_STATUS CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance) override;
+  ADDON_STATUS CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version) override;
 };
 
 CMyAddon::CMyAddon()
@@ -3457,9 +3741,14 @@ CMyAddon::~CMyAddon()
 
 ADDON_STATUS CMyAddon::CreateInstance(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance)
 {
+  return CreateInstanceEx(instanceType, instanceID, instance, addonInstance, "");
+}
+
+ADDON_STATUS CMyAddon::CreateInstanceEx(int instanceType, std::string instanceID, KODI_HANDLE instance, KODI_HANDLE& addonInstance, const std::string &version)
+{
   if (instanceType == ADDON_INSTANCE_INPUTSTREAM)
   {
-    addonInstance = new CInputStreamAdaptive(instance);
+    addonInstance = new CInputStreamAdaptive(instance, version);
     kodihost = new KodiHost();
     return ADDON_STATUS_OK;
   }

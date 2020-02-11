@@ -17,104 +17,128 @@
 */
 
 #include "WebVTT.h"
+#include "../helpers.h"
 #include <cstring>
 
-bool WebVTT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
+bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
 {
-  bool webvtt_visited(false);
-  bool wait_start(true);
-
-  m_pos =  ~0;
   m_seekTime = 0;
-  m_subTitles.clear();
   m_timescale = timescale;
   m_ptsOffset = ptsOffset;
+  if (pts < ptsOffset)
+    pts += ptsOffset;
 
   const char *cbuf(reinterpret_cast<const char*>(buffer)), *cbufe(cbuf + buffer_size);
-  std::string strText;
 
-  while (cbuf != cbufe)
+  if (buffer_size >= 8 && (memcmp(cbuf + 4, "vtte", 4) == 0 || memcmp(cbuf + 4, "vttc", 4) == 0))
   {
-    const char *next(strchr(cbuf, '\n'));
-    if (!next)
-      next = cbufe;
-  
-    if (webvtt_visited)
+    if (memcmp(cbuf + 4, "vtte", 4) == 0)
     {
-      if (wait_start)
+      if (!m_subTitles.empty() && !~m_subTitles.back().end)
+        m_subTitles.back().end = pts;
+    }
+    else if (memcmp(cbuf + 4, "vttc", 4) == 0)
+    {
+      if (memcmp(cbuf + 12, "payl", 4) == 0)
+        cbuf += 4, buffer_size -= 4;
+
+      std::string text(cbuf + 12, buffer_size - 12);
+      if (m_subTitles.empty() || text != m_subTitles.back().text[0])
       {
-        unsigned int thb, tmb, tsb, tmsb, the, tme, tse, tmse;
-        char delb, dele;
+        m_subTitles.push_back(SUBTITLE(pts));
+        m_subTitles.back().text.push_back(text);
+      }
+    }
+  }
+  else
+  {
+    m_subTitles.clear();
+    bool webvtt_visited(false);
+    bool wait_start(true);
+    std::string strText;
+    m_pos =  ~0;
 
-        if (sscanf(cbuf, "%u:%u:%u%c%u --> %u:%u:%u%c%u", &thb, &tmb, &tsb, &delb, &tmsb, &the, &tme, &tse, &dele, &tmse) == 10)
+    while (cbuf != cbufe)
+    {
+      const char *next(strchr(cbuf, '\n'));
+      if (!next)
+        next = cbufe;
+
+      if (webvtt_visited)
+      {
+        if (wait_start)
         {
-          m_subTitles.push_back(SUBTITLE());
-          SUBTITLE &sub(m_subTitles.back());
+          unsigned int thb, tmb, tsb, tmsb, the, tme, tse, tmse;
+          char delb, dele;
 
-          sub.start = thb * 3600 + tmb * 60 + tsb;
-          sub.start = sub.start * 1000 + tmsb;
-          sub.start = (sub.start * m_timescale) / 1000;
-
-          sub.end = the * 3600 + tme * 60 + tse;
-          sub.end = sub.end * 1000 + tmse;
-          sub.end = (sub.end * m_timescale) / 1000;
-
-          if (sub.start < m_ptsOffset)
+          if (sscanf(cbuf, "%u:%u:%u%c%u --> %u:%u:%u%c%u", &thb, &tmb, &tsb, &delb, &tmsb, &the, &tme, &tse, &dele, &tmse) == 10)
           {
-            sub.start += m_ptsOffset;
-            sub.end += m_ptsOffset;
+            m_subTitles.push_back(SUBTITLE());
+            SUBTITLE &sub(m_subTitles.back());
+
+            sub.start = thb * 3600 + tmb * 60 + tsb;
+            sub.start = sub.start * 1000 + tmsb;
+            sub.start = (sub.start * m_timescale) / 1000;
+
+            sub.end = the * 3600 + tme * 60 + tse;
+            sub.end = sub.end * 1000 + tmse;
+            sub.end = (sub.end * m_timescale) / 1000;
+
+            if (sub.start < m_ptsOffset)
+            {
+              sub.start += m_ptsOffset;
+              sub.end += m_ptsOffset;
+            }
+
+            if (strText.empty())
+              sub.id = std::string(cbuf, 12);
+            else
+              sub.id = strText;
+
+            if (sub.id == m_lastId)
+              m_pos = m_subTitles.size() - 1;
+
+            wait_start = false;
           }
-
-          if (strText.empty())
-            sub.id = std::string(cbuf, 12);
           else
-            sub.id = strText;
-          
-          if (sub.id == m_lastId)
-            m_pos = m_subTitles.size() - 1;
-
-          wait_start = false;
+          {
+            strText = std::string(cbuf, next - cbuf);
+            if (!strText.empty() && strText.back() == '\r')
+              strText.resize(strText.size() - 1);
+          }
         }
         else
         {
           strText = std::string(cbuf, next - cbuf);
           if (!strText.empty() && strText.back() == '\r')
             strText.resize(strText.size() - 1);
+          replaceAll(strText, "&lrm;", "\xE2\x80\xAA", true);
+          replaceAll(strText, "&rlm;", "\xE2\x80\xAB", true);
+          if (!strText.empty())
+            m_subTitles.back().text.push_back(strText);
+          else
+            wait_start = true;
         }
       }
       else
       {
-        strText = std::string(cbuf, next - cbuf);
-        if (!strText.empty() && strText.back() == '\r')
-          strText.resize(strText.size() -1);
-        if (strText.find("&rlm;", 0, 5) == 0)
-          strText.replace(0, 5, "\0xE2\0x80\0xAB");
-        else if (strText.find("&lrm;", 0, 5) == 0)
-          strText.replace(0, 5, "\0xE2\0x80\0xAA");
-        if (!strText.empty())
-          m_subTitles.back().text.push_back(strText);
-        else
-          wait_start = true;
+        //TODO: BOM
+        while (cbuf < next && *cbuf != 'W')
+          ++cbuf;
+        if (strncmp(cbuf, "WEBVTT", 6) == 0)
+          webvtt_visited = true;
       }
-    }
-    else
-    {
-      //TODO: BOM
-      while (cbuf < next && *cbuf != 'W')
-        ++cbuf;
-      if (strncmp(cbuf, "WEBVTT", 6) == 0)
-        webvtt_visited = true;
-    }
-  
-    cbuf = next;
-    if (cbuf != cbufe)
-      ++cbuf;
-  }
 
-  if (!~m_pos || m_pos == m_subTitles.size())
-    m_pos = 0;
-  else
-    ++m_pos;
+      cbuf = next;
+      if (cbuf != cbufe)
+        ++cbuf;
+    }
+
+    if (!~m_pos || m_pos >= m_subTitles.size())
+      m_pos = 0;
+    else
+      ++m_pos;
+  }
 
   m_lastId.clear();
   
@@ -129,7 +153,7 @@ bool WebVTT::Prepare(uint64_t &pts, uint32_t &duration)
     m_seekTime = 0;
   }
 
-  if (m_pos >= m_subTitles.size())
+  if (m_pos >= m_subTitles.size() || !~m_subTitles[m_pos].end)
     return false;
 
   SUBTITLE &sub(m_subTitles[m_pos++]);

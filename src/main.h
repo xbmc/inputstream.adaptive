@@ -87,20 +87,34 @@ public:
     const char* strLicData,
     const char* strCert,
     const char* strMediaRenewalUrl,
+    const uint32_t intMediaRenewalTime,
     const std::map<std::string, std::string> &manifestHeaders,
     const std::map<std::string, std::string> &mediaHeaders,
     const char* profile_path,
     uint16_t display_width,
     uint16_t display_height,
-    const char *ov_audio);
+    const char *ov_audio,
+    bool play_timeshift_buffer);
   virtual ~Session();
   bool initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
+  bool InitializePeriod();
   SampleReader *GetNextSample();
 
   struct STREAM
   {
-    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false), valid(true) { memset(&info_, 0, sizeof(info_)); };
-    ~STREAM() { disable(); free((void*)info_.m_ExtraData); };
+    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false), valid(true)
+    {
+      memset(&info_, 0, sizeof(info_));
+    };
+    ~STREAM()
+    {
+      disable();
+      free((void*)info_.m_ExtraData), info_.m_ExtraData = nullptr;
+#if INPUTSTREAM_VERSION_LEVEL > 0
+      delete info_.m_masteringMetadata, info_.m_masteringMetadata = nullptr;
+      delete info_.m_contentLightMetadata, info_.m_contentLightMetadata = nullptr;
+#endif
+    };
     void disable();
 
     bool enabled, encrypted;
@@ -118,7 +132,8 @@ public:
   void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
   AP4_Movie *PrepareStream(STREAM *stream);
 
-  STREAM *GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  STREAM* GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  void EnableStream(STREAM* stream, bool enable);
   unsigned int GetStreamCount() const { return streams_.size(); };
   const char *GetCDMSession(int nSet) { return cdm_sessions_[nSet].cdm_session_str_; };;
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
@@ -130,6 +145,8 @@ public:
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
   uint64_t GetTotalTimeMs()const { return adaptiveTree_->overallSeconds_ * 1000; };
   uint64_t GetElapsedTimeMs()const { return elapsed_time_ / 1000; };
+  uint64_t PTSToElapsed(uint64_t pts);
+  uint64_t GetTimeshiftBufferStart();
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
@@ -139,6 +156,15 @@ public:
   uint32_t GetIncludedStreamMask() const;
   CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
+  int GetChapter() const;
+  int GetChapterCount() const;
+  const char* GetChapterName(int ch) const;
+  int64_t GetChapterPos(int ch) const;
+  bool SeekChapter(int ch);
+  uint64_t GetChapterStartTime() { return chapter_start_time_; };
+  double GetChapterSeekTime() { return chapter_seek_time_; };
+  void ResetChapterSeekTime() { chapter_seek_time_ = 0; };
+
   //Observer Section
   void OnSegmentChanged(adaptive::AdaptiveStream *stream) override;
   void OnStreamChange(adaptive::AdaptiveStream *stream) override;
@@ -146,6 +172,7 @@ public:
 protected:
   void CheckFragmentDuration(STREAM &stream);
   void GetSupportedDecrypterURN(std::string &key_system);
+  void DisposeSampleDecrypter();
   void DisposeDecrypter();
 
 private:
@@ -172,13 +199,18 @@ private:
   adaptive::AdaptiveTree *adaptiveTree_;
 
   std::vector<STREAM*> streams_;
+  STREAM* timing_stream_;
 
   uint16_t width_, height_;
   int max_resolution_, max_secure_resolution_;
   uint32_t fixed_bandwidth_;
+  uint32_t maxUserBandwidth_;
   bool changed_;
-  bool manual_streams_;
-  uint64_t elapsed_time_;
+  int manual_streams_;
+  uint64_t elapsed_time_, chapter_start_time_; // In DVD_TIME_BASE
+  double chapter_seek_time_; // In seconds
   uint8_t media_type_mask_;
+  uint8_t drmConfig_;
   bool ignore_display_;
+  bool play_timeshift_buffer_;
 };
