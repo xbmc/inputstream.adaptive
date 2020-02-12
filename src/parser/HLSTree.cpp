@@ -549,9 +549,6 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         overallSeconds_ = 0;
         for (auto p : periods_)
           overallSeconds_ += p->duration_ / p->timescale_;
-        current_period_ = starting_period;
-        current_adaptationset_ = current_period_->adaptationSets_[adp_pos];
-        current_representation_ = current_adaptationset_->representations_[rep_pos];
       }
       else
         overallSeconds_ = newSegments[0] ? (pts - newSegments[0]->startPTS_) / rep->timescale_ : 0;
@@ -581,6 +578,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 
       if (segmentInitialization)
         std::swap(rep->initialization_, newInitialization);
+
+      if (discont_count)
+      {
+        current_period_ = starting_period;
+        current_adaptationset_ = current_period_->adaptationSets_[adp_pos];
+        current_representation_ = current_adaptationset_->representations_[rep_pos];
+      }
     }
 
     if (update)
