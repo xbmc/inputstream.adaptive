@@ -481,6 +481,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           segment.range_end_ = 0;
           segment.startPTS_ = ~0ULL;
           segment.pssh_set_ = 0;
+          newStartNumber = 0;
+          pts = 0;
         }
         else if (line.compare(0, 11, "#EXT-X-KEY:") == 0)
         {
