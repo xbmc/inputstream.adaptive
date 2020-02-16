@@ -315,7 +315,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     if (!effective_url_.empty() && download_url.find(base_url_) == 0)
       download_url.replace(0, base_url_.size(), effective_url_);
 
-    if (download(download_url.c_str(), manifest_headers_, &stream, false))
+    if (rep->flags_ & Representation::DOWNLOADED)
+      ;
+    else if (download(download_url.c_str(), manifest_headers_, &stream, false))
     {
 #if FILEDEBUG
       FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -545,16 +547,6 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           }
         }
       }
-      if (discont_count)
-      {
-        periods_[discont_count]->duration_ = pts - newSegments[0]->startPTS_;
-        overallSeconds_ = 0;
-        for (auto p : periods_)
-          overallSeconds_ += p->duration_ / p->timescale_;
-      }
-      else
-        overallSeconds_ = newSegments[0] ? (pts - newSegments[0]->startPTS_) / rep->timescale_ : 0;
-
       if (!byteRange)
         rep->flags_ |= Representation::URLSEGMENTS;
 
@@ -583,9 +575,23 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 
       if (discont_count)
       {
+        periods_[discont_count]->duration_ = pts - rep->segments_[0]->startPTS_;
+        overallSeconds_ = 0;
+        for (auto p : periods_)
+        {
+          overallSeconds_ += p->duration_ / p->timescale_;
+          if (!has_timeshift_buffer_ && !m_refreshPlayList)
+            p->adaptationSets_[adp_pos]->representations_[rep_pos]->flags_ |= Representation::DOWNLOADED;
+        }
         current_period_ = starting_period;
         current_adaptationset_ = current_period_->adaptationSets_[adp_pos];
         current_representation_ = current_adaptationset_->representations_[rep_pos];
+      }
+      else
+      {
+        overallSeconds_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;
+        if (!has_timeshift_buffer_ && !m_refreshPlayList)
+          rep->flags_ |= Representation::DOWNLOADED;
       }
     }
 
