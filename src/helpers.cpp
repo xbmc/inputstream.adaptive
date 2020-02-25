@@ -191,12 +191,13 @@ void replaceAll(std::string& s, const std::string& from, const std::string& to, 
     if (isFirstReplaced)
     {
       s.replace(pos, from.length(), "");
-      isFirstReplaced = true;
     }
     else
     {
       s.replace(pos, from.length(), to);
       pos += to.length();
+      if (nextEmpty)
+          isFirstReplaced = true;
     }
   }
 }
