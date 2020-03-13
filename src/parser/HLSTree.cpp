@@ -326,8 +326,10 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 #endif
       bool byteRange(false);
       bool segmentInitialization(false);
+      bool hasMap(false);
       std::string line;
       std::string base_url;
+      std::string map_url;
 
       std::map<std::string, std::string> map;
       bool startCodeFound(false);
@@ -457,8 +459,12 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           rep->startNumber_ = newStartNumber;
 
           if (segmentInitialization)
+          {
             std::swap(rep->initialization_, newInitialization);
-
+            // EXT-X-MAP init url must persist to next period until overrided by new tag
+            newInitialization.url = new char[map_url.size() + 1];
+            memcpy((char*)newInitialization.url, map_url.c_str(), map_url.size() + 1);
+          }
           if (periods_.size() == ++discont_count)
           {
             manifest_stream.clear();
@@ -485,6 +491,11 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           segment.pssh_set_ = 0;
           newStartNumber = 0;
           pts = 0;
+          if (segmentInitialization && !map_url.empty())
+          {
+            rep->flags_ |= Representation::INITIALIZATION;
+            rep->containerType_ = CONTAINERTYPE_MP4;
+          }
         }
         else if (line.compare(0, 11, "#EXT-X-KEY:") == 0)
         {
@@ -525,25 +536,26 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           if (!map["URI"].empty())
           {
             if (!map["BYTERANGE"].empty())
-            {
               continue;
-            }
+            // delete init url if persisted from previous period
+            if (hasMap)
+              delete[] newInitialization.url;
             segmentInitialization = true;
             std::string uri = map["URI"];
-            std::string url;
             if (uri[0] == '/')
-              url = base_domain_ + map["URI"];
+              map_url = base_domain_ + map["URI"];
             else if (uri.find("://", 0) == std::string::npos)
-              url = base_url + uri;
+              map_url = base_url + uri;
             else
-              url = uri;
-            newInitialization.url = new char[url.size() + 1];
-            memcpy((char*)newInitialization.url, url.c_str(), url.size() + 1);
+              map_url = uri;
+            newInitialization.url = new char[map_url.size() + 1];
+            memcpy((char*)newInitialization.url, map_url.c_str(), map_url.size() + 1);
             newInitialization.range_begin_ = ~0ULL;
             newInitialization.startPTS_ = ~0ULL;
             newInitialization.pssh_set_ = 0;
             rep->flags_ |= Representation::INITIALIZATION;
             rep->containerType_ = CONTAINERTYPE_MP4;
+            hasMap = true;
           }
         }
       }
