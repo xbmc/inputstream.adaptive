@@ -102,4 +102,8 @@ msgstr "Βίντεο"
 
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Χειροκίνητο βίντεο"
+msgstr "Δείξε όλες τις ροές βίντεο"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr "Βίντεο + Υπότιτλοι"
