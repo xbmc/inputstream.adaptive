@@ -1,0 +1,110 @@
+# Kodi Media Center language file
+# Addon Name: Inputstream.adaptive
+# Addon id: inputstream.adaptive
+# Addon Provider: peak3d
+# Romanian translator: tmihai20
+
+msgid ""
+msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ro\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30100"
+msgid "General"
+msgstr "General"
+
+msgctxt "#30101"
+msgid "Min. Bandwidth (Bit/s)"
+msgstr "Lățimea minimă de bandă (Bit/s)"
+
+msgctxt "#30102"
+msgid "Max. Bandwidth (Bit/s)"
+msgstr "Lățimea maximă de bandă nu ar trebui depășită. 0=nelimitată"
+
+msgctxt "#30103"
+msgid "Decrypter path"
+msgstr "Calea absolută către directorul care conține decriptorii"
+
+msgctxt "#30110"
+msgid "Max. Resolution general decoder"
+msgstr "Rezolution maximă"
+
+msgctxt "#30111"
+msgid "Stream Selection"
+msgstr "Selectarea fluxului"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "Media"
+
+msgctxt "#30113"
+msgid "Max. Resolution secure decoder"
+msgstr "Rezoluția maximă admisă cu decodare printr-o cale sigură"
+
+msgctxt "#30114"
+msgid "Override HDCP status"
+msgstr "Selectați fluxurile fără a respecta statusul HDCP"
+
+msgctxt "#30115"
+msgid "Ignore Display Resolution"
+msgstr "Nu respectați rezoluția de afișare la selectarea fluxurilor"
+
+msgctxt "#30120"
+msgid "Expert"
+msgstr "Expert"
+
+msgctxt "#30121"
+msgid "Enable Pre-Release Features"
+msgstr "Activează caracteristici experimentale"
+
+msgctxt "#30150"
+msgid "Max"
+msgstr "Maxim"
+
+msgctxt "#30151"
+msgid "480p"
+msgstr "480p"
+
+msgctxt "#30152"
+msgid "640p"
+msgstr "640p"
+
+msgctxt "#30153"
+msgid "720p"
+msgstr "720p"
+
+msgctxt "#30154"
+msgid "1080p"
+msgstr "1080p"
+
+msgctxt "#30155"
+msgid "Auto"
+msgstr "Automatic"
+
+msgctxt "#30156"
+msgid "Manual"
+msgstr "Manual"
+
+msgctxt "#30157"
+msgid "All"
+msgstr "Toate"
+
+msgctxt "#30158"
+msgid "Audio"
+msgstr "Audio"
+
+msgctxt "#30159"
+msgid "Video"
+msgstr "Video"
+
+msgctxt "#30160"
+msgid "Manual video"
+msgstr "Arată toate fluxurile video"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr "Video și subtitrări"
