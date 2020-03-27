@@ -6,6 +6,7 @@
 msgid ""
 msgstr ""
 
+"Last-Translator: roliverosc\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -18,7 +19,7 @@ msgstr "General"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Min. Ancho de banda (Bit/s)"
+msgstr "Mín. Ancho de banda (Bit/s)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
@@ -26,7 +27,7 @@ msgstr "Máx. Ancho de banda (Bit/s)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Ruta decodificador"
+msgstr "Ruta descodificador"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
@@ -42,7 +43,7 @@ msgstr "Medio"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Max. Resolución decodificación segura"
+msgstr "Máx. Resolución descodificación segura"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
@@ -58,7 +59,7 @@ msgstr "Experto"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Habilitar funciones pre-releases"
+msgstr "Habilitar funciones Pre-releases"
 
 msgctxt "#30150"
 msgid "Max"
@@ -99,3 +100,11 @@ msgstr "Audio"
 msgctxt "#30159"
 msgid "Video"
 msgstr "Vídeo"
+
+msgctxt "#30160"
+msgid "Manual video"
+msgstr "Mostrar todos los flujos"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr "Vídeo + Subtítulos"
