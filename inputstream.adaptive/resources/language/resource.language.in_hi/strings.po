@@ -1,0 +1,105 @@
+# Kodi Media Center language file
+# Addon Name: Inputstream.adaptive
+# Addon id: inputstream.adaptive
+# Addon Provider: peak3d
+
+msgid ""
+msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: hi\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30100"
+msgid "General"
+msgstr "सामान्य"
+
+msgctxt "#30101"
+msgid "Min. Bandwidth (Bit/s)"
+msgstr "न्यूनतम बैंडविड्थ (बिट/सेकंड)"
+
+msgctxt "#30102"
+msgid "Max. Bandwidth (Bit/s)"
+msgstr "अधिकतम बैंडविड्थ (बिट/सेकंड)"
+
+msgctxt "#30103"
+msgid "Decrypter path"
+msgstr "डिक्रिप्ट पथ"
+
+msgctxt "#30110"
+msgid "Max. Resolution general decoder"
+msgstr "अधिकतम उत्तमता सामान्य विकोडक"
+
+msgctxt "#30111"
+msgid "Stream Selection"
+msgstr "वीडियो उत्तमता चयन"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "संचार माध्यम"
+
+msgctxt "#30113"
+msgid "Max. Resolution secure decoder"
+msgstr "अधिकतम उत्तमता सुरक्षित विकोडक"
+
+msgctxt "#30114"
+msgid "Override HDCP status"
+msgstr "रद्द/बदले HDCP स्थिति "
+
+msgctxt "#30115"
+msgid "Ignore Display Resolution"
+msgstr "नज़रअंदाज़ करे प्रदर्शित रेसोलुशन"
+
+msgctxt "#30120"
+msgid "Expert"
+msgstr "विशेषज्ञ"
+
+msgctxt "#30121"
+msgid "Enable Pre-Release Features"
+msgstr "पूर्व-रिलीज़ सुविधाएँ सक्षम करें"
+
+msgctxt "#30150"
+msgid "Max"
+msgstr "ज़्यादा से ज़्यादा"
+
+msgctxt "#30151"
+msgid "480p"
+msgstr "480p"
+
+msgctxt "#30152"
+msgid "640p"
+msgstr "640p"
+
+msgctxt "#30153"
+msgid "720p"
+msgstr "720p"
+
+msgctxt "#30154"
+msgid "1080p"
+msgstr "1080p"
+
+msgctxt "#30155"
+msgid "Auto"
+msgstr "स्वचालित"
+
+msgctxt "#30156"
+msgid "Manual"
+msgstr "हाथ से"
+
+msgctxt "#30157"
+msgid "All"
+msgstr "सब"
+
+msgctxt "#30158"
+msgid "Audio"
+msgstr "ऑडियो"
+
+msgctxt "#30159"
+msgid "Video"
+msgstr "वीडियो"
+
+msgctxt "#30160"
+msgid "Manual video"
+msgstr "मैनुअल वीडियो"
