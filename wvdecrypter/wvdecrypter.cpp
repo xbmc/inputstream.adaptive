@@ -1285,12 +1285,12 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
     cdm_in.iv = sample->iv;
     cdm_in.iv_size = sample->iv ? 16 : 0;
     cdm_in.timestamp = sample->pts;
-    cdm_in.encryption_scheme = cdm::EncryptionScheme::kCenc;
+    cdm_in.encryption_scheme = sample->kid ? cdm::EncryptionScheme::kCenc : cdm::EncryptionScheme::kUnencrypted;
     cdm_in.pattern = { 0,0 };
 
-    uint8_t unencryptedKID = 0x31;
-    cdm_in.key_id = sample->kid ? sample->kid : &unencryptedKID;
-    cdm_in.key_id_size = sample->kid ? 16 : 1;
+    uint8_t unencryptedKID [] = { 0 };
+    cdm_in.key_id = sample->kid ? sample->kid : unencryptedKID;
+    cdm_in.key_id_size = sample->kid ? 16 : 0;
 
     if (sample->dataSize)
       drained_ = false;
@@ -1313,7 +1313,7 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
     {
       if (ret == cdm::Status::kNoKey)
       {
-        char buf[36]; buf[32] = 0;
+        char buf[36]; buf[0] = buf[32] = 0;
         AP4_FormatHex(cdm_in.key_id, cdm_in.key_id_size, buf);
         Log(SSD_HOST::LL_ERROR, "DecodeVideo: kNoKey for key %s", buf);
         return VC_EOF;
