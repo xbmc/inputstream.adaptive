@@ -103,3 +103,7 @@ msgstr "ビデオ"
 msgctxt "#30160"
 msgid "Manual video"
 msgstr "ビデオ手動選択"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr ""

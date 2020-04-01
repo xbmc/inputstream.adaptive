@@ -65,19 +65,19 @@ msgstr "Max"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Auto"
@@ -106,4 +106,3 @@ msgstr "Minden videó stream mutatása"
 msgctxt "#30161"
 msgid "Video + Subtitles"
 msgstr "Videó + feliratok"
-

@@ -2,67 +2,71 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
-
 msgid ""
 msgstr ""
-
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: ru\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n>=2 && n<=4 ? 1 : 2);\n"
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Language-Team: \n"
+"X-Generator: Poedit 2.2.4\n"
+"Last-Translator: Matej Moško <kamosko@panakrala.sk>\n"
+"Language: sk_SK\n"
 
 msgctxt "#30100"
 msgid "General"
-msgstr "Общие"
+msgstr "Všeobecné"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Мин. пропускная способность (Бит/с)"
+msgstr "Min. Šírka Pásma (Bit/s)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Макс. пропускная способность (Бит/с)"
+msgstr "Max. Šírka Pásma (Bit/s)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Путь к декодеру"
+msgstr "Cesta k Dekóderu"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Макс. разрешение общего декодера"
+msgstr "Max. Rozlíšenie Základného Dekódera"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Выбор потока"
+msgstr "Výber Videostreamu"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr "Медиа"
+msgstr "Médiá"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Макс. разрешение защищенного декодера"
+msgstr "Max. Rozlíšenie bezpečného dekódera"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Переопределить статус HDCP"
+msgstr "Obísť HDCP status"
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Игнорировать разрешение экрана"
+msgstr "Ignorovať Rozlíšenie Obrazovky"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr "Экспертные"
+msgstr "Expertné"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Включить предрелизные возможности"
+msgstr "Povoliť Experimentálne Funkcie"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr "Макс"
+msgstr "Maximum"
 
 msgctxt "#30151"
 msgid "480p"
@@ -82,28 +86,28 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Auto"
-msgstr "Авто"
+msgstr "Automaticky"
 
 msgctxt "#30156"
 msgid "Manual"
-msgstr "Вручную"
+msgstr "Ručne"
 
 msgctxt "#30157"
 msgid "All"
-msgstr "Все"
+msgstr "Všetko"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr "Аудио"
+msgstr "Zvuk"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr "Видео"
+msgstr "Video"
 
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Видео вручную"
+msgstr "Video ručne"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr "Видео + субтитры"
+msgstr "Video + Titulky"

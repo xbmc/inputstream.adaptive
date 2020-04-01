@@ -2,6 +2,7 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
+# Romanian translator: tmihai20
 
 msgid ""
 msgstr ""
@@ -9,60 +10,60 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: ru\n"
+"Language: ro\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgctxt "#30100"
 msgid "General"
-msgstr "Общие"
+msgstr "General"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Мин. пропускная способность (Бит/с)"
+msgstr "Lățimea minimă de bandă (Bit/s)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Макс. пропускная способность (Бит/с)"
+msgstr "Lățimea maximă de bandă nu ar trebui depășită. 0=nelimitată"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Путь к декодеру"
+msgstr "Calea absolută către directorul care conține decriptorii"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Макс. разрешение общего декодера"
+msgstr "Rezolution maximă"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Выбор потока"
+msgstr "Selectarea fluxului"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr "Медиа"
+msgstr "Media"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Макс. разрешение защищенного декодера"
+msgstr "Rezoluția maximă admisă cu decodare printr-o cale sigură"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Переопределить статус HDCP"
+msgstr "Selectați fluxurile fără a respecta statusul HDCP"
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Игнорировать разрешение экрана"
+msgstr "Nu respectați rezoluția de afișare la selectarea fluxurilor"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr "Экспертные"
+msgstr "Expert"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Включить предрелизные возможности"
+msgstr "Activează caracteristici experimentale"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr "Макс"
+msgstr "Maxim"
 
 msgctxt "#30151"
 msgid "480p"
@@ -82,28 +83,28 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Auto"
-msgstr "Авто"
+msgstr "Automatic"
 
 msgctxt "#30156"
 msgid "Manual"
-msgstr "Вручную"
+msgstr "Manual"
 
 msgctxt "#30157"
 msgid "All"
-msgstr "Все"
+msgstr "Toate"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr "Аудио"
+msgstr "Audio"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr "Видео"
+msgstr "Video"
 
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Видео вручную"
+msgstr "Arată toate fluxurile video"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr "Видео + субтитры"
+msgstr "Video și subtitrări"

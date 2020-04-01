@@ -26,7 +26,6 @@ msgstr "La bande passante maximale qui ne devrait pas être dépassée. 0=illimi
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Absolute path to the folder containing the decrypters"
 msgstr "Chemin absolu du répertoire contenant le décodeur"
 
 msgctxt "#30110"
@@ -51,7 +50,6 @@ msgstr "Sélection du flux sans tenir compte du status HDCP"
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Do not respect display resolution when selecting streams"
 msgstr "Ne pas tenir compte de la résolution d'écran lors de la sélection du flux"
 
 msgctxt "#30120"
@@ -105,3 +103,7 @@ msgstr "Vidéo"
 msgctxt "#30160"
 msgid "Manual video"
 msgstr "Montrer tous les flux vidéo"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr ""
