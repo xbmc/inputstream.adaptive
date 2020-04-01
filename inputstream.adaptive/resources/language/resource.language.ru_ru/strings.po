@@ -1,4 +1,4 @@
-﻿# Kodi Media Center language file
+# Kodi Media Center language file
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
@@ -66,19 +66,19 @@ msgstr "Макс"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Auto"
@@ -103,3 +103,7 @@ msgstr "Видео"
 msgctxt "#30160"
 msgid "Manual video"
 msgstr "Видео вручную"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr "Видео + субтитры"
