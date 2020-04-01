@@ -229,7 +229,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
       current_representation_->codecs_ = getVideoCodec("");
       current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
       if (!effective_url_.empty())
-        current_representation_->source_url_ = effective_url_ + "/" + effective_filename_;
+        current_representation_->source_url_ = effective_url_ + effective_filename_;
       else
         current_representation_->source_url_ = url;
       current_adaptationset_->representations_.push_back(current_representation_);
