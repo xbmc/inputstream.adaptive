@@ -101,3 +101,7 @@ msgstr "Video"
 msgctxt "#30160"
 msgid "Manual video"
 msgstr "Ručni video"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr ""

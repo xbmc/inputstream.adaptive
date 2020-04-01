@@ -16,41 +16,48 @@ msgctxt "#30100"
 msgid "General"
 msgstr ""
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "The minimum bandwidth which should not be deceeded."
+msgstr ""
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "The maximum bandwidth which should not be exeeded. 0=unlimited"
+msgstr ""
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Absolute path to the folder containing the decrypters"
+msgstr ""
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maximum Resolution"
+msgstr ""
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Stream Selection"
+msgstr ""
 
 msgctxt "#30112"
 msgid "Media"
-msgstr "Media"
+msgstr ""
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maximum allowed resolution if decoded through secure path"
+msgstr ""
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Select streams without respecting HDCP status"
+msgstr ""
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Do not respect display resolution when selecting streams"
+msgstr ""
 
 msgctxt "#30120"
 msgid "Expert"
@@ -100,9 +107,10 @@ msgctxt "#30159"
 msgid "Video"
 msgstr ""
 
+# Show all video streams
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Show all video streams"
+msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
