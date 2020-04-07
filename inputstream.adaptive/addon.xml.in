@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.5.4"
+  version="2.5.5"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -17,6 +17,10 @@
     <description lang="en">InputStream client for adaptive streams</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.5.5 (2020-04-06)
+- Matrix API change - Remove CanPauseSteram() and CanSeekStream()
+- Update .gitignore
+
 v2.5.4 (2020-01-19)
 - [HLS] url based initialization segment
 - [DASH] Use effective URL for manifest update
