@@ -31,7 +31,7 @@ std::string ToDecimal(const uint8_t *data, size_t data_size);
 std::string b64_encode(unsigned char const* in, unsigned int in_len, bool urlEncode);
 
 bool replace(std::string& s, const std::string& from, const std::string& to);
-void replaceAll(std::string& s, const std::string& from, const std::string& to);
+void replaceAll(std::string& s, const std::string& from, const std::string& to, bool nextEmpty);
 
 std::vector<std::string> split(const std::string& s, char seperator);
 

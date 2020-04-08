@@ -179,6 +179,7 @@ public:
     static const uint16_t ENABLED = 256;
     static const uint16_t WAITFORSEGMENT = 512;
     static const uint16_t INITIALIZATION_PREFIXED = 1024;
+    static const uint16_t DOWNLOADED = 2048;
 
     uint16_t flags_;
     uint16_t hdcpVersion_;
