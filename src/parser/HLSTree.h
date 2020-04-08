@@ -30,6 +30,12 @@ namespace adaptive
   class HLSTree : public AdaptiveTree
   {
   public:
+    enum
+    {
+      ENCRYPTIONTYPE_CLEAR = 0,
+      ENCRYPTIONTYPE_AES128 = 1,
+      ENCRYPTIONTYPE_WIDEVINE = 2
+    };
     HLSTree(AESDecrypter *decrypter) : AdaptiveTree(), m_decrypter(decrypter) {};
     virtual ~HLSTree();
 

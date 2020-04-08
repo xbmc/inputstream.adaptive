@@ -2,72 +2,67 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
+
 msgid ""
 msgstr ""
-"Project-Id-Version: inputstream.adaptive\n"
-"POT-Creation-Date: \n"
-"PO-Revision-Date: 2020-03-28 19:02+0100\n"
-"Last-Translator: arvvoid\n"
-"Language-Team: Croatian\n"
-"Language: hr_HR\n"
+
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
-"X-Generator: Poedit 2.3\n"
+"Language: hi\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgctxt "#30100"
 msgid "General"
-msgstr "Opće"
+msgstr "सामान्य"
 
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Minimalna propusnost (bit/s)"
+msgstr "न्यूनतम बैंडविड्थ (बिट/सेकंड)"
 
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Maksimalna propusnost (bit/s)"
+msgstr "अधिकतम बैंडविड्थ (बिट/सेकंड)"
 
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Apsolutni put do mape koja sadrži dekripter"
+msgstr "डिक्रिप्ट पथ"
 
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maksimalna rezolucija opći dekoder"
+msgstr "अधिकतम उत्तमता सामान्य विकोडक"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Odabir stream-a"
+msgstr "वीडियो उत्तमता चयन"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr "Mediji"
+msgstr "संचार माध्यम"
 
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maksimalna rezolucija za sigurni dekoder"
+msgstr "अधिकतम उत्तमता सुरक्षित विकोडक"
 
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Zanemari HDCP status"
+msgstr "रद्द/बदले HDCP स्थिति "
 
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Zanemari rezoluciju ekrana"
+msgstr "नज़रअंदाज़ करे प्रदर्शित रेसोलुशन"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr "Stručnjak"
+msgstr "विशेषज्ञ"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Omogući eksperimentalne značajke"
+msgstr "पूर्व-रिलीज़ सुविधाएँ सक्षम करें"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr "Maks"
+msgstr "ज़्यादा से ज़्यादा"
 
 msgctxt "#30151"
 msgid "480p"
@@ -87,28 +82,24 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Auto"
-msgstr "Auto"
+msgstr "स्वचालित"
 
 msgctxt "#30156"
 msgid "Manual"
-msgstr "Ručno"
+msgstr "हाथ से"
 
 msgctxt "#30157"
 msgid "All"
-msgstr "Sve"
+msgstr "सब"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr "Audio"
+msgstr "ऑडियो"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr "Video"
+msgstr "वीडियो"
 
 msgctxt "#30160"
 msgid "Manual video"
-msgstr "Ručni izbor videa"
-
-msgctxt "#30161"
-msgid "Video + Subtitles"
-msgstr "Video + Titlovi"
+msgstr "मैनुअल वीडियो"

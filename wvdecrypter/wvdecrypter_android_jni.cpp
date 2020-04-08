@@ -424,7 +424,13 @@ RETRY_OPEN:
   memcpy(session_id_char_, session_id_.data(), session_id_.size());
   session_id_char_[session_id_.size()] = 0;
 
-  Log(SSD_HOST::LL_DEBUG, "SessionId: %s, SecurityLevel: %d, MaxSecurityLevel: %d", session_id_char_, media_drm_.GetMediaDrm()->getSecurityLevel(session_id_), media_drm_.GetMediaDrm()->getMaxSecurityLevel());
+  int securityLevel = media_drm_.GetMediaDrm()->getSecurityLevel(session_id_);
+  xbmc_jnienv()->ExceptionClear();
+  int maxSecuritylevel = media_drm_.GetMediaDrm()->getMaxSecurityLevel();
+  xbmc_jnienv()->ExceptionClear();
+
+  Log(SSD_HOST::LL_DEBUG, "SessionId: %s, SecurityLevel: %d, MaxSecurityLevel: %d",
+    session_id_char_, securityLevel, maxSecuritylevel);
 }
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
