@@ -1,24 +1,45 @@
 # build artifacts
-./build/
+build/
+inputstream.*/addon.xml
+
+# Debian build files
 debian/changelog
 debian/files
-debian/kodi-inputstream-mpd-dbg.debhelper.log
-debian/kodi-inputstream-mpd-dbg.substvars
-debian/kodi-inputstream-mpd-dbg/
-debian/kodi-inputstream-mpd.debhelper.log
-debian/kodi-inputstream-mpd.postinst.debhelper
-debian/kodi-inputstream-mpd.postrm.debhelper
-debian/kodi-inputstream-mpd.substvars
-debian/kodi-inputstream-mpd/
+debian/*.log
+debian/*.substvars
+debian/.debhelper/
 debian/tmp/
+debian/kodi-pvr-*/
 obj-x86_64-linux-gnu/
-inputstream.adaptive/addon.xml
-inputstream.adaptive/resources/settings.xml
+
+# commonly used editors
+# vim
+*.swp
+
+# Eclipse
+*.project
+*.cproject
+.classpath
+*.sublime-*
+.settings/
+
+# KDevelop 4
+*.kdev4
+
+# gedit
+*~
+
+# CLion
+/.idea
 
 # clion
 .idea/
 
-# Eclipse/CDT
-.cproject
-.project
-.settings/
+# to prevent add after a "git format-patch VALUE" and "git add ." call
+/*.patch
+
+# Visual Studio Code
+.vscode
+
+# to prevent add if project code opened by Visual Studio over CMake file
+.vs/

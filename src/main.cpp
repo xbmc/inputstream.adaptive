@@ -3016,8 +3016,6 @@ public:
   bool PosTime(int ms) override;
   int GetTotalTime() override;
   int GetTime() override;
-  bool CanPauseStream() override;
-  bool CanSeekStream() override;
   bool IsRealTimeStream() override;
 
 #if INPUTSTREAM_VERSION_LEVEL > 1
@@ -3566,16 +3564,6 @@ int CInputStreamAdaptive::GetTime()
 
   int timeMs = static_cast<int>(m_session->GetElapsedTimeMs());
   return timeMs;
-}
-
-bool CInputStreamAdaptive::CanPauseStream(void)
-{
-  return true;
-}
-
-bool CInputStreamAdaptive::CanSeekStream(void)
-{
-  return m_session && !m_session->IsLive();
 }
 
 bool CInputStreamAdaptive::IsRealTimeStream()
