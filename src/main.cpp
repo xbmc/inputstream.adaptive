@@ -2615,6 +2615,13 @@ AP4_Movie *Session::PrepareStream(STREAM *stream)
       AP4_AvccAtom *atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
       sample_descryption = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
     }
+    else if (strcmp(stream->info_.m_codecName, "hevc") == 0)
+    {
+      const std::string &extradata(stream->stream_.getRepresentation()->codec_private_data_);
+      AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
+      AP4_HvccAtom *atom = AP4_HvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
+      sample_descryption = new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->info_.m_Width, stream->info_.m_Height, 0, nullptr, atom);
+    }
     else if (strcmp(stream->info_.m_codecName, "srt") == 0)
       sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES, AP4_SAMPLE_FORMAT_STPP, 0);
     else
