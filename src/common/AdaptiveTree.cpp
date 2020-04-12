@@ -198,6 +198,82 @@ namespace adaptive
       return current_period_->InsertPSSHSet(nullptr);
   }
 
+  void AdaptiveTree::Representation::CopyBasicData(Representation* src)
+  {
+    url_ = src->url_;
+    id = src->id;
+    codecs_ = src->codecs_;
+    codec_private_data_ = src->codec_private_data_;
+    source_url_ = src->source_url_;
+    bandwidth_ = src->bandwidth_;
+    samplingRate_ = src->samplingRate_;
+    width_ = src->width_;
+    height_ = src->height_;
+    fpsRate_ = src->fpsRate_;
+    aspect_ = src->aspect_;
+    flags_ = src->flags_;
+    hdcpVersion_ = src->hdcpVersion_;
+    channelCount_ = src->channelCount_;
+    nalLengthSize_ = src->nalLengthSize_;
+    containerType_ = src->containerType_;
+    timescale_ = src->timescale_;
+    timescale_ext_ = src->timescale_ext_;
+    timescale_int_ = src->timescale_int_;
+  }
+
+  void AdaptiveTree::AdaptationSet::CopyBasicData(AdaptiveTree::AdaptationSet* src)
+  {
+    representations_.resize(src->representations_.size());
+    auto itRep = src->representations_.begin();
+    for (Representation*& rep : representations_)
+    {
+      rep = new Representation();
+      rep->CopyBasicData(*itRep++);
+    }
+
+    type_ = src->type_;
+    timescale_ = src->timescale_;
+    duration_ = src->duration_;
+    startPTS_ = src->startPTS_;
+    startNumber_ = src->startNumber_;
+    impaired_ = src->impaired_;
+    original_ = src->original_;
+    default_ = src->default_;
+    forced_ = src->forced_;
+    language_ = src->language_;
+    mimeType_ = src->mimeType_;
+    base_url_ = src->base_url_;
+    id_ = src->id_;
+    group_ = src->group_;
+    codecs_ = src->codecs_;
+    audio_track_id_ = src->audio_track_id_;
+    name_ = src->name_;
+  }
+
+  // Create a HLS master playlist copy (no representations)
+  void AdaptiveTree::Period::CopyBasicData(AdaptiveTree::Period* period)
+  {
+    adaptationSets_.resize(period->adaptationSets_.size());
+    auto itAdp = period->adaptationSets_.begin();
+    for (AdaptationSet*& adp : adaptationSets_)
+    {
+      adp = new AdaptationSet();
+      adp->CopyBasicData(*itAdp++);
+    }
+
+    base_url_ = period->base_url_;
+    id_ = period->id_;
+    timescale_ = period->timescale_;
+    startNumber_ = period->startNumber_;
+
+    start_ = period->start_;
+    startPTS_ = period->startPTS_;
+    duration_ = period->duration_;
+    encryptionState_ = period->encryptionState_;
+    included_types_ = period->included_types_;
+    need_secure_decoder_ = period->need_secure_decoder_;
+  }
+
   uint16_t AdaptiveTree::Period::InsertPSSHSet(PSSH* pssh)
   {
     if (pssh)

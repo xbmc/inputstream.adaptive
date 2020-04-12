@@ -119,6 +119,13 @@ public:
     ENCRYTIONSTATE_SUPPORTED = 2
   };
 
+  enum PREPARE_RESULT
+  {
+    PREPARE_RESULT_FAILURE,
+    PREPARE_RESULT_OK,
+    PREPARE_RESULT_DRMCHANGED,
+  };
+
   // Node definition
   struct Segment
   {
@@ -147,6 +154,7 @@ public:
       initialization_.range_begin_ = initialization_.range_end_ = ~0ULL;
       initialization_.url = nullptr;
     };
+    void CopyBasicData(Representation* src);
     ~Representation() {
       if (flags_ & Representation::URLSEGMENTS)
       {
@@ -263,6 +271,7 @@ public:
   {
     AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
+    void CopyBasicData(AdaptationSet* src);
     StreamType type_;
     uint32_t timescale_;
     uint64_t duration_;
@@ -380,7 +389,9 @@ public:
 
     Period() { psshSets_.push_back(PSSH()); };
     ~Period() { for (std::vector<AdaptationSet* >::const_iterator b(adaptationSets_.begin()), e(adaptationSets_.end()); b != e; ++b) delete *b; };
+    void CopyBasicData(Period*);
     uint16_t InsertPSSHSet(PSSH* pssh);
+    void InsertPSSHSet(uint16_t pssh_set) { ++psshSets_[pssh_set].use_count_; };
     void RemovePSSHSet(uint16_t pssh_set);
 
     std::vector<AdaptationSet*> adaptationSets_;
@@ -436,7 +447,10 @@ public:
   virtual ~AdaptiveTree();
 
   virtual bool open(const std::string &url, const std::string &manifestUpdateParam) = 0;
-  virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
+  virtual PREPARE_RESULT prepareRepresentation(Representation* rep, bool update = false)
+  {
+    return PREPARE_RESULT_OK;
+  };
   virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
   virtual void RefreshSegments(Representation *rep, StreamType type) {};
 

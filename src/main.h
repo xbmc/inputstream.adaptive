@@ -96,7 +96,8 @@ public:
     const char *ov_audio,
     bool play_timeshift_buffer);
   virtual ~Session();
-  bool initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
+  bool Initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
+  bool InitializeDRM();
   bool InitializePeriod();
   SampleReader *GetNextSample();
 

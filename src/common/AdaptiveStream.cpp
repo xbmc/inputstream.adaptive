@@ -104,7 +104,7 @@ int AdaptiveStream::SecondsSinceUpdate() const
   return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint).count());
 }
 
-int AdaptiveStream::SecondsSinceMediaRenewal() const
+uint32_t AdaptiveStream::SecondsSinceMediaRenewal() const
 {
   const std::chrono::time_point<std::chrono::system_clock> &tPoint(lastMediaRenewal_ > tree_.GetLastMediaRenewal() ? lastMediaRenewal_ : tree_.GetLastMediaRenewal());
   return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint).count());

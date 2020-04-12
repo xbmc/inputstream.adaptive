@@ -2117,7 +2117,7 @@ void Session::DisposeDecrypter()
 |   initialize
 +---------------------------------------------------------------------*/
 
-bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
+bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 {
   if (!adaptiveTree_)
     return false;
@@ -2147,44 +2147,8 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   return InitializePeriod();
 }
 
-bool Session::InitializePeriod()
+bool Session::InitializeDRM()
 {
-  if (adaptiveTree_->next_period_)
-  {
-    adaptiveTree_->current_period_ = adaptiveTree_->next_period_;
-    adaptiveTree_->next_period_ = nullptr;
-  }
-
-  chapter_start_time_ = 0;
-  for (adaptive::AdaptiveTree::Period* p : adaptiveTree_->periods_)
-    if (p == adaptiveTree_->current_period_)
-      break;
-    else
-      chapter_start_time_ += (p->duration_ * DVD_TIME_BASE) / p->timescale_;
-
-  if (adaptiveTree_->current_period_->encryptionState_ == adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
-  {
-    kodi::Log(ADDON_LOG_ERROR, "Unable to handle decryption. Unsupported!");
-    return false;
-  }
-
-  uint32_t min_bandwidth(0), max_bandwidth(0);
-  {
-    int buf;
-    buf = kodi::GetSettingInt("MINBANDWIDTH"); min_bandwidth = buf;
-    buf = kodi::GetSettingInt("MAXBANDWIDTH"); max_bandwidth = buf;
-  }
-
-  if (max_bandwidth == 0 || (maxUserBandwidth_ && max_bandwidth > maxUserBandwidth_))
-    max_bandwidth = maxUserBandwidth_;
-
-  // create SESSION::STREAM objects. One for each AdaptationSet
-  unsigned int i(0);
-  const adaptive::AdaptiveTree::AdaptationSet *adp;
-
-  for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    SAFE_DELETE(*b);
-  streams_.clear();
   DisposeSampleDecrypter();
 
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
@@ -2409,6 +2373,58 @@ bool Session::InitializePeriod()
       }
     }
   }
+  return true;
+}
+
+bool Session::InitializePeriod()
+{
+  bool psshChanged = true;
+  if (adaptiveTree_->next_period_)
+  {
+    psshChanged =
+        !(adaptiveTree_->current_period_->psshSets_ == adaptiveTree_->next_period_->psshSets_);
+    adaptiveTree_->current_period_ = adaptiveTree_->next_period_;
+    adaptiveTree_->next_period_ = nullptr;
+  }
+
+  chapter_start_time_ = 0;
+  for (adaptive::AdaptiveTree::Period* p : adaptiveTree_->periods_)
+    if (p == adaptiveTree_->current_period_)
+      break;
+    else
+      chapter_start_time_ += (p->duration_ * DVD_TIME_BASE) / p->timescale_;
+
+  if (adaptiveTree_->current_period_->encryptionState_ ==
+      adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
+  {
+    kodi::Log(ADDON_LOG_ERROR, "Unable to handle decryption. Unsupported!");
+    return false;
+  }
+
+  uint32_t min_bandwidth(0), max_bandwidth(0);
+  {
+    int buf;
+    buf = kodi::GetSettingInt("MINBANDWIDTH");
+    min_bandwidth = buf;
+    buf = kodi::GetSettingInt("MAXBANDWIDTH");
+    max_bandwidth = buf;
+  }
+
+  if (max_bandwidth == 0 || (maxUserBandwidth_ && max_bandwidth > maxUserBandwidth_))
+    max_bandwidth = maxUserBandwidth_;
+
+  // create SESSION::STREAM objects. One for each AdaptationSet
+  unsigned int i(0);
+  const adaptive::AdaptiveTree::AdaptationSet* adp;
+
+  for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
+    SAFE_DELETE(*b);
+  streams_.clear();
+
+  if (psshChanged && !InitializeDRM())
+    return false;
+  else if (adaptiveTree_->current_period_->encryptionState_)
+    kodi::Log(ADDON_LOG_DEBUG, "Reusing DRM psshSets for new period!");
 
   bool hdcpOverride = kodi::GetSettingBoolean("HDCPOVERRIDE");
 
@@ -2504,10 +2520,10 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   if (!stream.info_.m_ExtraSize && rep->codec_private_data_.size())
   {
     std::string annexb;
-    const std::string *res(&annexb);
+    const std::string* res(&annexb);
 
-    if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED)
-      && stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+    if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) &&
+        stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
     {
       kodi::Log(ADDON_LOG_DEBUG, "UpdateStream: Convert avc -> annexb");
       annexb = avc_to_annexb(rep->codec_private_data_);
@@ -2538,21 +2554,20 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNKNOWN;
   stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
 #endif
-  if (rep->codecs_.find("mp4a") == 0
-  || rep->codecs_.find("aac") == 0)
+  if (rep->codecs_.find("mp4a") == 0 || rep->codecs_.find("aac") == 0)
     strcpy(stream.info_.m_codecName, "aac");
   else if (rep->codecs_.find("dts") == 0)
     strcpy(stream.info_.m_codecName, "dca");
   else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
     strcpy(stream.info_.m_codecName, "eac3");
-  else if (rep->codecs_.find("avc") == 0
-  || rep->codecs_.find("h264") == 0)
+  else if (rep->codecs_.find("avc") == 0 || rep->codecs_.find("h264") == 0)
     strcpy(stream.info_.m_codecName, "h264");
   else if (rep->codecs_.find("hev") == 0)
     strcpy(stream.info_.m_codecName, "hevc");
   else if (rep->codecs_.find("hvc") == 0)
   {
-    stream.info_.m_codecFourCC = MKTAG(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]);
+    stream.info_.m_codecFourCC =
+        MKTAG(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]);
     strcpy(stream.info_.m_codecName, "hevc");
   }
   else if (rep->codecs_.find("vp9") == 0 || rep->codecs_.find("vp09") == 0)
@@ -2560,7 +2575,8 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "vp9");
 #if INPUTSTREAM_VERSION_LEVEL > 0
     if ((pos = rep->codecs_.find(".")) != std::string::npos)
-      stream.info_.m_codecProfile = static_cast<STREAMCODEC_PROFILE>(VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1)));
+      stream.info_.m_codecProfile = static_cast<STREAMCODEC_PROFILE>(
+          VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1)));
 #endif
   }
   else if (rep->codecs_.find("dvhe") == 0)
@@ -2572,17 +2588,18 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
     strcpy(stream.info_.m_codecName, "opus");
   else if (rep->codecs_.find("vorbis") == 0)
     strcpy(stream.info_.m_codecName, "vorbis");
-  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0 || rep->codecs_.find("wvtt") == 0)
+  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0 ||
+           rep->codecs_.find("wvtt") == 0)
     strcpy(stream.info_.m_codecName, "srt");
   else
     stream.valid = false;
 
   // We support currently only mp4 / ts / adts
-  if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_NOTYPE
-  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4
-  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TS
-  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS
-  && rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
+  if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_NOTYPE &&
+      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4 &&
+      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TS &&
+      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS &&
+      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
     stream.valid = false;
 
   stream.info_.m_FpsRate = rep->fpsRate_;
@@ -2594,8 +2611,19 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
 
 AP4_Movie *Session::PrepareStream(STREAM *stream)
 {
-  if (!adaptiveTree_->prepareRepresentation(const_cast<adaptive::AdaptiveTree::Representation *>(stream->stream_.getRepresentation())))
-    return nullptr;
+  switch (adaptiveTree_->prepareRepresentation(
+      const_cast<adaptive::AdaptiveTree::Representation*>(stream->stream_.getRepresentation())))
+  {
+    case adaptive::AdaptiveTree::PREPARE_RESULT_FAILURE:
+      return nullptr;
+    case adaptive::AdaptiveTree::PREPARE_RESULT_DRMCHANGED:
+      if (!InitializeDRM())
+        return nullptr;
+      stream->encrypted = stream->stream_.getRepresentation()->pssh_set_ > 0;
+      changed_ = true; // force DMX_SPECIALID_STREAMCHANGE;
+      break;
+    default:;
+  }
 
   if (stream->stream_.getRepresentation()->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4
     && (stream->stream_.getRepresentation()->flags_ & adaptive::AdaptiveTree::Representation::INITIALIZATION_PREFIXED) == 0
@@ -3191,7 +3219,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     m_playTimeshiftBuffer));
   m_session->SetVideoResolution(m_width, m_height);
 
-  if (!m_session->initialize(config, max_user_bandwidth))
+  if (!m_session->Initialize(config, max_user_bandwidth))
   {
     m_session = nullptr;
     return false;

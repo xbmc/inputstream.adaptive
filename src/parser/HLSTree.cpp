@@ -83,6 +83,70 @@ HLSTree::~HLSTree()
   delete m_decrypter;
 }
 
+int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::string>& map)
+{
+  if (map["METHOD"] != "NONE")
+  {
+    if (map["METHOD"] != "AES-128" && map["METHOD"] != "SAMPLE-AES-CTR")
+    {
+      Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+      return ENCRYPTIONTYPE_INVALID;
+    }
+    if (map["URI"].empty())
+    {
+      Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+      return ENCRYPTIONTYPE_INVALID;
+    }
+    if (!map["KEYFORMAT"].empty())
+    {
+      if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
+      {
+        if (!map["KEYID"].empty())
+        {
+          std::string keyid = map["KEYID"].substr(2);
+          const char* defaultKID = keyid.c_str();
+          current_defaultKID_.resize(16);
+          for (unsigned int i(0); i < 16; ++i)
+          {
+            current_defaultKID_[i] = HexNibble(*defaultKID) << 4;
+            ++defaultKID;
+            current_defaultKID_[i] |= HexNibble(*defaultKID);
+            ++defaultKID;
+          }
+        }
+        current_pssh_ = map["URI"].substr(23);
+        // Try to get KID from pssh, we assume len+'pssh'+version(0)+systemid+lenkid+kid
+        if (current_defaultKID_.empty() && current_pssh_.size() == 68)
+        {
+          unsigned int bufLen = 52;
+          uint8_t buf[52];
+          b64_decode(current_pssh_.c_str(), current_pssh_.size(), buf, bufLen);
+          if (bufLen == 50)
+            current_defaultKID_ = std::string(reinterpret_cast<const char*>(&buf[34]), 16);
+        }
+        return ENCRYPTIONTYPE_WIDEVINE;
+      }
+    }
+    else
+    {
+      current_pssh_ = map["URI"];
+      if (current_pssh_[0] == '/')
+        current_pssh_ = base_domain_ + current_pssh_;
+      else if (current_pssh_.find("://", 0) == std::string::npos)
+        current_pssh_ = baseUrl + current_pssh_;
+
+      current_iv_ = m_decrypter->convertIV(map["IV"]);
+      return ENCRYPTIONTYPE_AES128;
+    }
+  }
+  else
+  {
+    current_pssh_.clear();
+    return ENCRYPTIONTYPE_CLEAR;
+  }
+  return ENCRYPTIONTYPE_UNKNOWN;
+}
+
 bool HLSTree::open(const std::string &url, const std::string &manifestUpdateParam)
 {
   PreparePaths(url, manifestUpdateParam);
@@ -266,39 +330,20 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
     else if (line.compare(0, 19, "#EXT-X-SESSION-KEY:") == 0)
     {
       parseLine(line, 19, map);
-      if (map["METHOD"] != "NONE")
+      uint32_t encryption_type;
+      switch (encryption_type = processEncryption(base_url_, map))
       {
-        if (map["METHOD"] != "AES-128" && map["METHOD"] != "SAMPLE-AES-CTR")
-        {
-          Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+        case ENCRYPTIONTYPE_INVALID:
           return false;
-        }
-        if (map["URI"].empty())
-        {
-          Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-          return false;
-        }
-        if (!map["KEYFORMAT"].empty())
-        {
-          if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
-          {
-            if (!map["KEYID"].empty())
-            {
-              std::string keyid = map["KEYID"].substr(2);
-              const char *defaultKID = keyid.c_str();
-              current_defaultKID_.resize(16);
-              for (unsigned int i(0); i < 16; ++i)
-              {
-                current_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
-                current_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
-              }
-            }
-            current_pssh_ = map["URI"].substr(23);
-            insert_psshset(NOTYPE);
-            current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-          }
-        }
-      }   
+        case ENCRYPTIONTYPE_AES128:
+        case ENCRYPTIONTYPE_WIDEVINE:
+          master_encryption_type_ = encryption_type;
+          master_pssh_ = current_pssh_;
+          master_defaultKID_ = current_defaultKID_;
+          master_iv_ = current_iv_;
+          break;
+        default:;
+      }
     }
   }
 
@@ -333,7 +378,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
   return true;
 }
 
-bool HLSTree::prepareRepresentation(Representation *rep, bool update)
+HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Representation* rep, bool update)
 {
   if (!rep->source_url_.empty())
   {
@@ -348,6 +393,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     uint32_t rep_pos = ~0U;
     uint32_t discont_count = 0;
     Period* starting_period = current_period_;
+    PREPARE_RESULT retVal = PREPARE_RESULT_OK;
 
     if (!effective_url_.empty() && download_url.find(base_url_) == 0)
       download_url.replace(0, base_url_.size(), effective_url_);
@@ -373,7 +419,18 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       Segment segment;
       uint64_t pts(0);
       newStartNumber = 0;
-      uint32_t currentPsshType = ENCRYPTIONTYPE_CLEAR;
+
+      uint32_t currentEncryptionType = master_encryption_type_;
+      current_pssh_ = master_pssh_;
+      current_defaultKID_ = master_defaultKID_;
+      current_iv_ = master_iv_;
+      if (currentEncryptionType == ENCRYPTIONTYPE_WIDEVINE)
+      {
+        rep->pssh_set_ = insert_psshset(NOTYPE);
+        current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
+        if (current_period_->psshSets_[rep->pssh_set_].use_count_ == 1)
+          retVal = PREPARE_RESULT_DRMCHANGED;
+      }
 
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
@@ -457,6 +514,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
             else
               rep->url_ = url;
           }
+          if (currentEncryptionType == ENCRYPTIONTYPE_AES128)
+          {
+            if (segment.pssh_set_ == 0)
+              segment.pssh_set_ = insert_psshset(NOTYPE);
+            else
+              current_period_->InsertPSSHSet(segment.pssh_set_);
+          }
           newSegments.data.push_back(segment);
           segment.startPTS_ = ~0ULL;
         }
@@ -505,22 +569,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           }
           if (periods_.size() == ++discont_count)
           {
-            manifest_stream.clear();
-            manifest_stream.seekg(0);
-            processManifest(manifest_stream, manifest_url_);
-            if (!current_pssh_.empty())
-            {
-              if (currentPsshType == ENCRYPTIONTYPE_WIDEVINE)
-              {
-                rep->pssh_set_ = insert_psshset(NOTYPE);
-                current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-              }
-              else if (currentPsshType == ENCRYPTIONTYPE_AES128)
-                segment.pssh_set_ = insert_psshset(NOTYPE);
-            }
+            periods_.push_back(new Period());
+            periods_.back()->CopyBasicData(current_period_);
+            current_period_ = periods_.back();
           }
           else
             current_period_ = periods_[discont_count];
+
           if (!(~per_pos))
             for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
               for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
@@ -539,6 +594,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           segment.pssh_set_ = 0;
           newStartNumber = 0;
           pts = 0;
+
+          if (currentEncryptionType == ENCRYPTIONTYPE_WIDEVINE)
+          {
+            rep->pssh_set_ = insert_psshset(NOTYPE);
+            current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
+          }
+
           if (segmentInitialization && !map_url.empty())
           {
             rep->flags_ |= Representation::INITIALIZATION;
@@ -547,60 +609,23 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         }
         else if (line.compare(0, 11, "#EXT-X-KEY:") == 0)
         {
-          if (!rep->pssh_set_)
+          parseLine(line, 11, map);
+          switch (processEncryption(base_url, map))
           {
-            parseLine(line, 11, map);
-            if (map["METHOD"] != "NONE")
-            {
-              if (map["METHOD"] != "AES-128" && map["METHOD"] != "SAMPLE-AES-CTR")
-              {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-                return false;
-              }
-              if (map["URI"].empty())
-              {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-                return false;
-              }
-              if (!map["KEYFORMAT"].empty())
-              {
-                if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
-                {
-                  if (!map["KEYID"].empty())
-                  {
-                    std::string keyid = map["KEYID"].substr(2);
-                    const char *defaultKID = keyid.c_str();
-                    current_defaultKID_.resize(16);
-                    for (unsigned int i(0); i < 16; ++i)
-                    {
-                      current_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
-                      current_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
-                    }
-                  }
-                  current_pssh_ = map["URI"].substr(23);
-                  rep->pssh_set_ = insert_psshset(NOTYPE);
-                  current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-                  currentPsshType = ENCRYPTIONTYPE_WIDEVINE;
-                }
-              }
-              else
-              {
-                current_pssh_ = map["URI"];
-                if (current_pssh_[0] == '/')
-                  current_pssh_ = base_domain_ + current_pssh_;
-                else if (current_pssh_.find("://", 0) == std::string::npos)
-                  current_pssh_ = base_url + current_pssh_;
-
-                current_iv_ = m_decrypter->convertIV(map["IV"]);
-                segment.pssh_set_ = insert_psshset(NOTYPE);
-                currentPsshType = ENCRYPTIONTYPE_AES128;
-              }
-            }
-            else
-            {
-              current_pssh_.clear();
-              currentPsshType = ENCRYPTIONTYPE_CLEAR;
-            }
+            case ENCRYPTIONTYPE_INVALID:
+              return PREPARE_RESULT_FAILURE;
+            case ENCRYPTIONTYPE_AES128:
+              currentEncryptionType = ENCRYPTIONTYPE_AES128;
+              break;
+            case ENCRYPTIONTYPE_WIDEVINE:
+              currentEncryptionType = ENCRYPTIONTYPE_WIDEVINE;
+              current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
+              rep->pssh_set_ = insert_psshset(NOTYPE);
+              if (current_period_->psshSets_[rep->pssh_set_].use_count_ == 1)
+                retVal = PREPARE_RESULT_DRMCHANGED;
+              break;
+            default:
+              break;
           }
         }
         else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
@@ -654,7 +679,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       if (newSegments.data.empty())
       {
         rep->source_url_.clear(); // disable this segment
-        return false;
+        return PREPARE_RESULT_FAILURE;
       }
 
       rep->segments_.swap(newSegments);
@@ -701,9 +726,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     else
       StartUpdateThread();
 
-    return true;
+    return retVal;
   }
-  return false;
+  return PREPARE_RESULT_FAILURE;
 };
 
 bool HLSTree::write_data(void *buffer, size_t buffer_size, void *opaque)

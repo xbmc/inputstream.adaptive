@@ -32,15 +32,17 @@ namespace adaptive
   public:
     enum
     {
-      ENCRYPTIONTYPE_CLEAR = 0,
-      ENCRYPTIONTYPE_AES128 = 1,
-      ENCRYPTIONTYPE_WIDEVINE = 2
+      ENCRYPTIONTYPE_INVALID = 0,
+      ENCRYPTIONTYPE_CLEAR = 1,
+      ENCRYPTIONTYPE_AES128 = 2,
+      ENCRYPTIONTYPE_WIDEVINE = 3,
+      ENCRYPTIONTYPE_UNKNOWN = 4,
     };
     HLSTree(AESDecrypter *decrypter) : AdaptiveTree(), m_decrypter(decrypter) {};
     virtual ~HLSTree();
 
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
-    virtual bool prepareRepresentation(Representation *rep, bool update = false) override;
+    virtual PREPARE_RESULT prepareRepresentation(Representation* rep, bool update = false) override;
     virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
     virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize) override;
     virtual void RefreshSegments(Representation *rep, StreamType type) override;
@@ -50,6 +52,7 @@ namespace adaptive
     virtual void RefreshSegments() override;
 
   private:
+    int processEncryption(std::string baseUrl, std::map<std::string, std::string>& map);
     std::string m_audioCodec;
 
     struct EXTGROUP
@@ -73,6 +76,10 @@ namespace adaptive
     uint8_t m_segmentIntervalSec = 4;
     AESDecrypter *m_decrypter;
     std::stringstream manifest_stream;
+    uint32_t master_encryption_type_ = ENCRYPTIONTYPE_UNKNOWN;
+    std::string master_pssh_;
+    std::string master_defaultKID_;
+    std::string master_iv_;
   };
 
 } // namespace

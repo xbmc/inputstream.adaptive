@@ -84,7 +84,7 @@ namespace adaptive
     const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
     const uint32_t& getMediaRenewalTime() const { return tree_.media_renewal_time_; };
     std::string buildDownloadUrl(const std::string &url);
-    int SecondsSinceMediaRenewal() const;
+    uint32_t SecondsSinceMediaRenewal() const;
     void UpdateSecondsSinceMediaRenewal();
   private:
     // Segment download section
