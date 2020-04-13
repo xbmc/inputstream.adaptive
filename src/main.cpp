@@ -1903,7 +1903,8 @@ Session::Session(MANIFEST_TYPE manifestType,
   uint16_t display_width,
   uint16_t display_height,
   const char *ov_audio,
-  bool play_timeshift_buffer)
+  bool play_timeshift_buffer,
+  bool force_secure_decoder)
   : manifest_type_(manifestType)
   , mpdFileURL_(strURL)
   , mpdUpdateParam_(strUpdateParam)
@@ -1926,6 +1927,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   , chapter_start_time_(0)
   , chapter_seek_time_(0.0)
   , play_timeshift_buffer_(play_timeshift_buffer)
+  , force_secure_decoder_(force_secure_decoder)
 {
   switch (manifest_type_)
   {
@@ -2360,7 +2362,7 @@ bool Session::InitializeDRM()
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session_ = true;
           // Override this setting by information passed in manifest
-          if (!adaptiveTree_->current_period_->need_secure_decoder_)
+          if (!force_secure_decoder_ && !adaptiveTree_->current_period_->need_secure_decoder_)
             session.decrypter_caps_.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
       }
@@ -2609,8 +2611,9 @@ void Session::UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &c
   stream.info_.m_BitRate = rep->bandwidth_;
 }
 
-AP4_Movie *Session::PrepareStream(STREAM *stream)
+AP4_Movie *Session::PrepareStream(STREAM *stream, bool& needRefetch)
 {
+  needRefetch = false;
   switch (adaptiveTree_->prepareRepresentation(
       const_cast<adaptive::AdaptiveTree::Representation*>(stream->stream_.getRepresentation())))
   {
@@ -2620,7 +2623,7 @@ AP4_Movie *Session::PrepareStream(STREAM *stream)
       if (!InitializeDRM())
         return nullptr;
       stream->encrypted = stream->stream_.getRepresentation()->pssh_set_ > 0;
-      changed_ = true; // force DMX_SPECIALID_STREAMCHANGE;
+      needRefetch = true;
       break;
     default:;
   }
@@ -3109,6 +3112,7 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
   std::uint8_t config(0);
   uint32_t max_user_bandwidth = 0;
+  bool force_secure_decoder = false;
 
   for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
   {
@@ -3132,6 +3136,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_flags: %s", props.m_ListItemProperties[i].m_strValue);
       if (strstr(props.m_ListItemProperties[i].m_strValue, "persistent_storage") != nullptr)
         config |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
+      if (strstr(props.m_ListItemProperties[i].m_strValue, "force_secure_decoder") != nullptr)
+        force_secure_decoder = true;
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.server_certificate") == 0)
     {
@@ -3216,7 +3222,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     m_width,
     m_height,
     ov_audio,
-    m_playTimeshiftBuffer));
+    m_playTimeshiftBuffer,
+    force_secure_decoder));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->Initialize(config, max_user_bandwidth))
@@ -3395,8 +3402,8 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     stream->reader_ = new SubtitleSampleReader(rep->url_, streamid, stream->info_.m_codecInternalName);
     return false;
   }
-
-  AP4_Movie* movie(m_session->PrepareStream(stream));
+  bool needRefetch; //Make sure that Kodi fetches changes
+  AP4_Movie* movie(m_session->PrepareStream(stream, needRefetch));
 
   // We load fragments on PrepareTime for HLS manifests and have to reevaluate the start-segment
   if (m_session->GetManifestType() == MANIFEST_TYPE_HLS)
@@ -3474,7 +3481,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       }
   }
   m_session->EnableStream(stream, true);
-  return stream->reader_->GetInformation(stream->info_);
+  return stream->reader_->GetInformation(stream->info_) || needRefetch;
 }
 
 

@@ -94,7 +94,8 @@ public:
     uint16_t display_width,
     uint16_t display_height,
     const char *ov_audio,
-    bool play_timeshift_buffer);
+    bool play_timeshift_buffer,
+    bool force_secure_decoder);
   virtual ~Session();
   bool Initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
   bool InitializeDRM();
@@ -131,7 +132,7 @@ public:
   };
 
   void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
-  AP4_Movie *PrepareStream(STREAM *stream);
+  AP4_Movie *PrepareStream(STREAM *stream, bool& needRefetch);
 
   STREAM* GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
   void EnableStream(STREAM* stream, bool enable);
@@ -214,4 +215,5 @@ private:
   uint8_t drmConfig_;
   bool ignore_display_;
   bool play_timeshift_buffer_;
+  bool force_secure_decoder_;
 };
