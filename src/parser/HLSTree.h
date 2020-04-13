@@ -76,10 +76,6 @@ namespace adaptive
     uint8_t m_segmentIntervalSec = 4;
     AESDecrypter *m_decrypter;
     std::stringstream manifest_stream;
-    uint32_t master_encryption_type_ = ENCRYPTIONTYPE_UNKNOWN;
-    std::string master_pssh_;
-    std::string master_defaultKID_;
-    std::string master_iv_;
   };
 
 } // namespace

@@ -337,10 +337,9 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
           return false;
         case ENCRYPTIONTYPE_AES128:
         case ENCRYPTIONTYPE_WIDEVINE:
-          master_encryption_type_ = encryption_type;
-          master_pssh_ = current_pssh_;
-          master_defaultKID_ = current_defaultKID_;
-          master_iv_ = current_iv_;
+          // #EXT-X-SESSION-KEY is meant for preparing DRM without
+          // loading sub-playlist. As long our workfow is serial, we
+          // don't profite and therefore do not any action.
           break;
         default:;
       }
@@ -420,17 +419,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Representation* rep, bool
       uint64_t pts(0);
       newStartNumber = 0;
 
-      uint32_t currentEncryptionType = master_encryption_type_;
-      current_pssh_ = master_pssh_;
-      current_defaultKID_ = master_defaultKID_;
-      current_iv_ = master_iv_;
-      if (currentEncryptionType == ENCRYPTIONTYPE_WIDEVINE)
-      {
-        rep->pssh_set_ = insert_psshset(NOTYPE);
-        current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-        if (current_period_->psshSets_[rep->pssh_set_].use_count_ == 1)
-          retVal = PREPARE_RESULT_DRMCHANGED;
-      }
+      uint32_t currentEncryptionType = ENCRYPTIONTYPE_CLEAR;
 
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
