@@ -39,6 +39,7 @@ std::string &trim(std::string &src);
 
 std::string url_decode(std::string text);
 
+std::string annexb_to_hvcc(const char* b16_data);
 std::string annexb_to_avc(const char *b16_data);
 std::string avc_to_annexb(const std::string &avc);
 
