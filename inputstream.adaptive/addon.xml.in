@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.5.5"
+  version="2.5.6"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,10 @@
 	<description lang="es">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.5.6 (2020-04-23)
+- Matrix API change to v2.3.0 - Pass mime type to inputstreams if available
+- Matrix API change to v2.2.0 - Allows upto 256 streams, useful for netflix etc.
+
 v2.5.5 (2020-04-06)
 - Matrix API change - Remove CanPauseSteram() and CanSeekStream()
 - Update .gitignore
