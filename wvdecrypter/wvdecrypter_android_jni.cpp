@@ -185,7 +185,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
     else if (key_system_ == PLAYREADY)
       license_url_ += "|Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense|R{SSM}|";
     else
-      license_url_ += "|Content-Type=application%2Foctet-stream|{\"payload\":\"R{SSM}\",\"psshBox\":\"b{PSSH}\",\"keyType\":\"1\"}|";
+      license_url_ += "|Content-Type=application/json|R{SSM}|";
   }
 }
 
