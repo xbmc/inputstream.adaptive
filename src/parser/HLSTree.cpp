@@ -88,7 +88,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   if (map["METHOD"] != "NONE")
   {
     // WIDEVINE CHECK
-    if (!map["URI"].empty() && !map["KEYFORMAT"].empty() && map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"))
+    if (!map["URI"].empty() && !map["KEYFORMAT"].empty() && map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
     {
       if (!map["KEYID"].empty())
       {
