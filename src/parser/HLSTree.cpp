@@ -89,7 +89,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   {
     if (map["URI"].empty())
     {
-      Log(LOGLEVEL_WARNING, "Unsupported encryption method: %s", map["METHOD"].c_str());
+      Log(LOGLEVEL_INFO, "Unsupported encryption method: %s", map["METHOD"].c_str());
       return ENCRYPTIONTYPE_INVALID;
     }
     if (!map["KEYFORMAT"].empty())
@@ -119,12 +119,13 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
           if (bufLen == 50)
             current_defaultKID_ = std::string(reinterpret_cast<const char*>(&buf[34]), 16);
         }
+        Log(LOGLEVEL_INFO, "Supported encryption method found: %s", map["METHOD"].c_str());
         return ENCRYPTIONTYPE_WIDEVINE;
       }
     }
     if (map["METHOD"] != "AES-128")
     {
-      Log(LOGLEVEL_WARNING, "Unsupported encryption method: %s", map["METHOD"].c_str());
+      Log(LOGLEVEL_INFO, "Unsupported encryption method: %s", map["METHOD"].c_str());
       return ENCRYPTIONTYPE_INVALID;
     }
     else
@@ -136,6 +137,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
         current_pssh_ = baseUrl + current_pssh_;
 
       current_iv_ = m_decrypter->convertIV(map["IV"]);
+      Log(LOGLEVEL_INFO, "Supported encryption method found: %s", map["METHOD"].c_str());
       return ENCRYPTIONTYPE_AES128;
     }
   }
