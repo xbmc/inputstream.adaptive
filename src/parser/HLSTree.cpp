@@ -87,38 +87,38 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
 {
   if (map["METHOD"] != "NONE")
   {
-    if (!map["URI"].empty() && !map["KEYFORMAT"].empty())
+    // WIDEVINE CHECK
+    if (!map["URI"].empty() && !map["KEYFORMAT"].empty() && map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"))
     {
-      if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
+      if (!map["KEYID"].empty())
       {
-        if (!map["KEYID"].empty())
+        std::string keyid = map["KEYID"].substr(2);
+        const char* defaultKID = keyid.c_str();
+        current_defaultKID_.resize(16);
+        for (unsigned int i(0); i < 16; ++i)
         {
-          std::string keyid = map["KEYID"].substr(2);
-          const char* defaultKID = keyid.c_str();
-          current_defaultKID_.resize(16);
-          for (unsigned int i(0); i < 16; ++i)
-          {
-            current_defaultKID_[i] = HexNibble(*defaultKID) << 4;
-            ++defaultKID;
-            current_defaultKID_[i] |= HexNibble(*defaultKID);
-            ++defaultKID;
-          }
+          current_defaultKID_[i] = HexNibble(*defaultKID) << 4;
+          ++defaultKID;
+          current_defaultKID_[i] |= HexNibble(*defaultKID);
+          ++defaultKID;
         }
-        current_pssh_ = map["URI"].substr(23);
-        // Try to get KID from pssh, we assume len+'pssh'+version(0)+systemid+lenkid+kid
-        if (current_defaultKID_.empty() && current_pssh_.size() == 68)
-        {
-          unsigned int bufLen = 52;
-          uint8_t buf[52];
-          b64_decode(current_pssh_.c_str(), current_pssh_.size(), buf, bufLen);
-          if (bufLen == 50)
-            current_defaultKID_ = std::string(reinterpret_cast<const char*>(&buf[34]), 16);
-        }
-        Log(LOGLEVEL_INFO, "Supported encryption method found: %s", map["METHOD"].c_str());
-        return ENCRYPTIONTYPE_WIDEVINE;
       }
+
+      current_pssh_ = map["URI"].substr(23);
+      // Try to get KID from pssh, we assume len+'pssh'+version(0)+systemid+lenkid+kid
+      if (current_defaultKID_.empty() && current_pssh_.size() == 68)
+      {
+        unsigned int bufLen = 52;
+        uint8_t buf[52];
+        b64_decode(current_pssh_.c_str(), current_pssh_.size(), buf, bufLen);
+        if (bufLen == 50)
+          current_defaultKID_ = std::string(reinterpret_cast<const char*>(&buf[34]), 16);
+      }
+      Log(LOGLEVEL_INFO, "Supported encryption method found: %s", map["METHOD"].c_str());
+      return ENCRYPTIONTYPE_WIDEVINE;
     }
 
+    // AES-128 CHECK
     if (map["METHOD"] == "AES-128")
     {
       current_pssh_ = map["URI"];
@@ -132,17 +132,14 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
       return ENCRYPTIONTYPE_AES128;
     }
 
-    // No valid method found
+    // NO VALID METHODS FOUND
     Log(LOGLEVEL_INFO, "Unsupported encryption method: %s", map["METHOD"].c_str());
     return ENCRYPTIONTYPE_INVALID;
   }
-  else
-  {
-    // No METHOD present so we are non-encrypted
-    current_pssh_.clear();
-    return ENCRYPTIONTYPE_CLEAR;
-  }
-  return ENCRYPTIONTYPE_UNKNOWN;
+
+  // No METHOD present
+  current_pssh_.clear();
+  return ENCRYPTIONTYPE_CLEAR;
 }
 
 bool HLSTree::open(const std::string &url, const std::string &manifestUpdateParam)
