@@ -87,12 +87,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
 {
   if (map["METHOD"] != "NONE")
   {
-    if (map["URI"].empty())
-    {
-      Log(LOGLEVEL_INFO, "Unsupported encryption method: %s", map["METHOD"].c_str());
-      return ENCRYPTIONTYPE_INVALID;
-    }
-    if (!map["KEYFORMAT"].empty())
+    if (!map["URI"].empty() && !map["KEYFORMAT"].empty())
     {
       if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
       {
@@ -123,12 +118,8 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
         return ENCRYPTIONTYPE_WIDEVINE;
       }
     }
-    if (map["METHOD"] != "AES-128")
-    {
-      Log(LOGLEVEL_INFO, "Unsupported encryption method: %s", map["METHOD"].c_str());
-      return ENCRYPTIONTYPE_INVALID;
-    }
-    else
+
+    if (map["METHOD"] == "AES-128")
     {
       current_pssh_ = map["URI"];
       if (current_pssh_[0] == '/')
@@ -140,9 +131,14 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
       Log(LOGLEVEL_INFO, "Supported encryption method found: %s", map["METHOD"].c_str());
       return ENCRYPTIONTYPE_AES128;
     }
+
+    // No valid method found
+    Log(LOGLEVEL_INFO, "Unsupported encryption method: %s", map["METHOD"].c_str());
+    return ENCRYPTIONTYPE_INVALID;
   }
   else
   {
+    // No METHOD present so we are non-encrypted
     current_pssh_.clear();
     return ENCRYPTIONTYPE_CLEAR;
   }
