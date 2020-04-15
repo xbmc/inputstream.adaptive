@@ -87,11 +87,6 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
 {
   if (map["METHOD"] != "NONE")
   {
-    if (map["METHOD"] != "AES-128" && map["METHOD"] != "SAMPLE-AES-CTR")
-    {
-      Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-      return ENCRYPTIONTYPE_INVALID;
-    }
     if (map["URI"].empty())
     {
       Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
@@ -126,6 +121,11 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
         }
         return ENCRYPTIONTYPE_WIDEVINE;
       }
+    }
+    if (map["METHOD"] != "AES-128")
+    {
+      Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+      return ENCRYPTIONTYPE_INVALID;
     }
     else
     {
