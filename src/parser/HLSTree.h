@@ -32,11 +32,10 @@ namespace adaptive
   public:
     enum
     {
-      ENCRYPTIONTYPE_INVALID = 0,
+      ENCRYPTIONTYPE_UNSUPPORTED = 0,
       ENCRYPTIONTYPE_CLEAR = 1,
       ENCRYPTIONTYPE_AES128 = 2,
       ENCRYPTIONTYPE_WIDEVINE = 3,
-      ENCRYPTIONTYPE_UNKNOWN = 4,
     };
     HLSTree(AESDecrypter *decrypter) : AdaptiveTree(), m_decrypter(decrypter) {};
     virtual ~HLSTree();
