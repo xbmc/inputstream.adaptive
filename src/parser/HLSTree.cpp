@@ -90,7 +90,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   {
     current_pssh_.clear();
 
-    Log(LOGLEVEL_INFO, "Supported encryption method found: NON-ENCRYPTED");
+    Log(LOGLEVEL_DEBUG, "Supported encryption method found: NON-ENCRYPTED");
     return ENCRYPTIONTYPE_CLEAR;
   }
 
@@ -122,7 +122,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
         current_defaultKID_ = std::string(reinterpret_cast<const char*>(&buf[34]), 16);
     }
   
-    Log(LOGLEVEL_INFO, "Supported encryption method found: WIDEVINE");
+    Log(LOGLEVEL_DEBUG, "Supported encryption method found: WIDEVINE");
     return ENCRYPTIONTYPE_WIDEVINE;
   }
 
@@ -137,12 +137,12 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
 
     current_iv_ = m_decrypter->convertIV(map["IV"]);
 
-    Log(LOGLEVEL_INFO, "Supported encryption method found: AES-128");
+    Log(LOGLEVEL_DEBUG, "Supported encryption method found: AES-128");
     return ENCRYPTIONTYPE_AES128;
   }
 
   // NO VALID
-  Log(LOGLEVEL_WARNING, "Unsupported encryption method: %s with keyformat %s", map["METHOD"].c_str(), map["KEYFORMAT"].c_str());
+  Log(LOGLEVEL_DEBUG, "Unsupported encryption method: %s with keyformat %s", map["METHOD"].c_str(), map["KEYFORMAT"].c_str());
   return ENCRYPTIONTYPE_UNSUPPORTED;
 }
 
