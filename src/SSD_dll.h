@@ -35,7 +35,7 @@ namespace SSD
     virtual bool CURLOpen(void* file) = 0;
     virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize) = 0;
     virtual void CloseFile(void* file) = 0;
-    virtual bool CreateDirectory(const char *dir) = 0;
+    virtual bool CreateDir(const char* dir) = 0;
     virtual bool GetBuffer(void* instance, SSD_PICTURE &picture) = 0;
     virtual void ReleaseBuffer(void* instance, void *buffer) = 0;
 

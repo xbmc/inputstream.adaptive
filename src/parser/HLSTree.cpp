@@ -17,17 +17,21 @@
 */
 
 #include "HLSTree.h"
+
+#include "../aes_decrypter.h"
+#include "../helpers.h"
+#include "../log.h"
+
 #include <map>
 #include <string.h>
 #include <thread>
-
-#include "../log.h"
-#include "../aes_decrypter.h"
-#include "../helpers.h"
+#include <algorithm>
 
 using namespace adaptive;
 
-static void parseLine(const std::string &line, size_t offset, std::map<std::string, std::string> &map)
+static void parseLine(const std::string& line,
+                      size_t offset,
+                      std::map<std::string, std::string>& map)
 {
   size_t value, end;
   map.clear();
@@ -38,23 +42,25 @@ static void parseLine(const std::string &line, size_t offset, std::map<std::stri
     end = value;
     uint8_t inValue(0);
     while (++end < line.size() && ((inValue & 1) || line[end] != ','))
-      if (line[end] == '\"') ++inValue;
-    map[line.substr(offset, value - offset)] = line.substr(value + (inValue ? 2: 1), end - value - (inValue ? 3 : 1));
+      if (line[end] == '\"')
+        ++inValue;
+    map[line.substr(offset, value - offset)] =
+        line.substr(value + (inValue ? 2 : 1), end - value - (inValue ? 3 : 1));
     offset = end + 1;
   }
 }
 
-static void parseResolution(std::uint16_t &width, std::uint16_t &height, const std::string &val)
+static void parseResolution(std::uint16_t& width, std::uint16_t& height, const std::string& val)
 {
   std::string::size_type pos(val.find('x'));
   if (pos != std::string::npos)
   {
     width = atoi(val.c_str());
-    height = atoi(val.c_str()+pos+1);
+    height = atoi(val.c_str() + pos + 1);
   }
 }
 
-static std::string getVideoCodec(const std::string &codecs)
+static std::string getVideoCodec(const std::string& codecs)
 {
   if (codecs.empty())
     return "h264";
@@ -68,7 +74,7 @@ static std::string getVideoCodec(const std::string &codecs)
     return "";
 }
 
-static std::string getAudioCodec(const std::string &codecs)
+static std::string getAudioCodec(const std::string& codecs)
 {
   if (codecs.find("ec-3") != std::string::npos)
     return "ec-3";
@@ -83,7 +89,71 @@ HLSTree::~HLSTree()
   delete m_decrypter;
 }
 
-bool HLSTree::open(const std::string &url, const std::string &manifestUpdateParam)
+int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::string>& map)
+{
+  if (map["METHOD"] != "NONE")
+  {
+    if (map["METHOD"] != "AES-128" && map["METHOD"] != "SAMPLE-AES-CTR")
+    {
+      Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+      return ENCRYPTIONTYPE_INVALID;
+    }
+    if (map["URI"].empty())
+    {
+      Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+      return ENCRYPTIONTYPE_INVALID;
+    }
+    if (!map["KEYFORMAT"].empty())
+    {
+      if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
+      {
+        if (!map["KEYID"].empty())
+        {
+          std::string keyid = map["KEYID"].substr(2);
+          const char* defaultKID = keyid.c_str();
+          current_defaultKID_.resize(16);
+          for (unsigned int i(0); i < 16; ++i)
+          {
+            current_defaultKID_[i] = HexNibble(*defaultKID) << 4;
+            ++defaultKID;
+            current_defaultKID_[i] |= HexNibble(*defaultKID);
+            ++defaultKID;
+          }
+        }
+        current_pssh_ = map["URI"].substr(23);
+        // Try to get KID from pssh, we assume len+'pssh'+version(0)+systemid+lenkid+kid
+        if (current_defaultKID_.empty() && current_pssh_.size() == 68)
+        {
+          unsigned int bufLen = 52;
+          uint8_t buf[52];
+          b64_decode(current_pssh_.c_str(), current_pssh_.size(), buf, bufLen);
+          if (bufLen == 50)
+            current_defaultKID_ = std::string(reinterpret_cast<const char*>(&buf[34]), 16);
+        }
+        return ENCRYPTIONTYPE_WIDEVINE;
+      }
+    }
+    else
+    {
+      current_pssh_ = map["URI"];
+      if (current_pssh_[0] == '/')
+        current_pssh_ = base_domain_ + current_pssh_;
+      else if (current_pssh_.find("://", 0) == std::string::npos)
+        current_pssh_ = baseUrl + current_pssh_;
+
+      current_iv_ = m_decrypter->convertIV(map["IV"]);
+      return ENCRYPTIONTYPE_AES128;
+    }
+  }
+  else
+  {
+    current_pssh_.clear();
+    return ENCRYPTIONTYPE_CLEAR;
+  }
+  return ENCRYPTIONTYPE_UNKNOWN;
+}
+
+bool HLSTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
   PreparePaths(url, manifestUpdateParam);
   if (download(manifest_url_.c_str(), manifest_headers_, &manifest_stream))
@@ -91,12 +161,12 @@ bool HLSTree::open(const std::string &url, const std::string &manifestUpdatePara
   return false;
 }
 
-bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
+bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
 {
 #if FILEDEBUG
-    FILE *f = fopen("inputstream_adaptive_master.m3u8", "w");
-    fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
-    fclose(f);
+  FILE* f = fopen("inputstream_adaptive_master.m3u8", "w");
+  fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
+  fclose(f);
 #endif
 
   std::string line;
@@ -121,7 +191,8 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
     }
 
     std::string::size_type sz(line.size());
-    while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n' || line[sz - 1] == ' ')) --sz;
+    while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n' || line[sz - 1] == ' '))
+      --sz;
     line.resize(sz);
 
     if (line.compare(0, 13, "#EXT-X-MEDIA:") == 0)
@@ -132,23 +203,24 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
       StreamType type;
       if (map["TYPE"] == "AUDIO")
         type = AUDIO;
-      //else if (map["TYPE"] == "SUBTITLES")
-      //  type = SUBTITLE;
+      else if (map["TYPE"] == "SUBTITLES")
+        type = SUBTITLE;
       else
         continue;
 
-      EXTGROUP &group = m_extGroups[map["GROUP-ID"]];
+      EXTGROUP& group = m_extGroups[map["GROUP-ID"]];
 
-      AdaptationSet *adp = new AdaptationSet();
-      Representation *rep = new Representation();
+      AdaptationSet* adp = new AdaptationSet();
+      Representation* rep = new Representation();
       adp->representations_.push_back(rep);
       group.m_sets.push_back(adp);
 
       adp->type_ = type;
-      adp->language_ =  map["LANGUAGE"];
+      adp->language_ = map["LANGUAGE"];
       adp->timescale_ = 1000000;
       adp->name_ = map["NAME"];
       adp->default_ = map["DEFAULT"] == "YES";
+      adp->forced_ = map["FORCED"] == "YES";
 
       rep->codecs_ = group.m_codec;
       rep->timescale_ = 1000000;
@@ -164,10 +236,14 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
         else
           rep->source_url_ = res->second;
 
-        if (!manifest_parameter_.empty()
-            && rep->source_url_.compare(0, base_url_.size(), base_url_) == 0
-            && rep->source_url_.find('?') == std::string::npos)
+        if (!manifest_parameter_.empty() &&
+            rep->source_url_.compare(0, base_url_.size(), base_url_) == 0 &&
+            rep->source_url_.find('?') == std::string::npos)
           rep->source_url_ += manifest_parameter_;
+
+        // default to WebVTT
+        if (type == SUBTITLE)
+          rep->codecs_ = "wvtt";
       }
       else
       {
@@ -204,7 +280,8 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
       current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
 
       if (map.find("RESOLUTION") != map.end())
-        parseResolution(current_representation_->width_, current_representation_->height_, map["RESOLUTION"]);
+        parseResolution(current_representation_->width_, current_representation_->height_,
+                        map["RESOLUTION"]);
 
       if (map.find("AUDIO") != map.end())
         m_extGroups[map["AUDIO"]].setCodec(getAudioCodec(map["CODECS"]));
@@ -248,14 +325,15 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
       else
         current_representation_->source_url_ = line;
 
-      if (!manifest_parameter_.empty()
-          && current_representation_->source_url_.compare(0, base_url_.size(), base_url_) == 0
-          && current_representation_->source_url_.find('?') == std::string::npos)
+      if (!manifest_parameter_.empty() &&
+          current_representation_->source_url_.compare(0, base_url_.size(), base_url_) == 0 &&
+          current_representation_->source_url_.find('?') == std::string::npos)
         current_representation_->source_url_ += manifest_parameter_;
 
       //Ignore duplicate reps
-      for (auto const *rep : current_adaptationset_->representations_)
-        if (rep != current_representation_ &&  rep->source_url_ == current_representation_->source_url_)
+      for (auto const* rep : current_adaptationset_->representations_)
+        if (rep != current_representation_ &&
+            rep->source_url_ == current_representation_->source_url_)
         {
           delete current_representation_;
           current_representation_ = nullptr;
@@ -266,39 +344,19 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
     else if (line.compare(0, 19, "#EXT-X-SESSION-KEY:") == 0)
     {
       parseLine(line, 19, map);
-      if (map["METHOD"] != "NONE")
+      uint32_t encryption_type;
+      switch (encryption_type = processEncryption(base_url_, map))
       {
-        if (map["METHOD"] != "AES-128" && map["METHOD"] != "SAMPLE-AES-CTR")
-        {
-          Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+        case ENCRYPTIONTYPE_INVALID:
           return false;
-        }
-        if (map["URI"].empty())
-        {
-          Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-          return false;
-        }
-        if (!map["KEYFORMAT"].empty())
-        {
-          if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
-          {
-            if (!map["KEYID"].empty())
-            {
-              std::string keyid = map["KEYID"].substr(2);
-              const char *defaultKID = keyid.c_str();
-              current_defaultKID_.resize(16);
-              for (unsigned int i(0); i < 16; ++i)
-              {
-                current_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
-                current_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
-              }
-            }
-            current_pssh_ = map["URI"].substr(23);
-            insert_psshset(NOTYPE);
-            current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-          }
-        }
-      }   
+        case ENCRYPTIONTYPE_AES128:
+        case ENCRYPTIONTYPE_WIDEVINE:
+          // #EXT-X-SESSION-KEY is meant for preparing DRM without
+          // loading sub-playlist. As long our workfow is serial, we
+          // don't profite and therefore do not any action.
+          break;
+        default:;
+      }
     }
   }
 
@@ -320,8 +378,8 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
     }
 
     //Register external adaptationsets
-    for (const auto &group : m_extGroups)
-      for (auto *adp : group.second.m_sets)
+    for (const auto& group : m_extGroups)
+      for (auto* adp : group.second.m_sets)
         current_period_->adaptationSets_.push_back(adp);
     m_extGroups.clear();
 
@@ -333,7 +391,10 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string &url)
   return true;
 }
 
-bool HLSTree::prepareRepresentation(Representation *rep, bool update)
+HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
+                                                       AdaptationSet* adp,
+                                                       Representation* rep,
+                                                       bool update)
 {
   if (!rep->source_url_.empty())
   {
@@ -343,11 +404,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
     std::string download_url = rep->source_url_.c_str();
-    uint32_t per_pos = ~0U;
-    uint32_t adp_pos = ~0U;
-    uint32_t rep_pos = ~0U;
+    uint32_t adp_pos =
+        std::find(period->adaptationSets_.begin(), period->adaptationSets_.end(), adp) -
+        period->adaptationSets_.begin();
+    uint32_t rep_pos = std::find(adp->representations_.begin(), adp->representations_.end(), rep) -
+                       adp->representations_.begin();
     uint32_t discont_count = 0;
-    Period* starting_period = current_period_;
+    PREPARE_RESULT retVal = PREPARE_RESULT_OK;
 
     if (!effective_url_.empty() && download_url.find(base_url_) == 0)
       download_url.replace(0, base_url_.size(), effective_url_);
@@ -357,7 +420,7 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     else if (download(download_url.c_str(), manifest_headers_, &stream, false))
     {
 #if FILEDEBUG
-      FILE *f = fopen("inputstream_adaptive_sub.m3u8", "w");
+      FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");
       fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
       fclose(f);
 #endif
@@ -373,7 +436,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       Segment segment;
       uint64_t pts(0);
       newStartNumber = 0;
-      uint32_t currentPsshType = ENCRYPTIONTYPE_CLEAR;
+
+      uint32_t currentEncryptionType = ENCRYPTIONTYPE_CLEAR;
 
       segment.range_begin_ = ~0ULL;
       segment.range_end_ = 0;
@@ -381,7 +445,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
       segment.pssh_set_ = 0;
 
       std::string::size_type paramPos = rep->source_url_.find('?');
-      base_url = (paramPos == std::string::npos) ? rep->source_url_ : rep->source_url_.substr(0, paramPos);
+      base_url =
+          (paramPos == std::string::npos) ? rep->source_url_ : rep->source_url_.substr(0, paramPos);
 
       paramPos = base_url.rfind('/');
       if (paramPos != std::string::npos)
@@ -397,7 +462,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         }
 
         std::string::size_type sz(line.size());
-        while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n' || line[sz - 1] == ' ')) --sz;
+        while (sz && (line[sz - 1] == '\r' || line[sz - 1] == '\n' || line[sz - 1] == ' '))
+          --sz;
         line.resize(sz);
 
         if (line.compare(0, 8, "#EXTINF:") == 0)
@@ -429,6 +495,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
                 rep->containerType_ = CONTAINERTYPE_ADTS;
               else if (strncmp(line.c_str() + ext, ".mp4", 4) == 0)
                 rep->containerType_ = CONTAINERTYPE_MP4;
+              else if (strncmp(line.c_str() + ext, ".vtt", 4) == 0)
+                rep->containerType_ = CONTAINERTYPE_TEXT;
               else
               {
                 rep->containerType_ = CONTAINERTYPE_INVALID;
@@ -439,6 +507,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
               //Fallback, assume .ts
               rep->containerType_ = CONTAINERTYPE_TS;
           }
+          else if (rep->containerType_ == CONTAINERTYPE_INVALID)
+            continue;
 
           if (!byteRange || rep->url_.empty())
           {
@@ -456,6 +526,13 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
             }
             else
               rep->url_ = url;
+          }
+          if (currentEncryptionType == ENCRYPTIONTYPE_AES128)
+          {
+            if (segment.pssh_set_ == 0)
+              segment.pssh_set_ = insert_psshset(NOTYPE, period, adp);
+            else
+              period->InsertPSSHSet(segment.pssh_set_);
           }
           newSegments.data.push_back(segment);
           segment.startPTS_ = ~0ULL;
@@ -482,10 +559,11 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         {
           if (newSegments.size() == 0)
             continue;
-          current_period_->duration_ = pts - newSegments[0]->startPTS_;
+          period->duration_ = pts - newSegments[0]->startPTS_;
           if (!byteRange)
             rep->flags_ |= Representation::URLSEGMENTS;
-          if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && newSegments.data[0].range_begin_ > 0)
+          if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange &&
+              newSegments.data[0].range_begin_ > 0)
           {
             rep->flags_ |= Representation::INITIALIZATION;
             rep->initialization_.range_begin_ = 0;
@@ -505,40 +583,28 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           }
           if (periods_.size() == ++discont_count)
           {
-            manifest_stream.clear();
-            manifest_stream.seekg(0);
-            processManifest(manifest_stream, manifest_url_);
-            if (!current_pssh_.empty())
-            {
-              if (currentPsshType == ENCRYPTIONTYPE_WIDEVINE)
-              {
-                rep->pssh_set_ = insert_psshset(NOTYPE);
-                current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-              }
-              else if (currentPsshType == ENCRYPTIONTYPE_AES128)
-                segment.pssh_set_ = insert_psshset(NOTYPE);
-            }
+            periods_.push_back(new Period());
+            periods_.back()->CopyBasicData(current_period_);
+            period = periods_.back();
           }
           else
-            current_period_ = periods_[discont_count];
-          if (!(~per_pos))
-            for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
-              for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
-                for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
-                  if (rep == *br)
-                  {
-                    per_pos = bp - periods_.begin();
-                    adp_pos = ba - (*bp)->adaptationSets_.begin();
-                    rep_pos = br - (*ba)->representations_.begin();
-                    break;
-                  }
-          rep = current_period_->adaptationSets_[adp_pos]->representations_[rep_pos];
+            period = periods_[discont_count];
+
+          adp = period->adaptationSets_[adp_pos];
+          rep = adp->representations_[rep_pos];
           segment.range_begin_ = ~0ULL;
           segment.range_end_ = 0;
           segment.startPTS_ = ~0ULL;
           segment.pssh_set_ = 0;
           newStartNumber = 0;
           pts = 0;
+
+          if (currentEncryptionType == ENCRYPTIONTYPE_WIDEVINE)
+          {
+            rep->pssh_set_ = insert_psshset(NOTYPE, period, adp);
+            period->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
+          }
+
           if (segmentInitialization && !map_url.empty())
           {
             rep->flags_ |= Representation::INITIALIZATION;
@@ -547,60 +613,23 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         }
         else if (line.compare(0, 11, "#EXT-X-KEY:") == 0)
         {
-          if (!rep->pssh_set_)
+          parseLine(line, 11, map);
+          switch (processEncryption(base_url, map))
           {
-            parseLine(line, 11, map);
-            if (map["METHOD"] != "NONE")
-            {
-              if (map["METHOD"] != "AES-128" && map["METHOD"] != "SAMPLE-AES-CTR")
-              {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-                return false;
-              }
-              if (map["URI"].empty())
-              {
-                Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-                return false;
-              }
-              if (!map["KEYFORMAT"].empty())
-              {
-                if (map["KEYFORMAT"] == "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed")
-                {
-                  if (!map["KEYID"].empty())
-                  {
-                    std::string keyid = map["KEYID"].substr(2);
-                    const char *defaultKID = keyid.c_str();
-                    current_defaultKID_.resize(16);
-                    for (unsigned int i(0); i < 16; ++i)
-                    {
-                      current_defaultKID_[i] = HexNibble(*defaultKID) << 4; ++defaultKID;
-                      current_defaultKID_[i] |= HexNibble(*defaultKID); ++defaultKID;
-                    }
-                  }
-                  current_pssh_ = map["URI"].substr(23);
-                  rep->pssh_set_ = insert_psshset(NOTYPE);
-                  current_period_->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-                  currentPsshType = ENCRYPTIONTYPE_WIDEVINE;
-                }
-              }
-              else
-              {
-                current_pssh_ = map["URI"];
-                if (current_pssh_[0] == '/')
-                  current_pssh_ = base_domain_ + current_pssh_;
-                else if (current_pssh_.find("://", 0) == std::string::npos)
-                  current_pssh_ = base_url + current_pssh_;
-
-                current_iv_ = m_decrypter->convertIV(map["IV"]);
-                segment.pssh_set_ = insert_psshset(NOTYPE);
-                currentPsshType = ENCRYPTIONTYPE_AES128;
-              }
-            }
-            else
-            {
-              current_pssh_.clear();
-              currentPsshType = ENCRYPTIONTYPE_CLEAR;
-            }
+            case ENCRYPTIONTYPE_INVALID:
+              return PREPARE_RESULT_FAILURE;
+            case ENCRYPTIONTYPE_AES128:
+              currentEncryptionType = ENCRYPTIONTYPE_AES128;
+              break;
+            case ENCRYPTIONTYPE_WIDEVINE:
+              currentEncryptionType = ENCRYPTIONTYPE_WIDEVINE;
+              period->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
+              rep->pssh_set_ = insert_psshset(NOTYPE, period, adp);
+              if (period->psshSets_[rep->pssh_set_].use_count_ == 1)
+                retVal = PREPARE_RESULT_DRMCHANGED;
+              break;
+            default:
+              break;
           }
         }
         else if (line.compare(0, 14, "#EXT-X-ENDLIST") == 0)
@@ -641,7 +670,8 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         rep->flags_ |= Representation::URLSEGMENTS;
 
       // Insert Initialization Segment
-      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && newSegments.data[0].range_begin_ > 0)
+      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange &&
+          newSegments.data[0].range_begin_ > 0)
       {
         rep->flags_ |= Representation::INITIALIZATION;
         rep->initialization_.range_begin_ = 0;
@@ -653,8 +683,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
 
       if (newSegments.data.empty())
       {
-        rep->source_url_.clear(); // disable this segment
-        return false;
+        FreeSegments(rep);
+        rep->flags_ = 0;
+        return PREPARE_RESULT_FAILURE;
       }
 
       rep->segments_.swap(newSegments);
@@ -671,15 +702,14 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
         {
           overallSeconds_ += p->duration_ / p->timescale_;
           if (!has_timeshift_buffer_ && !m_refreshPlayList)
-            p->adaptationSets_[adp_pos]->representations_[rep_pos]->flags_ |= Representation::DOWNLOADED;
+            p->adaptationSets_[adp_pos]->representations_[rep_pos]->flags_ |=
+                Representation::DOWNLOADED;
         }
-        current_period_ = starting_period;
-        current_adaptationset_ = current_period_->adaptationSets_[adp_pos];
-        current_representation_ = current_adaptationset_->representations_[rep_pos];
       }
       else
       {
-        overallSeconds_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;
+        overallSeconds_ =
+            rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;
         if (!has_timeshift_buffer_ && !m_refreshPlayList)
           rep->flags_ |= Representation::DOWNLOADED;
       }
@@ -695,35 +725,44 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
           segmentId = rep->startNumber_ + rep->segments_.size() - 1;
         rep->current_segment_ = rep->get_segment(segmentId - rep->startNumber_);
       }
-      if ((rep->flags_ & Representation::WAITFORSEGMENT) && rep->get_next_segment(rep->current_segment_))
+      if ((rep->flags_ & Representation::WAITFORSEGMENT) &&
+          rep->get_next_segment(rep->current_segment_))
         rep->flags_ &= ~Representation::WAITFORSEGMENT;
     }
     else
       StartUpdateThread();
 
-    return true;
+    return retVal;
   }
-  return false;
+  return PREPARE_RESULT_FAILURE;
 };
 
-bool HLSTree::write_data(void *buffer, size_t buffer_size, void *opaque)
+bool HLSTree::write_data(void* buffer, size_t buffer_size, void* opaque)
 {
   static_cast<std::stringstream*>(opaque)->write(static_cast<const char*>(buffer), buffer_size);
   return true;
 }
 
-void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
+void HLSTree::OnDataArrived(unsigned int segNum,
+                            uint16_t psshSet,
+                            uint8_t iv[16],
+                            const uint8_t* src,
+                            uint8_t* dst,
+                            size_t dstOffset,
+                            size_t dataSize)
 {
   if (psshSet && current_period_->encryptionState_ != ENCRYTIONSTATE_SUPPORTED)
   {
     std::lock_guard<std::mutex> lck(treeMutex_);
 
-    Period::PSSH &pssh(current_period_->psshSets_[psshSet]);
+    Period::PSSH& pssh(current_period_->psshSets_[psshSet]);
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
       //First look if we already have this URL resolved
-      for (std::vector<Period::PSSH>::const_iterator b(current_period_->psshSets_.begin()), e(current_period_->psshSets_.end());b != e; ++b)
+      for (std::vector<Period::PSSH>::const_iterator b(current_period_->psshSets_.begin()),
+           e(current_period_->psshSets_.end());
+           b != e; ++b)
         if (b->pssh_ == pssh.pssh_ && !b->defaultKID_.empty())
         {
           pssh.defaultKID_ = b->defaultKID_;
@@ -749,7 +788,7 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
           parseheader(headers, keyParts[1].c_str());
 
         if (!effective_url_.empty() && url.find(base_url_) == 0)
-	        url.replace(0, base_url_.size(), effective_url_);
+          url.replace(0, base_url_.size(), effective_url_);
 
         if (download(url.c_str(), headers, &stream, false))
         {
@@ -758,7 +797,8 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
         else if (pssh.defaultKID_ != "0")
         {
           pssh.defaultKID_ = "0";
-          if (keyParts.size() >= 5 && !keyParts[4].empty() && m_decrypter->RenewLicense(keyParts[4]))
+          if (keyParts.size() >= 5 && !keyParts[4].empty() &&
+              m_decrypter->RenewLicense(keyParts[4]))
             goto RETRY;
         }
       }
@@ -778,8 +818,9 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
         memcpy(iv, pssh.iv.data(), pssh.iv.size() < 16 ? pssh.iv.size() : 16);
       }
     }
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, src, dst + dstOffset, dataSize);
-    if(dataSize >= 16)
+    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, src,
+                         dst + dstOffset, dataSize);
+    if (dataSize >= 16)
       memcpy(iv, src + (dataSize - 16), 16);
   }
   else
@@ -787,24 +828,32 @@ void HLSTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16
 }
 
 //Called each time before we switch to a new segment
-void HLSTree::RefreshSegments(Representation *rep, StreamType type)
+void HLSTree::RefreshSegments(Period* period,
+                              AdaptationSet* adp,
+                              Representation* rep,
+                              StreamType type)
 {
   if (m_refreshPlayList)
   {
     RefreshUpdateThread();
-    prepareRepresentation(rep, true);
+    prepareRepresentation(period, adp, rep, true);
   }
 }
 
 //Called form update-thread
-void HLSTree::RefreshSegments()
+void HLSTree::RefreshLiveSegments()
 {
   if (m_refreshPlayList)
   {
-    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
-      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
-        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
+    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep;
+         ++bp)
+      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()),
+           ea((*bp)->adaptationSets_.end());
+           ba != ea; ++ba)
+        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()),
+             er((*ba)->representations_.end());
+             br != er; ++br)
           if ((*br)->flags_ & Representation::ENABLED)
-            prepareRepresentation((*br), true);
+            prepareRepresentation((*bp), (*ba), (*br), true);
   }
 }

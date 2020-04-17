@@ -66,7 +66,12 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
 
       if (webvtt_visited)
       {
-        if (wait_start)
+        if (*cbuf == '\n' || *cbuf == '\r')
+        {
+          strText.clear();
+          wait_start = true;
+        }
+        else if (wait_start)
         {
           unsigned int thb, tmb, tsb, tmsb, the, tme, tse, tmse;
           char delb, dele;
@@ -116,8 +121,6 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
           replaceAll(strText, "&rlm;", "\xE2\x80\xAB", true);
           if (!strText.empty())
             m_subTitles.back().text.push_back(strText);
-          else
-            wait_start = true;
         }
       }
       else

@@ -29,13 +29,16 @@ namespace adaptive
     DASHTree();
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
     virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
-    virtual void RefreshSegments(Representation *rep, StreamType type) override;
+    virtual void RefreshSegments(Period* period,
+                                 AdaptationSet* adp,
+                                 Representation* rep,
+                                 StreamType type) override;
 
     void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
     uint64_t pts_helper_;
     uint32_t firstStartNumber_;
     std::string current_playready_wrmheader_;
   protected:
-    virtual void RefreshSegments() override;
+    virtual void RefreshLiveSegments() override;
   };
 }
