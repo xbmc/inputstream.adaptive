@@ -142,8 +142,8 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   }
 
   // NO VALID
-  Log(LOGLEVEL_INFO, "Unsupported encryption method: %s", map["METHOD"].c_str());
-  return ENCRYPTIONTYPE_INVALID;
+  Log(LOGLEVEL_WARNING, "Unsupported encryption method: %s with keyformat %s", map["METHOD"].c_str(), map["KEYFORMAT"].c_str());
+  return ENCRYPTIONTYPE_UNSUPPORTED;
 }
 
 bool HLSTree::open(const std::string &url, const std::string &manifestUpdateParam)
