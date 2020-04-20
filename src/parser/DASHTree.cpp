@@ -600,11 +600,13 @@ start(void *data, const char *el, const char **attr)
           {
             if (strcmp(value, "subtitle") == 0)
               dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-            //Legacy compatibility
-            if (strcmp(value, "forced") == 0)
-              dash->current_adaptationset_->forced_ = true;
-            if (strcmp(value, "main") == 0)
-              dash->current_adaptationset_->default_ = true;
+            else if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE) {
+              //Legacy compatibility
+              if (strcmp(value, "forced") == 0)
+                dash->current_adaptationset_->forced_ = true;
+              if (strcmp(value, "main") == 0)
+                dash->current_adaptationset_->default_ = true;
+            }
           }
         }
         else if (strcmp(el, "Representation") == 0)
@@ -1169,7 +1171,7 @@ end(void *data, const char *el)
               }
               else if (!(dash->current_representation_->flags_ & (DASHTree::Representation::SEGMENTBASE | DASHTree::Representation::SUBTITLESTREAM)))
               {
-                //Let us try to extract the fragments out of SIDX atom  
+                //Let us try to extract the fragments out of SIDX atom
                 dash->current_representation_->flags_ |= DASHTree::Representation::SEGMENTBASE;
                 dash->current_representation_->indexRangeMin_ = 0;
                 dash->current_representation_->indexRangeMax_ = 1024 * 200;
@@ -1284,8 +1286,8 @@ end(void *data, const char *el)
             if (dash->current_adaptationset_->segment_durations_.data.empty()
               && !dash->current_adaptationset_->segtpl_.media.empty())
             {
-              for (std::vector<DASHTree::Representation*>::iterator 
-                b(dash->current_adaptationset_->representations_.begin()), 
+              for (std::vector<DASHTree::Representation*>::iterator
+                b(dash->current_adaptationset_->representations_.begin()),
                 e(dash->current_adaptationset_->representations_.end()); b != e; ++b)
               {
                 if (!(*b)->duration_ || !(*b)->timescale_)
@@ -1630,8 +1632,8 @@ void DASHTree::RefreshSegments()
                     (*br)->id.c_str(), (*brd)->startNumber_);
                   overallSeconds_ = updateTree.overallSeconds_;
                 }
-                else if ((*br)->startNumber_ > (*brd)->startNumber_ 
-                  || ((*br)->startNumber_ == (*brd)->startNumber_ 
+                else if ((*br)->startNumber_ > (*brd)->startNumber_
+                  || ((*br)->startNumber_ == (*brd)->startNumber_
                     && (*br)->segments_.size() > (*brd)->segments_.size()))
                 {
                   unsigned int segmentId((*brd)->getCurrentSegmentNumber());
