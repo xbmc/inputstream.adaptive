@@ -1899,7 +1899,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   const uint32_t intMediaRenewalTime,
   const std::map<std::string, std::string> &manifestHeaders,
   const std::map<std::string, std::string> &mediaHeaders,
-  const char* profile_path,
+  uint32_t max_bandwidth,
   uint16_t display_width,
   uint16_t display_height,
   const char *ov_audio,
@@ -1911,12 +1911,12 @@ Session::Session(MANIFEST_TYPE manifestType,
   , license_type_(strLicType)
   , license_data_(strLicData)
   , media_headers_(mediaHeaders)
-  , profile_path_(profile_path)
   , ov_audio_(ov_audio)
   , decrypterModule_(0)
   , decrypter_(0)
   , secure_video_session_(false)
   , adaptiveTree_(0)
+  , max_bandwidth_(max_bandwidth)
   , width_(display_width)
   , height_(display_height)
   , timing_stream_(nullptr)
@@ -1941,21 +1941,10 @@ Session::Session(MANIFEST_TYPE manifestType,
   default:;
   };
 
-  std::string fn(profile_path_ + "bandwidth.bin");
-  FILE* f = fopen(fn.c_str(), "rb");
-  if (f)
-  {
-    double val;
-    size_t sz(fread(&val, sizeof(double), 1, f));
-    if (sz)
-    {
-      adaptiveTree_->bandwidth_ = static_cast<uint32_t>(val * 8);
-      adaptiveTree_->set_download_speed(val);
-    }
-    fclose(f);
-  }
-  else
-    adaptiveTree_->bandwidth_ = 4000000;
+  if (!max_bandwidth_)
+    max_bandwidth_ = kodi::GetSettingInt("MAXBANDWIDTH");
+
+  adaptiveTree_->bandwidth_ = max_bandwidth_;
   kodi::Log(ADDON_LOG_DEBUG, "Initial bandwidth: %u ", adaptiveTree_->bandwidth_);
 
   max_resolution_ = kodi::GetSettingInt("MAXRESOLUTION");
@@ -2011,14 +2000,6 @@ Session::~Session()
 
   DisposeDecrypter();
 
-  std::string fn(profile_path_ + "bandwidth.bin");
-  FILE* f = fopen(fn.c_str(), "wb");
-  if (f)
-  {
-    double val(adaptiveTree_->get_average_download_speed());
-    fwrite((const char*)&val, sizeof(double), 1, f);
-    fclose(f);
-  }
   delete adaptiveTree_;
   adaptiveTree_ = nullptr;
 }
@@ -2117,7 +2098,7 @@ void Session::DisposeDecrypter()
 |   initialize
 +---------------------------------------------------------------------*/
 
-bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
+bool Session::initialize(const std::uint8_t config)
 {
   if (!adaptiveTree_)
     return false;
@@ -2142,7 +2123,6 @@ bool Session::initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     adaptiveTree_->download_speed_);
 
   drmConfig_ = config;
-  maxUserBandwidth_ = max_user_bandwidth;
 
   return InitializePeriod();
 }
@@ -2167,16 +2147,6 @@ bool Session::InitializePeriod()
     kodi::Log(ADDON_LOG_ERROR, "Unable to handle decryption. Unsupported!");
     return false;
   }
-
-  uint32_t min_bandwidth(0), max_bandwidth(0);
-  {
-    int buf;
-    buf = kodi::GetSettingInt("MINBANDWIDTH"); min_bandwidth = buf;
-    buf = kodi::GetSettingInt("MAXBANDWIDTH"); max_bandwidth = buf;
-  }
-
-  if (max_bandwidth == 0 || (maxUserBandwidth_ && max_bandwidth > maxUserBandwidth_))
-    max_bandwidth = maxUserBandwidth_;
 
   // create SESSION::STREAM objects. One for each AdaptationSet
   unsigned int i(0);
@@ -2241,7 +2211,7 @@ bool Session::InitializePeriod()
         if (license_data_.empty())
         {
           Session::STREAM stream(*adaptiveTree_, adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_->type_);
-          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, 0, media_headers_);
+          stream.stream_.prepare_stream(adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_, 0, 0, 0, 0, 0, 0, media_headers_);
 
           stream.enabled = true;
           stream.stream_.start_stream(~0, width_, height_, play_timeshift_buffer_);
@@ -2433,7 +2403,7 @@ bool Session::InitializePeriod()
     // Select good video stream
     adaptive::AdaptiveStream defaultVideoStream(*adaptiveTree_, adaptive::AdaptiveTree::StreamType::VIDEO);
     if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO && manual_streams_ == 2)
-      defaultVideoStream.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, 0, media_headers_);
+      defaultVideoStream.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, max_bandwidth_, 0, media_headers_);
 
     size_t repId = manual_streams ? adp->representations_.size() : 0;
 
@@ -2441,7 +2411,7 @@ bool Session::InitializePeriod()
       streams_.push_back(new STREAM(*adaptiveTree_, adp->type_));
       STREAM &stream(*streams_.back());
 
-      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, min_bandwidth, max_bandwidth, repId, media_headers_);
+      stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion, max_bandwidth_, repId, media_headers_);
       stream.info_.m_flags = INPUTSTREAM_INFO::FLAG_NONE;
       size_t copySize = adp->name_.size() > 255 ? 255 : adp->name_.size();
       strncpy(stream.info_.m_name, adp->name_.c_str(), copySize), stream.info_.m_name[copySize] = 0;
@@ -3076,11 +3046,11 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
 
   const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup(""), *ov_audio(""), *mru("");
   uint32_t mrt = 0;
+  uint32_t max_bandwidth = 0;
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.m_strURL;
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
   std::uint8_t config(0);
-  uint32_t max_user_bandwidth = 0;
 
   for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
   {
@@ -3149,8 +3119,8 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.max_bandwidth") == 0)
     {
-      max_user_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.max_bandwidth: %d", max_user_bandwidth);
+      max_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.max_bandwidth: %d", max_bandwidth);
     }
     else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.play_timeshift_buffer") == 0)
       m_playTimeshiftBuffer = stricmp(props.m_ListItemProperties[i].m_strValue, "true") == 0;
@@ -3184,14 +3154,14 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
     mrt,
     manh,
     medh,
-    props.m_profileFolder,
+    max_bandwidth,
     m_width,
     m_height,
     ov_audio,
     m_playTimeshiftBuffer));
   m_session->SetVideoResolution(m_width, m_height);
 
-  if (!m_session->initialize(config, max_user_bandwidth))
+  if (!m_session->initialize(config))
   {
     m_session = nullptr;
     return false;

@@ -3,14 +3,10 @@
   <section id="default">
     <category id="default" label="30100">
       <group id="0">
-        <setting id="MINBANDWIDTH" type="integer" label="30101">
-          <level>0</level>
-          <default>0</default>
-          <control type="edit" format="integer" />
-        </setting>
         <setting id="MAXBANDWIDTH" type="integer" label="30102">
           <level>0</level>
-          <default>0</default>
+          <!-- <default>4000000</default> -->
+          <default>0</default> <!-- Unlimited -->
           <control type="edit" format="integer" />
         </setting>
         <setting id="MAXRESOLUTION" type="integer" label="30110">

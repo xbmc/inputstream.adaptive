@@ -134,7 +134,7 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 
 bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
   const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
-  uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
+  uint32_t max_bandwidth, unsigned int repId,
   const std::map<std::string, std::string> &media_headers)
 {
   width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
@@ -142,12 +142,7 @@ bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
   hdcpLimit_ = hdcpLimit;
   hdcpVersion_ = hdcpVersion;
 
-  uint32_t avg_bandwidth = tree_.bandwidth_;
-
-  bandwidth_ = min_bandwidth;
-  if (avg_bandwidth > bandwidth_)
-    bandwidth_ = avg_bandwidth;
-  if (max_bandwidth && bandwidth_ > max_bandwidth)
+  if (max_bandwidth && tree_.bandwidth_ > max_bandwidth)
     bandwidth_ = max_bandwidth;
 
   stopped_ = false;

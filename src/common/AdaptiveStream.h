@@ -45,7 +45,7 @@ namespace adaptive
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     bool prepare_stream(const AdaptiveTree::AdaptationSet *adp,
       const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
-      uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
+      uint32_t max_bandwidth, unsigned int repId,
       const std::map<std::string, std::string> &media_headers);
     bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer);
     bool restart_stream();

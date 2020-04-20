@@ -16,11 +16,6 @@ msgctxt "#30100"
 msgid "General"
 msgstr ""
 
-# The minimum bandwidth which should not be deceeded.
-msgctxt "#30101"
-msgid "Min. Bandwidth (Bit/s)"
-msgstr ""
-
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"

@@ -90,13 +90,13 @@ public:
     const uint32_t intMediaRenewalTime,
     const std::map<std::string, std::string> &manifestHeaders,
     const std::map<std::string, std::string> &mediaHeaders,
-    const char* profile_path,
+    uint32_t max_bandwidth,
     uint16_t display_width,
     uint16_t display_height,
     const char *ov_audio,
     bool play_timeshift_buffer);
   virtual ~Session();
-  bool initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
+  bool initialize(const std::uint8_t config);
   bool InitializePeriod();
   SampleReader *GetNextSample();
 
@@ -181,7 +181,6 @@ private:
   std::string license_key_, license_type_, license_data_;
   std::map<std::string, std::string> media_headers_;
   AP4_DataBuffer server_certificate_;
-  std::string profile_path_;
   std::string ov_audio_;
   void * decrypterModule_;
   SSD::SSD_DECRYPTER *decrypter_;
@@ -203,8 +202,7 @@ private:
 
   uint16_t width_, height_;
   int max_resolution_, max_secure_resolution_;
-  uint32_t fixed_bandwidth_;
-  uint32_t maxUserBandwidth_;
+  uint32_t max_bandwidth_;
   bool changed_;
   int manual_streams_;
   uint64_t elapsed_time_, chapter_start_time_; // In DVD_TIME_BASE
