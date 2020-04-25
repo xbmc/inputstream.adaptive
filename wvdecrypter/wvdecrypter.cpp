@@ -321,7 +321,7 @@ WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert, const u
   char cSep = strBasePath.back();
   strBasePath += "widevine";
   strBasePath += cSep;
-  host->CreateDirectory(strBasePath.c_str());
+  host->CreateDir(strBasePath.c_str());
 
   //Build up a CDM path to store decrypter specific stuff. Each domain gets it own path
   const char* bspos(strchr(license_url_.c_str(), ':'));
@@ -341,7 +341,7 @@ WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert, const u
 
   strBasePath += buffer;
   strBasePath += cSep;
-  host->CreateDirectory(strBasePath.c_str());
+  host->CreateDir(strBasePath.c_str());
 
   wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter(
     "com.widevine.alpha",

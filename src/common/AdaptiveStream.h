@@ -43,10 +43,15 @@ namespace adaptive
     AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
-    bool prepare_stream(const AdaptiveTree::AdaptationSet *adp,
-      const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
-      uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
-      const std::map<std::string, std::string> &media_headers);
+    bool prepare_stream(AdaptiveTree::AdaptationSet* adp,
+                        const uint32_t width,
+                        const uint32_t height,
+                        uint32_t hdcpLimit,
+                        uint16_t hdcpVersion,
+                        uint32_t min_bandwidth,
+                        uint32_t max_bandwidth,
+                        unsigned int repId,
+                        const std::map<std::string, std::string>& media_headers);
     bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer);
     bool restart_stream();
     bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
@@ -64,9 +69,11 @@ namespace adaptive
     uint32_t read(void* buffer, uint32_t  bytesToRead);
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
+    bool getSize(unsigned long long& sz);
     bool seek_time(double seek_seconds, bool preceeding, bool &needReset);
-    AdaptiveTree::AdaptationSet const *getAdaptationSet() { return current_adp_; };
-    AdaptiveTree::Representation const *getRepresentation(){ return current_rep_; };
+    AdaptiveTree::Period* getPeriod() { return current_period_; };
+    AdaptiveTree::AdaptationSet* getAdaptationSet() { return current_adp_; };
+    AdaptiveTree::Representation* getRepresentation() { return current_rep_; };
     double get_download_speed() const { return tree_.get_download_speed(); };
     void set_download_speed(double speed) { tree_.set_download_speed(speed); };
     size_t getSegmentPos() { return current_rep_->getCurrentSegmentPos(); };
@@ -84,7 +91,7 @@ namespace adaptive
     const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
     const uint32_t& getMediaRenewalTime() const { return tree_.media_renewal_time_; };
     std::string buildDownloadUrl(const std::string &url);
-    int SecondsSinceMediaRenewal() const;
+    uint32_t SecondsSinceMediaRenewal() const;
     void UpdateSecondsSinceMediaRenewal();
   private:
     // Segment download section
@@ -125,8 +132,8 @@ namespace adaptive
     AdaptiveTree::StreamType type_;
     AdaptiveStreamObserver *observer_;
     // Active configuration
-    const AdaptiveTree::Period *current_period_;
-    const AdaptiveTree::AdaptationSet *current_adp_;
+    AdaptiveTree::Period* current_period_;
+    AdaptiveTree::AdaptationSet* current_adp_;
     AdaptiveTree::Representation *current_rep_;
     std::string download_url_;
     //We assume that a single segment can build complete frames
