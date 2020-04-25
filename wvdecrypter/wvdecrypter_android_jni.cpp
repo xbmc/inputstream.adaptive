@@ -100,7 +100,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   char cSep = strBasePath.back();
   strBasePath += ks == WIDEVINE ? "widevine" : ks == PLAYREADY ? "playready" : "wiseplay";
   strBasePath += cSep;
-  host->CreateDirectory(strBasePath.c_str());
+  host->CreateDir(strBasePath.c_str());
 
   //Build up a CDM path to store decrypter specific stuff. Each domain gets it own path
   const char* bspos(strchr(license_url_.c_str(), ':'));
@@ -120,7 +120,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
 
   strBasePath += buffer;
   strBasePath += cSep;
-  host->CreateDirectory(strBasePath.c_str());
+  host->CreateDir(strBasePath.c_str());
   m_strBasePath = strBasePath;
 
   int64_t mostSigBits(0), leastSigBits(0);
