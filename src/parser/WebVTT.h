@@ -54,5 +54,5 @@ private:
 
   std::string m_SRT, m_lastId;
   uint64_t m_timescale, m_ptsOffset;
-  uint64_t m_seekTime;
+  uint64_t m_seekTime = 0;
 };
