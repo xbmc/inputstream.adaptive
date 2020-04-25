@@ -110,6 +110,7 @@ public:
     CONTAINERTYPE_ADTS,
     CONTAINERTYPE_WEBM,
     CONTAINERTYPE_MATROSKA,
+    CONTAINERTYPE_TEXT,
   };
 
   enum
@@ -117,6 +118,13 @@ public:
     ENCRYTIONSTATE_UNENCRYPTED = 0,
     ENCRYTIONSTATE_ENCRYPTED = 1,
     ENCRYTIONSTATE_SUPPORTED = 2
+  };
+
+  enum PREPARE_RESULT
+  {
+    PREPARE_RESULT_FAILURE,
+    PREPARE_RESULT_OK,
+    PREPARE_RESULT_DRMCHANGED,
   };
 
   // Node definition
@@ -147,6 +155,7 @@ public:
       initialization_.range_begin_ = initialization_.range_end_ = ~0ULL;
       initialization_.url = nullptr;
     };
+    void CopyBasicData(Representation* src);
     ~Representation() {
       if (flags_ & Representation::URLSEGMENTS)
       {
@@ -263,6 +272,7 @@ public:
   {
     AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
+    void CopyBasicData(AdaptationSet* src);
     StreamType type_;
     uint32_t timescale_;
     uint64_t duration_;
@@ -380,7 +390,9 @@ public:
 
     Period() { psshSets_.push_back(PSSH()); };
     ~Period() { for (std::vector<AdaptationSet* >::const_iterator b(adaptationSets_.begin()), e(adaptationSets_.end()); b != e; ++b) delete *b; };
+    void CopyBasicData(Period*);
     uint16_t InsertPSSHSet(PSSH* pssh);
+    void InsertPSSHSet(uint16_t pssh_set) { ++psshSets_[pssh_set].use_count_; };
     void RemovePSSHSet(uint16_t pssh_set);
 
     std::vector<AdaptationSet*> adaptationSets_;
@@ -436,9 +448,18 @@ public:
   virtual ~AdaptiveTree();
 
   virtual bool open(const std::string &url, const std::string &manifestUpdateParam) = 0;
-  virtual bool prepareRepresentation(Representation *rep, bool update = false) { return true; };
+  virtual PREPARE_RESULT prepareRepresentation(Period* period,
+                                               AdaptationSet* adp,
+                                               Representation* rep,
+                                               bool update = false)
+  {
+    return PREPARE_RESULT_OK;
+  };
   virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
-  virtual void RefreshSegments(Representation *rep, StreamType type) {};
+  virtual void RefreshSegments(Period* period,
+                               AdaptationSet* adp,
+                               Representation* rep,
+                               StreamType type){};
 
   bool has_type(StreamType t);
   void FreeSegments(Representation *rep);
@@ -447,10 +468,15 @@ public:
   double get_average_download_speed() const { return average_download_speed_; };
   void set_download_speed(double speed);
   void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale);
-  uint16_t insert_psshset(StreamType type);
+  uint16_t insert_psshset(StreamType type, Period* period = nullptr, AdaptationSet* adp = nullptr);
 
   bool empty(){ return periods_.empty(); };
-  const AdaptationSet *GetAdaptationSet(unsigned int pos) const { return current_period_ && pos < current_period_->adaptationSets_.size() ? current_period_->adaptationSets_[pos] : 0; };
+  AdaptationSet* GetAdaptationSet(unsigned int pos) const
+  {
+    return current_period_ && pos < current_period_->adaptationSets_.size()
+               ? current_period_->adaptationSets_[pos]
+               : 0;
+  };
   std::mutex &GetTreeMutex() { return treeMutex_; };
   bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
   void RefreshUpdateThread();
@@ -465,7 +491,7 @@ protected:
 
   // Live segment update section
   virtual void StartUpdateThread();
-  virtual void RefreshSegments() {};
+  virtual void RefreshLiveSegments(){};
 
   uint32_t updateInterval_;
   std::mutex treeMutex_, updateMutex_;
