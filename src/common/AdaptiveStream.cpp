@@ -104,7 +104,7 @@ int AdaptiveStream::SecondsSinceUpdate() const
   return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint).count());
 }
 
-int AdaptiveStream::SecondsSinceMediaRenewal() const
+uint32_t AdaptiveStream::SecondsSinceMediaRenewal() const
 {
   const std::chrono::time_point<std::chrono::system_clock> &tPoint(lastMediaRenewal_ > tree_.GetLastMediaRenewal() ? lastMediaRenewal_ : tree_.GetLastMediaRenewal());
   return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint).count());
@@ -132,10 +132,15 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
   return true;
 }
 
-bool AdaptiveStream::prepare_stream(const AdaptiveTree::AdaptationSet *adp,
-  const uint32_t width, const uint32_t height, uint32_t hdcpLimit, uint16_t hdcpVersion,
-  uint32_t min_bandwidth, uint32_t max_bandwidth, unsigned int repId,
-  const std::map<std::string, std::string> &media_headers)
+bool AdaptiveStream::prepare_stream(AdaptiveTree::AdaptationSet* adp,
+                                    const uint32_t width,
+                                    const uint32_t height,
+                                    uint32_t hdcpLimit,
+                                    uint16_t hdcpVersion,
+                                    uint32_t min_bandwidth,
+                                    uint32_t max_bandwidth,
+                                    unsigned int repId,
+                                    const std::map<std::string, std::string>& media_headers)
 {
   width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
   height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
@@ -359,7 +364,7 @@ bool AdaptiveStream::ensureSegment()
 
     if (tree_.HasUpdateThread() && SecondsSinceUpdate() > 1)
     {
-      tree_.RefreshSegments(current_rep_, current_adp_->type_);
+      tree_.RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->type_);
       lastUpdated_ = std::chrono::system_clock::now();
     }
 
@@ -452,6 +457,29 @@ bool AdaptiveStream::seek(uint64_t const pos)
     }
     absolute_position_ = pos;
     return true;
+  }
+  return false;
+}
+
+bool AdaptiveStream::getSize(unsigned long long& sz)
+{
+  if (stopped_)
+    return false;
+
+  std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
+
+  if (ensureSegment())
+  {
+    while (true)
+    {
+      if (!download_url_.empty())
+      {
+        thread_data_->signal_rw_.wait(lckrw);
+        continue;
+      }
+      sz = segment_buffer_.size();
+      return true;
+    }
   }
   return false;
 }
