@@ -330,6 +330,11 @@ public:
         if (a->forced_ != b->forced_)
           return a->forced_;
       }
+      else if (a->type_ == VIDEO)
+      {
+        if (a->representations_[0]->bandwidth_ != b->representations_[0]->bandwidth_)
+          return a->representations_[0]->bandwidth_ < b->representations_[0]->bandwidth_;
+      }
 
       return false;
     };
