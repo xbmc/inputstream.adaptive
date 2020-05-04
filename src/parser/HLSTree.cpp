@@ -347,8 +347,6 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
       uint32_t encryption_type;
       switch (encryption_type = processEncryption(base_url_, map))
       {
-        case ENCRYPTIONTYPE_INVALID:
-          return false;
         case ENCRYPTIONTYPE_AES128:
         case ENCRYPTIONTYPE_WIDEVINE:
           // #EXT-X-SESSION-KEY is meant for preparing DRM without
@@ -616,8 +614,6 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           parseLine(line, 11, map);
           switch (processEncryption(base_url, map))
           {
-            case ENCRYPTIONTYPE_INVALID:
-              return PREPARE_RESULT_FAILURE;
             case ENCRYPTIONTYPE_AES128:
               currentEncryptionType = ENCRYPTIONTYPE_AES128;
               break;
