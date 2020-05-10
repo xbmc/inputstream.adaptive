@@ -325,9 +325,10 @@ bool adaptive::AdaptiveTree::download(const char* url,
   return nbRead == 0;
 }
 
-bool KodiAdaptiveStream::download(const char* url,
+unsigned int KodiAdaptiveStream::download(const char* url,
                                   const std::map<std::string, std::string>& mediaHeaders)
 {
+  unsigned int returnCode = 400;
   bool retry_403 = true;
   bool retry_MRT = true;
   kodi::vfs::CFile file;
@@ -336,7 +337,7 @@ bool KodiAdaptiveStream::download(const char* url,
 RETRY:
   // open the file
   if (!file.CURLCreate(url))
-    return false;
+    return returnCode;
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
   if (mediaHeaders.find("connection") == mediaHeaders.end())
@@ -351,7 +352,6 @@ RETRY:
   if (file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE |
                     OpenFileFlags::READ_AUDIO_VIDEO))
   {
-    int returnCode = -1;
     std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
     std::string::size_type posResponseCode = proto.find(' ');
     if (posResponseCode != std::string::npos)
@@ -400,7 +400,7 @@ RETRY:
       if (!nbReadOverall)
       {
         kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
-        return false;
+        return returnCode;
       }
 
       double current_download_speed_ = file.GetFileDownloadSpeed();
@@ -419,9 +419,8 @@ RETRY:
                 get_download_speed(), current_download_speed_);
     }
     file.Close();
-    return nbRead == 0;
   }
-  return false;
+  return returnCode;
 }
 
 bool KodiAdaptiveStream::parseIndexRange()

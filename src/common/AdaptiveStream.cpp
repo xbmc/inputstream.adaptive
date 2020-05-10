@@ -61,12 +61,24 @@ void AdaptiveStream::ResetSegment()
     absolute_position_ = current_rep_->current_segment_->range_begin_;
 }
 
-bool AdaptiveStream::download_segment()
+unsigned int AdaptiveStream::download_segment()
 {
   if (download_url_.empty())
-    return false;
+    return 400;
 
   return download(download_url_.c_str(), download_headers_);
+}
+
+bool AdaptiveStream::retry(unsigned int returnCode)
+{
+  if (returnCode == 200)
+    return false;
+
+  //Don't retry subtitle segment downloads on HTTP 415 Unsupported Media Type
+  if (type_ == AdaptiveTree::SUBTITLE && returnCode == 415)
+    return false;
+
+  return true;
 }
 
 void AdaptiveStream::worker()
@@ -76,21 +88,21 @@ void AdaptiveStream::worker()
   do {
     thread_data_->signal_dl_.wait(lckdl);
 
-    bool ret(download_segment());
+    bool ret(retry(download_segment()));
     unsigned int retryCount(10);
 
-    while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
+    while (ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
     {
       std::this_thread::sleep_for(std::chrono::seconds(1));
       Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
-      ret = download_segment();
+      ret = retry(download_segment());
     }
 
     //Signal finished download
     {
       std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
       download_url_.clear();
-      if (!ret)
+      if (ret)
         stopped_ = true;
     }
     thread_data_->signal_rw_.notify_one();

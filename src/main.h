@@ -55,7 +55,7 @@ Kodi Streams implementation
 class KodiAdaptiveTree : public adaptive::AdaptiveTree
 {
 protected:
-  virtual bool download(const char* url);
+  virtual unsigned int download(const char* url);
 };
 
 class KodiAdaptiveStream : public adaptive::AdaptiveStream
@@ -64,7 +64,7 @@ public:
   KodiAdaptiveStream(adaptive::AdaptiveTree &tree, adaptive::AdaptiveTree::StreamType type)
     :adaptive::AdaptiveStream(tree, type){};
 protected:
-  virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders) override;
+  virtual unsigned int download(const char* url, const std::map<std::string, std::string> &mediaHeaders) override;
   virtual bool parseIndexRange() override;
 };
 

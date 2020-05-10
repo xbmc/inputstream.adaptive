@@ -83,7 +83,7 @@ namespace adaptive
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
   protected:
-    virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
+    virtual unsigned int download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
     bool prepareDownload(const AdaptiveTree::Segment *seg);
@@ -96,7 +96,8 @@ namespace adaptive
   private:
     // Segment download section
     void ResetSegment();
-    bool download_segment();
+    unsigned int download_segment();
+    bool retry(unsigned int returnCode);
     void worker();
     int SecondsSinceUpdate() const;
     static void ReplacePlacehoder(std::string &url, uint64_t index, uint64_t timeStamp);
