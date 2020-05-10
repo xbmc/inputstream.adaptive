@@ -71,15 +71,22 @@ start(void *data, const char *el, const char **attr)
           }
           else if (strcmp(el, "span") == 0)
           {
-            const char *style(0);
-            for (; *attr && !style; attr += 2)
+            TTML2SRT::STYLE span_style;
+            for (; *attr;)
             {
               if ((nssep = strchr((const char*)*attr, ':')))
                 *attr = nssep + 1;
               if (strcmp((const char*)*attr, "style") == 0)
-                style = (const char*)*(attr + 1);
+                span_style = ttml->GetStyle((const char*)*(attr + 1));
+              else if (strcmp((const char*)*attr, "color") == 0) {
+                const char *color = (const char*)*(attr + 1);
+                span_style.id += "_" + std::string(color);
+                span_style.color = color;
+                ttml->InsertStyle(span_style);
+              }
+            attr += 2;
             }
-            ttml->StackStyle(style);
+            ttml->StackStyle(span_style.id.c_str());
 
             ttml->m_node |= TTML2SRT::NODE_SPAN;
           }
@@ -370,6 +377,21 @@ void TTML2SRT::StackText()
   m_strSubtitle.clear();
 }
 
+TTML2SRT::STYLE TTML2SRT::GetStyle(const char* styleId)
+{
+  if (styleId)
+  {
+    for (auto const s : m_styles)
+    {
+      if (s.id == styleId)
+      {
+        return s;
+        break;
+      }
+    }
+  }
+}
+
 void TTML2SRT::StackStyle(const char* styleId)
 {
   if (styleId)
@@ -386,6 +408,8 @@ void TTML2SRT::StackStyle(const char* styleId)
     if (sp)
     {
       STYLE s(m_styleStack.back());
+      if (!sp->id.empty())
+        s.id = sp->id;
       if (!sp->color.empty())
         s.color = sp->color;
       if (sp->bold != 0xFF)

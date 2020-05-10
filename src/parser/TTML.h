@@ -56,6 +56,7 @@ public:
     uint8_t dummy;
   };
   void InsertStyle(const STYLE &style) { m_styles.push_back(style); };
+  TTML2SRT::STYLE GetStyle(const char* styleId);
 
   struct SUBTITLE
   {
