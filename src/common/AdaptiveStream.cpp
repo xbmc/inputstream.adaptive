@@ -79,6 +79,11 @@ void AdaptiveStream::worker()
     bool ret(download_segment());
     unsigned int retryCount(3);
 
+    //Dont retry failed subtitle segments
+    if (type_ == AdaptiveTree::SUBTITLE) {
+      retryCount = 0;
+    }
+
     while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
     {
       std::this_thread::sleep_for(std::chrono::seconds(1));
