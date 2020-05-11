@@ -77,7 +77,7 @@ void AdaptiveStream::worker()
     thread_data_->signal_dl_.wait(lckdl);
 
     bool ret(download_segment());
-    unsigned int retryCount(10);
+    unsigned int retryCount(3);
 
     while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
     {
