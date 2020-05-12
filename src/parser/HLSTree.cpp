@@ -530,12 +530,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
               rep->url_ = url;
           }
           if (currentEncryptionType == ENCRYPTIONTYPE_AES128)
-          {
-            if (segment.pssh_set_ == 0)
-              segment.pssh_set_ = insert_psshset(NOTYPE, period, adp);
-            else
-              period->InsertPSSHSet(segment.pssh_set_);
-          }
+            segment.pssh_set_ = insert_psshset(NOTYPE, period, adp);
           newSegments.data.push_back(segment);
           segment.startPTS_ = ~0ULL;
         }
@@ -597,7 +592,6 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           segment.range_begin_ = ~0ULL;
           segment.range_end_ = 0;
           segment.startPTS_ = ~0ULL;
-          segment.pssh_set_ = 0;
           newStartNumber = 0;
           pts = 0;
 
