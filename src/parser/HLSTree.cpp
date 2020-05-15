@@ -291,6 +291,11 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
         current_period_->included_types_ |= 1U << AUDIO;
         m_audioCodec = getAudioCodec(map["CODECS"]);
       }
+      if (map.find("FRAME-RATE") != map.end())
+      {
+        current_representation_->fpsRate_ = static_cast<int>(std::stof(map["FRAME-RATE"]) * 1000);
+        current_representation_->fpsScale_ = 1000;
+      }
     }
     else if (line.compare(0, 8, "#EXTINF:") == 0)
     {
