@@ -584,6 +584,8 @@ start(void *data, const char *el, const char **attr)
         else if (strcmp(el, "Role") == 0)
         {
           bool schemeOk = false;
+          bool forced = false;
+          bool default_ = false;
           const char* value = nullptr;
           for (; *attr;)
           {
@@ -593,19 +595,24 @@ start(void *data, const char *el, const char **attr)
                 schemeOk = true;
             }
             else if (strcmp((const char*)*attr, "value") == 0)
+            {
               value = (const char*)*(attr + 1);
+
+              //Legacy compatibility
+              if (strcmp(value, "forced") == 0)
+                forced = true;
+              else if (strcmp(value, "main") == 0)
+                default_ = true;
+            }
             attr += 2;
           }
           if (schemeOk && value)
           {
             if (strcmp(value, "subtitle") == 0)
+            {
               dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-            else if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE) {
-              //Legacy compatibility
-              if (strcmp(value, "forced") == 0)
-                dash->current_adaptationset_->forced_ = true;
-              if (strcmp(value, "main") == 0)
-                dash->current_adaptationset_->default_ = true;
+              dash->current_adaptationset_->forced_ = forced;
+              dash->current_adaptationset_->default_ = default_;
             }
           }
         }
