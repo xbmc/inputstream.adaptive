@@ -1287,6 +1287,29 @@ public:
       edchanged = true;
     }
 
+    AP4_SampleDescription* desc(m_track->GetSampleDescription(0));
+    if (desc->GetType() == AP4_SampleDescription::TYPE_MPEG)
+    {
+      switch (static_cast<AP4_MpegSampleDescription*>(desc)->GetObjectTypeId())
+      {
+      case AP4_OTI_MPEG4_AUDIO:
+      case AP4_OTI_MPEG2_AAC_AUDIO_MAIN:
+      case AP4_OTI_MPEG2_AAC_AUDIO_LC:
+      case AP4_OTI_MPEG2_AAC_AUDIO_SSRP:
+        strcpy(info.m_codecName, "aac");
+        break;
+      case AP4_OTI_DTS_AUDIO:
+      case AP4_OTI_DTS_HIRES_AUDIO:
+      case AP4_OTI_DTS_MASTER_AUDIO:
+      case AP4_OTI_DTS_EXPRESS_AUDIO:
+        strcpy(info.m_codecName, "dca");
+      case AP4_OTI_AC3_AUDIO:
+      case AP4_OTI_EAC3_AUDIO:
+        strcpy(info.m_codecName, "eac3");
+        break;
+      }
+    }
+
     m_bSampleDescChanged = false;
 
     if (m_codecHandler->GetInformation(info))
