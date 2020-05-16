@@ -584,8 +584,6 @@ start(void *data, const char *el, const char **attr)
         else if (strcmp(el, "Role") == 0)
         {
           bool schemeOk = false;
-          bool forced = false;
-          bool default_ = false;
           const char* value = nullptr;
           for (; *attr;)
           {
@@ -595,25 +593,18 @@ start(void *data, const char *el, const char **attr)
                 schemeOk = true;
             }
             else if (strcmp((const char*)*attr, "value") == 0)
-            {
               value = (const char*)*(attr + 1);
-
-              //Legacy compatibility
-              if (strcmp(value, "forced") == 0)
-                forced = true;
-              else if (strcmp(value, "main") == 0)
-                default_ = true;
-            }
             attr += 2;
           }
           if (schemeOk && value)
           {
             if (strcmp(value, "subtitle") == 0)
-            {
               dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-              dash->current_adaptationset_->forced_ = forced;
-              dash->current_adaptationset_->default_ = default_;
-            }
+            //Legacy compatibility
+            if (strcmp(value, "forced") == 0)
+              dash->current_adaptationset_->forced_ = true;
+            if (strcmp(value, "main") == 0) 
+              dash->current_adaptationset_->default_ = true;
           }
         }
         else if (strcmp(el, "Representation") == 0)
@@ -1026,6 +1017,12 @@ end(void *data, const char *el)
       {
         if (dash->currentNode_ & MPDNODE_REPRESENTATION)
         {
+          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE)
+          {
+            dash->current_adaptationset_->forced_ = false;        
+            dash->current_adaptationset_->default_ = false;
+          }
+
           if (dash->currentNode_ & MPDNODE_BASEURL) // Inside Representation
           {
             if (strcmp(el, "BaseURL") == 0)
