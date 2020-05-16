@@ -110,6 +110,9 @@ static unsigned int ParseSegmentTemplate(const char **attr, std::string baseURL,
     attr += 2;
   }
 
+  if (!tpl.timescale) // if not specified timescale defaults to seconds
+    tpl.timescale = 1;
+
   if (tpl.media.compare(0, 7, "http://") != 0
     && tpl.media.compare(0, 8, "https://") != 0)
   {
