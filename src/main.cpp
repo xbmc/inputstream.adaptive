@@ -128,7 +128,7 @@ public:
 
   virtual bool CURLOpen(void* file) override
   {
-    return static_cast<kodi::vfs::CFile*>(file)->CURLOpen(OpenFileFlags::READ_NO_CACHE);
+    return static_cast<kodi::vfs::CFile*>(file)->CURLOpen(ADDON_READ_NO_CACHE);
   };
 
   virtual size_t ReadFile(void* file, void* lpBuf, size_t uiBufSize) override
@@ -277,7 +277,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
   }
 
-  if (!file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE))
+  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
   {
     kodi::Log(ADDON_LOG_ERROR, "Cannot download %s", url);
     return false;
@@ -348,8 +348,8 @@ RETRY:
     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
   }
 
-  if (file.CURLOpen(OpenFileFlags::READ_CHUNKED | OpenFileFlags::READ_NO_CACHE |
-                    OpenFileFlags::READ_AUDIO_VIDEO))
+  if (file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE |
+                    ADDON_READ_AUDIO_VIDEO))
   {
     int returnCode = -1;
     std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
@@ -1919,20 +1919,7 @@ public:
 
   bool GetInformation(INPUTSTREAM_INFO& info) override
   {
-    bool ret = WebmReader::GetInformation(info);
-    // kodi supports VP9 without extrada since addon api version was introduced.
-    // For older kodi versions (without api version) we have to fake extra-data
-    if (!info.m_ExtraSize && strcmp(info.m_codecName, "vp9") == 0 &&
-        kodi::addon::CAddonBase::m_strGlobalApiVersion.empty())
-    {
-      info.m_ExtraSize = 4;
-      uint8_t* annexb = static_cast<uint8_t*>(malloc(4));
-      annexb[0] = annexb[1] = annexb[2] = 0;
-      annexb[3] = 1;
-      info.m_ExtraData = annexb;
-      return true;
-    }
-    return ret;
+    return WebmReader::GetInformation(info);
   }
 
   bool TimeSeek(uint64_t pts, bool preceeding) override
@@ -3173,8 +3160,10 @@ class CInputStreamAdaptive;
 class CVideoCodecAdaptive : public kodi::addon::CInstanceVideoCodec
 {
 public:
-  CVideoCodecAdaptive(KODI_HANDLE instance);
-  CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive* parent);
+  CVideoCodecAdaptive(KODI_HANDLE instance, const std::string& version);
+  CVideoCodecAdaptive(KODI_HANDLE instance,
+                      const std::string& version,
+                      CInputStreamAdaptive* parent);
   virtual ~CVideoCodecAdaptive();
 
   bool Open(VIDEOCODEC_INITDATA& initData) override;
@@ -3204,8 +3193,9 @@ class CInputStreamAdaptive : public kodi::addon::CInstanceInputStream
 public:
   CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion);
   ADDON_STATUS CreateInstance(int instanceType,
-                              std::string instanceID,
+                              const std::string& instanceID,
                               KODI_HANDLE instance,
+                              const std::string& version,
                               KODI_HANDLE& addonInstance) override;
 
   bool Open(INPUTSTREAM& props) override;
@@ -3257,13 +3247,14 @@ CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::stri
 }
 
 ADDON_STATUS CInputStreamAdaptive::CreateInstance(int instanceType,
-                                                  std::string instanceID,
+                                                  const std::string& instanceID,
                                                   KODI_HANDLE instance,
+                                                  const std::string& version,
                                                   KODI_HANDLE& addonInstance)
 {
   if (instanceType == ADDON_INSTANCE_VIDEOCODEC)
   {
-    addonInstance = new CVideoCodecAdaptive(instance, this);
+    addonInstance = new CVideoCodecAdaptive(instance, version, this);
     return ADDON_STATUS_OK;
   }
   return ADDON_STATUS_NOT_IMPLEMENTED;
@@ -3872,16 +3863,18 @@ bool CInputStreamAdaptive::SeekChapter(int ch)
 #endif
 /*****************************************************************************************************/
 
-CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance)
-  : CInstanceVideoCodec(instance),
+CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, const std::string& version)
+  : CInstanceVideoCodec(instance, version),
     m_session(nullptr),
     m_state(0),
     m_name("inputstream.adaptive.decoder")
 {
 }
 
-CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, CInputStreamAdaptive* parent)
-  : CInstanceVideoCodec(instance), m_session(parent->GetSession()), m_state(0)
+CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance,
+                                         const std::string& version,
+                                         CInputStreamAdaptive* parent)
+  : CInstanceVideoCodec(instance, version), m_session(parent->GetSession()), m_state(0)
 {
 }
 
@@ -3986,20 +3979,16 @@ void CVideoCodecAdaptive::Reset()
 
 /*****************************************************************************************************/
 
-class CMyAddon : public kodi::addon::CAddonBase
+class ATTRIBUTE_HIDDEN CMyAddon : public kodi::addon::CAddonBase
 {
 public:
   CMyAddon();
   virtual ~CMyAddon();
   ADDON_STATUS CreateInstance(int instanceType,
-                              std::string instanceID,
+                              const std::string& instanceID,
                               KODI_HANDLE instance,
+                              const std::string& version,
                               KODI_HANDLE& addonInstance) override;
-  ADDON_STATUS CreateInstanceEx(int instanceType,
-                                std::string instanceID,
-                                KODI_HANDLE instance,
-                                KODI_HANDLE& addonInstance,
-                                const std::string& version) override;
 };
 
 CMyAddon::CMyAddon()
@@ -4014,18 +4003,10 @@ CMyAddon::~CMyAddon()
 }
 
 ADDON_STATUS CMyAddon::CreateInstance(int instanceType,
-                                      std::string instanceID,
+                                      const std::string& instanceID,
                                       KODI_HANDLE instance,
+                                      const std::string& version,
                                       KODI_HANDLE& addonInstance)
-{
-  return CreateInstanceEx(instanceType, instanceID, instance, addonInstance, "");
-}
-
-ADDON_STATUS CMyAddon::CreateInstanceEx(int instanceType,
-                                        std::string instanceID,
-                                        KODI_HANDLE instance,
-                                        KODI_HANDLE& addonInstance,
-                                        const std::string& version)
 {
   if (instanceType == ADDON_INSTANCE_INPUTSTREAM)
   {
