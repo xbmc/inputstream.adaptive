@@ -630,6 +630,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
               return PREPARE_RESULT_FAILURE;
             case ENCRYPTIONTYPE_AES128:
               currentEncryptionType = ENCRYPTIONTYPE_AES128;
+              segment.pssh_set_ = 0;
               break;
             case ENCRYPTIONTYPE_WIDEVINE:
               currentEncryptionType = ENCRYPTIONTYPE_WIDEVINE;
