@@ -13,12 +13,12 @@
     listitemprops="license_type|license_key|license_data|license_flags|manifest_type|server_certificate|stream_headers|manifest_update_parameter|original_audio_language|media_renewal_url|media_renewal_time|max_bandwidth|play_timeshift_buffer"
     library_@PLATFORM@="@LIBRARY_FILENAME@"/>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en">InputStream client for adaptive streams</summary>
-	<summary lang="es">Cliente InputStream para flujo de datos adaptativos</summary>
-    <description lang="en">InputStream client for adaptive streams</description>
-	<description lang="es">Cliente InputStream para flujo de datos adaptativos</description>
+    <summary lang="en_GB">InputStream client for adaptive streams</summary>
+    <summary lang="es_ES">Cliente InputStream para flujo de datos adaptativos</summary>
+    <description lang="en_GB">InputStream client for adaptive streams</description>
+    <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
-	<news>
+    <news>
 v2.5.6 (2020-04-25)
 - Matrix API change to v2.3.0 - Pass mime type to inputstreams if available
 - Matrix API change to v2.2.0 - Allows upto 256 streams, useful for netflix etc.
@@ -96,6 +96,6 @@ v2.3.15 (2019-02-11)
 
 v2.3.14 (2019-02-10)
 - Add WebM container parser
-	</news>
+    </news>
   </extension>
 </addon>
