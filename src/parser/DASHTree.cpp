@@ -1460,21 +1460,18 @@ bool DASHTree::write_data(void *buffer, size_t buffer_size, void *opaque)
 }
 
 //Called each time before we switch to a new segment
-void DASHTree::RefreshSegments(Period* period,
-                               AdaptationSet* adp,
-                               Representation* rep,
-                               StreamType type)
+void DASHTree::RefreshSegments(Representation *rep, StreamType type)
 {
   if ((type == VIDEO || type == AUDIO))
   {
     lastUpdated_ = std::chrono::system_clock::now();
     RefreshUpdateThread();
-    RefreshLiveSegments();
+    RefreshSegments();
   }
 }
 
 //Can be called form update-thread!
-void DASHTree::RefreshLiveSegments()
+void DASHTree::RefreshSegments()
 {
   if (has_timeshift_buffer_ && !update_parameter_.empty())
   {
