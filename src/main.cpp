@@ -360,12 +360,12 @@ RETRY:
     if (((returnCode == 403 && retry_403) || (getMediaRenewalTime() > 0  && SecondsSinceMediaRenewal() >= getMediaRenewalTime() && retry_MRT)) && !getMediaRenewalUrl().empty())
     {
       UpdateSecondsSinceMediaRenewal();
-
+      
       if (returnCode == 403)
         retry_403 = false;
       else
         retry_MRT = false;
-
+        
       std::vector<kodi::vfs::CDirEntry> items;
       if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
       {

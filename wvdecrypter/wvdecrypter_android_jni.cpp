@@ -158,7 +158,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   xbmc_jnienv()->ExceptionClear();
 
 
-  if (key_system_ == WIDEVINE)
+  if (key_system_ == WIDEVINE || key_system_ == WISEPLAY)
   {
     //media_drm_->setPropertyString("sessionSharing", "enable");
     if (serverCert.GetDataSize())
@@ -185,7 +185,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
     else if (key_system_ == PLAYREADY)
       license_url_ += "|Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense|R{SSM}|";
     else
-      license_url_ += "|Content-Type=application%2Foctet-stream|{\"payload\":\"R{SSM}\",\"psshBox\":\"b{PSSH}\",\"keyType\":\"1\"}|";
+      license_url_ += "|Content-Type=application%2Foctet-stream|R{SSM}|";
   }
 }
 
@@ -314,7 +314,7 @@ private:
   bool SendSessionMessage(const std::vector<char> &keyRequestData);
 
   WV_DRM &media_drm_;
-  std::vector<char> pssh_, initial_pssh_;
+  std::vector<char> pssh_;
   std::map<std::string, std::string> optParams_;
 
   std::vector<char> session_id_;
@@ -382,7 +382,6 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     pssh_[sizeof(atom) - 1] = static_cast<uint8_t>(pssh_.size()) - sizeof(atom);
     pssh_[sizeof(atom) - 2] = static_cast<uint8_t>((pssh_.size() - sizeof(atom)) >> 8);
   }
-  initial_pssh_ = pssh_;
 
   if (defaultKeyId)
     memcpy(defaultKeyId_, defaultKeyId, 16);
@@ -659,7 +658,6 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
     {
       std::string::size_type sidPos(blocks[2].find("{SID}"));
       std::string::size_type kidPos(blocks[2].find("{KID}"));
-      std::string::size_type psshPos(blocks[2].find("{PSSH}"));
 
       char fullDecode = 0;
       if (insPos > 1 && sidPos > 1 && kidPos > 1 && (blocks[2][0] == 'b' || blocks[2][0] == 'B') && blocks[2][1] == '{')
@@ -671,8 +669,6 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
           kidPos -= 2;
         if (sidPos != std::string::npos)
           sidPos -= 2;
-        if (psshPos != std::string::npos)
-          psshPos -= 2;
       }
 
       size_t size_written(0);
@@ -709,9 +705,6 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       if (kidPos != std::string::npos && insPos < kidPos)
         kidPos += size_written, kidPos -= 6;
 
-      if (psshPos != std::string::npos && insPos < psshPos)
-        psshPos += size_written, psshPos -= 6;
-
       size_written = 0;
 
       if (sidPos != std::string::npos)
@@ -737,15 +730,10 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
         }
       }
 
-      if (kidPos != std::string::npos && sidPos < kidPos)
-        kidPos += size_written, kidPos -= 6;
-
-      if (psshPos != std::string::npos && sidPos < psshPos)
-        psshPos += size_written, psshPos -= 6;
-
-      size_t kidPlaceholderLen = 6;
       if (kidPos != std::string::npos)
       {
+        if (sidPos < kidPos)
+          kidPos += size_written, kidPos -= 6;
         char uuid[36];
         if (blocks[2][kidPos - 1] == 'H')
         {
@@ -756,30 +744,11 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
         {
           KIDtoUUID(defaultKeyId_, uuid);
           blocks[2].replace(kidPos, 5, (const char*)uuid, 36);
-          kidPlaceholderLen = 5;
         }
-      }
-
-      if (psshPos != std::string::npos && kidPos < psshPos)
-        psshPos += size_written, psshPos -= kidPlaceholderLen;
-
-      if (psshPos != std::string::npos)
-      {
-        std::string msgEncoded = b64_encode(reinterpret_cast<const uint8_t*>(initial_pssh_.data()), initial_pssh_.size(), blocks[2][psshPos - 1] == 'B');
-        blocks[2].replace(psshPos - 1, 7, msgEncoded);
-        size_written = msgEncoded.size();
       }
 
       if (fullDecode)
         blocks[2] = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), fullDecode == 'B');
-
-#ifdef LOCLICENSE
-      std::string strDbg = host->GetProfilePath();
-      strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata";
-      FILE*f = fopen(strDbg.c_str(), "wb");
-      fwrite(blocks[2].data(), 1, blocks[2].size(), f);
-      fclose(f);
-#endif
     }
     std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
     host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
