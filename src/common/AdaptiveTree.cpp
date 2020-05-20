@@ -217,7 +217,6 @@ namespace adaptive
     width_ = src->width_;
     height_ = src->height_;
     fpsRate_ = src->fpsRate_;
-    fpsScale_ = src->fpsScale_;
     aspect_ = src->aspect_;
     flags_ = src->flags_;
     hdcpVersion_ = src->hdcpVersion_;
