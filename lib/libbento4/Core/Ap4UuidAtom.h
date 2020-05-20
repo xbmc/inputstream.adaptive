@@ -90,6 +90,7 @@ public:
 
     // methods
     virtual AP4_Result WriteFields(AP4_ByteStream& stream);
+    const AP4_DataBuffer &GetData() { return m_Data; };
 
 protected:
     // members

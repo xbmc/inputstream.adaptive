@@ -194,8 +194,6 @@ public:
     const AP4_UI08* GetData()     { return m_Buffer->GetData(); }
     AP4_UI08*       UseData()     { return m_Buffer->UseData(); }
     AP4_Size        GetDataSize() { return m_Buffer->GetDataSize(); }
-
-protected:
     virtual ~AP4_MemoryByteStream();
 
 private:

@@ -74,7 +74,8 @@ public:
     AP4_Result EncryptSampleData(AP4_DataBuffer& data_in,
                                  AP4_DataBuffer& data_out,
                                  AP4_UI32        block_counter);
-    AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
+    AP4_Result DecryptSampleData(AP4_UI32 poolid,
+                                 AP4_DataBuffer& data_in,
                                  AP4_DataBuffer& data_out,
                                  const AP4_UI08* iv = NULL);
     AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample);

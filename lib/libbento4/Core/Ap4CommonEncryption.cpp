@@ -1851,7 +1851,8 @@ AP4_CencSingleSampleDecrypter::~AP4_CencSingleSampleDecrypter() {
 |   AP4_CencSingleSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_CencSingleSampleDecrypter::DecryptSampleData(AP4_DataBuffer& data_in,
+AP4_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 poolid,
+                                                 AP4_DataBuffer& data_in,
                                                  AP4_DataBuffer& data_out,
                                                  const AP4_UI08* iv,
                                                  unsigned int    subsample_count,
@@ -2087,7 +2088,8 @@ AP4_CencSampleDecrypter::Create(AP4_CencSampleInfoTable*  sample_info_table,
 AP4_CencSampleDecrypter::~AP4_CencSampleDecrypter()
 {
 	delete m_SampleInfoTable;
-	delete m_SingleSampleDecrypter;
+  if (m_SingleSampleDecrypter->GetParentIsOwner())
+	  delete m_SingleSampleDecrypter;
 }
 
 /*----------------------------------------------------------------------
@@ -2104,7 +2106,8 @@ AP4_CencSampleDecrypter::SetSampleIndex(AP4_Ordinal sample_index)
 |   AP4_CencSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_CencSampleDecrypter::DecryptSampleData(AP4_DataBuffer& data_in,
+AP4_CencSampleDecrypter::DecryptSampleData(AP4_UI32 poolid,
+                                           AP4_DataBuffer& data_in,
                                            AP4_DataBuffer& data_out,
                                            const AP4_UI08* iv)
 {
@@ -2131,7 +2134,7 @@ AP4_CencSampleDecrypter::DecryptSampleData(AP4_DataBuffer& data_in,
     }
     
     // decrypt the sample
-    return m_SingleSampleDecrypter->DecryptSampleData(data_in, data_out, iv_block, subsample_count, bytes_of_cleartext_data, bytes_of_encrypted_data);
+    return m_SingleSampleDecrypter->DecryptSampleData(poolid, data_in, data_out, iv_block, subsample_count, bytes_of_cleartext_data, bytes_of_encrypted_data);
 }
 
 /*----------------------------------------------------------------------
@@ -2315,7 +2318,7 @@ AP4_CencFragmentDecrypter::ProcessSample(AP4_DataBuffer& data_in,
                                          AP4_DataBuffer& data_out)
 {
     // decrypt the sample
-    return m_SampleDecrypter->DecryptSampleData(data_in, data_out, NULL);
+    return m_SampleDecrypter->DecryptSampleData(0, data_in, data_out, NULL);
 }
 
 /*----------------------------------------------------------------------
