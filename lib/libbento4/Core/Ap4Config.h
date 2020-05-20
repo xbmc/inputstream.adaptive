@@ -52,7 +52,11 @@
 #if !defined(AP4_PLATFORM_BYTE_ORDER)
 #if defined(__ppc__)
 #define AP4_PLATFORM_BYTE_ORDER AP4_PLATFORM_BYTE_ORDER_BIG_ENDIAN
-#elif defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__)
+#elif defined(_MSC_VER)
+#if defined(_M_IX86) || defined(_M_X64) || defined(_M_ARM) || defined(_M_ARM64)
+#define AP4_PLATFORM_BYTE_ORDER AP4_PLATFORM_BYTE_ORDER_LITTLE_ENDIAN
+#endif
+#elif defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__arm64__) || defined(__aarch64__)
 #define AP4_PLATFORM_BYTE_ORDER AP4_PLATFORM_BYTE_ORDER_LITTLE_ENDIAN
 #endif
 #endif
@@ -95,6 +99,11 @@
 #define AP4_ftell ftell
 #endif
 
+/* MinGW-w64 */
+#if defined(__MINGW32__) || defined (__MINGW64__)
+#define AP4_CONFIG_HAVE_FOPEN_S
+#endif
+
 /* Symbian */
 #if defined(__SYMBIAN32__)
 #undef APT_CONFIG_HAVE_NEW_H
@@ -111,8 +120,12 @@
 
 /* Android */
 #if defined(ANDROID)
+#if !defined(AP4_CONFIG_NO_RTTI)
 #define AP4_CONFIG_NO_RTTI
+#endif
+#if !defined(AP4_CONFIG_NO_EXCEPTIONS)
 #define AP4_CONFIG_NO_EXCEPTIONS
+#endif
 #endif
 
 /* Emscripten */
@@ -128,10 +141,10 @@
 #endif
 
 #if !defined(AP4_fseek)
-#define AP4_fseek fseek
+#define AP4_fseek fseeko
 #endif
 #if !defined(AP4_ftell)
-#define AP4_ftell ftell
+#define AP4_ftell ftello
 #endif
 
 /* some compilers (ex: MSVC 8) deprecate those, so we rename them */

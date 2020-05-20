@@ -68,7 +68,7 @@ void
 AP4_GlobalOptions::SetBool(const char* name, bool value)
 {
     Entry* entry = GetEntry(name, true);
-    entry->m_BoolValue = value;
+    entry->m_Value = value?"true":"false";
 }
 
 /*----------------------------------------------------------------------
@@ -79,9 +79,33 @@ AP4_GlobalOptions::GetBool(const char* name)
 {
     Entry* entry = GetEntry(name, false);
     if (entry) {
-        return entry->m_BoolValue;
+        return entry->m_Value == "true";
     } else {
         return false;
+    }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_GlobalOptions::SetString
++---------------------------------------------------------------------*/
+void
+AP4_GlobalOptions::SetString(const char* name, const char* value)
+{
+    Entry* entry = GetEntry(name, true);
+    entry->m_Value = value;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_GlobalOptions::GetString
++---------------------------------------------------------------------*/
+const char*
+AP4_GlobalOptions::GetString(const char* name)
+{
+    Entry* entry = GetEntry(name, false);
+    if (entry) {
+        return entry->m_Value.GetChars();
+    } else {
+        return NULL;
     }
 }
 
@@ -389,6 +413,15 @@ AP4_BitReader::Reset()
 }
 
 /*----------------------------------------------------------------------
+|   AP4_BitReader::GetBitsRead
++---------------------------------------------------------------------*/
+unsigned int
+AP4_BitReader::GetBitsRead()
+{
+    return 8*m_Position - m_BitsCached;
+}
+
+/*----------------------------------------------------------------------
 |   AP4_BitReader::ReadCache
 +---------------------------------------------------------------------*/
 AP4_BitReader::BitsWord
@@ -407,6 +440,7 @@ AP4_BitReader::ReadCache() const
 AP4_UI32
 AP4_BitReader::ReadBits(unsigned int n)
 {
+    if (n == 0) return 0;
     AP4_BitReader::BitsWord result;
     if (m_BitsCached >= n) {
         /* we have enough bits in the cache to satisfy the request */
@@ -421,7 +455,7 @@ AP4_BitReader::ReadBits(unsigned int n)
         AP4_BitReader::BitsWord cache = m_Cache & AP4_BIT_MASK(m_BitsCached);
         n -= m_BitsCached;
         m_BitsCached = AP4_WORD_BITS - n;
-        result = (word >> m_BitsCached) | (cache << n);
+        result = m_BitsCached ? (word >> m_BitsCached) | (cache << n) : word;
         m_Cache = word;
     }
 
@@ -531,8 +565,4 @@ AP4_BitReader::SkipBit()
    }
 }
 
-AP4_UI32
-AP4_BitReader::BitsLeft()
-{
-  return (m_Buffer.GetDataSize() - m_Position) * 8 + m_BitsCached;
-}
+

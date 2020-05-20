@@ -131,6 +131,7 @@ AP4_Track::AP4_Track(AP4_SampleTable* sample_table,
                      AP4_UI64         media_duration,   // in the media timescale
                      const AP4_Track* track_prototype) :
     m_TrakAtomIsOwned(true),
+    m_Type(track_prototype->m_Type),
     m_SampleTable(sample_table),
     m_SampleTableIsOwned(true),
     m_MovieTimeScale(movie_time_scale ? 
@@ -554,4 +555,20 @@ AP4_Track::GetTrackLanguage() const
         return mdhd->GetLanguage().GetChars();
     }
     return NULL;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Track::SetTrackLanguage
++---------------------------------------------------------------------*/
+AP4_Result
+AP4_Track::SetTrackLanguage(const char* language)
+{
+    if (strlen(language) != 3) {
+        return AP4_ERROR_INVALID_PARAMETERS;
+    }
+
+    if (AP4_MdhdAtom* mdhd = AP4_DYNAMIC_CAST(AP4_MdhdAtom, m_TrakAtom->FindChild("mdia/mdhd"))) {
+        return mdhd->SetLanguage(language);
+    }
+    return AP4_ERROR_INVALID_STATE;
 }

@@ -92,9 +92,6 @@ class AP4_TrakAtom : public AP4_ContainerAtom
     AP4_Result SetWidth(AP4_UI32 width);
     AP4_UI32   GetHeight();
     AP4_Result SetHeight(AP4_UI32 height);
-	AP4_Atom*  Clone(){
-		return AP4_Atom::Clone();
-	};
     
  private:
     // methods

@@ -122,14 +122,13 @@ AP4_MovieFragment::GetTrafAtom(AP4_UI32 track_id, AP4_ContainerAtom*& traf)
 |   AP4_MovieFragment::CreateSampleTable
 +---------------------------------------------------------------------*/
 AP4_Result         
-AP4_MovieFragment::CreateSampleTable(AP4_MoovAtom* moov,
-  AP4_UI32                  track_id,
-  AP4_ByteStream*           sample_stream,
-  AP4_Position              moof_offset,
-  AP4_Position              mdat_payload_offset,
-  AP4_UI64                  mdat_payload_size,
-  AP4_UI64                  dts_origin,
-  AP4_FragmentSampleTable*& sample_table)
+AP4_MovieFragment::CreateSampleTable(AP4_MoovAtom*             moov,
+                                     AP4_UI32                  track_id, 
+                                     AP4_ByteStream*           sample_stream,
+                                     AP4_Position              moof_offset,
+                                     AP4_Position              mdat_payload_offset,
+                                     AP4_UI64                  dts_origin,
+                                     AP4_FragmentSampleTable*& sample_table)
 {
     // default value
     sample_table = NULL;
@@ -154,14 +153,12 @@ AP4_MovieFragment::CreateSampleTable(AP4_MoovAtom* moov,
     }
     AP4_ContainerAtom* traf = NULL;
     if (AP4_SUCCEEDED(GetTrafAtom(track_id, traf))) {
-        sample_table = new AP4_FragmentSampleTable(traf,
-          trex,
-          track_id,
-          sample_stream,
-          moof_offset,
-          mdat_payload_offset,
-          mdat_payload_size,
-          dts_origin);
+        sample_table = new AP4_FragmentSampleTable(traf, 
+                                                   trex, 
+                                                   sample_stream,
+                                                   moof_offset,
+                                                   mdat_payload_offset,
+                                                   dts_origin);
         return AP4_SUCCESS;
     }
     
@@ -172,15 +169,14 @@ AP4_MovieFragment::CreateSampleTable(AP4_MoovAtom* moov,
 |   AP4_MovieFragment::CreateSampleTable
 +---------------------------------------------------------------------*/
 AP4_Result         
-AP4_MovieFragment::CreateSampleTable(AP4_Movie* movie,
-  AP4_UI32                  track_id,
-  AP4_ByteStream*           sample_stream,
-  AP4_Position              moof_offset,
-  AP4_Position              mdat_payload_offset,
-  AP4_UI64                  mdat_payload_size,
-  AP4_UI64                  dts_origin,
-  AP4_FragmentSampleTable*& sample_table)
+AP4_MovieFragment::CreateSampleTable(AP4_Movie*                movie,
+                                     AP4_UI32                  track_id, 
+                                     AP4_ByteStream*           sample_stream,
+                                     AP4_Position              moof_offset,
+                                     AP4_Position              mdat_payload_offset,
+                                     AP4_UI64                  dts_origin,
+                                     AP4_FragmentSampleTable*& sample_table)
 {
     AP4_MoovAtom* moov = movie?movie->GetMoovAtom():NULL;
-    return CreateSampleTable(moov, track_id, sample_stream, moof_offset, mdat_payload_offset, mdat_payload_size, dts_origin, sample_table);
+    return CreateSampleTable(moov, track_id, sample_stream, moof_offset, mdat_payload_offset, dts_origin, sample_table);
 }

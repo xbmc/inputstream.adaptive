@@ -57,6 +57,8 @@ const AP4_UI32 AP4_SAMPLE_FORMAT_AVC1 = AP4_ATOM_TYPE('a','v','c','1');
 const AP4_UI32 AP4_SAMPLE_FORMAT_AVC2 = AP4_ATOM_TYPE('a','v','c','2');
 const AP4_UI32 AP4_SAMPLE_FORMAT_AVC3 = AP4_ATOM_TYPE('a','v','c','3');
 const AP4_UI32 AP4_SAMPLE_FORMAT_AVC4 = AP4_ATOM_TYPE('a','v','c','4');
+const AP4_UI32 AP4_SAMPLE_FORMAT_DVAV = AP4_ATOM_TYPE('d','v','a','v');
+const AP4_UI32 AP4_SAMPLE_FORMAT_DVA1 = AP4_ATOM_TYPE('d','v','a','1');
 const AP4_UI32 AP4_SAMPLE_FORMAT_HVC1 = AP4_ATOM_TYPE('h','v','c','1');
 const AP4_UI32 AP4_SAMPLE_FORMAT_HEV1 = AP4_ATOM_TYPE('h','e','v','1');
 const AP4_UI32 AP4_SAMPLE_FORMAT_DVHE = AP4_ATOM_TYPE('d','v','h','e');
@@ -68,6 +70,7 @@ const AP4_UI32 AP4_SAMPLE_FORMAT_AVCP = AP4_ATOM_TYPE('a','v','c','p');
 const AP4_UI32 AP4_SAMPLE_FORMAT_DRAC = AP4_ATOM_TYPE('d','r','a','c');
 const AP4_UI32 AP4_SAMPLE_FORMAT_DRA1 = AP4_ATOM_TYPE('d','r','a','1');
 const AP4_UI32 AP4_SAMPLE_FORMAT_AC_3 = AP4_ATOM_TYPE('a','c','-','3');
+const AP4_UI32 AP4_SAMPLE_FORMAT_AC_4 = AP4_ATOM_TYPE('a','c','-','4');
 const AP4_UI32 AP4_SAMPLE_FORMAT_EC_3 = AP4_ATOM_TYPE('e','c','-','3');
 const AP4_UI32 AP4_SAMPLE_FORMAT_DTSC = AP4_ATOM_TYPE('d','t','s','c');
 const AP4_UI32 AP4_SAMPLE_FORMAT_DTSH = AP4_ATOM_TYPE('d','t','s','h');
@@ -90,10 +93,13 @@ const AP4_UI32 AP4_SAMPLE_FORMAT_TEXT = AP4_ATOM_TYPE('t','e','t','x');
 const AP4_UI32 AP4_SAMPLE_FORMAT_TWOS = AP4_ATOM_TYPE('t','w','o','s');
 const AP4_UI32 AP4_SAMPLE_FORMAT_TX3G = AP4_ATOM_TYPE('t','x','3','g');
 const AP4_UI32 AP4_SAMPLE_FORMAT_VC_1 = AP4_ATOM_TYPE('v','c','-','1');
-const AP4_UI32 AP4_SAMPLE_FORMAT_STPP = AP4_ATOM_TYPE('s','t','p','p');
 const AP4_UI32 AP4_SAMPLE_FORMAT_XML_ = AP4_ATOM_TYPE('x','m','l',' ');
-const AP4_UI32 AP4_SAMPLE_FORMAT_WVTT = AP4_ATOM_TYPE('w','v','t','t');
-const AP4_UI32 AP4_SAMPLE_FORMAT_VP09 = AP4_ATOM_TYPE('v','p','0','9');
+const AP4_UI32 AP4_SAMPLE_FORMAT_STPP = AP4_ATOM_TYPE('s','t','p','p');
+const AP4_UI32 AP4_SAMPLE_FORMAT_FLAC = AP4_ATOM_TYPE('f','L','a','C');
+const AP4_UI32 AP4_SAMPLE_FORMAT_OPUS = AP4_ATOM_TYPE('O','p','u','s');
+const AP4_UI32 AP4_SAMPLE_FORMAT_VP8  = AP4_ATOM_TYPE('v','p','0','8');
+const AP4_UI32 AP4_SAMPLE_FORMAT_VP9  = AP4_ATOM_TYPE('v','p','0','9');
+const AP4_UI32 AP4_SAMPLE_FORMAT_VP10 = AP4_ATOM_TYPE('v','p','1','0');
 
 const char*
 AP4_GetFormatName(AP4_UI32 format);
@@ -352,6 +358,34 @@ public:
                               const char*     compressor_name,
                               AP4_AtomParent* details);
     
+    AP4_HevcSampleDescription(AP4_UI32                         format,
+                              AP4_UI16                         width,
+                              AP4_UI16                         height,
+                              AP4_UI16                         depth,
+                              const char*                      compressor_name,
+                              AP4_UI08                         general_profile_space,
+                              AP4_UI08                         general_tier_flag,
+                              AP4_UI08                         general_profile,
+                              AP4_UI32                         general_profile_compatibility_flags,
+                              AP4_UI64                         general_constraint_indicator_flags,
+                              AP4_UI08                         general_level,
+                              AP4_UI32                         min_spatial_segmentation,
+                              AP4_UI08                         parallelism_type,
+                              AP4_UI08                         chroma_format,
+                              AP4_UI08                         luma_bit_depth,
+                              AP4_UI08                         chroma_bit_depth,
+                              AP4_UI16                         average_frame_rate,
+                              AP4_UI08                         constant_frame_rate,
+                              AP4_UI08                         num_temporal_layers,
+                              AP4_UI08                         temporal_id_nested,
+                              AP4_UI08                         nalu_length_size,
+                              const AP4_Array<AP4_DataBuffer>& video_parameters,
+                              AP4_UI08                         video_parameters_completeness,
+                              const AP4_Array<AP4_DataBuffer>& sequence_parameters,
+                              AP4_UI08                         sequence_parameters_completeness,
+                              const AP4_Array<AP4_DataBuffer>& picture_parameters,
+                              AP4_UI08                         picture_parameters_completeness);
+ 
     // accessors
     AP4_UI08 GetConfigurationVersion()             const { return m_HvccAtom->GetConfigurationVersion(); }
     AP4_UI08 GetGeneralProfileSpace()              const { return m_HvccAtom->GetGeneralProfileSpace(); }
@@ -604,6 +638,9 @@ const AP4_MpegSampleDescription::OTI AP4_OTI_DTS_AUDIO            = 0xA9;
 const AP4_MpegSampleDescription::OTI AP4_OTI_DTS_HIRES_AUDIO      = 0xAA;
 const AP4_MpegSampleDescription::OTI AP4_OTI_DTS_MASTER_AUDIO     = 0xAB;
 const AP4_MpegSampleDescription::OTI AP4_OTI_DTS_EXPRESS_AUDIO    = 0xAC;
+const AP4_MpegSampleDescription::OTI AP4_OTI_OPUS_AUDIO           = 0xAD;
+const AP4_MpegSampleDescription::OTI AP4_OTI_VP9_VIDEO            = 0xB1;
+const AP4_MpegSampleDescription::OTI AP4_OTI_VORBIS_AUDIO         = 0xDD; // Not standard!
 const AP4_MpegSampleDescription::OTI AP4_OTI_13K_VOICE            = 0xE1;
 
 const AP4_UI08 AP4_MPEG4_AUDIO_OBJECT_TYPE_AAC_MAIN              = 1;  /**< AAC Main Profile                             */

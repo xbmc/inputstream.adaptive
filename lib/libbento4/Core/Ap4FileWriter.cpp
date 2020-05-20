@@ -80,8 +80,8 @@ AP4_FileWriter::Write(AP4_File& file, AP4_ByteStream& stream, Interleaving /* in
     AP4_Array<AP4_Array<AP4_UI64>*> trak_chunk_offsets_backup;
     AP4_Array<AP4_UI64>             chunk_offsets;
     for (AP4_List<AP4_Track>::Item* track_item = movie->GetTracks().FirstItem();
-         track_item;
-         track_item = track_item->GetNext()) {
+                                    track_item;
+                                    track_item = track_item->GetNext()) {
         AP4_Track*    track = track_item->GetData();
         AP4_TrakAtom* trak  = track->UseTrakAtom();
         
@@ -117,7 +117,7 @@ AP4_FileWriter::Write(AP4_File& file, AP4_ByteStream& stream, Interleaving /* in
     movie->GetMoovAtom()->Write(stream);
     
     // create and write the media data (mdat)
-    // FIXME: this only supports 32-bit mdat size
+    // TODO: this only supports 32-bit mdat size
     stream.WriteUI32((AP4_UI32)mdat_size);
     stream.WriteUI32(AP4_ATOM_TYPE_MDAT);
     

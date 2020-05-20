@@ -153,9 +153,7 @@ public:
     AP4_Result      GetKeyAndIvByKid(const AP4_UI08* kid, const AP4_DataBuffer*& key, const AP4_DataBuffer*& iv);
     const AP4_DataBuffer* GetKey(AP4_UI32 track_id) const;
     const AP4_DataBuffer* GetKeyByKid(const AP4_UI08* kid) const;
-	const AP4_Cardinal GetItemCount() const { return m_KeyEntries.ItemCount(); };
-	const AP4_DataBuffer* GetLastInsertedKey() const { return &m_KeyEntries.LastItem()->GetData()->m_Key;};
-
+    
 private:
     // types
     class KeyEntry {
@@ -395,8 +393,7 @@ public:
     // methods
     virtual AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample) { return sample.GetSize(); }
     virtual AP4_Result SetSampleIndex(AP4_Ordinal /*index*/)      { return AP4_SUCCESS;      }
-    virtual AP4_Result DecryptSampleData(AP4_UI32 poolid, 
-                                         AP4_DataBuffer&    data_in,
+    virtual AP4_Result DecryptSampleData(AP4_DataBuffer&    data_in,
                                          AP4_DataBuffer&    data_out,
                                          const AP4_UI08*    iv = NULL) = 0;
 };
@@ -418,7 +415,7 @@ public:
     virtual AP4_Result Initialize(AP4_AtomParent&   top_level,
                                   AP4_ByteStream&   stream,
                                   ProgressListener* listener);
-	virtual AP4_Processor::TrackHandler* CreateTrackHandler(AP4_TrakAtom* trak, AP4_TrexAtom* trex);
+    virtual AP4_Processor::TrackHandler* CreateTrackHandler(AP4_TrakAtom* trak);
 
 private:
     // members

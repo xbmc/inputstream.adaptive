@@ -46,6 +46,7 @@ AP4_SidxAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version > 1) return NULL;
     return new AP4_SidxAtom(size, version, flags, stream);
@@ -182,17 +183,4 @@ AP4_SidxAtom::SetReferenceCount(unsigned int count) {
     m_Size32 -= m_References.ItemCount()*12;
     m_References.SetItemCount(count);
     m_Size32 += m_References.ItemCount()*12;
-}
-
-
-/*----------------------------------------------------------------------
-|   AP4_SidxAtom::GetDuration
-+---------------------------------------------------------------------*/
-AP4_UI64
-AP4_SidxAtom::GetDuration() {
-
-	AP4_UI64 duration(0);
-	for (AP4_Cardinal i(0); i < m_References.ItemCount(); ++i)
-		duration += m_References[i].m_SubsegmentDuration;
-	return duration;
 }

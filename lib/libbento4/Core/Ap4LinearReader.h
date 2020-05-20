@@ -50,14 +50,12 @@ class AP4_MovieFragment;
 const unsigned int AP4_LINEAR_READER_INITIALIZED = 1;
 const unsigned int AP4_LINEAR_READER_FLAG_EOS    = 2;
 
-const unsigned int AP4_LINEAR_READER_DEFAULT_BUFFER_SIZE = 16*1024*1024;
-
 /*----------------------------------------------------------------------
 |   AP4_LinearReader
 +---------------------------------------------------------------------*/
 class AP4_LinearReader {
 public:
-    AP4_LinearReader(AP4_Movie& movie, AP4_ByteStream* fragment_stream = NULL, AP4_Size max_buffer=AP4_LINEAR_READER_DEFAULT_BUFFER_SIZE);
+    AP4_LinearReader(AP4_Movie& movie, AP4_ByteStream* fragment_stream = NULL);
     virtual ~AP4_LinearReader();
     
     AP4_Result EnableTrack(AP4_UI32 track_id);
@@ -88,11 +86,9 @@ public:
     
     AP4_Result SeekTo(AP4_UI32 time_ms, AP4_UI32* actual_time_ms = 0);
     
-    AP4_Result SeekSample(AP4_UI32 track_id, AP4_UI64 ts, AP4_Ordinal &sample_index, bool preceedingSync);
-
-
     // accessors
     AP4_Size GetBufferFullness() { return m_BufferFullness; }
+    AP4_Position GetCurrentFragmentPosition() { return m_CurrentFragmentPosition; }
     
     // classes
     class SampleReader {
@@ -161,10 +157,9 @@ protected:
     
     // methods that can be overridden
     virtual AP4_Result ProcessTrack(AP4_Track* track);
-    virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
-      AP4_Position       moof_offset,
-      AP4_Position       mdat_payload_offset,
-      AP4_UI64 mdat_payload_size);
+    virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof, 
+                                   AP4_Position       moof_offset, 
+                                   AP4_Position       mdat_payload_offset);
     
     // methods
     Tracker*   FindTracker(AP4_UI32 track_id);
@@ -174,22 +169,19 @@ protected:
     AP4_Result ReadNextSample(AP4_Sample&     sample, 
                               AP4_DataBuffer* sample_data,
                               AP4_UI32&       track_id);
-    AP4_Result GetSample(AP4_UI32 track_id, AP4_Sample &sample, AP4_Ordinal sample_index);
-
     void       FlushQueue(Tracker* tracker);
     void       FlushQueues();
-    void       Reset();
     
     // members
     AP4_Movie&          m_Movie;
     bool                m_HasFragments;
     AP4_MovieFragment*  m_Fragment;
     AP4_ByteStream*     m_FragmentStream;
+    AP4_Position        m_CurrentFragmentPosition;
     AP4_Position        m_NextFragmentPosition;
     AP4_Array<Tracker*> m_Trackers;
     AP4_Size            m_BufferFullness;
     AP4_Size            m_BufferFullnessPeak;
-    AP4_Size            m_MaxBufferFullness;
     AP4_ContainerAtom*  m_Mfra;
 };
 

@@ -1,8 +1,8 @@
 /*****************************************************************
 |
-|    AP4 - dac3 Atoms
+|    AP4 - dvcC Atoms
 |
-|    Copyright 2002-2019 Axiomatic Systems, LLC
+|    Copyright 2002-2016 Axiomatic Systems, LLC
 |
 |
 |    This file is part of Bento4/AP4 (MP4 Atom Processing Library).
@@ -26,8 +26,8 @@
 |
 ****************************************************************/
 
-#ifndef _AP4_DAC3_ATOM_H_
-#define _AP4_DAC3_ATOM_H_
+#ifndef _AP4_DVCC_ATOM_H_
+#define _AP4_DVCC_ATOM_H_
 
 /*----------------------------------------------------------------------
 |   includes
@@ -38,46 +38,59 @@
 /*----------------------------------------------------------------------
 |   constants
 +---------------------------------------------------------------------*/
+const AP4_UI08 AP4_DV_PROFILE_DVAV_PER = 0;
+const AP4_UI08 AP4_DV_PROFILE_DVAV_PEN = 1;
+const AP4_UI08 AP4_DV_PROFILE_DVHE_DER = 2;
+const AP4_UI08 AP4_DV_PROFILE_DVHE_DEN = 3;
+const AP4_UI08 AP4_DV_PROFILE_DVHE_DTR = 4;
+const AP4_UI08 AP4_DV_PROFILE_DVHE_STN = 5;
+const AP4_UI08 AP4_DV_PROFILE_DVHE_DTH = 6;
+const AP4_UI08 AP4_DV_PROFILE_DVHE_DTB = 7;
 
 /*----------------------------------------------------------------------
-|   AP4_Dac3Atom
+|   AP4_DvccAtom
 +---------------------------------------------------------------------*/
-class AP4_Dac3Atom : public AP4_Atom
+class AP4_DvccAtom : public AP4_Atom
 {
 public:
-    AP4_IMPLEMENT_DYNAMIC_CAST_D(AP4_Dac3Atom, AP4_Atom)
-
-    // types
-    struct StreamInfo {
-        unsigned int fscod;
-        unsigned int bsid;
-        unsigned int bsmod;
-        unsigned int acmod;
-        unsigned int lfeon;
-        unsigned int bit_rate_code;
-    };
+    AP4_IMPLEMENT_DYNAMIC_CAST_D(AP4_DvccAtom, AP4_Atom)
 
     // class methods
-    static AP4_Dac3Atom* Create(AP4_Size size, AP4_ByteStream& stream);
+    static AP4_DvccAtom* Create(AP4_Size size, AP4_ByteStream& stream);
+    static const char*   GetProfileName(AP4_UI08 profile);
 
+    // constructors
+    AP4_DvccAtom();
+    AP4_DvccAtom(AP4_UI08 dv_version_major,
+                 AP4_UI08 dv_version_minor,
+                 AP4_UI08 dv_profile,
+                 AP4_UI08 dv_level,
+                 bool     rpu_present_flag,
+                 bool     el_present_flag,
+                 bool     bl_present_flag);
+    
     // methods
     virtual AP4_Result InspectFields(AP4_AtomInspector& inspector);
     virtual AP4_Result WriteFields(AP4_ByteStream& stream);
-    virtual AP4_Atom* Clone() { return new AP4_Dac3Atom(m_Size32, m_RawBytes.GetData()); }
 
     // accessors
-    const AP4_DataBuffer& GetRawBytes()   const { return m_RawBytes;   }
-    unsigned int          GetDataRate()   const { return m_DataRate;   }
-    const StreamInfo&     GetStreamInfo() const { return m_StreamInfo; }
+    AP4_UI08 GetDvVersionMajor() { return m_DvVersionMajor;      }
+    AP4_UI08 GetDvVersionMinor() { return m_DvVersionMinor;      }
+    AP4_UI08 GetDvProfile()      { return m_DvProfile;           }
+    AP4_UI08 GetDvLevel()        { return m_DvLevel;             }
+    bool     GetRpuPresentFlag() { return m_RpuPresentFlag != 0; }
+    bool     GetElPresentFlag()  { return m_ElPresentFlag  != 0; }
+    bool     GetBlPresentFlag()  { return m_BlPresentFlag  != 0; }
 
 private:
-    // methods
-    AP4_Dac3Atom(AP4_UI32 size, const AP4_UI08* payload);
-    
     // members
-    unsigned int   m_DataRate;
-    StreamInfo     m_StreamInfo;
-    AP4_DataBuffer m_RawBytes;
+    AP4_UI08 m_DvVersionMajor;
+    AP4_UI08 m_DvVersionMinor;
+    AP4_UI08 m_DvProfile;
+    AP4_UI08 m_DvLevel;
+    AP4_UI08 m_RpuPresentFlag;
+    AP4_UI08 m_ElPresentFlag;
+    AP4_UI08 m_BlPresentFlag;
 };
 
-#endif // _AP4_DAC3_ATOM_H_
+#endif // _AP4_DVCC_ATOM_H_

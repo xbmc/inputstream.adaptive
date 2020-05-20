@@ -59,12 +59,25 @@ public:
 class AP4_ElstAtom : public AP4_Atom
 {
 public:
+     AP4_IMPLEMENT_DYNAMIC_CAST(AP4_ElstAtom)
+
     // class methods
     static AP4_ElstAtom* Create(AP4_Size size, AP4_ByteStream& stream);
 
+    // constructor
+    AP4_ElstAtom();
+    
     // methods
     virtual AP4_Result InspectFields(AP4_AtomInspector& inspector);
     virtual AP4_Result WriteFields(AP4_ByteStream& stream);
+    
+    // accessors
+    AP4_Array<AP4_ElstEntry>& GetEntries() {
+        return m_Entries;
+    }
+    
+    // methods
+    AP4_Result AddEntry(const AP4_ElstEntry& entry);
     
 private:
     // methods

@@ -52,14 +52,12 @@ class AP4_FragmentSampleTable : public AP4_SampleTable
 {
  public:
     // methods
-    AP4_FragmentSampleTable(AP4_ContainerAtom* traf,
-      AP4_TrexAtom*      trex,
-      AP4_Cardinal       internal_track_id,
-      AP4_ByteStream*    sample_stream,
-      AP4_Position       moof_offset,
-      AP4_Position       mdat_payload_offset, // hack because MS doesn't implement the spec correctly
-      AP4_UI64           mdat_payload_size,
-      AP4_UI64           dts_origin=0);
+             AP4_FragmentSampleTable(AP4_ContainerAtom* traf, 
+                                     AP4_TrexAtom*      trex,
+                                     AP4_ByteStream*    sample_stream,
+                                     AP4_Position       moof_offset,
+                                     AP4_Position       mdat_payload_offset, // hack because MS doesn't implement the spec correctly
+                                     AP4_UI64           dts_origin=0);
     virtual ~AP4_FragmentSampleTable();
 
     // AP4_SampleTable methods
@@ -75,22 +73,20 @@ class AP4_FragmentSampleTable : public AP4_SampleTable
 
     // methods
     AP4_UI64 GetDuration() { return m_Duration; }
-    AP4_Cardinal GetInteralTrackId() { return m_InternalTrackId; }
-
+    
 private:
     // members
     AP4_Array<AP4_Sample> m_Samples;
     AP4_UI64              m_Duration;
-    AP4_Cardinal          m_InternalTrackId;
     
     // methods
-    AP4_Result AddTrun(AP4_TrunAtom*   trun,
-      AP4_TfhdAtom*   tfhd,
-      AP4_TrexAtom*   trex,
-      AP4_ByteStream* sample_stream,
-      AP4_Position    moof_offset,
-      AP4_Position&   payload_offset,
-      AP4_UI64&       dts_origin);
+    AP4_Result AddTrun(AP4_TrunAtom*   trun, 
+                       AP4_TfhdAtom*   tfhd, 
+                       AP4_TrexAtom*   trex, 
+                       AP4_ByteStream* sample_stream,
+                       AP4_Position    moof_offset,
+                       AP4_Position&   payload_offset,
+                       AP4_UI64&       dts_origin);
 
 };
 

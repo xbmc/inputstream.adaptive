@@ -41,13 +41,6 @@
 |   class references
 +---------------------------------------------------------------------*/
 class AP4_String;
-class AP4_ByteStream;
-
-class AP4_ByteStreamObserver
-{
-public:
-	virtual AP4_Result OnFlush(AP4_ByteStream *stream) = 0;
-};
 
 /*----------------------------------------------------------------------
 |   AP4_ByteStream
@@ -55,10 +48,7 @@ public:
 class AP4_ByteStream : public AP4_Referenceable
 {
  public:
-	 AP4_ByteStream() :observer_(0){};
-	 void SetObserver(AP4_ByteStreamObserver *observer){ observer_ = observer; };
-	 AP4_ByteStreamObserver *GetObserver(){ return observer_; };
-	 // methods
+    // methods
     virtual AP4_Result ReadPartial(void*     buffer, 
                                    AP4_Size  bytes_to_read, 
                                    AP4_Size& bytes_read) = 0;
@@ -86,10 +76,7 @@ class AP4_ByteStream : public AP4_Referenceable
     virtual AP4_Result Tell(AP4_Position& position) = 0;
     virtual AP4_Result GetSize(AP4_LargeSize& size) = 0;
     virtual AP4_Result CopyTo(AP4_ByteStream& stream, AP4_LargeSize size);
-	virtual AP4_Result Buffer() { return AP4_SUCCESS; }
-	virtual AP4_Result Flush() { return AP4_SUCCESS; }
-private:
-	AP4_ByteStreamObserver *observer_;
+    virtual AP4_Result Flush() { return AP4_SUCCESS; }
 };
 
 /*----------------------------------------------------------------------
@@ -208,7 +195,7 @@ public:
     AP4_UI08*       UseData()     { return m_Buffer->UseData(); }
     AP4_Size        GetDataSize() { return m_Buffer->GetDataSize(); }
 
-//protected:
+protected:
     virtual ~AP4_MemoryByteStream();
 
 private:

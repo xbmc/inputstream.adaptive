@@ -30,6 +30,7 @@
 |   includes
 +---------------------------------------------------------------------*/
 #define _LARGEFILE_SOURCE
+#define _LARGEFILE_SOURCE64
 #define _FILE_OFFSET_BITS 64
 
 #include <stdio.h>
@@ -38,7 +39,10 @@
 #include <errno.h>
 #include <sys/stat.h>
 #endif
-
+#if defined(_WIN32)
+#include <io.h>
+#include <fcntl.h>
+#endif
 #include "Ap4FileByteStream.h"
 
 /*----------------------------------------------------------------------
@@ -128,25 +132,35 @@ AP4_StdcFileByteStream::Create(AP4_FileByteStream*      delegator,
     // open the file
     FILE* file = NULL;
     AP4_Position size = 0;
-    if (!strcmp(name, "-stdin")) {
+    if (!strcmp(name, "-stdin") || !strcmp(name, "-stdin#")) {
         file = stdin;
-    } else if (!strcmp(name, "-stdout")) {
+#if defined(_WIN32)
+        if (name[6] == '#') {
+            _setmode(fileno(stdin), O_BINARY);
+        }
+#endif
+    } else if (!strcmp(name, "-stdout") || !strcmp(name, "-stdout#")) {
         file = stdout;
+#if defined(_WIN32)
+        if (name[7] == '#') {
+            _setmode(fileno(stdout), O_BINARY);
+        }
+#endif
     } else if (!strcmp(name, "-stderr")) {
         file = stderr;
     } else {
         int open_result;
         switch (mode) {
           case AP4_FileByteStream::STREAM_MODE_READ:
-            open_result = ::fopen_s(&file, name, "rb");
+            open_result = fopen_s(&file, name, "rb");
             break;
 
           case AP4_FileByteStream::STREAM_MODE_WRITE:
-            open_result = ::fopen_s(&file, name, "wb+");
+            open_result = fopen_s(&file, name, "wb+");
             break;
 
           case AP4_FileByteStream::STREAM_MODE_READ_WRITE:
-              open_result = ::fopen_s(&file, name, "r+b");
+              open_result = fopen_s(&file, name, "r+b");
               break;                                  
 
           default:
@@ -264,6 +278,9 @@ AP4_StdcFileByteStream::WritePartial(const void* buffer,
     if (nbWritten > 0) {
         bytesWritten = (AP4_Size)nbWritten;
         m_Position += nbWritten;
+        if (m_Position > m_Size) {
+            m_Size = m_Position;
+        }
         return AP4_SUCCESS;
     } else {
         bytesWritten = 0;
@@ -317,10 +334,7 @@ AP4_Result
 AP4_StdcFileByteStream::Flush()
 {
     int ret_val = fflush(m_File);
-	AP4_Result result((ret_val > 0) ? AP4_FAILURE : AP4_SUCCESS);
-	if (AP4_SUCCEEDED(result) && GetObserver())
-		return GetObserver()->OnFlush(this);
-	return result;
+    return (ret_val > 0) ? AP4_FAILURE: AP4_SUCCESS;
 }
 
 /*----------------------------------------------------------------------

@@ -45,6 +45,7 @@ AP4_TrunAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version > 1) return NULL;
     return new AP4_TrunAtom(size, version, flags, stream);
@@ -127,12 +128,6 @@ AP4_TrunAtom::AP4_TrunAtom(AP4_UI32        size,
     for (unsigned int i=0; i<sample_count; i++) {
         if (flags & AP4_TRUN_FLAG_SAMPLE_DURATION_PRESENT) {
             stream.ReadUI32(m_Entries[i].sample_duration);
-            // Workaround for dazn streams, which provide 24 -> 1 sequences
-            if (i && m_Entries[i].sample_duration == 1 && m_Entries[i - 1].sample_duration > 1)
-            {
-              m_Entries[i].sample_duration = m_Entries[i - 1].sample_duration >> 1;
-              m_Entries[i - 1].sample_duration -= m_Entries[i].sample_duration;
-            }
             --record_fields_count;
         }
         if (flags & AP4_TRUN_FLAG_SAMPLE_SIZE_PRESENT) {
@@ -268,7 +263,7 @@ AP4_TrunAtom::InspectFields(AP4_AtomInspector& inspector)
                 AP4_FormatString(v3, sizeof(v3), "%sc:%u", sep, m_Entries[i].sample_composition_time_offset);
                 s3 = v3;
             }
-            char value[128];
+            char value[256];
             AP4_FormatString(value, sizeof(value), "%s%s%s%s", s0, s1, s2, s3);
             inspector.AddField(header, value);
         }
@@ -305,7 +300,7 @@ AP4_TrunAtom::InspectFields(AP4_AtomInspector& inspector)
                 AP4_FormatString(v3, sizeof(v3), "%ssample_composition_time_offset:%u", sep, m_Entries[i].sample_composition_time_offset);
                 s3 = v3;
             }
-            char value[128];
+            char value[256];
             AP4_FormatString(value, sizeof(value), "%s%s%s%s", s0, s1, s2, s3);
             inspector.AddField(header, value);
         }

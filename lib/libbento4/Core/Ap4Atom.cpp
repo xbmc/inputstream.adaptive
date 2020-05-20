@@ -313,13 +313,16 @@ AP4_Atom::Clone()
     AP4_MemoryByteStream* mbs = new AP4_MemoryByteStream((AP4_Size)GetSize());
     
     // serialize to memory
-    if (AP4_FAILED(Write(*mbs))) goto end;
+    if (AP4_FAILED(Write(*mbs))) {
+        mbs->Release();
+        return NULL;
+    }
     
-    // create the clone for the serialized form
+    // create the clone from the serialized form
     mbs->Seek(0);
-    AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(*mbs, clone);
+    AP4_DefaultAtomFactory atom_factory;
+    atom_factory.CreateAtomFromStream(*mbs, clone);
     
-end:
     // release the memory stream
     mbs->Release();
 
@@ -642,36 +645,58 @@ AP4_AtomParent::FindChild(const char* path,
     // walk the path
     while (path[0] && path[1] && path[2] && path[3]) {
         // we have 4 valid chars
-        const char* tail;
-        int         index = 0;
-        if (path[4] == '\0') {
-            tail = NULL;
-        } else if (path[4] == '/') {
-            // separator
-            tail = &path[5];
-        } else if (path[4] == '[') {
-            const char* x = &path[5];
-            while (*x >= '0' && *x <= '9') {
-                index = 10*index+(*x++ - '0');
-            }
-            if (x[0] == ']') {
-                if (x[1] == '\0') {
-                    tail = NULL;
-                } else {
-                    tail = x+2;
-                }
-            } else {
-                // malformed path
-                return NULL;
-            }
+        const char* end = &path[4];
+        
+        // look for the end or a separator
+        while (*end != '\0' && *end != '/' && *end != '[') {
+            ++end;
+        }
+        
+        // decide if this is a 4-character code or a UUID
+        AP4_UI08 uuid[16];
+        AP4_Atom::Type type = 0;
+        bool is_uuid = false;
+        if (end == path+4) {
+            // 4-character code
+            type = AP4_ATOM_TYPE(path[0], path[1], path[2], path[3]);
+        } else if (end == path+32) {
+            // UUID
+            is_uuid = true;
+            AP4_ParseHex(path, uuid, sizeof(uuid));
         } else {
             // malformed path
             return NULL;
         }
 
+        // parse the array index, if any
+        int index = 0;
+        if (*end == '[') {
+            const char* x = end+1;
+            while (*x >= '0' && *x <= '9') {
+                index = 10*index+(*x++ - '0');
+            }
+            if (*x != ']') {
+                // malformed path
+                return NULL;
+            }
+            end = x+1;
+        }
+        
+        // check what's at the end now
+        if (*end == '/') {
+            ++end;
+        } else if (*end != '\0') {
+            // malformed path
+            return NULL;
+        }
+        
         // look for this atom in the current list
-        AP4_Atom::Type type = AP4_ATOM_TYPE(path[0], path[1], path[2], path[3]); 
-        AP4_Atom* atom = parent->GetChild(type, index);
+        AP4_Atom* atom = NULL;
+        if (is_uuid) {
+            atom = parent->GetChild(uuid, index);
+        } else {
+            atom = parent->GetChild(type, index);
+        }
         if (atom == NULL) {
             // not found
             if (auto_create && (index == 0)) {
@@ -686,8 +711,8 @@ AP4_AtomParent::FindChild(const char* path,
             }
         }
 
-        if (tail) {
-            path = tail;
+        if (*end) {
+            path = end;
             // if this atom is an atom parent, recurse
             parent = AP4_DYNAMIC_CAST(AP4_ContainerAtom, atom);
             if (parent == NULL) return NULL;
@@ -698,6 +723,20 @@ AP4_AtomParent::FindChild(const char* path,
 
     // not found
     return NULL;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_AtomParent::CopyChildren
++---------------------------------------------------------------------*/
+AP4_Result
+AP4_AtomParent::CopyChildren(AP4_AtomParent& destination) const
+{
+    for (AP4_List<AP4_Atom>::Item* child = m_Children.FirstItem(); child; child=child->GetNext()) {
+        AP4_Atom* child_clone = child->GetData()->Clone();
+        destination.AddChild(child_clone);
+    }
+    
+    return AP4_SUCCESS;
 }
 
 /*----------------------------------------------------------------------
@@ -962,6 +1001,68 @@ AP4_JsonInspector::~AP4_JsonInspector()
 }
 
 /*----------------------------------------------------------------------
+|   AP4_JsonInspector::EscapeString
+|
+|   Not very efficient but simple funuction to escape characters in a
+|   JSON string
++---------------------------------------------------------------------*/
+AP4_String
+AP4_JsonInspector::EscapeString(const char* string)
+{
+    AP4_String result(string);
+
+    // Shortcut
+    if (result.GetLength() == 0) {
+        return result;
+    }
+
+    // Compute the output size
+    AP4_Size output_size = 0;
+    const char* input = string;
+    char c;
+    while ((c = *input++)) {
+        if (c == '"' || c == '\\') {
+            output_size += 2;
+        } else if (c <= 0x1F) {
+            output_size += 6;
+        } else {
+            output_size += 1;
+        }
+    }
+
+    // Shortcut
+    if (output_size == result.GetLength()) {
+        return result;
+    }
+
+    // Compute the escaped string in a temporary buffer
+    char* buffer = new char[output_size];
+    char* escaped = buffer;
+    input = string;
+    while ((c = *input++)) {
+        if (c == '"' || c == '\\') {
+            *escaped++ = '\\';
+            *escaped++ = c;
+        } else if (c <= 0x1F) {
+            *escaped++ = '\\';
+            *escaped++ = 'u';
+            *escaped++ = '0';
+            *escaped++ = '0';
+            *escaped++ = AP4_NibbleHex(c >> 4);
+            *escaped++ = AP4_NibbleHex(c & 0x0F);
+        } else {
+            *escaped++ = c;
+        }
+    }
+
+    // Copy the buffer to a final string
+    result.Assign(buffer, output_size);
+    delete[] buffer;
+
+    return result;
+}
+
+/*----------------------------------------------------------------------
 |   AP4_JsonInspector::StartAtom
 +---------------------------------------------------------------------*/
 void
@@ -987,7 +1088,7 @@ AP4_JsonInspector::StartAtom(const char* name,
     m_Stream->WriteString("{\n");
     m_Stream->WriteString(prefix);
     m_Stream->WriteString("  \"name\":\"");
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\"", 1);
     m_Stream->WriteString(",\n");
     m_Stream->WriteString(prefix);
@@ -1055,9 +1156,9 @@ AP4_JsonInspector::AddField(const char* name, const char* value, FormatHint)
     m_Stream->WriteString(",\n");
     m_Stream->WriteString(prefix);
     m_Stream->Write("\"", 1);
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\":\"", 3);
-    m_Stream->WriteString(value);
+    m_Stream->WriteString(EscapeString(value).GetChars());
     m_Stream->Write("\"", 1);
 }
 
@@ -1098,7 +1199,7 @@ AP4_JsonInspector::AddFieldF(const char* name, float value, FormatHint /*hint*/)
                      "%f", 
                      value);
     m_Stream->Write("\"", 1);
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\":", 2);
     m_Stream->WriteString(str);
 }
@@ -1118,7 +1219,7 @@ AP4_JsonInspector::AddField(const char*          name,
     m_Stream->WriteString(prefix);
 
     m_Stream->Write("\"", 1);
-    m_Stream->WriteString(name);
+    m_Stream->WriteString(EscapeString(name).GetChars());
     m_Stream->Write("\":\"", 3);
     m_Stream->WriteString("[");
     unsigned int offset = 1;

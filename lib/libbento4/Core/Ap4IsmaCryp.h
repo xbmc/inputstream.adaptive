@@ -74,7 +74,7 @@ public:
     AP4_Result EncryptSampleData(AP4_DataBuffer& data_in,
                                  AP4_DataBuffer& data_out,
                                  AP4_UI32        block_counter);
-    AP4_Result DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer& data_in,
+    AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
                                  AP4_DataBuffer& data_out,
                                  const AP4_UI08* iv = NULL);
     AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample);
@@ -99,9 +99,7 @@ private:
 class AP4_IsmaTrackDecrypter : public AP4_Processor::TrackHandler {
 public:
     // construction
-    static AP4_Result Create(AP4_TrakAtom*                   trak,
-		                     AP4_TrexAtom*                   trex,
-		                     const AP4_UI08*                 key, 
+    static AP4_Result Create(const AP4_UI08*                 key, 
                              AP4_Size                        key_size,
                              AP4_ProtectedSampleDescription* sample_description,
                              AP4_SampleEntry*                sample_entry,
@@ -118,9 +116,7 @@ public:
 
 private:
     // constructor
-	AP4_IsmaTrackDecrypter(AP4_TrakAtom*    trak,
-		                   AP4_TrexAtom*    trex,
-		                   AP4_IsmaCipher*  cipher,
+    AP4_IsmaTrackDecrypter(AP4_IsmaCipher*  cipher,
                            AP4_SampleEntry* sample_entry,
                            AP4_UI32         original_format);
 

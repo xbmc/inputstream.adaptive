@@ -32,7 +32,6 @@
 #include "Ap4File.h"
 #include "Ap4Atom.h"
 #include "Ap4TrakAtom.h"
-#include "Ap4PsshAtom.h"
 #include "Ap4MoovAtom.h"
 #include "Ap4MvhdAtom.h"
 #include "Ap4AtomFactory.h"
@@ -107,25 +106,16 @@ AP4_Movie::AP4_Movie(AP4_MoovAtom* moov, AP4_ByteStream& sample_stream, bool tra
         time_scale = 0;
     }
 
-	// get the pssh atoms
-	AP4_List<AP4_PsshAtom>* pssh_atoms;
-	pssh_atoms = &moov->GetPsshAtoms();
-	AP4_List<AP4_PsshAtom>::Item* pssh_item = pssh_atoms->FirstItem();
-	while (pssh_item) {
-		m_PsshAtoms.Append(new AP4_PsshAtom(*pssh_item->GetData()));
-		pssh_item = pssh_item->GetNext();
-	}
-
-	// get all tracks
+    // get all tracks
     AP4_List<AP4_TrakAtom>* trak_atoms;
     trak_atoms = &moov->GetTrakAtoms();
-    AP4_List<AP4_TrakAtom>::Item* trak_item = trak_atoms->FirstItem();
-	while (trak_item) {
-		AP4_Track* track = new AP4_Track(*trak_item->GetData(),
+    AP4_List<AP4_TrakAtom>::Item* item = trak_atoms->FirstItem();
+    while (item) {
+        AP4_Track* track = new AP4_Track(*item->GetData(), 
                                          sample_stream,
                                          time_scale);
         m_Tracks.Add(track);
-		trak_item = trak_item->GetNext();
+        item = item->GetNext();
     }
 }
     
