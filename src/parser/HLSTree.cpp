@@ -343,9 +343,9 @@ bool HLSTree::prepareRepresentation(Representation *rep, bool update)
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
     std::string download_url = rep->source_url_.c_str();
-    uint32_t per_pos = ~0U;
-    uint32_t adp_pos = ~0U;
-    uint32_t rep_pos = ~0U;
+    uint32_t per_pos = ~0ULL;
+    uint32_t adp_pos = ~0ULL;
+    uint32_t rep_pos = ~0ULL;
     uint32_t discont_count = 0;
     Period* starting_period = current_period_;
 
