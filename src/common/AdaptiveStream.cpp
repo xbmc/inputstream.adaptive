@@ -79,12 +79,6 @@ void AdaptiveStream::worker()
     bool ret(download_segment());
     unsigned int retryCount(10);
 
-    //Some streaming software offers subtitle tracks with missing fragments, usually live tv
-    //When a programme is broadcasted that has subtitles, subtitles fragments are offered
-    //TODO: Ensure we continue with the next segment after one retry on errors
-    if (type_ == AdaptiveTree::SUBTITLE)
-        retryCount = 1;
-
     while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
     {
       std::this_thread::sleep_for(std::chrono::seconds(1));
