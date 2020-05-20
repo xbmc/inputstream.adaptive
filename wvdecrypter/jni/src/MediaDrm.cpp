@@ -132,14 +132,12 @@ std::vector<char> CJNIMediaDrm::provideKeyResponse(const std::vector<char> &scop
     "provideKeyResponse", "([B[B)[B", jcast<jhbyteArray, std::vector<char> >(scope),
     jcast<jhbyteArray, std::vector<char> >(response));
 
-  std::vector<char> result;
+  jsize size = env->GetArrayLength(array.get());
 
-  if (!(!array))
-  {
-    jsize size = env->GetArrayLength(array.get());
-    result.resize(size);
-    env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
-  }
+  std::vector<char> result;
+  result.resize(size);
+  env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
+
   return result;
 }
 
