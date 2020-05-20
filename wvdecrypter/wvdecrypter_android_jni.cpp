@@ -56,8 +56,7 @@ enum WV_KEYSYSTEM
 {
   NONE,
   WIDEVINE,
-  PLAYREADY,
-  WISEPLAY
+  PLAYREADY
 };
 
 class WV_DRM
@@ -72,11 +71,8 @@ public:
 
   const uint8_t *GetKeySystem() const
   {
-    static const uint8_t keysystemId[3][16] = {
-      { 0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed },
-      { 0x9A, 0x04, 0xF0, 0x79, 0x98, 0x40, 0x42, 0x86, 0xAB, 0x92, 0xE6, 0x5B, 0xE0, 0x88, 0x5F, 0x95 },
-      { 0x3d, 0x5e, 0x6d, 0x35, 0x9b, 0x9a, 0x41, 0xe8, 0xb8, 0x43, 0xdd, 0x3c, 0x6e, 0x72, 0xc4, 0x2c },
-    };
+    static const uint8_t keysystemId[2][16] = { { 0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed },
+      { 0x9A, 0x04, 0xF0, 0x79, 0x98, 0x40, 0x42, 0x86, 0xAB, 0x92, 0xE6, 0x5B, 0xE0, 0x88, 0x5F, 0x95 } };
     return keysystemId[key_system_-1];
   }
   WV_KEYSYSTEM GetKeySystemType() const { return key_system_; };
@@ -98,7 +94,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
 {
   std::string strBasePath = host->GetProfilePath();
   char cSep = strBasePath.back();
-  strBasePath += ks == WIDEVINE ? "widevine" : ks == PLAYREADY ? "playready" : "wiseplay";
+  strBasePath += ks == WIDEVINE ? "widevine" : "playready";
   strBasePath += cSep;
   host->CreateDirectory(strBasePath.c_str());
 
@@ -158,7 +154,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   xbmc_jnienv()->ExceptionClear();
 
 
-  if (key_system_ == WIDEVINE || key_system_ == WISEPLAY)
+  if (key_system_ == WIDEVINE)
   {
     //media_drm_->setPropertyString("sessionSharing", "enable");
     if (serverCert.GetDataSize())
@@ -182,10 +178,8 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   {
     if (key_system_ == WIDEVINE)
       license_url_ += "|Content-Type=application%2Fx-www-form-urlencoded|widevine2Challenge=B{SSM}&includeHdcpTestKeyInLicense=false|JBlicense;hdcpEnforcementResolutionPixels";
-    else if (key_system_ == PLAYREADY)
-      license_url_ += "|Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense|R{SSM}|";
     else
-      license_url_ += "|Content-Type=application%2Foctet-stream|R{SSM}|";
+      license_url_ += "|Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense|R{SSM}|";
   }
 }
 
@@ -1159,11 +1153,6 @@ public:
     {
       key_system_ = WIDEVINE;
       return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
-    }
-    else if (strcmp(keySystem, "com.huawei.wiseplay") == 0)
-    {
-      key_system_ = WISEPLAY;
-      return "urn:uuid:3D5E6D35-9B9A-41E8-B843-DD3C6E72C42C";
     }
     else if (strcmp(keySystem, "com.microsoft.playready") == 0)
     {

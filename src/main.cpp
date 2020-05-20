@@ -2893,10 +2893,6 @@ CRYPTO_INFO::CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
 {
   if (license_type_ == "com.widevine.alpha")
     return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
-#if STREAMCRYPTO_VERSION_LEVEL >= 1
-  else if (license_type_ == "com.huawei.wiseplay")
-    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WISEPLAY;
-#endif
   else if (license_type_ == "com.microsoft.playready")
     return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_PLAYREADY;
  else
