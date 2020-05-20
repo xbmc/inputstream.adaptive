@@ -268,69 +268,6 @@ unsigned char HexNibble(char c)
   return 0;
 }
 
-std::string annexb_to_hvcc(const char* b16_data)
-{
-  unsigned int sz = strlen(b16_data) >> 1, szRun(sz);
-  std::string result;
-
-  if (sz > 1024)
-    return result;
-
-  uint8_t buffer[1024], *data(buffer);
-  while (szRun--)
-  {
-    *data = (HexNibble(*b16_data) << 4) + HexNibble(*(b16_data + 1));
-    b16_data += 2;
-    ++data;
-  }
-
-  if (sz <= 6 || buffer[0] != 0 || buffer[1] != 0 || buffer[2] != 0 || buffer[3] != 1)
-  {
-    result = std::string((const char*)buffer, sz);
-    return result;
-  }
-
-  data = buffer + 4;
-  uint8_t* nalPos[4] = {data, nullptr, nullptr, nullptr};
-  uint8_t* end = buffer + sz;
-
-  while (data + 4 <= end && (data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] != 1))
-    ++data;
-  nalPos[1] = data += 4;
-
-  while (data + 4 <= end && (data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] != 1))
-    ++data;
-  nalPos[2] = data += 4;
-
-  // Check that we are at the end
-  while (data + 4 <= end && (data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] != 1))
-    ++data;
-
-  if (data + 4 < end)
-    return result;
-  nalPos[3] = end + 4;
-
-  // Check if we have expected information
-  if (nalPos[0] < nalPos[1] && nalPos[1] < nalPos[2] && nalPos[2] < end  &&
-    nalPos[0][0] == 0x40 && nalPos[0][1] == 1 && nalPos[1][0] == 0x42 &&
-    nalPos[1][1] == 1 && nalPos[2][0] == 0x44 && nalPos[2][1] == 1)
-  {
-    sz = 22 + sz - 12 + 16;
-    result.resize(sz, 0); // Unknown HVCC fields
-    data = reinterpret_cast<uint8_t*>(&result[22]);
-    *data = 3, ++data; //numSequences;
-    for (unsigned int i(0); i < 3; ++i)
-    {
-      *data = nalPos[i][0] >> 1, ++data; //Nalu type
-      data[0] = 0, data[1] = 1, data += 2; //count nals
-      uint16_t nalSz = nalPos[i + 1] - nalPos[i] - 4;
-      data[0] = nalSz >> 8, data[1] = nalSz & 0xFF, data += 2; //count nals
-      memcpy(data, nalPos[i], nalSz), data += nalSz;
-    }
-  }
-  return result;
-}
-
 std::string annexb_to_avc(const char *b16_data)
 {
   unsigned int sz = strlen(b16_data) >> 1, szRun(sz);
