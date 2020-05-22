@@ -2549,7 +2549,7 @@ bool Session::InitializePeriod()
     SAFE_DELETE(*b);
   streams_.clear();
 
-  if (psshChanged && !InitializeDRM())
+  if ((psshChanged || force_secure_decoder_) && !InitializeDRM())
     return false;
   else if (adaptiveTree_->current_period_->encryptionState_)
     kodi::Log(ADDON_LOG_DEBUG, "Reusing DRM psshSets for new period!");
