@@ -156,6 +156,7 @@ AP4_Processor::ProcessFragments(AP4_MoovAtom*              moov,
         AP4_Atom*          atom        = locator->m_Atom;
         AP4_UI64           atom_offset = locator->m_Offset;
         AP4_UI64           mdat_payload_offset = atom_offset+atom->GetSize()+AP4_ATOM_HEADER_SIZE;
+        AP4_UI64           mdat_payload_size = atom->GetSize();
         AP4_Sample         sample;
         AP4_DataBuffer     sample_data_in;
         AP4_DataBuffer     sample_data_out;
@@ -226,7 +227,7 @@ AP4_Processor::ProcessFragments(AP4_MoovAtom*              moov,
             
             // create a sample table object so we can read the sample data
             AP4_FragmentSampleTable* sample_table = NULL;
-            result = fragment->CreateSampleTable(moov, tfhd->GetTrackId(), &input, atom_offset, mdat_payload_offset, 0, sample_table);
+            result = fragment->CreateSampleTable(moov, tfhd->GetTrackId(), &input, atom_offset, mdat_payload_offset, mdat_payload_size, 0, sample_table);
             if (AP4_FAILED(result)) return result;
             sample_tables.Append(sample_table);
             

@@ -1362,12 +1362,13 @@ public:
 protected:
   AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
                          AP4_Position moof_offset,
-                         AP4_Position mdat_payload_offset) override
+                         AP4_Position mdat_payload_offset,
+                         AP4_UI64 mdat_payload_size) override
   {
     AP4_Result result;
 
     if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(
-                           moof, moof_offset, mdat_payload_offset))))
+                           moof, moof_offset, mdat_payload_offset, mdat_payload_size))))
     {
       AP4_ContainerAtom* traf =
           AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));

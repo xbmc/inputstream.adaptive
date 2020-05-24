@@ -57,6 +57,7 @@ class AP4_FragmentSampleTable : public AP4_SampleTable
                                      AP4_ByteStream*    sample_stream,
                                      AP4_Position       moof_offset,
                                      AP4_Position       mdat_payload_offset, // hack because MS doesn't implement the spec correctly
+                                     AP4_UI64           mdat_payload_size,
                                      AP4_UI64           dts_origin=0);
     virtual ~AP4_FragmentSampleTable();
 
