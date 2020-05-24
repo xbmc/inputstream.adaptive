@@ -318,8 +318,8 @@ AP4_AvcSequenceParameterSet::GetVUIInfo(unsigned int& fps_ticks, unsigned int& f
   {
     if (fps_ticks != (num_units_in_tick << 1) || fps_scale != time_scale)
     {
-      fps_ticks = num_units_in_tick << 1;
-      fps_scale = time_scale;
+      fps_scale = num_units_in_tick << 1;
+      fps_ticks = time_scale;
       ret = true;
     }
   }
