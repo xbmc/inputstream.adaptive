@@ -1134,6 +1134,7 @@ AP4_Result AP4_AvcFrameParser::ParseFrameForSPS(const AP4_Byte* data, AP4_Size d
     }
     data_size -= nalSize;
   }
+  return AP4_SUCCESS;
 }
 
 /*----------------------------------------------------------------------
