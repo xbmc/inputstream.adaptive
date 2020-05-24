@@ -48,6 +48,7 @@ class AP4_SaioAtom;
 class AP4_CencSampleInfoTable;
 class AP4_AvcFrameParser;
 class AP4_HevcFrameParser;
+class AP4_CencSingleSampleDecrypter;
 
 /*----------------------------------------------------------------------
 |   constants
@@ -654,7 +655,8 @@ class AP4_CencDecryptingProcessor : public AP4_Processor
 public:
     // constructor
     AP4_CencDecryptingProcessor(const AP4_ProtectionKeyMap* key_map, 
-                                AP4_BlockCipherFactory*     block_cipher_factory = NULL);
+                                AP4_BlockCipherFactory*     block_cipher_factory = NULL,
+                                AP4_CencSingleSampleDecrypter *cenc_singlesample_decrypter = NULL);
 
     // AP4_Processor methods
     virtual AP4_Processor::TrackHandler*    CreateTrackHandler(AP4_TrakAtom* trak);
@@ -670,6 +672,7 @@ protected:
 
     // members
     AP4_BlockCipherFactory*     m_BlockCipherFactory;
+    AP4_CencSingleSampleDecrypter* m_CencSingleSampleDecrypter;
     const AP4_ProtectionKeyMap* m_KeyMap;
 };
 
@@ -752,6 +755,7 @@ public:
                              AP4_SaioAtom*&                  saio_atom,              // [out]
                              AP4_SaizAtom*&                  saiz_atom,              // [out]
                              AP4_CencSampleEncryption*&      sample_encryption_atom, // [out]
+                             AP4_CencSingleSampleDecrypter *singlesample_decrypter,
                              AP4_CencSampleDecrypter*&       decrypter);
 
     static AP4_Result Create(AP4_ProtectedSampleDescription* sample_description, 
@@ -761,6 +765,7 @@ public:
                              const AP4_UI08*                 key, 
                              AP4_Size                        key_size,
                              AP4_BlockCipherFactory*         block_cipher_factory,
+                             AP4_CencSingleSampleDecrypter *singlesample_decrypter,
                              AP4_CencSampleDecrypter*&       decrypter);
 
     static AP4_Result Create(AP4_CencSampleInfoTable*  sample_info_table,
@@ -769,6 +774,7 @@ public:
                              AP4_Size                  key_size,
                              AP4_BlockCipherFactory*   block_cipher_factory,
                              bool                      reset_iv_at_each_subsample,
+                             AP4_CencSingleSampleDecrypter *singlesample_decrypter,
                              AP4_CencSampleDecrypter*& decrypter);
     
     // methods

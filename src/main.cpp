@@ -1441,7 +1441,8 @@ protected:
 
         if (AP4_FAILED(result =
                            AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0,
-                                                           m_singleSampleDecryptor, m_decrypter)))
+                                                           reset_iv, m_singleSampleDecryptor,
+                                                           m_decrypter)))
           return result;
       }
     }
