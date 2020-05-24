@@ -3639,7 +3639,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->input_file_ =
-        new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance_, true);
+        new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance_, true, movie);
     movie = stream->input_file_->GetMovie();
 
     if (movie == NULL)

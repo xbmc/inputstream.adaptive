@@ -100,7 +100,8 @@ public:
      */
     AP4_File(AP4_ByteStream&  stream, 
              AP4_AtomFactory& atom_factory,
-             bool             moov_only);
+             bool             moov_only,
+             AP4_Movie*       movie = NULL);
 
     /**
      * Constructs an AP4_File from a stream using the default atom factory
@@ -160,7 +161,8 @@ private:
     // methods
     void ParseStream(AP4_ByteStream&  stream,
                      AP4_AtomFactory& atom_factory,
-                     bool             moov_only);
+                     bool             moov_only,
+                     AP4_Movie*       movie);
     
     // members
     AP4_Movie*    m_Movie;
