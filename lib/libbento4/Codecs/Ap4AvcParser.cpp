@@ -1114,6 +1114,31 @@ AP4_AvcFrameParser::AppendNalUnitData(const unsigned char* data, unsigned int da
 /*----------------------------------------------------------------------
 |   AP4_AvcFrameParser::Feed
 +---------------------------------------------------------------------*/
+AP4_Result AP4_AvcFrameParser::ParseFrameForSPS(const AP4_Byte* data, AP4_Size data_size, AP4_UI08 naluLengthSize, AP4_AvcSequenceParameterSet &sps)
+{
+  if (data_size < naluLengthSize)
+    return AP4_ERROR_EOS;
+
+  while (data_size > naluLengthSize)
+  {
+    AP4_Size nalSize(0);
+    for (unsigned int i(0); i < naluLengthSize; ++i) { nalSize = (nalSize << 8) + *data++; };
+    data_size -= naluLengthSize;
+    if (nalSize > data_size)
+      return AP4_ERROR_INVALID_PARAMETERS;
+
+    if ((*data & 0x1F) == AP4_AVC_NAL_UNIT_TYPE_SPS)
+    {
+      AP4_AvcFrameParser fp;
+      return fp.ParseSPS(data, data_size, sps);
+    }
+    data_size -= nalSize;
+  }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_AvcFrameParser::Feed
++---------------------------------------------------------------------*/
 AP4_Result
 AP4_AvcFrameParser::Feed(const void*     data,
                          AP4_Size        data_size,

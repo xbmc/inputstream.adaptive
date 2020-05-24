@@ -255,6 +255,11 @@ public:
     AP4_AvcFrameParser();
    ~AP4_AvcFrameParser();
     
+   static AP4_Result AP4_AvcFrameParser::ParseFrameForSPS(const AP4_Byte* data,
+     AP4_Size data_size,
+     AP4_UI08 naluLengthSize,
+     AP4_AvcSequenceParameterSet &sps);
+
     /**
      * Feed some data to the parser and look for the next NAL Unit.
      *
