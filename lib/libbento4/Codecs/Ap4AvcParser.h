@@ -37,6 +37,7 @@
 #include "Ap4DataBuffer.h"
 #include "Ap4NalParser.h"
 #include "Ap4Array.h"
+#include "Ap4Utils.h"
 
 /*----------------------------------------------------------------------
 |   constants
@@ -317,6 +318,11 @@ public:
                                 unsigned int                  nal_unit_type,
                                 unsigned int                  nal_ref_idc,
                                 AP4_AvcSliceHeader&           slice_header);
+    static unsigned int
+      ReadGolomb(AP4_BitReader& bits);
+
+    static int
+      SignedGolomb(unsigned int code_num);
 
 private:
     // methods

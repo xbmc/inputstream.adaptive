@@ -19,8 +19,6 @@
 #include "main.h"
 
 #include "ADTSReader.h"
-#include "../Codecs/Ap4AvcParser.h"
-#include "../Codecs/Ap4AvcParser.cpp"
 #include "Ap4Utils.h"
 #include "DemuxCrypto.h"
 #include "TSReader.h"
@@ -768,9 +766,9 @@ public:
         AP4_BitReader bits(unescaped.GetData(), unescaped.GetDataSize());
 
         bits.SkipBits(8); // NAL Unit Type
-        ReadGolomb(bits); // first_mb_in_slice
-        ReadGolomb(bits); // slice_type
-        pictureId = ReadGolomb(bits); //picture_set_id
+        AP4_AvcFrameParser::ReadGolomb(bits); // first_mb_in_slice
+        AP4_AvcFrameParser::ReadGolomb(bits); // slice_type
+        pictureId = AP4_AvcFrameParser::ReadGolomb(bits); //picture_set_id
       }
       // move to the next NAL unit
       data += nalu_size;
