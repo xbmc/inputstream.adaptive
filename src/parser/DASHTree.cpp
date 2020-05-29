@@ -1496,7 +1496,8 @@ void DASHTree::RefreshLiveSegments()
             if (replaceable < numReplace)
               numReplace = replaceable;
           }
-      Log(LOGLEVEL_DEBUG, "DASH Update: numReplace: %u", numReplace);
+      Log(LOGLEVEL_DEBUG, "DASH Update: numReplace: %u, nextStartNumber: %u", numReplace,
+          nextStartNumber);
       replaced = update_parameter_;
       char buf[32];
       sprintf(buf, "%u", nextStartNumber);
@@ -1537,7 +1538,12 @@ void DASHTree::RefreshLiveSegments()
         {
           //Locate adaptationset
           std::vector<AdaptationSet*>::const_iterator bad((*bpd)->adaptationSets_.begin()), ead((*bpd)->adaptationSets_.end());
-          for (; bad != ead && ((*bad)->id_ != (*ba)->id_ || (*bad)->group_ != (*ba)->group_ || (*bad)->type_ != (*ba)->type_); ++bad);
+          for (; bad != ead &&
+                 ((*bad)->id_ != (*ba)->id_ || (*bad)->group_ != (*ba)->group_ ||
+                  (*bad)->type_ != (*ba)->type_ || (*bad)->mimeType_ != (*ba)->mimeType_ ||
+                  (*bad)->language_ != (*ba)->language_);
+               ++bad)
+            ;
           if (bad != ead)
           {
             for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
