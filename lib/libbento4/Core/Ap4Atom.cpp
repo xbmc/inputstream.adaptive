@@ -468,11 +468,15 @@ AP4_NullTerminatedStringAtom::AP4_NullTerminatedStringAtom(AP4_Atom::Type  type,
                                                            AP4_ByteStream& stream) :
     AP4_Atom(type, size)
 {
-    AP4_Size str_size = (AP4_Size)size-AP4_ATOM_HEADER_SIZE;
-    char* str = new char[str_size];
-    stream.Read(str, str_size);
-    str[str_size-1] = '\0'; // force null-termination
-    m_Value = str;
+    AP4_Size str_size = (AP4_Size)size - AP4_ATOM_HEADER_SIZE;
+
+    if (str_size) {
+      char* str = new char[str_size];
+      stream.Read(str, str_size);
+      str[str_size - 1] = '\0'; // force null-termination
+      m_Value = str;
+      delete[] str;
+    }
 }
 
 /*----------------------------------------------------------------------
@@ -1001,9 +1005,67 @@ AP4_JsonInspector::~AP4_JsonInspector()
 }
 
 /*----------------------------------------------------------------------
+|   Read one code point from a UTF-8 string
++---------------------------------------------------------------------*/
+static AP4_Result
+ReadUTF8(const AP4_UI08* utf, size_t* length, AP4_UI32* code_point) {
+    if (*length < 1) {
+       return AP4_ERROR_NOT_ENOUGH_DATA;
+    }
+
+    AP4_UI32 c = utf[0];
+    if ((c & 0x80) == 0) {
+        *length = 1;
+        *code_point = c;
+        return AP4_SUCCESS;
+    }
+    if (*length < 2) {
+        return AP4_ERROR_NOT_ENOUGH_DATA;
+    }
+    *code_point = 0;
+    if ((utf[1] & 0xc0) != 0x80) {
+        return AP4_ERROR_INVALID_FORMAT;
+    }
+    if ((c & 0xe0) == 0xe0) {
+        if (*length < 3) {
+            return AP4_ERROR_NOT_ENOUGH_DATA;
+        }
+        if ((utf[2] & 0xc0) != 0x80) {
+            return AP4_ERROR_INVALID_FORMAT;
+        }
+        if ((c & 0xf0) == 0xf0) {
+            if (*length < 4) {
+                return AP4_ERROR_NOT_ENOUGH_DATA;
+            }
+            if ((c & 0xf8) != 0xf0 || (utf[3] & 0xc0) != 0x80) {
+                return AP4_ERROR_INVALID_FORMAT;
+            }
+            *length = 4;
+            c = (utf[0] & 0x07) << 18;
+            c |= (utf[1] & 0x3f) << 12;
+            c |= (utf[2] & 0x3f) << 6;
+            c |= (utf[3] & 0x3f);
+        } else {
+            *length = 3;
+            c = (utf[0] & 0x0f) << 12;
+            c |= (utf[1] & 0x3f) << 6;
+            c |= (utf[2] & 0x3f);
+        }
+    } else {
+      /* 2-byte code */
+        *length = 2;
+        c = (utf[0] & 0x1f) << 6;
+        c |= (utf[1] & 0x3f);
+    }
+
+    *code_point = c;
+    return AP4_SUCCESS;
+}
+
+/*----------------------------------------------------------------------
 |   AP4_JsonInspector::EscapeString
 |
-|   Not very efficient but simple funuction to escape characters in a
+|   Not very efficient but simple function to escape characters in a
 |   JSON string
 +---------------------------------------------------------------------*/
 AP4_String
@@ -1015,19 +1077,29 @@ AP4_JsonInspector::EscapeString(const char* string)
     if (result.GetLength() == 0) {
         return result;
     }
-
+  
     // Compute the output size
+    size_t string_length = strlen(string);
+    const AP4_UI08* input = (const AP4_UI08*)string;
+    size_t input_length = string_length;
     AP4_Size output_size = 0;
-    const char* input = string;
-    char c;
-    while ((c = *input++)) {
-        if (c == '"' || c == '\\') {
-            output_size += 2;
-        } else if (c <= 0x1F) {
-            output_size += 6;
-        } else {
-            output_size += 1;
-        }
+    while (input_length) {
+      size_t chars_available = input_length;
+      AP4_UI32 code_point = 0;
+      AP4_Result r = ReadUTF8(input, &chars_available, &code_point);
+      if (AP4_FAILED(r)) {
+          // stop, but don't fail
+          break;
+      }
+      if (code_point == '"' || code_point == '\\') {
+          output_size += 2;
+      } else if (code_point <= 0x1F) {
+          output_size += 6;
+      } else {
+          output_size += chars_available;;
+      }
+      input_length -= chars_available;
+      input += chars_available;
     }
 
     // Shortcut
@@ -1038,21 +1110,33 @@ AP4_JsonInspector::EscapeString(const char* string)
     // Compute the escaped string in a temporary buffer
     char* buffer = new char[output_size];
     char* escaped = buffer;
-    input = string;
-    while ((c = *input++)) {
-        if (c == '"' || c == '\\') {
+    input = (const AP4_UI08*)string;
+    input_length = string_length;
+    while (input_length) {
+        size_t chars_available = input_length;
+        AP4_UI32 code_point = 0;
+        AP4_Result r = ReadUTF8(input, &chars_available, &code_point);
+        if (AP4_FAILED(r)) {
+            // stop, but don't fail
+            break;
+        }
+        if (code_point == '"' || code_point == '\\') {
             *escaped++ = '\\';
-            *escaped++ = c;
-        } else if (c <= 0x1F) {
+            *escaped++ = (char)code_point;
+        } else if (code_point <= 0x1F) {
             *escaped++ = '\\';
             *escaped++ = 'u';
             *escaped++ = '0';
             *escaped++ = '0';
-            *escaped++ = AP4_NibbleHex(c >> 4);
-            *escaped++ = AP4_NibbleHex(c & 0x0F);
+            *escaped++ = AP4_NibbleHex(code_point >> 4);
+            *escaped++ = AP4_NibbleHex(code_point & 0x0F);
         } else {
-            *escaped++ = c;
+            for (size_t i = 0; i < chars_available; i++) {
+                *escaped++ = (char)input[i];
+            }
         }
+        input_length -= chars_available;
+        input += chars_available;
     }
 
     // Copy the buffer to a final string
