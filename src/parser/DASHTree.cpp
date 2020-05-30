@@ -669,11 +669,20 @@ start(void *data, const char *el, const char **attr)
           if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE
           && (dash->current_adaptationset_->mimeType_ == "application/ttml+xml"
             || dash->current_adaptationset_->mimeType_ == "text/vtt"))
-            dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
+          {
+            if (dash->current_adaptationset_->segment_durations_.empty())
+              dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
+            else
+              dash->current_representation_->containerType_ = AdaptiveTree::CONTAINERTYPE_TEXT;
+          }
 
-          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE
-            && dash->current_representation_->codecs_ == "wvtt")
+          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE &&
+              dash->current_representation_->codecs_ == "wvtt")
             dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+
+          if (dash->current_adaptationset_->mimeType_ == "text/vtt" &&
+              dash->current_representation_->codecs_.empty())
+            dash->current_representation_->codecs_ = "wvtt";
 
           dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
           if (!dash->current_adaptationset_->segtpl_.media.empty())

@@ -55,6 +55,7 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
     bool webvtt_visited(false);
     bool wait_start(true);
     std::string strText;
+    uint64_t localOffset = 0;
     m_pos =  ~0;
 
     while (cbuf != cbufe)
@@ -82,11 +83,11 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
 
             sub.start = thb * 3600 + tmb * 60 + tsb;
             sub.start = sub.start * 1000 + tmsb;
-            sub.start = (sub.start * m_timescale) / 1000;
+            sub.start = ((sub.start + localOffset) * m_timescale) / 1000;
 
             sub.end = the * 3600 + tme * 60 + tse;
             sub.end = sub.end * 1000 + tmse;
-            sub.end = (sub.end * m_timescale) / 1000;
+            sub.end = ((sub.end + localOffset) * m_timescale) / 1000;
 
             if (sub.start < m_ptsOffset)
             {
@@ -95,7 +96,7 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
             }
 
             if (strText.empty())
-              sub.id = std::string(cbuf, 12);
+              sub.id = std::to_string(sub.start);
             else
               sub.id = strText;
 
@@ -103,6 +104,12 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
               m_pos = m_subTitles.size() - 1;
 
             wait_start = false;
+          }
+          else if (strncmp(cbuf, "X-TIMESTAMP-MAP=", 16) == 0)
+          {
+            const char* mpegts = strstr(cbuf + 16, "MPEGTS:");
+            if (mpegts)
+              localOffset = atoll(mpegts + 7) / 90;
           }
           else
           {
@@ -134,6 +141,17 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
       cbuf = next;
       if (cbuf != cbufe)
         ++cbuf;
+    }
+
+    if (localOffset && m_subTitles.empty())
+    {
+      m_subTitles.push_back(SUBTITLE());
+      SUBTITLE& sub(m_subTitles.back());
+      sub.start = sub.end = (localOffset * m_timescale) / 1000;
+      sub.id = std::to_string(localOffset);
+      if (sub.id == m_lastId)
+        m_pos = m_subTitles.size() - 1;
+      wait_start = false;
     }
 
     if (!~m_pos || m_pos >= m_subTitles.size())
