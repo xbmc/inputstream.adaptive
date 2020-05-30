@@ -143,10 +143,10 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
         ++cbuf;
     }
 
-    if (localOffset && m_subTitles.empty())
+    if (localOffset)
     {
-      m_subTitles.push_back(SUBTITLE());
-      SUBTITLE& sub(m_subTitles.back());
+      m_subTitles.push_front(SUBTITLE());
+      SUBTITLE& sub(m_subTitles.front());
       sub.start = sub.end = (localOffset * m_timescale) / 1000;
       sub.id = std::to_string(localOffset);
       if (sub.id == m_lastId)

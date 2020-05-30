@@ -1619,13 +1619,14 @@ public:
       if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
       {
         m_pts = m_sample.GetCts() * 1000;
+        m_ptsDiff = m_pts - m_ptsOffset;
         return AP4_SUCCESS;
       }
     }
     m_eos = true;
     return AP4_ERROR_EOS;
   }
-  void Reset(bool bEOS) override{};
+  void Reset(bool bEOS) override { m_codecHandler->Reset(); };
   bool GetInformation(INPUTSTREAM_INFO& info) override { return false; };
   bool TimeSeek(uint64_t pts, bool preceeding) override
   {
@@ -1633,8 +1634,8 @@ public:
       return AP4_SUCCEEDED(ReadSample());
     return false;
   };
-  void SetPTSOffset(uint64_t offset) override{};
-  int64_t GetPTSDiff() const override { return 0; }
+  void SetPTSOffset(uint64_t offset) override { m_ptsOffset = offset; };
+  int64_t GetPTSDiff() const override { return m_ptsDiff; }
   bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; };
   uint32_t GetTimeScale() const override { return 1000; };
   AP4_UI32 GetStreamId() const override { return m_streamId; };
@@ -1644,7 +1645,7 @@ public:
   bool IsEncrypted() const override { return false; };
 
 private:
-  uint64_t m_pts;
+  uint64_t m_pts, m_ptsOffset = 0, m_ptsDiff = 0;
   AP4_UI32 m_streamId;
   bool m_eos;
 
