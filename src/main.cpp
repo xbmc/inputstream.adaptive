@@ -1626,7 +1626,11 @@ public:
     m_eos = true;
     return AP4_ERROR_EOS;
   }
-  void Reset(bool bEOS) override { m_codecHandler->Reset(); };
+  void Reset(bool bEOS) override
+  {
+    if (m_input || bEOS)
+      m_codecHandler->Reset();
+  };
   bool GetInformation(INPUTSTREAM_INFO& info) override { return false; };
   bool TimeSeek(uint64_t pts, bool preceeding) override
   {
