@@ -431,13 +431,11 @@ RETRY_OPEN:
   memcpy(session_id_char_, session_id_.data(), session_id_.size());
   session_id_char_[session_id_.size()] = 0;
 
-  int securityLevel = media_drm_.GetMediaDrm()->getSecurityLevel(session_id_);
-  xbmc_jnienv()->ExceptionClear();
   int maxSecuritylevel = media_drm_.GetMediaDrm()->getMaxSecurityLevel();
   xbmc_jnienv()->ExceptionClear();
 
-  Log(SSD_HOST::LL_DEBUG, "SessionId: %s, SecurityLevel: %d, MaxSecurityLevel: %d",
-    session_id_char_, securityLevel, maxSecuritylevel);
+  Log(SSD_HOST::LL_DEBUG, "SessionId: %s, MaxSecurityLevel: %d",
+    session_id_char_, maxSecuritylevel);
 }
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
@@ -581,6 +579,11 @@ bool WV_CencSingleSampleDecrypter::KeyUpdateRequest(bool waitKeys)
     }
   }
   Log(SSD_HOST::LL_DEBUG, "License update successful");
+
+  int securityLevel = media_drm_.GetMediaDrm()->getSecurityLevel(session_id_);
+  xbmc_jnienv()->ExceptionClear();
+  Log(SSD_HOST::LL_DEBUG, "SecurityLevel: %d", securityLevel);
+
   std::map<std::string, std::string> keyStatus = media_drm_.GetMediaDrm()->queryKeyStatus(session_id_);
   Log(SSD_HOST::LL_DEBUG, "Key Status (%ld):", keyStatus.size());
   for (auto const& ks : keyStatus)
