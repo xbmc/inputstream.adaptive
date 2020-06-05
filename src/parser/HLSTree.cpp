@@ -705,9 +705,11 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       if (segmentInitialization)
         std::swap(rep->initialization_, newInitialization);
 
+      rep->duration_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) : 0;
+
       if (discont_count)
       {
-        periods_[discont_count]->duration_ = pts - rep->segments_[0]->startPTS_;
+        periods_[discont_count]->duration_ = (rep->duration_ * periods_[discont_count]->timescale_) / rep->timescale_;
         overallSeconds_ = 0;
         for (auto p : periods_)
         {
@@ -719,8 +721,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       }
       else
       {
-        overallSeconds_ =
-            rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) / rep->timescale_ : 0;
+        overallSeconds_ = rep->duration_ / rep->timescale_;
         if (!has_timeshift_buffer_ && !m_refreshPlayList)
           rep->flags_ |= Representation::DOWNLOADED;
       }
