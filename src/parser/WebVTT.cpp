@@ -74,9 +74,13 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
         else if (wait_start)
         {
           unsigned int thb, tmb, tsb, tmsb, the, tme, tse, tmse;
+          thb = the = 0;
           char delb, dele;
 
-          if (sscanf(cbuf, "%u:%u:%u%c%u --> %u:%u:%u%c%u", &thb, &tmb, &tsb, &delb, &tmsb, &the, &tme, &tse, &dele, &tmse) == 10)
+          if (sscanf(cbuf, "%u:%u:%u%c%u --> %u:%u:%u%c%u", &thb, &tmb, &tsb, &delb, &tmsb, &the,
+                     &tme, &tse, &dele, &tmse) == 10 ||
+              sscanf(cbuf, "%u:%u%c%u --> %u:%u%c%u", &tmb, &tsb, &delb, &tmsb, &tme, &tse, &dele,
+                     &tmse) == 8)
           {
             m_subTitles.push_back(SUBTITLE());
             SUBTITLE &sub(m_subTitles.back());
