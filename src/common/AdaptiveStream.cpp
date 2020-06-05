@@ -18,30 +18,31 @@
 
 #include "AdaptiveStream.h"
 
-#include <iostream>
-#include <cstring>
-#include "../oscompat.h"
 #include "../log.h"
+#include "../oscompat.h"
+
+#include <cstring>
+#include <iostream>
 #include <math.h>
 
 using namespace adaptive;
 
-AdaptiveStream::AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type)
-  :thread_data_(nullptr)
-  , tree_(tree)
-  , type_(type)
-  , observer_(nullptr)
-  , current_period_(tree_.current_period_)
-  , current_adp_(nullptr)
-  , current_rep_(nullptr)
-  , segment_read_pos_(0)
-  , currentPTSOffset_(0)
-  , absolutePTSOffset_(0)
-  , lastUpdated_(std::chrono::system_clock::now())
-  , lastMediaRenewal_(std::chrono::system_clock::now())
-  , m_fixateInitialization(false)
-  , m_segmentFileOffset(0)
-  , play_timeshift_buffer_(false)
+AdaptiveStream::AdaptiveStream(AdaptiveTree& tree, AdaptiveTree::StreamType type)
+  : thread_data_(nullptr),
+    tree_(tree),
+    type_(type),
+    observer_(nullptr),
+    current_period_(tree_.current_period_),
+    current_adp_(nullptr),
+    current_rep_(nullptr),
+    segment_read_pos_(0),
+    currentPTSOffset_(0),
+    absolutePTSOffset_(0),
+    lastUpdated_(std::chrono::system_clock::now()),
+    lastMediaRenewal_(std::chrono::system_clock::now()),
+    m_fixateInitialization(false),
+    m_segmentFileOffset(0),
+    play_timeshift_buffer_(false)
 {
 }
 
@@ -56,8 +57,10 @@ void AdaptiveStream::ResetSegment()
   segment_buffer_.clear();
   segment_read_pos_ = 0;
 
-  if (current_rep_->current_segment_ && !(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE
-  | AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::URLSEGMENTS)))
+  if (current_rep_->current_segment_ &&
+      !(current_rep_->flags_ &
+        (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE |
+         AdaptiveTree::Representation::URLSEGMENTS)))
     absolute_position_ = current_rep_->current_segment_->range_begin_;
 }
 
@@ -73,7 +76,8 @@ void AdaptiveStream::worker()
 {
   std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
   thread_data_->signal_dl_.notify_one();
-  do {
+  do
+  {
     thread_data_->signal_dl_.wait(lckdl);
 
     bool ret(download_segment());
@@ -83,7 +87,7 @@ void AdaptiveStream::worker()
     //When a programme is broadcasted that has subtitles, subtitles fragments are offered
     //TODO: Ensure we continue with the next segment after one retry on errors
     if (type_ == AdaptiveTree::SUBTITLE)
-        retryCount = 1;
+      retryCount = 1;
 
     while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
     {
@@ -106,22 +110,29 @@ void AdaptiveStream::worker()
 
 int AdaptiveStream::SecondsSinceUpdate() const
 {
-  const std::chrono::time_point<std::chrono::system_clock> &tPoint(lastUpdated_ > tree_.GetLastUpdated() ? lastUpdated_ : tree_.GetLastUpdated());
-  return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint).count());
+  const std::chrono::time_point<std::chrono::system_clock>& tPoint(
+      lastUpdated_ > tree_.GetLastUpdated() ? lastUpdated_ : tree_.GetLastUpdated());
+  return static_cast<int>(
+      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint)
+          .count());
 }
 
 uint32_t AdaptiveStream::SecondsSinceMediaRenewal() const
 {
-  const std::chrono::time_point<std::chrono::system_clock> &tPoint(lastMediaRenewal_ > tree_.GetLastMediaRenewal() ? lastMediaRenewal_ : tree_.GetLastMediaRenewal());
-  return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint).count());
+  const std::chrono::time_point<std::chrono::system_clock>& tPoint(
+      lastMediaRenewal_ > tree_.GetLastMediaRenewal() ? lastMediaRenewal_
+                                                      : tree_.GetLastMediaRenewal());
+  return static_cast<int>(
+      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint)
+          .count());
 }
 
 void AdaptiveStream::UpdateSecondsSinceMediaRenewal()
 {
-    lastMediaRenewal_ = std::chrono::system_clock::now();
+  lastMediaRenewal_ = std::chrono::system_clock::now();
 }
 
-bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
+bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size)
 {
   {
     std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
@@ -131,8 +142,9 @@ bool AdaptiveStream::write_data(const void *buffer, size_t buffer_size)
 
     size_t insertPos(segment_buffer_.size());
     segment_buffer_.resize(insertPos + buffer_size);
-    tree_.OnDataArrived(download_segNum_, download_pssh_set_, m_iv, reinterpret_cast<const uint8_t*>(buffer),
-      reinterpret_cast<uint8_t*>(&segment_buffer_[0]), insertPos, buffer_size);
+    tree_.OnDataArrived(download_segNum_, download_pssh_set_, m_iv,
+                        reinterpret_cast<const uint8_t*>(buffer),
+                        reinterpret_cast<uint8_t*>(&segment_buffer_[0]), insertPos, buffer_size);
   }
   thread_data_->signal_rw_.notify_one();
   return true;
@@ -163,7 +175,7 @@ bool AdaptiveStream::prepare_stream(AdaptiveTree::AdaptationSet* adp,
 
   stopped_ = false;
 
-  bandwidth_ = static_cast<uint32_t>(bandwidth_ *(type_ == AdaptiveTree::VIDEO ? 0.9 : 0.1));
+  bandwidth_ = static_cast<uint32_t>(bandwidth_ * (type_ == AdaptiveTree::VIDEO ? 0.9 : 0.1));
 
   current_adp_ = adp;
 
@@ -172,22 +184,30 @@ bool AdaptiveStream::prepare_stream(AdaptiveTree::AdaptationSet* adp,
   return select_stream(false, true, repId);
 }
 
-bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer)
+bool AdaptiveStream::start_stream(const uint32_t seg_offset,
+                                  uint16_t width,
+                                  uint16_t height,
+                                  bool play_timeshift_buffer)
 {
-  if (!play_timeshift_buffer && !~seg_offset && tree_.has_timeshift_buffer_ && current_rep_->segments_.data.size()>1)
+  if (!play_timeshift_buffer && !~seg_offset && tree_.has_timeshift_buffer_ &&
+      current_rep_->segments_.data.size() > 1)
   {
     std::int32_t pos;
-    if (tree_.has_timeshift_buffer_ || tree_.available_time_>= tree_.stream_start_)
+    if (tree_.has_timeshift_buffer_ || tree_.available_time_ >= tree_.stream_start_)
       pos = static_cast<int32_t>(current_rep_->segments_.data.size() - 1);
     else
     {
-      pos = static_cast<int32_t>(((tree_.stream_start_ - tree_.available_time_)*current_rep_->timescale_) / current_rep_->duration_);
-      if (!pos) pos = 1;
+      pos = static_cast<int32_t>(
+          ((tree_.stream_start_ - tree_.available_time_) * current_rep_->timescale_) /
+          current_rep_->duration_);
+      if (!pos)
+        pos = 1;
     }
     //go at least 12 secs back
-    uint64_t duration(current_rep_->get_segment(pos)->startPTS_ - current_rep_->get_segment(pos - 1)->startPTS_);
+    uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
+                      current_rep_->get_segment(pos - 1)->startPTS_);
     pos -= static_cast<uint32_t>((12 * current_rep_->timescale_) / duration) + 1;
-    current_rep_->current_segment_ = current_rep_->get_segment(pos < 0 ? 0: pos);
+    current_rep_->current_segment_ = current_rep_->get_segment(pos < 0 ? 0 : pos);
   }
   else
     current_rep_->current_segment_ = ~seg_offset ? current_rep_->get_segment(seg_offset) : 0;
@@ -206,8 +226,11 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset, uint16_t width, uin
     height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
     play_timeshift_buffer_ = play_timeshift_buffer;
 
-    if (!(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE | AdaptiveTree::Representation::URLSEGMENTS)))
-      absolute_position_ = current_rep_->get_next_segment(current_rep_->current_segment_)->range_begin_;
+    if (!(current_rep_->flags_ &
+          (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE |
+           AdaptiveTree::Representation::URLSEGMENTS)))
+      absolute_position_ =
+          current_rep_->get_next_segment(current_rep_->current_segment_)->range_begin_;
     else
       absolute_position_ = 0;
 
@@ -239,7 +262,7 @@ bool AdaptiveStream::restart_stream()
   return true;
 }
 
-void AdaptiveStream::ReplacePlacehoder(std::string &url, uint64_t index, uint64_t timeStamp)
+void AdaptiveStream::ReplacePlacehoder(std::string& url, uint64_t index, uint64_t timeStamp)
 {
   std::string::size_type lenReplace(7);
   std::string::size_type np(url.find("$Number"));
@@ -266,15 +289,17 @@ void AdaptiveStream::ReplacePlacehoder(std::string &url, uint64_t index, uint64_
   url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
 }
 
-bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
+bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment* seg)
 {
   if (!seg)
     return false;
 
   if (!current_rep_->segments_.empty())
   {
-    currentPTSOffset_ = (seg->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
-    absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+    currentPTSOffset_ =
+        (seg->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+    absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
+                         current_rep_->timescale_int_;
   }
 
   if (observer_ && seg != &current_rep_->initialization_ && ~seg->startPTS_)
@@ -298,7 +323,8 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
       {
         uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
         if (~seg->range_end_)
-          sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
+          sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset,
+                  seg->range_end_ + fileOffset);
         else
           sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
         rangeHeader = rangebuf;
@@ -314,7 +340,8 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
   }
   else
   {
-    if (current_rep_->flags_ & AdaptiveTree::Representation::TEMPLATE && seg != &current_rep_->initialization_)
+    if (current_rep_->flags_ & AdaptiveTree::Representation::TEMPLATE &&
+        seg != &current_rep_->initialization_)
     {
       download_url_ = current_rep_->segtpl_.media;
       ReplacePlacehoder(download_url_, current_rep_->startNumber_, 0);
@@ -325,7 +352,8 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
     {
       uint64_t fileOffset = seg != &current_rep_->initialization_ ? m_segmentFileOffset : 0;
       if (~seg->range_end_)
-        sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset, seg->range_end_ + fileOffset);
+        sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset,
+                seg->range_end_ + fileOffset);
       else
         sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
       rangeHeader = rangebuf;
@@ -346,7 +374,7 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment *seg)
   return true;
 }
 
-std::string AdaptiveStream::buildDownloadUrl(const std::string &url)
+std::string AdaptiveStream::buildDownloadUrl(const std::string& url)
 {
   if (!tree_.effective_url_.empty() && url.find(tree_.base_url_) == 0)
   {
@@ -377,7 +405,8 @@ bool AdaptiveStream::ensureSegment()
     if (m_fixateInitialization)
       return false;
 
-    const AdaptiveTree::Segment *nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
+    const AdaptiveTree::Segment* nextSegment =
+        current_rep_->get_next_segment(current_rep_->current_segment_);
     if (nextSegment)
     {
       current_rep_->current_segment_ = nextSegment;
@@ -402,7 +431,7 @@ bool AdaptiveStream::ensureSegment()
 }
 
 
-uint32_t AdaptiveStream::read(void* buffer, uint32_t  bytesToRead)
+uint32_t AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
 {
   if (stopped_)
     return false;
@@ -498,17 +527,21 @@ uint64_t AdaptiveStream::getMaxTimeMs()
   if (current_rep_->segments_.empty())
     return 0;
 
-  uint64_t duration = current_rep_->segments_.size() > 1
-    ? current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ - current_rep_->segments_[current_rep_->segments_.size() - 2]->startPTS_
-    : 0;
+  uint64_t duration =
+      current_rep_->segments_.size() > 1
+          ? current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ -
+                current_rep_->segments_[current_rep_->segments_.size() - 2]->startPTS_
+          : 0;
 
-  uint64_t timeExt = ((current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ + duration)
-    * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+  uint64_t timeExt =
+      ((current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ + duration) *
+       current_rep_->timescale_ext_) /
+      current_rep_->timescale_int_;
 
-  return  (timeExt - absolutePTSOffset_) / 1000;
+  return (timeExt - absolutePTSOffset_) / 1000;
 }
 
-bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needReset)
+bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needReset)
 {
   if (!current_rep_)
     return false;
@@ -526,11 +559,17 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needR
 
   uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->timescale_);
   choosen_seg = 0; //Skip initialization
-  while (choosen_seg < current_rep_->segments_.data.size() && sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_)
+  while (choosen_seg < current_rep_->segments_.data.size() &&
+         sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_)
     ++choosen_seg;
 
   if (choosen_seg == current_rep_->segments_.data.size())
-    return false;
+  {
+    if (sec_in_ts < current_rep_->segments_[0]->startPTS_ + current_rep_->duration_)
+      --choosen_seg;
+    else
+      return false;
+  }
 
   if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
     --choosen_seg;
@@ -539,10 +578,12 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool &needR
   if (choosen_seg < current_rep_->expired_segments_)
     choosen_seg = current_rep_->expired_segments_;
 
-  if (!preceeding && sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_ && type_ == AdaptiveTree::VIDEO) //Assume that we have I-Frames only at segment start
+  if (!preceeding && sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_ &&
+      type_ == AdaptiveTree::VIDEO) //Assume that we have I-Frames only at segment start
     ++choosen_seg;
 
-  const AdaptiveTree::Segment *old_seg(current_rep_->current_segment_), *newSeg(current_rep_->get_segment(choosen_seg));
+  const AdaptiveTree::Segment *old_seg(current_rep_->current_segment_),
+      *newSeg(current_rep_->get_segment(choosen_seg));
   if (newSeg)
   {
     needReset = true;
@@ -581,7 +622,10 @@ bool AdaptiveStream::waitingForSegment(bool checkTime) const
   {
     std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
     if (current_rep_ && (current_rep_->flags_ & AdaptiveTree::Representation::WAITFORSEGMENT) != 0)
-      return !checkTime || (current_adp_->type_ != AdaptiveTree::VIDEO && current_adp_->type_ != AdaptiveTree::AUDIO) || SecondsSinceUpdate() < 1;
+      return !checkTime ||
+             (current_adp_->type_ != AdaptiveTree::VIDEO &&
+              current_adp_->type_ != AdaptiveTree::AUDIO) ||
+             SecondsSinceUpdate() < 1;
   }
   return false;
 }
@@ -599,13 +643,17 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   {
     unsigned int bestScore(~0);
 
-    for (std::vector<AdaptiveTree::Representation*>::const_iterator br(current_adp_->representations_.begin()), er(current_adp_->representations_.end()); br != er; ++br)
+    for (std::vector<AdaptiveTree::Representation*>::const_iterator
+             br(current_adp_->representations_.begin()),
+         er(current_adp_->representations_.end());
+         br != er; ++br)
     {
       unsigned int score;
-      if ((*br)->bandwidth_ <= bandwidth_ && (*br)->hdcpVersion_ <= hdcpVersion_
-        &&  (!hdcpLimit_ || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit_)
-        && ((score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))
-        + static_cast<unsigned int>(sqrt(bandwidth_ - (*br)->bandwidth_))) < bestScore))
+      if ((*br)->bandwidth_ <= bandwidth_ && (*br)->hdcpVersion_ <= hdcpVersion_ &&
+          (!hdcpLimit_ || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit_) &&
+          ((score = abs(static_cast<int>((*br)->width_ * (*br)->height_) -
+                        static_cast<int>(width_ * height_)) +
+                    static_cast<unsigned int>(sqrt(bandwidth_ - (*br)->bandwidth_))) < bestScore))
       {
         bestScore = score;
         new_rep = (*br);
@@ -631,12 +679,14 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
 
   uint32_t segid(current_rep_ ? current_rep_->getCurrentSegmentPos() : 0);
   if (current_rep_)
-    const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &= ~adaptive::AdaptiveTree::Representation::ENABLED;
+    const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &=
+        ~adaptive::AdaptiveTree::Representation::ENABLED;
 
   current_rep_ = new_rep;
   current_rep_->current_segment_ = current_rep_->get_segment(segid);
 
-  const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ |= adaptive::AdaptiveTree::Representation::ENABLED;
+  const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ |=
+      adaptive::AdaptiveTree::Representation::ENABLED;
 
   if (observer_)
     observer_->OnStreamChange(this);
@@ -646,7 +696,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   if (current_rep_->flags_ & AdaptiveTree::Representation::SEGMENTBASE)
   {
     AdaptiveTree::Segment seg;
-    const AdaptiveTree::Segment *downloadSeg;
+    const AdaptiveTree::Segment* downloadSeg;
 
     // If indexRangeMin is set, we have a "real" SIDX stream position -> use it instead init segment
     if (current_rep_->indexRangeMin_ || !(downloadSeg = current_rep_->get_initialization()))
@@ -666,7 +716,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     // Signal that there is no data coming
     download_url_.clear();
 
-    AdaptiveTree::Representation *rep(const_cast<AdaptiveTree::Representation *>(current_rep_));
+    AdaptiveTree::Representation* rep(const_cast<AdaptiveTree::Representation*>(current_rep_));
     absolute_position_ = 0;
     if (!parseIndexRange())
     {
@@ -683,7 +733,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   stopped_ = false;
 
   /* lets download the initialization */
-  const AdaptiveTree::Segment *loadingSeg = current_rep_->get_initialization();
+  const AdaptiveTree::Segment* loadingSeg = current_rep_->get_initialization();
   if (!loadingSeg && current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZATION_PREFIXED)
     loadingSeg = current_rep_->get_segment(segid);
 
@@ -698,17 +748,20 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
   return true;
 }
 
-void AdaptiveStream::info(std::ostream &s)
+void AdaptiveStream::info(std::ostream& s)
 {
-  static const char* ts[4] = { "NoType", "Video", "Audio", "Text" };
-  s << ts[type_] << " representation: " << current_rep_->url_.substr(current_rep_->url_.find_last_of('/') + 1) << " bandwidth: " << current_rep_->bandwidth_ << std::endl;
+  static const char* ts[4] = {"NoType", "Video", "Audio", "Text"};
+  s << ts[type_]
+    << " representation: " << current_rep_->url_.substr(current_rep_->url_.find_last_of('/') + 1)
+    << " bandwidth: " << current_rep_->bandwidth_ << std::endl;
 }
 
 void AdaptiveStream::stop()
 {
   stopped_ = true;
   if (current_rep_)
-    const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &= ~adaptive::AdaptiveTree::Representation::ENABLED;
+    const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &=
+        ~adaptive::AdaptiveTree::Representation::ENABLED;
   if (thread_data_)
   {
     delete thread_data_;
