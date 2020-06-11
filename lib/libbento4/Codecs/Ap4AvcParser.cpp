@@ -311,7 +311,7 @@ bool
 AP4_AvcSequenceParameterSet::GetVUIInfo(unsigned int& fps_ticks, unsigned int& fps_scale, float &aspect)
 {
   bool ret(false);
-  if (timing_info_present_flag)
+  if (timing_info_present_flag && fixed_frame_rate_flag)
   {
     if (fps_scale != (num_units_in_tick << 1) || fps_ticks != time_scale)
     {
