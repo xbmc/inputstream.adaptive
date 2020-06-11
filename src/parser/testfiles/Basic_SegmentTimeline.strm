@@ -1,0 +1,5 @@
+#KODIPROP:inputstreamaddon=inputstream.adaptive
+#KODIPROP:inputstream=inputstream.adaptive
+#KODIPROP:inputstream.adaptive.manifest_type=mpd
+#KODIPROP:mimetype=application/dash+xml
+http://livesim.dashif.org/livesim/segtimeline_1/testpic_2s/Manifest.mpd

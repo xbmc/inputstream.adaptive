@@ -23,8 +23,6 @@
 #include <vector>
 #include <map>
 
-class AP4_DataBuffer;
-
 bool b64_decode(const char *in, unsigned int in_len, uint8_t *out, unsigned int &out_len);
 
 std::string ToDecimal(const uint8_t *data, size_t data_size);
@@ -47,7 +45,7 @@ unsigned char HexNibble(char c);
 
 void prkid2wvkid(const char *input, char *output);
 char* KIDtoUUID(const uint8_t* kid, char* dst);
-bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data);
+bool create_ism_license(std::string key, std::string license_data, std::vector<uint8_t>& init_data);
 void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString);
 
 extern bool preReleaseFeatures;

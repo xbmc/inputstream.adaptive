@@ -20,8 +20,6 @@
 #include <cstring>
 #include "oscompat.h"
 #include <stdlib.h>
-#include "Ap4DataBuffer.h"
-#include <map>
 #include <sstream>
 
 #ifndef BYTE
@@ -241,7 +239,8 @@ std::string url_decode(std::string text) {
 
   for (auto i = text.begin(), n = text.end(); i != n; ++i) {
     std::string::value_type c = (*i);
-    if (c == '%') {
+    if (c == '%' && (n - i) > 3)
+    {
       if (i[1] && i[2]) {
         h = from_hex(i[1]) << 4 | from_hex(i[2]);
         escaped += h;
@@ -450,11 +449,11 @@ char* KIDtoUUID(const uint8_t* kid, char* dst)
   return dst;
 }
 
-bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffer &init_data)
+bool create_ism_license(std::string key, std::string license_data, std::vector<uint8_t>& init_data)
 {
   if (key.size() != 16 || license_data.empty())
   {
-    init_data.SetDataSize(0);
+    init_data.clear();
     return false;
   }
 
@@ -468,8 +467,8 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
   unsigned int license_size = uuid ? ld_size + 36 - 6 : ld_size;
 
   //Build up proto header
-  init_data.Reserve(512);
-  uint8_t *protoptr(init_data.UseData());
+  init_data.resize(512);
+  uint8_t* protoptr(init_data.data());
   if (kid)
   {
     if (uuid && uuid < kid)
@@ -514,7 +513,7 @@ bool create_ism_license(std::string key, std::string license_data, AP4_DataBuffe
     memcpy(protoptr, kid, ld_size);
     protoptr += ld_size;
   }
-  init_data.SetDataSize(protoptr - init_data.UseData());
+  init_data.resize(protoptr - init_data.data());
 
   return true;
 }
