@@ -96,3 +96,21 @@ list(APPEND DEPLIBS webm_parser)
 build_addon(inputstream.adaptive ADP DEPLIBS)
 
 include(CPack)
+
+if(NOT CMAKE_CROSSCOMPILING)
+  #Tests
+  find_package( Threads )
+  add_executable(Test_DashTree
+    src/parser/DASHTreeTest.cpp
+    src/parser/DASHTree.cpp
+    src/parser/PRProtectionParser.cpp
+    src/common/AdaptiveTree.cpp
+    src/helpers.cpp
+    src/oscompat.cpp
+    )
+  target_link_libraries(Test_DashTree ${EXPAT_LIBRARIES} Threads::Threads)
+
+  enable_testing()
+
+  add_test(6play_live Test_DashTree "${CMAKE_SOURCE_DIR}/src/parser/testfiles/6play.mpd")
+endif()

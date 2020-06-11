@@ -22,3 +22,15 @@ inputstream.adaptive/resources/settings.xml
 .cproject
 .project
 .settings/
+
+# to prevent add after a "git format-patch VALUE" and "git add ." call
+/*.patch
+
+# Visual Studio Code
+.vscode
+
+# to prevent add if project code opened by Visual Studio over CMake file
+.vs/
+
+#testfiles
+*.mpd_current

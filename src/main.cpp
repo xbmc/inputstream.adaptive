@@ -2267,7 +2267,6 @@ bool Session::InitializeDRM()
 
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
-
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->current_period_->encryptionState_)
   {
@@ -2418,8 +2417,10 @@ bool Session::InitializeDRM()
           {
             if (license_data_.empty())
               license_data_ = "e0tJRH0="; // {KID}
+            std::vector<uint8_t> init_data_v;
             create_ism_license(adaptiveTree_->current_period_->psshSets_[ses].defaultKID_,
-                               license_data_, init_data);
+                               license_data_, init_data_v);
+            init_data.SetData(init_data_v.data(), init_data_v.size());
           }
           else
           {
