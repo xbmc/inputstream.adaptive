@@ -1772,7 +1772,7 @@ void DASHTree::RefreshLiveSegments()
                         break;
                       else if (s.range_begin_ > search_pts)
                         misaligned = search_pts - (&s - 1)->range_begin_;
-                      else 
+                      else
                         ++(*brd)->startNumber_;
                     }
                   }
