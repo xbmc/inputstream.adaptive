@@ -95,7 +95,9 @@ namespace adaptive
     void UpdateSecondsSinceMediaRenewal();
   private:
     // Segment download section
-    void ResetSegment();
+    void ResetSegment(const AdaptiveTree::Segment* segment);
+    void ResetActiveBuffer(bool oneValid);
+    void StopWorker();
     bool download_segment();
     void worker();
     int SecondsSinceUpdate() const;
@@ -118,7 +120,8 @@ namespace adaptive
       {
         thread_stop_ = true;
         signal_dl_.notify_one();
-        download_thread_.join();
+        if (download_thread_.joinable())
+          download_thread_.join();
       };
 
       std::mutex mutex_rw_, mutex_dl_;
@@ -136,8 +139,19 @@ namespace adaptive
     AdaptiveTree::AdaptationSet* current_adp_;
     AdaptiveTree::Representation *current_rep_;
     std::string download_url_;
-    //We assume that a single segment can build complete frames
-    std::string segment_buffer_;
+
+    static const size_t MAXSEGMENTBUFFER;
+    struct SEGMENTBUFFER
+    {
+      std::string buffer;
+      AdaptiveTree::Segment segment;
+    };
+    std::vector<SEGMENTBUFFER> segment_buffers_;
+    // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
+    size_t available_segment_buffers_;
+    // number of segment_buffers which are downloaded / downloading
+    size_t valid_segment_buffers_;
+
     std::map<std::string, std::string> media_headers_, download_headers_;
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;

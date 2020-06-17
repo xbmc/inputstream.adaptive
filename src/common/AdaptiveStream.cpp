@@ -21,11 +21,14 @@
 #include "../log.h"
 #include "../oscompat.h"
 
+#include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <math.h>
 
 using namespace adaptive;
+
+const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
 
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree, AdaptiveTree::StreamType type)
   : thread_data_(nullptr),
@@ -35,6 +38,8 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree, AdaptiveTree::StreamType type
     current_period_(tree_.current_period_),
     current_adp_(nullptr),
     current_rep_(nullptr),
+    available_segment_buffers_(0),
+    valid_segment_buffers_(0),
     segment_read_pos_(0),
     currentPTSOffset_(0),
     absolutePTSOffset_(0),
@@ -44,24 +49,54 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree, AdaptiveTree::StreamType type
     m_segmentFileOffset(0),
     play_timeshift_buffer_(false)
 {
+  segment_buffers_.resize(MAXSEGMENTBUFFER);
 }
 
 AdaptiveStream::~AdaptiveStream()
 {
   stop();
   clear();
+
+  for (SEGMENTBUFFER& buf : segment_buffers_)
+    delete[] buf.segment.url;
 }
 
-void AdaptiveStream::ResetSegment()
+void AdaptiveStream::ResetSegment(const AdaptiveTree::Segment* segment)
 {
-  segment_buffer_.clear();
   segment_read_pos_ = 0;
 
-  if (current_rep_->current_segment_ &&
+  if (segment &&
       !(current_rep_->flags_ &
         (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE |
          AdaptiveTree::Representation::URLSEGMENTS)))
-    absolute_position_ = current_rep_->current_segment_->range_begin_;
+    absolute_position_ = segment->range_begin_;
+}
+
+void AdaptiveStream::ResetActiveBuffer(bool oneValid)
+{
+  valid_segment_buffers_ = oneValid ? 1 : 0;
+  available_segment_buffers_ = valid_segment_buffers_;
+  absolute_position_ = 0;
+  segment_buffers_[0].buffer.clear();
+  segment_read_pos_ = 0;
+}
+
+// Make sure worker is in CV wait state.
+void AdaptiveStream::StopWorker()
+{
+  // stop downloading chunks
+  stopped_ = true;
+  // wait until last reading operation stopped
+  // make sure download section in worker thread is done.
+  // Note that download is not locked by mutex_dl_.
+  std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
+  while (!download_url_.empty())
+    thread_data_->signal_rw_.wait(lckrw);
+  // Now the worker thread should keep the lock until it starts waiting
+  // to get CV signaled - make sure we are at this point.
+  std::lock_guard<std::mutex> lckdl(thread_data_->mutex_dl_);
+  // Make sure that worker continues at next notify
+  stopped_ = false;
 }
 
 bool AdaptiveStream::download_segment()
@@ -78,33 +113,47 @@ void AdaptiveStream::worker()
   thread_data_->signal_dl_.notify_one();
   do
   {
-    thread_data_->signal_dl_.wait(lckdl);
+    while (!thread_data_->thread_stop_ && (stopped_ ||
+           valid_segment_buffers_ >= available_segment_buffers_))
+      thread_data_->signal_dl_.wait(lckdl);
 
-    bool ret(download_segment());
-    unsigned int retryCount(10);
-
-    //Some streaming software offers subtitle tracks with missing fragments, usually live tv
-    //When a programme is broadcasted that has subtitles, subtitles fragments are offered
-    //TODO: Ensure we continue with the next segment after one retry on errors
-    if (type_ == AdaptiveTree::SUBTITLE)
-      retryCount = 1;
-
-    while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
+    if (!thread_data_->thread_stop_)
     {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
-      ret = download_segment();
-    }
+      prepareDownload(&segment_buffers_[valid_segment_buffers_].segment);
+      segment_buffers_[valid_segment_buffers_].buffer.clear();
+      ++valid_segment_buffers_;
 
-    //Signal finished download
-    {
-      std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-      download_url_.clear();
-      if (!ret)
-        stopped_ = true;
-    }
-    thread_data_->signal_rw_.notify_one();
+      // tell the main thread that we have processed prepare_download;
+      thread_data_->signal_dl_.notify_one();
+      lckdl.unlock();
 
+      bool ret(download_segment());
+      unsigned int retryCount(10);
+
+      //Some streaming software offers subtitle tracks with missing fragments, usually live tv
+      //When a programme is broadcasted that has subtitles, subtitles fragments are offered
+      //TODO: Ensure we continue with the next segment after one retry on errors
+      if (type_ == AdaptiveTree::SUBTITLE)
+        retryCount = 1;
+
+      while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
+      {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
+        ret = download_segment();
+      }
+
+      lckdl.lock();
+
+      //Signal finished download
+      {
+        std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
+        download_url_.clear();
+        if (!ret)
+          stopped_ = true;
+      }
+      thread_data_->signal_rw_.notify_one();
+    }
   } while (!thread_data_->thread_stop_);
 }
 
@@ -140,11 +189,14 @@ bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size)
     if (stopped_)
       return false;
 
-    size_t insertPos(segment_buffer_.size());
-    segment_buffer_.resize(insertPos + buffer_size);
+    // we write always into the last active segment
+    std::string& segment_buffer = segment_buffers_[valid_segment_buffers_ - 1].buffer;
+
+    size_t insertPos(segment_buffer.size());
+    segment_buffer.resize(insertPos + buffer_size);
     tree_.OnDataArrived(download_segNum_, download_pssh_set_, m_iv,
                         reinterpret_cast<const uint8_t*>(buffer),
-                        reinterpret_cast<uint8_t*>(&segment_buffer_[0]), insertPos, buffer_size);
+                        reinterpret_cast<uint8_t*>(&segment_buffer[0]), insertPos, buffer_size);
   }
   thread_data_->signal_rw_.notify_one();
   return true;
@@ -212,10 +264,14 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset,
   else
     current_rep_->current_segment_ = ~seg_offset ? current_rep_->get_segment(seg_offset) : 0;
 
-  segment_buffer_.clear();
-  segment_read_pos_ = 0;
+  const AdaptiveTree::Segment* next_segment =
+      current_rep_->get_next_segment(current_rep_->current_segment_);
 
-  if (!current_rep_->get_next_segment(current_rep_->current_segment_))
+  absolute_position_ = 0;
+  valid_segment_buffers_ = 0;
+  available_segment_buffers_ = 0;
+
+  if (!next_segment)
   {
     absolute_position_ = ~0;
     stopped_ = true;
@@ -225,14 +281,6 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset,
     width_ = type_ == AdaptiveTree::VIDEO ? width : 0;
     height_ = type_ == AdaptiveTree::VIDEO ? height : 0;
     play_timeshift_buffer_ = play_timeshift_buffer;
-
-    if (!(current_rep_->flags_ &
-          (AdaptiveTree::Representation::SEGMENTBASE | AdaptiveTree::Representation::TEMPLATE |
-           AdaptiveTree::Representation::URLSEGMENTS)))
-      absolute_position_ =
-          current_rep_->get_next_segment(current_rep_->current_segment_)->range_begin_;
-    else
-      absolute_position_ = 0;
 
     stopped_ = false;
   }
@@ -293,17 +341,6 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment* seg)
 {
   if (!seg)
     return false;
-
-  if (!current_rep_->segments_.empty())
-  {
-    currentPTSOffset_ =
-        (seg->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
-    absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
-                         current_rep_->timescale_int_;
-  }
-
-  if (observer_ && seg != &current_rep_->initialization_ && ~seg->startPTS_)
-    observer_->OnSegmentChanged(this);
 
   char rangebuf[128], *rangeHeader(0);
 
@@ -390,10 +427,15 @@ bool AdaptiveStream::ensureSegment()
   if (stopped_)
     return false;
 
-  if (download_url_.empty() && segment_read_pos_ >= segment_buffer_.size())
+  // We an only switch to the next segment, if the current (== segment_buffers_[0]) is finished.
+  // This is the case if we have more than 1 valid segments, or download_url_ is empty.
+  // Note that we always read into the lasst active segment, and that download_url is the
+  // marker which tells us that there is currently a download active.
+  if ((download_url_.empty() || valid_segment_buffers_ > 1) && segment_read_pos_ >= segment_buffers_[0].buffer.size())
   {
-    //wait until worker is ready for new segment
-    std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
+    // wait until worker is ready for new segment
+    std::unique_lock<std::mutex> lck(thread_data_->mutex_dl_);
+    // lock live segment updates
     std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
 
     if (tree_.HasUpdateThread() && SecondsSinceUpdate() > 1)
@@ -405,14 +447,62 @@ bool AdaptiveStream::ensureSegment()
     if (m_fixateInitialization)
       return false;
 
+    if (valid_segment_buffers_)
+    {
+      // rotate element 0 to the end
+      std::rotate(segment_buffers_.begin(), segment_buffers_.begin() + 1,
+                  segment_buffers_.begin() + available_segment_buffers_);
+      --valid_segment_buffers_;
+      --available_segment_buffers_;
+    }
+    // Set the future segment for all not downloaded segments
+    // Note that segment pointers can be changed during Live-Update
+    // TODO:: This is maybe a good place to do handle bitstream changes (???)
     const AdaptiveTree::Segment* nextSegment =
         current_rep_->get_next_segment(current_rep_->current_segment_);
+
     if (nextSegment)
     {
+      uint32_t nextsegmentPos = current_rep_->get_segment_pos(nextSegment);
+      for (size_t updPos(available_segment_buffers_); updPos < 5 /* TODO */; ++updPos)
+      {
+        const AdaptiveTree::Segment* futureSegment =
+            current_rep_->get_segment(nextsegmentPos + updPos);
+
+        if (futureSegment)
+        {
+          delete[] segment_buffers_[updPos].segment.url,
+              segment_buffers_[updPos].segment.url = nullptr;
+          segment_buffers_[updPos].segment = *futureSegment;
+          if (futureSegment->url)
+          {
+            size_t len = strlen(futureSegment->url) + 1;
+            segment_buffers_[updPos].segment.url = new char[len];
+            memcpy((void*)segment_buffers_[updPos].segment.url, futureSegment->url, len);
+          }
+          ++available_segment_buffers_;
+        }
+        else
+          break;
+      }
+
       current_rep_->current_segment_ = nextSegment;
-      prepareDownload(nextSegment);
-      ResetSegment();
+      ResetSegment(nextSegment);
+
+      currentPTSOffset_ =
+          (nextSegment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+
+      absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
+                           current_rep_->timescale_int_;
+
+      if (observer_ && nextSegment != &current_rep_->initialization_ && ~nextSegment->startPTS_)
+        observer_->OnSegmentChanged(this);
+
       thread_data_->signal_dl_.notify_one();
+      // Make sure that we have at least one segment filling
+      // Otherwise we lead into a deadlock because first condition is false.
+      if (!valid_segment_buffers_)
+        thread_data_->signal_dl_.wait(lck);
     }
     else if (tree_.HasUpdateThread())
     {
@@ -443,7 +533,7 @@ NEXTSEGMENT:
   {
     while (true)
     {
-      uint32_t avail = segment_buffer_.size() - segment_read_pos_;
+      uint32_t avail = segment_buffers_[0].buffer.size() - segment_read_pos_;
       if (avail < bytesToRead && !download_url_.empty())
       {
         thread_data_->signal_rw_.wait(lckrw);
@@ -458,7 +548,7 @@ NEXTSEGMENT:
 
       if (avail == bytesToRead)
       {
-        memcpy(buffer, segment_buffer_.data() + (segment_read_pos_ - avail), avail);
+        memcpy(buffer, segment_buffers_[0].buffer.data() + (segment_read_pos_ - avail), avail);
         return avail;
       }
       // If we call read after the last chunk was read but before worker finishes download, we end up here.
@@ -482,12 +572,12 @@ bool AdaptiveStream::seek(uint64_t const pos)
   {
     segment_read_pos_ = static_cast<uint32_t>(pos - (absolute_position_ - segment_read_pos_));
 
-    while (segment_read_pos_ > segment_buffer_.size() && !download_url_.empty())
+    while (segment_read_pos_ > segment_buffers_[0].buffer.size() && !download_url_.empty())
       thread_data_->signal_rw_.wait(lckrw);
 
-    if (segment_read_pos_ > segment_buffer_.size())
+    if (segment_read_pos_ > segment_buffers_[0].buffer.size())
     {
-      segment_read_pos_ = static_cast<uint32_t>(segment_buffer_.size());
+      segment_read_pos_ = static_cast<uint32_t>(segment_buffers_[0].buffer.size());
       return false;
     }
     absolute_position_ = pos;
@@ -512,7 +602,7 @@ bool AdaptiveStream::getSize(unsigned long long& sz)
         thread_data_->signal_rw_.wait(lckrw);
         continue;
       }
-      sz = segment_buffer_.size();
+      sz = segment_buffers_[0].buffer.size();
       return true;
     }
   }
@@ -589,18 +679,12 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
     needReset = true;
     if (newSeg != old_seg)
     {
-      //stop downloading chunks
-      stopped_ = true;
-      //wait until last reading operation stopped
-      lckTree.unlock(); //writing downloadrate takes the tree lock / avoid dead-lock
-      std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
-      lckTree.lock();
-      stopped_ = false;
-      current_rep_->current_segment_ = newSeg;
-      prepareDownload(newSeg);
-      absolute_position_ = 0;
-      ResetSegment();
-      thread_data_->signal_dl_.notify_one();
+      StopWorker();
+      // EnsureSegment loads always the next segment, so go back 1
+      current_rep_->current_segment_ =
+          current_rep_->get_segment(current_rep_->get_segment_pos(newSeg) - 1);
+      // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
+      ResetActiveBuffer(false);
     }
     else if (!preceeding)
     {
@@ -692,6 +776,8 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
     observer_->OnStreamChange(this);
 
   stopped_ = false;
+
+  ResetActiveBuffer(true);
   /* If we have indexRangeExact SegmentBase, update SegmentList from SIDX */
   if (current_rep_->flags_ & AdaptiveTree::Representation::SEGMENTBASE)
   {
@@ -724,9 +810,7 @@ bool AdaptiveStream::select_stream(bool force, bool justInit, unsigned int repId
       return false;
     }
     rep->indexRangeMin_ = rep->indexRangeMax_ = 0;
-    absolute_position_ = 0;
-    segment_buffer_.clear();
-    segment_read_pos_ = 0;
+    ResetActiveBuffer(true);
     rep->flags_ &= ~AdaptiveTree::Representation::SEGMENTBASE;
   }
 
@@ -764,6 +848,7 @@ void AdaptiveStream::stop()
         ~adaptive::AdaptiveTree::Representation::ENABLED;
   if (thread_data_)
   {
+    StopWorker();
     delete thread_data_;
     thread_data_ = nullptr;
   }
