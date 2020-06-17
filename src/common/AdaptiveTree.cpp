@@ -125,7 +125,7 @@ namespace adaptive
 
   void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
   {
-    if (!has_timeshift_buffer_ || !update_parameter_.empty() ||
+    if (!has_timeshift_buffer_ || HasUpdateThread() ||
       (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS) != 0)
       return;
 

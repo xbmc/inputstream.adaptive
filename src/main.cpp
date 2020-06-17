@@ -384,30 +384,36 @@ RETRY:
       // read the file
       char* buf = (char*)malloc(32 * 1024);
       size_t nbReadOverall = 0;
-      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead))
+      bool write_ok = true;
+      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && (write_ok = write_data(buf, nbRead)))
         nbReadOverall += nbRead;
       free(buf);
 
-      if (!nbReadOverall)
+      if (write_ok)
       {
-        kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
-        return false;
-      }
+        if (!nbReadOverall)
+        {
+          kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
+          return false;
+        }
 
-      double current_download_speed_ = file.GetFileDownloadSpeed();
-      //Calculate the new downloadspeed to 1MB
-      static const size_t ref_packet = 1024 * 1024;
-      if (nbReadOverall >= ref_packet)
-        set_download_speed(current_download_speed_);
-      else
-      {
-        double ratio = (double)nbReadOverall / ref_packet;
-        set_download_speed((get_download_speed() * (1.0 - ratio)) +
-                           current_download_speed_ * ratio);
+        double current_download_speed_ = file.GetFileDownloadSpeed();
+        //Calculate the new downloadspeed to 1MB
+        static const size_t ref_packet = 1024 * 1024;
+        if (nbReadOverall >= ref_packet)
+          set_download_speed(current_download_speed_);
+        else
+        {
+          double ratio = (double)nbReadOverall / ref_packet;
+          set_download_speed((get_download_speed() * (1.0 - ratio)) +
+                             current_download_speed_ * ratio);
+        }
+        kodi::Log(ADDON_LOG_DEBUG,
+                  "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
+                  get_download_speed(), current_download_speed_);
       }
-      kodi::Log(ADDON_LOG_DEBUG,
-                "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
-                get_download_speed(), current_download_speed_);
+      else
+        kodi::Log(ADDON_LOG_DEBUG, "Download %s cancelled", url);
     }
     file.Close();
     return nbRead == 0;
@@ -3724,7 +3730,7 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 
   if (~m_failedSeekTime)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "Seeking do last failed seek position (%d)", m_failedSeekTime);
+    kodi::Log(ADDON_LOG_DEBUG, "Seeking to last failed seek position (%d)", m_failedSeekTime);
     m_session->SeekTime(static_cast<double>(m_failedSeekTime) * 0.001f, 0, false);
     m_failedSeekTime = ~0;
   }
@@ -3825,7 +3831,7 @@ bool CInputStreamAdaptive::PosTime(int ms)
   bool ret = m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
   m_failedSeekTime = ret ? ~0 : ms;
 
-  return m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
+  return ret;
 }
 
 int CInputStreamAdaptive::GetTotalTime()
