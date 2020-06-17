@@ -71,8 +71,7 @@ static std::string getVideoCodec(const std::string& codecs)
   else if (codecs.find("hev1.") != std::string::npos)
     return "hev1";
   else if (codecs.find("dvh1.") != std::string::npos)
-    // Kodi only supports dvhe so return that
-    return "dvhe";
+    return "dvh1";
   else if (codecs.find("dvhe.") != std::string::npos)
     return "dvhe";
   else
