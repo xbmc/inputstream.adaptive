@@ -339,7 +339,12 @@ bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
     sub.start += m_ptsOffset;
     sub.end += m_ptsOffset;
   }
-
+  else if (m_subTitles.size() > 1 && (m_subTitles.end() - 2)->start > sub.start)
+  {
+    // Fix wrong applied pts_offset
+    (m_subTitles.end() - 2)->start -= m_ptsOffset;
+    (m_subTitles.end() - 2)->end -= m_ptsOffset;
+  }
   sub.id = *id ? id : s;
 
   return true;
