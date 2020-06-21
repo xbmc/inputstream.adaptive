@@ -239,7 +239,7 @@ std::string url_decode(std::string text) {
 
   for (auto i = text.begin(), n = text.end(); i != n; ++i) {
     std::string::value_type c = (*i);
-    if (c == '%' && (n - i) > 3)
+    if (c == '%' && (n - i) >= 3)
     {
       if (i[1] && i[2]) {
         h = from_hex(i[1]) << 4 | from_hex(i[2]);
