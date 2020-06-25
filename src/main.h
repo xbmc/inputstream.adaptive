@@ -30,6 +30,7 @@
 #include "SSD_dll.h"
 
 class SampleReader;
+struct DefaultRepresentationChooser;
 
 namespace XBMCFILE
 {
@@ -62,11 +63,20 @@ protected:
 class KodiAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
-  KodiAdaptiveStream(adaptive::AdaptiveTree &tree, adaptive::AdaptiveTree::StreamType type)
-    :adaptive::AdaptiveStream(tree, type){};
+  KodiAdaptiveStream(adaptive::AdaptiveTree& tree,
+                     adaptive::AdaptiveTree::AdaptationSet* adp,
+                     const std::map<std::string, std::string>& media_headers,
+                     DefaultRepresentationChooser* chooser,
+                     bool play_timeshift_buffer)
+    : adaptive::AdaptiveStream(tree, adp, media_headers, play_timeshift_buffer),
+  chooser_(chooser){};
+
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders) override;
   virtual bool parseIndexRange() override;
+
+private:
+  DefaultRepresentationChooser* chooser_ = nullptr;
 };
 
 enum MANIFEST_TYPE
@@ -92,8 +102,6 @@ public:
           const std::map<std::string, std::string>& manifestHeaders,
           const std::map<std::string, std::string>& mediaHeaders,
           const char* profile_path,
-          uint16_t display_width,
-          uint16_t display_height,
           const char* ov_audio,
           bool play_timeshift_buffer,
           bool force_secure_decoder);
@@ -105,7 +113,21 @@ public:
 
   struct STREAM
   {
-    STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false), valid(true)
+    STREAM(adaptive::AdaptiveTree& t,
+           adaptive::AdaptiveTree::AdaptationSet* adp,
+           const std::map<std::string, std::string>& media_headers,
+           DefaultRepresentationChooser* chooser,
+           bool play_timeshift_buffer)
+      :enabled(false)
+      ,encrypted(false)
+      ,mainId_(0)
+      ,current_segment_(0),
+        stream_(t, adp, media_headers, chooser, play_timeshift_buffer)
+      ,input_(0)
+      ,input_file_(0)
+      ,reader_(0)
+      ,segmentChanged(false)
+      ,valid(true)
     {
       memset(&info_, 0, sizeof(info_));
     };
@@ -132,7 +154,7 @@ public:
     bool valid;
   };
 
-  void UpdateStream(STREAM &stream, const SSD::SSD_DECRYPTER::SSD_CAPS &caps);
+  void UpdateStream(STREAM &stream);
   AP4_Movie* PrepareStream(STREAM* stream, bool& needRefetch);
 
   STREAM* GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
@@ -140,8 +162,6 @@ public:
   unsigned int GetStreamCount() const { return streams_.size(); };
   const char *GetCDMSession(int nSet) { return cdm_sessions_[nSet].cdm_session_str_; };;
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
-  std::uint16_t GetVideoWidth()const;
-  std::uint16_t GetVideoHeight()const;
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor(unsigned int nIndex)const{ return cdm_sessions_[nIndex].single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
   AP4_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
@@ -151,7 +171,7 @@ public:
   uint64_t PTSToElapsed(uint64_t pts);
   uint64_t GetTimeshiftBufferStart();
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
-  void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
+  void SetVideoResolution(unsigned int w, unsigned int h);
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
@@ -198,24 +218,20 @@ private:
     bool shared_single_sample_decryptor_;
   };
   std::vector<CDMSESSION> cdm_sessions_;
-  bool secure_video_session_;
 
-  adaptive::AdaptiveTree *adaptiveTree_;
+  adaptive::AdaptiveTree* adaptiveTree_;
+  DefaultRepresentationChooser* representationChooser_;
 
   std::vector<STREAM*> streams_;
   STREAM* timing_stream_;
 
-  uint16_t width_, height_;
-  int max_resolution_, max_secure_resolution_;
   uint32_t fixed_bandwidth_;
-  uint32_t maxUserBandwidth_;
   bool changed_;
   int manual_streams_;
   uint64_t elapsed_time_, chapter_start_time_; // In DVD_TIME_BASE
   double chapter_seek_time_; // In seconds
   uint8_t media_type_mask_;
   uint8_t drmConfig_;
-  bool ignore_display_;
   bool play_timeshift_buffer_;
   bool force_secure_decoder_;
 };
