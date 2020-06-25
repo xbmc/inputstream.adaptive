@@ -131,6 +131,7 @@ public:
   struct Segment
   {
     void SetRange(const char *range);
+    void Copy(const Segment* src);
     uint64_t range_begin_ = 0; //Either byterange start or timestamp or ~0
     uint64_t range_end_ = 0; //Either byterange end or sequence_id if range_begin is ~0
     const char *url = nullptr;
@@ -409,6 +410,11 @@ public:
     SegmentTemplate segtpl_;
   }*current_period_, *next_period_;
 
+  struct RepresentationChooser
+  {
+    virtual Representation* ChooseRepresentation(AdaptationSet* adp) = 0;
+  } *representation_chooser_ = nullptr;
+
   std::vector<Period*> periods_;
   std::string manifest_url_, base_url_, effective_url_, effective_filename_, base_domain_, update_parameter_;
   std::string::size_type update_parameter_pos_;
@@ -425,10 +431,7 @@ public:
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;
 
-  uint32_t bandwidth_;
   std::map<std::string, std::string> manifest_headers_;
-
-  double download_speed_, average_download_speed_;
 
   std::string supportedKeySystem_, location_;
 
@@ -465,9 +468,6 @@ public:
   bool has_type(StreamType t);
   void FreeSegments(Representation *rep);
   uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
-  double get_download_speed() const { return download_speed_; };
-  double get_average_download_speed() const { return average_download_speed_; };
-  void set_download_speed(double speed);
   void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale);
   uint16_t insert_psshset(StreamType type, Period* period = nullptr, AdaptationSet* adp = nullptr);
 
@@ -483,6 +483,11 @@ public:
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
   const std::chrono::time_point<std::chrono::system_clock> GetLastMediaRenewal() const { return lastMediaRenewal_; };
+
+  Representation* ChooseRepresentation(AdaptationSet* adp)
+  {
+    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp) : nullptr;
+  };
 
 protected:
   virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr, bool scanEffectiveURL = true);
