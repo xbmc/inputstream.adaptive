@@ -16,18 +16,22 @@ msgctxt "#30100"
 msgid "General"
 msgstr "일반"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "최소대역폭(Bit/s)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "최대대역폭(Bit/s)"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "복호화기 경로"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "일반 복호화기의 최대 해상도"
@@ -40,14 +44,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "미디어"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "보안 복호화기의 최대 해상도"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "HDCP설정을 무시"
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "화면해상도를 무시"
@@ -100,10 +107,11 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "비디오"
 
+# Show all video streams
 msgctxt "#30160"
 msgid "Manual video"
 msgstr "비디오 수동선택"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "영상과 자막"
