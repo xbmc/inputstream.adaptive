@@ -205,12 +205,9 @@ bool AdaptiveStream::start_stream()
     thread_data_->signal_dl_.wait(lckdl);
   }
 
-  {
-    std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
-    stopped_ = !ResolveSegmentBase(current_rep_, true);
-    if (stopped_)
-      return false;
-  }
+  stopped_ = !ResolveSegmentBase(current_rep_, true);
+  if (stopped_)
+    return false;
 
   if (!play_timeshift_buffer_ && tree_.has_timeshift_buffer_ &&
       current_rep_->segments_.data.size() > 1 && tree_.periods_.size() == 1)
