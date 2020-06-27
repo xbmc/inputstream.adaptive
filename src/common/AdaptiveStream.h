@@ -45,7 +45,8 @@ namespace adaptive
     AdaptiveStream(AdaptiveTree& tree,
                    AdaptiveTree::AdaptationSet* adp,
                    const std::map<std::string, std::string>& media_headers,
-                   bool play_timeshift_buffer);
+                   bool play_timeshift_buffer,
+                   size_t repId);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     bool start_stream();
@@ -88,7 +89,7 @@ namespace adaptive
     bool prepareDownload();
     int SecondsSinceUpdate() const;
     static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
-    bool ResolveSegmentBase();
+    bool ResolveSegmentBase(const AdaptiveTree::Representation* rep, bool stopWorker);
 
     struct THREADDATA
     {
