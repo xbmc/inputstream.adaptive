@@ -70,6 +70,7 @@ namespace adaptive
     bool waitingForSegment(bool checkTime = false) const;
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
+    bool StreamChanged() { return stream_changed_; }
   protected:
     virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
@@ -82,16 +83,23 @@ namespace adaptive
     void UpdateSecondsSinceMediaRenewal();
 
   private:
+    enum STATE
+    {
+      RUNNING,
+      STOPPED,
+      PAUSED
+    } state_;
+
     // Segment download section
     void ResetSegment(const AdaptiveTree::Segment* segment);
     void ResetActiveBuffer(bool oneValid);
-    void StopWorker();
+    void StopWorker(STATE state);
     bool download_segment();
     void worker();
     bool prepareDownload();
     int SecondsSinceUpdate() const;
     static void ReplacePlacehoder(std::string &url, uint64_t index, uint64_t timeStamp);
-    bool ResolveSegmentBase(const AdaptiveTree::Representation* rep, bool stopWorker);
+    bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
 
     struct THREADDATA
     {
@@ -134,7 +142,7 @@ namespace adaptive
       std::string buffer;
       AdaptiveTree::Segment segment;
       unsigned int segment_number;
-      const AdaptiveTree::Representation* rep;
+      AdaptiveTree::Representation* rep;
     };
     std::vector<SEGMENTBUFFER> segment_buffers_;
     // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
@@ -151,10 +159,11 @@ namespace adaptive
 
     uint16_t download_pssh_set_;
     unsigned int download_segNum_;
-    bool stopped_, worker_processing_;
+    bool worker_processing_;
     uint8_t m_iv[16];
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
+    bool stream_changed_ = false;
   };
 };
