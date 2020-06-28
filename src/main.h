@@ -137,6 +137,7 @@ public:
       disable();
     };
     void disable();
+    void reset();
 
     bool enabled, encrypted;
     uint16_t mainId_;

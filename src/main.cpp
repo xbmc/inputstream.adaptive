@@ -308,6 +308,12 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     bandwidth = static_cast<uint32_t>(bandwidth_ *
                                       (adp->type_ == adaptive::AdaptiveTree::VIDEO ? 0.9 : 0.1));
 
+    static int steps = 0;
+    float multiplier = ++steps % 10 < 5 ? 1.0f : 0.0;
+
+    if (adp->type_ == adaptive::AdaptiveTree::VIDEO)
+      bandwidth *= multiplier;
+
     for (std::vector<adaptive::AdaptiveTree::Representation*>::const_iterator
              br(adp->representations_.begin()),
          er(adp->representations_.end());
@@ -363,7 +369,9 @@ public:
   AP4_Result ReadPartial(void* buffer, AP4_Size bytesToRead, AP4_Size& bytesRead) override
   {
     bytesRead = stream_->read(buffer, bytesToRead);
-    return bytesRead > 0 ? AP4_SUCCESS : AP4_ERROR_READ_FAILED;
+    return bytesRead > 0
+               ? AP4_SUCCESS
+               : stream_->StreamChanged() ? AP4_ERROR_STREAM_CHANGED : AP4_ERROR_READ_FAILED;
   };
   AP4_Result WritePartial(const void* buffer,
                           AP4_Size bytesToWrite,
@@ -384,7 +392,9 @@ public:
   AP4_Result GetSize(AP4_LargeSize& size) override { return AP4_ERROR_NOT_SUPPORTED; };
   AP4_Result GetSegmentSize(AP4_LargeSize& size)
   {
-    return stream_->getSize(size) ? AP4_SUCCESS : AP4_ERROR_EOS;
+    return stream_->getSize(size)
+               ? AP4_SUCCESS
+               : stream_->StreamChanged() ? AP4_ERROR_STREAM_CHANGED : AP4_ERROR_EOS;
   };
   // AP4_Referenceable methods
   void AddReference() override{};
@@ -2106,10 +2116,18 @@ void Session::STREAM::disable()
   if (enabled)
   {
     stream_.stop();
+    reset();
+    enabled = encrypted = false;
+  }
+}
+
+void Session::STREAM::reset()
+{
+  if (enabled)
+  {
     SAFE_DELETE(reader_);
     SAFE_DELETE(input_file_);
     SAFE_DELETE(input_);
-    enabled = encrypted = false;
     mainId_ = 0;
   }
 }
@@ -2875,7 +2893,8 @@ void Session::UpdateStream(STREAM& stream)
     stream.info_.SetAspect((float)stream.info_.GetWidth() / stream.info_.GetHeight());
   stream.encrypted = rep->get_psshset() > 0;
 
-  if (!stream.info_.GetExtraDataSize() && rep->codec_private_data_.size())
+  stream.info_.SetExtraData(nullptr, 0);
+  if (rep->codec_private_data_.size())
   {
     std::string annexb;
     const std::string* res(&annexb);
@@ -3258,6 +3277,12 @@ void Session::OnSegmentChanged(adaptive::AdaptiveStream* stream)
 
 void Session::OnStreamChange(adaptive::AdaptiveStream* stream)
 {
+  for (STREAM* s : streams_)
+    if (s->enabled && &s->stream_ == stream)
+    {
+      UpdateStream(*s);
+      changed_ = true;
+    }
 }
 
 void Session::CheckFragmentDuration(STREAM& stream)
@@ -3480,6 +3505,8 @@ private:
   bool m_checkChapterSeek = false;
   bool m_playTimeshiftBuffer = false;
   int m_failedSeekTime = ~0;
+
+  void UnlinkIncludedStreams(Session::STREAM* stream);
 };
 
 CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion)
@@ -3731,6 +3758,19 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
   return false;
 }
 
+void CInputStreamAdaptive::UnlinkIncludedStreams(Session::STREAM* stream)
+{
+  if (stream->mainId_)
+  {
+    Session::STREAM* mainStream(m_session->GetStream(stream->mainId_));
+    if (mainStream->reader_)
+      mainStream->reader_->RemoveStreamType(stream->info_.GetStreamType());
+  }
+  const adaptive::AdaptiveTree::Representation* rep(stream->stream_.getRepresentation());
+  if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+    m_IncludedStreams[stream->info_.GetStreamType()] = 0;
+}
+
 void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 {
   kodi::Log(ADDON_LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable ? "true" : "false");
@@ -3742,15 +3782,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
   if (!enable && stream && stream->enabled)
   {
-    if (stream->mainId_)
-    {
-      Session::STREAM* mainStream(m_session->GetStream(stream->mainId_));
-      if (mainStream->reader_)
-        mainStream->reader_->RemoveStreamType(stream->info_.GetStreamType());
-    }
-    const adaptive::AdaptiveTree::Representation* rep(stream->stream_.getRepresentation());
-    if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
-      m_IncludedStreams[stream->info_.GetStreamType()] = 0;
+    UnlinkIncludedStreams(stream);
     m_session->EnableStream(stream, false);
   }
 }
@@ -3765,8 +3797,19 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetPeriodId() * 1000));
 
-  if (!stream || stream->enabled)
+  if (!stream)
     return false;
+
+  if (stream->enabled)
+  {
+    if (stream->stream_.StreamChanged())
+    {
+      UnlinkIncludedStreams(stream);
+      stream->reset();
+    }
+    else
+      return false;
+  }
 
   bool needRefetch = false; //Make sure that Kodi fetches changes
   stream->enabled = true;
@@ -3791,12 +3834,6 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       stream->mainId_ = 0;
     m_IncludedStreams[stream->info_.GetStreamType()] = streamid;
     return false;
-  }
-
-  if (rep != stream->stream_.getRepresentation())
-  {
-    m_session->UpdateStream(*stream);
-    m_session->CheckChange(true);
   }
 
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
