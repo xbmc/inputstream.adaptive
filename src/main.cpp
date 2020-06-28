@@ -313,7 +313,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
                                       (adp->type_ == adaptive::AdaptiveTree::VIDEO ? 0.9 : 0.1));
 
     static int steps = 0;
-    float multiplier = ++steps % 10 < 5 ? 1.0f : 0.0;
+    float multiplier = ++steps % 20 < 10 ? 1.0f : 0.0;
 
     if (adp->type_ == adaptive::AdaptiveTree::VIDEO)
       bandwidth *= multiplier;
