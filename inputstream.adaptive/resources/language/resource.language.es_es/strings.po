@@ -2,7 +2,6 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
-
 msgid ""
 msgstr ""
 
@@ -10,6 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language-Team: Spanish\n"
 "Language: es\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
@@ -17,18 +17,22 @@ msgctxt "#30100"
 msgid "General"
 msgstr "General"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "Mín. Ancho de banda (Bit/s)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "Máx. Ancho de banda (Bit/s)"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "Ruta descodificador"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "Máx. Resolución decodificador general"
@@ -41,14 +45,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "Medio"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "Máx. Resolución descodificación segura"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "Anular estado HDCP"
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "Ignorar resolución de pantalla"
@@ -82,12 +89,12 @@ msgid "1080p"
 msgstr "1080p"
 
 msgctxt "#30155"
-msgid "Auto"
-msgstr "Auto"
+msgid "Automatically select streams"
+msgstr ""
 
 msgctxt "#30156"
-msgid "Manual"
-msgstr "Manual"
+msgid "Manually select all streams"
+msgstr ""
 
 msgctxt "#30157"
 msgid "All"
@@ -101,9 +108,10 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "Vídeo"
 
+# Show all video streams
 msgctxt "#30160"
-msgid "Manual video"
-msgstr "Mostrar todos los flujos"
+msgid "Manually select video stream"
+msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
