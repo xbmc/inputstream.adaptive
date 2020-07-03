@@ -107,7 +107,7 @@ bool AdaptiveStream::download_segment()
   if (download_url_.empty())
     return false;
 
-  return download(download_url_.c_str(), download_headers_);
+  return download(download_url_.c_str(), download_headers_, nullptr);
 }
 
 void AdaptiveStream::worker()
@@ -125,7 +125,7 @@ void AdaptiveStream::worker()
     {
       worker_processing_ = true;
 
-      prepareDownload();
+      prepareNextDownload();
 
       // tell the main thread that we have processed prepare_download;
       thread_data_->signal_dl_.notify_one();
@@ -187,8 +187,16 @@ void AdaptiveStream::UpdateSecondsSinceMediaRenewal()
   lastMediaRenewal_ = std::chrono::system_clock::now();
 }
 
-bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size)
+bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer)
 {
+  if (lockfreeBuffer)
+  {
+    size_t insertPos(lockfreeBuffer->size());
+    lockfreeBuffer->resize(insertPos + buffer_size);
+    memcpy(&(*lockfreeBuffer)[insertPos], buffer, buffer_size);
+    return true;
+  }
+
   {
     std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
 
@@ -222,10 +230,14 @@ bool AdaptiveStream::start_stream()
     thread_data_->signal_dl_.wait(lckdl);
   }
 
-  if (!ResolveSegmentBase(current_rep_, true))
   {
-    state_ = STOPPED;
-    return false;
+    // ResolveSegmentbase assumes mutex_dl locked
+    std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
+    if (!ResolveSegmentBase(current_rep_, true))
+    {
+      state_ = STOPPED;
+      return false;
+    }
   }
 
   if (!current_rep_->current_segment_)
@@ -275,8 +287,7 @@ bool AdaptiveStream::start_stream()
 
     if (available_segment_buffers_)
       std::rotate(segment_buffers_.rend() - (available_segment_buffers_ + 1),
-                  segment_buffers_.rend() - available_segment_buffers_,
-                  segment_buffers_.rend());
+                  segment_buffers_.rend() - available_segment_buffers_, segment_buffers_.rend());
     segment_buffers_[0].segment.url = nullptr;
     ++available_segment_buffers_;
 
@@ -291,7 +302,7 @@ bool AdaptiveStream::start_stream()
     size_t valid_segment_buffers = valid_segment_buffers_;
     valid_segment_buffers_ = 0;
 
-    if (!prepareDownload() || !download_segment())
+    if (!prepareNextDownload() || !download_segment())
       state_ = STOPPED;
 
     valid_segment_buffers_ = valid_segment_buffers + 1;
@@ -333,7 +344,7 @@ void AdaptiveStream::ReplacePlacehoder(std::string& url, uint64_t index, uint64_
   url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
 }
 
-bool AdaptiveStream::prepareDownload()
+bool AdaptiveStream::prepareNextDownload()
 {
   // We assume, that we find the next segment to load in the next valid_segment_buffers_
   if (valid_segment_buffers_ >= available_segment_buffers_)
@@ -346,6 +357,13 @@ bool AdaptiveStream::prepareDownload()
   segment_buffers_[valid_segment_buffers_].buffer.clear();
   ++valid_segment_buffers_;
 
+  return prepareDownload(rep, seg, segNum);
+}
+
+bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
+                                     const AdaptiveTree::Segment* seg,
+                                     unsigned int segNum)
+{
   if (!seg)
     return false;
 
@@ -745,64 +763,35 @@ void AdaptiveStream::FixateInitialization(bool on)
 
 bool AdaptiveStream::ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker)
 {
-  state_ = RUNNING;
   /* If we have indexRangeExact SegmentBase, update SegmentList from SIDX */
   if (rep->flags_ & AdaptiveTree::Representation::SEGMENTBASE)
   {
-    // Make sure the worker thread is in idle
-    // Asssumtion: mutex_rw is already locked
-    if (stopWorker)
-      StopWorker(PAUSED);
-
-    //We use the first segment as working buffer;
-    if (available_segment_buffers_)
-      std::rotate(segment_buffers_.begin() + available_segment_buffers_,
-                  segment_buffers_.begin() + available_segment_buffers_ + 1,
-                  segment_buffers_.begin());
-
-    size_t valid_segment_buffers = valid_segment_buffers_;
-    size_t available_segment_buffers = available_segment_buffers_;
-    valid_segment_buffers_ = 0;
-    available_segment_buffers_ = 1;
-
-    SEGMENTBUFFER& sb(segment_buffers_[0]);
-    sb.rep = rep;
-    sb.segment.url = nullptr;
-    sb.segment_number = 0;
-    sb.buffer.clear();
-    segment_read_pos_ = 0;
-
+    // We assume mutex_dl is locked so we can safely call prepare_download
+    AdaptiveTree::Segment seg;
+    unsigned int segNum = ~0U;
     if (rep->indexRangeMin_ || !(rep->get_initialization()))
     {
-      sb.segment.range_begin_ = rep->indexRangeMin_;
-      sb.segment.range_end_ = rep->indexRangeMax_;
-      sb.segment.startPTS_ = ~0ULL;
-      sb.segment.pssh_set_ = 0;
+      seg.range_begin_ = rep->indexRangeMin_;
+      seg.range_end_ = rep->indexRangeMax_;
+      seg.startPTS_ = ~0ULL;
+      seg.pssh_set_ = 0;
+      segNum = 0; // It's no an initialization segment
     }
     else if (rep->get_initialization())
-      sb.segment = *rep->get_initialization();
+      seg = *rep->get_initialization();
     else
-      available_segment_buffers_ = 0;
+      return false;
 
-    absolute_position_ = 0;
-    m_fixateInitialization = true;
-    if (prepareDownload() && download_segment() && parseIndexRange())
+    std::string sidxBuffer;
+    if (prepareDownload(rep, &seg, segNum) &&
+        download(download_url_.c_str(), download_headers_, &sidxBuffer) &&
+        parseIndexRange(rep, sidxBuffer))
       const_cast<AdaptiveTree::Representation*>(rep)->flags_ &=
           ~AdaptiveTree::Representation::SEGMENTBASE;
     else
-      state_ = STOPPED;
-    m_fixateInitialization = false;
-
-    // restore segment_buffers_
-    //We use the first segment as working buffer;
-    valid_segment_buffers_ = valid_segment_buffers;
-    available_segment_buffers_ = available_segment_buffers;
-
-    if (available_segment_buffers_)
-      std::rotate(segment_buffers_.begin(), segment_buffers_.begin() + 1,
-                  segment_buffers_.begin() + available_segment_buffers_);
+      return false;
   }
-  return state_ == RUNNING;
+  return true;
 }
 
 void AdaptiveStream::info(std::ostream& s)

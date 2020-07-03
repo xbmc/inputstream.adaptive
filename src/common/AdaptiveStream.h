@@ -72,9 +72,17 @@ namespace adaptive
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
     bool StreamChanged() { return stream_changed_; }
   protected:
-    virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
-    virtual bool parseIndexRange() { return false; };
-    bool write_data(const void *buffer, size_t buffer_size);
+    virtual bool download(const char* url,
+                          const std::map<std::string, std::string>& mediaHeaders,
+                          std::string* lockfreeBuffer)
+    {
+      return false;
+    };
+    virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer)
+    {
+      return false;
+    };
+    bool write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer);
     void setEffectiveURL(const std::string url) { tree_.effective_url_ = url; if (tree_.effective_url_.back() != '/') tree_.effective_url_ += '/'; };
     const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
     const uint32_t& getMediaRenewalTime() const { return tree_.media_renewal_time_; };
@@ -96,7 +104,10 @@ namespace adaptive
     void StopWorker(STATE state);
     bool download_segment();
     void worker();
-    bool prepareDownload();
+    bool prepareNextDownload();
+    bool prepareDownload(const AdaptiveTree::Representation* rep,
+                         const AdaptiveTree::Segment* seg,
+                         unsigned int segNum);
     int SecondsSinceUpdate() const;
     static void ReplacePlacehoder(std::string &url, uint64_t index, uint64_t timeStamp);
     bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
