@@ -2,13 +2,13 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
-
 msgid ""
 msgstr ""
 
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language-Team: English\n"
 "Language: en\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
@@ -88,11 +88,11 @@ msgid "1080p"
 msgstr ""
 
 msgctxt "#30155"
-msgid "Auto"
+msgid "Automatically select streams"
 msgstr ""
 
 msgctxt "#30156"
-msgid "Manual"
+msgid "Manually select all streams"
 msgstr ""
 
 msgctxt "#30157"
@@ -109,7 +109,7 @@ msgstr ""
 
 # Show all video streams
 msgctxt "#30160"
-msgid "Manual video"
+msgid "Manually select video stream"
 msgstr ""
 
 msgctxt "#30161"

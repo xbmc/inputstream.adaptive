@@ -4,34 +4,35 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
+
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n>=2 && n<=4 ? 1 : 2);\n"
-"Project-Id-Version: \n"
-"POT-Creation-Date: \n"
-"PO-Revision-Date: \n"
-"Language-Team: \n"
-"X-Generator: Poedit 2.2.4\n"
 "Last-Translator: Matej Moško <kamosko@panakrala.sk>\n"
+"Language-Team: Slovak\n"
 "Language: sk_SK\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n>=2 && n<=4 ? 1 : 2);\n"
 
 msgctxt "#30100"
 msgid "General"
 msgstr "Všeobecné"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "Min. Šírka Pásma (Bit/s)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "Max. Šírka Pásma (Bit/s)"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "Cesta k Dekóderu"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "Max. Rozlíšenie Základného Dekódera"
@@ -44,14 +45,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "Médiá"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "Max. Rozlíšenie bezpečného dekódera"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "Obísť HDCP status"
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "Ignorovať Rozlíšenie Obrazovky"
@@ -85,12 +89,12 @@ msgid "1080p"
 msgstr "1080p"
 
 msgctxt "#30155"
-msgid "Auto"
-msgstr "Automaticky"
+msgid "Automatically select streams"
+msgstr ""
 
 msgctxt "#30156"
-msgid "Manual"
-msgstr "Ručne"
+msgid "Manually select all streams"
+msgstr ""
 
 msgctxt "#30157"
 msgid "All"
@@ -104,9 +108,10 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "Video"
 
+# Show all video streams
 msgctxt "#30160"
-msgid "Manual video"
-msgstr "Video ručne"
+msgid "Manually select video stream"
+msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
