@@ -1,0 +1,109 @@
+# Kodi Media Center language file
+# Addon Name: Inputstream.adaptive
+# Addon id: inputstream.adaptive
+# Addon Provider: peak3d
+
+msgid ""
+msgstr ""
+
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ja\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "#30100"
+msgid "General"
+msgstr "一般"
+
+msgctxt "#30101"
+msgid "Min. Bandwidth (Bit/s)"
+msgstr "最小帯域(Bit/s)"
+
+msgctxt "#30102"
+msgid "Max. Bandwidth (Bit/s)"
+msgstr "最大帯域(Bit/s)"
+
+msgctxt "#30103"
+msgid "Decrypter path"
+msgstr "復号化機パース"
+
+msgctxt "#30110"
+msgid "Max. Resolution general decoder"
+msgstr "一般デコーダによる最大解像度"
+
+msgctxt "#30111"
+msgid "Stream Selection"
+msgstr "ストリーム選択"
+
+msgctxt "#30112"
+msgid "Media"
+msgstr "メディア"
+
+msgctxt "#30113"
+msgid "Max. Resolution secure decoder"
+msgstr "セキュアデコーダによる最大解像度"
+
+msgctxt "#30114"
+msgid "Override HDCP status"
+msgstr "HDCP設定を無視する。"
+
+msgctxt "#30115"
+msgid "Ignore Display Resolution"
+msgstr "画面の解像度を無視する。"
+
+msgctxt "#30120"
+msgid "Expert"
+msgstr "エキスパート"
+
+msgctxt "#30121"
+msgid "Enable Pre-Release Features"
+msgstr "プレリリース機能を使う。"
+
+msgctxt "#30150"
+msgid "Max"
+msgstr "最大"
+
+msgctxt "#30151"
+msgid "480p"
+msgstr "480p"
+
+msgctxt "#30152"
+msgid "640p"
+msgstr "640p"
+
+msgctxt "#30153"
+msgid "720p"
+msgstr "720p"
+
+msgctxt "#30154"
+msgid "1080p"
+msgstr "1080p"
+
+msgctxt "#30155"
+msgid "Auto"
+msgstr "自動"
+
+msgctxt "#30156"
+msgid "Manual"
+msgstr "手動"
+
+msgctxt "#30157"
+msgid "All"
+msgstr "全部"
+
+msgctxt "#30158"
+msgid "Audio"
+msgstr "オーディオ"
+
+msgctxt "#30159"
+msgid "Video"
+msgstr "ビデオ"
+
+msgctxt "#30160"
+msgid "Manual video"
+msgstr "ビデオ手動選択"
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr ""
