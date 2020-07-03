@@ -309,10 +309,11 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
                                       (adp->type_ == adaptive::AdaptiveTree::VIDEO ? 0.9 : 0.1));
 
     static int steps = 0;
-    float multiplier = ++steps % 20 < 10 ? 1.0f : 0.0;
-
     if (adp->type_ == adaptive::AdaptiveTree::VIDEO)
+    {
+      float multiplier = ++steps % 20 < 10 ? 1.0f : 0.0;
       bandwidth *= multiplier;
+    }
 
     for (std::vector<adaptive::AdaptiveTree::Representation*>::const_iterator
              br(adp->representations_.begin()),
@@ -465,7 +466,8 @@ bool adaptive::AdaptiveTree::download(const char* url,
 }
 
 bool KodiAdaptiveStream::download(const char* url,
-                                  const std::map<std::string, std::string>& mediaHeaders)
+                                  const std::map<std::string, std::string>& mediaHeaders,
+                                  std::string* lockfreeBuffer)
 {
   kodi::vfs::CFile file;
 
@@ -504,7 +506,7 @@ bool KodiAdaptiveStream::download(const char* url,
       size_t nbReadOverall = 0;
       bool write_ok = true;
       while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead &&
-             (write_ok = write_data(buf, nbRead)))
+             (write_ok = write_data(buf, nbRead, lockfreeBuffer)))
         nbReadOverall += nbRead;
       free(buf);
 
@@ -540,13 +542,12 @@ bool KodiAdaptiveStream::download(const char* url,
   return false;
 }
 
-bool KodiAdaptiveStream::parseIndexRange()
+bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation* rep,
+                                         const std::string& buffer)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Build segments from SIDX atom...");
-  AP4_DASHStream byteStream(this);
+  AP4_MemoryByteStream byteStream((const AP4_Byte*)(buffer.data()), buffer.size());
 
-  adaptive::AdaptiveTree::Representation* rep(
-      const_cast<adaptive::AdaptiveTree::Representation*>(getRepresentation()));
   adaptive::AdaptiveTree::AdaptationSet* adp(
       const_cast<adaptive::AdaptiveTree::AdaptationSet*>(getAdaptationSet()));
 
@@ -3893,7 +3894,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     if (movie == NULL)
     {
       kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
-      stream->disable();
+      m_session->EnableStream(stream, false);
       return false;
     }
 
@@ -3905,7 +3906,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       if (!track)
       {
         kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
-        stream->disable();
+        m_session->EnableStream(stream, false);
         return false;
       }
     }
@@ -3917,7 +3918,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
   else
   {
-    stream->disable();
+    m_session->EnableStream(stream, false);
     return false;
   }
 
@@ -3994,16 +3995,13 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     else
       p = AllocateDemuxPacket(iSize);
 
-    if (iSize)
-    {
-      p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
-      p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
-      p->duration = static_cast<double>(sr->GetDuration());
-      p->iStreamId = sr->GetStreamId();
-      p->iGroupId = 0;
-      p->iSize = iSize;
-      memcpy(p->pData, pData, iSize);
-    }
+    p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
+    p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
+    p->duration = static_cast<double>(sr->GetDuration());
+    p->iStreamId = sr->GetStreamId();
+    p->iGroupId = 0;
+    p->iSize = iSize;
+    memcpy(p->pData, pData, iSize);
 
     //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 

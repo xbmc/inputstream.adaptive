@@ -73,8 +73,11 @@ public:
       chooser_(chooser){};
 
 protected:
-  virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders) override;
-  virtual bool parseIndexRange() override;
+  bool download(const char* url,
+                const std::map<std::string, std::string>& mediaHeaders,
+                std::string* lockfreeBuffer) override;
+  bool parseIndexRange(adaptive::AdaptiveTree::Representation* rep,
+                       const std::string& buffer) override;
 
 private:
   DefaultRepresentationChooser* chooser_ = nullptr;
