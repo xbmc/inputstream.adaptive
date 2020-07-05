@@ -231,9 +231,11 @@ bool AdaptiveStream::start_stream()
 
   max_buffer_length_=current_rep_ ->max_buffer_duration_;
   max_buffer_length_ = std::ceil( (max_buffer_length_ * current_rep_->segtpl_.timescale)/ (float)current_rep_->segtpl_.duration );
-  if(max_buffer_length_<=assured_buffer_length_)
+  assured_buffer_length_  = assured_buffer_length_ <4 ? 4:assured_buffer_length_;//for incorrect settings input
+  if(max_buffer_length_<=assured_buffer_length_)//for incorrect settings input
     max_buffer_length_=assured_buffer_length_+4u;
-  segment_buffers_.resize(std::max(5u, max_buffer_length_+ 1 ) );//TTHR
+  
+  segment_buffers_.resize(max_buffer_length_+ 1);//TTHR
 
   if (!thread_data_)
   {
@@ -532,7 +534,7 @@ bool AdaptiveStream::ensureSegment()
       ResolveSegmentBase(newRep, false); // For DASH
       tree_.prepareRepresentation(current_period_, current_adp_, newRep, false); // For HLS
 
-      for (size_t updPos(available_segment_buffers_); updPos < assured_buffer_length_ ; ++updPos)
+      for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_ ; ++updPos)
       {
         const AdaptiveTree::Segment* futureSegment = newRep->get_segment(nextsegmentPos + updPos);
 

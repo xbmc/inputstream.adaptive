@@ -350,7 +350,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         min_rep = (*br);
 
       if (    ((*br)->bandwidth_ <= bandwidth && (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
-        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))  < valScore) )   ) //TODO: to define correctlt best_rep (now most pixels for given BW)
+        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))  < valScore) )   ) //TODO: what should be the best_rep definition(for now most pixels for given BW)
       {
         valScore= score;
         best_rep= (*br);
