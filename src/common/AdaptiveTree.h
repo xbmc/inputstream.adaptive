@@ -177,6 +177,9 @@ public:
     uint16_t width_, height_;
     uint32_t fpsRate_, fpsScale_;
     float aspect_;
+
+    uint32_t assured_buffer_duration_;
+    uint32_t max_buffer_duration_;
     //Flags
     static const uint16_t BYTERANGE = 0;
     static const uint16_t INDEXRANGEEXACT = 1;
@@ -412,7 +415,13 @@ public:
 
   struct RepresentationChooser
   {
-    virtual Representation* ChooseRepresentation(AdaptationSet* adp) = 0;
+    virtual Representation* ChooseRepresentation(AdaptationSet* adp , 
+                                                Representation* rep,  
+                                                size_t *available_segment_buffers_,
+                                                size_t *valid_segment_buffers_,
+                                                uint32_t *assured_buffer_length_,
+                                                uint32_t * max_buffer_length_, 
+                                                uint32_t seg_counter_) = 0;
   } *representation_chooser_ = nullptr;
 
   std::vector<Period*> periods_;
@@ -484,9 +493,15 @@ public:
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
   const std::chrono::time_point<std::chrono::system_clock> GetLastMediaRenewal() const { return lastMediaRenewal_; };
 
-  Representation* ChooseRepresentation(AdaptationSet* adp)
+  Representation* ChooseRepresentation(AdaptationSet* adp, 
+                                      Representation* rep,  
+                                      size_t *available_segment_buffers_,
+                                      size_t *valid_segment_buffers_,
+                                      uint32_t *assured_buffer_length_,
+                                      uint32_t * max_buffer_length_, 
+                                      uint32_t seg_counter_)
   {
-    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp) : nullptr;
+    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp,0,0,0,0,0,0) : nullptr;
   };
 
 protected:
