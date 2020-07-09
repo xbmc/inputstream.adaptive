@@ -464,7 +464,7 @@ public:
                                StreamType type){};
 
   bool has_type(StreamType t);
-  void FreeSegments(Representation *rep);
+  void FreeSegments(Period* period, Representation* rep);
   uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
   double get_download_speed() const { return download_speed_; };
   double get_average_download_speed() const { return average_download_speed_; };

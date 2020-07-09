@@ -619,7 +619,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
             rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
             rep->initialization_.pssh_set_ = 0;
           }
-          FreeSegments(rep);
+          FreeSegments(period, rep);
           rep->segments_.swap(newSegments);
           rep->startNumber_ = newStartNumber;
 
@@ -729,11 +729,11 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         rep->initialization_.pssh_set_ = 0;
       }
 
-      FreeSegments(rep);
+      FreeSegments(period, rep);
 
       if (newSegments.data.empty())
       {
-        FreeSegments(rep);
+        FreeSegments(period, rep);
         rep->flags_ = 0;
         return PREPARE_RESULT_FAILURE;
       }
