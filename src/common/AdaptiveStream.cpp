@@ -53,7 +53,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
     play_timeshift_buffer_(play_timeshift_buffer),
-    seg_counter_(1),
+    rep_counter_(1),
     prev_rep_(0),
     assured_buffer_length_(5),
     max_buffer_length_(10)
@@ -513,10 +513,10 @@ bool AdaptiveStream::ensureSegment()
       nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
 
     if(prev_rep_== current_rep_)
-      seg_counter_++;
+      rep_counter_++;
     else
     {
-      seg_counter_=1;
+      rep_counter_=1;
       prev_rep_=current_rep_;
     }
 
@@ -529,7 +529,7 @@ bool AdaptiveStream::ensureSegment()
                                                                     &valid_segment_buffers_,&available_segment_buffers_,
                                                                     &assured_buffer_length_,
                                                                     &max_buffer_length_,
-                                                                    seg_counter_);
+                                                                    rep_counter_);
       // Make sure, new representation has segments!
       ResolveSegmentBase(newRep, false); // For DASH
       tree_.prepareRepresentation(current_period_, current_adp_, newRep, false); // For HLS
