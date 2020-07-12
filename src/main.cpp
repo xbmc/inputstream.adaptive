@@ -298,15 +298,17 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
       size_t *valid_segment_buffers_,
       uint32_t *assured_buffer_length_,
       uint32_t * max_buffer_length_, 
-      uint32_t seg_counter_)    override
+      uint32_t rep_counter_)    override
   {
     adaptive::AdaptiveTree::Representation *new_rep(0), *min_rep(0), *best_rep(0);//best_rep definition to be finalised
     unsigned int bestScore(~0), valScore(~0);
     uint16_t hdcpVersion = 99;
     uint32_t hdcpLimit = 0;
 
+    kodi::Log(ADDON_LOG_DEBUG, "ChooseRepresentation width_=%d , height_=%d ",width_ , height_ );
+    kodi::Log(ADDON_LOG_DEBUG, "ChooseRepresentation display_width_=%d , display_height_=%d ",display_width_ , display_height_ );
     //kodi::Log(ADDON_LOG_DEBUG, "ChooseRepresentation: bandwidth=%d ",bandwidth);
-    current_bandwidth_=get_download_speed();
+    current_bandwidth_=get_average_download_speed();
     kodi::Log(ADDON_LOG_DEBUG, "current_bandwidth_: %u ",current_bandwidth_);
     //cases to be written acc to max-min
 
@@ -318,7 +320,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     float buffer_hungry_factor=1.0;// can be made as a sliding input
     if(rep!=0)
     buffer_hungry_factor= ( (float)*valid_segment_buffers_/(float)*assured_buffer_length_ ) ;
-    bandwidth= (uint32_t)(5*        (std::min(1.0f,  std::max(0.5f, buffer_hungry_factor ) )* current_bandwidth_ ));//  the factor can vary from 0.5 to 1, so that uality doesn't drop dramatically
+    bandwidth= (uint32_t)(5*        (std::min(1.0f,  std::max(0.5f, buffer_hungry_factor ) )* current_bandwidth_ ));//  the factor can vary from 0.5 to 1, so that quality doesn't drop dramatically
     //bandwidth = static_cast<uint32_t>(bandwidth_ *
     //                                  (adp->type_ == adaptive::AdaptiveTree::VIDEO ? 0.9 : 0.1));
 
@@ -362,7 +364,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
 
       else if( (bandwidth >=2*rep->bandwidth_)  && (*valid_segment_buffers_>6) && (rep!=best_rep) && (best_rep->bandwidth_<=bandwidth)  ) //overwrite case, so more internet data will be used
       {
-        *valid_segment_buffers_ =std::max(*valid_segment_buffers_/2, *valid_segment_buffers_-seg_counter_);
+        *valid_segment_buffers_ =std::max(*valid_segment_buffers_/2, *valid_segment_buffers_-rep_counter_);
         *available_segment_buffers_=  *valid_segment_buffers_; //so that ensure writes again with new rep
         //now choosen_rep will be returned
       }
@@ -380,7 +382,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     kodi::Log(ADDON_LOG_DEBUG, "MAXBUFFERDURATION selected: %d ",
                                     new_rep->max_buffer_duration_);
 
-    //1) TODO: User UI option in exert mode for buffer_hungry vs quality
+    //1) TODO: User UI option in expert mode for buffer_hungry vs quality
 
     return new_rep;
   }
@@ -392,7 +394,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     if (!average_download_speed_)
       average_download_speed_ = download_speed_;
     else
-      average_download_speed_ = average_download_speed_ * 0.9 + download_speed_ * 0.1;
+      average_download_speed_ = average_download_speed_ * 0.8 + download_speed_ * 0.2;
   };
 };
 

@@ -160,7 +160,7 @@ namespace adaptive
     uint32_t assured_buffer_length_;
     uint32_t max_buffer_length_; 
     size_t valid_segment_buffers_;
-    uint32_t seg_counter_;
+    uint32_t rep_counter_;
     AdaptiveTree::Representation *prev_rep_;
 
 

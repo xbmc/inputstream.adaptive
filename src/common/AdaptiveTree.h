@@ -425,7 +425,7 @@ public:
                                                 size_t *valid_segment_buffers_,
                                                 uint32_t *assured_buffer_length_,
                                                 uint32_t * max_buffer_length_, 
-                                                uint32_t seg_counter_) = 0;
+                                                uint32_t rep_counter_) = 0;
   } *representation_chooser_ = nullptr;
 
   std::vector<Period*> periods_;
@@ -508,7 +508,7 @@ public:
                                       size_t *valid_segment_buffers_,
                                       uint32_t *assured_buffer_length_,
                                       uint32_t * max_buffer_length_, 
-                                      uint32_t seg_counter_)
+                                      uint32_t rep_counter_)
   {
     return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp,0,0,0,0,0,0) : nullptr;
   };
