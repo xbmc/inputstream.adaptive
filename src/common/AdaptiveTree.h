@@ -419,7 +419,8 @@ public:
 
   struct RepresentationChooser
   {
-    virtual Representation* ChooseRepresentation(AdaptationSet* adp , 
+    virtual Representation* ChooseRepresentation(AdaptationSet* adp) = 0;
+  virtual Representation* ChooseNextRepresentation(AdaptationSet* adp , 
                                                 Representation* rep,  
                                                 size_t *available_segment_buffers_,
                                                 size_t *valid_segment_buffers_,
@@ -502,7 +503,11 @@ public:
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 
-  Representation* ChooseRepresentation(AdaptationSet* adp, 
+  Representation* ChooseRepresentation(AdaptationSet* adp)
+  {
+    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp) : nullptr;
+  };
+  Representation* ChooseNextRepresentation(AdaptationSet* adp, 
                                       Representation* rep,  
                                       size_t *available_segment_buffers_,
                                       size_t *valid_segment_buffers_,
@@ -510,7 +515,9 @@ public:
                                       uint32_t * max_buffer_length_, 
                                       uint32_t rep_counter_)
   {
-    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp,0,0,0,0,0,0) : nullptr;
+    return representation_chooser_ ? representation_chooser_->ChooseNextRepresentation(adp,rep,available_segment_buffers_,
+                                                                                      valid_segment_buffers_, assured_buffer_length_,
+                                                                                      max_buffer_length_, rep_counter_) : nullptr;
   };
 
 protected:
