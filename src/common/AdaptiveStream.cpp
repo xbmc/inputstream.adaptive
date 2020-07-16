@@ -41,7 +41,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     current_period_(tree_.current_period_),
     current_adp_(adp),
     current_rep_(repId ? adp->representations_[adp->representations_.size() - repId]
-                       : tree.ChooseRepresentation(adp,0,0,0,0,0,0)),
+                       : tree.ChooseRepresentation(adp)),
     available_segment_buffers_(0),
     valid_segment_buffers_(0),
     media_headers_(media_headers),
@@ -523,8 +523,7 @@ bool AdaptiveStream::ensureSegment()
     if (nextSegment)
     {
       uint32_t nextsegmentPos = current_rep_->get_segment_pos(nextSegment);
-
-      AdaptiveTree::Representation* newRep = tree_.ChooseRepresentation(current_adp_,
+      AdaptiveTree::Representation* newRep = tree_.ChooseNextRepresentation(current_adp_,
                                                                     segment_buffers_[valid_segment_buffers_-1].rep,
                                                                     &valid_segment_buffers_,&available_segment_buffers_,
                                                                     &assured_buffer_length_,
