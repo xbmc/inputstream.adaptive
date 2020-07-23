@@ -1559,6 +1559,12 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
 
   bool ret = download(download_url.c_str(), manifest_headers_) && !periods_.empty();
 
+  if (!effective_url_.empty())
+  {
+    download_url = effective_url_;
+    effective_url_.clear();
+  }
+
   XML_ParserFree(parser_);
   parser_ = 0;
 
