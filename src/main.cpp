@@ -303,6 +303,14 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
     if (effective_url_ == base_url_)
       effective_url_.clear();
+
+    if (!effective_url_.empty())
+    {
+      base_domain_ = effective_url_;
+      paramPos = base_domain_.find_first_of('/', 8);
+      if (paramPos != std::string::npos)
+        base_domain_.resize(paramPos);
+    }
   }
 
   // read the file
