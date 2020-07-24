@@ -29,8 +29,7 @@ void Log(const LogLevel loglevel, const char* format, ...)
 
 bool adaptive::AdaptiveTree::download(const char* url,
                                       const std::map<std::string, std::string>& manifestHeaders,
-                                      void* opaque,
-                                      bool scanEffectiveURL)
+                                      void* opaque)
 {
   FILE* f = fopen(testfile.c_str(), "rb");
   if (!f)

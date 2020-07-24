@@ -349,24 +349,45 @@ static void XMLCALL end(void* data, const char* el)
 
 bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
-  PreparePaths(url, manifestUpdateParam);
+  std::stringstream manifest_stream;
+  bool ret = download(url.c_str(), manifest_headers_, &manifest_stream);
+  PreparePaths(effective_url_, manifestUpdateParam);
+
+  if (!ret)
+    return false;
+
+  return processManifest(manifest_stream); 
+}
+
+bool SmoothTree::processManifest(std::stringstream& stream)
+{
+#if FILEDEBUG
+  FILE* f = fopen("inputstream_adaptive.ism", "w");
+  fwrite(stream.str().data(), 1, stream.str().size(), f);
+  fclose(f);
+#endif
 
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;
+
   XML_SetUserData(parser_, (void*)this);
   XML_SetElementHandler(parser_, start, end);
   XML_SetCharacterDataHandler(parser_, text);
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(manifest_url_.c_str(), manifest_headers_);
+  bool done(true);
+  XML_Status retval = XML_Parse(parser_, stream.str().data(), stream.str().size(), done);
 
   XML_ParserFree(parser_);
   parser_ = 0;
 
-  if (!ret)
+  if (retval == XML_STATUS_ERROR)
+  {
+    //unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
     return false;
+  }
 
   uint8_t psshset(0);
 
@@ -405,10 +426,6 @@ bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateP
 
 bool SmoothTree::write_data(void* buffer, size_t buffer_size, void* opaque)
 {
-  bool done(false);
-  XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);
-
-  if (retval == XML_STATUS_ERROR)
-    return false;
+  static_cast<std::stringstream*>(opaque)->write(static_cast<const char*>(buffer), buffer_size);
   return true;
 }

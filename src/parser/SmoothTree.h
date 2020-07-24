@@ -29,6 +29,7 @@ namespace adaptive
     SmoothTree();
     virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
     virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
+    virtual bool processManifest(std::stringstream& stream);
 
     enum
     {

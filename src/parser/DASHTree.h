@@ -33,6 +33,7 @@ namespace adaptive
                                  AdaptationSet* adp,
                                  Representation* rep,
                                  StreamType type) override;
+    virtual bool processManifest(std::stringstream& stream);
 
     void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
     uint64_t pts_helper_;

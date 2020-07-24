@@ -19,7 +19,6 @@
 #pragma once
 
 #include "../common/AdaptiveTree.h"
-#include <sstream>
 #include <map>
 
 class AESDecrypter;
@@ -81,7 +80,6 @@ namespace adaptive
     bool m_refreshPlayList = true;
     uint8_t m_segmentIntervalSec = 4;
     AESDecrypter *m_decrypter;
-    std::stringstream manifest_stream;
   };
 
 } // namespace

@@ -1540,7 +1540,24 @@ static void XMLCALL end(void* data, const char* el)
 +---------------------------------------------------------------------*/
 bool DASHTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
-  PreparePaths(url, manifestUpdateParam);
+  std::stringstream manifest_stream;
+  bool ret = download(url.c_str(), manifest_headers_, &manifest_stream);
+  PreparePaths(effective_url_, manifestUpdateParam);
+
+  if (!ret)
+    return false;
+
+  return processManifest(manifest_stream); 
+}
+
+bool DASHTree::processManifest(std::stringstream& stream)
+{
+#if FILEDEBUG
+  FILE* f = fopen("inputstream_adaptive.mpd", "w");
+  fwrite(stream.str().data(), 1, stream.str().size(), f);
+  fclose(f);
+#endif
+
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;
@@ -1551,34 +1568,31 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
   currentNode_ = 0;
   strXMLText_.clear();
 
-  std::string download_url = manifest_url_;
-  if (!effective_url_.empty() && download_url.find(base_url_) == 0)
-    download_url.replace(0, base_url_.size(), effective_url_);
-
-  bool ret = download(download_url.c_str(), manifest_headers_) && !periods_.empty();
+  bool done(true);
+  XML_Status retval = XML_Parse(parser_, stream.str().data(), stream.str().size(), done);
 
   XML_ParserFree(parser_);
   parser_ = 0;
-
-  if (ret)
-  {
-    current_period_ = periods_[0];
-    SortTree();
-    StartUpdateThread();
-  }
-  return ret;
-}
-
-bool DASHTree::write_data(void* buffer, size_t buffer_size, void* opaque)
-{
-  bool done(false);
-  XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);
 
   if (retval == XML_STATUS_ERROR)
   {
     //unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
     return false;
   }
+
+  if (periods_.empty())
+    return false;
+
+  current_period_ = periods_[0];
+  SortTree();
+  StartUpdateThread();
+
+  return true;
+}
+
+bool DASHTree::write_data(void* buffer, size_t buffer_size, void* opaque)
+{
+  static_cast<std::stringstream*>(opaque)->write(static_cast<const char*>(buffer), buffer_size);
   return true;
 }
 
@@ -1638,8 +1652,6 @@ void DASHTree::RefreshLiveSegments()
     updateTree.supportedKeySystem_ = supportedKeySystem_;
     //Location element should be used on updates
     updateTree.location_ = location_;
-    updateTree.effective_url_ = effective_url_;
-    updateTree.effective_filename_ = effective_filename_;
 
     if (!~update_parameter_pos_)
     {
