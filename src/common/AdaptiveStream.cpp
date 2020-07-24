@@ -368,21 +368,7 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment* seg)
   else
     download_headers_.erase("Range");
 
-  if (!tree_.effective_url_.empty() && download_url_.find(tree_.base_url_) == 0)
-    download_url_.replace(0, tree_.base_url_.size(), tree_.effective_url_);
-
   return true;
-}
-
-std::string AdaptiveStream::buildDownloadUrl(const std::string& url)
-{
-  if (!tree_.effective_url_.empty() && url.find(tree_.base_url_) == 0)
-  {
-    std::string newUrl(url);
-    newUrl.replace(0, tree_.base_url_.size(), tree_.effective_url_);
-    return newUrl;
-  }
-  return url;
 }
 
 bool AdaptiveStream::ensureSegment()

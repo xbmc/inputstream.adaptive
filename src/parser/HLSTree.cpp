@@ -164,10 +164,13 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
 
 bool HLSTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
-  PreparePaths(url, manifestUpdateParam);
-  if (download(manifest_url_.c_str(), manifest_headers_, &manifest_stream))
-    return processManifest(manifest_stream, url);
-  return false;
+  bool ret = download(url.c_str(), manifest_headers_, &manifest_stream);
+  PreparePaths(effective_url_, manifestUpdateParam);
+
+  if (!ret)
+    return false;
+
+  return processManifest(manifest_stream, effective_url_);
 }
 
 bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
@@ -319,10 +322,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
       current_representation_->bandwidth_ = 0;
       current_representation_->codecs_ = getVideoCodec("");
       current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
-      if (!effective_url_.empty())
-        current_representation_->source_url_ = effective_url_ + effective_filename_;
-      else
-        current_representation_->source_url_ = url;
+      current_representation_->source_url_ = url;
       current_adaptationset_->representations_.push_back(current_representation_);
 
       // We assume audio is included
@@ -426,12 +426,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     uint32_t discont_count = 0;
     PREPARE_RESULT retVal = PREPARE_RESULT_OK;
 
-    if (!effective_url_.empty() && download_url.find(base_url_) == 0)
-      download_url.replace(0, base_url_.size(), effective_url_);
-
     if (rep->flags_ & Representation::DOWNLOADED)
       ;
-    else if (download(download_url.c_str(), manifest_headers_, &stream, false))
+    else if (download(download_url.c_str(), manifest_headers_, &stream))
     {
 #if FILEDEBUG
       FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -803,10 +800,7 @@ void HLSTree::OnDataArrived(unsigned int segNum,
         if (keyParts.size() > 1)
           parseheader(headers, keyParts[1].c_str());
 
-        if (!effective_url_.empty() && url.find(base_url_) == 0)
-          url.replace(0, base_url_.size(), effective_url_);
-
-        if (download(url.c_str(), headers, &stream, false))
+        if (download(url.c_str(), headers, &stream))
         {
           pssh.defaultKID_ = stream.str();
         }

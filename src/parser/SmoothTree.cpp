@@ -349,8 +349,6 @@ static void XMLCALL end(void* data, const char* el)
 
 bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
-  PreparePaths(url, manifestUpdateParam);
-
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;
@@ -360,7 +358,8 @@ bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateP
   currentNode_ = 0;
   strXMLText_.clear();
 
-  bool ret = download(manifest_url_.c_str(), manifest_headers_);
+  bool ret = download(url.c_str(), manifest_headers_);
+  PreparePaths(effective_url_, manifestUpdateParam);
 
   XML_ParserFree(parser_);
   parser_ = 0;

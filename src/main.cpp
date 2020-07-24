@@ -261,8 +261,7 @@ Kodi Streams implementation
 
 bool adaptive::AdaptiveTree::download(const char* url,
                                       const std::map<std::string, std::string>& manifestHeaders,
-                                      void* opaque,
-                                      bool scanEffectiveURL)
+                                      void* opaque)
 {
   // open the file
   kodi::vfs::CFile file;
@@ -283,27 +282,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
     return false;
   }
 
-  if (scanEffectiveURL)
-  {
-    effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-    kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url_.c_str());
-
-    std::string::size_type paramPos = effective_url_.find_first_of('?');
-    if (paramPos != std::string::npos)
-      effective_url_.resize(paramPos);
-
-    paramPos = effective_url_.find_last_of('/');
-    if (paramPos != std::string::npos)
-    {
-      effective_filename_ = effective_url_.substr(paramPos + 1);
-      effective_url_.resize(paramPos + 1);
-    }
-    else
-      effective_url_.clear();
-
-    if (effective_url_ == base_url_)
-      effective_url_.clear();
-  }
+  effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
 
   // read the file
   static const unsigned int CHUNKSIZE = 16384;
@@ -320,7 +299,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   file.Close();
 
-  kodi::Log(ADDON_LOG_DEBUG, "Download %s finished", url);
+  kodi::Log(ADDON_LOG_DEBUG, "Download %s finished", effective_url_.c_str());
 
   return nbRead == 0;
 }
@@ -331,7 +310,6 @@ bool KodiAdaptiveStream::download(const char* url,
   bool retry_403 = true;
   bool retry_MRT = true;
   kodi::vfs::CFile file;
-  std::string newUrl;
 
 RETRY:
   // open the file
@@ -374,10 +352,8 @@ RETRY:
       std::vector<kodi::vfs::CDirEntry> items;
       if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
       {
-        kodi::Log(ADDON_LOG_DEBUG, "Renewed URL: %s", items[0].Path().c_str());
-        setEffectiveURL(items[0].Path());
-        newUrl = buildDownloadUrl(url);
-        url = newUrl.c_str();
+        url = items[0].Path().c_str();
+        kodi::Log(ADDON_LOG_DEBUG, "Renewed URL: %s", url);
         goto RETRY;
       }
       else

@@ -410,7 +410,7 @@ public:
   }*current_period_, *next_period_;
 
   std::vector<Period*> periods_;
-  std::string manifest_url_, base_url_, effective_url_, effective_filename_, base_domain_, update_parameter_;
+  std::string manifest_url_, base_url_, effective_url_, base_domain_, update_parameter_;
   std::string::size_type update_parameter_pos_;
   std::string etag_, last_modified_;
   std::string media_renewal_url_;
@@ -485,7 +485,7 @@ public:
   const std::chrono::time_point<std::chrono::system_clock> GetLastMediaRenewal() const { return lastMediaRenewal_; };
 
 protected:
-  virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr, bool scanEffectiveURL = true);
+  virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr);
   virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) = 0;
   bool PreparePaths(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
