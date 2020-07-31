@@ -227,7 +227,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
   bool secure_video_session_;
   bool hdcp_override_;
   int max_resolution_, max_secure_resolution_;
-  bool ignore_window_change_;//TTHRR
+  bool ignore_window_change_;
 
   uint32_t current_bandwidth_;
   uint32_t min_bandwidth_, max_bandwidth_;
@@ -391,12 +391,14 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     return next_rep;
   }
 
-  adaptive::AdaptiveTree::Representation* ChooseRepresentation(adaptive::AdaptiveTree::AdaptationSet* adp)    override  //to be called a single ime
+  adaptive::AdaptiveTree::Representation* ChooseRepresentation(adaptive::AdaptiveTree::AdaptationSet* adp)    override  //to be called single time
   {
     adaptive::AdaptiveTree::Representation *new_rep(0);
     unsigned int bestScore(~0),valScore(~0);
     uint16_t hdcpVersion = 99;
     uint32_t hdcpLimit = 0;
+
+        kodi::Log(ADDON_LOG_DEBUG, "valScore init : %u ",valScore);
 
     uint32_t bandwidth = min_bandwidth_;
     if (current_bandwidth_ > bandwidth_)
@@ -433,15 +435,13 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
       else if (!min_rep_ || (*br)->bandwidth_ < min_rep_->bandwidth_)
         min_rep_ = (*br);
 
-      /*if (    ( (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
-        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))  < valScore) )   )*/ 
-      if( (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))  < valScore) )
+      if (    ( (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
+        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_) ) ) < valScore) )  //it is bandwidth independent(if multiple same resolution bandwidth, will select first rep)
       {
         valScore= score;
-        best_rep_= (*br);
-        kodi::Log(ADDON_LOG_DEBUG, "best_rep_ set to bw: %d ",best_rep_->bandwidth_);
-        kodi::Log(ADDON_LOG_DEBUG, "best_rep_ set to bw: %d ",(*br)->bandwidth_);
+        best_rep_= (*br); 
       }
+
     }
     if (!new_rep)
       new_rep = min_rep_;
