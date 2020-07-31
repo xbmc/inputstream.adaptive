@@ -33,6 +33,7 @@
 #include "parser/TTML.h"
 #include "parser/WebVTT.h"
 
+#include <chrono>
 #include <algorithm>
 #include <iostream>
 #include <math.h>
@@ -216,13 +217,18 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
   uint16_t width_, height_;
   uint32_t bandwidth_;
 
-  adaptive::AdaptiveTree::Representation* best_rep;
-
+  uint16_t next_display_width_=0, next_display_height_=0;
+  bool res_to_be_changed_=1;
+  
+  adaptive::AdaptiveTree::Representation *best_rep_, *min_rep_;//min_rep_ will be used for window-change detection
+  
+  std::chrono::steady_clock::time_point lastDimensionUpdated_ = std::chrono::steady_clock::now();
 
   bool ignore_display_;
   bool secure_video_session_;
   bool hdcp_override_;
   int max_resolution_, max_secure_resolution_;
+  bool ignore_window_change_;//TTHRR
 
   uint32_t current_bandwidth_;
   uint32_t min_bandwidth_, max_bandwidth_;
@@ -230,54 +236,69 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
   double download_speed_, average_download_speed_;
   std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> decrypter_caps_;
 
+
+  //SetDisplayDimensions will be called upon changed dimension only (will be filtered beforehand by xbmc api calls to SetVideoResolution)
   void SetDisplayDimensions(unsigned int w, unsigned int h)
   {
-    display_width_ = w;
-    display_height_ = h;
-
-    width_ = ignore_display_ ? 8192 : display_width_;
-    switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
+    if(res_to_be_changed_ ) 
     {
-      case 1:
-        if (width_ > 640)
-          width_ = 640;
-        break;
-      case 2:
-        if (width_ > 960)
-          width_ = 960;
-        break;
-      case 3:
-        if (width_ > 1280)
-          width_ = 1280;
-        break;
-      case 4:
-        if (width_ > 1920)
-          width_ = 1920;
-        break;
-      default:;
-    }
+      display_width_ = w;
+      display_height_ = h;
+      kodi::Log(ADDON_LOG_DEBUG, "SetDisplayDimensions(unsigned int w=%u, unsigned int h=%u) ",w,h);
 
-    height_ = ignore_display_ ? 8192 : display_height_;
-    switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
-    {
-      case 1:
-        if (height_ > 480)
-          height_ = 480;
-        break;
-      case 2:
-        if (height_ > 640)
-          height_ = 640;
-        break;
-      case 3:
-        if (height_ > 720)
-          height_ = 720;
-        break;
-      case 4:
-        if (height_ > 1080)
-          height_ = 1080;
-        break;
-      default:;
+      width_ = ignore_display_ ? 8192 : display_width_;
+      switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
+      {
+        case 1:
+          if (width_ > 640)
+            width_ = 640;
+          break;
+        case 2:
+          if (width_ > 960)
+            width_ = 960;
+          break;
+        case 3:
+          if (width_ > 1280)
+            width_ = 1280;
+          break;
+        case 4:
+          if (width_ > 1920)
+            width_ = 1920;
+          break;
+        default:;
+      }
+
+      height_ = ignore_display_ ? 8192 : display_height_;
+      switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
+      {
+        case 1:
+          if (height_ > 480)
+            height_ = 480;
+          break;
+        case 2:
+          if (height_ > 640)
+            height_ = 640;
+          break;
+        case 3:
+          if (height_ > 720)
+            height_ = 720;
+          break;
+        case 4:
+          if (height_ > 1080)
+            height_ = 1080;
+          break;
+        default:;
+      }
+      next_display_width_=display_width_;
+      next_display_height_=display_height_;
+      res_to_be_changed_=false;
     }
+    else
+    {
+      next_display_width_=w;
+      next_display_height_=h;
+    }
+    lastDimensionUpdated_= std::chrono::steady_clock::now();
   }
 
   void SetMaxUserBandwidth(uint32_t max_user_bandwidth)
@@ -289,6 +310,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
   void Prepare(bool secure_video_session)
   {
     secure_video_session_ = secure_video_session;
+    res_to_be_changed_=true;
     SetDisplayDimensions(display_width_, display_height_);
 
     kodi::Log(ADDON_LOG_DEBUG, "Stream selection conditions: w: %u, h: %u, bw: %u", width_, height_,
@@ -297,21 +319,28 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
   adaptive::AdaptiveTree::Representation* ChooseNextRepresentation(
       adaptive::AdaptiveTree::AdaptationSet* adp, 
       adaptive::AdaptiveTree::Representation* rep,  
-      size_t *available_segment_buffers_,
       size_t *valid_segment_buffers_,
+      size_t *available_segment_buffers_,
       uint32_t *assured_buffer_length_,
       uint32_t * max_buffer_length_, 
       uint32_t rep_counter_)    override     //to be called from ensuresegment only,  SEPERATED FOR FURTHER DEVELOPMENT, CAN BE MERGED AFTERWARDS
   {
+    if( (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastDimensionUpdated_).count()  >15 )
+          &&  (!ignore_window_change_) 
+          && (!ignore_display_) 
+          && !(next_display_width_==display_width_ && next_display_height_==display_height_)   )
+    {
+     res_to_be_changed_=true;
+     kodi::Log(ADDON_LOG_DEBUG, "Updating new display resolution to: (w X h) : (%u X %u)", next_display_width_,next_display_height_);
+     SetDisplayDimensions(next_display_width_, next_display_height_);
+    }
 
-    //window change logic to be also implemented here. 
-    adaptive::AdaptiveTree::Representation *new_rep(0), *min_rep(0);//best_rep definition to be finalised
+    adaptive::AdaptiveTree::Representation *next_rep(0);//best_rep definition to be finalised
     unsigned int bestScore(~0);
     uint16_t hdcpVersion = 99;
     uint32_t hdcpLimit = 0;
 
-    kodi::Log(ADDON_LOG_DEBUG, "ChooseNextRepresentation width_=%d , height_=%d ",width_ , height_ );
-
+    
     current_bandwidth_=get_average_download_speed();
     kodi::Log(ADDON_LOG_DEBUG, "current_bandwidth_: %u ",current_bandwidth_);
     
@@ -319,13 +348,14 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     buffer_hungry_factor= ( (float)*valid_segment_buffers_/(float)*assured_buffer_length_ ) ;
     buffer_hungry_factor=buffer_hungry_factor>0.5? buffer_hungry_factor:0.5;
         
-    uint32_t bandwidth= (uint32_t)(buffer_hungry_factor*5.0*current_bandwidth_ );
-    kodi::Log(ADDON_LOG_DEBUG, "bandwidth: %u ",bandwidth);
+    uint32_t bandwidth= (uint32_t)(buffer_hungry_factor*7.0*current_bandwidth_ );
+    kodi::Log(ADDON_LOG_DEBUG, "bandwidth set: %u ",bandwidth);
 
     if(*valid_segment_buffers_ >= *assured_buffer_length_)
-      return best_rep;
-    
-    if( (*valid_segment_buffers_>6) && (bandwidth >= rep->bandwidth_ *2 ) && (rep != best_rep) && (best_rep->bandwidth_ <=bandwidth)  ) //overwrite case, more internet data
+      {
+        return best_rep_;
+      }
+    if( (*valid_segment_buffers_>6) && (bandwidth >= rep->bandwidth_ *2 ) && (rep != best_rep_) && (best_rep_->bandwidth_ <=bandwidth)  ) //overwrite case, more internet data
     {
       *valid_segment_buffers_ =std::max(*valid_segment_buffers_/2, *valid_segment_buffers_-rep_counter_);
       *available_segment_buffers_=  *valid_segment_buffers_; //so that ensure writes again with new rep
@@ -349,20 +379,22 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
                     static_cast<unsigned int>(sqrt(bandwidth - (*br)->bandwidth_))) < bestScore))
       {
         bestScore = score;
-        new_rep = (*br);
+        next_rep = (*br);
       }
-      else if (!min_rep || (*br)->bandwidth_ < min_rep->bandwidth_)
-        min_rep = (*br);
+      else if (!min_rep_ || (*br)->bandwidth_ < min_rep_->bandwidth_)
+        min_rep_ = (*br);
     }
-    if (!new_rep)
-      new_rep = min_rep;
+    if (!next_rep)
+      next_rep = min_rep_;
 
-    return new_rep;
+    //kodi::Log(ADDON_LOG_DEBUG, "NextRep bandwidth: %u ",next_rep->bandwidth_);
+
+    return next_rep;
   }
 
   adaptive::AdaptiveTree::Representation* ChooseRepresentation(adaptive::AdaptiveTree::AdaptationSet* adp)    override  //to be called a single ime
   {
-    adaptive::AdaptiveTree::Representation *new_rep(0), *min_rep(0);
+    adaptive::AdaptiveTree::Representation *new_rep(0);
     unsigned int bestScore(~0),valScore(~0);
     uint16_t hdcpVersion = 99;
     uint32_t hdcpLimit = 0;
@@ -399,19 +431,23 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         bestScore = score;
         new_rep   = (*br);
       }
-      else if (!min_rep || (*br)->bandwidth_ < min_rep->bandwidth_)
-        min_rep = (*br);
-      if (    ((*br)->bandwidth_ <= bandwidth && (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
-        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))  < valScore) )   ) 
+      else if (!min_rep_ || (*br)->bandwidth_ < min_rep_->bandwidth_)
+        min_rep_ = (*br);
+
+      /*if (    ( (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
+        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))  < valScore) )   )*/ 
+      if( (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_))  < valScore) )
       {
         valScore= score;
-        best_rep= (*br);
+        best_rep_= (*br);
+        kodi::Log(ADDON_LOG_DEBUG, "best_rep_ set to bw: %d ",best_rep_->bandwidth_);
+        kodi::Log(ADDON_LOG_DEBUG, "best_rep_ set to bw: %d ",(*br)->bandwidth_);
       }
     }
     if (!new_rep)
-      new_rep = min_rep;
-    if(!best_rep)
-      best_rep=min_rep;
+      new_rep = min_rep_;
+    if(!best_rep_)
+      best_rep_=min_rep_;
     kodi::Log(ADDON_LOG_DEBUG, "ASSUREDBUFFERDURATION selected: %d ",new_rep->assured_buffer_duration_);
     kodi::Log(ADDON_LOG_DEBUG, "MAXBUFFERDURATION selected: %d "    ,new_rep->max_buffer_duration_);
 
@@ -2322,8 +2358,9 @@ Session::Session(MANIFEST_TYPE manifestType,
   buf = kodi::GetSettingInt("MAXBANDWIDTH");
   representationChooser_->max_bandwidth_ = buf;
 
-  representationChooser_->ignore_display_ = kodi::GetSettingBoolean("IGNOREDISPLAY");
-  representationChooser_->hdcp_override_ = kodi::GetSettingBoolean("HDCPOVERRIDE");
+  representationChooser_->ignore_display_ =        kodi::GetSettingBoolean("IGNOREDISPLAY");
+  representationChooser_->hdcp_override_  =        kodi::GetSettingBoolean("HDCPOVERRIDE");
+  representationChooser_->ignore_window_change_= kodi::GetSettingBoolean("IGNOREWINDOWCHANGE");
 
   if (*strCert)
   {
@@ -3968,7 +4005,7 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double& st
 }
 
 //callback - will be called from kodi
-void CInputStreamAdaptive::SetVideoResolution(int width, int height)
+void CInputStreamAdaptive::SetVideoResolution (int width, int height)
 {
   kodi::Log(ADDON_LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
   if (m_session)

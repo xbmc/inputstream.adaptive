@@ -22,6 +22,11 @@
           <level>1</level>
           <default>120</default>
           <control type="edit" format="integer" />
+        </setting>
+        <setting id="IGNOREWINDOWCHANGE" type="boolean" label="30202">
+          <level>1</level>
+          <default>true</default>
+          <control type="toggle" />
         </setting> 
         <setting id="MAXRESOLUTION" type="integer" label="30110">
           <level>0</level>
