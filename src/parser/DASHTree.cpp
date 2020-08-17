@@ -885,6 +885,8 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             dash->current_adaptationset_->language_ = ltranslate((const char*)*(attr + 1));
           else if (strcmp((const char*)*attr, "mimeType") == 0)
             dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
+          else if (strcmp((const char*)*attr, "name") == 0)
+            dash->current_adaptationset_->name_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "codecs") == 0)
             dash->current_adaptationset_->codecs_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "width") == 0)
