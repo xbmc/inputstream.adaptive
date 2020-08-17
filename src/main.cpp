@@ -39,7 +39,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <dlfcn.h>
 #include <kodi/Filesystem.h>
 #include <kodi/General.h>
 #include <kodi/StreamCodec.h>
@@ -47,6 +46,10 @@
 
 #if defined(ANDROID)
 #include <kodi/platform/android/System.h>
+#endif
+
+#ifdef CreateDirectory
+#undef CreateDirectory
 #endif
 
 #define DVD_TIME_BASE 1000000
@@ -2156,29 +2159,34 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
           strncmp(items[i].Label().c_str(), "libssd_", 7))
         continue;
 
-      void* mod(dlopen(items[i].Path().c_str(), RTLD_LAZY));
-      if (mod)
-      {
-        CreateDecryptorInstanceFunc startup;
-        if ((startup = (CreateDecryptorInstanceFunc)dlsym(mod, "CreateDecryptorInstance")))
+      bool success = false;
+      decrypterModule_ = new kodi::tools::CDllHelper;
+      if (decrypterModule_->LoadDll(items[i].Path()))
         {
-          SSD::SSD_DECRYPTER* decrypter = startup(kodihost, SSD::SSD_HOST::version);
-          const char* suppUrn(0);
-
-          if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_type_.c_str())))
+        CreateDecryptorInstanceFunc startup;
+        if (decrypterModule_->RegisterSymbol(startup, "CreateDecryptorInstance"))
           {
-            kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
-            decrypterModule_ = mod;
-            decrypter_ = decrypter;
-            key_system = suppUrn;
-            break;
+            SSD::SSD_DECRYPTER* decrypter = startup(kodihost, SSD::SSD_HOST::version);
+            const char* suppUrn(0);
+
+            if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_type_.c_str())))
+            {
+              kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
+              success = true;
+              decrypter_ = decrypter;
+              key_system = suppUrn;
+              break;
+            }
           }
-        }
-        dlclose(mod);
       }
       else
       {
         kodi::Log(ADDON_LOG_DEBUG, "%s", dlerror());
+      }
+      if (!success)
+      {
+        delete decrypterModule_;
+        decrypterModule_ = 0;
       }
     }
   }
@@ -2201,13 +2209,11 @@ void Session::DisposeDecrypter()
   DisposeSampleDecrypter();
 
   typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER*);
-  DeleteDecryptorInstanceFunc disposefn(
-      (DeleteDecryptorInstanceFunc)dlsym(decrypterModule_, "DeleteDecryptorInstance"));
-
-  if (disposefn)
+  DeleteDecryptorInstanceFunc disposefn;
+  if (decrypterModule_->RegisterSymbol(disposefn, "DeleteDecryptorInstance"))
     disposefn(decrypter_);
 
-  dlclose(decrypterModule_);
+  delete decrypterModule_;
   decrypterModule_ = 0;
   decrypter_ = 0;
 }
