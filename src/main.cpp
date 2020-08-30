@@ -236,6 +236,46 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
   std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> decrypter_caps_;
 
 
+  //Pending- The plan was to group representations, this will give an easier switching control.
+  //Streams will get filtered in 6 buckets: 240p, 480p, HD-720p, FHD-1080p, QHD-1440p, UHD-2160p
+  //This will help in better representation switching when lots of representations are provided by CDN 
+  //HD-720p and above will opt for highest fps. Eg: 720p24, 720p30, 720p50, 720p60 are available, it will go for 720p60
+  //FHD-1080p and above will opt for HDR if available
+  /*enum GenRep
+  {
+    R240P,
+    R480P,
+    HD,
+    FHD,
+    QHD,
+    UHD
+  };*/
+  //vector<pair<int,int> > mapping_res_to_adp_;   //mapping to <  GenRep  ,adp->representations_ index>     . Will store 6 resolution buckets if available (90% match) 
+  //This to be run during initialization function
+  //int GenRepPixel[6]={};
+  /*for(int i=0;i<6;i++)
+    {
+      uint32_t diff=INT_MAX, index=-1;
+      for (std::vector<adaptive::AdaptiveTree::Representation*>::const_iterator
+             br(adp->representations_.begin()),
+         er(adp->representations_.end());
+         br != er; ++br)
+        {
+        //Select for best match with error of 15%
+          int res=   abs(static_cast<int>((*br)->width_ * (*br)->height_) -   static_cast<int>(GenRepPixel[i]);
+          if( res  < 0.15*GenRepPixel[i] && res < diff)
+            {
+            diff=res;
+            index= br- representations_.begin();
+            }
+        }
+        if(index!=-1)
+          mapping_res_to_adp_.push_back({i,index});
+      }
+  */    
+
+
+
   //SetDisplayDimensions will be called upon changed dimension only (will be filtered beforehand by xbmc api calls to SetVideoResolution)
   void SetDisplayDimensions(unsigned int w, unsigned int h)
   {
@@ -243,7 +283,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     {
       display_width_ = w;
       display_height_ = h;
-      kodi::Log(ADDON_LOG_DEBUG, "SetDisplayDimensions(unsigned int w=%u, unsigned int h=%u) ",w,h);
+      //kodi::Log(ADDON_LOG_DEBUG, "SetDisplayDimensions(unsigned int w=%u, unsigned int h=%u) ",w,h);
 
       width_ = ignore_display_ ? 8192 : display_width_;
       switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
@@ -398,7 +438,6 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     uint16_t hdcpVersion = 99;
     uint32_t hdcpLimit = 0;
 
-        kodi::Log(ADDON_LOG_DEBUG, "valScore init : %u ",valScore);
 
     uint32_t bandwidth = min_bandwidth_;
     if (current_bandwidth_ > bandwidth_)
