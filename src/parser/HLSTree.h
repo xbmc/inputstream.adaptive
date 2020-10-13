@@ -82,6 +82,8 @@ namespace adaptive
     uint8_t m_segmentIntervalSec = 4;
     AESDecrypter *m_decrypter;
     std::stringstream manifest_stream;
+    bool m_hasDiscontSeq = false;
+    uint32_t m_discontSeq = 0;
   };
 
 } // namespace
