@@ -16,18 +16,22 @@ msgctxt "#30100"
 msgid "General"
 msgstr "一般"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "最小帯域(Bit/s)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "最大帯域(Bit/s)"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "復号化機パース"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "一般デコーダによる最大解像度"
@@ -40,14 +44,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "メディア"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "セキュアデコーダによる最大解像度"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "HDCP設定を無視する。"
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "画面の解像度を無視する。"
@@ -100,10 +107,11 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "ビデオ"
 
+# Show all video streams
 msgctxt "#30160"
 msgid "Manual video"
 msgstr "ビデオ手動選択"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "ビデオと字幕"
