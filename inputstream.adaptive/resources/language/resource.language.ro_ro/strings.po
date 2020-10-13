@@ -2,14 +2,14 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
-# Romanian translator: tmihai20
-
 msgid ""
 msgstr ""
 
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Last-Translator: tmihai20\n"
+"Language-Team: Romanian (Romania)\n"
 "Language: ro\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
@@ -17,18 +17,22 @@ msgctxt "#30100"
 msgid "General"
 msgstr "General"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "Lățimea minimă de bandă (Bit/s)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "Lățimea maximă de bandă nu ar trebui depășită. 0=nelimitată"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "Calea absolută către directorul care conține decriptorii"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "Rezolution maximă"
@@ -41,14 +45,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "Media"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "Rezoluția maximă admisă cu decodare printr-o cale sigură"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "Selectați fluxurile fără a respecta statusul HDCP"
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "Nu respectați rezoluția de afișare la selectarea fluxurilor"
@@ -82,12 +89,12 @@ msgid "1080p"
 msgstr "1080p"
 
 msgctxt "#30155"
-msgid "Auto"
-msgstr "Automatic"
+msgid "Automatically select streams"
+msgstr ""
 
 msgctxt "#30156"
-msgid "Manual"
-msgstr "Manual"
+msgid "Manually select all streams"
+msgstr ""
 
 msgctxt "#30157"
 msgid "All"
@@ -101,9 +108,10 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "Video"
 
+# Show all video streams
 msgctxt "#30160"
-msgid "Manual video"
-msgstr "Arată toate fluxurile video"
+msgid "Manually select video stream"
+msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"

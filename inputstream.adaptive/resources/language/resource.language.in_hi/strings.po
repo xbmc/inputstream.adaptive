@@ -2,13 +2,13 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
-
 msgid ""
 msgstr ""
 
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language-Team: Hindi\n"
 "Language: hi\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
@@ -16,18 +16,22 @@ msgctxt "#30100"
 msgid "General"
 msgstr "सामान्य"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "न्यूनतम बैंडविड्थ (बिट/सेकंड)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "अधिकतम बैंडविड्थ (बिट/सेकंड)"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "डिक्रिप्ट पथ"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "अधिकतम उत्तमता सामान्य विकोडक"
@@ -40,14 +44,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "संचार माध्यम"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "अधिकतम उत्तमता सुरक्षित विकोडक"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "रद्द/बदले HDCP स्थिति "
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "नज़रअंदाज़ करे प्रदर्शित रेसोलुशन"
@@ -81,12 +88,12 @@ msgid "1080p"
 msgstr "1080p"
 
 msgctxt "#30155"
-msgid "Auto"
-msgstr "स्वचालित"
+msgid "Automatically select streams"
+msgstr ""
 
 msgctxt "#30156"
-msgid "Manual"
-msgstr "हाथ से"
+msgid "Manually select all streams"
+msgstr ""
 
 msgctxt "#30157"
 msgid "All"
@@ -100,6 +107,11 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "वीडियो"
 
+# Show all video streams
 msgctxt "#30160"
-msgid "Manual video"
-msgstr "मैनुअल वीडियो"
+msgid "Manually select video stream"
+msgstr ""
+
+msgctxt "#30161"
+msgid "Video + Subtitles"
+msgstr ""

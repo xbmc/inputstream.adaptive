@@ -8,68 +8,69 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language-Team: Japanese\n"
-"Language: ja\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Last-Translator: Matej Moško <kamosko@panakrala.sk>\n"
+"Language-Team: Slovak\n"
+"Language: sk_SK\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n>=2 && n<=4 ? 1 : 2);\n"
 
 msgctxt "#30100"
 msgid "General"
-msgstr "一般"
+msgstr "Všeobecné"
 
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "最小帯域(Bit/s)"
+msgstr "Min. Šírka Pásma (Bit/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "最大帯域(Bit/s)"
+msgstr "Max. Šírka Pásma (Bit/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "復号化機パース"
+msgstr "Cesta k Dekóderu"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "一般デコーダによる最大解像度"
+msgstr "Max. Rozlíšenie Základného Dekódera"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "ストリーム選択"
+msgstr "Výber Videostreamu"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr "メディア"
+msgstr "Médiá"
 
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "セキュアデコーダによる最大解像度"
+msgstr "Max. Rozlíšenie bezpečného dekódera"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "HDCP設定を無視する。"
+msgstr "Obísť HDCP status"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "画面の解像度を無視する。"
+msgstr "Ignorovať Rozlíšenie Obrazovky"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr "エキスパート"
+msgstr "Expertné"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "プレリリース機能を使う。"
+msgstr "Povoliť Experimentálne Funkcie"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr "最大"
+msgstr "Maximum"
 
 msgctxt "#30151"
 msgid "480p"
@@ -97,15 +98,15 @@ msgstr ""
 
 msgctxt "#30157"
 msgid "All"
-msgstr "全部"
+msgstr "Všetko"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr "オーディオ"
+msgstr "Zvuk"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr "ビデオ"
+msgstr "Video"
 
 # Show all video streams
 msgctxt "#30160"
@@ -114,4 +115,4 @@ msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "Video + Titulky"

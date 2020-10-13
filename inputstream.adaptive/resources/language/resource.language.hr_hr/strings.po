@@ -21,18 +21,22 @@ msgctxt "#30100"
 msgid "General"
 msgstr "Opće"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "Minimalna propusnost (bit/s)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "Maksimalna propusnost (bit/s)"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "Apsolutni put do mape koja sadrži dekripter"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "Maksimalna rezolucija opći dekoder"
@@ -45,14 +49,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "Mediji"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "Maksimalna rezolucija za sigurni dekoder"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "Zanemari HDCP status"
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "Zanemari rezoluciju ekrana"
@@ -86,12 +93,12 @@ msgid "1080p"
 msgstr "1080p"
 
 msgctxt "#30155"
-msgid "Auto"
-msgstr "Auto"
+msgid "Automatically select streams"
+msgstr ""
 
 msgctxt "#30156"
-msgid "Manual"
-msgstr "Ručno"
+msgid "Manually select all streams"
+msgstr ""
 
 msgctxt "#30157"
 msgid "All"
@@ -105,9 +112,10 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "Video"
 
+# Show all video streams
 msgctxt "#30160"
-msgid "Manual video"
-msgstr "Ručni izbor videa"
+msgid "Manually select video stream"
+msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
