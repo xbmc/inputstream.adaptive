@@ -97,4 +97,4 @@ msgstr "Manuell video"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "Video + undertexter"
