@@ -328,6 +328,10 @@ bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
   if (!s || !e || !*s || !*e)
     return false;
 
+  // Don't stack subtitle if begin and end are equal
+  if (strcmp(s, e) == 0)
+    return false;
+
   m_subTitles.push_back(SUBTITLE());
   SUBTITLE &sub(m_subTitles.back());
 
