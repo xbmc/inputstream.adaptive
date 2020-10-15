@@ -3432,7 +3432,7 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
     iids.m_streamCount = 0;
 
     for (unsigned int i(1);
-         i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+         i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
     {
       uint8_t cdmId(
           static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
@@ -3791,7 +3791,7 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
   {
     m_checkChapterSeek = true;
     for (unsigned int i(1);
-         i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+         i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
       EnableStream(i + m_session->GetPeriodId() * 1000, false);
     m_session->InitializePeriod();
     DemuxPacket* p = AllocateDemuxPacket(0);
