@@ -244,11 +244,6 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
         else
           rep->source_url_ = res->second;
 
-        if (!manifest_parameter_.empty() &&
-            rep->source_url_.compare(0, base_url_.size(), base_url_) == 0 &&
-            rep->source_url_.find('?') == std::string::npos)
-          rep->source_url_ += manifest_parameter_;
-
         // default to WebVTT
         if (type == SUBTITLE)
           rep->codecs_ = "wvtt";
@@ -337,11 +332,6 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
         current_representation_->source_url_ = base_url_ + line;
       else
         current_representation_->source_url_ = line;
-
-      if (!manifest_parameter_.empty() &&
-          current_representation_->source_url_.compare(0, base_url_.size(), base_url_) == 0 &&
-          current_representation_->source_url_.find('?') == std::string::npos)
-        current_representation_->source_url_ += manifest_parameter_;
 
       //Ignore duplicate reps
       for (auto const* rep : current_adaptationset_->representations_)
