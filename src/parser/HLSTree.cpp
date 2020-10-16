@@ -155,9 +155,6 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
     return ENCRYPTIONTYPE_INVALID;
   }
 
-  // UNKNOWN
-  Log(LOGLEVEL_WARNING, "Unknown encryption method: %s with keyformat %s", map["METHOD"].c_str(),
-      map["KEYFORMAT"].c_str());
   return ENCRYPTIONTYPE_UNKNOWN;
 }
 
