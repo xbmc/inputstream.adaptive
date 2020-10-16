@@ -73,23 +73,24 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
         }
         else if (wait_start)
         {
-          unsigned int tmb, tsb, tmsb, tme, tse, tmse;
-          unsigned int thb = 0, the = 0;
+          unsigned int numb, thb, tmb, tsb, tmsb, nume, the, tme, tse, tmse;
           char delb, dele;
+          const char* delTimes = strchr(cbuf, '-');
 
-          if (sscanf(cbuf, "%u:%u%c%u --> %u:%u%c%u", &tmb, &tsb, &delb, &tmsb, &tme, &tse, &dele,
-                     &tmse) == 8 ||
-              sscanf(cbuf, "%u:%u:%u%c%u --> %u:%u:%u%c%u", &thb, &tmb, &tsb, &delb, &tmsb, &the,
-                     &tme, &tse, &dele, &tmse) == 10)
+          if (delTimes
+            && ((numb = sscanf(cbuf, "%u:%u:%u%c%u ", &thb, &tmb, &tsb, &delb, &tmsb)) == 5
+              || (numb = sscanf(cbuf, "%u:%u%c%u ", &tmb, &tsb, &delb, &tmsb)) == 4)
+            && ((nume = sscanf(delTimes, "--> %u:%u:%u%c%u", &the, &tme, &tse, &dele, &tmse)) == 5
+              || (nume = sscanf(delTimes, "--> %u:%u%c%u", &tme, &tse, &dele, &tmse)) == 4))
           {
             m_subTitles.push_back(SUBTITLE());
             SUBTITLE &sub(m_subTitles.back());
 
-            sub.start = thb * 3600 + tmb * 60 + tsb;
+            sub.start = thb * (numb == 5 ? 3600 : 0) + tmb * 60 + tsb;
             sub.start = sub.start * 1000 + tmsb;
             sub.start = ((sub.start + localOffset) * m_timescale) / 1000;
 
-            sub.end = the * 3600 + tme * 60 + tse;
+            sub.end = the * (nume == 5 ? 3600 : 0) + tme * 60 + tse;
             sub.end = sub.end * 1000 + tmse;
             sub.end = ((sub.end + localOffset) * m_timescale) / 1000;
 
