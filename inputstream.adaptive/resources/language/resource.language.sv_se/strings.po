@@ -114,4 +114,4 @@ msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr "Video + undertexter"
+msgstr "Video + Undertexter"
