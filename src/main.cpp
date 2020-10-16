@@ -312,12 +312,12 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     bandwidth = static_cast<uint32_t>(bandwidth_ *
                                       (adp->type_ == adaptive::AdaptiveTree::VIDEO ? 0.9 : 0.1));
 
-    static int steps = 0;
+    /*static int steps = 0;
     if (adp->type_ == adaptive::AdaptiveTree::VIDEO)
     {
       float multiplier = ++steps % 20 < 10 ? 1.0f : 0.0;
       bandwidth *= multiplier;
-    }
+    }*/
 
     for (std::vector<adaptive::AdaptiveTree::Representation*>::const_iterator
              br(adp->representations_.begin()),
