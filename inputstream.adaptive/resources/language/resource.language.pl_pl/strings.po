@@ -2,13 +2,13 @@
 # Addon Name: Inputstream.adaptive
 # Addon id: inputstream.adaptive
 # Addon Provider: peak3d
-
 msgid ""
 msgstr ""
 
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language-Team: Polish\n"
 "Language: pl\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
@@ -16,18 +16,22 @@ msgctxt "#30100"
 msgid "General"
 msgstr "Główne"
 
+# The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
 msgstr "Min. przepustowość (Bit/s)"
 
+# The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
 msgstr "Maks. przepustowość"
 
+# Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
 msgstr "Lokalizacja dekodera"
 
+# Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
 msgstr "Maks. rozdzielczość ogólnego dekodera"
@@ -40,14 +44,17 @@ msgctxt "#30112"
 msgid "Media"
 msgstr "Media"
 
+# Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
 msgstr "Maks. rozdzielczość zabezpieczonego dekodera"
 
+# Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
 msgstr "Zastąp status HDCP"
 
+# Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr "Zignoruj rozdzielczość ekranu"
@@ -81,11 +88,11 @@ msgid "1080p"
 msgstr "1080p"
 
 msgctxt "#30155"
-msgid "Auto"
+msgid "Automatically select streams"
 msgstr ""
 
 msgctxt "#30156"
-msgid "Manual"
+msgid "Manually select all streams"
 msgstr ""
 
 msgctxt "#30157"
@@ -100,9 +107,10 @@ msgctxt "#30159"
 msgid "Video"
 msgstr "Video"
 
+# Show all video streams
 msgctxt "#30160"
-msgid "Manual video"
-msgstr "Ręcznie video"
+msgid "Manually select video stream"
+msgstr ""
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
