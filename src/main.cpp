@@ -269,6 +269,8 @@ bool adaptive::AdaptiveTree::download(const char* url,
   if (!file.CURLCreate(url))
     return false;
 
+  std::string log_url = url;
+
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
 
@@ -285,24 +287,12 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   if (scanEffectiveURL)
   {
-    effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-    kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url_.c_str());
+    std::string effective_url = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+    kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url.c_str());
 
-    std::string::size_type paramPos = effective_url_.find_first_of('?');
-    if (paramPos != std::string::npos)
-      effective_url_.resize(paramPos);
-
-    paramPos = effective_url_.find_last_of('/');
-    if (paramPos != std::string::npos)
-    {
-      effective_filename_ = effective_url_.substr(paramPos + 1);
-      effective_url_.resize(paramPos + 1);
-    }
-    else
-      effective_url_.clear();
-
-    if (effective_url_ == base_url_)
-      effective_url_.clear();
+    std::string::size_type paramPos = effective_url.find_last_of('/');
+    if (paramPos != std::string::npos && base_url_.compare(0, paramPos, effective_url) != 0)
+      PreparePaths(effective_url, manifest_parameter_);
   }
 
   // read the file
@@ -320,7 +310,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   file.Close();
 
-  kodi::Log(ADDON_LOG_DEBUG, "Download %s finished", url);
+  kodi::Log(ADDON_LOG_DEBUG, "Download %s finished", log_url.c_str());
 
   return nbRead == 0;
 }
