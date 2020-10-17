@@ -292,7 +292,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
     std::string::size_type paramPos = effective_url.find_last_of('/');
     if (paramPos != std::string::npos && base_url_.compare(0, paramPos, effective_url) != 0)
-      PreparePaths(effective_url, manifest_parameter_);
+      PreparePaths(effective_url, update_parameter_);
   }
 
   // read the file
