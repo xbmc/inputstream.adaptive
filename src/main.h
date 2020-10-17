@@ -20,6 +20,7 @@
 #include <vector>
 
 #include <kodi/addon-instance/Inputstream.h>
+#include <kodi/tools/DllHelper.h>
 
 #include "common/AdaptiveTree.h"
 #include "common/AdaptiveStream.h"
@@ -186,7 +187,7 @@ private:
   AP4_DataBuffer server_certificate_;
   std::string profile_path_;
   std::string ov_audio_;
-  void * decrypterModule_;
+  kodi::tools::CDllHelper* decrypterModule_;
   SSD::SSD_DECRYPTER *decrypter_;
 
   struct CDMSESSION
