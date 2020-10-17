@@ -239,17 +239,17 @@ bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale,
 
   if (retval == XML_STATUS_ERROR)
     return false;
-  
+
   while (m_pos < m_subTitles.size() && m_subTitles[m_pos].id != m_lastId)
     ++m_pos;
-  
+
   if (m_pos == m_subTitles.size())
     m_pos = 0;
   else
     ++m_pos;
 
   m_lastId.clear();
-  
+
   return true;
 }
 
@@ -400,6 +400,7 @@ TTML2SRT::STYLE TTML2SRT::GetStyle(const char* styleId)
       }
     }
   }
+  return STYLE();
 }
 
 void TTML2SRT::StackStyle(const char* styleId)
