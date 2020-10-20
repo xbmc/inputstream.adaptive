@@ -325,7 +325,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
          br != er; ++br)
     {
       unsigned int score;
-      if (!hdcp_override_)
+      if (!hdcp_override_ && !decrypter_caps_.empty())
       {
         hdcpVersion = decrypter_caps_[(*br)->pssh_set_].hdcpVersion;
         hdcpLimit = decrypter_caps_[(*br)->pssh_set_].hdcpLimit;
@@ -2691,14 +2691,19 @@ bool Session::InitializePeriod()
     SAFE_DELETE(*b);
   streams_.clear();
 
-  if (psshChanged && !InitializeDRM())
-    return false;
+  if (psshChanged)
+  {
+    representationChooser_->decrypter_caps_.clear();
+
+    if (!InitializeDRM())
+      return false;
+
+    representationChooser_->decrypter_caps_.resize(cdm_sessions_.size());
+    for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
+      representationChooser_->decrypter_caps_.push_back(cdmsession.decrypter_caps_);
+  }
   else if (adaptiveTree_->current_period_->encryptionState_)
     kodi::Log(ADDON_LOG_DEBUG, "Reusing DRM psshSets for new period!");
-
-  representationChooser_->decrypter_caps_.resize(cdm_sessions_.size());
-  for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
-    representationChooser_->decrypter_caps_.push_back(cdmsession.decrypter_caps_);
 
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
