@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.4.5"
+  version="2.4.6"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,12 @@
 	<description lang="es">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.4.6 (2020-05-18)
+- Fix effective url if paths beginning with / provided
+- Several translations added / fixed
+- Fix webvtt subtitles for time formats without leading hour 00:
+- Fix segfault when playing PlayReady content (Android)
+
 v2.4.5 (2020-05-18)
 - Backport of Matrix features (v2.5.4 upwards)
 
