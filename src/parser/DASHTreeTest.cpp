@@ -19,12 +19,30 @@
 #include "DASHTree.h"
 #include "../log.h"
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 
 std::string testfile;
 
 void Log(const LogLevel loglevel, const char* format, ...)
 {
+}
+
+void print_hex_string(std::ostream& os, std::string const str)
+{
+  std::ios_base::fmtflags f( os.flags() );
+
+  os << "{";
+
+  for (auto f : str)
+  {
+    os << " 0x" << std::hex << std::setw(2)
+       << std::setfill('0') << static_cast<unsigned short>(f & 0x00FF);
+  }
+
+  os << " }";
+
+  os.flags( f );
 }
 
 bool adaptive::AdaptiveTree::download(const char* url,
@@ -90,8 +108,15 @@ int main(int argc, char** argv)
               << ", #adaptationSets: " << period->adaptationSets_.size() << "\n";
     for (const adaptive::AdaptiveTree::Period::PSSH pssh : period->psshSets_)
     {
-      sstreamCur << "\tPSSH: defaultKID_: " << pssh.defaultKID_ << ", iv: " << pssh.iv
-                << ", media_: " << pssh.media_ << ", pssh_: " << pssh.pssh_ << "\n";
+      sstreamCur << "\tPSSH: defaultKID_: ";
+
+      print_hex_string(sstreamCur, pssh.defaultKID_);
+
+      sstreamCur << ", iv: ";
+
+      print_hex_string(sstreamCur, pssh.iv);
+
+      sstreamCur << ", media_: " << pssh.media_ << ", pssh_: " << pssh.pssh_ << "\n";
     }
     for (const adaptive::AdaptiveTree::AdaptationSet* adp : period->adaptationSets_)
     {
