@@ -15,3 +15,6 @@ override_dh_strip:
 
 override_dh_installdocs:
 	dh_installdocs --link-doc=kodi-inputstream-adaptive
+
+override_dh_auto_test:
+
