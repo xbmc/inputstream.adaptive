@@ -374,6 +374,46 @@ namespace adaptive
     return true;
   }
 
+  void AdaptiveTree::SetEffectiveURL(const std::string& url)
+  {
+    effective_url_ = url;
+    std::string::size_type paramPos = effective_url_.find_first_of('?');
+    if (paramPos != std::string::npos)
+      effective_url_.resize(paramPos);
+
+    paramPos = effective_url_.find_last_of('/');
+    if (paramPos != std::string::npos)
+      effective_url_.resize(paramPos + 1);
+    else
+      effective_url_.clear();
+
+    if (effective_url_ == base_url_)
+      effective_url_.clear();
+
+    if (!effective_url_.empty())
+    {
+      paramPos = effective_url_.find_first_of('/', 8);
+      effective_domain_ = effective_url_.substr(0, paramPos);
+    }
+  }
+
+  std::string AdaptiveTree::BuildDownloadUrl(const std::string& url) const
+  {
+    if (!url.empty())
+    {
+      if (url.front() == '/')
+        return effective_domain_.empty() ? base_domain_ + url : effective_domain_ + url;
+      else if (!effective_url_.empty() && url.compare(0, base_url_.size(), base_url_) == 0)
+      {
+        std::string newUrl(url);
+        newUrl.replace(0, base_url_.size(), effective_url_);
+        return newUrl;
+      }
+    }
+    return url;
+  }
+
+
   void AdaptiveTree::SortTree()
   {
     for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)

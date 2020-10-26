@@ -410,7 +410,8 @@ public:
   }*current_period_, *next_period_;
 
   std::vector<Period*> periods_;
-  std::string manifest_url_, base_url_, effective_url_, effective_filename_, base_domain_, update_parameter_;
+  std::string manifest_url_, base_url_, effective_url_, base_domain_, effective_domain_,
+      update_parameter_;
   std::string::size_type update_parameter_pos_;
   std::string etag_, last_modified_;
   std::string media_renewal_url_;
@@ -479,6 +480,10 @@ public:
                ? current_period_->adaptationSets_[pos]
                : 0;
   };
+
+  void SetEffectiveURL(const std::string& url);
+  std::string BuildDownloadUrl(const std::string& url) const;
+
   std::mutex &GetTreeMutex() { return treeMutex_; };
   bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
   void RefreshUpdateThread();

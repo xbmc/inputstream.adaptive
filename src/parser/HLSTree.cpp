@@ -107,9 +107,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   if (map["METHOD"] == "AES-128" && !map["URI"].empty())
   {
     current_pssh_ = map["URI"];
-    if (current_pssh_[0] == '/')
-      current_pssh_ = base_domain_ + current_pssh_;
-    else if (current_pssh_.find("://", 0) == std::string::npos)
+    if (current_pssh_[0] != '/' && current_pssh_.find("://", 0) == std::string::npos)
       current_pssh_ = baseUrl + current_pssh_;
 
     current_iv_ = m_decrypter->convertIV(map["IV"]);
@@ -234,9 +232,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
       std::map<std::string, std::string>::iterator res;
       if ((res = map.find("URI")) != map.end())
       {
-        if (res->second[0] == '/')
-          rep->source_url_ = base_domain_ + res->second;
-        else if (res->second.find("://", 0) == std::string::npos)
+        if (res->second[0] != '/' && res->second.find("://", 0) == std::string::npos)
           rep->source_url_ = base_url_ + res->second;
         else
           rep->source_url_ = res->second;
@@ -310,10 +306,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
       current_representation_->bandwidth_ = 0;
       current_representation_->codecs_ = getVideoCodec("");
       current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
-      if (!effective_url_.empty())
-        current_representation_->source_url_ = effective_url_ + effective_filename_;
-      else
-        current_representation_->source_url_ = url;
+      current_representation_->source_url_ = url;
       current_adaptationset_->representations_.push_back(current_representation_);
 
       // We assume audio is included
@@ -323,9 +316,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
     }
     else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
     {
-      if (line[0] == '/')
-        current_representation_->source_url_ = base_domain_ + line;
-      else if (line.find("://", 0) == std::string::npos)
+      if (line[0] != '/' && line.find("://", 0) == std::string::npos)
         current_representation_->source_url_ = base_url_ + line;
       else
         current_representation_->source_url_ = line;
@@ -403,7 +394,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     Segment newInitialization;
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
-    std::string download_url = rep->source_url_.c_str();
+    std::string download_url = BuildDownloadUrl(rep->source_url_);
     uint32_t adp_pos =
         std::find(period->adaptationSets_.begin(), period->adaptationSets_.end(), adp) -
         period->adaptationSets_.begin();
@@ -413,9 +404,6 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     bool cp_lost(false);
     Representation* entry_rep = rep;
     PREPARE_RESULT retVal = PREPARE_RESULT_OK;
-
-    if (!effective_url_.empty() && download_url.find(base_url_) == 0)
-      download_url.replace(0, base_url_.size(), effective_url_);
 
     if (rep->flags_ & Representation::DOWNLOADED)
       ;
@@ -515,9 +503,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           if (!byteRange || rep->url_.empty())
           {
             std::string url;
-            if (line[0] == '/')
-              url = base_domain_ + line;
-            else if (line.find("://", 0) == std::string::npos)
+            if (line[0] != '/' && line.find("://", 0) == std::string::npos)
               url = base_url + line;
             else
               url = line;
@@ -685,9 +671,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
               delete[] newInitialization.url;
             segmentInitialization = true;
             std::string uri = map["URI"];
-            if (uri[0] == '/')
-              map_url = base_domain_ + map["URI"];
-            else if (uri.find("://", 0) == std::string::npos)
+            if (uri[0] != '/' && uri.find("://", 0) == std::string::npos)
               map_url = base_url + uri;
             else
               map_url = uri;
@@ -832,9 +816,7 @@ void HLSTree::OnDataArrived(unsigned int segNum,
         if (keyParts.size() > 1)
           parseheader(headers, keyParts[1].c_str());
 
-        if (!effective_url_.empty() && url.find(base_url_) == 0)
-          url.replace(0, base_url_.size(), effective_url_);
-
+        url = BuildDownloadUrl(url);
         if (download(url.c_str(), headers, &stream, false))
         {
           pssh.defaultKID_ = stream.str();
