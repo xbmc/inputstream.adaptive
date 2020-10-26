@@ -372,8 +372,9 @@ std::string annexb_to_avc(const char *b16_data)
   result[pos++] = static_cast<char>(sps[1]);
   result[pos++] = static_cast<char>(sps[2]);
   result[pos++] = static_cast<char>(sps[3]);
-  result[pos++] = static_cast<char>(0xFF); //6 bits reserved(111111) + 2 bits nal size length - 1 (11)
-  result[pos++] = static_cast<char>(0xe1); //3 bits reserved (111) + 5 bits number of sps (00001)
+  result[pos++] =
+      static_cast<char>(0xFFU); //6 bits reserved(111111) + 2 bits nal size length - 1 (11)
+  result[pos++] = static_cast<char>(0xe1U); //3 bits reserved (111) + 5 bits number of sps (00001)
 
   sz = pps - sps - 4;
   result[pos++] = static_cast<const char>(sz >> 8);

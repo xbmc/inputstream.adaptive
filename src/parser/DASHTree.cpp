@@ -1091,11 +1091,10 @@ static void XMLCALL end(void* data, const char* el)
                 dash->strXMLText_.erase(dash->strXMLText_.begin());
 
               std::string url;
-              if (dash->strXMLText_.compare(0, 7, "http://") == 0 ||
+              if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
+                  dash->strXMLText_.compare(0, 7, "http://") == 0 ||
                   dash->strXMLText_.compare(0, 8, "https://") == 0)
                 url = dash->strXMLText_;
-              else if (!dash->strXMLText_.empty() && dash->strXMLText_[0] == '/')
-                url = dash->base_domain_ + dash->strXMLText_;
               else
                 url = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
 
@@ -1445,11 +1444,10 @@ static void XMLCALL end(void* data, const char* el)
           while (dash->strXMLText_.size() &&
                  (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
             dash->strXMLText_.erase(dash->strXMLText_.begin());
-          if (dash->strXMLText_.compare(0, 7, "http://") == 0 ||
+          if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
+              dash->strXMLText_.compare(0, 7, "http://") == 0 ||
               dash->strXMLText_.compare(0, 8, "https://") == 0)
             dash->current_period_->base_url_ = dash->strXMLText_;
-          else if (!dash->strXMLText_.empty() && dash->strXMLText_[0] == '/')
-            dash->current_period_->base_url_ = dash->base_domain_ + dash->strXMLText_;
           else
             dash->current_period_->base_url_ += dash->strXMLText_;
           dash->currentNode_ &= ~MPDNODE_BASEURL;
@@ -1479,11 +1477,10 @@ static void XMLCALL end(void* data, const char* el)
         while (dash->strXMLText_.size() &&
                (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
           dash->strXMLText_.erase(dash->strXMLText_.begin());
-        if (dash->strXMLText_.compare(0, 7, "http://") == 0 ||
+        if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
+            dash->strXMLText_.compare(0, 7, "http://") == 0 ||
             dash->strXMLText_.compare(0, 8, "https://") == 0)
           dash->base_url_ = dash->strXMLText_;
-        else if (!dash->strXMLText_.empty() && dash->strXMLText_[0] == '/')
-          dash->base_url_ = dash->base_domain_ + dash->strXMLText_;
         else
           dash->base_url_ += dash->strXMLText_;
         dash->currentNode_ &= ~MPDNODE_BASEURL;
@@ -1551,10 +1548,7 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
   currentNode_ = 0;
   strXMLText_.clear();
 
-  std::string download_url = manifest_url_;
-  if (!effective_url_.empty() && download_url.find(base_url_) == 0)
-    download_url.replace(0, base_url_.size(), effective_url_);
-
+  std::string download_url = BuildDownloadUrl(manifest_url_);
   bool ret = download(download_url.c_str(), manifest_headers_) && !periods_.empty();
 
   XML_ParserFree(parser_);
@@ -1639,7 +1633,7 @@ void DASHTree::RefreshLiveSegments()
     //Location element should be used on updates
     updateTree.location_ = location_;
     updateTree.effective_url_ = effective_url_;
-    updateTree.effective_filename_ = effective_filename_;
+    updateTree.effective_domain_ = effective_domain_;
 
     if (!~update_parameter_pos_)
     {
