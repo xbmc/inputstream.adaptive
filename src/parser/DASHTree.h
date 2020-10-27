@@ -38,6 +38,8 @@ namespace adaptive
     uint64_t pts_helper_;
     uint32_t firstStartNumber_;
     std::string current_playready_wrmheader_;
+    std::string mpd_url_;
+
   protected:
     virtual void RefreshLiveSegments() override;
   };

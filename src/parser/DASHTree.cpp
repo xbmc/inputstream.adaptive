@@ -974,7 +974,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
     else if (strcmp(el, "Period") == 0)
     {
       dash->current_period_ = new DASHTree::Period();
-      dash->current_period_->base_url_ = dash->base_url_;
+      dash->current_period_->base_url_ = dash->mpd_url_;
       dash->periods_.push_back(dash->current_period_);
       dash->period_timelined_ = false;
       dash->current_period_->start_ = 0;
@@ -1006,6 +1006,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
 
     dash->overallSeconds_ = 0;
     dash->stream_start_ = time(0);
+    dash->mpd_url_ = dash->base_url_;
 
     for (; *attr;)
     {
@@ -1480,9 +1481,9 @@ static void XMLCALL end(void* data, const char* el)
         if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
             dash->strXMLText_.compare(0, 7, "http://") == 0 ||
             dash->strXMLText_.compare(0, 8, "https://") == 0)
-          dash->base_url_ = dash->strXMLText_;
+          dash->mpd_url_ = dash->strXMLText_;
         else
-          dash->base_url_ += dash->strXMLText_;
+          dash->mpd_url_ += dash->strXMLText_;
         dash->currentNode_ &= ~MPDNODE_BASEURL;
       }
     }
