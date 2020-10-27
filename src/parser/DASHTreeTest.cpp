@@ -19,12 +19,30 @@
 #include "DASHTree.h"
 #include "../log.h"
 #include <fstream>
+#include <iomanip>
 #include <sstream>
 
 std::string testfile;
 
 void Log(const LogLevel loglevel, const char* format, ...)
 {
+}
+
+void print_hex_string(std::ostream& os, std::string const str)
+{
+  std::ios_base::fmtflags f( os.flags() );
+
+  os << "{";
+
+  for (auto f : str)
+  {
+    os << " 0x" << std::hex << std::setw(2)
+       << std::setfill('0') << static_cast<unsigned short>(f & 0x00FF);
+  }
+
+  os << " }";
+
+  os.flags( f );
 }
 
 bool adaptive::AdaptiveTree::download(const char* url,
@@ -90,8 +108,15 @@ int main(int argc, char** argv)
               << ", #adaptationSets: " << period->adaptationSets_.size() << "\n";
     for (const adaptive::AdaptiveTree::Period::PSSH pssh : period->psshSets_)
     {
-      sstreamCur << "\tPSSH: defaultKID_: " << pssh.defaultKID_ << ", iv: " << pssh.iv
-                << ", media_: " << pssh.media_ << ", pssh_: " << pssh.pssh_ << "\n";
+      sstreamCur << "\tPSSH: defaultKID_: ";
+
+      print_hex_string(sstreamCur, pssh.defaultKID_);
+
+      sstreamCur << ", iv: ";
+
+      print_hex_string(sstreamCur, pssh.iv);
+
+      sstreamCur << ", media_: " << pssh.media_ << ", pssh_: " << pssh.pssh_ << "\n";
     }
     for (const adaptive::AdaptiveTree::AdaptationSet* adp : period->adaptationSets_)
     {
@@ -119,14 +144,14 @@ int main(int argc, char** argv)
       for (const adaptive::AdaptiveTree::Representation* rep : adp->representations_)
       {
         sstreamCur << "\t\t\tRep: aspect_: " << rep->aspect_ << ", bandwidth_ : " << rep->bandwidth_
-                  << ", channelCount_ : " << rep->channelCount_ << ", codecs_ : " << rep->codecs_
+                  << ", channelCount_ : " << static_cast<unsigned int>(rep->channelCount_) << ", codecs_ : " << rep->codecs_
                   << ", codec_private_data_ : " << rep->codec_private_data_
-                  << ", containerType_ : " << rep->containerType_ << ", duration_ : " << rep->duration_
+                  << ", containerType_ : " << static_cast<unsigned int>(rep->containerType_) << ", duration_ : " << rep->duration_
                   << ", flags_ : " << rep->flags_ << ", fpsRate_ : " << rep->fpsRate_
                   << ", fpsScale_ : " << rep->fpsScale_ << ", hdcpVersion_ : " << rep->hdcpVersion_
                   << ", height_ : " << rep->height_ << ", id : " << rep->id
                   << ", indexRangeMax_ : " << rep->indexRangeMax_ << ", indexRangeMin_ : " << rep->indexRangeMin_
-                  << ", nalLengthSize_ : " << rep->nalLengthSize_ << ", pssh_set_ : " << rep->pssh_set_
+                  << ", nalLengthSize_ : " << static_cast<unsigned int>(rep->nalLengthSize_) << ", pssh_set_ : " << rep->pssh_set_
                   << ", ptsOffset_ : " << rep->ptsOffset_ << ", samplingRate_ : " << rep->samplingRate_
                   << ", source_url_ : " << rep->source_url_ << ", startNumber_ : " << rep->startNumber_
                   << ", timescale_ : " << rep->timescale_ << ", timescale_ext_ : " << rep->timescale_ext_
