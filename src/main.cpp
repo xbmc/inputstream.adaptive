@@ -20,7 +20,6 @@
 
 #include "ADTSReader.h"
 #include "Ap4Utils.h"
-#include "DemuxCrypto.h"
 #include "TSReader.h"
 #include "WebmReader.h"
 #include "aes_decrypter.h"
@@ -3199,7 +3198,7 @@ public:
 
   bool Open(VIDEOCODEC_INITDATA& initData) override;
   bool Reconfigure(VIDEOCODEC_INITDATA& initData) override;
-  bool AddData(const DemuxPacket& packet) override;
+  bool AddData(const DEMUX_PACKET& packet) override;
   VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE& picture) override;
   const char* GetName() override { return m_name.c_str(); };
   void Reset() override;
@@ -3236,7 +3235,7 @@ public:
   bool GetStream(int streamid, kodi::addon::InputstreamInfo& info) override;
   void EnableStream(int streamid, bool enable) override;
   bool OpenStream(int streamid) override;
-  DemuxPacket* DemuxRead() override;
+  DEMUX_PACKET* DemuxRead() override;
   bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
   void SetVideoResolution(int width, int height) override;
   bool PosTime(int ms) override;
@@ -3692,7 +3691,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 }
 
 
-DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
+DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 {
   if (!m_session)
     return NULL;
@@ -3718,9 +3717,9 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
 
   if (m_session->CheckChange())
   {
-    DemuxPacket* p = AllocateDemuxPacket(0);
-    p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
-    kodi::Log(ADDON_LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
+    DEMUX_PACKET* p = AllocateDemuxPacket(0);
+    p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
+    kodi::Log(ADDON_LOG_DEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
     return p;
   }
 
@@ -3728,7 +3727,7 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
   {
     AP4_Size iSize(sr->GetSampleDataSize());
     const AP4_UI08* pData(sr->GetSampleData());
-    DemuxPacket* p;
+    DEMUX_PACKET* p;
 
     if (iSize && pData && sr->IsEncrypted())
     {
@@ -3773,9 +3772,9 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
          i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
       EnableStream(i + m_session->GetPeriodId() * 1000, false);
     m_session->InitializePeriod();
-    DemuxPacket* p = AllocateDemuxPacket(0);
-    p->iStreamId = DMX_SPECIALID_STREAMCHANGE;
-    kodi::Log(ADDON_LOG_DEBUG, "DMX_SPECIALID_STREAMCHANGE");
+    DEMUX_PACKET* p = AllocateDemuxPacket(0);
+    p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
+    kodi::Log(ADDON_LOG_DEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
     return p;
   }
   return NULL;
@@ -3926,7 +3925,7 @@ bool CVideoCodecAdaptive::Reconfigure(VIDEOCODEC_INITDATA& initData)
   return false;
 }
 
-bool CVideoCodecAdaptive::AddData(const DemuxPacket& packet)
+bool CVideoCodecAdaptive::AddData(const DEMUX_PACKET& packet)
 {
   if (!m_session || !m_session->GetDecrypter())
     return false;
