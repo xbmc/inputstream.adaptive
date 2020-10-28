@@ -3214,7 +3214,7 @@ public:
   bool Open(const kodi::addon::InputstreamProperty& props) override;
   void Close() override;
   bool GetStreamIds(std::vector<unsigned int>& ids) override;
-  void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
+  void GetCapabilities(kodi::addon::InputstreamCapabilities& caps) override;
   bool GetStream(int streamid,
                  INPUTSTREAM_INFO* info,
                  KODI_HANDLE* demuxStream,
@@ -3446,16 +3446,16 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
   return !ids.empty();
 }
 
-void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES& caps)
+void CInputStreamAdaptive::GetCapabilities(kodi::addon::InputstreamCapabilities& caps)
 {
   kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
-  caps.m_mask = INPUTSTREAM_SUPPORTS_IDEMUX |
-                INPUTSTREAM_SUPPORTS_IDISPLAYTIME |
-                INPUTSTREAM_SUPPORTS_IPOSTIME |
-                INPUTSTREAM_SUPPORTS_SEEK | INPUTSTREAM_SUPPORTS_PAUSE;
+  uint32_t mask = INPUTSTREAM_SUPPORTS_IDEMUX | INPUTSTREAM_SUPPORTS_IDISPLAYTIME |
+                  INPUTSTREAM_SUPPORTS_IPOSTIME | INPUTSTREAM_SUPPORTS_SEEK |
+                  INPUTSTREAM_SUPPORTS_PAUSE;
 #if INPUTSTREAM_VERSION_LEVEL > 1
-  caps.m_mask |= INPUTSTREAM_SUPPORTS_ICHAPTER;
+  mask |= INPUTSTREAM_SUPPORTS_ICHAPTER;
 #endif
+  caps.SetMask(mask);
 }
 
 bool CInputStreamAdaptive::GetStream(
