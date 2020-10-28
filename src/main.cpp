@@ -41,8 +41,8 @@
 
 #include <kodi/Filesystem.h>
 #include <kodi/General.h>
-#include <kodi/StreamCodec.h>
 #include <kodi/addon-instance/VideoCodec.h>
+#include <kodi/addon-instance/inputstream/StreamCodec.h>
 
 #if defined(ANDROID)
 #include <kodi/platform/android/System.h>
