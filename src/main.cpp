@@ -3215,7 +3215,12 @@ public:
   void Close() override;
   bool GetStreamIds(std::vector<unsigned int>& ids) override;
   void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
-  bool GetStream(int streamid, INPUTSTREAM_INFO& stream) override;
+  bool GetStream(int streamid,
+                 INPUTSTREAM_INFO* info,
+                 KODI_HANDLE* demuxStream,
+                 KODI_HANDLE (*transfer_stream)(KODI_HANDLE handle,
+                                                int streamId,
+                                                struct INPUTSTREAM_INFO* stream)) override;
   void EnableStream(int streamid, bool enable) override;
   bool OpenStream(int streamid) override;
   DemuxPacket* DemuxRead() override;
@@ -3464,7 +3469,12 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES& caps)
 #endif
 }
 
-bool CInputStreamAdaptive::GetStream(int streamid, INPUTSTREAM_INFO& info)
+bool CInputStreamAdaptive::GetStream(int streamid,
+                                     INPUTSTREAM_INFO* info,
+                                     KODI_HANDLE* demuxStream,
+                                     KODI_HANDLE (*transfer_stream)(KODI_HANDLE handle,
+                                                                    int streamId,
+                                                                    struct INPUTSTREAM_INFO* stream))
 {
   kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
 
@@ -3494,7 +3504,8 @@ bool CInputStreamAdaptive::GetStream(int streamid, INPUTSTREAM_INFO& info)
                                              : 0;
     }
 
-    info = stream->info_;
+    *info = stream->info_;
+    *demuxStream = transfer_stream(m_instanceData->toKodi->kodiInstance, streamid, info);
 
     return true;
   }
