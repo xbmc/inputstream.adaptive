@@ -3215,7 +3215,7 @@ public:
   void Close() override;
   bool GetStreamIds(std::vector<unsigned int>& ids) override;
   void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
-  struct INPUTSTREAM_INFO GetStream(int streamid) override;
+  bool GetStream(int streamid, INPUTSTREAM_INFO& stream) override;
   void EnableStream(int streamid, bool enable) override;
   bool OpenStream(int streamid) override;
   DemuxPacket* DemuxRead() override;
@@ -3464,34 +3464,8 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES& caps)
 #endif
 }
 
-struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
+bool CInputStreamAdaptive::GetStream(int streamid, INPUTSTREAM_INFO& info)
 {
-  static struct INPUTSTREAM_INFO dummy_info = {INPUTSTREAM_INFO::TYPE_NONE,
-                                               0,
-                                               0,
-                                               "",
-                                               "",
-                                               "",
-                                               STREAMCODEC_PROFILE::CodecProfileUnknown,
-                                               0,
-                                               0,
-                                               0,
-                                               "",
-                                               0,
-                                               0,
-                                               0,
-                                               0,
-                                               0.0f,
-                                               0,
-                                               0,
-                                               0,
-                                               0,
-                                               0,
-                                               CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE,
-                                               0,
-                                               0,
-                                               0};
-
   kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
 
   Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetPeriodId() * 1000));
@@ -3519,9 +3493,13 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
                                              ? CRYPTO_INFO::FLAG_SECURE_DECODER
                                              : 0;
     }
-    return stream->info_;
+
+    info = stream->info_;
+
+    return true;
   }
-  return dummy_info;
+
+  return false;
 }
 
 void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
