@@ -3213,7 +3213,7 @@ public:
 
   bool Open(INPUTSTREAM& props) override;
   void Close() override;
-  struct INPUTSTREAM_IDS GetStreamIds() override;
+  bool GetStreamIds(std::vector<unsigned int>& ids) override;
   void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
   struct INPUTSTREAM_INFO GetStream(int streamid) override;
   void EnableStream(int streamid, bool enable) override;
@@ -3415,7 +3415,7 @@ void CInputStreamAdaptive::Close(void)
   m_session = nullptr;
 }
 
-struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
+bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
 {
   kodi::Log(ADDON_LOG_DEBUG, "GetStreamIds()");
   INPUTSTREAM_IDS iids;
@@ -3441,16 +3441,15 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
           if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
             continue;
         }
-        iids.m_streamIds[iids.m_streamCount++] =
-            m_session->IsLive()
-                ? i + (m_session->GetStream(i)->stream_.getPeriod()->sequence_ + 1) * 1000
-                : i + period_id * 1000;
+        ids.emplace_back(m_session->IsLive()
+                             ? i + (m_session->GetStream(i)->stream_.getPeriod()->sequence_ + 1) *
+                                       1000
+                             : i + period_id * 1000);
       }
     }
   }
-  else
-    iids.m_streamCount = 0;
-  return iids;
+
+  return !ids.empty();
 }
 
 void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES& caps)
