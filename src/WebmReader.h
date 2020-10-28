@@ -54,7 +54,7 @@ public:
   void Reset();
   bool SeekTime(uint64_t timeInTs, bool preceeding);
 
-  bool GetInformation(INPUTSTREAM_INFO &info);
+  bool GetInformation(kodi::addon::InputstreamInfo &info);
   bool ReadPacket();
 
   webm::Status OnSegmentBegin(const webm::ElementMetadata& metadata, webm::Action* action) override;

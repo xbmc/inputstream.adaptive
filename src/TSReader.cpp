@@ -76,7 +76,7 @@ bool TSReader::StartStreaming(AP4_UI32 typeMask)
   return typeMask == 0;
 }
 
-bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
+bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
 {
   static const char* STREAMTYPEMAP[] = {
     "unk", "mpeg1", "mpeg2", "mpeg1", "mpeg2", "aac", "aac", "aac", "h264", "hevc", "ac3", "eac3", "unk", "srt", "mpeg4", "vc1", "unk", "unk", "unk"
@@ -84,7 +84,7 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
 
   for (auto &tsInfo : m_streamInfos)
   {
-    if (tsInfo.m_streamType == info.m_streamType)
+    if (tsInfo.m_streamType == info.GetStreamType())
     {
       if (!tsInfo.m_changed)
         return false;
@@ -94,48 +94,45 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
 
       if (tsInfo.m_streamType == INPUTSTREAM_TYPE_VIDEO)
       {
-        if ((!info.m_FpsScale && tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.m_FpsScale)) ||
-          (!info.m_FpsRate && tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.m_FpsRate)) ||
-          (tsInfo.m_stream->stream_info.height != static_cast<int>(info.m_Height)) ||
-          (tsInfo.m_stream->stream_info.width != static_cast<int>(info.m_Width)) ||
-          (tsInfo.m_stream->stream_info.aspect && tsInfo.m_stream->stream_info.aspect != info.m_Aspect))
+        if ((!info.GetFpsScale() && tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.GetFpsScale())) ||
+          (!info.GetFpsRate() && tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.GetFpsRate())) ||
+          (tsInfo.m_stream->stream_info.height != static_cast<int>(info.GetHeight())) ||
+          (tsInfo.m_stream->stream_info.width != static_cast<int>(info.GetWidth())) ||
+          (tsInfo.m_stream->stream_info.aspect && tsInfo.m_stream->stream_info.aspect != info.GetAspect()))
         {
-          info.m_FpsRate = tsInfo.m_stream->stream_info.fps_rate;
-          info.m_FpsScale = tsInfo.m_stream->stream_info.fps_scale;
-          info.m_Width = tsInfo.m_stream->stream_info.width;
-          info.m_Height = tsInfo.m_stream->stream_info.height;
+          info.SetFpsRate(tsInfo.m_stream->stream_info.fps_rate);
+          info.SetFpsScale(tsInfo.m_stream->stream_info.fps_scale);
+          info.SetWidth(tsInfo.m_stream->stream_info.width);
+          info.SetHeight(tsInfo.m_stream->stream_info.height);
           if (tsInfo.m_stream->stream_info.aspect)
-            info.m_Aspect = tsInfo.m_stream->stream_info.aspect;
+            info.SetAspect(tsInfo.m_stream->stream_info.aspect);
           ret = true;
         }
       }
       else if (tsInfo.m_streamType == INPUTSTREAM_TYPE_AUDIO)
       {
         if (tsInfo.m_stream->stream_info.language[0])
-          strncpy(info.m_language, tsInfo.m_stream->stream_info.language, 3), info.m_language[3] = 0;
+          info.SetLanguage(tsInfo.m_stream->stream_info.language);
 
-        if ((tsInfo.m_stream->stream_info.channels != static_cast<int>(info.m_Channels)) ||
-          (tsInfo.m_stream->stream_info.sample_rate != static_cast<int>(info.m_SampleRate)) ||
-          (tsInfo.m_stream->stream_info.block_align != static_cast<int>(info.m_BlockAlign)) ||
-          (tsInfo.m_stream->stream_info.bit_rate != static_cast<int>(info.m_BitRate)) ||
-          (tsInfo.m_stream->stream_info.bits_per_sample != static_cast<int>(info.m_BitsPerSample)))
+        if ((tsInfo.m_stream->stream_info.channels != static_cast<int>(info.GetChannels())) ||
+          (tsInfo.m_stream->stream_info.sample_rate != static_cast<int>(info.GetSampleRate())) ||
+          (tsInfo.m_stream->stream_info.block_align != static_cast<int>(info.GetBlockAlign())) ||
+          (tsInfo.m_stream->stream_info.bit_rate != static_cast<int>(info.GetBitRate())) ||
+          (tsInfo.m_stream->stream_info.bits_per_sample != static_cast<int>(info.GetBitsPerSample())))
         {
-          info.m_Channels = tsInfo.m_stream->stream_info.channels;
-          info.m_SampleRate = tsInfo.m_stream->stream_info.sample_rate;
-          info.m_BlockAlign = tsInfo.m_stream->stream_info.block_align;
-          info.m_BitRate = tsInfo.m_stream->stream_info.bit_rate;
-          info.m_BitsPerSample = tsInfo.m_stream->stream_info.bits_per_sample;
+          info.SetChannels(tsInfo.m_stream->stream_info.channels);
+          info.SetSampleRate(tsInfo.m_stream->stream_info.sample_rate);
+          info.SetBlockAlign(tsInfo.m_stream->stream_info.block_align);
+          info.SetBitRate(tsInfo.m_stream->stream_info.bit_rate);
+          info.SetBitsPerSample(tsInfo.m_stream->stream_info.bits_per_sample);
           ret = true;
         }
       }
-      strcpy(info.m_codecName, STREAMTYPEMAP[tsInfo.m_stream->stream_type]);
+      info.SetCodecName(STREAMTYPEMAP[tsInfo.m_stream->stream_type]);
 
-      if (info.m_ExtraSize != tsInfo.m_stream->stream_info.extra_data_size
-        || memcmp(info.m_ExtraData, tsInfo.m_stream->stream_info.extra_data, info.m_ExtraSize))
+      if (!info.CompareExtraData(tsInfo.m_stream->stream_info.extra_data, tsInfo.m_stream->stream_info.extra_data_size))
       {
-        info.m_ExtraData = (uint8_t*)realloc((void*)info.m_ExtraData, tsInfo.m_stream->stream_info.extra_data_size);
-        memcpy((void*)info.m_ExtraData, tsInfo.m_stream->stream_info.extra_data, tsInfo.m_stream->stream_info.extra_data_size);
-        info.m_ExtraSize = tsInfo.m_stream->stream_info.extra_data_size;
+        info.SetExtraData(tsInfo.m_stream->stream_info.extra_data, tsInfo.m_stream->stream_info.extra_data_size);
         ret = true;
       }
       return ret;

@@ -40,7 +40,7 @@ public:
   bool StartStreaming(AP4_UI32 typeMask);
   bool SeekTime(uint64_t timeInTs, bool preceeding);
 
-  bool GetInformation(INPUTSTREAM_INFO &info);
+  bool GetInformation(kodi::addon::InputstreamInfo& info);
   bool ReadPacket(bool streamInfo = false);
 
   uint64_t GetDts() const { return m_pkt.dts == PTS_UNSET ? PTS_UNSET : m_pkt.dts; }

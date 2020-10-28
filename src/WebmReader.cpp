@@ -113,51 +113,45 @@ void WebmReader::Reset()
   m_needFrame = false;
 }
 
-bool WebmReader::GetInformation(INPUTSTREAM_INFO &info)
+bool WebmReader::GetInformation(kodi::addon::InputstreamInfo &info)
 {
   if (!m_metadataChanged)
     return false;
   m_metadataChanged = false;
 
   bool ret = false;
-  if (!info.m_ExtraSize && m_codecPrivate.GetDataSize() > 0)
+  if (info.GetExtraData().empty() && m_codecPrivate.GetDataSize() > 0)
   {
-    info.m_ExtraSize = m_codecPrivate.GetDataSize();
-    info.m_ExtraData = static_cast<const uint8_t*>(malloc(info.m_ExtraSize));
-    memcpy(const_cast<uint8_t*>(info.m_ExtraData), m_codecPrivate.GetData(), info.m_ExtraSize);
+    info.SetExtraData(m_codecPrivate.GetData(), m_codecPrivate.GetDataSize());
     ret = true;
   }
 
-  if (m_codecProfile && info.m_codecProfile != m_codecProfile)
-    info.m_codecProfile = m_codecProfile, ret = true;
+  if (m_codecProfile && info.GetCodecProfile() != m_codecProfile)
+    info.SetCodecProfile(m_codecProfile), ret = true;
 
-  if (info.m_streamType == INPUTSTREAM_TYPE_VIDEO)
+  if (info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
   {
-    if (m_width && m_width != info.m_Width)
-      info.m_Width = m_width, ret = true;
-    if (m_height && m_height != info.m_Height)
-      info.m_Height = m_height, ret = true;
+    if (m_width && m_width != info.GetWidth())
+      info.SetWidth(m_width), ret = true;
+    if (m_height && m_height != info.GetHeight())
+      info.SetHeight(m_height), ret = true;
 #if INPUTSTREAM_VERSION_LEVEL > 0
-    if (info.m_colorSpace != m_colorSpace)
-      info.m_colorSpace = m_colorSpace, ret = true;
-    if (info.m_colorRange != m_colorRange)
-      info.m_colorRange = m_colorRange, ret = true;
-    if (info.m_colorPrimaries != m_colorPrimaries)
-      info.m_colorPrimaries = m_colorPrimaries, ret = true;
-    if (info.m_colorTransferCharacteristic != m_colorTransferCharacteristic)
-      info.m_colorTransferCharacteristic = m_colorTransferCharacteristic, ret = true;
+    if (info.GetColorSpace() != m_colorSpace)
+      info.SetColorSpace(m_colorSpace), ret = true;
+    if (info.GetColorRange() != m_colorRange)
+      info.SetColorRange(m_colorRange), ret = true;
+    if (info.GetColorPrimaries() != m_colorPrimaries)
+      info.SetColorPrimaries(m_colorPrimaries), ret = true;
+    if (info.GetColorTransferCharacteristic() != m_colorTransferCharacteristic)
+      info.SetColorTransferCharacteristic(m_colorTransferCharacteristic), ret = true;
 
     if (m_masteringMetadata)
     {
-      if (!info.m_masteringMetadata)
-        info.m_masteringMetadata = new INPUTSTREAM_MASTERING_METADATA;
-      if (memcmp(m_masteringMetadata, info.m_masteringMetadata, sizeof(INPUTSTREAM_MASTERING_METADATA)))
-        memcpy(info.m_masteringMetadata, m_masteringMetadata, sizeof(INPUTSTREAM_MASTERING_METADATA)), ret = true;
+      if (memcmp(m_masteringMetadata, &info.GetMasteringMetadata(), sizeof(INPUTSTREAM_MASTERING_METADATA)))
+        info.SetMasteringMetadata(*m_masteringMetadata), ret = true;
 
-      if (!info.m_contentLightMetadata)
-        info.m_contentLightMetadata = new INPUTSTREAM_CONTENTLIGHT_METADATA;
-      if (memcmp(m_contentLightMetadata, info.m_contentLightMetadata, sizeof(INPUTSTREAM_CONTENTLIGHT_METADATA)))
-        memcpy(info.m_contentLightMetadata, m_contentLightMetadata, sizeof(INPUTSTREAM_CONTENTLIGHT_METADATA)), ret = true;
+      if (memcmp(m_contentLightMetadata, &info.GetContentLightMetadata(), sizeof(INPUTSTREAM_CONTENTLIGHT_METADATA)))
+        info.SetContentLightMetadata(*m_contentLightMetadata), ret = true;
     }
 #endif
   }

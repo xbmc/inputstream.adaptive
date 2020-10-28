@@ -107,16 +107,10 @@ public:
   {
     STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false), valid(true)
     {
-      memset(&info_, 0, sizeof(info_));
     };
     ~STREAM()
     {
       disable();
-      free((void*)info_.m_ExtraData), info_.m_ExtraData = nullptr;
-#if INPUTSTREAM_VERSION_LEVEL > 0
-      delete info_.m_masteringMetadata, info_.m_masteringMetadata = nullptr;
-      delete info_.m_contentLightMetadata, info_.m_contentLightMetadata = nullptr;
-#endif
     };
     void disable();
 
@@ -126,7 +120,7 @@ public:
     KodiAdaptiveStream stream_;
     AP4_ByteStream *input_;
     AP4_File *input_file_;
-    INPUTSTREAM_INFO info_;
+    kodi::addon::InputstreamInfo info_;
     SampleReader *reader_;
     bool segmentChanged;
     bool valid;
