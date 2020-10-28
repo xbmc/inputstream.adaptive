@@ -3886,7 +3886,7 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA& initData)
   if (!m_session || !m_session->GetDecrypter())
     return false;
 
-  if (initData.codec == VIDEOCODEC_INITDATA::CodecH264 && !initData.extraDataSize &&
+  if (initData.codec == VIDEOCODEC_H264 && !initData.extraDataSize &&
       !(m_state & STATE_WAIT_EXTRADATA))
   {
     kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open: Wait ExtraData");
@@ -3900,13 +3900,13 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA& initData)
   m_name = "inputstream.adaptive";
   switch (initData.codec)
   {
-    case VIDEOCODEC_INITDATA::CodecVp8:
+    case VIDEOCODEC_VP8:
       m_name += ".vp8";
       break;
-    case VIDEOCODEC_INITDATA::CodecH264:
+    case VIDEOCODEC_H264:
       m_name += ".h264";
       break;
-    case VIDEOCODEC_INITDATA::CodecVp9:
+    case VIDEOCODEC_VP9:
       m_name += ".vp9";
       break;
     default:;
