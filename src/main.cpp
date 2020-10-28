@@ -3084,18 +3084,18 @@ uint32_t Session::GetIncludedStreamMask() const
   return res;
 }
 
-CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
+STREAM_CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
 {
   if (license_type_ == "com.widevine.alpha")
-    return CRYPTO_KEY_SYSTEM_WIDEVINE;
+    return STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE;
 #if STREAMCRYPTO_VERSION_LEVEL >= 1
   else if (license_type_ == "com.huawei.wiseplay")
-    return CRYPTO_KEY_SYSTEM_WISEPLAY;
+    return STREAM_CRYPTO_KEY_SYSTEM_WISEPLAY;
 #endif
   else if (license_type_ == "com.microsoft.playready")
-    return CRYPTO_KEY_SYSTEM_PLAYREADY;
+    return STREAM_CRYPTO_KEY_SYSTEM_PLAYREADY;
   else
-    return CRYPTO_KEY_SYSTEM_NONE;
+    return STREAM_CRYPTO_KEY_SYSTEM_NONE;
 }
 
 int Session::GetChapter() const
@@ -3482,14 +3482,13 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
     uint8_t cdmId(static_cast<uint8_t>(stream->stream_.getRepresentation()->pssh_set_));
     if (stream->encrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
-      CRYPTO_INFO cryptoInfo;
+      kodi::addon::StreamCryptoSession cryptoSession;
 
       kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
-      cryptoInfo.m_CryptoKeySystem = m_session->GetCryptoKeySystem();
+      cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem());
 
       const char* sessionId(m_session->GetCDMSession(cdmId));
-      cryptoInfo.m_CryptoSessionIdSize = static_cast<uint16_t>(strlen(sessionId));
-      cryptoInfo.m_CryptoSessionId = sessionId;
+      cryptoSession.SetSessionId(sessionId);
 
       if (m_session->GetDecrypterCaps(cdmId).flags &
           SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
@@ -3497,11 +3496,11 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
       else
         stream->info_.SetFeatures(0);
 
-      cryptoInfo.flags = (m_session->GetDecrypterCaps(cdmId).flags &
+      cryptoSession.SetFlags((m_session->GetDecrypterCaps(cdmId).flags &
                           SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER)
-                             ? CRYPTO_FLAG_SECURE_DECODER
-                             : 0;
-      stream->info_.SetCryptoInfo(cryptoInfo);
+                             ? STREAM_CRYPTO_FLAG_SECURE_DECODER
+                             : 0);
+      stream->info_.SetCryptoSession(cryptoSession);
     }
 
     info = stream->info_;
@@ -3915,8 +3914,8 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA& initData)
   }
   m_name += ".decoder";
 
-  std::string sessionId(initData.cryptoInfo.m_CryptoSessionId,
-                        initData.cryptoInfo.m_CryptoSessionIdSize);
+  std::string sessionId(initData.cryptoSession.sessionId,
+                        initData.cryptoSession.sessionIdSize);
   AP4_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
   return m_session->GetDecrypter()->OpenVideoDecoder(
       ssd, reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));

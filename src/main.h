@@ -151,7 +151,7 @@ public:
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
   const AP4_UI08 *GetDefaultKeyId(const uint16_t index) const;
   uint32_t GetIncludedStreamMask() const;
-  CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
+  STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
   int GetChapter() const;
   int GetChapterCount() const;
