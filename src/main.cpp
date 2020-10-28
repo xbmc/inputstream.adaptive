@@ -81,7 +81,7 @@ static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
 /*******************************************************
 kodi host - interface for decrypter libraries
 ********************************************************/
-class KodiHost : public SSD::SSD_HOST
+class ATTRIBUTE_HIDDEN KodiHost : public SSD::SSD_HOST
 {
 public:
 #if defined(ANDROID)
@@ -212,7 +212,7 @@ private:
 Bento4 Streams
 ********************************************************/
 
-class AP4_DASHStream : public AP4_ByteStream
+class ATTRIBUTE_HIDDEN AP4_DASHStream : public AP4_ByteStream
 {
 public:
   // Constructor
@@ -536,7 +536,7 @@ bool KodiAdaptiveStream::parseIndexRange()
 |   CodecHandler
 ********************************************************/
 
-class CodecHandler
+class ATTRIBUTE_HIDDEN CodecHandler
 {
 public:
   CodecHandler(AP4_SampleDescription* sd)
@@ -610,7 +610,7 @@ public:
 
 /***********************   AVC   ************************/
 
-class AVCCodecHandler : public CodecHandler
+class ATTRIBUTE_HIDDEN AVCCodecHandler : public CodecHandler
 {
 public:
   AVCCodecHandler(AP4_SampleDescription* sd)
@@ -827,7 +827,7 @@ private:
 
 /***********************   HEVC   ************************/
 
-class HEVCCodecHandler : public CodecHandler
+class ATTRIBUTE_HIDDEN HEVCCodecHandler : public CodecHandler
 {
 public:
   HEVCCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
@@ -905,7 +905,7 @@ public:
 
 /***********************   MPEG   ************************/
 
-class MPEGCodecHandler : public CodecHandler
+class ATTRIBUTE_HIDDEN MPEGCodecHandler : public CodecHandler
 {
 public:
   MPEGCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
@@ -918,7 +918,7 @@ public:
 
 /***********************   VP9   ************************/
 
-class VP9CodecHandler : public CodecHandler
+class ATTRIBUTE_HIDDEN VP9CodecHandler : public CodecHandler
 {
 public:
   VP9CodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
@@ -934,7 +934,7 @@ public:
 
 /***********************   TTML   ************************/
 
-class TTMLCodecHandler : public CodecHandler
+class ATTRIBUTE_HIDDEN TTMLCodecHandler : public CodecHandler
 {
 public:
   TTMLCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd), m_ptsOffset(0){};
@@ -979,7 +979,7 @@ private:
 
 /***********************   WebVTT   ************************/
 
-class WebVTTCodecHandler : public CodecHandler
+class ATTRIBUTE_HIDDEN WebVTTCodecHandler : public CodecHandler
 {
 public:
   WebVTTCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd), m_ptsOffset(0){};
@@ -1026,7 +1026,7 @@ private:
 |   SampleReader
 ********************************************************/
 
-class SampleReader
+class ATTRIBUTE_HIDDEN SampleReader
 {
 public:
   virtual ~SampleReader() = default;
@@ -1057,7 +1057,7 @@ public:
 |   DummySampleReader
 ********************************************************/
 
-class DummyReader : public SampleReader
+class ATTRIBUTE_HIDDEN DummyReader : public SampleReader
 {
 public:
   virtual ~DummyReader() = default;
@@ -1086,7 +1086,7 @@ public:
 /*******************************************************
 |   FragmentedSampleReader
 ********************************************************/
-class FragmentedSampleReader : public SampleReader, public AP4_LinearReader
+class ATTRIBUTE_HIDDEN FragmentedSampleReader : public SampleReader, public AP4_LinearReader
 {
 public:
   FragmentedSampleReader(AP4_ByteStream* input,
@@ -1537,7 +1537,7 @@ private:
 |   SubtitleSampleReader
 ********************************************************/
 
-class SubtitleSampleReader : public SampleReader
+class ATTRIBUTE_HIDDEN SubtitleSampleReader : public SampleReader
 {
 public:
   SubtitleSampleReader(const std::string& url,
@@ -1664,7 +1664,7 @@ private:
 /*******************************************************
 |   TSSampleReader
 ********************************************************/
-class TSSampleReader : public SampleReader, public TSReader
+class ATTRIBUTE_HIDDEN TSSampleReader : public SampleReader, public TSReader
 {
 public:
   TSSampleReader(AP4_ByteStream* input,
@@ -1790,7 +1790,7 @@ private:
 /*******************************************************
 |   ADTSSampleReader
 ********************************************************/
-class ADTSSampleReader : public SampleReader, public ADTSReader
+class ATTRIBUTE_HIDDEN ADTSSampleReader : public SampleReader, public ADTSReader
 {
 public:
   ADTSSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
@@ -1875,7 +1875,7 @@ private:
 /*******************************************************
 |   WebmSampleReader
 ********************************************************/
-class WebmSampleReader : public SampleReader, public WebmReader
+class ATTRIBUTE_HIDDEN WebmSampleReader : public SampleReader, public WebmReader
 {
 public:
   WebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
@@ -3187,7 +3187,7 @@ class CInputStreamAdaptive;
 /*                     VideoCodec                      */
 /*******************************************************/
 
-class CVideoCodecAdaptive : public kodi::addon::CInstanceVideoCodec
+class ATTRIBUTE_HIDDEN CVideoCodecAdaptive : public kodi::addon::CInstanceVideoCodec
 {
 public:
   CVideoCodecAdaptive(KODI_HANDLE instance, const std::string& version);
@@ -3218,7 +3218,7 @@ private:
 /*                     InputStream                     */
 /*******************************************************/
 
-class CInputStreamAdaptive : public kodi::addon::CInstanceInputStream
+class ATTRIBUTE_HIDDEN CInputStreamAdaptive : public kodi::addon::CInstanceInputStream
 {
 public:
   CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion);

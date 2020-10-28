@@ -20,27 +20,29 @@
 
 #include "../common/AdaptiveTree.h"
 
+#include <kodi/AddonBase.h>
+
 namespace adaptive
 {
 
-  class DASHTree : public AdaptiveTree
-  {
-  public:
-    DASHTree();
-    virtual bool open(const std::string &url, const std::string &manifestUpdateParam) override;
-    virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) override;
-    virtual void RefreshSegments(Period* period,
-                                 AdaptationSet* adp,
-                                 Representation* rep,
-                                 StreamType type) override;
+class ATTRIBUTE_HIDDEN DASHTree : public AdaptiveTree
+{
+public:
+  DASHTree();
+  virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
+  virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
+  virtual void RefreshSegments(Period* period,
+                               AdaptationSet* adp,
+                               Representation* rep,
+                               StreamType type) override;
 
-    void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
-    uint64_t pts_helper_;
-    uint32_t firstStartNumber_;
-    std::string current_playready_wrmheader_;
-    std::string mpd_url_;
+  void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
+  uint64_t pts_helper_;
+  uint32_t firstStartNumber_;
+  std::string current_playready_wrmheader_;
+  std::string mpd_url_;
 
-  protected:
-    virtual void RefreshLiveSegments() override;
+protected:
+  virtual void RefreshLiveSegments() override;
   };
 }

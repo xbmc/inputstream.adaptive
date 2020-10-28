@@ -53,13 +53,13 @@ namespace XBMCFILE
 Kodi Streams implementation
 ********************************************************/
 
-class KodiAdaptiveTree : public adaptive::AdaptiveTree
+class ATTRIBUTE_HIDDEN KodiAdaptiveTree : public adaptive::AdaptiveTree
 {
 protected:
   virtual bool download(const char* url);
 };
 
-class KodiAdaptiveStream : public adaptive::AdaptiveStream
+class ATTRIBUTE_HIDDEN KodiAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
   KodiAdaptiveStream(adaptive::AdaptiveTree &tree, adaptive::AdaptiveTree::StreamType type)
@@ -77,7 +77,7 @@ enum MANIFEST_TYPE
   MANIFEST_TYPE_HLS
 };
 
-class Session: public adaptive::AdaptiveStreamObserver
+class ATTRIBUTE_HIDDEN Session : public adaptive::AdaptiveStreamObserver
 {
 public:
   Session(MANIFEST_TYPE manifestType,

@@ -18,21 +18,24 @@
 
 #pragma once
 
-#include <vector>
-#include <string>
-#include <map>
-#include <inttypes.h>
 #include "expat.h"
-#include <thread>
-#include <mutex>
-#include <condition_variable>
+
 #include <chrono>
+#include <condition_variable>
+#include <inttypes.h>
+#include <map>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include <kodi/AddonBase.h>
 
 namespace adaptive
 {
 
-template <typename T>
-struct SPINCACHE
+template<typename T>
+struct ATTRIBUTE_HIDDEN SPINCACHE
 {
   SPINCACHE() :basePos(0) {};
 
@@ -89,7 +92,7 @@ struct SPINCACHE
   std::vector<T> data;
 };
 
-class AdaptiveTree
+class ATTRIBUTE_HIDDEN AdaptiveTree
 {
 public:
   enum StreamType

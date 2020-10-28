@@ -20,25 +20,28 @@
 
 #include <string>
 
+#include <kodi/AddonBase.h>
+
 namespace adaptive
 {
 
-  class PRProtectionParser
-  {
-  public:
-    PRProtectionParser(std::string wrmheader);
-    std::string getKID() const { return m_strKID; };
-    std::string getLicenseURL() const { return m_strLicenseURL; };
-    std::string getPSSH() const { return m_strPSSH; };
+class ATTRIBUTE_HIDDEN PRProtectionParser
+{
+public:
+  PRProtectionParser(std::string wrmheader);
+  std::string getKID() const { return m_strKID; };
+  std::string getLicenseURL() const { return m_strLicenseURL; };
+  std::string getPSSH() const { return m_strPSSH; };
 
-    void setKID(const std::string kid) { m_strKID = kid; };
-    void setLicenseURL(const std::string licenseURL) { m_strLicenseURL = licenseURL; };
+  void setKID(const std::string kid) { m_strKID = kid; };
+  void setLicenseURL(const std::string licenseURL) { m_strLicenseURL = licenseURL; };
 
-    std::string m_strXMLText;
-  private:
-    std::string m_strKID;
-    std::string m_strLicenseURL;
-    std::string m_strPSSH;
+  std::string m_strXMLText;
+
+private:
+  std::string m_strKID;
+  std::string m_strLicenseURL;
+  std::string m_strPSSH;
   };
 
-} // namespace
+  } // namespace adaptive

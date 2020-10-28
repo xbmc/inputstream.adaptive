@@ -100,7 +100,8 @@ namespace SSD
       MaxPlanes = 3,
     };
 
-    enum Flags :uint32_t {
+    enum Flags : uint32_t
+    {
       FLAG_NONE = 0,
       FLAG_DROP = (1 << 0),
       FLAG_DRAIN = (1 << 1),

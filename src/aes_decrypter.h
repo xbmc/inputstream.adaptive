@@ -19,9 +19,12 @@
 #pragma once
 
 #include "Ap4Types.h"
+
 #include <string>
 
-class AESDecrypter
+#include <kodi/AddonBase.h>
+
+class ATTRIBUTE_HIDDEN AESDecrypter
 {
 public:
   AESDecrypter(const std::string &licenseKey) : m_licenseKey(licenseKey) {};
