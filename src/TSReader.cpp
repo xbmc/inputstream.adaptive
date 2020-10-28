@@ -92,7 +92,7 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
 
       bool ret(false);
 
-      if (tsInfo.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+      if (tsInfo.m_streamType == INPUTSTREAM_TYPE_VIDEO)
       {
         if ((!info.m_FpsScale && tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.m_FpsScale)) ||
           (!info.m_FpsRate && tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.m_FpsRate)) ||
@@ -109,7 +109,7 @@ bool TSReader::GetInformation(INPUTSTREAM_INFO &info)
           ret = true;
         }
       }
-      else if (tsInfo.m_streamType == INPUTSTREAM_INFO::TYPE_AUDIO)
+      else if (tsInfo.m_streamType == INPUTSTREAM_TYPE_AUDIO)
       {
         if (tsInfo.m_stream->stream_info.language[0])
           strncpy(info.m_language, tsInfo.m_stream->stream_info.language, 3), info.m_language[3] = 0;
@@ -150,7 +150,7 @@ bool TSReader::SeekTime(uint64_t timeInTs, bool preceeding)
   bool hasVideo(false);
   //look if we have video
   for (auto &tsInfo : m_streamInfos)
-    if (tsInfo.m_enabled && tsInfo.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+    if (tsInfo.m_enabled && tsInfo.m_streamType == INPUTSTREAM_TYPE_VIDEO)
     {
       hasVideo = true;
       break;
@@ -279,7 +279,7 @@ bool TSReader::HandleProgramChange()
     case TSDemux::STREAM_TYPE_VIDEO_HEVC:
     case TSDemux::STREAM_TYPE_VIDEO_MPEG4:
     case TSDemux::STREAM_TYPE_VIDEO_VC1:
-      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+      tsInfo.m_streamType = INPUTSTREAM_TYPE_VIDEO;
       break;
     case TSDemux::STREAM_TYPE_AUDIO_MPEG1:
     case TSDemux::STREAM_TYPE_AUDIO_MPEG2:
@@ -290,13 +290,13 @@ bool TSReader::HandleProgramChange()
     case TSDemux::STREAM_TYPE_AUDIO_EAC3:
     case TSDemux::STREAM_TYPE_AUDIO_LPCM:
     case TSDemux::STREAM_TYPE_AUDIO_DTS:
-      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+      tsInfo.m_streamType = INPUTSTREAM_TYPE_AUDIO;
       break;
     case TSDemux::STREAM_TYPE_DVB_SUBTITLE:
-      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
+      tsInfo.m_streamType = INPUTSTREAM_TYPE_SUBTITLE;
       break;
     default:
-      tsInfo.m_streamType = INPUTSTREAM_INFO::TYPE_NONE;
+      tsInfo.m_streamType = INPUTSTREAM_TYPE_NONE;
     }
 
     if (stream->has_stream_info)
@@ -329,10 +329,10 @@ bool TSReader::HandleStreamChange(uint16_t pid)
   return ret;
 }
 
-const INPUTSTREAM_INFO::STREAM_TYPE TSReader::GetStreamType() const
+const INPUTSTREAM_TYPE TSReader::GetStreamType() const
 {
   for (const auto &tsInfo : m_streamInfos)
     if (tsInfo.m_stream && tsInfo.m_stream->pid == m_pkt.pid)
       return tsInfo.m_streamType;
-  return INPUTSTREAM_INFO::TYPE_NONE;
+  return INPUTSTREAM_TYPE_NONE;
 }

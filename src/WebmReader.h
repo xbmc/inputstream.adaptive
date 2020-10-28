@@ -91,10 +91,10 @@ private:
   bool m_metadataChanged = true;
 
 #if INPUTSTREAM_VERSION_LEVEL > 0
-  INPUTSTREAM_INFO::COLORSPACE m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNSPECIFIED; /*!< @brief definition of colorspace */
-  INPUTSTREAM_INFO::COLORRANGE m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;     /*!< @brief color range if available */
-  INPUTSTREAM_INFO::COLORPRIMARIES m_colorPrimaries = INPUTSTREAM_INFO::COLORPRIMARY_UNSPECIFIED;
-  INPUTSTREAM_INFO::COLORTRC m_colorTransferCharacteristic = INPUTSTREAM_INFO::COLORTRC_UNSPECIFIED;
+  INPUTSTREAM_COLORSPACE m_colorSpace = INPUTSTREAM_COLORSPACE_UNSPECIFIED; /*!< @brief definition of colorspace */
+  INPUTSTREAM_COLORRANGE m_colorRange = INPUTSTREAM_COLORRANGE_UNKNOWN;     /*!< @brief color range if available */
+  INPUTSTREAM_COLORPRIMARIES m_colorPrimaries = INPUTSTREAM_COLORPRIMARY_UNSPECIFIED;
+  INPUTSTREAM_COLORTRC m_colorTransferCharacteristic = INPUTSTREAM_COLORTRC_UNSPECIFIED;
   INPUTSTREAM_MASTERING_METADATA* m_masteringMetadata = nullptr;
   INPUTSTREAM_CONTENTLIGHT_METADATA* m_contentLightMetadata = nullptr;
 #endif

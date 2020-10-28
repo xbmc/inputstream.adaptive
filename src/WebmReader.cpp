@@ -131,7 +131,7 @@ bool WebmReader::GetInformation(INPUTSTREAM_INFO &info)
   if (m_codecProfile && info.m_codecProfile != m_codecProfile)
     info.m_codecProfile = m_codecProfile, ret = true;
 
-  if (info.m_streamType == INPUTSTREAM_INFO::STREAM_TYPE::TYPE_VIDEO)
+  if (info.m_streamType == INPUTSTREAM_TYPE_VIDEO)
   {
     if (m_width && m_width != info.m_Width)
       info.m_Width = m_width, ret = true;
@@ -294,14 +294,14 @@ webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, con
     if (video.colour.is_present())
     {
 #if INPUTSTREAM_VERSION_LEVEL > 0
-      if (video.colour.value().matrix_coefficients.is_present() && static_cast<uint64_t>(video.colour.value().matrix_coefficients.value()) < INPUTSTREAM_INFO::COLORSPACE::COLORSPACE_MAX)
-        m_colorSpace = static_cast<INPUTSTREAM_INFO::COLORSPACE>(video.colour.value().matrix_coefficients.value());
-      if (video.colour.value().range.is_present() && static_cast<uint64_t>(video.colour.value().range.value()) < INPUTSTREAM_INFO::COLORRANGE::COLORRANGE_MAX)
-        m_colorRange = static_cast<INPUTSTREAM_INFO::COLORRANGE>(video.colour.value().range.value());
-      if (video.colour.value().primaries.is_present() && static_cast<uint64_t>(video.colour.value().primaries.value()) < INPUTSTREAM_INFO::COLORTRC::COLORTRC_MAX)
-        m_colorPrimaries = static_cast<INPUTSTREAM_INFO::COLORPRIMARIES>(video.colour.value().primaries.value());
-      if (video.colour.value().transfer_characteristics.is_present() && static_cast<uint64_t>(video.colour.value().transfer_characteristics.value()) < INPUTSTREAM_INFO::COLORTRC::COLORTRC_MAX)
-        m_colorTransferCharacteristic = static_cast<INPUTSTREAM_INFO::COLORTRC>(video.colour.value().transfer_characteristics.value());
+      if (video.colour.value().matrix_coefficients.is_present() && static_cast<uint64_t>(video.colour.value().matrix_coefficients.value()) < INPUTSTREAM_COLORSPACE_MAX)
+        m_colorSpace = static_cast<INPUTSTREAM_COLORSPACE>(video.colour.value().matrix_coefficients.value());
+      if (video.colour.value().range.is_present() && static_cast<uint64_t>(video.colour.value().range.value()) < INPUTSTREAM_COLORRANGE_MAX)
+        m_colorRange = static_cast<INPUTSTREAM_COLORRANGE>(video.colour.value().range.value());
+      if (video.colour.value().primaries.is_present() && static_cast<uint64_t>(video.colour.value().primaries.value()) < INPUTSTREAM_COLORTRC_MAX)
+        m_colorPrimaries = static_cast<INPUTSTREAM_COLORPRIMARIES>(video.colour.value().primaries.value());
+      if (video.colour.value().transfer_characteristics.is_present() && static_cast<uint64_t>(video.colour.value().transfer_characteristics.value()) < INPUTSTREAM_COLORTRC_MAX)
+        m_colorTransferCharacteristic = static_cast<INPUTSTREAM_COLORTRC>(video.colour.value().transfer_characteristics.value());
 
       if (video.colour.value().mastering_metadata.is_present())
       {

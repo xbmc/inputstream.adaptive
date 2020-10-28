@@ -1036,9 +1036,9 @@ public:
   virtual const AP4_Byte* GetSampleData() const = 0;
   virtual uint64_t GetDuration() const = 0;
   virtual bool IsEncrypted() const = 0;
-  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid){};
-  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid){};
-  virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { return true; };
+  virtual void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid){};
+  virtual void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid){};
+  virtual bool RemoveStreamType(INPUTSTREAM_TYPE type) { return true; };
 };
 
 /*******************************************************
@@ -1066,9 +1066,9 @@ public:
   const AP4_Byte* GetSampleData() const override { return nullptr; }
   uint64_t GetDuration() const override { return 0; }
   bool IsEncrypted() const override { return false; }
-  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override{};
-  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override{};
-  bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override { return true; };
+  void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override{};
+  void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override{};
+  bool RemoveStreamType(INPUTSTREAM_TYPE type) override { return true; };
 } DummyReader;
 
 /*******************************************************
@@ -1658,17 +1658,17 @@ class TSSampleReader : public SampleReader, public TSReader
 {
 public:
   TSSampleReader(AP4_ByteStream* input,
-                 INPUTSTREAM_INFO::STREAM_TYPE type,
+                 INPUTSTREAM_TYPE type,
                  AP4_UI32 streamId,
                  uint32_t requiredMask)
     : TSReader(input, requiredMask),
       m_stream(dynamic_cast<AP4_DASHStream*>(input)),
       m_typeMask(1 << type)
   {
-    m_typeMap[type] = m_typeMap[INPUTSTREAM_INFO::TYPE_NONE] = streamId;
+    m_typeMap[type] = m_typeMap[INPUTSTREAM_TYPE_NONE] = streamId;
   };
 
-  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override
+  void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask |= (1 << type);
@@ -1676,13 +1676,13 @@ public:
       StartStreaming(m_typeMask);
   };
 
-  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override
+  void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask = (1 << type);
   };
 
-  bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override
+  bool RemoveStreamType(INPUTSTREAM_TYPE type) override
   {
     m_typeMask &= ~(1 << type);
     StartStreaming(m_typeMask);
@@ -1762,7 +1762,7 @@ public:
   bool IsEncrypted() const override { return false; };
 
 private:
-  uint32_t m_typeMask; //Bit representation of INPUTSTREAM_INFO::STREAM_TYPES
+  uint32_t m_typeMask; //Bit representation of INPUTSTREAM_TYPES
   uint32_t m_typeMap[16];
   bool m_eos = false;
   bool m_started = false;
@@ -2576,35 +2576,35 @@ bool Session::InitializePeriod()
 
       stream.stream_.prepare_stream(adp, GetVideoWidth(), GetVideoHeight(), hdcpLimit, hdcpVersion,
                                     min_bandwidth, max_bandwidth, repId, media_headers_);
-      stream.info_.m_flags = INPUTSTREAM_INFO::FLAG_NONE;
+      stream.info_.m_flags = INPUTSTREAM_FLAG_NONE;
       size_t copySize = adp->name_.size() > 255 ? 255 : adp->name_.size();
       strncpy(stream.info_.m_name, adp->name_.c_str(), copySize), stream.info_.m_name[copySize] = 0;
 
       switch (adp->type_)
       {
         case adaptive::AdaptiveTree::VIDEO:
-          stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_VIDEO;
+          stream.info_.m_streamType = INPUTSTREAM_TYPE_VIDEO;
           if (manual_streams &&
               stream.stream_.getRepresentation() == defaultVideoStream.getRepresentation())
-            stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
+            stream.info_.m_flags |= INPUTSTREAM_FLAG_DEFAULT;
           break;
         case adaptive::AdaptiveTree::AUDIO:
-          stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_AUDIO;
+          stream.info_.m_streamType = INPUTSTREAM_TYPE_AUDIO;
           if (adp->impaired_)
-            stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_VISUAL_IMPAIRED;
+            stream.info_.m_flags |= INPUTSTREAM_FLAG_VISUAL_IMPAIRED;
           if (adp->default_)
-            stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
+            stream.info_.m_flags |= INPUTSTREAM_FLAG_DEFAULT;
           if (adp->original_ || (!ov_audio_.empty() && adp->language_ == ov_audio_))
-            stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_ORIGINAL;
+            stream.info_.m_flags |= INPUTSTREAM_FLAG_ORIGINAL;
           break;
         case adaptive::AdaptiveTree::SUBTITLE:
-          stream.info_.m_streamType = INPUTSTREAM_INFO::TYPE_SUBTITLE;
+          stream.info_.m_streamType = INPUTSTREAM_TYPE_SUBTITLE;
           if (adp->impaired_)
-            stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_HEARING_IMPAIRED;
+            stream.info_.m_flags |= INPUTSTREAM_FLAG_HEARING_IMPAIRED;
           if (adp->forced_)
-            stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_FORCED;
+            stream.info_.m_flags |= INPUTSTREAM_FLAG_FORCED;
           if (adp->default_)
-            stream.info_.m_flags |= INPUTSTREAM_INFO::FLAG_DEFAULT;
+            stream.info_.m_flags |= INPUTSTREAM_FLAG_DEFAULT;
           break;
         default:
           break;
@@ -2642,7 +2642,7 @@ void Session::UpdateStream(STREAM& stream, const SSD::SSD_DECRYPTER::SSD_CAPS& c
     const std::string* res(&annexb);
 
     if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) &&
-        stream.info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+        stream.info_.m_streamType == INPUTSTREAM_TYPE_VIDEO)
     {
       kodi::Log(ADDON_LOG_DEBUG, "UpdateStream: Convert avc -> annexb");
       annexb = avc_to_annexb(rep->codec_private_data_);
@@ -2665,13 +2665,13 @@ void Session::UpdateStream(STREAM& stream, const SSD::SSD_DECRYPTER::SSD_CAPS& c
   stream.info_.m_codecFourCC = 0;
 
 #if INPUTSTREAM_VERSION_LEVEL > 0
-  stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNSPECIFIED;
-  stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
-  stream.info_.m_colorPrimaries = INPUTSTREAM_INFO::COLORPRIMARY_UNSPECIFIED;
-  stream.info_.m_colorTransferCharacteristic = INPUTSTREAM_INFO::COLORTRC_UNSPECIFIED;
+  stream.info_.m_colorSpace = INPUTSTREAM_COLORSPACE_UNSPECIFIED;
+  stream.info_.m_colorRange = INPUTSTREAM_COLORRANGE_UNKNOWN;
+  stream.info_.m_colorPrimaries = INPUTSTREAM_COLORPRIMARY_UNSPECIFIED;
+  stream.info_.m_colorTransferCharacteristic = INPUTSTREAM_COLORTRC_UNSPECIFIED;
 #else
-  stream.info_.m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNKNOWN;
-  stream.info_.m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;
+  stream.info_.m_colorSpace = INPUTSTREAM_COLORSPACE_UNKNOWN;
+  stream.info_.m_colorRange = INPUTSTREAM_COLORRANGE_UNKNOWN;
 #endif
   if (rep->codecs_.find("mp4a") == 0 || rep->codecs_.find("aac") == 0)
     strcpy(stream.info_.m_codecName, "aac");
@@ -2946,7 +2946,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
           kodi::Log(ADDON_LOG_INFO,
                     "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
                     (*b)->info_.m_pID, destTime, (*b)->reader_->PTS());
-          if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+          if ((*b)->info_.m_streamType == INPUTSTREAM_TYPE_VIDEO)
             seekTime = destTime, seekTimeCorrected = (*b)->reader_->PTS(), preceeding = false;
           ret = true;
         }
@@ -3056,9 +3056,9 @@ AP4_CencSingleSampleDecrypter* Session::GetSingleSampleDecrypter(std::string ses
 
 uint32_t Session::GetIncludedStreamMask() const
 {
-  const INPUTSTREAM_INFO::STREAM_TYPE adp2ips[] = {
-      INPUTSTREAM_INFO::TYPE_NONE, INPUTSTREAM_INFO::TYPE_VIDEO, INPUTSTREAM_INFO::TYPE_AUDIO,
-      INPUTSTREAM_INFO::TYPE_SUBTITLE};
+  const INPUTSTREAM_TYPE adp2ips[] = {
+      INPUTSTREAM_TYPE_NONE, INPUTSTREAM_TYPE_VIDEO, INPUTSTREAM_TYPE_AUDIO,
+      INPUTSTREAM_TYPE_SUBTITLE};
   uint32_t res(0);
   for (unsigned int i(0); i < 4; ++i)
     if (adaptiveTree_->current_period_->included_types_ & (1U << i))
@@ -3066,18 +3066,18 @@ uint32_t Session::GetIncludedStreamMask() const
   return res;
 }
 
-CRYPTO_INFO::CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
+CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
 {
   if (license_type_ == "com.widevine.alpha")
-    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WIDEVINE;
+    return CRYPTO_KEY_SYSTEM_WIDEVINE;
 #if STREAMCRYPTO_VERSION_LEVEL >= 1
   else if (license_type_ == "com.huawei.wiseplay")
-    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WISEPLAY;
+    return CRYPTO_KEY_SYSTEM_WISEPLAY;
 #endif
   else if (license_type_ == "com.microsoft.playready")
-    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_PLAYREADY;
+    return CRYPTO_KEY_SYSTEM_PLAYREADY;
   else
-    return CRYPTO_INFO::CRYPTO_KEY_SYSTEM_NONE;
+    return CRYPTO_KEY_SYSTEM_NONE;
 }
 
 int Session::GetChapter() const
@@ -3211,7 +3211,7 @@ public:
                               const std::string& version,
                               KODI_HANDLE& addonInstance) override;
 
-  bool Open(INPUTSTREAM& props) override;
+  bool Open(INPUTSTREAM_PROPERTY& props) override;
   void Close() override;
   bool GetStreamIds(std::vector<unsigned int>& ids) override;
   void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
@@ -3273,7 +3273,7 @@ ADDON_STATUS CInputStreamAdaptive::CreateInstance(int instanceType,
   return ADDON_STATUS_NOT_IMPLEMENTED;
 }
 
-bool CInputStreamAdaptive::Open(INPUTSTREAM& props)
+bool CInputStreamAdaptive::Open(INPUTSTREAM_PROPERTY& props)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
@@ -3455,12 +3455,12 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
 void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES& caps)
 {
   kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
-  caps.m_mask = INPUTSTREAM_CAPABILITIES::SUPPORTS_IDEMUX |
-                INPUTSTREAM_CAPABILITIES::SUPPORTS_IDISPLAYTIME |
-                INPUTSTREAM_CAPABILITIES::SUPPORTS_IPOSTIME |
-                INPUTSTREAM_CAPABILITIES::SUPPORTS_SEEK | INPUTSTREAM_CAPABILITIES::SUPPORTS_PAUSE;
+  caps.m_mask = INPUTSTREAM_SUPPORTS_IDEMUX |
+                INPUTSTREAM_SUPPORTS_IDISPLAYTIME |
+                INPUTSTREAM_SUPPORTS_IPOSTIME |
+                INPUTSTREAM_SUPPORTS_SEEK | INPUTSTREAM_SUPPORTS_PAUSE;
 #if INPUTSTREAM_VERSION_LEVEL > 1
-  caps.m_mask |= INPUTSTREAM_CAPABILITIES::SUPPORTS_ICHAPTER;
+  caps.m_mask |= INPUTSTREAM_SUPPORTS_ICHAPTER;
 #endif
 }
 
@@ -3484,13 +3484,13 @@ bool CInputStreamAdaptive::GetStream(int streamid, INPUTSTREAM_INFO& info)
 
       if (m_session->GetDecrypterCaps(cdmId).flags &
           SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
-        stream->info_.m_features = INPUTSTREAM_INFO::FEATURE_DECODE;
+        stream->info_.m_features = INPUTSTREAM_FEATURE_DECODE;
       else
         stream->info_.m_features = 0;
 
       stream->info_.m_cryptoInfo.flags = (m_session->GetDecrypterCaps(cdmId).flags &
                                           SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER)
-                                             ? CRYPTO_INFO::FLAG_SECURE_DECODER
+                                             ? CRYPTO_FLAG_SECURE_DECODER
                                              : 0;
     }
 
@@ -3553,7 +3553,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     Session::STREAM* mainStream;
     stream->mainId_ = 0;
     while ((mainStream = m_session->GetStream(++stream->mainId_)))
-      if (mainStream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO && mainStream->enabled)
+      if (mainStream->info_.m_streamType == INPUTSTREAM_TYPE_VIDEO && mainStream->enabled)
         break;
     if (mainStream)
     {
@@ -3668,12 +3668,12 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     return false;
   }
 
-  if (stream->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
+  if (stream->info_.m_streamType == INPUTSTREAM_TYPE_VIDEO)
   {
     for (uint16_t i(0); i < 16; ++i)
       if (m_IncludedStreams[i])
       {
-        stream->reader_->AddStreamType(static_cast<INPUTSTREAM_INFO::STREAM_TYPE>(i),
+        stream->reader_->AddStreamType(static_cast<INPUTSTREAM_TYPE>(i),
                                        m_IncludedStreams[i]);
         stream->reader_->GetInformation(
             m_session->GetStream(m_IncludedStreams[i] - m_session->GetPeriodId() * 1000)->info_);

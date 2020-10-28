@@ -48,7 +48,7 @@ public:
   uint64_t GetDuration() const { return m_pkt.duration; }
   const AP4_Byte *GetPacketData() const { return m_pkt.data; };
   const AP4_Size GetPacketSize() const { return m_pkt.size; };
-  const INPUTSTREAM_INFO::STREAM_TYPE GetStreamType() const;
+  const INPUTSTREAM_TYPE GetStreamType() const;
 
 private:
   bool GetPacket();
@@ -66,11 +66,11 @@ private:
 
   struct TSINFO
   {
-    TSINFO(TSDemux::ElementaryStream* stream) : m_stream(stream), m_needInfo(true), m_changed(false), m_enabled(false), m_streamType(INPUTSTREAM_INFO::TYPE_NONE) {};
+    TSINFO(TSDemux::ElementaryStream* stream) : m_stream(stream), m_needInfo(true), m_changed(false), m_enabled(false), m_streamType(INPUTSTREAM_TYPE_NONE) {};
 
     TSDemux::ElementaryStream* m_stream;
     bool m_needInfo, m_changed, m_enabled;
-    INPUTSTREAM_INFO::STREAM_TYPE m_streamType;
+    INPUTSTREAM_TYPE m_streamType;
   };
   std::vector<TSINFO> m_streamInfos;
 };
