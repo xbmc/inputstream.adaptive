@@ -52,7 +52,7 @@
 #undef CreateDirectory
 #endif
 
-#define DVD_TIME_BASE 1000000
+#define STREAM_TIME_BASE 1000000
 
 #define SAFE_DELETE(p) \
   do \
@@ -1063,8 +1063,8 @@ class DummyReader : public SampleReader
 public:
   virtual ~DummyReader() = default;
   bool EOS() const override { return false; }
-  uint64_t DTS() const override { return DVD_NOPTS_VALUE; }
-  uint64_t PTS() const override { return DVD_NOPTS_VALUE; }
+  uint64_t DTS() const override { return STREAM_NOPTS_VALUE; }
+  uint64_t PTS() const override { return STREAM_NOPTS_VALUE; }
   AP4_Result Start(bool& bStarted) override { return AP4_SUCCESS; }
   AP4_Result ReadSample() override { return AP4_SUCCESS; }
   void Reset(bool bEOS) override {}
@@ -1143,7 +1143,7 @@ public:
     if (m_singleSampleDecryptor)
       m_poolId = m_singleSampleDecryptor->AddPool();
 
-    m_timeBaseExt = DVD_TIME_BASE;
+    m_timeBaseExt = STREAM_TIME_BASE;
     m_timeBaseInt = m_track->GetMediaTimeScale();
 
     while (m_timeBaseExt > 1)
@@ -1723,8 +1723,8 @@ public:
   {
     if (ReadPacket())
     {
-      m_dts = (GetDts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetDts() * 100) / 9;
-      m_pts = (GetPts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetPts() * 100) / 9;
+      m_dts = (GetDts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetDts() * 100) / 9;
+      m_pts = (GetPts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetPts() * 100) / 9;
 
       if (~m_ptsOffs)
       {
@@ -1814,7 +1814,7 @@ public:
   {
     if (ReadPacket())
     {
-      m_pts = (GetPts() == PTS_UNSET) ? DVD_NOPTS_VALUE : (GetPts() * 100) / 9;
+      m_pts = (GetPts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetPts() * 100) / 9;
 
       if (~m_ptsOffs)
       {
@@ -2874,7 +2874,7 @@ SampleReader* Session::GetNextSample()
     CheckFragmentDuration(*res);
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
-    if (res->reader_->PTS() != DVD_NOPTS_VALUE)
+    if (res->reader_->PTS() != STREAM_NOPTS_VALUE)
       elapsed_time_ = PTSToElapsed(res->reader_->PTS()) + GetChapterStartTime();
     return res->reader_;
   }
@@ -2932,7 +2932,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     }
   }
 
-  uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE);
+  uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * STREAM_TIME_BASE);
   if (timing_stream_)
   {
     seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
@@ -2949,7 +2949,8 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     {
       bool bReset;
       if ((*b)->stream_.seek_time(
-              static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) / DVD_TIME_BASE,
+              static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) /
+                  STREAM_TIME_BASE,
               preceeding, bReset))
       {
         if (bReset)
@@ -2958,7 +2959,8 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
           (*b)->reader_->Reset(true);
         else
         {
-          double destTime(static_cast<double>(PTSToElapsed((*b)->reader_->PTS())) / DVD_TIME_BASE);
+          double destTime(static_cast<double>(PTSToElapsed((*b)->reader_->PTS())) /
+                          STREAM_TIME_BASE);
           kodi::Log(ADDON_LOG_INFO,
                     "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
                     (*b)->info_.GetPhysicalIndex(), destTime, (*b)->reader_->PTS());
@@ -3130,9 +3132,9 @@ int64_t Session::GetChapterPos(int ch) const
   --ch;
 
   for (; ch; --ch)
-    sum += (adaptiveTree_->periods_[ch - 1]->duration_ * DVD_TIME_BASE) /
+    sum += (adaptiveTree_->periods_[ch - 1]->duration_ * STREAM_TIME_BASE) /
            adaptiveTree_->periods_[ch - 1]->timescale_;
-  return sum / DVD_TIME_BASE;
+  return sum / STREAM_TIME_BASE;
 }
 
 uint64_t Session::GetChapterStartTime() const
@@ -3142,7 +3144,7 @@ uint64_t Session::GetChapterStartTime() const
     if (p == adaptiveTree_->current_period_)
       break;
     else
-      start_time += (p->duration_ * DVD_TIME_BASE) / p->timescale_;
+      start_time += (p->duration_ * STREAM_TIME_BASE) / p->timescale_;
   return start_time;
 }
 

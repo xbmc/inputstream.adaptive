@@ -25,7 +25,6 @@
 #include "Ap4DataBuffer.h"
 
 #include <kodi/addon-instance/Inputstream.h>
-#include <TimingConstants.h>
 #include <webm/callback.h>
 #include <webm/status.h>
 
@@ -78,7 +77,7 @@ private:
   WebmAP4Reader *m_reader = nullptr;
   uint64_t m_cueOffset = 0;
   bool m_needFrame = false;
-  uint64_t m_pts = DVD_NOPTS_VALUE;
+  uint64_t m_pts = STREAM_NOPTS_VALUE;
   uint64_t m_ptsOffset = 0;
   uint64_t m_duration = 0;
   std::vector<CUEPOINT> *m_cuePoints = nullptr;
