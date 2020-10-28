@@ -94,11 +94,14 @@ bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
 
       if (tsInfo.m_streamType == INPUTSTREAM_TYPE_VIDEO)
       {
-        if ((!info.GetFpsScale() && tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.GetFpsScale())) ||
-          (!info.GetFpsRate() && tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.GetFpsRate())) ||
-          (tsInfo.m_stream->stream_info.height != static_cast<int>(info.GetHeight())) ||
-          (tsInfo.m_stream->stream_info.width != static_cast<int>(info.GetWidth())) ||
-          (tsInfo.m_stream->stream_info.aspect && tsInfo.m_stream->stream_info.aspect != info.GetAspect()))
+        if ((!info.GetFpsScale() &&
+             tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.GetFpsScale())) ||
+            (!info.GetFpsRate() &&
+             tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.GetFpsRate())) ||
+            (tsInfo.m_stream->stream_info.height != static_cast<int>(info.GetHeight())) ||
+            (tsInfo.m_stream->stream_info.width != static_cast<int>(info.GetWidth())) ||
+            (tsInfo.m_stream->stream_info.aspect &&
+             tsInfo.m_stream->stream_info.aspect != info.GetAspect()))
         {
           info.SetFpsRate(tsInfo.m_stream->stream_info.fps_rate);
           info.SetFpsScale(tsInfo.m_stream->stream_info.fps_scale);
@@ -115,10 +118,11 @@ bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
           info.SetLanguage(tsInfo.m_stream->stream_info.language);
 
         if ((tsInfo.m_stream->stream_info.channels != static_cast<int>(info.GetChannels())) ||
-          (tsInfo.m_stream->stream_info.sample_rate != static_cast<int>(info.GetSampleRate())) ||
-          (tsInfo.m_stream->stream_info.block_align != static_cast<int>(info.GetBlockAlign())) ||
-          (tsInfo.m_stream->stream_info.bit_rate != static_cast<int>(info.GetBitRate())) ||
-          (tsInfo.m_stream->stream_info.bits_per_sample != static_cast<int>(info.GetBitsPerSample())))
+            (tsInfo.m_stream->stream_info.sample_rate != static_cast<int>(info.GetSampleRate())) ||
+            (tsInfo.m_stream->stream_info.block_align != static_cast<int>(info.GetBlockAlign())) ||
+            (tsInfo.m_stream->stream_info.bit_rate != static_cast<int>(info.GetBitRate())) ||
+            (tsInfo.m_stream->stream_info.bits_per_sample !=
+             static_cast<int>(info.GetBitsPerSample())))
         {
           info.SetChannels(tsInfo.m_stream->stream_info.channels);
           info.SetSampleRate(tsInfo.m_stream->stream_info.sample_rate);
@@ -130,9 +134,11 @@ bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
       }
       info.SetCodecName(STREAMTYPEMAP[tsInfo.m_stream->stream_type]);
 
-      if (!info.CompareExtraData(tsInfo.m_stream->stream_info.extra_data, tsInfo.m_stream->stream_info.extra_data_size))
+      if (!info.CompareExtraData(tsInfo.m_stream->stream_info.extra_data,
+                                 tsInfo.m_stream->stream_info.extra_data_size))
       {
-        info.SetExtraData(tsInfo.m_stream->stream_info.extra_data, tsInfo.m_stream->stream_info.extra_data_size);
+        info.SetExtraData(tsInfo.m_stream->stream_info.extra_data,
+                          tsInfo.m_stream->stream_info.extra_data_size);
         ret = true;
       }
       return ret;

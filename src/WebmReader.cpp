@@ -113,7 +113,7 @@ void WebmReader::Reset()
   m_needFrame = false;
 }
 
-bool WebmReader::GetInformation(kodi::addon::InputstreamInfo &info)
+bool WebmReader::GetInformation(kodi::addon::InputstreamInfo& info)
 {
   if (!m_metadataChanged)
     return false;
@@ -147,10 +147,10 @@ bool WebmReader::GetInformation(kodi::addon::InputstreamInfo &info)
 
     if (m_masteringMetadata)
     {
-      if (memcmp(m_masteringMetadata, &info.GetMasteringMetadata(), sizeof(INPUTSTREAM_MASTERING_METADATA)))
+      if (*m_masteringMetadata != info.GetMasteringMetadata())
         info.SetMasteringMetadata(*m_masteringMetadata), ret = true;
 
-      if (memcmp(m_contentLightMetadata, &info.GetContentLightMetadata(), sizeof(INPUTSTREAM_CONTENTLIGHT_METADATA)))
+      if (*m_contentLightMetadata != info.GetContentLightMetadata())
         info.SetContentLightMetadata(*m_contentLightMetadata), ret = true;
     }
 #endif
@@ -300,23 +300,27 @@ webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, con
       if (video.colour.value().mastering_metadata.is_present())
       {
         if (!m_masteringMetadata)
-          m_masteringMetadata = new INPUTSTREAM_MASTERING_METADATA;
+          m_masteringMetadata = new kodi::addon::InputstreamMasteringMetadata;
         if (!m_contentLightMetadata)
-          m_contentLightMetadata = new INPUTSTREAM_CONTENTLIGHT_METADATA;
+          m_contentLightMetadata = new kodi::addon::InputstreamContentlightMetadata;
         const webm::MasteringMetadata& mm = video.colour.value().mastering_metadata.value();
-        m_masteringMetadata->luminance_max = mm.luminance_max.value();
-        m_masteringMetadata->luminance_min = mm.luminance_min.value();
-        m_masteringMetadata->primary_b_chromaticity_x = mm.primary_b_chromaticity_x.value();
-        m_masteringMetadata->primary_b_chromaticity_y = mm.primary_b_chromaticity_y.value();
-        m_masteringMetadata->primary_g_chromaticity_x = mm.primary_g_chromaticity_x.value();
-        m_masteringMetadata->primary_g_chromaticity_y = mm.primary_g_chromaticity_y.value();
-        m_masteringMetadata->primary_r_chromaticity_x = mm.primary_r_chromaticity_x.value();
-        m_masteringMetadata->primary_r_chromaticity_y = mm.primary_r_chromaticity_y.value();
-        m_masteringMetadata->white_point_chromaticity_x = mm.white_point_chromaticity_x.value();
-        m_masteringMetadata->white_point_chromaticity_y = mm.white_point_chromaticity_y.value();
+        m_masteringMetadata->SetLuminanceMax(mm.luminance_max.value());
+        m_masteringMetadata->SetLuminanceMin(mm.luminance_min.value());
+        m_masteringMetadata->SetPrimaryB_ChromaticityX(mm.primary_b_chromaticity_x.value());
+        m_masteringMetadata->SetPrimaryB_ChromaticityY(mm.primary_b_chromaticity_y.value());
+        m_masteringMetadata->SetPrimaryG_ChromaticityX(mm.primary_g_chromaticity_x.value());
+        m_masteringMetadata->SetPrimaryG_ChromaticityY(mm.primary_g_chromaticity_y.value());
+        m_masteringMetadata->SetPrimaryR_ChromaticityX(mm.primary_r_chromaticity_x.value());
+        m_masteringMetadata->SetPrimaryR_ChromaticityY(mm.primary_r_chromaticity_y.value());
+        m_masteringMetadata->SetWhitePoint_ChromaticityX(mm.white_point_chromaticity_x.value());
+        m_masteringMetadata->SetWhitePoint_ChromaticityY(mm.white_point_chromaticity_y.value());
 
-        m_contentLightMetadata->max_cll = video.colour.value().max_cll.is_present() ? video.colour.value().max_cll.value() : 1000;
-        m_contentLightMetadata->max_fall = video.colour.value().max_fall.is_present() ? video.colour.value().max_fall.value() : 200;
+        m_contentLightMetadata->SetMaxCll(video.colour.value().max_cll.is_present()
+                                              ? video.colour.value().max_cll.value()
+                                              : 1000);
+        m_contentLightMetadata->SetMaxFall(video.colour.value().max_fall.is_present()
+                                               ? video.colour.value().max_fall.value()
+                                               : 200);
       }
 #endif
     }

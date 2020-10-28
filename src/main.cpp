@@ -1281,9 +1281,11 @@ public:
 
     bool edchanged(false);
     if (m_bSampleDescChanged && m_codecHandler->extra_data.GetDataSize() &&
-        !info.CompareExtraData(m_codecHandler->extra_data.GetData(), m_codecHandler->extra_data.GetDataSize()))
+        !info.CompareExtraData(m_codecHandler->extra_data.GetData(),
+                               m_codecHandler->extra_data.GetDataSize()))
     {
-      info.SetExtraData(m_codecHandler->extra_data.GetData(), m_codecHandler->extra_data.GetDataSize());
+      info.SetExtraData(m_codecHandler->extra_data.GetData(),
+                        m_codecHandler->extra_data.GetDataSize());
       edchanged = true;
     }
 
@@ -1742,7 +1744,10 @@ public:
     m_eos = bEOS;
   }
 
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override { return TSReader::GetInformation(info); }
+  bool GetInformation(kodi::addon::InputstreamInfo& info) override
+  {
+    return TSReader::GetInformation(info);
+  }
 
   bool TimeSeek(uint64_t pts, bool preceeding) override
   {
@@ -1829,7 +1834,10 @@ public:
     m_eos = bEOS;
   }
 
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override { return ADTSReader::GetInformation(info); }
+  bool GetInformation(kodi::addon::InputstreamInfo& info) override
+  {
+    return ADTSReader::GetInformation(info);
+  }
 
   bool TimeSeek(uint64_t pts, bool preceeding) override
   {
@@ -2765,16 +2773,18 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
       const std::string& extradata(stream->stream_.getRepresentation()->codec_private_data_);
       AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
       AP4_AvccAtom* atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
-      sample_descryption = new AP4_AvcSampleDescription(
-          AP4_SAMPLE_FORMAT_AVC1, stream->info_.GetWidth(), stream->info_.GetHeight(), 0, nullptr, atom);
+      sample_descryption =
+          new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->info_.GetWidth(),
+                                       stream->info_.GetHeight(), 0, nullptr, atom);
     }
     else if (stream->info_.GetCodecName() == "hevc")
     {
       const std::string& extradata(stream->stream_.getRepresentation()->codec_private_data_);
       AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
       AP4_HvccAtom* atom = AP4_HvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
-      sample_descryption = new AP4_HevcSampleDescription(
-          AP4_SAMPLE_FORMAT_HEV1, stream->info_.GetWidth(), stream->info_.GetHeight(), 0, nullptr, atom);
+      sample_descryption =
+          new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->info_.GetWidth(),
+                                        stream->info_.GetHeight(), 0, nullptr, atom);
     }
     else if (stream->info_.GetCodecName() == "srt")
       sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES,
@@ -2934,7 +2944,8 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   }
 
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.GetPhysicalIndex() == streamId))
+    if ((*b)->enabled && (*b)->reader_ &&
+        (streamId == 0 || (*b)->info_.GetPhysicalIndex() == streamId))
     {
       bool bReset;
       if ((*b)->stream_.seek_time(
@@ -3602,9 +3613,9 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
-    stream->reader_ =
-        new TSSampleReader(stream->input_, stream->info_.GetStreamType(), streamid,
-                           (1U << stream->info_.GetStreamType()) | m_session->GetIncludedStreamMask());
+    stream->reader_ = new TSSampleReader(stream->input_, stream->info_.GetStreamType(), streamid,
+                                         (1U << stream->info_.GetStreamType()) |
+                                             m_session->GetIncludedStreamMask());
     if (!static_cast<TSSampleReader*>(stream->reader_)->Initialize())
     {
       stream->disable();

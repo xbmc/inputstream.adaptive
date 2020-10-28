@@ -54,7 +54,7 @@ public:
   void Reset();
   bool SeekTime(uint64_t timeInTs, bool preceeding);
 
-  bool GetInformation(kodi::addon::InputstreamInfo &info);
+  bool GetInformation(kodi::addon::InputstreamInfo& info);
   bool ReadPacket();
 
   webm::Status OnSegmentBegin(const webm::ElementMetadata& metadata, webm::Action* action) override;
@@ -95,7 +95,7 @@ private:
   INPUTSTREAM_COLORRANGE m_colorRange = INPUTSTREAM_COLORRANGE_UNKNOWN;     /*!< @brief color range if available */
   INPUTSTREAM_COLORPRIMARIES m_colorPrimaries = INPUTSTREAM_COLORPRIMARY_UNSPECIFIED;
   INPUTSTREAM_COLORTRC m_colorTransferCharacteristic = INPUTSTREAM_COLORTRC_UNSPECIFIED;
-  INPUTSTREAM_MASTERING_METADATA* m_masteringMetadata = nullptr;
-  INPUTSTREAM_CONTENTLIGHT_METADATA* m_contentLightMetadata = nullptr;
+  kodi::addon::InputstreamMasteringMetadata* m_masteringMetadata = nullptr;
+  kodi::addon::InputstreamContentlightMetadata* m_contentLightMetadata = nullptr;
 #endif
 };

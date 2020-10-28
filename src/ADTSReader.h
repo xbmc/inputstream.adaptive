@@ -83,7 +83,7 @@ public:
   void Reset();
   bool SeekTime(uint64_t timeInTs, bool preceeding);
 
-  bool GetInformation(kodi::addon::InputstreamInfo &info);
+  bool GetInformation(kodi::addon::InputstreamInfo& info);
   bool ReadPacket();
 
   uint64_t GetPts() const { return m_pts; }
