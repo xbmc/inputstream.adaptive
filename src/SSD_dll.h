@@ -101,8 +101,9 @@ namespace SSD
     };
 
     enum Flags :uint32_t {
-      FLAG_DROP,
-      FLAG_DRAIN
+      FLAG_NONE = 0,
+      FLAG_DROP = (1 << 0),
+      FLAG_DRAIN = (1 << 1),
     };
 
     SSD_VIDEOFORMAT videoFormat;

@@ -3196,8 +3196,8 @@ public:
                       CInputStreamAdaptive* parent);
   virtual ~CVideoCodecAdaptive();
 
-  bool Open(VIDEOCODEC_INITDATA& initData) override;
-  bool Reconfigure(VIDEOCODEC_INITDATA& initData) override;
+  bool Open(const kodi::addon::VideoCodecInitdata& initData) override;
+  bool Reconfigure(const kodi::addon::VideoCodecInitdata& initData) override;
   bool AddData(const DEMUX_PACKET& packet) override;
   VIDEOCODEC_RETVAL GetPicture(VIDEOCODEC_PICTURE& picture) override;
   const char* GetName() override { return m_name.c_str(); };
@@ -3881,12 +3881,12 @@ CVideoCodecAdaptive::~CVideoCodecAdaptive()
 {
 }
 
-bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA& initData)
+bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
 {
   if (!m_session || !m_session->GetDecrypter())
     return false;
 
-  if (initData.codec == VIDEOCODEC_H264 && !initData.extraDataSize &&
+  if (initData.GetCodecType() == VIDEOCODEC_H264 && !initData.GetExtraDataSize() &&
       !(m_state & STATE_WAIT_EXTRADATA))
   {
     kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open: Wait ExtraData");
@@ -3898,7 +3898,7 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA& initData)
   kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open");
 
   m_name = "inputstream.adaptive";
-  switch (initData.codec)
+  switch (initData.GetCodecType())
   {
     case VIDEOCODEC_VP8:
       m_name += ".vp8";
@@ -3913,14 +3913,14 @@ bool CVideoCodecAdaptive::Open(VIDEOCODEC_INITDATA& initData)
   }
   m_name += ".decoder";
 
-  std::string sessionId(initData.cryptoSession.sessionId,
-                        initData.cryptoSession.sessionIdSize);
+  std::string sessionId(initData.GetCryptoSession().GetSessionId());
   AP4_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
+
   return m_session->GetDecrypter()->OpenVideoDecoder(
-      ssd, reinterpret_cast<SSD::SSD_VIDEOINITDATA*>(&initData));
+      ssd, reinterpret_cast<const SSD::SSD_VIDEOINITDATA*>(initData.GetCStructure()));
 }
 
-bool CVideoCodecAdaptive::Reconfigure(VIDEOCODEC_INITDATA& initData)
+bool CVideoCodecAdaptive::Reconfigure(const kodi::addon::VideoCodecInitdata& initData)
 {
   return false;
 }
