@@ -338,7 +338,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             {
               // <S t="3600" d="900000" r="2398"/>
               unsigned int d(0), r(1);
-              static uint64_t t(0);
+              uint64_t t(0);
 
               for (; *attr;)
               {
