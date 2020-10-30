@@ -519,7 +519,7 @@ bool create_ism_license(std::string key, std::string license_data, std::vector<u
   return true;
 }
 
-void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString)
+void parseheader(std::map<std::string, std::string>& headerMap, const std::string& headerString)
 {
   std::vector<std::string> headers = split(headerString, '&');
   for (std::vector<std::string>::iterator b(headers.begin()), e(headers.end()); b != e; ++b)

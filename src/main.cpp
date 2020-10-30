@@ -163,7 +163,7 @@ public:
       m_strLibraryPath += pathSep;
   }
 
-  void SetProfilePath(const char* profilePath)
+  void SetProfilePath(const std::string& profilePath)
   {
     m_strProfilePath = profilePath;
 
@@ -1971,20 +1971,20 @@ void Session::STREAM::disable()
 }
 
 Session::Session(MANIFEST_TYPE manifestType,
-                 const char* strURL,
-                 const char* strUpdateParam,
-                 const char* strLicType,
-                 const char* strLicKey,
-                 const char* strLicData,
-                 const char* strCert,
-                 const char* strMediaRenewalUrl,
+                 const std::string& strURL,
+                 const std::string& strUpdateParam,
+                 const std::string& strLicType,
+                 const std::string& strLicKey,
+                 const std::string& strLicData,
+                 const std::string& strCert,
+                 const std::string& strMediaRenewalUrl,
                  const uint32_t intMediaRenewalTime,
                  const std::map<std::string, std::string>& manifestHeaders,
                  const std::map<std::string, std::string>& mediaHeaders,
-                 const char* profile_path,
+                 const std::string& profile_path,
                  uint16_t display_width,
                  uint16_t display_height,
-                 const char* ov_audio,
+                 const std::string& ov_audio,
                  bool play_timeshift_buffer,
                  bool force_secure_decoder)
   : manifest_type_(manifestType),
@@ -2074,11 +2074,11 @@ Session::Session(MANIFEST_TYPE manifestType,
 
   ignore_display_ = kodi::GetSettingBoolean("IGNOREDISPLAY");
 
-  if (*strCert)
+  if (!strCert.empty())
   {
-    unsigned int sz(strlen(strCert)), dstsz((sz * 3) / 4);
+    unsigned int sz(strCert.length()), dstsz((sz * 3) / 4);
     server_certificate_.SetDataSize(dstsz);
-    b64_decode(strCert, sz, server_certificate_.UseData(), dstsz);
+    b64_decode(strCert.c_str(), sz, server_certificate_.UseData(), dstsz);
     server_certificate_.SetDataSize(dstsz);
   }
   adaptiveTree_->manifest_headers_ = manifestHeaders;
@@ -3211,7 +3211,7 @@ public:
                               const std::string& version,
                               KODI_HANDLE& addonInstance) override;
 
-  bool Open(INPUTSTREAM_PROPERTY& props) override;
+  bool Open(const kodi::addon::InputstreamProperty& props) override;
   void Close() override;
   bool GetStreamIds(std::vector<unsigned int>& ids) override;
   void GetCapabilities(INPUTSTREAM_CAPABILITIES& caps) override;
@@ -3278,111 +3278,99 @@ ADDON_STATUS CInputStreamAdaptive::CreateInstance(int instanceType,
   return ADDON_STATUS_NOT_IMPLEMENTED;
 }
 
-bool CInputStreamAdaptive::Open(INPUTSTREAM_PROPERTY& props)
+bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
-  const char *lt(""), *lk(""), *ld(""), *lsc(""), *mfup(""), *ov_audio(""), *mru("");
+  std::string lt, lk, ld, lsc, mfup, ov_audio, mru;
   uint32_t mrt = 0;
   std::map<std::string, std::string> manh, medh;
-  std::string mpd_url = props.m_strURL;
+  std::string mpd_url = props.GetURL();
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
   std::uint8_t config(0);
   uint32_t max_user_bandwidth = 0;
   bool force_secure_decoder = false;
 
-  for (unsigned int i(0); i < props.m_nCountInfoValues; ++i)
+  for (const auto& prop : props.GetProperties())
   {
-    if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_type") == 0)
+    if (prop.first == "inputstream.adaptive.license_type")
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_type: %s",
-                props.m_ListItemProperties[i].m_strValue);
-      lt = props.m_ListItemProperties[i].m_strValue;
+                prop.second.c_str());
+      lt = prop.second;
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_key") ==
-             0)
+    else if (prop.first == "inputstream.adaptive.license_key")
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_key: [not shown]");
-      lk = props.m_ListItemProperties[i].m_strValue;
+      lk = prop.second;
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_data") ==
-             0)
+    else if (prop.first == "inputstream.adaptive.license_data")
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_data: [not shown]");
-      ld = props.m_ListItemProperties[i].m_strValue;
+      ld = prop.second;
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.license_flags") ==
-             0)
+    else if (prop.first == "inputstream.adaptive.license_flags")
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_flags: %s",
-                props.m_ListItemProperties[i].m_strValue);
-      if (strstr(props.m_ListItemProperties[i].m_strValue, "persistent_storage") != nullptr)
+                prop.second.c_str());
+      if (prop.second.find("persistent_storage") != std::string::npos)
         config |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
-      if (strstr(props.m_ListItemProperties[i].m_strValue, "force_secure_decoder") != nullptr)
+      if (prop.second.find("force_secure_decoder") != std::string::npos)
         force_secure_decoder = true;
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey,
-                    "inputstream.adaptive.server_certificate") == 0)
+    else if (prop.first == "inputstream.adaptive.server_certificate")
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
-      lsc = props.m_ListItemProperties[i].m_strValue;
+      lsc = prop.second;
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.manifest_type") ==
-             0)
+    else if (prop.first == "inputstream.adaptive.manifest_type")
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_type: %s",
-                props.m_ListItemProperties[i].m_strValue);
-      if (strcmp(props.m_ListItemProperties[i].m_strValue, "mpd") == 0)
+                prop.second.c_str());
+      if (prop.second == "mpd")
         manifest = MANIFEST_TYPE_MPD;
-      else if (strcmp(props.m_ListItemProperties[i].m_strValue, "ism") == 0)
+      else if (prop.second == "ism")
         manifest = MANIFEST_TYPE_ISM;
-      else if (strcmp(props.m_ListItemProperties[i].m_strValue, "hls") == 0)
+      else if (prop.second == "hls")
         manifest = MANIFEST_TYPE_HLS;
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey,
-                    "inputstream.adaptive.manifest_update_parameter") == 0)
+    else if (prop.first == "inputstream.adaptive.manifest_update_parameter")
     {
-      mfup = props.m_ListItemProperties[i].m_strValue;
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_update_parameter: %s", mfup);
+      mfup = prop.second;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_update_parameter: %s", mfup.c_str());
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey,
-                    "inputstream.adaptive.stream_headers") == 0)
+    else if (prop.first == "inputstream.adaptive.stream_headers")
     {
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.stream_headers: %s",
-                props.m_ListItemProperties[i].m_strValue);
-      parseheader(manh, props.m_ListItemProperties[i].m_strValue);
+                prop.second.c_str());
+      parseheader(manh, prop.second);
       medh = manh;
       mpd_url = mpd_url.substr(0, mpd_url.find("|"));
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey,
-                    "inputstream.adaptive.original_audio_language") == 0)
+    else if (prop.first == "inputstream.adaptive.original_audio_language")
     {
-      ov_audio = props.m_ListItemProperties[i].m_strValue;
+      ov_audio = prop.second;
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.original_audio_language: %s",
-                ov_audio);
+                ov_audio.c_str());
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey,
-                    "inputstream.adaptive.media_renewal_url") == 0)
+    else if (prop.first == "inputstream.adaptive.media_renewal_url")
     {
-      mru = props.m_ListItemProperties[i].m_strValue;
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_url: %s", mru);
+      mru = prop.second;
+      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_url: %s", mru.c_str());
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey,
-                    "inputstream.adaptive.media_renewal_time") == 0)
+    else if (prop.first == "inputstream.adaptive.media_renewal_time")
     {
-      mrt = atoi(props.m_ListItemProperties[i].m_strValue);
+      mrt = std::stoi(prop.second);
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_time: %d", mrt);
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey, "inputstream.adaptive.max_bandwidth") ==
-             0)
+    else if (prop.first == "inputstream.adaptive.max_bandwidth")
     {
-      max_user_bandwidth = atoi(props.m_ListItemProperties[i].m_strValue);
+      max_user_bandwidth = std::stoi(prop.second);
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.max_bandwidth: %d",
                 max_user_bandwidth);
     }
-    else if (strcmp(props.m_ListItemProperties[i].m_strKey,
-                    "inputstream.adaptive.play_timeshift_buffer") == 0)
-      m_playTimeshiftBuffer = stricmp(props.m_ListItemProperties[i].m_strValue, "true") == 0;
+    else if (prop.first == "inputstream.adaptive.play_timeshift_buffer")
+      m_playTimeshiftBuffer = stricmp(prop.second.c_str(), "true") == 0;
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
@@ -3395,15 +3383,16 @@ bool CInputStreamAdaptive::Open(INPUTSTREAM_PROPERTY& props)
   if (posHeader != std::string::npos)
   {
     manh.clear();
-    parseheader(manh, mpd_url.substr(posHeader + 1).c_str());
+    parseheader(manh, mpd_url.substr(posHeader + 1));
     mpd_url = mpd_url.substr(0, posHeader);
   }
 
-  kodihost->SetProfilePath(props.m_profileFolder);
+  kodihost->SetProfilePath(props.GetProfileFolder());
 
-  m_session = std::shared_ptr<Session>(new Session(
-      manifest, mpd_url.c_str(), mfup, lt, lk, ld, lsc, mru, mrt, manh, medh, props.m_profileFolder,
-      m_width, m_height, ov_audio, m_playTimeshiftBuffer, force_secure_decoder));
+  m_session = std::shared_ptr<Session>(new Session(manifest, mpd_url.c_str(), mfup, lt, lk, ld, lsc,
+                                                   mru, mrt, manh, medh, props.GetProfileFolder(),
+                                                   m_width, m_height, ov_audio,
+                                                   m_playTimeshiftBuffer, force_secure_decoder));
   m_session->SetVideoResolution(m_width, m_height);
 
   if (!m_session->Initialize(config, max_user_bandwidth))
@@ -3469,12 +3458,13 @@ void CInputStreamAdaptive::GetCapabilities(INPUTSTREAM_CAPABILITIES& caps)
 #endif
 }
 
-bool CInputStreamAdaptive::GetStream(int streamid,
-                                     INPUTSTREAM_INFO* info,
-                                     KODI_HANDLE* demuxStream,
-                                     KODI_HANDLE (*transfer_stream)(KODI_HANDLE handle,
-                                                                    int streamId,
-                                                                    struct INPUTSTREAM_INFO* stream))
+bool CInputStreamAdaptive::GetStream(
+    int streamid,
+    INPUTSTREAM_INFO* info,
+    KODI_HANDLE* demuxStream,
+    KODI_HANDLE (*transfer_stream)(KODI_HANDLE handle,
+                                   int streamId,
+                                   struct INPUTSTREAM_INFO* stream))
 {
   kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
 

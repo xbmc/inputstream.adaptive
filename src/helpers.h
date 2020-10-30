@@ -46,7 +46,7 @@ unsigned char HexNibble(char c);
 void prkid2wvkid(const char *input, char *output);
 char* KIDtoUUID(const uint8_t* kid, char* dst);
 bool create_ism_license(std::string key, std::string license_data, std::vector<uint8_t>& init_data);
-void parseheader(std::map<std::string, std::string> &headerMap, const char* headerString);
+void parseheader(std::map<std::string, std::string>& headerMap, const std::string& headerString);
 
 extern bool preReleaseFeatures;
 
