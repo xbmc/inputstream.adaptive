@@ -331,7 +331,7 @@ namespace adaptive
     }
     base_url_.resize(paramPos + 1);
 
-    paramPos = base_url_.find_first_of('://', base_url_.length());
+    paramPos = base_url_.find("://", 0, 8);
     if (paramPos != std::string::npos)
     {
       base_domain_ = base_url_;

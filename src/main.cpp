@@ -3150,12 +3150,14 @@ uint64_t Session::GetChapterStartTime() const
 int Session::GetPeriodId() const
 {
   if (adaptiveTree_)
+  {
     if (IsLive())
       return adaptiveTree_->current_period_->sequence_ == adaptiveTree_->initial_sequence_
                  ? 1
                  : adaptiveTree_->current_period_->sequence_ + 1;
     else
       return GetChapter();
+  }
   return -1;
 }
 
