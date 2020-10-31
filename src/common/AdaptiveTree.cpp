@@ -330,11 +330,17 @@ namespace adaptive
       return false;
     }
     base_url_.resize(paramPos + 1);
-    base_domain_ = base_url_;
 
-    paramPos = base_url_.find_first_of('/', 8);
+    paramPos = base_url_.find_first_of('://', base_url_.length());
     if (paramPos != std::string::npos)
-      base_domain_.resize(paramPos);
+    {
+      base_domain_ = base_url_;
+      paramPos = base_domain_.find_first_of('/', paramPos + 3);
+      if (paramPos != std::string::npos)
+        base_domain_.resize(paramPos);
+    }
+    else
+      base_domain_.clear();
 
     manifest_url_ = url;
 
@@ -377,6 +383,7 @@ namespace adaptive
   void AdaptiveTree::SetEffectiveURL(const std::string& url)
   {
     effective_url_ = url;
+    effective_domain_.clear();
     std::string::size_type paramPos = effective_url_.find_first_of('?');
     if (paramPos != std::string::npos)
       effective_url_.resize(paramPos);
