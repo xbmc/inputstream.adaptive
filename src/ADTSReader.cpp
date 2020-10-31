@@ -157,7 +157,7 @@ void ADTSReader::Reset()
   m_frameParser.reset();
 }
 
-bool ADTSReader::GetInformation(INPUTSTREAM_INFO &info)
+bool ADTSReader::GetInformation(kodi::addon::InputstreamInfo& info)
 {
   return false;
 }

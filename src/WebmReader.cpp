@@ -22,7 +22,7 @@
 #include <webm/reader.h>
 #include <webm/webm_parser.h>
 
-class WebmAP4Reader : public webm::Reader
+class ATTRIBUTE_HIDDEN WebmAP4Reader : public webm::Reader
 {
 public:
   WebmAP4Reader(AP4_ByteStream *stream) :m_stream(stream) {};
@@ -113,51 +113,45 @@ void WebmReader::Reset()
   m_needFrame = false;
 }
 
-bool WebmReader::GetInformation(INPUTSTREAM_INFO &info)
+bool WebmReader::GetInformation(kodi::addon::InputstreamInfo& info)
 {
   if (!m_metadataChanged)
     return false;
   m_metadataChanged = false;
 
   bool ret = false;
-  if (!info.m_ExtraSize && m_codecPrivate.GetDataSize() > 0)
+  if (info.GetExtraData().empty() && m_codecPrivate.GetDataSize() > 0)
   {
-    info.m_ExtraSize = m_codecPrivate.GetDataSize();
-    info.m_ExtraData = static_cast<const uint8_t*>(malloc(info.m_ExtraSize));
-    memcpy(const_cast<uint8_t*>(info.m_ExtraData), m_codecPrivate.GetData(), info.m_ExtraSize);
+    info.SetExtraData(m_codecPrivate.GetData(), m_codecPrivate.GetDataSize());
     ret = true;
   }
 
-  if (m_codecProfile && info.m_codecProfile != m_codecProfile)
-    info.m_codecProfile = m_codecProfile, ret = true;
+  if (m_codecProfile && info.GetCodecProfile() != m_codecProfile)
+    info.SetCodecProfile(m_codecProfile), ret = true;
 
-  if (info.m_streamType == INPUTSTREAM_INFO::STREAM_TYPE::TYPE_VIDEO)
+  if (info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
   {
-    if (m_width && m_width != info.m_Width)
-      info.m_Width = m_width, ret = true;
-    if (m_height && m_height != info.m_Height)
-      info.m_Height = m_height, ret = true;
+    if (m_width && m_width != info.GetWidth())
+      info.SetWidth(m_width), ret = true;
+    if (m_height && m_height != info.GetHeight())
+      info.SetHeight(m_height), ret = true;
 #if INPUTSTREAM_VERSION_LEVEL > 0
-    if (info.m_colorSpace != m_colorSpace)
-      info.m_colorSpace = m_colorSpace, ret = true;
-    if (info.m_colorRange != m_colorRange)
-      info.m_colorRange = m_colorRange, ret = true;
-    if (info.m_colorPrimaries != m_colorPrimaries)
-      info.m_colorPrimaries = m_colorPrimaries, ret = true;
-    if (info.m_colorTransferCharacteristic != m_colorTransferCharacteristic)
-      info.m_colorTransferCharacteristic = m_colorTransferCharacteristic, ret = true;
+    if (info.GetColorSpace() != m_colorSpace)
+      info.SetColorSpace(m_colorSpace), ret = true;
+    if (info.GetColorRange() != m_colorRange)
+      info.SetColorRange(m_colorRange), ret = true;
+    if (info.GetColorPrimaries() != m_colorPrimaries)
+      info.SetColorPrimaries(m_colorPrimaries), ret = true;
+    if (info.GetColorTransferCharacteristic() != m_colorTransferCharacteristic)
+      info.SetColorTransferCharacteristic(m_colorTransferCharacteristic), ret = true;
 
     if (m_masteringMetadata)
     {
-      if (!info.m_masteringMetadata)
-        info.m_masteringMetadata = new INPUTSTREAM_MASTERING_METADATA;
-      if (memcmp(m_masteringMetadata, info.m_masteringMetadata, sizeof(INPUTSTREAM_MASTERING_METADATA)))
-        memcpy(info.m_masteringMetadata, m_masteringMetadata, sizeof(INPUTSTREAM_MASTERING_METADATA)), ret = true;
+      if (*m_masteringMetadata != info.GetMasteringMetadata())
+        info.SetMasteringMetadata(*m_masteringMetadata), ret = true;
 
-      if (!info.m_contentLightMetadata)
-        info.m_contentLightMetadata = new INPUTSTREAM_CONTENTLIGHT_METADATA;
-      if (memcmp(m_contentLightMetadata, info.m_contentLightMetadata, sizeof(INPUTSTREAM_CONTENTLIGHT_METADATA)))
-        memcpy(info.m_contentLightMetadata, m_contentLightMetadata, sizeof(INPUTSTREAM_CONTENTLIGHT_METADATA)), ret = true;
+      if (*m_contentLightMetadata != info.GetContentLightMetadata())
+        info.SetContentLightMetadata(*m_contentLightMetadata), ret = true;
     }
 #endif
   }
@@ -294,35 +288,39 @@ webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, con
     if (video.colour.is_present())
     {
 #if INPUTSTREAM_VERSION_LEVEL > 0
-      if (video.colour.value().matrix_coefficients.is_present() && static_cast<uint64_t>(video.colour.value().matrix_coefficients.value()) < INPUTSTREAM_INFO::COLORSPACE::COLORSPACE_MAX)
-        m_colorSpace = static_cast<INPUTSTREAM_INFO::COLORSPACE>(video.colour.value().matrix_coefficients.value());
-      if (video.colour.value().range.is_present() && static_cast<uint64_t>(video.colour.value().range.value()) < INPUTSTREAM_INFO::COLORRANGE::COLORRANGE_MAX)
-        m_colorRange = static_cast<INPUTSTREAM_INFO::COLORRANGE>(video.colour.value().range.value());
-      if (video.colour.value().primaries.is_present() && static_cast<uint64_t>(video.colour.value().primaries.value()) < INPUTSTREAM_INFO::COLORTRC::COLORTRC_MAX)
-        m_colorPrimaries = static_cast<INPUTSTREAM_INFO::COLORPRIMARIES>(video.colour.value().primaries.value());
-      if (video.colour.value().transfer_characteristics.is_present() && static_cast<uint64_t>(video.colour.value().transfer_characteristics.value()) < INPUTSTREAM_INFO::COLORTRC::COLORTRC_MAX)
-        m_colorTransferCharacteristic = static_cast<INPUTSTREAM_INFO::COLORTRC>(video.colour.value().transfer_characteristics.value());
+      if (video.colour.value().matrix_coefficients.is_present() && static_cast<uint64_t>(video.colour.value().matrix_coefficients.value()) < INPUTSTREAM_COLORSPACE_MAX)
+        m_colorSpace = static_cast<INPUTSTREAM_COLORSPACE>(video.colour.value().matrix_coefficients.value());
+      if (video.colour.value().range.is_present() && static_cast<uint64_t>(video.colour.value().range.value()) < INPUTSTREAM_COLORRANGE_MAX)
+        m_colorRange = static_cast<INPUTSTREAM_COLORRANGE>(video.colour.value().range.value());
+      if (video.colour.value().primaries.is_present() && static_cast<uint64_t>(video.colour.value().primaries.value()) < INPUTSTREAM_COLORTRC_MAX)
+        m_colorPrimaries = static_cast<INPUTSTREAM_COLORPRIMARIES>(video.colour.value().primaries.value());
+      if (video.colour.value().transfer_characteristics.is_present() && static_cast<uint64_t>(video.colour.value().transfer_characteristics.value()) < INPUTSTREAM_COLORTRC_MAX)
+        m_colorTransferCharacteristic = static_cast<INPUTSTREAM_COLORTRC>(video.colour.value().transfer_characteristics.value());
 
       if (video.colour.value().mastering_metadata.is_present())
       {
         if (!m_masteringMetadata)
-          m_masteringMetadata = new INPUTSTREAM_MASTERING_METADATA;
+          m_masteringMetadata = new kodi::addon::InputstreamMasteringMetadata;
         if (!m_contentLightMetadata)
-          m_contentLightMetadata = new INPUTSTREAM_CONTENTLIGHT_METADATA;
+          m_contentLightMetadata = new kodi::addon::InputstreamContentlightMetadata;
         const webm::MasteringMetadata& mm = video.colour.value().mastering_metadata.value();
-        m_masteringMetadata->luminance_max = mm.luminance_max.value();
-        m_masteringMetadata->luminance_min = mm.luminance_min.value();
-        m_masteringMetadata->primary_b_chromaticity_x = mm.primary_b_chromaticity_x.value();
-        m_masteringMetadata->primary_b_chromaticity_y = mm.primary_b_chromaticity_y.value();
-        m_masteringMetadata->primary_g_chromaticity_x = mm.primary_g_chromaticity_x.value();
-        m_masteringMetadata->primary_g_chromaticity_y = mm.primary_g_chromaticity_y.value();
-        m_masteringMetadata->primary_r_chromaticity_x = mm.primary_r_chromaticity_x.value();
-        m_masteringMetadata->primary_r_chromaticity_y = mm.primary_r_chromaticity_y.value();
-        m_masteringMetadata->white_point_chromaticity_x = mm.white_point_chromaticity_x.value();
-        m_masteringMetadata->white_point_chromaticity_y = mm.white_point_chromaticity_y.value();
+        m_masteringMetadata->SetLuminanceMax(mm.luminance_max.value());
+        m_masteringMetadata->SetLuminanceMin(mm.luminance_min.value());
+        m_masteringMetadata->SetPrimaryB_ChromaticityX(mm.primary_b_chromaticity_x.value());
+        m_masteringMetadata->SetPrimaryB_ChromaticityY(mm.primary_b_chromaticity_y.value());
+        m_masteringMetadata->SetPrimaryG_ChromaticityX(mm.primary_g_chromaticity_x.value());
+        m_masteringMetadata->SetPrimaryG_ChromaticityY(mm.primary_g_chromaticity_y.value());
+        m_masteringMetadata->SetPrimaryR_ChromaticityX(mm.primary_r_chromaticity_x.value());
+        m_masteringMetadata->SetPrimaryR_ChromaticityY(mm.primary_r_chromaticity_y.value());
+        m_masteringMetadata->SetWhitePoint_ChromaticityX(mm.white_point_chromaticity_x.value());
+        m_masteringMetadata->SetWhitePoint_ChromaticityY(mm.white_point_chromaticity_y.value());
 
-        m_contentLightMetadata->max_cll = video.colour.value().max_cll.is_present() ? video.colour.value().max_cll.value() : 1000;
-        m_contentLightMetadata->max_fall = video.colour.value().max_fall.is_present() ? video.colour.value().max_fall.value() : 200;
+        m_contentLightMetadata->SetMaxCll(video.colour.value().max_cll.is_present()
+                                              ? video.colour.value().max_cll.value()
+                                              : 1000);
+        m_contentLightMetadata->SetMaxFall(video.colour.value().max_fall.is_present()
+                                               ? video.colour.value().max_fall.value()
+                                               : 200);
       }
 #endif
     }

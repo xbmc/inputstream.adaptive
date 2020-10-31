@@ -25,7 +25,7 @@
 
 class AP4_ByteStream;
 
-class ID3TAG
+class ATTRIBUTE_HIDDEN ID3TAG
 {
 public:
   enum PARSECODE
@@ -49,7 +49,7 @@ private:
 };
 
 
-class ADTSFrame
+class ATTRIBUTE_HIDDEN ADTSFrame
 {
 public:
   bool parse(AP4_ByteStream *stream);
@@ -74,7 +74,7 @@ private:
   AP4_DataBuffer m_dataBuffer;
 };
 
-class ADTSReader
+class ATTRIBUTE_HIDDEN ADTSReader
 {
 public:
   ADTSReader(AP4_ByteStream *stream);
@@ -83,7 +83,7 @@ public:
   void Reset();
   bool SeekTime(uint64_t timeInTs, bool preceeding);
 
-  bool GetInformation(INPUTSTREAM_INFO &info);
+  bool GetInformation(kodi::addon::InputstreamInfo& info);
   bool ReadPacket();
 
   uint64_t GetPts() const { return m_pts; }

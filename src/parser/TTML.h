@@ -18,12 +18,14 @@
 
 #pragma once
 
-#include <inttypes.h>
 #include <deque>
-#include <vector>
+#include <inttypes.h>
 #include <string>
+#include <vector>
 
-class TTML2SRT
+#include <kodi/AddonBase.h>
+
+class ATTRIBUTE_HIDDEN TTML2SRT
 {
 public:
   TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_frameRate(0), m_timescale(0), m_ptsOffset(0) { m_styleStack.push_back(STYLE()); };

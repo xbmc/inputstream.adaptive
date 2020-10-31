@@ -19,25 +19,27 @@
 #pragma once
 
 #include "AdaptiveTree.h"
-#include <string>
-#include <map>
 
-#include <thread>
-#include <mutex>
 #include <condition_variable>
+#include <map>
+#include <mutex>
+#include <string>
+#include <thread>
+
+#include <kodi/AddonBase.h>
 
 namespace adaptive
 {
   class AdaptiveStream;
 
-  class AdaptiveStreamObserver
+  class ATTRIBUTE_HIDDEN AdaptiveStreamObserver
   {
   public:
     virtual void OnSegmentChanged(AdaptiveStream *stream) = 0;
     virtual void OnStreamChange(AdaptiveStream *stream) = 0;
   };
 
-  class AdaptiveStream
+  class ATTRIBUTE_HIDDEN AdaptiveStream
   {
   public:
     AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type);

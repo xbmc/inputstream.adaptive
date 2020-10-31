@@ -25,7 +25,6 @@
 #include "Ap4DataBuffer.h"
 
 #include <kodi/addon-instance/Inputstream.h>
-#include <TimingConstants.h>
 #include <webm/callback.h>
 #include <webm/status.h>
 
@@ -33,7 +32,7 @@ class AP4_ByteStream;
 class WebmAP4Reader;
 
 
-class WebmReader : public webm::Callback
+class ATTRIBUTE_HIDDEN WebmReader : public webm::Callback
 {
 public:
 
@@ -54,7 +53,7 @@ public:
   void Reset();
   bool SeekTime(uint64_t timeInTs, bool preceeding);
 
-  bool GetInformation(INPUTSTREAM_INFO &info);
+  bool GetInformation(kodi::addon::InputstreamInfo& info);
   bool ReadPacket();
 
   webm::Status OnSegmentBegin(const webm::ElementMetadata& metadata, webm::Action* action) override;
@@ -78,7 +77,7 @@ private:
   WebmAP4Reader *m_reader = nullptr;
   uint64_t m_cueOffset = 0;
   bool m_needFrame = false;
-  uint64_t m_pts = DVD_NOPTS_VALUE;
+  uint64_t m_pts = STREAM_NOPTS_VALUE;
   uint64_t m_ptsOffset = 0;
   uint64_t m_duration = 0;
   std::vector<CUEPOINT> *m_cuePoints = nullptr;
@@ -91,11 +90,11 @@ private:
   bool m_metadataChanged = true;
 
 #if INPUTSTREAM_VERSION_LEVEL > 0
-  INPUTSTREAM_INFO::COLORSPACE m_colorSpace = INPUTSTREAM_INFO::COLORSPACE_UNSPECIFIED; /*!< @brief definition of colorspace */
-  INPUTSTREAM_INFO::COLORRANGE m_colorRange = INPUTSTREAM_INFO::COLORRANGE_UNKNOWN;     /*!< @brief color range if available */
-  INPUTSTREAM_INFO::COLORPRIMARIES m_colorPrimaries = INPUTSTREAM_INFO::COLORPRIMARY_UNSPECIFIED;
-  INPUTSTREAM_INFO::COLORTRC m_colorTransferCharacteristic = INPUTSTREAM_INFO::COLORTRC_UNSPECIFIED;
-  INPUTSTREAM_MASTERING_METADATA* m_masteringMetadata = nullptr;
-  INPUTSTREAM_CONTENTLIGHT_METADATA* m_contentLightMetadata = nullptr;
+  INPUTSTREAM_COLORSPACE m_colorSpace = INPUTSTREAM_COLORSPACE_UNSPECIFIED; /*!< @brief definition of colorspace */
+  INPUTSTREAM_COLORRANGE m_colorRange = INPUTSTREAM_COLORRANGE_UNKNOWN;     /*!< @brief color range if available */
+  INPUTSTREAM_COLORPRIMARIES m_colorPrimaries = INPUTSTREAM_COLORPRIMARY_UNSPECIFIED;
+  INPUTSTREAM_COLORTRC m_colorTransferCharacteristic = INPUTSTREAM_COLORTRC_UNSPECIFIED;
+  kodi::addon::InputstreamMasteringMetadata* m_masteringMetadata = nullptr;
+  kodi::addon::InputstreamContentlightMetadata* m_contentLightMetadata = nullptr;
 #endif
 };

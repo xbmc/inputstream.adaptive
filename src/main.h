@@ -53,13 +53,13 @@ namespace XBMCFILE
 Kodi Streams implementation
 ********************************************************/
 
-class KodiAdaptiveTree : public adaptive::AdaptiveTree
+class ATTRIBUTE_HIDDEN KodiAdaptiveTree : public adaptive::AdaptiveTree
 {
 protected:
   virtual bool download(const char* url);
 };
 
-class KodiAdaptiveStream : public adaptive::AdaptiveStream
+class ATTRIBUTE_HIDDEN KodiAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
   KodiAdaptiveStream(adaptive::AdaptiveTree &tree, adaptive::AdaptiveTree::StreamType type)
@@ -77,24 +77,24 @@ enum MANIFEST_TYPE
   MANIFEST_TYPE_HLS
 };
 
-class Session: public adaptive::AdaptiveStreamObserver
+class ATTRIBUTE_HIDDEN Session : public adaptive::AdaptiveStreamObserver
 {
 public:
   Session(MANIFEST_TYPE manifestType,
-          const char* strURL,
-          const char* strUpdateParam,
-          const char* strLicType,
-          const char* strLicKey,
-          const char* strLicData,
-          const char* strCert,
-          const char* strMediaRenewalUrl,
+          const std::string& strURL,
+          const std::string& strUpdateParam,
+          const std::string& strLicType,
+          const std::string& strLicKey,
+          const std::string& strLicData,
+          const std::string& strCert,
+          const std::string& strMediaRenewalUrl,
           const uint32_t intMediaRenewalTime,
           const std::map<std::string, std::string>& manifestHeaders,
           const std::map<std::string, std::string>& mediaHeaders,
-          const char* profile_path,
+          const std::string& profile_path,
           uint16_t display_width,
           uint16_t display_height,
-          const char* ov_audio,
+          const std::string& ov_audio,
           bool play_timeshift_buffer,
           bool force_secure_decoder);
   virtual ~Session();
@@ -107,16 +107,10 @@ public:
   {
     STREAM(adaptive::AdaptiveTree &t, adaptive::AdaptiveTree::StreamType s) :enabled(false), encrypted(false), mainId_(0), current_segment_(0), stream_(t, s), input_(0), input_file_(0), reader_(0), segmentChanged(false), valid(true)
     {
-      memset(&info_, 0, sizeof(info_));
     };
     ~STREAM()
     {
       disable();
-      free((void*)info_.m_ExtraData), info_.m_ExtraData = nullptr;
-#if INPUTSTREAM_VERSION_LEVEL > 0
-      delete info_.m_masteringMetadata, info_.m_masteringMetadata = nullptr;
-      delete info_.m_contentLightMetadata, info_.m_contentLightMetadata = nullptr;
-#endif
     };
     void disable();
 
@@ -126,7 +120,7 @@ public:
     KodiAdaptiveStream stream_;
     AP4_ByteStream *input_;
     AP4_File *input_file_;
-    INPUTSTREAM_INFO info_;
+    kodi::addon::InputstreamInfo info_;
     SampleReader *reader_;
     bool segmentChanged;
     bool valid;
@@ -157,7 +151,7 @@ public:
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
   const AP4_UI08 *GetDefaultKeyId(const uint16_t index) const;
   uint32_t GetIncludedStreamMask() const;
-  CRYPTO_INFO::CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
+  STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
   int GetChapter() const;
   int GetChapterCount() const;
@@ -211,7 +205,7 @@ private:
   uint32_t maxUserBandwidth_;
   bool changed_;
   int manual_streams_;
-  uint64_t elapsed_time_, chapter_start_time_; // In DVD_TIME_BASE
+  uint64_t elapsed_time_, chapter_start_time_; // In STREAM_TIME_BASE
   double chapter_seek_time_; // In seconds
   uint8_t media_type_mask_;
   uint8_t drmConfig_;

@@ -26,7 +26,7 @@
 
 class AP4_ByteStream;
 
-class TSReader : public TSDemux::TSDemuxer
+class ATTRIBUTE_HIDDEN TSReader : public TSDemux::TSDemuxer
 {
 public:
   TSReader(AP4_ByteStream *stream, uint32_t requiredMask);
@@ -40,7 +40,7 @@ public:
   bool StartStreaming(AP4_UI32 typeMask);
   bool SeekTime(uint64_t timeInTs, bool preceeding);
 
-  bool GetInformation(INPUTSTREAM_INFO &info);
+  bool GetInformation(kodi::addon::InputstreamInfo& info);
   bool ReadPacket(bool streamInfo = false);
 
   uint64_t GetDts() const { return m_pkt.dts == PTS_UNSET ? PTS_UNSET : m_pkt.dts; }
@@ -48,7 +48,7 @@ public:
   uint64_t GetDuration() const { return m_pkt.duration; }
   const AP4_Byte *GetPacketData() const { return m_pkt.data; };
   const AP4_Size GetPacketSize() const { return m_pkt.size; };
-  const INPUTSTREAM_INFO::STREAM_TYPE GetStreamType() const;
+  const INPUTSTREAM_TYPE GetStreamType() const;
 
 private:
   bool GetPacket();
@@ -66,11 +66,11 @@ private:
 
   struct TSINFO
   {
-    TSINFO(TSDemux::ElementaryStream* stream) : m_stream(stream), m_needInfo(true), m_changed(false), m_enabled(false), m_streamType(INPUTSTREAM_INFO::TYPE_NONE) {};
+    TSINFO(TSDemux::ElementaryStream* stream) : m_stream(stream), m_needInfo(true), m_changed(false), m_enabled(false), m_streamType(INPUTSTREAM_TYPE_NONE) {};
 
     TSDemux::ElementaryStream* m_stream;
     bool m_needInfo, m_changed, m_enabled;
-    INPUTSTREAM_INFO::STREAM_TYPE m_streamType;
+    INPUTSTREAM_TYPE m_streamType;
   };
   std::vector<TSINFO> m_streamInfos;
 };
