@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.6.2"
+  version="2.6.3"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,11 @@
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
     <news>
+v2.6.3 (2020-10-31)
+- New C-api changes
+- Fix URL's without domain (files)
+- [MPD] Fix SegmentTimeline without given startTime
+
 v2.6.2 (2020-10-30)
 - revert / rework effective url issues
 - api related changes (buildsystem)
