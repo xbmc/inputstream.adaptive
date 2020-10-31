@@ -338,12 +338,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             {
               // <S t="3600" d="900000" r="2398"/>
               unsigned int d(0), r(1);
-              static uint64_t t(0);
 
               for (; *attr;)
               {
                 if (strcmp((const char*)*attr, "t") == 0)
-                  t = atoll((const char*)*(attr + 1));
+                  dash->timeline_time_ = atoll((const char*)*(attr + 1));
                 else if (strcmp((const char*)*attr, "d") == 0)
                   d = atoi((const char*)*(attr + 1));
                 if (strcmp((const char*)*attr, "r") == 0)
@@ -378,14 +377,14 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
                 else
                   s.range_end_ =
                       dash->current_representation_->segments_.data.back().range_end_ + 1;
-                s.range_begin_ = s.startPTS_ = t;
+                s.range_begin_ = s.startPTS_ = dash->timeline_time_;
                 s.startPTS_ -= dash->base_time_ * dash->current_representation_->segtpl_.timescale;
 
                 for (; r; --r)
                 {
                   dash->current_representation_->segments_.data.push_back(s);
                   ++s.range_end_;
-                  s.range_begin_ = (t += d);
+                  s.range_begin_ = (dash->timeline_time_ += d);
                   s.startPTS_ += d;
                 }
                 dash->current_representation_->nextPts_ = s.startPTS_;
@@ -505,6 +504,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
               dash->current_representation_->timescale_ =
                   dash->current_representation_->segtpl_.timescale;
             }
+            dash->timeline_time_ = 0;
             dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
           }
           else if (strcmp(el, CONTENTPROTECTION_TAG) == 0)

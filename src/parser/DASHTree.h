@@ -37,7 +37,7 @@ public:
                                StreamType type) override;
 
   void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
-  uint64_t pts_helper_;
+  uint64_t pts_helper_, timeline_time_;
   uint32_t firstStartNumber_;
   std::string current_playready_wrmheader_;
   std::string mpd_url_;
