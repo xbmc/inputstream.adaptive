@@ -1308,8 +1308,12 @@ static void XMLCALL end(void* data, const char* el)
         {
           if (strcmp(el, "BaseURL") == 0)
           {
-            dash->current_adaptationset_->base_url_ =
-                dash->current_period_->base_url_ + dash->strXMLText_;
+            if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
+                dash->strXMLText_.compare(0, 7, "http://") == 0 ||
+                dash->strXMLText_.compare(0, 8, "https://") == 0)
+                dash->current_adaptationset_->base_url_ = dash->strXMLText_;
+            else
+                dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_ + dash->strXMLText_;
             dash->currentNode_ &= ~MPDNODE_BASEURL;
           }
         }
