@@ -6,6 +6,8 @@ on:
         description: 'Specify "default"/"all"/platform or plat.+arch.'
         required: true
         default: 'windows-x86_64'
+  issue_comment:
+    types: [created]
 env:
   ADDON_ID: inputstream.adaptive
   ADDON_REPO: https://github.com/${{ github.repository }}
@@ -32,7 +34,9 @@ jobs:
         name: ${{ steps.run-bash.outputs.zip-name }}
         path: ${{ github.workspace }}/kodi-git/zip_content
   build-windows-x86_64:
-    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'windows' || github.event.inputs.platformArch == 'windows-x86_64' || github.event.inputs.platformArch == 'default'
+    if: |
+      (github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'windows' || github.event.inputs.platformArch == 'windows-x86_64' || github.event.inputs.platformArch == 'default') ||
+      (github.event.comment.body == '/BuildDefault' && github.actor == github.repository_owner)
     name: Build Windows x86_64
     runs-on: windows-latest
     env:
@@ -53,7 +57,9 @@ jobs:
         name: ${{ steps.run-bash.outputs.zip-name }}
         path: ${{ github.workspace }}/kodi-git/zip_content
   build-android-arm64:
-    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'android' || github.event.inputs.platformArch == 'android-arm64' || github.event.inputs.platformArch == 'default'
+    if: |
+      (github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'android' || github.event.inputs.platformArch == 'android-arm64' || github.event.inputs.platformArch == 'default') ||
+      (github.event.comment.body == '/BuildDefault' && github.actor == github.repository_owner)
     name: Build Android aarch64
     runs-on: ubuntu-latest
     env:
@@ -95,7 +101,9 @@ jobs:
         name: ${{ steps.run-bash.outputs.zip-name }}
         path: ${{ steps.run-bash.outputs.zip-path }}
   build-linux-x86_64:
-    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'linux' || github.event.inputs.platformArch == 'linux-x86_64' || github.event.inputs.platformArch == 'default'
+    if: |
+      (github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'linux' || github.event.inputs.platformArch == 'linux-x86_64' || github.event.inputs.platformArch == 'default') ||
+      (github.event.comment.body == '/BuildDefault' && github.actor == github.repository_owner)
     name: Build Linux x86_64
     runs-on: ubuntu-latest
     env:
