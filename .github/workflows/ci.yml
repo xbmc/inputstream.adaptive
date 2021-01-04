@@ -1,0 +1,180 @@
+name: CI
+on: 
+  workflow_dispatch:
+    inputs:
+      platformArch:
+        description: 'Specify "default"/"all"/platform or plat.+arch.'
+        required: true
+        default: 'windows-x86_64'
+env:
+  ADDON_ID: inputstream.adaptive
+  ADDON_REPO: https://github.com/${{ github.repository }}
+jobs:
+  build-windows-x86:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'windows' || github.event.inputs.platformArch == 'windows-x86'
+    name: Build Windows x86
+    runs-on: windows-latest
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: windows
+      ARCH: x86
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ github.workspace }}/kodi-git/zip_content
+  build-windows-x86_64:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'windows' || github.event.inputs.platformArch == 'windows-x86_64' || github.event.inputs.platformArch == 'default'
+    name: Build Windows x86_64
+    runs-on: windows-latest
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: windows
+      ARCH: x86_64
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ github.workspace }}/kodi-git/zip_content
+  build-android-arm64:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'android' || github.event.inputs.platformArch == 'android-arm64' || github.event.inputs.platformArch == 'default'
+    name: Build Android aarch64
+    runs-on: ubuntu-latest
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: android
+      ARCH: aarch64
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ steps.run-bash.outputs.zip-path }}
+  build-android-arm:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'android' || github.event.inputs.platformArch == 'android-arm'
+    name: Build Android armv7
+    runs-on: ubuntu-latest
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: android
+      ARCH: armv7
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ steps.run-bash.outputs.zip-path }}
+  build-linux-x86_64:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'linux' || github.event.inputs.platformArch == 'linux-x86_64' || github.event.inputs.platformArch == 'default'
+    name: Build Linux x86_64
+    runs-on: ubuntu-latest
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: linux
+      ARCH: x86_64
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ steps.run-bash.outputs.zip-path }}
+  build-linux-arm:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'linux' || github.event.inputs.platformArch == 'linux-arm'
+    name: Build Linux armv7
+    runs-on: ubuntu-latest
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: linux
+      ARCH: armv7
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ steps.run-bash.outputs.zip-path }}
+  build-linux-arm64:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'linux' || github.event.inputs.platformArch == 'linux-arm64'
+    name: Build Linux aarch64
+    runs-on: ubuntu-latest
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: linux
+      ARCH: aarch64
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ steps.run-bash.outputs.zip-path }}
+  build-macos:
+    if: github.event.inputs.platformArch == 'all' || github.event.inputs.platformArch == 'macos' || github.event.inputs.platformArch == 'macos-x86_64'
+    name: Build MacOs x86_64
+    runs-on: macos-11.0
+    env:
+      KODI_VERSION: matrix
+      PLATFORM: darwin
+      ARCH: x86_64
+    steps:
+    - name: Check out ${{ github.sha }} from repository ${{ github.repository }}
+      uses: actions/checkout@v2
+    - name: Run build-isa.sh bash
+      id: run-bash
+      run: bash -x build-isa.sh
+      shell: bash
+      working-directory: build_scripts
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.run-bash.outputs.zip-name }}
+        path: ${{ steps.run-bash.outputs.zip-path }}
