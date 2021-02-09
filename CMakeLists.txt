@@ -75,12 +75,12 @@ add_subdirectory(lib/mpegts)
 
 add_subdirectory(lib/webm_parser)
 
-if(NOT CORE_SYSTEM_NAME STREQUAL ios)
-  add_subdirectory(wvdecrypter)
-  set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
-else()
+if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
   set(BENTOUSESTCFS 1)
   add_subdirectory(lib/libbento4)
+else()
+  add_subdirectory(wvdecrypter)
+  set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 endif()
 
 if(CORE_SYSTEM_NAME STREQUAL android)
