@@ -54,13 +54,6 @@ enum
 
 static const char* CONTENTPROTECTION_TAG = "ContentProtection";
 
-static const char* ltranslate(const char* in)
-{
-  if (strlen(in) == 2 || strlen(in) == 3 || (strlen(in) > 3 && in[2] == '-'))
-    return in;
-  return "unk";
-}
-
 DASHTree::DASHTree()
 {
 }
@@ -882,7 +875,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           else if (strcmp((const char*)*attr, "group") == 0)
             dash->current_adaptationset_->group_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "lang") == 0)
-            dash->current_adaptationset_->language_ = ltranslate((const char*)*(attr + 1));
+            dash->current_adaptationset_->language_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "mimeType") == 0)
             dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "name") == 0)
