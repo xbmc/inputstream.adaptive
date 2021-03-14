@@ -41,6 +41,7 @@ set(ADP_HEADERS
 	src/log.h
 	src/aes_decrypter.h
 	src/ADTSReader.h
+	src/Iaes_decrypter.h
 	src/md5.h
 	src/WebmReader.h
 	)

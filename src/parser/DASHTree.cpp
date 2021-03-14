@@ -1007,7 +1007,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
     dash->firstStartNumber_ = 0;
 
     dash->overallSeconds_ = 0;
-    dash->stream_start_ = time(0);
+    dash->stream_start_ = dash->GetNowTime();
     dash->mpd_url_ = dash->base_url_;
 
     for (; *attr;)

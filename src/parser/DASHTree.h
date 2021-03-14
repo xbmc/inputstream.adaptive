@@ -36,6 +36,7 @@ public:
                                Representation* rep,
                                StreamType type) override;
 
+  virtual uint64_t GetNowTime() { return time(0); };
   void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
   uint64_t pts_helper_, timeline_time_;
   uint32_t firstStartNumber_;
