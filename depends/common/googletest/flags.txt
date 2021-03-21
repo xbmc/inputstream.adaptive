@@ -1,0 +1,1 @@
+-Dgtest_force_shared_crt=ON

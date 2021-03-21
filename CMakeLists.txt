@@ -98,3 +98,11 @@ build_addon(inputstream.adaptive ADP DEPLIBS)
 
 include(CPack)
 
+if(NOT CMAKE_CROSSCOMPILING)
+  list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
+  enable_testing()
+  include(FindGTest)
+  find_package(GTest REQUIRED)
+  include_directories(${GTEST_INCLUDE_DIRS})
+  add_subdirectory(src/test)
+endif()

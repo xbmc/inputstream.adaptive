@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-live:2011" mediaPresentationDuration="PT1H47M52S" minBufferTime="PT10S" maxSegmentDuration="PT11S">
+  <Period id="1" duration="PT1H47M52S">
+    <BaseURL>https://foo.bar/guid.ism/dash</BaseURL>
+    <AdaptationSet audioSamplingRate="44100" mimeType="audio/mp4" codecs="mp4a.40.2" startWithSAP="1" id="1" group="1" lang="afr" contentType="audio" segmentAlignment="True">
+      <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+      <ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc"/>
+      <ContentProtection schemeIdUri="urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED"/>
+      <ContentProtection schemeIdUri="urn:uuid:5E629AF5-38DA-4063-8977-97FFBD9902D4"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate timescale="44100" duration="441000" media="media-$RepresentationID$-$Number$.m4s" initialization="media-$RepresentationID$.dash"/>
+      <Representation id="audio=128000" bandwidth="128000"/>
+    </AdaptationSet>
+    <AdaptationSet sar="1:1" mimeType="video/mp4" codecs="avc1.4D401F" startWithSAP="1" id="2" group="2" contentType="video" par="16:9" minBandwidth="66000" maxBandwidth="1916000" maxWidth="1280" maxHeight="720" segmentAlignment="True">
+      <ContentProtection schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc"/>
+      <ContentProtection schemeIdUri="urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED"/>
+      <ContentProtection schemeIdUri="urn:uuid:5E629AF5-38DA-4063-8977-97FFBD9902D4"/>
+      <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+      <SegmentTemplate timescale="16000" duration="160000" media="media-$RepresentationID$-$Number$.m4s" initialization="media-$RepresentationID$.dash"/>
+      <Representation width="256" height="144" scanType="progressive" id="video=66000" bandwidth="66000"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
