@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:_xmlns="xmlns" _xmlns:cenc="urn:mpeg:cenc:2013" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT14528.0556640625S" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011">
+  <Period id="0">
+    <AdaptationSet id="0" contentType="video">
+      <Role value="main" schemeIdUri="urn:mpeg:dash:role:2011"/>
+      <Representation id="0" bandwidth="664362" width="416" height="234" codecs="avc1.4d400d" mimeType="video/mp4" sar="1:1">
+        <BaseURL>v/v30_cenc.mp4</BaseURL>
+        <SegmentBase xmlns="urn:mpeg:dash:schema:mpd:2011" indexRange="1478-45093" timescale="24000">
+          <Initialization xmlns="urn:mpeg:dash:schema:mpd:2011" range="0-1477"/>
+        </SegmentBase>
+      </Representation>
+      <ContentProtection xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:_="urn:mpeg:cenc:2013" schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc" _:default_KID="0101f49e-117c-ec8e-d606-27d7cb46ae38"/>
+      <ContentProtection xmlns="urn:mpeg:dash:schema:mpd:2011" schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed">
+        <pssh xmlns="urn:mpeg:cenc:2013">ABCDEFGH</pssh>
+      </ContentProtection>
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="video">
+      <Role value="main" schemeIdUri="urn:mpeg:dash:role:2011"/>
+      <Representation id="0" bandwidth="664362" width="416" height="234" codecs="avc1.4d400d" mimeType="video/mp4" sar="1:1">
+        <BaseURL>v/v31_cenc.mp4</BaseURL>
+        <SegmentBase xmlns="urn:mpeg:dash:schema:mpd:2011" indexRange="1478-45093" timescale="24000">
+          <Initialization xmlns="urn:mpeg:dash:schema:mpd:2011" range="0-1477"/>
+        </SegmentBase>
+      </Representation>
+      <ContentProtection xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:_="urn:mpeg:cenc:2013" schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc" cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"/>
+      <ContentProtection xmlns="urn:mpeg:dash:schema:mpd:2011" schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed">
+        <cenc:pssh xmlns="urn:mpeg:cenc:2013">HGFEDCBA</cenc:pssh>
+      </ContentProtection>
+    </AdaptationSet>
+  </Period>
+</MPD>

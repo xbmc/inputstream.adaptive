@@ -204,7 +204,7 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
       else
         urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
     }
-    else if (strcmp((const char*)*attr, "cenc:default_KID") == 0)
+    else if (endswith((const char*)*attr, "default_KID"))
       defaultKID = (const char*)*(attr + 1);
     attr += 2;
   }
@@ -399,7 +399,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           }
           else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
           {
-            if (strcmp(el, "cenc:pssh") == 0)
+            if (endswith(el, "pssh"))
               dash->currentNode_ |= MPDNODE_PSSH;
             else if (strcmp(el, "widevine:license") == 0)
             {
@@ -568,7 +568,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         }
         else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
         {
-          if (strcmp(el, "cenc:pssh") == 0)
+          if (endswith(el, "pssh"))
             dash->currentNode_ |= MPDNODE_PSSH;
           else if (strcmp(el, "widevine:license") == 0)
           {
@@ -1146,7 +1146,7 @@ static void XMLCALL end(void* data, const char* el)
           {
             if (dash->currentNode_ & MPDNODE_PSSH)
             {
-              if (strcmp(el, "cenc:pssh") == 0)
+              if (endswith(el, "pssh"))
               {
                 dash->current_pssh_ = dash->strXMLText_;
                 dash->currentNode_ &= ~MPDNODE_PSSH;
@@ -1340,7 +1340,7 @@ static void XMLCALL end(void* data, const char* el)
         {
           if (dash->currentNode_ & MPDNODE_PSSH)
           {
-            if (strcmp(el, "cenc:pssh") == 0)
+            if (endswith(el, "pssh"))
             {
               dash->current_pssh_ = dash->strXMLText_;
               dash->currentNode_ &= ~MPDNODE_PSSH;

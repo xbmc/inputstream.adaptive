@@ -325,3 +325,14 @@ TEST_F(DASHTreeTest, updateParameterVODSegmentTemplate)
   OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd", "", "");
   EXPECT_EQ(tree->update_parameter_, "");
 }
+
+TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
+{
+  OpenTestFile("mpd/pssh_default_kid.mpd", "", "");
+
+  EXPECT_EQ(tree->periods_[0]->psshSets_[1].pssh_, "ABCDEFGH");
+  EXPECT_EQ(tree->periods_[0]->psshSets_[1].defaultKID_.length(), 16);
+
+  EXPECT_EQ(tree->periods_[0]->psshSets_[2].pssh_, "HGFEDCBA");
+  EXPECT_EQ(tree->periods_[0]->psshSets_[2].defaultKID_.length(), 16);
+}
