@@ -317,7 +317,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
     else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
     {
       if (line[0] != '/' && line.find("://", 0) == std::string::npos)
-        current_representation_->source_url_ = base_url_ + line;
+        current_representation_->source_url_ = effective_url_ + line;
       else
         current_representation_->source_url_ = line;
 

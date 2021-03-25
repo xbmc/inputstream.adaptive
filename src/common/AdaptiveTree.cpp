@@ -410,12 +410,6 @@ namespace adaptive
     {
       if (url.front() == '/')
         return effective_domain_.empty() ? base_domain_ + url : effective_domain_ + url;
-      else if (!effective_url_.empty() && url.compare(0, base_url_.size(), base_url_) == 0)
-      {
-        std::string newUrl(url);
-        newUrl.replace(0, base_url_.size(), effective_url_);
-        return newUrl;
-      }
     }
     return url;
   }
