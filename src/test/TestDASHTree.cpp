@@ -91,13 +91,12 @@ TEST_F(DASHTreeTest, CalculateBaseDomain)
   EXPECT_EQ(tree->base_domain_, "https://foo.bar");
 }
 
-TEST_F(DASHTreeTest, CalculateEffectiveUrlFromRedirect)
+TEST_F(DASHTreeTest, CalculateBaseUrlFromRedirect)
 {
-  // like base_url_, effective_url_ should be path, not including filename
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
   OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd", "");
-
-  EXPECT_EQ(tree->effective_url_, "https://foo.bar/mpd/");
+  EXPECT_EQ(tree->base_url_, "https://foo.bar/mpd/");
+  EXPECT_EQ(tree->manifest_url_, "https://foo.bar/mpd/stream.mpd");
 }
 
 TEST_F(DASHTreeTest, CalculateBaseURLFromBaseURLTag)

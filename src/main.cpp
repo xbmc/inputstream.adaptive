@@ -315,12 +315,8 @@ bool adaptive::AdaptiveTree::download(const char* url,
 bool KodiAdaptiveStream::download(const char* url,
                                   const std::map<std::string, std::string>& mediaHeaders)
 {
-  bool retry_403 = true;
-  bool retry_MRT = true;
   kodi::vfs::CFile file;
-  std::string newUrl;
 
-RETRY:
   // open the file
   if (!file.CURLCreate(url))
     return false;
@@ -346,35 +342,7 @@ RETRY:
 
     size_t nbRead = ~0UL;
 
-    if (((returnCode == 403 && retry_403) ||
-         (getMediaRenewalTime() > 0 && SecondsSinceMediaRenewal() >= getMediaRenewalTime() &&
-          retry_MRT)) &&
-        !getMediaRenewalUrl().empty())
-    {
-      UpdateSecondsSinceMediaRenewal();
-
-      if (returnCode == 403)
-        retry_403 = false;
-      else
-        retry_MRT = false;
-
-      std::vector<kodi::vfs::CDirEntry> items;
-      if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
-      {
-        std::string effective_url = items[0].Path();
-        if (effective_url.back() != '/')
-          effective_url += '/';
-        kodi::Log(ADDON_LOG_DEBUG, "Renewed URL: %s", effective_url.c_str());
-        GetTree().SetEffectiveURL(effective_url);
-        newUrl = GetTree().BuildDownloadUrl(url);
-        url = newUrl.c_str();
-        goto RETRY;
-      }
-      else
-        kodi::Log(ADDON_LOG_ERROR, "Retrieving renewal URL failed (%s)",
-                  getMediaRenewalUrl().c_str());
-    }
-    else if (returnCode >= 400)
+    if (returnCode >= 400)
     {
       kodi::Log(ADDON_LOG_ERROR, "Download %s failed with error: %d", url, returnCode);
     }
@@ -1996,8 +1964,6 @@ Session::Session(MANIFEST_TYPE manifestType,
                  const std::string& strLicKey,
                  const std::string& strLicData,
                  const std::string& strCert,
-                 const std::string& strMediaRenewalUrl,
-                 const uint32_t intMediaRenewalTime,
                  const std::map<std::string, std::string>& manifestHeaders,
                  const std::map<std::string, std::string>& mediaHeaders,
                  const std::string& profile_path,
@@ -2101,8 +2067,6 @@ Session::Session(MANIFEST_TYPE manifestType,
     server_certificate_.SetDataSize(dstsz);
   }
   adaptiveTree_->manifest_headers_ = manifestHeaders;
-  adaptiveTree_->media_renewal_url_ = strMediaRenewalUrl;
-  adaptiveTree_->media_renewal_time_ = intMediaRenewalTime;
 }
 
 Session::~Session()
@@ -3295,8 +3259,7 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
-  std::string lt, lk, ld, lsc, mfup, ov_audio, mru;
-  uint32_t mrt = 0;
+  std::string lt, lk, ld, lsc, mfup, ov_audio;
   std::map<std::string, std::string> manh, medh;
   std::string mpd_url = props.GetURL();
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
@@ -3365,16 +3328,6 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.original_audio_language: %s",
                 ov_audio.c_str());
     }
-    else if (prop.first == "inputstream.adaptive.media_renewal_url")
-    {
-      mru = prop.second;
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_url: %s", mru.c_str());
-    }
-    else if (prop.first == "inputstream.adaptive.media_renewal_time")
-    {
-      mrt = std::stoi(prop.second);
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_time: %d", mrt);
-    }
     else if (prop.first == "inputstream.adaptive.max_bandwidth")
     {
       max_user_bandwidth = std::stoi(prop.second);
@@ -3405,7 +3358,7 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
   kodihost->SetProfilePath(props.GetProfileFolder());
 
   m_session = std::shared_ptr<Session>(new Session(manifest, mpd_url.c_str(), mfup, lt, lk, ld, lsc,
-                                                   mru, mrt, manh, medh, props.GetProfileFolder(),
+                                                   manh, medh, props.GetProfileFolder(),
                                                    m_width, m_height, ov_audio,
                                                    m_playTimeshiftBuffer, force_secure_decoder));
   m_session->SetVideoResolution(m_width, m_height);

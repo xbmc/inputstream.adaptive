@@ -61,13 +61,13 @@ public:
                                AdaptationSet* adp,
                                Representation* rep,
                                StreamType type) override;
-  virtual bool processManifest(std::stringstream& stream, const std::string& url);
+  virtual bool processManifest(std::stringstream& stream);
 
 protected:
   virtual void RefreshLiveSegments() override;
 
 private:
-  int processEncryption(std::string baseUrl, std::map<std::string, std::string>& map);
+  int processEncryption(std::map<std::string, std::string>& map);
   std::string m_audioCodec;
 
   struct EXTGROUP
