@@ -1,0 +1,1 @@
+googletest http://mirrors.kodi.tv/build-deps/sources/googletest-1.10.0.tar.gz

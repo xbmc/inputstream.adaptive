@@ -25,7 +25,7 @@
 
 #include <kodi/AddonBase.h>
 
-class AESDecrypter;
+class IAESDecrypter;
 
 namespace adaptive
 {
@@ -41,7 +41,7 @@ public:
     ENCRYPTIONTYPE_WIDEVINE = 3,
     ENCRYPTIONTYPE_UNKNOWN = 4,
   };
-  HLSTree(AESDecrypter* decrypter) : AdaptiveTree(), m_decrypter(decrypter){};
+  HLSTree(IAESDecrypter* decrypter) : AdaptiveTree(), m_decrypter(decrypter){};
   virtual ~HLSTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
@@ -89,7 +89,7 @@ private:
   std::map<std::string, EXTGROUP> m_extGroups;
   bool m_refreshPlayList = true;
   uint8_t m_segmentIntervalSec = 4;
-  AESDecrypter *m_decrypter;
+  IAESDecrypter *m_decrypter;
   std::stringstream manifest_stream;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;

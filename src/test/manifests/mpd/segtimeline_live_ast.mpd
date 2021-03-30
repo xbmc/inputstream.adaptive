@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <!-- Just In Time Delivered by Quortex Solution -->
-<MPD testTime="2020-06-07T12:00:01Z" availabilityStartTime="1970-01-01T00:00:06Z" minBufferTime="PT6S" minimumUpdatePeriod="PT6S" profiles="urn:mpeg:dash:profile:isoff-live:2011,urn:hbbtv:dash:profile:isoff-live:2012" publishTime="2020-06-07T11:59:55Z" suggestedPresentationDelay="PT12S" timeShiftBufferDepth="PT1M18S" type="dynamic" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="urn:microsoft:playready" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd">
+<MPD availabilityStartTime="1970-01-01T00:00:06Z" minBufferTime="PT6S" minimumUpdatePeriod="PT6S" profiles="urn:mpeg:dash:profile:isoff-live:2011,urn:hbbtv:dash:profile:isoff-live:2012" publishTime="2020-06-07T11:59:55Z" suggestedPresentationDelay="PT12S" timeShiftBufferDepth="PT1M18S" type="dynamic" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="urn:microsoft:playready" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd">
 	<Period id="0" start="PT1588628086S">
 		<AdaptationSet contentType="video" id="1" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
 			<SegmentTemplate initialization="$RepresentationID$/init.mp4?id=8c1bbb709229e110fbb0d1e544266504" media="$RepresentationID$/segment_$Number$.m4s" presentationTimeOffset="1738747575" startNumber="487050" timescale="90000">

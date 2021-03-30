@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" type="static" mediaPresentationDuration="PT5.024S" minBufferTime="PT10S" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:_xmlns="xmlns" _xmlns:ns2="http://www.w3.org/1999/xlink">
+  <Period duration="PT5.024S">
+    <AdaptationSet id="1" group="1" lang="en-US" contentType="audio" mimeType="audio/mp4" codecs="mp4a.40.2" segmentAlignment="true" subsegmentAlignment="true" subsegmentStartsWithSAP="1" audioSamplingRate="48000" startWithSAP="1">
+      <Representation id="audio_en-US=128000" bandwidth="129000">
+        <BaseURL>audio/program/en-US/2.0/r0/aac-128k.mp4</BaseURL>
+        <SegmentBase xmlns="urn:mpeg:dash:schema:mpd:2011" timescale="48000" indexRange="768-823" indexRangeExact="true">
+          <Initialization range="0-767"/>
+        </SegmentBase>
+      </Representation>
+      <AudioChannelConfiguration value="2" schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011"/>
+      <Role value="main" schemeIdUri="urn:mpeg:dash:role:2011"/>
+    </AdaptationSet>
+    <AdaptationSet id="2" group="2" contentType="video" mimeType="video/mp4" minBandwidth="413000" maxBandwidth="7744000" maxWidth="1920" maxHeight="1080" par="16:9" segmentAlignment="true" subsegmentAlignment="true" subsegmentStartsWithSAP="1" sar="1:1" frameRate="24000/1001" startWithSAP="1">
+      <Representation id="video=8154811" bandwidth="7744000" width="1920" height="1080" codecs="avc1.640028" scanType="progressive">
+        <BaseURL>video/23.98p/r0/vid10.mp4</BaseURL>
+        <SegmentBase xmlns="urn:mpeg:dash:schema:mpd:2011" timescale="24000" indexRange="754-809" indexRangeExact="true">
+          <Initialization range="0-753"/>
+        </SegmentBase>
+      </Representation>
+      <Role value="main" schemeIdUri="urn:mpeg:dash:role:2011"/>
+    </AdaptationSet>
+  </Period>
+</MPD>
