@@ -1,0 +1,48 @@
+name: Build and run tests
+on: [push, pull_request]
+env:
+  app_id: inputstream.adaptive
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-18.04
+          CC: gcc
+          CXX: g++
+        - os: ubuntu-18.04
+          CC: clang
+          CXX: clang++
+        - os: macos-10.15
+    steps:
+    - name: Checkout Kodi repo
+      uses: actions/checkout@v2
+      with:
+        repository: xbmc/xbmc
+        ref: master
+        path: xbmc
+    - name: Checkout inputstream.adaptive repo
+      uses: actions/checkout@v2
+      with:
+        path: ${{ env.app_id }}
+    - name: Configure
+      env:
+        CC: ${{ matrix.CC }}
+        CXX: ${{ matrix.CXX }}
+      run: |
+        cd ${app_id} && mkdir -p build && cd build
+        cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=${{ github.workspace }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/xbmc/addons -DPACKAGE_ZIP=1 ${{ github.workspace }}/xbmc/cmake/addons
+    - name: Build
+      env:
+        CC: ${{ matrix.CC }}
+        CXX: ${{ matrix.CXX }}
+      run: |
+        cd ${app_id}/build
+        make
+    - name: Run tests
+      run: |
+        cd ${app_id}/build/${app_id}-prefix/src/${app_id}-build
+        make CTEST_OUTPUT_ON_FAILURE=1 GTEST_COLOR=1 test

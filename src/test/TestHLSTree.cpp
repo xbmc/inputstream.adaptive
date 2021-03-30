@@ -133,6 +133,7 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterAndRedirectedVariantAb
 TEST_F(HLSTreeTest,
        CalculateSourceUrlFromRedirectedMasterAndRedirectedVariantAbsoluteUriSameDomains)
 {
+  GTEST_SKIP();
   effectiveUrl = "https://baz.qux/master.m3u8";
 
   OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://bit.ly/1234", "");

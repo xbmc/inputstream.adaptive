@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 project(inputstream.adaptive)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
@@ -53,10 +53,12 @@ if(WIN32)
 endif()
 
 include_directories(${INCLUDES}
-                    ${KODI_INCLUDE_DIR}
+                    ${KODI_INCLUDE_DIR}/.. # Hack way with "/..", need bigger Kodi cmake rework to match right include ways (becomes done in future)
                     lib/libbento4/Core
                     lib/webm_parser/include
 )
+
+set(CMAKE_FIND_FRAMEWORK LAST)
 
 include(FindEXPAT)
 find_package(EXPAT REQUIRED)
