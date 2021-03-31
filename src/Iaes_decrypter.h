@@ -7,7 +7,7 @@
 class IAESDecrypter
 {
 public:
-  ~IAESDecrypter() {};
+  virtual ~IAESDecrypter() {};
 
   virtual void decrypt(const AP4_UI08* aes_key,
                        const AP4_UI08* aes_iv,
