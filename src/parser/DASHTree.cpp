@@ -1034,8 +1034,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         dash->available_time_ = getTime((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "publishTime") == 0)
         dash->publish_time_ = getTime((const char*)*(attr + 1));
-      else if (strcmp((const char*)*attr, "testTime") == 0)
-        dash->stream_start_ = getTime((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "minimumUpdatePeriod") == 0)
       {
         uint64_t dur(0);
