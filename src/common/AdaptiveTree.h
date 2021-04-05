@@ -438,7 +438,7 @@ public:
 
   uint8_t adpChannelCount_, adp_pssh_set_;
   uint16_t adpwidth_, adpheight_;
-  uint32_t adpfpsRate_;
+  uint32_t adpfpsRate_, adpfpsScale_;
   float adpaspect_;
   ContainerType adpContainerType_;
   bool adp_timelined_, period_timelined_;
