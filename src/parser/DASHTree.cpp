@@ -998,7 +998,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
   else if (strcmp(el, "MPD") == 0)
   {
     const char *mpt(0), *tsbd(0);
-    bool bStatic(false);
 
     dash->firstStartNumber_ = 0;
 
@@ -1011,11 +1010,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       if (strcmp((const char*)*attr, "mediaPresentationDuration") == 0)
       {
         mpt = (const char*)*(attr + 1);
-        bStatic = true;
       }
-      else if (strcmp((const char*)*attr, "type") == 0)
+      else if (strcmp((const char*)*attr, "type") == 0 &&
+               strcmp((const char*)*(attr + 1), "dynamic") == 0)
       {
-        bStatic = strcmp((const char*)*(attr + 1), "static") == 0;
+        dash->has_timeshift_buffer_ = true;
       }
       else if (strcmp((const char*)*attr, "timeShiftBufferDepth") == 0)
       {
@@ -1037,7 +1036,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
 
     if (!mpt)
       mpt = tsbd;
-    dash->has_timeshift_buffer_ = !bStatic;
 
     AddDuration(mpt, dash->overallSeconds_, 1);
     dash->has_overall_seconds_ = dash->overallSeconds_ > 0;
