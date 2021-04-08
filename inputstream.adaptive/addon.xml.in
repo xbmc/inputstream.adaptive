@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.6.9"
+  version="2.6.10"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,9 @@
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
     <news>
+v2.6.10 (2021-04-08)
+- Fix release build
+
 v2.6.9 (2021-04-08)
 - Fix MPD Timing (remove publishTime & presentationTimeOffset)
 - [Dash] Correctly set timeshift_buffer (live)
