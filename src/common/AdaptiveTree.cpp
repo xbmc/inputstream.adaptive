@@ -47,7 +47,6 @@ namespace adaptive
     , overallSeconds_(0)
     , stream_start_(0)
     , available_time_(0)
-    , publish_time_(0)
     , base_time_(0)
     , minPresentationOffset(0)
     , has_timeshift_buffer_(false)

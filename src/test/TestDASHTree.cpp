@@ -129,3 +129,31 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
   EXPECT_EQ(segments[0]->range_end_, 487050);
   EXPECT_EQ(segments[12]->range_end_, 487062);
 }
+
+TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimelineWithPTO)
+{
+  tree->mock_time = 1617223929L;
+
+  OpenTestFile("mpd/segtimeline_pto.mpd", "", "");
+
+  adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
+      tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
+
+  EXPECT_EQ(segments.size(), 451);
+  EXPECT_EQ(segments[0]->range_end_, 404305525);
+  EXPECT_EQ(segments[450]->range_end_, 404305975);
+}
+
+TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimelineWithOldPublishTime)
+{
+  tree->mock_time = 1617229334L;
+
+  OpenTestFile("mpd/segtimeline_old_publish_time.mpd", "", "");
+
+  adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
+      tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
+
+  EXPECT_EQ(segments.size(), 31);
+  EXPECT_EQ(segments[0]->range_end_, 603272);
+  EXPECT_EQ(segments[30]->range_end_, 603302);
+}
