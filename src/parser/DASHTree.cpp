@@ -119,6 +119,8 @@ static unsigned int ParseSegmentTemplate(const char** attr,
   {
     if (!tpl.media.empty() && tpl.media[0] == '/')
       tpl.media = baseDomain + tpl.media;
+    else if (!baseURL.empty() && baseURL.back() != '/')
+      tpl.media = baseURL + '/' + tpl.media;
     else
       tpl.media = baseURL + tpl.media;
   }
@@ -130,6 +132,8 @@ static unsigned int ParseSegmentTemplate(const char** attr,
   {
     if (!tpl.initialization.empty() && tpl.initialization[0] == '/')
       tpl.initialization = baseDomain + tpl.initialization;
+    else if (!baseURL.empty() && baseURL.back() != '/')
+      tpl.initialization = baseURL + '/' + tpl.initialization;
     else
       tpl.initialization = baseURL + tpl.initialization;
   }
