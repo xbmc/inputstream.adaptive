@@ -1,7 +1,7 @@
 Source: kodi-inputstream-adaptive
 Priority: extra
 Maintainer: peak3d <info@peak3d.de>
-Build-Depends: debhelper (>= 9.0.0), cmake,
+Build-Depends: debhelper (>= 9.0.0), cmake, googletest,
                kodi-addon-dev, pkg-config, libexpat1-dev
 Standards-Version: 3.9.7
 Section: libs
