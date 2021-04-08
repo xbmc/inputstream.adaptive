@@ -658,6 +658,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_representation_->width_ = dash->adpwidth_;
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
+          dash->current_representation_->fpsScale_ = dash->adpfpsScale_;
           dash->current_representation_->aspect_ = dash->adpaspect_;
           dash->current_representation_->containerType_ = dash->adpContainerType_;
 
@@ -680,9 +681,12 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
               dash->current_representation_->samplingRate_ =
                   static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
             else if (strcmp((const char*)*attr, "frameRate") == 0)
+            {
+              dash->current_representation_->fpsScale_ = 1;
               sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32,
                      &dash->current_representation_->fpsRate_,
                      &dash->current_representation_->fpsScale_);
+            }
             else if (strcmp((const char*)*attr, "id") == 0)
               dash->current_representation_->id = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "codecPrivateData") == 0)
@@ -849,6 +853,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         dash->adpwidth_ = 0;
         dash->adpheight_ = 0;
         dash->adpfpsRate_ = 0;
+        dash->adpfpsScale_ = 1;
         dash->adpaspect_ = 0.0f;
         dash->adp_pssh_set_ = 0;
         dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_MP4;
@@ -887,7 +892,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           else if (strcmp((const char*)*attr, "height") == 0)
             dash->adpheight_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
           else if (strcmp((const char*)*attr, "frameRate") == 0)
-            dash->adpfpsRate_ = static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
+            sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32,
+                    &dash->adpfpsRate_,
+                    &dash->adpfpsScale_);
           else if (strcmp((const char*)*attr, "par") == 0)
           {
             int w, h;
