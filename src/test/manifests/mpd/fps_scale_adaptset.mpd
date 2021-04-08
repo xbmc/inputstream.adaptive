@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MPD _xmlns:ns2="http://www.w3.org/1999/xlink" mediaPresentationDuration="PT1H45M47.904S" minBufferTime="PT10S" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" type="static" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:_xmlns="xmlns">
+	<Period duration="PT1H45M47.904S">
+		<AdaptationSet contentType="video" frameRate="24000/1001">
+			<Representation bandwidth="3203000" codecs="avc1.4D401F" height="544" id="video=2492922" scanType="progressive" width="1280">
+				<BaseURL>video/23.98p/r0/vid01.mp4</BaseURL>
+				<SegmentBase indexRange="1796-20859" indexRangeExact="true" timescale="24000" xmlns="urn:mpeg:dash:schema:mpd:2011">
+					<Initialization range="0-1795"/>
+				</SegmentBase>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet contentType="video" frameRate="30">
+			<Representation bandwidth="270000" codecs="avc1.4D400D" height="176" id="video=199197" scanType="progressive" width="416">
+				<BaseURL>video/23.98p/r0/vid02.mp4</BaseURL>
+				<SegmentBase indexRange="1792-20855" indexRangeExact="true" timescale="24000" xmlns="urn:mpeg:dash:schema:mpd:2011">
+					<Initialization range="0-1791"/>
+				</SegmentBase>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet contentType="video">
+			<Representation bandwidth="270000" codecs="avc1.4D400D" height="176" id="video=199197" scanType="progressive" width="416" frameRate="25">
+				<BaseURL>video/23.98p/r0/vid03.mp4</BaseURL>
+				<SegmentBase indexRange="1792-20855" indexRangeExact="true" timescale="24000" xmlns="urn:mpeg:dash:schema:mpd:2011">
+					<Initialization range="0-1791"/>
+				</SegmentBase>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet contentType="video">
+			<Representation bandwidth="270000" codecs="avc1.4D400D" height="176" id="video=199197" scanType="progressive" width="416" frameRate="25000/1000">
+				<BaseURL>video/23.98p/r0/vid04.mp4</BaseURL>
+				<SegmentBase indexRange="1792-20855" indexRangeExact="true" timescale="24000" xmlns="urn:mpeg:dash:schema:mpd:2011">
+					<Initialization range="0-1791"/>
+				</SegmentBase>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet contentType="video" frameRate="30">
+			<Representation bandwidth="270000" codecs="avc1.4D400D" height="176" id="video=199197" scanType="progressive" width="416" frameRate="25">
+				<BaseURL>video/23.98p/r0/vid05.mp4</BaseURL>
+				<SegmentBase indexRange="1792-20855" indexRangeExact="true" timescale="24000" xmlns="urn:mpeg:dash:schema:mpd:2011">
+					<Initialization range="0-1791"/>
+				</SegmentBase>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet contentType="video" frameRate="24000/1001">
+			<Representation bandwidth="270000" codecs="avc1.4D400D" height="176" id="video=199197" scanType="progressive" width="416" frameRate="30">
+				<BaseURL>video/23.98p/r0/vid05.mp4</BaseURL>
+				<SegmentBase indexRange="1792-20855" indexRangeExact="true" timescale="24000" xmlns="urn:mpeg:dash:schema:mpd:2011">
+					<Initialization range="0-1791"/>
+				</SegmentBase>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet contentType="video" frameRate="24000/1001">
+			<Representation bandwidth="270000" codecs="avc1.4D400D" height="176" id="video=199197" scanType="progressive" width="416" frameRate="25000/1000">
+				<BaseURL>video/23.98p/r0/vid05.mp4</BaseURL>
+				<SegmentBase indexRange="1792-20855" indexRangeExact="true" timescale="24000" xmlns="urn:mpeg:dash:schema:mpd:2011">
+					<Initialization range="0-1791"/>
+				</SegmentBase>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
