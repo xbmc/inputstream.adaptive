@@ -76,7 +76,7 @@ int main(int argc, char** argv)
             << ", base_time_: " << tree.base_time_ << ", firstStartNumber_: " << tree.firstStartNumber_
             << ", has_overall_seconds_: " << tree.has_overall_seconds_
             << ", has_timeshift_buffer_:" << tree.has_timeshift_buffer_
-            << ", publish_time_: " << tree.publish_time_ << ", stream_start_: " << tree.stream_start_
+            << ", stream_start_: " << tree.stream_start_
             << ", #periods: " << tree.periods_.size() << "\n";
 
   for (const adaptive::AdaptiveTree::Period* period : tree.periods_)
@@ -109,7 +109,6 @@ int main(int argc, char** argv)
       sstreamCur << "\t\tSegTpl: duration: " << adp->segtpl_.duration
                 << ", initialization: " << adp->segtpl_.initialization
                 << ", media: " << adp->segtpl_.media
-                << ", presentationTimeOffset: " << adp->segtpl_.presentationTimeOffset
                 << ", timescale:" << adp->segtpl_.timescale << "\n";
       sstreamCur << "\t\t\tSegment durations:";
       for (const uint32_t dur : adp->segment_durations_.data)
@@ -135,7 +134,6 @@ int main(int argc, char** argv)
         sstreamCur << "\t\t\t\tSegTpl: duration: " << rep->segtpl_.duration
                   << ", initialization: " << rep->segtpl_.initialization
                   << ", media: " << rep->segtpl_.media
-                  << ", presentationTimeOffset: " << rep->segtpl_.presentationTimeOffset
                   << ", timescale:" << rep->segtpl_.timescale << "\n";
         sstreamCur << "\t\t\t\tInit: pssh_set_: " << rep->initialization_.pssh_set_
                   << std::hex << ", range_begin_: 0x" << rep->initialization_.range_begin_

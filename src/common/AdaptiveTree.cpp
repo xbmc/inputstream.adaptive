@@ -47,7 +47,6 @@ namespace adaptive
     , overallSeconds_(0)
     , stream_start_(0)
     , available_time_(0)
-    , publish_time_(0)
     , base_time_(0)
     , minPresentationOffset(0)
     , has_timeshift_buffer_(false)
@@ -172,7 +171,7 @@ namespace adaptive
   }
 
   void AdaptiveTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
-  { 
+  {
     memcpy(dst + dstOffset, src, dataSize);
   }
 

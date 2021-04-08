@@ -107,8 +107,6 @@ static unsigned int ParseSegmentTemplate(const char** attr,
       tpl.duration = atoi((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "media") == 0)
       tpl.media = (const char*)*(attr + 1);
-    else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
-      tpl.presentationTimeOffset = atoll((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "startNumber") == 0)
       startNumber = atoi((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "initialization") == 0)
@@ -1026,8 +1024,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       }
       else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
         dash->available_time_ = getTime((const char*)*(attr + 1));
-      else if (strcmp((const char*)*attr, "publishTime") == 0)
-        dash->publish_time_ = getTime((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "testTime") == 0)
         dash->stream_start_ = getTime((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "minimumUpdatePeriod") == 0)
@@ -1047,9 +1043,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
     dash->has_overall_seconds_ = dash->overallSeconds_ > 0;
 
     uint64_t overallsecs(dash->overallSeconds_ ? dash->overallSeconds_ + 60 : 86400);
-    if (!dash->base_time_ && dash->publish_time_ && dash->available_time_ &&
-        dash->publish_time_ - dash->available_time_ > overallsecs)
-      dash->base_time_ = dash->publish_time_ - dash->available_time_ - overallsecs;
     dash->minPresentationOffset = ~0ULL;
 
     dash->currentNode_ |= MPDNODE_MPD;
@@ -1238,14 +1231,9 @@ static void XMLCALL end(void* data, const char* el)
                   if (!timeBased && dash->has_timeshift_buffer_ &&
                       tpl.duration)
                   {
-                    // get the closest time to calculate start_number
-                    uint64_t calc_time =
-                        dash->publish_time_ ? dash->publish_time_ : dash->stream_start_;
-                    uint64_t sample_time = tpl.presentationTimeOffset
-                                               ? tpl.presentationTimeOffset / tpl.timescale
-                                               : dash->current_period_->start_ /  1000;
+                    uint64_t sample_time = dash->current_period_->start_ /  1000;
 
-                    seg.range_end_ += (static_cast<int64_t>(calc_time - dash->available_time_ -
+                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ -
                                                             overallSeconds - sample_time)) *
                                           tpl.timescale / tpl.duration +
                                       1;

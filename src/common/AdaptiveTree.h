@@ -140,7 +140,7 @@ public:
 
   struct SegmentTemplate
   {
-    SegmentTemplate() : timescale(0), duration(0), presentationTimeOffset(0){};
+    SegmentTemplate() : timescale(0), duration(0) {};
     std::string initialization;
     std::string media;
     unsigned int timescale, duration;
@@ -422,7 +422,7 @@ public:
   XML_Parser parser_;
   uint32_t currentNode_;
   uint32_t segcount_;
-  uint64_t overallSeconds_, stream_start_, available_time_, publish_time_, base_time_;
+  uint64_t overallSeconds_, stream_start_, available_time_, base_time_;
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;
 
