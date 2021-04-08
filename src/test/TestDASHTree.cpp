@@ -13,14 +13,14 @@ protected:
   }
 
   void TearDown() override
-  { 
+  {
     effectiveUrl.clear();
     delete tree;
     tree = nullptr;
   }
 
   void OpenTestFile(std::string testfilename, std::string url, std::string manifestHeaders)
-  { 
+  {
     SetFileName(testFile, testfilename);
     if (!tree->open(url, manifestHeaders))
     {
@@ -68,7 +68,7 @@ TEST_F(DASHTreeTest, CalculateSegTplWithNoSlashs)
 
   adaptive::AdaptiveTree::SegmentTemplate segtpl =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_;
-  
+
   EXPECT_EQ(segtpl.initialization, "https://foo.bar/guid.ism/dash/media-video=66000.dash");
   EXPECT_EQ(segtpl.media, "https://foo.bar/guid.ism/dash/media-video=66000-$Number$.m4s");
 }
@@ -156,4 +156,16 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimelineWithOldPub
   EXPECT_EQ(segments.size(), 31);
   EXPECT_EQ(segments[0]->range_end_, 603272);
   EXPECT_EQ(segments[30]->range_end_, 603302);
+}
+
+TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
+{
+  OpenTestFile("mpd/segtimeline_live_pd.mpd", "", "");
+  EXPECT_EQ(tree->has_timeshift_buffer_, true);
+}
+
+TEST_F(DASHTreeTest, CalculateStaticWithPresentationDuration)
+{
+  OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd", "", "");
+  EXPECT_EQ(tree->has_timeshift_buffer_, false);
 }
