@@ -72,7 +72,8 @@ static uint8_t GetChannels(const char** attr)
   }
   if (schemeIdUri && value)
   {
-    if (strcmp(schemeIdUri, "urn:mpeg:dash:23003:3:audio_channel_configuration:2011") == 0)
+    if (strcmp(schemeIdUri, "urn:mpeg:dash:23003:3:audio_channel_configuration:2011") == 0 ||
+             strcmp(schemeIdUri, "urn:mpeg:mpegB:cicp:ChannelConfiguration") == 0)
       return atoi(value);
     else if (strcmp(schemeIdUri, "urn:dolby:dash:audio_channel_configuration:2011") == 0 ||
              strcmp(schemeIdUri, "tag:dolby.com,2014:dash:audio_channel_configuration:2011") == 0)
