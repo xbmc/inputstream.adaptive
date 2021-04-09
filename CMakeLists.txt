@@ -86,11 +86,7 @@ else()
   set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
 endif()
 
-if(CORE_SYSTEM_NAME STREQUAL android)
-  set(DECRYPTERPATH "special://xbmcbinaddons")
-else()
-  set(DECRYPTERPATH "special://home/cdm")
-endif()
+set(DECRYPTERPATH "special://home/cdm")
 
 list(APPEND DEPLIBS bento4)
 list(APPEND DEPLIBS mpegts)
