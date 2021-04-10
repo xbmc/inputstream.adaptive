@@ -83,11 +83,7 @@ else()
   add_subdirectory(lib/libbento4)
 endif()
 
-if(CORE_SYSTEM_NAME STREQUAL android)
-  set(DECRYPTERPATH "special://xbmcbinaddons")
-else()
-  set(DECRYPTERPATH "special://home/cdm")
-endif()
+set(DECRYPTERPATH "special://home/cdm")
 
 list(APPEND DEPLIBS bento4)
 list(APPEND DEPLIBS mpegts)

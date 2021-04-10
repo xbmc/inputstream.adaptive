@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.4.6"
+  version="2.4.7"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,17 @@
 	<description lang="es">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.4.7 (2021-04-10)
+- [Dash] Fix missing audio languages
+- [Dash] Correctly set timeshift_buffer (live)
+- [Dash] Fix Timing (remove publishTime and presentationTimeOffset)
+- [Dash] Append / to baseurl if required
+- [Dash] Support fpsScale in AdaptationSets
+- [Dash] Use full BaseUrl if real url inside an AdaptationSet
+- Fix for URLs starting with /
+- Use CDllHelper for opening ssd_wv
+- Move Android addon to binary addons repo
+
 v2.4.6 (2020-05-18)
 - Fix effective url if paths beginning with / provided
 - Several translations added / fixed

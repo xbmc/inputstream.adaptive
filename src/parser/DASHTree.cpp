@@ -54,13 +54,6 @@ enum
 
 static const char* CONTENTPROTECTION_TAG = "ContentProtection";
 
-static const char* ltranslate(const char* in)
-{
-  if (strlen(in) == 2 || strlen(in) == 3 || (strlen(in) > 3 && in[2] == '-'))
-    return in;
-  return "unk";
-}
-
 DASHTree::DASHTree()
 {
 }
@@ -107,8 +100,6 @@ static unsigned int ParseSegmentTemplate(const char** attr,
       tpl.duration = atoi((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "media") == 0)
       tpl.media = (const char*)*(attr + 1);
-    else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
-      tpl.presentationTimeOffset = atoll((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "startNumber") == 0)
       startNumber = atoi((const char*)*(attr + 1));
     else if (strcmp((const char*)*attr, "initialization") == 0)
@@ -121,6 +112,8 @@ static unsigned int ParseSegmentTemplate(const char** attr,
   {
     if (!tpl.media.empty() && tpl.media[0] == '/')
       tpl.media = baseDomain + tpl.media;
+    else if (!baseURL.empty() && baseURL.back() != '/')
+      tpl.media = baseURL + '/' + tpl.media;
     else
       tpl.media = baseURL + tpl.media;
   }
@@ -132,6 +125,8 @@ static unsigned int ParseSegmentTemplate(const char** attr,
   {
     if (!tpl.initialization.empty() && tpl.initialization[0] == '/')
       tpl.initialization = baseDomain + tpl.initialization;
+    else if (!baseURL.empty() && baseURL.back() != '/')
+      tpl.initialization = baseURL + '/' + tpl.initialization;
     else
       tpl.initialization = baseURL + tpl.initialization;
   }
@@ -663,6 +658,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_representation_->width_ = dash->adpwidth_;
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
+          dash->current_representation_->fpsScale_ = dash->adpfpsScale_;
           dash->current_representation_->aspect_ = dash->adpaspect_;
           dash->current_representation_->containerType_ = dash->adpContainerType_;
 
@@ -685,9 +681,12 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
               dash->current_representation_->samplingRate_ =
                   static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
             else if (strcmp((const char*)*attr, "frameRate") == 0)
+            {
+              dash->current_representation_->fpsScale_ = 1;
               sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32,
                      &dash->current_representation_->fpsRate_,
                      &dash->current_representation_->fpsScale_);
+            }
             else if (strcmp((const char*)*attr, "id") == 0)
               dash->current_representation_->id = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "codecPrivateData") == 0)
@@ -854,6 +853,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         dash->adpwidth_ = 0;
         dash->adpheight_ = 0;
         dash->adpfpsRate_ = 0;
+        dash->adpfpsScale_ = 1;
         dash->adpaspect_ = 0.0f;
         dash->adp_pssh_set_ = 0;
         dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_MP4;
@@ -882,7 +882,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           else if (strcmp((const char*)*attr, "group") == 0)
             dash->current_adaptationset_->group_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "lang") == 0)
-            dash->current_adaptationset_->language_ = ltranslate((const char*)*(attr + 1));
+            dash->current_adaptationset_->language_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "mimeType") == 0)
             dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
           else if (strcmp((const char*)*attr, "codecs") == 0)
@@ -892,7 +892,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           else if (strcmp((const char*)*attr, "height") == 0)
             dash->adpheight_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
           else if (strcmp((const char*)*attr, "frameRate") == 0)
-            dash->adpfpsRate_ = static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
+            sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32,
+                    &dash->adpfpsRate_,
+                    &dash->adpfpsScale_);
           else if (strcmp((const char*)*attr, "par") == 0)
           {
             int w, h;
@@ -1000,7 +1002,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
   else if (strcmp(el, "MPD") == 0)
   {
     const char *mpt(0), *tsbd(0);
-    bool bStatic(false);
 
     dash->firstStartNumber_ = 0;
 
@@ -1013,11 +1014,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       if (strcmp((const char*)*attr, "mediaPresentationDuration") == 0)
       {
         mpt = (const char*)*(attr + 1);
-        bStatic = true;
       }
-      else if (strcmp((const char*)*attr, "type") == 0)
+      else if (strcmp((const char*)*attr, "type") == 0 &&
+               strcmp((const char*)*(attr + 1), "dynamic") == 0)
       {
-        bStatic = strcmp((const char*)*(attr + 1), "static") == 0;
+        dash->has_timeshift_buffer_ = true;
       }
       else if (strcmp((const char*)*attr, "timeShiftBufferDepth") == 0)
       {
@@ -1026,8 +1027,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       }
       else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
         dash->available_time_ = getTime((const char*)*(attr + 1));
-      else if (strcmp((const char*)*attr, "publishTime") == 0)
-        dash->publish_time_ = getTime((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "testTime") == 0)
         dash->stream_start_ = getTime((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "minimumUpdatePeriod") == 0)
@@ -1041,15 +1040,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
 
     if (!mpt)
       mpt = tsbd;
-    dash->has_timeshift_buffer_ = !bStatic;
 
     AddDuration(mpt, dash->overallSeconds_, 1);
     dash->has_overall_seconds_ = dash->overallSeconds_ > 0;
 
     uint64_t overallsecs(dash->overallSeconds_ ? dash->overallSeconds_ + 60 : 86400);
-    if (!dash->base_time_ && dash->publish_time_ && dash->available_time_ &&
-        dash->publish_time_ - dash->available_time_ > overallsecs)
-      dash->base_time_ = dash->publish_time_ - dash->available_time_ - overallsecs;
     dash->minPresentationOffset = ~0ULL;
 
     dash->currentNode_ |= MPDNODE_MPD;
@@ -1238,14 +1233,9 @@ static void XMLCALL end(void* data, const char* el)
                   if (!timeBased && dash->has_timeshift_buffer_ &&
                       tpl.duration)
                   {
-                    // get the closest time to calculate start_number
-                    uint64_t calc_time =
-                        dash->publish_time_ ? dash->publish_time_ : dash->stream_start_;
-                    uint64_t sample_time = tpl.presentationTimeOffset
-                                               ? tpl.presentationTimeOffset / tpl.timescale
-                                               : dash->current_period_->start_ /  1000;
+                    uint64_t sample_time = dash->current_period_->start_ /  1000;
 
-                    seg.range_end_ += (static_cast<int64_t>(calc_time - dash->available_time_ -
+                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ -
                                                             overallSeconds - sample_time)) *
                                           tpl.timescale / tpl.duration +
                                       1;
@@ -1306,8 +1296,12 @@ static void XMLCALL end(void* data, const char* el)
         {
           if (strcmp(el, "BaseURL") == 0)
           {
-            dash->current_adaptationset_->base_url_ =
-                dash->current_period_->base_url_ + dash->strXMLText_;
+            if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
+                dash->strXMLText_.compare(0, 7, "http://") == 0 ||
+                dash->strXMLText_.compare(0, 8, "https://") == 0)
+              dash->current_adaptationset_->base_url_ = dash->strXMLText_;
+            else
+              dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_ + dash->strXMLText_;
             dash->currentNode_ &= ~MPDNODE_BASEURL;
           }
         }
