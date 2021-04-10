@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.6.11"
+  version="2.6.12"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,9 @@
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
     <news>
+v2.6.12 (2021-04-09)
+- Remove Android specific decrypter search paths
+
 v2.6.11 (2021-04-08)
 - Fix ampersand in changelog causing issues from v2.6.9 and v2.6.10
 
