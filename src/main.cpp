@@ -3353,7 +3353,6 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
                 prop.second.c_str());
       parseheader(manh, prop.second);
       medh = manh;
-      mpd_url = mpd_url.substr(0, mpd_url.find("|"));
     }
     else if (prop.first == "inputstream.adaptive.original_audio_language")
     {
@@ -3394,6 +3393,9 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
     parseheader(manh, mpd_url.substr(posHeader + 1));
     mpd_url = mpd_url.substr(0, posHeader);
   }
+
+  if (medh.empty())
+    medh = manh;
 
   kodihost->SetProfilePath(props.GetProfileFolder());
 
