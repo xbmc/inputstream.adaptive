@@ -175,11 +175,11 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
   EXPECT_EQ(segments[12]->range_end_, 487062);
 }
 
-TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimelineWithPTO)
+TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
 {
   tree->mock_time = 1617223929L;
 
-  OpenTestFile("mpd/segtimeline_pto.mpd", "", "");
+  OpenTestFile("mpd/segtpl_pto.mpd", "", "");
 
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
@@ -189,11 +189,11 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimelineWithPTO)
   EXPECT_EQ(segments[450]->range_end_, 404305975);
 }
 
-TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimelineWithOldPublishTime)
+TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
 {
   tree->mock_time = 1617229334L;
 
-  OpenTestFile("mpd/segtimeline_old_publish_time.mpd", "", "");
+  OpenTestFile("mpd/segtpl_old_publish_time.mpd", "", "");
 
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
@@ -293,4 +293,35 @@ TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
   ReadSegments(videoStream, 16, 5);
   EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment.m4s");
   EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment.m4s");
+}
+
+TEST_F(DASHTreeTest, updateParameterLiveSegmentTimeline)
+{
+  OpenTestFile("mpd/segtimeline_live_pd.mpd", "", "");
+  EXPECT_EQ(tree->update_parameter_, "full");
+}
+
+TEST_F(DASHTreeTest, updateParameterProvidedLiveSegmentTimeline)
+{
+  tree->update_parameter_ = "ABC";
+  OpenTestFile("mpd/segtimeline_live_pd.mpd", "", "");
+  EXPECT_EQ(tree->update_parameter_, "ABC");
+}
+
+TEST_F(DASHTreeTest, updateParameterVODSegmentTimeline)
+{
+  OpenTestFile("mpd/segtimeline_vod.mpd", "", "");
+  EXPECT_EQ(tree->update_parameter_, "");
+}
+
+TEST_F(DASHTreeTest, updateParameterLiveSegmentTemplate)
+{
+  OpenTestFile("mpd/segtpl_pto.mpd", "", "");
+  EXPECT_EQ(tree->update_parameter_, "");
+}
+
+TEST_F(DASHTreeTest, updateParameterVODSegmentTemplate)
+{
+  OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd", "", "");
+  EXPECT_EQ(tree->update_parameter_, "");
 }
