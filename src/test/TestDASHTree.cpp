@@ -32,34 +32,78 @@ protected:
   DASHTestTree* tree;
 };
 
+class DASHTreeAdaptiveStreamTest : public DASHTreeTest
+{
+protected:
+  void SetUp() override
+  {
+    lastDownloadUrl.clear();
+    DASHTreeTest::SetUp();
+    videoStream = new TestAdaptiveStream(*tree, adaptive::AdaptiveTree::StreamType::VIDEO);
+  }
+
+  void TearDown() override
+  {
+    DASHTreeTest::TearDown();
+    delete videoStream;
+    videoStream = nullptr;
+  }
+
+  void ReadSegments(TestAdaptiveStream* stream,
+                    uint32_t bytesToRead,
+                    uint32_t reads,
+                    bool clearUrls = true)
+  {
+    // Rudimentary simulation of running a stream and consuming segment data.
+    // Normally AdaptiveStream::read is called from a sample reader for the exact
+    // amount of bytes needed to supply the next sample until the segment is
+    // exhausted. Here our segments are a fixed size (16 bytes) and for testing we can
+    // optimally call to read 1 segment per AdaptiveStream::read
+
+    if (clearUrls)
+      downloadedUrls.clear();
+
+    for (unsigned int i = 0; i < reads; i++)
+      if (stream->read(buf, bytesToRead))
+        downloadedUrls.push_back(lastDownloadUrl);
+      else
+        break;
+  }
+
+  TestAdaptiveStream* videoStream;
+  std::vector<std::string> downloadedUrls;
+  std::map<std::string, std::string> mediaHeaders;
+  unsigned char buf[16];
+};
+
 
 TEST_F(DASHTreeTest, CalculateBaseURL)
 {
   // No BaseURL tags
   OpenTestFile("mpd/segtpl.mpd", "https://foo.bar/mpd/test.mpd", "");
   EXPECT_EQ(tree->base_url_, "https://foo.bar/mpd/");
-  }
+}
 
 TEST_F(DASHTreeTest, CalculateBaseDomain)
-  {
-    OpenTestFile("mpd/segtpl.mpd", "https://foo.bar/mpd/test.mpd", "");
+{
+  OpenTestFile("mpd/segtpl.mpd", "https://foo.bar/mpd/test.mpd", "");
 
-    EXPECT_EQ(tree->base_domain_, "https://foo.bar");
-  }
+  EXPECT_EQ(tree->base_domain_, "https://foo.bar");
+}
 
 TEST_F(DASHTreeTest, CalculateEffectiveUrlFromRedirect)
-  {
-    // like base_url_, effective_url_ should be path, not including filename
-    effectiveUrl = "https://foo.bar/mpd/stream.mpd";
-    OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd", "");
-    EXPECT_EQ(tree->effective_url_, "https://foo.bar/mpd/");
-  }
+{
+  // like base_url_, effective_url_ should be path, not including filename
+  effectiveUrl = "https://foo.bar/mpd/stream.mpd";
+  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd", "");
+  EXPECT_EQ(tree->effective_url_, "https://foo.bar/mpd/");
+}
 
 TEST_F(DASHTreeTest, CalculateBaseURLFromBaseURLTag)
-  {
-    OpenTestFile("mpd/segtpl_baseurlinmpd.mpd", "https://bit.ly/abcd", "");
-    EXPECT_EQ(tree->current_period_->base_url_, "https://foo.bar/mpd/");
-  }
+{
+  OpenTestFile("mpd/segtpl_baseurlinmpd.mpd", "https://bit.ly/abcd", "");
+  EXPECT_EQ(tree->current_period_->base_url_, "https://foo.bar/mpd/");
+}
 
 TEST_F(DASHTreeTest, CalculateSegTplWithNoSlashs)
 {

@@ -2,6 +2,7 @@
 
 std::string testFile;
 std::string effectiveUrl;
+std::string lastDownloadUrl;
 
 
 void Log(const LogLevel loglevel, const char* format, ...){}
@@ -43,6 +44,25 @@ bool adaptive::AdaptiveTree::download(const char* url,
   fclose(f);
 
   SortTree();
+  return nbRead == 0;
+}
+
+bool TestAdaptiveStream::download(const char* url,
+                                  const std::map<std::string, std::string>& mediaHeaders)
+{
+  size_t nbRead = ~0UL;
+  std::stringstream ss("Sixteen bytes!!!");
+
+  char buf[16];
+  size_t nbReadOverall = 0;
+  while ((nbRead = ss.readsome(buf, 16)) > 0 && ~nbRead && write_data(buf, nbRead))
+    nbReadOverall += nbRead;
+
+  if (!nbReadOverall)
+  {
+    return false;
+  }      
+  lastDownloadUrl = url;
   return nbRead == 0;
 }
 

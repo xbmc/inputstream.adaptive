@@ -10,6 +10,7 @@ add_executable(${BINARY}
     ../parser/DASHTree.cpp
     ../parser/HLSTree.cpp
     ../parser/PRProtectionParser.cpp
+    ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
     ../helpers.cpp
     ../oscompat.cpp
