@@ -14,14 +14,14 @@ protected:
 
   void TearDown() override
   {
-    effectiveUrl.clear();
+    testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
   }
 
   void OpenTestFile(std::string testfilename, std::string url, std::string manifestHeaders)
   {
-    SetFileName(testFile, testfilename);
+    SetFileName(testHelper::testFile, testfilename);
     if (!tree->open(url, manifestHeaders))
     {
       printf("open() failed");
@@ -37,7 +37,7 @@ class DASHTreeAdaptiveStreamTest : public DASHTreeTest
 protected:
   void SetUp() override
   {
-    lastDownloadUrl.clear();
+    testHelper::lastDownloadUrl.clear();
     DASHTreeTest::SetUp();
     videoStream = new TestAdaptiveStream(*tree, adaptive::AdaptiveTree::StreamType::VIDEO);
   }
@@ -65,7 +65,7 @@ protected:
 
     for (unsigned int i = 0; i < reads; i++)
       if (stream->read(buf, bytesToRead))
-        downloadedUrls.push_back(lastDownloadUrl);
+        downloadedUrls.push_back(testHelper::lastDownloadUrl);
       else
         break;
   }
@@ -94,8 +94,9 @@ TEST_F(DASHTreeTest, CalculateBaseDomain)
 TEST_F(DASHTreeTest, CalculateEffectiveUrlFromRedirect)
 {
   // like base_url_, effective_url_ should be path, not including filename
-  effectiveUrl = "https://foo.bar/mpd/stream.mpd";
+  testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
   OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd", "");
+
   EXPECT_EQ(tree->effective_url_, "https://foo.bar/mpd/");
 }
 

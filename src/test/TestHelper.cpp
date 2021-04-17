@@ -1,9 +1,8 @@
 #include "TestHelper.h"
 
-std::string testFile;
-std::string effectiveUrl;
-std::string lastDownloadUrl;
-
+std::string testHelper::testFile;
+std::string testHelper::effectiveUrl;
+std::string testHelper::lastDownloadUrl;
 
 void Log(const LogLevel loglevel, const char* format, ...){}
 
@@ -26,13 +25,13 @@ bool adaptive::AdaptiveTree::download(const char* url,
                                       void* opaque,
                                       bool scanEffectiveURL)
 {
-  FILE* f = fopen(testFile.c_str(), "rb");
+  FILE* f = fopen(testHelper::testFile.c_str(), "rb");
   if (!f)
     return false;
 
-  if (scanEffectiveURL && !effectiveUrl.empty())
-    SetEffectiveURL(effectiveUrl);
-
+  if (scanEffectiveURL && !testHelper::effectiveUrl.empty())
+    SetEffectiveURL(testHelper::effectiveUrl);
+ 
   // read the file
   static const unsigned int CHUNKSIZE = 16384;
   char buf[CHUNKSIZE];
@@ -62,7 +61,7 @@ bool TestAdaptiveStream::download(const char* url,
   {
     return false;
   }      
-  lastDownloadUrl = url;
+  testHelper::lastDownloadUrl = url;
   return nbRead == 0;
 }
 

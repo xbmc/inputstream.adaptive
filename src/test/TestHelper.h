@@ -4,13 +4,17 @@
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
 
-
-extern std::string testFile;
-extern std::string effectiveUrl;
-extern std::string lastDownloadUrl;
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 void Log(const LogLevel loglevel, const char* format, ...);
+
+class testHelper
+{
+public:
+  static std::string testFile;
+  static std::string effectiveUrl;
+  static std::string lastDownloadUrl;
+};
 
 class TestAdaptiveStream : public adaptive::AdaptiveStream
 {
