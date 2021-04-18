@@ -13,14 +13,14 @@ protected:
 
   void TearDown() override
   {
-    effectiveUrl.clear();
+    testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
   }
 
   void OpenTestFileMaster(std::string testfilename, std::string url, std::string manifestHeaders)
   {
-    SetFileName(testFile, testfilename);
+    SetFileName(testHelper::testFile, testfilename);
     if (!tree->open(url, manifestHeaders))
     {
       printf("open() failed");
@@ -36,7 +36,7 @@ protected:
   {
     if (!url.empty())
       rep->source_url_ = url;
-    SetFileName(testFile, testfilename);
+    SetFileName(testHelper::testFile, testfilename);
     return tree->prepareRepresentation(per, adp, rep);
   }
   adaptive::HLSTree* tree;
@@ -60,7 +60,7 @@ TEST_F(HLSTreeTest, CalculateSourceUrl)
 
 TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterRelativeUri)
 {
-  effectiveUrl = "https://foo.bar/master.m3u8";
+  testHelper::effectiveUrl = "https://foo.bar/master.m3u8";
 
   OpenTestFileMaster("hls/1a2v_master.m3u8", "https://baz.qux/master.m3u8", "");
   
@@ -91,8 +91,8 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedVariantAbsoluteUri)
   
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 
-  effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
-
+  testHelper::effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
+  
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd",
       tree->current_period_, tree->current_adaptationset_, tree->current_representation_);
@@ -107,7 +107,7 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedVariantAbsoluteUri)
 
 TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterAndRedirectedVariantAbsoluteUri)
 {
-  effectiveUrl = "https://baz.qux/master.m3u8";
+  testHelper::effectiveUrl = "https://baz.qux/master.m3u8";
 
   OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://link.to/1234", "");
 
@@ -116,7 +116,7 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterAndRedirectedVariantAb
   
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 
-  effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
+  testHelper::effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
 
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd", tree->current_period_,
@@ -134,7 +134,7 @@ TEST_F(HLSTreeTest,
        CalculateSourceUrlFromRedirectedMasterAndRedirectedVariantAbsoluteUriSameDomains)
 {
   GTEST_SKIP();
-  effectiveUrl = "https://baz.qux/master.m3u8";
+  testHelper::effectiveUrl = "https://baz.qux/master.m3u8";
 
   OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://bit.ly/1234", "");
 
@@ -143,7 +143,7 @@ TEST_F(HLSTreeTest,
   
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 
-  effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
+  testHelper::effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
 
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd", tree->current_period_,
@@ -190,7 +190,7 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlash)
 
 TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
 {
-  effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
+  testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
   OpenTestFileMaster("hls/1v_master.m3u8", "https://baz.qux/hls/video/stream_name/master.m3u8",
                      "");
@@ -245,7 +245,7 @@ TEST_F(HLSTreeTest, ParseKeyUriRelative)
 
 TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
 {
-  effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
+  testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
   OpenTestFileMaster("hls/1v_master.m3u8",
                      "https://baz.qux/hls/video/stream_name/master.m3u8", "");

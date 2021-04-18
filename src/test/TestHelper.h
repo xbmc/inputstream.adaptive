@@ -1,14 +1,31 @@
 #include "../Iaes_decrypter.h"
 #include "../log.h"
+#include "../common/AdaptiveStream.h"
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
 
-
-extern std::string testFile;
-extern std::string effectiveUrl;
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 void Log(const LogLevel loglevel, const char* format, ...);
+
+class testHelper
+{
+public:
+  static std::string testFile;
+  static std::string effectiveUrl;
+  static std::string lastDownloadUrl;
+};
+
+class TestAdaptiveStream : public adaptive::AdaptiveStream
+{
+public:
+  TestAdaptiveStream(adaptive::AdaptiveTree& tree, adaptive::AdaptiveTree::StreamType type)
+    : adaptive::AdaptiveStream(tree, type){};
+
+protected:
+  virtual bool download(const char* url,
+                        const std::map<std::string, std::string>& mediaHeaders) override;
+};
 
 class AESDecrypter : public IAESDecrypter
 {
