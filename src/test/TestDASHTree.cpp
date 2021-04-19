@@ -44,9 +44,9 @@ protected:
 
   void TearDown() override
   {
-    DASHTreeTest::TearDown();
     delete videoStream;
     videoStream = nullptr;
+    DASHTreeTest::TearDown();
   }
 
   void ReadSegments(TestAdaptiveStream* stream,
