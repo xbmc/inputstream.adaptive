@@ -1304,7 +1304,10 @@ public:
       case AP4_OTI_DTS_MASTER_AUDIO:
       case AP4_OTI_DTS_EXPRESS_AUDIO:
         info.SetCodecName("dca");
+        break;
       case AP4_OTI_AC3_AUDIO:
+        info.SetCodecName("ac3");
+        break;
       case AP4_OTI_EAC3_AUDIO:
         info.SetCodecName("eac3");
         break;
@@ -2683,7 +2686,9 @@ void Session::UpdateStream(STREAM& stream, const SSD::SSD_DECRYPTER::SSD_CAPS& c
     stream.info_.SetCodecName("aac");
   else if (rep->codecs_.find("dts") == 0)
     stream.info_.SetCodecName("dca");
-  else if (rep->codecs_.find("ec-3") == 0 || rep->codecs_.find("ac-3") == 0)
+  else if (rep->codecs_.find("ac-3") == 0)
+    stream.info_.SetCodecName("ac3");
+  else if (rep->codecs_.find("ec-3") == 0)
     stream.info_.SetCodecName("eac3");
   else if (rep->codecs_.find("avc") == 0 || rep->codecs_.find("h264") == 0)
     stream.info_.SetCodecName("h264");
