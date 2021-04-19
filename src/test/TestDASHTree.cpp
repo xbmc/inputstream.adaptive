@@ -240,3 +240,57 @@ TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->fpsRate_, 25000);
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->fpsScale_, 1000);
 }
+
+TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
+{
+  OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd", "");
+
+  videoStream->prepare_stream(tree->current_period_->adaptationSets_[0], 0, 0, 0, 0, 0, 0, 0,
+                              mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_487050.m4s");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_487054.m4s");
+
+  videoStream->prepare_stream(tree->current_period_->adaptationSets_[1], 0, 0, 0, 0, 0, 0, 0,
+                               mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_00487050.m4s");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_00487054.m4s");
+
+  videoStream->prepare_stream(tree->current_period_->adaptationSets_[2], 0, 0, 0, 0, 0, 0, 0,
+                               mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_263007000000.m4s");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_263009160000.m4s");
+
+  videoStream->prepare_stream(tree->current_period_->adaptationSets_[3], 0, 0, 0, 0, 0, 0, 0,
+                               mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_00263007000000");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_00263009160000");
+
+  videoStream->prepare_stream(tree->current_period_->adaptationSets_[4], 0, 0, 0, 0, 0, 0, 0,
+                               mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_487050.m4s?t=263007000000");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_487054.m4s?t=263009160000");
+
+  videoStream->prepare_stream(tree->current_period_->adaptationSets_[5], 0, 0, 0, 0, 0, 0, 0,
+                               mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_00487050.m4s?t=00263007000000");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_00487054.m4s?t=00263009160000");
+
+  videoStream->prepare_stream(tree->current_period_->adaptationSets_[6], 0, 0, 0, 0, 0, 0, 0,
+                               mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment.m4s");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment.m4s");
+}

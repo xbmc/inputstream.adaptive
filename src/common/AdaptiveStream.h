@@ -101,8 +101,7 @@ namespace adaptive
     bool download_segment();
     void worker();
     int SecondsSinceUpdate() const;
-    static void ReplacePlacehoder(std::string &url, uint64_t index, uint64_t timeStamp);
-
+    static void ReplacePlaceholder(std::string &url, const std::string placeholder, uint64_t value);
 
     struct THREADDATA
     {
