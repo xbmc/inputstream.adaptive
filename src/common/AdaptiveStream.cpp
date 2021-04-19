@@ -262,19 +262,15 @@ bool AdaptiveStream::restart_stream()
   return true;
 }
 
-void AdaptiveStream::ReplacePlacehoder(std::string& url, uint64_t index, uint64_t timeStamp)
+void AdaptiveStream::ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value)
 {
-  std::string::size_type lenReplace(7);
-  std::string::size_type np(url.find("$Number"));
-  uint64_t value(index); //StartNumber
+  std::string::size_type lenReplace(placeholder.length());
+  std::string::size_type np(url.find(placeholder));
   char rangebuf[128];
 
   if (np == std::string::npos)
-  {
-    lenReplace = 5;
-    np = url.find("$Time");
-    value = timeStamp; //Timestamp
-  }
+    return;
+
   np += lenReplace;
 
   std::string::size_type npe(url.find('$', np));
@@ -333,7 +329,8 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment* seg)
     else if (seg != &current_rep_->initialization_) //templated segment
     {
       download_url_ = current_rep_->segtpl_.media;
-      ReplacePlacehoder(download_url_, seg->range_end_, seg->range_begin_);
+      ReplacePlaceholder(download_url_, "$Number", seg->range_end_);
+      ReplacePlaceholder(download_url_, "$Time", seg->range_begin_);
     }
     else //templated initialization segment
       download_url_ = current_rep_->url_;
@@ -344,7 +341,8 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment* seg)
         seg != &current_rep_->initialization_)
     {
       download_url_ = current_rep_->segtpl_.media;
-      ReplacePlacehoder(download_url_, current_rep_->startNumber_, 0);
+      ReplacePlaceholder(download_url_, "$Number", current_rep_->startNumber_);
+      ReplacePlaceholder(download_url_, "$Time", 0);
     }
     else
       download_url_ = current_rep_->url_;
