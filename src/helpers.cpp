@@ -529,3 +529,13 @@ void parseheader(std::map<std::string, std::string>& headerMap, const std::strin
       headerMap[trimcp(b->substr(0, pos))] = url_decode(trimcp(b->substr(pos+1)));
   }
 }
+
+int endswith(const char* in, const char* suffix)
+{
+  int l1 = strlen(suffix);
+  int l2 = strlen(in);
+  if (l1 > l2)
+    return 0;
+
+  return strcmp(suffix, in + (l2 - l1)) == 0;
+}
