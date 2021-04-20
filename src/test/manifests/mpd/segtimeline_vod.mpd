@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-live:2011" mediaPresentationDuration="PT1H47M52S" minBufferTime="PT10S" maxSegmentDuration="PT11S">
+	<Period id="0" start="PT1588628086S">
+		<AdaptationSet contentType="video" id="1" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4?id=8c1bbb709229e110fbb0d1e544266504" media="$RepresentationID$/segment_$Number$.m4s" presentationTimeOffset="1738747575" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400">
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<UTCTiming schemeIdUri="urn:mpeg:dash:utc:direct:2014" value="2020-06-07T11:59:55Z"/>
+</MPD>
