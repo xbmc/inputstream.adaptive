@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT1.500000S" type="static" mediaPresentationDuration="PT0H10M54.00S" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011,http://dashif.org/guidelines/dash264">
+ <Period id="" duration="PT0H10M54.00S">
+  <AdaptationSet segmentAlignment="true" maxWidth="1280" maxHeight="720" maxFrameRate="24" par="16:9" subsegmentStartsWithSAP="1">
+   <Representation id="0" mimeType="video/mp4" codecs="avc1.4d401f" width="1280" height="720" frameRate="24" sar="1:1" startWithSAP="1" bandwidth="4076826">
+    <BaseURL>ED_720_4M_MPEG2_video_init.mp4</BaseURL>
+    <SegmentBase indexRangeExact="true" indexRange="885-2488"/>
+   </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en" mimeType="application/ttml+xml">
+    <Representation id="1">
+      <BaseURL>English_track.xml</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en">
+    <Representation id="2" mimeType="application/ttml+xml">
+      <BaseURL>English_track.xml</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en" codecs="ttml">
+    <Representation id="3">
+      <BaseURL>English_track.xml</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en">
+    <Representation id="4" codecs="ttml">
+      <BaseURL>English_track.xml</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en" mimeType="text/vtt">
+    <Representation id="5">
+      <BaseURL>English_track.vtt</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en">
+    <Representation id="6" mimeType="text/vtt">
+      <BaseURL>English_track.vtt</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en" codecs="wvtt">
+    <Representation id="7">
+      <BaseURL>English_track.vtt</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en">
+    <Representation id="8" codecs="wvtt">
+      <BaseURL>English_track.vtt</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <AdaptationSet lang="en" mimeType="text/vtt">
+    <Representation id="9" codecs="my_codec">
+      <BaseURL>English_track.vtt</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <!-- http://dash.edgesuite.net/dash264/TestCases/4b/qualcomm/1/ED_OnDemand_5SecSeg_Subtitles.mpd -->
+  <AdaptationSet mimeType="application/ttml+xml" lang="en">
+    <Role schemeIdUri="urn:mpeg:dash:role" value="subtitle" />
+    <Representation id="10" bandwidth="268" >
+      <BaseURL>English_track.xml</BaseURL>
+    </Representation>
+  </AdaptationSet>
+
+  <!-- http://media.axprod.net/dash/ED_TTML_NEW/Clear/Manifest_sub_in.mpd -->
+  <!-- https://livesim.dashif.org/dash/vod/testpic_2s/multi_subs.mpd -->
+	<AdaptationSet segmentAlignment="true" par="1:1" lang="en">
+		<SegmentTemplate timescale="1000" media="$RepresentationID$/$Number%04d$.m4s" startNumber="1" duration="4000" initialization="$RepresentationID$/init.mp4" />
+		<Representation id="11" mimeType="application/mp4" codecs="stpp" startWithSAP="1" bandwidth="845"></Representation>
+	</AdaptationSet>
+
+  <!-- https://demo.unified-streaming.com/video/tears-of-steel/tears-of-steel-multiple-subtitles.ism/.mpd -->
+  <AdaptationSet contentType="text" lang="en" mimeType="application/mp4" codecs="stpp.ttml.im1t" startWithSAP="1">
+    <Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle" />
+    <SegmentTemplate timescale="1000" initialization="tears-of-steel-multiple-subtitles-$RepresentationID$.dash" media="tears-of-steel-multiple-subtitles-$RepresentationID$-$Time$.dash">
+      <SegmentTimeline>
+        <S t="0" d="4000" r="140" />
+        <S d="3000" />
+      </SegmentTimeline>
+    </SegmentTemplate>
+    <Representation id="12" bandwidth="1000"></Representation>
+  </AdaptationSet>
+ </Period>
+</MPD>

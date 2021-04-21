@@ -336,3 +336,71 @@ TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
   EXPECT_EQ(tree->periods_[0]->psshSets_[2].pssh_, "HGFEDCBA");
   EXPECT_EQ(tree->periods_[0]->psshSets_[2].defaultKID_.length(), 16);
 }
+
+TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
+{
+  OpenTestFile("mpd/subtitles.mpd", "https://foo.bar/subtitles.mpd", "");
+
+  // Required as gtest can not access the hidden attribute directly in EXPECT_EQ
+  static const uint16_t SUBTITLESTREAM = DASHTestTree::Representation::SUBTITLESTREAM;
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->codecs_, "ttml");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->codecs_, "ttml");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->representations_[0]->codecs_, "ttml");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->representations_[0]->codecs_, "ttml");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->representations_[0]->codecs_, "wvtt");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->codecs_, "wvtt");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[7]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[7]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[7]->representations_[0]->codecs_, "wvtt");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[8]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[8]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[8]->representations_[0]->codecs_, "wvtt");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[9]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[9]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[9]->representations_[0]->codecs_, "my_codec");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[10]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[10]->representations_[0]->flags_, SUBTITLESTREAM);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[10]->representations_[0]->codecs_, "ttml");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->mimeType_, "application/mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->representations_[0]->codecs_, "stpp");
+  videoStream->prepare_stream(tree->periods_[0]->adaptationSets_[11], 0, 0, 0, 0, 0, 0, 0,
+                              mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/11/0001.m4s");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/11/0005.m4s");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->type_, DASHTestTree::SUBTITLE);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->mimeType_, "application/mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->representations_[0]->codecs_, "stpp.ttml.im1t");
+  videoStream->prepare_stream(tree->periods_[0]->adaptationSets_[12], 0, 0, 0, 0, 0, 0, 0,
+                              mediaHeaders);
+  videoStream->start_stream(~0, 0, 0, true);
+  ReadSegments(videoStream, 16, 5);
+  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/tears-of-steel-multiple-subtitles-12-0.dash");
+  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/tears-of-steel-multiple-subtitles-12-16000.dash");
+}
