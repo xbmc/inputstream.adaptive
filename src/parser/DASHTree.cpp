@@ -710,7 +710,8 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
                 else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
                   dash->current_adaptationset_->type_ = DASHTree::AUDIO;
                 else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application",
-                                 11) == 0)
+                                 11) == 0 ||
+                         strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
                   dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
               }
               if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/webm"))
@@ -722,6 +723,28 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             attr += 2;
           }
 
+          if (dash->current_representation_->codecs_.empty())
+          {
+            if (dash->current_adaptationset_->mimeType_ == "text/vtt")
+              dash->current_representation_->codecs_ = "wvtt";
+            else if (dash->current_adaptationset_->mimeType_ == "application/ttml+xml")
+              dash->current_representation_->codecs_ = "ttml";
+          }
+
+          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE)
+          {
+            if (dash->current_representation_->codecs_ == "wvtt")
+            {
+              dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+              dash->current_adaptationset_->mimeType_ = "text/vtt";
+            }
+            else if (dash->current_representation_->codecs_ == "ttml")
+            {
+              dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
+              dash->current_adaptationset_->mimeType_ = "application/ttml+xml";
+            }
+          }
+
           if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE &&
               (dash->current_adaptationset_->mimeType_ == "application/ttml+xml" ||
                dash->current_adaptationset_->mimeType_ == "text/vtt"))
@@ -731,14 +754,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             else
               dash->current_representation_->containerType_ = AdaptiveTree::CONTAINERTYPE_TEXT;
           }
-
-          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE &&
-              dash->current_representation_->codecs_ == "wvtt")
-            dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-
-          if (dash->current_adaptationset_->mimeType_ == "text/vtt" &&
-              dash->current_representation_->codecs_.empty())
-            dash->current_representation_->codecs_ = "wvtt";
 
           dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
           if (!dash->current_adaptationset_->segtpl_.media.empty())
