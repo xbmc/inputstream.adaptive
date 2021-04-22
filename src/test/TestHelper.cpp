@@ -31,7 +31,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   if (scanEffectiveURL && !testHelper::effectiveUrl.empty())
     SetEffectiveURL(testHelper::effectiveUrl);
- 
+
   // read the file
   static const unsigned int CHUNKSIZE = 16384;
   char buf[CHUNKSIZE];
@@ -49,6 +49,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 bool TestAdaptiveStream::download(const char* url,
                                   const std::map<std::string, std::string>& mediaHeaders)
 {
+  testHelper::lastDownloadUrl = url;
   size_t nbRead = ~0UL;
   std::stringstream ss("Sixteen bytes!!!");
 
@@ -60,8 +61,8 @@ bool TestAdaptiveStream::download(const char* url,
   if (!nbReadOverall)
   {
     return false;
-  }      
-  testHelper::lastDownloadUrl = url;
+  }
+
   return nbRead == 0;
 }
 
