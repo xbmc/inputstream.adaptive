@@ -53,4 +53,7 @@ public:
   uint64_t mock_time = 10000000L;
   DASHTestTree();
   uint64_t GetNowTime() override { return mock_time; }
+  TestAdaptiveStream* videoStream;
+  std::vector<std::string> downloadedUrls;
+  std::map<std::string, std::string> mediaHeaders;
 };
