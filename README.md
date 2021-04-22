@@ -1,4 +1,4 @@
-# inputstream.adaptive (2.6.13)
+# inputstream.adaptive (2.6.14)
 
 This is an adaptive file addon for kodi's new InputStream Interface.
 
@@ -9,12 +9,12 @@ This is an adaptive file addon for kodi's new InputStream Interface.
 
 ##### Examples:
 1.) mpd dash example with one video and one audio stream
-- Force inputstream.mpd using a property in strm file: #KODIPROP:inputstreamaddon=inputstream.adaptive
+- Force inputstream.mpd using a property in strm file: #KODIPROP:inputstream=inputstream.adaptive
 - Select the tye of the manifest using a property in strm file: #KODIPROP:inputstream.adaptive.manifest_type=mpd
 - URL to paste into strm file: http://download.tsi.telecom-paristech.fr/gpac/DASH_CONFORMANCE/TelecomParisTech/mp4-live/mp4-live-mpd-AV-BS.mpd
 
 2.) mpd dash example with one video and multiple audio streams
-- Force inputstream.mpd using a Property in strm file: #KODIPROP:inputstreamaddon=inputstream.mpd
+- Force inputstream.mpd using a Property in strm file: #KODIPROP:inputstream=inputstream.mpd
 - Select the tye of the manifest using a property in strm file: #KODIPROP:inputstream.adaptive.manifest_type=mpd
 - URL to paste into strm file: http://rdmedia.bbc.co.uk/dash/ondemand/testcard/1/client_manifest-events-multilang.mpd
 
@@ -38,7 +38,6 @@ If your display resolution is 720p, you will not be able to watch 1080p videos i
 ##### TODO's:
 - Adaptive bitrate switching is prepared but currently not yet activated  
 - Automatic / fixed video stream selection depending on max. visible display rect (some work has to be done at the inputstream interface).
-- DASH implementation of periods (currently only the first period is considered)
 - There will be many dash mpd, smoothstream or hls manifest types currently not supported - must be extended. 
 
 ##### Notes:

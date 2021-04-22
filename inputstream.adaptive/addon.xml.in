@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.6.13"
+  version="2.6.14"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,15 @@
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
     <news>
+v2.6.14 (2021-04-22)
+- Don't overwrite manifest headers with stream headers
+- Stream headers default to manifest headers
+- ac3 is recognised separately to eac3
+- [DASH] time and number placeholders can be used simultaneously
+- [DASH] manifest_update_parameter property defaults to 'full' for SegmentTimeline
+- [DASH] pssh attribute in ContentProtection tag allowed without cenc namespace
+- [DASH] support ttml subs where codec isn't specified
+
 v2.6.13 (2021-04-10)
 - Fix Debian packaging
 
