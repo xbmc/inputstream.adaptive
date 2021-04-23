@@ -1051,7 +1051,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       else if (strcmp((const char*)*attr, "minimumUpdatePeriod") == 0)
       {
         uint64_t dur(0);
-        AddDuration((const char*)*(attr + 1), dur, 1500);
+        AddDuration((const char*)*(attr + 1), dur, 1000);
         dash->SetUpdateInterval(static_cast<uint32_t>(dur));
       }
       attr += 2;
