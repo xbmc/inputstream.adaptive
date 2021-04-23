@@ -539,7 +539,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         }
         else if (line.compare(0, 22, "#EXT-X-TARGETDURATION:") == 0)
         {
-          uint32_t newInterval = atoi(line.c_str() + 22) * 1000;
+          uint32_t newInterval = atoi(line.c_str() + 22) * 1500;
           if (newInterval < updateInterval_)
             updateInterval_ = newInterval;
         }

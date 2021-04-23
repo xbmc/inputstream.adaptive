@@ -1048,10 +1048,15 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       }
       else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
         dash->available_time_ = getTime((const char*)*(attr + 1));
+      else if (strcmp((const char*)*attr, "suggestedPresentationDelay") == 0 ||
+               strcmp((const char*)*attr, "minBufferTime") == 0)
+      {
+        AddDuration((const char*)*(attr + 1), dash->buffer_time_, 1);
+      }
       else if (strcmp((const char*)*attr, "minimumUpdatePeriod") == 0)
       {
         uint64_t dur(0);
-        AddDuration((const char*)*(attr + 1), dur, 1000);
+        AddDuration((const char*)*(attr + 1), dur, 1500);
         dash->SetUpdateInterval(static_cast<uint32_t>(dur));
       }
       attr += 2;
@@ -1063,9 +1068,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
     AddDuration(mpt, dash->overallSeconds_, 1);
     dash->has_overall_seconds_ = dash->overallSeconds_ > 0;
 
-    uint64_t overallsecs(dash->overallSeconds_ ? dash->overallSeconds_ + 60 : 86400);
     dash->minPresentationOffset = ~0ULL;
-
     dash->currentNode_ |= MPDNODE_MPD;
   }
 }

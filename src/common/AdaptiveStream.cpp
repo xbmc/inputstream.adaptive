@@ -203,10 +203,15 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset,
       if (!pos)
         pos = 1;
     }
-    //go at least 12 secs back
     uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
                       current_rep_->get_segment(pos - 1)->startPTS_);
-    pos -= static_cast<uint32_t>((12 * current_rep_->timescale_) / duration) + 1;
+
+    if (tree_.buffer_time_ > 0)
+      pos -= static_cast<uint32_t>((tree_.buffer_time_ * current_rep_->timescale_) / duration);
+    else
+      //go at least 12 secs back
+      pos -= static_cast<uint32_t>((12 * current_rep_->timescale_) / duration) + 1;
+
     current_rep_->current_segment_ = current_rep_->get_segment(pos < 0 ? 0 : pos);
   }
   else
