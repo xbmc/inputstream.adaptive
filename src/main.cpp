@@ -3385,6 +3385,12 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
       m_playTimeshiftBuffer = stricmp(prop.second.c_str(), "true") == 0;
   }
 
+  if (kodi::GetSettingBoolean("FORCESECUREDECODER"))
+  {
+    force_secure_decoder = true;
+    kodi::Log(ADDON_LOG_DEBUG, "FORCESECUREDECODER enabled!");
+  }
+
   if (manifest == MANIFEST_TYPE_UNKNOWN)
   {
     kodi::Log(ADDON_LOG_ERROR, "Invalid / not given inputstream.adaptive.manifest_type");

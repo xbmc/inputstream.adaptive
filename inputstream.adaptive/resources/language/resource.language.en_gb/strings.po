@@ -59,6 +59,11 @@ msgctxt "#30115"
 msgid "Ignore Display Resolution"
 msgstr ""
 
+# Always use secure decoder for DRM-protected streams
+msgctxt "#30116"
+msgid "Force secure decoder"
+msgstr ""
+
 msgctxt "#30120"
 msgid "Expert"
 msgstr ""

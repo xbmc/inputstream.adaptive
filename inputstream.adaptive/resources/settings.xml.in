@@ -76,6 +76,11 @@
           <default>false</default>
           <control type="toggle" />
         </setting>
+        <setting id="FORCESECUREDECODER" type="boolean" label="30116">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
       </group>
       <group id="1">
         <setting id="DECRYPTERPATH" type="string" label="30103">
