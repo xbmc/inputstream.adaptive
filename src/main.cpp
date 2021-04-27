@@ -2080,6 +2080,9 @@ Session::Session(MANIFEST_TYPE manifestType,
   if (preReleaseFeatures)
     kodi::Log(ADDON_LOG_INFO, "PRERELEASEFEATURES enabled!");
 
+  allow_no_secure_decoder_ = kodi::GetSettingBoolean("NOSECUREDECODER");
+  kodi::Log(ADDON_LOG_DEBUG, "FORCENONSECUREDECODER selected: %d ", allow_no_secure_decoder_);
+
   int buf = kodi::GetSettingInt("MEDIATYPE");
   switch (buf)
   {
@@ -2493,8 +2496,9 @@ bool Session::InitializeDRM()
         {
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session_ = true;
-          // Override this setting by information passed in manifest
-          if (!force_secure_decoder_ && !adaptiveTree_->current_period_->need_secure_decoder_)
+
+          if (allow_no_secure_decoder_
+              && !force_secure_decoder_ && !adaptiveTree_->current_period_->need_secure_decoder_)
             session.decrypter_caps_.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
       }
