@@ -2287,12 +2287,14 @@ bool Session::InitializeDRM()
       return false;
     }
 
-    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
+    if (!decrypter_->HasCdmSession())
     {
-      kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
-      return false;
+      if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
+      {
+        kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
+        return false;
+      }
     }
-
     std::string strkey(adaptiveTree_->supportedKeySystem_.substr(9));
     size_t pos;
     while ((pos = strkey.find('-')) != std::string::npos)
