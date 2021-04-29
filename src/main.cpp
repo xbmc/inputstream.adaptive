@@ -2205,7 +2205,15 @@ void Session::DisposeSampleDecrypter()
     for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e;
          ++b)
       if (!b->shared_single_sample_decryptor_)
+      {
         decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+        b->single_sample_decryptor_ = nullptr;
+      }
+      else
+      {
+        b->single_sample_decryptor_ = nullptr;
+        b->shared_single_sample_decryptor_ = false;
+      }
 }
 
 void Session::DisposeDecrypter()
@@ -2447,8 +2455,6 @@ bool Session::InitializeDRM()
       const char* defkid = adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty()
                                ? nullptr
                                : adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data();
-      session.single_sample_decryptor_ = nullptr;
-      session.shared_single_sample_decryptor_ = false;
 
       if (decrypter_ && defkid)
       {
