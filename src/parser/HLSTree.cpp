@@ -622,7 +622,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
           if (currentEncryptionType == ENCRYPTIONTYPE_WIDEVINE)
           {
-            rep->pssh_set_ = insert_psshset(NOTYPE, period, adp);
+            rep->pssh_set_ = insert_psshset(adp->type_, period, adp);
             period->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
           }
 
@@ -646,9 +646,11 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
             case ENCRYPTIONTYPE_WIDEVINE:
               currentEncryptionType = ENCRYPTIONTYPE_WIDEVINE;
               period->encryptionState_ |= ENCRYTIONSTATE_SUPPORTED;
-              rep->pssh_set_ = insert_psshset(NOTYPE, period, adp);
-              if (period->psshSets_[rep->pssh_set_].use_count_ == 1)
-                retVal = PREPARE_RESULT_DRMCHANGED;
+              rep->pssh_set_ = insert_psshset(adp->type_, period, adp);
+              retVal = period->psshSets_[rep->pssh_set_].use_count_ == 1 ||
+                               retVal == PREPARE_RESULT_DRMCHANGED
+                           ? PREPARE_RESULT_DRMCHANGED
+                           : PREPARE_RESULT_DRMUNCHANGED;
               break;
             default:
               break;

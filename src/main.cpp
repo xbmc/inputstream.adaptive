@@ -2761,6 +2761,7 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     case adaptive::AdaptiveTree::PREPARE_RESULT_DRMCHANGED:
       if (!InitializeDRM())
         return nullptr;
+    case adaptive::AdaptiveTree::PREPARE_RESULT_DRMUNCHANGED:
       stream->encrypted = stream->stream_.getRepresentation()->pssh_set_ > 0;
       needRefetch = true;
       break;
