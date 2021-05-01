@@ -2271,8 +2271,6 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
 bool Session::InitializeDRM()
 {
-  DisposeSampleDecrypter();
-
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
   // Try to initialize an SingleSampleDecryptor
@@ -2558,10 +2556,15 @@ bool Session::InitializePeriod()
     SAFE_DELETE(*b);
   streams_.clear();
 
-  if (psshChanged && !InitializeDRM())
-    return false;
-  else if (adaptiveTree_->current_period_->encryptionState_)
+  if (!psshChanged)
     kodi::Log(ADDON_LOG_DEBUG, "Reusing DRM psshSets for new period!");
+  else
+  {
+    kodi::Log(ADDON_LOG_DEBUG, "New period, dispose sample decrypter and reinitialize");
+    DisposeSampleDecrypter();
+    if (!InitializeDRM())
+      return false;
+  }
 
   bool hdcpOverride = kodi::GetSettingBoolean("HDCPOVERRIDE");
 
