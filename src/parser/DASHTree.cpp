@@ -90,9 +90,9 @@ static uint8_t GetChannels(const char** attr)
 static unsigned int ParseSegmentTemplate(const char** attr,
                                          std::string baseURL,
                                          std::string baseDomain,
-                                         DASHTree::SegmentTemplate& tpl)
+                                         DASHTree::SegmentTemplate& tpl,
+                                         unsigned int startNumber)
 {
-  unsigned int startNumber(1);
   for (; *attr;)
   {
     if (strcmp((const char*)*attr, "timescale") == 0)
@@ -482,9 +482,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           {
             dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
 
-            dash->current_representation_->startNumber_ =
-                ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->base_domain_,
-                                     dash->current_representation_->segtpl_);
+            dash->current_representation_->startNumber_ = ParseSegmentTemplate(
+                attr, dash->current_adaptationset_->base_url_, dash->base_domain_,
+                dash->current_representation_->segtpl_, dash->current_adaptationset_->startNumber_);
             ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
                                 dash->current_representation_->id,
                                 dash->current_representation_->bandwidth_);
@@ -604,9 +604,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         }
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
-          dash->current_adaptationset_->startNumber_ =
-              ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_,
-                                   dash->base_domain_, dash->current_adaptationset_->segtpl_);
+          dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(
+              attr, dash->current_adaptationset_->base_url_, dash->base_domain_,
+              dash->current_adaptationset_->segtpl_, dash->current_adaptationset_->startNumber_);
           dash->current_adaptationset_->timescale_ =
               dash->current_adaptationset_->segtpl_.timescale;
           dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
@@ -957,9 +957,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       }
       else if (strcmp(el, "SegmentTemplate") == 0)
       {
-        dash->current_period_->startNumber_ =
-            ParseSegmentTemplate(attr, dash->current_period_->base_url_, dash->base_domain_,
-                                 dash->current_period_->segtpl_);
+        dash->current_period_->startNumber_ = ParseSegmentTemplate(
+            attr, dash->current_period_->base_url_, dash->base_domain_,
+            dash->current_period_->segtpl_, dash->current_period_->startNumber_);
         dash->current_period_->timescale_ = dash->current_period_->segtpl_.timescale;
         dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
       }
