@@ -739,6 +739,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       }
     }
 
+    if (overallSeconds_ < 8)
+      overallSeconds_ = 0;
+
     if (update)
     {
       rep = entry_rep;
