@@ -382,7 +382,7 @@ bool AdaptiveStream::ensureSegment()
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
     std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
 
-    if (tree_.HasUpdateThread() && SecondsSinceUpdate() > 1)
+    if (tree_.HasUpdateThread() && SecondsSinceUpdate() >= 1)
     {
       tree_.RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->type_);
       lastUpdated_ = std::chrono::system_clock::now();
