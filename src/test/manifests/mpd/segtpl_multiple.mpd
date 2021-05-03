@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MPD mediaPresentationDuration="PT1M38.624S" minBufferTime="PT4S" profiles="urn:mpeg:dash:profile:isoff-main:2011" type="static" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="urn:microsoft:playready" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd">
+	<Period duration="PT1M38.624S" id="1" start="PT0S">
+		<AdaptationSet bitstreamSwitching="false" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1" subsegmentAlignment="true" subsegmentStartsWithSAP="1" xmlns:cenc="urn:mpeg:cenc:2013">
+			<SegmentTemplate startNumber="5" timescale="120000"/>
+			<Representation bandwidth="600000" codecs="avc1.4d4015" frameRate="30000/1001" height="252" id="1" width="448">
+				<SegmentTemplate initialization="3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252init.mp4" media="3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252_$Number%09d$.mp4" startNumber="3">
+					<SegmentTimeline>
+						<S d="360360" r="23" t="0"/>
+						<S d="225225" t="8648640"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+			<Representation bandwidth="7000000" codecs="avc1.64002a" frameRate="60000/1001" height="1080" id="2" width="1920">
+				<SegmentTemplate initialization="3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080init.mp4" media="3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080_$Number%09d$.mp4" timescale="90000">
+					<SegmentTimeline>
+						<S d="480480" r="23" t="0"/>
+						<S d="298298" t="11531520"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet lang="eng" mimeType="audio/mp4" segmentAlignment="0" xmlns:cenc="urn:mpeg:cenc:2013">
+			<SegmentTemplate initialization="abc_aac1init.mp4" media="abc2_$Number%09d$.mp4" timescale="48000"/>
+			<Label>AAC1</Label>
+			<Representation audioSamplingRate="48000" bandwidth="96000" codecs="mp4a.40.2" id="3">
+				<SegmentTemplate initialization="3c1055cb-a842-4449-b393-7f31693b4a8f_aac1init.mp4" media="3c1055cb-a842-4449-b393-7f31693b4a8f_aac1_$Number%09d$.mp4">
+					<SegmentTimeline>
+						<S d="194560" t="0"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet lang="fr" mimeType="audio/mp4" segmentAlignment="0" xmlns:cenc="urn:mpeg:cenc:2013">
+			<SegmentTemplate initialization="abc_aac1init.mp4" media="abc2_$Number%09d$.mp4" timescale="48000"/>
+			<Label>AAC1</Label>
+			<Representation audioSamplingRate="48000" bandwidth="96000" codecs="mp4a.40.2" id="4">
+				<SegmentTemplate startNumber="5" timescale="68000">
+					<SegmentTimeline>
+						<S d="194560" t="0"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
