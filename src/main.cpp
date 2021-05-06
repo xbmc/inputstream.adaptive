@@ -890,9 +890,15 @@ public:
               AP4_DYNAMIC_CAST(AP4_HevcSampleDescription, sample_description))
       {
         bool ret = false;
-        if (hevc->GetConstantFrameRate() && hevc->GetAverageFrameRate())
+        if (hevc->GetAverageFrameRate())
         {
           info.SetFpsRate(hevc->GetAverageFrameRate());
+          info.SetFpsScale(256);
+          ret = true;
+        }
+        else if (hevc->GetConstantFrameRate())
+        {
+          info.SetFpsRate(hevc->GetConstantFrameRate());
           info.SetFpsScale(256);
           ret = true;
         }
