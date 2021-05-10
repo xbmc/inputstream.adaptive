@@ -160,7 +160,11 @@ void CdmAdapter::Initialize()
   library_ = base::LoadNativeLibrary(cdm_path_, &error);
 
   if (!library_)
+  {
+    std::string log_error = "CDM LoadNativeLibrary error: " + error.ToString();
+    client_->CDMLog(log_error.c_str());
     return;
+  }
 
   init_cdm_func = reinterpret_cast<InitializeCdmModuleFunc>(base::GetFunctionPointerFromNativeLibrary(library_, MAKE_STRING(INITIALIZE_CDM_MODULE)));
   deinit_cdm_func = reinterpret_cast<DeinitializeCdmModuleFunc>(base::GetFunctionPointerFromNativeLibrary(library_, "DeinitializeCdmModule"));
