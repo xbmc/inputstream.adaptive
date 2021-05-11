@@ -1650,8 +1650,6 @@ void DASHTree::RefreshLiveSegments()
     updateTree.supportedKeySystem_ = supportedKeySystem_;
     //Location element should be used on updates
     updateTree.location_ = location_;
-    updateTree.effective_url_ = effective_url_;
-    updateTree.effective_domain_ = effective_domain_;
 
     if (!~update_parameter_pos_)
     {
