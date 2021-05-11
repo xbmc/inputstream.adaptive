@@ -266,3 +266,31 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
   EXPECT_EQ(pssh_url,
             "https://foo.bar/hls/video/stream_name/../../key/key.php?stream=stream_name");
 }
+
+TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
+{
+  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8", "");
+  std::string var_download_url = tree->BuildDownloadUrl(
+      tree->current_period_->adaptationSets_[0]->representations_[1]->source_url_);
+
+  adaptive::HLSTree::PREPARE_RESULT res =
+      OpenTestFileVariant("hls/disco_fmp4_noenc_v_stream_1.m3u8", var_download_url,
+                          tree->periods_[0], tree->periods_[0]->adaptationSets_[0],
+                          tree->periods_[0]->adaptationSets_[0]->representations_[1]);
+
+  uint64_t pts =
+      tree->periods_[1]->adaptationSets_[0]->representations_[1]->segments_.data[0].startPTS_;
+  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  EXPECT_EQ(pts, 21000000);
+
+  var_download_url = tree->BuildDownloadUrl(
+      tree->current_period_->adaptationSets_[1]->representations_[0]->source_url_);
+
+  res = OpenTestFileVariant("hls/disco_fmp4_noenc_a_stream_0.m3u8", var_download_url,
+                            tree->periods_[1], tree->periods_[1]->adaptationSets_[1],
+                            tree->periods_[1]->adaptationSets_[1]->representations_[0]);
+
+  pts = tree->periods_[1]->adaptationSets_[1]->representations_[0]->segments_.data[0].startPTS_;
+  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  EXPECT_EQ(pts, 20993000);
+}
