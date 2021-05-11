@@ -89,7 +89,7 @@ void AdaptiveStream::worker()
     if (type_ == AdaptiveTree::SUBTITLE)
       retryCount = 1;
 
-    while (!ret && !stopped_ && retryCount-- && tree_.has_timeshift_buffer_)
+    while (!ret && !stopped_ && retryCount--)
     {
       std::this_thread::sleep_for(std::chrono::seconds(1));
       Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
