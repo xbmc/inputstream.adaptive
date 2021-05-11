@@ -294,7 +294,7 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment* seg)
       if (current_rep_->flags_ & AdaptiveTree::Representation::URLSEGMENTS)
       {
         download_url_ = seg->url;
-        if (download_url_.find("://", 0) == std::string::npos)
+        if (download_url_.find("://") == std::string::npos)
           download_url_ = current_rep_->url_ + download_url_;
       }
       else

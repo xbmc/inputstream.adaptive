@@ -1555,7 +1555,6 @@ static void XMLCALL end(void* data, const char* el)
 +---------------------------------------------------------------------*/
 bool DASHTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
-  PreparePaths(url, manifestUpdateParam);
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;
@@ -1566,8 +1565,8 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
   currentNode_ = 0;
   strXMLText_.clear();
 
-  std::string download_url = BuildDownloadUrl(manifest_url_);
-  bool ret = download(download_url.c_str(), manifest_headers_) && !periods_.empty();
+  PrepareManifestUrl(url, manifestUpdateParam);
+  bool ret = download(manifest_url_.c_str(), manifest_headers_) && !periods_.empty();
 
   XML_ParserFree(parser_);
   parser_ = 0;
@@ -1616,8 +1615,9 @@ void DASHTree::RefreshLiveSegments()
     std::string replaced;
     uint32_t numReplace = ~0U;
     unsigned int nextStartNumber(~0);
+    std::string::size_type update_parameter_pos = update_parameter_.find("$START_NUMBER$");
 
-    if (~update_parameter_pos_)
+    if (~update_parameter_pos)
     {
       for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep;
            ++bp)
@@ -1638,10 +1638,14 @@ void DASHTree::RefreshLiveSegments()
           }
       Log(LOGLEVEL_DEBUG, "DASH Update: numReplace: %u, nextStartNumber: %u", numReplace,
           nextStartNumber);
+
+      if (update_parameter_[0] == '&' && manifest_url_.find("?") == std::string::npos)
+        update_parameter_[0] = '?';
+
       replaced = update_parameter_;
       char buf[32];
       sprintf(buf, "%u", nextStartNumber);
-      replaced.replace(update_parameter_pos_, 14, buf);
+      replaced.replace(update_parameter_pos, 14, buf);
     }
 
     DASHTree updateTree;
@@ -1651,7 +1655,7 @@ void DASHTree::RefreshLiveSegments()
     //Location element should be used on updates
     updateTree.location_ = location_;
 
-    if (!~update_parameter_pos_)
+    if (!~update_parameter_pos)
     {
       if (!etag_.empty())
         updateTree.manifest_headers_["If-None-Match"] = "\"" + etag_ + "\"";
@@ -1666,7 +1670,7 @@ void DASHTree::RefreshLiveSegments()
       location_ = updateTree.location_;
 
       //Youtube returns last smallest number in case the requested data is not available
-      if (~update_parameter_pos_ && updateTree.firstStartNumber_ < nextStartNumber)
+      if (~update_parameter_pos && updateTree.firstStartNumber_ < nextStartNumber)
         return;
 
       std::vector<Period*>::const_iterator bpd(periods_.begin()), epd(periods_.end());
@@ -1700,7 +1704,7 @@ void DASHTree::RefreshLiveSegments()
                 ;
               if (brd != erd && !(*br)->segments_.empty())
               {
-                if (~update_parameter_pos_) // partitial update
+                if (~update_parameter_pos) // partitial update
                 {
                   //Here we go -> Insert new segments
                   uint64_t ptsOffset = (*brd)->nextPts_ - (*br)->segments_[0]->startPTS_;

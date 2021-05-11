@@ -264,7 +264,7 @@ Kodi Streams implementation
 bool adaptive::AdaptiveTree::download(const char* url,
                                       const std::map<std::string, std::string>& manifestHeaders,
                                       void* opaque,
-                                      bool scanEffectiveURL)
+                                      bool isManifest)
 {
   // open the file
   kodi::vfs::CFile file;
@@ -281,15 +281,16 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
   {
-    kodi::Log(ADDON_LOG_ERROR, "Cannot download %s", url);
+    kodi::Log(ADDON_LOG_ERROR, "Download failed: %s", url);
     return false;
   }
 
-  if (scanEffectiveURL)
+  effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+
+  if (isManifest && !PreparePaths(effective_url_))
   {
-    std::string effective_url = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-    kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url.c_str());
-    SetEffectiveURL(effective_url);
+    file.Close();
+    return false;
   }
 
   // read the file
@@ -307,7 +308,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   file.Close();
 
-  kodi::Log(ADDON_LOG_DEBUG, "Download %s finished", url);
+  kodi::Log(ADDON_LOG_DEBUG, "Download finished: %s", effective_url_.c_str());
 
   return nbRead == 0;
 }

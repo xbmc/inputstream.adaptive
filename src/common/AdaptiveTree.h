@@ -412,10 +412,13 @@ public:
   }*current_period_, *next_period_;
 
   std::vector<Period*> periods_;
-  std::string manifest_url_, base_url_, effective_url_, base_domain_, effective_domain_,
-      update_parameter_;
-  std::string::size_type update_parameter_pos_;
-  std::string etag_, last_modified_;
+  std::string manifest_url_;
+  std::string base_url_;
+  std::string effective_url_;
+  std::string base_domain_;
+  std::string update_parameter_;
+  std::string etag_;
+  std::string last_modified_;
 
   /* XML Parsing*/
   XML_Parser parser_;
@@ -480,7 +483,6 @@ public:
                : 0;
   };
 
-  void SetEffectiveURL(const std::string& url);
   std::string BuildDownloadUrl(const std::string& url) const;
 
   std::mutex &GetTreeMutex() { return treeMutex_; };
@@ -489,9 +491,13 @@ public:
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 
 protected:
-  virtual bool download(const char* url, const std::map<std::string, std::string> &manifestHeaders, void *opaque = nullptr, bool scanEffectiveURL = true);
+  virtual bool download(const char* url,
+                        const std::map<std::string, std::string>& manifestHeaders,
+                        void* opaque = nullptr,
+                        bool isManifest = true);
   virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) = 0;
-  bool PreparePaths(const std::string &url, const std::string &manifestUpdateParam);
+  bool PreparePaths(const std::string &url);
+  void PrepareManifestUrl(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
 
   // Live segment update section
