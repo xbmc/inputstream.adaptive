@@ -402,6 +402,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   }
   */
 
+  bool L3FallbackRequested = false;
 RETRY_OPEN:
   session_id_ = media_drm_.GetMediaDrm()->openSession();
   if (xbmc_jnienv()->ExceptionCheck())
@@ -412,7 +413,18 @@ RETRY_OPEN:
       Log(SSD_HOST::LL_ERROR, "Exception during open session - provisioning...");
       provisionRequested = true;
       if (!ProvisionRequest())
-        return;
+      {
+        if (!L3FallbackRequested && media_drm_.GetMediaDrm()->getPropertyString("securityLevel") == "L1")
+        {
+          Log(SSD_HOST::LL_INFO, "L1 provisioning failed - retrying with L3...");
+          L3FallbackRequested = true;
+          provisionRequested = false;
+          media_drm_.GetMediaDrm()->setPropertyString("securityLevel", "L3");
+          goto RETRY_OPEN;
+        }
+        else
+          return;
+      }
       goto RETRY_OPEN;
     }
     else
