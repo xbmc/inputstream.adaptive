@@ -183,9 +183,16 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
     case NAL_VPS_NUT:
       if (m_NeedVPS)
       {
-        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
-        stream_info.extra_data_size += NumBytesInNalUnit;
-        m_NeedVPS = false;
+        if (stream_info.extra_data_size + NumBytesInNalUnit <= sizeof(stream_info.extra_data))
+        {
+          memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+          stream_info.extra_data_size += NumBytesInNalUnit;
+          m_NeedVPS = false;
+        }
+        else
+        {
+          DBG(DEMUX_DBG_INFO, "HEVC fixme: stream_info.extra_data too small! %i\n", stream_info.extra_data_size + NumBytesInNalUnit);
+        }
       }
        break;
 
@@ -200,9 +207,16 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
       Parse_SPS(buf, NumBytesInNalUnit, hdr);
       if (m_NeedSPS)
       {
-        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
-        stream_info.extra_data_size += NumBytesInNalUnit;
-        m_NeedSPS = false;
+        if (stream_info.extra_data_size + NumBytesInNalUnit <= sizeof(stream_info.extra_data))
+        {
+          memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+          stream_info.extra_data_size += NumBytesInNalUnit;
+          m_NeedSPS = false;
+        }
+        else
+        {
+          DBG(DEMUX_DBG_INFO, "HEVC fixme: stream_info.extra_data too small! %i\n", stream_info.extra_data_size + NumBytesInNalUnit);
+        }
       }
       break;
     }
@@ -218,9 +232,16 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
       Parse_PPS(buf, NumBytesInNalUnit);
       if (m_NeedPPS)
       {
-        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
-        stream_info.extra_data_size += NumBytesInNalUnit;
-        m_NeedPPS = false;
+        if (stream_info.extra_data_size + NumBytesInNalUnit <= sizeof(stream_info.extra_data))
+        {
+          memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+          stream_info.extra_data_size += NumBytesInNalUnit;
+          m_NeedPPS = false;
+        }
+        else
+        {
+          DBG(DEMUX_DBG_INFO, "HEVC fixme: stream_info.extra_data too small! %i\n", stream_info.extra_data_size + NumBytesInNalUnit);
+        }
       }
       break;
     }
