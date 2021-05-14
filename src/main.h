@@ -212,4 +212,5 @@ private:
   bool ignore_display_;
   bool play_timeshift_buffer_;
   bool force_secure_decoder_;
+  bool allow_no_secure_decoder_;
 };
