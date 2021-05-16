@@ -71,11 +71,13 @@ void timerfunc(std::shared_ptr<CdmAdapter> adp, uint64_t delay, void* context)
 {
   timer_thread_running  = true;
   uint64_t waited = 0;
-  while (!exit_thread_flag && delay > waited) {
+  while (!exit_thread_flag && delay > waited) 
+  {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     waited += 100;
   }
-  if (!exit_thread_flag) {
+  if (!exit_thread_flag) 
+  {
     adp->TimerExpired(context);
   }
   timer_thread_running = false;
@@ -141,7 +143,8 @@ CdmAdapter::CdmAdapter(
 CdmAdapter::~CdmAdapter()
 {
   exit_thread_flag = true;
-  while (timer_thread_running) {
+  while (timer_thread_running) 
+  {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   if (cdm9_)
@@ -326,7 +329,8 @@ void CdmAdapter::CloseSession(uint32_t promise_id,
   uint32_t session_id_size)
 {
   exit_thread_flag = true;
-  while (timer_thread_running) {
+  while (timer_thread_running) 
+  {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   if (cdm9_)
