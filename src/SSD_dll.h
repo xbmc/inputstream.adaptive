@@ -21,7 +21,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 11;
+    static const uint32_t version = 12;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -187,6 +187,7 @@ namespace SSD
 
     virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) = 0;
     virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
+    virtual bool HasCdmSession() = 0;
 
     virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;

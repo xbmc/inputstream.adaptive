@@ -188,8 +188,8 @@ private:
   {
     SSD::SSD_DECRYPTER::SSD_CAPS decrypter_caps_;
     AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
-    const char *cdm_session_str_;
-    bool shared_single_sample_decryptor_;
+    const char* cdm_session_str_ = nullptr;
+    bool shared_single_sample_decryptor_ = false;
   };
   std::vector<CDMSESSION> cdm_sessions_;
   bool secure_video_session_;

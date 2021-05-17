@@ -2208,7 +2208,15 @@ void Session::DisposeSampleDecrypter()
     for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e;
          ++b)
       if (!b->shared_single_sample_decryptor_)
+      {
         decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
+        b->single_sample_decryptor_ = nullptr;
+      }
+      else
+      {
+        b->single_sample_decryptor_ = nullptr;
+        b->shared_single_sample_decryptor_ = false;
+      }
 }
 
 void Session::DisposeDecrypter()
@@ -2266,8 +2274,6 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
 bool Session::InitializeDRM()
 {
-  DisposeSampleDecrypter();
-
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
   // Try to initialize an SingleSampleDecryptor
@@ -2290,12 +2296,14 @@ bool Session::InitializeDRM()
       return false;
     }
 
-    if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
+    if (!decrypter_->HasCdmSession())
     {
-      kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
-      return false;
+      if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
+      {
+        kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
+        return false;
+      }
     }
-
     std::string strkey(adaptiveTree_->supportedKeySystem_.substr(9));
     size_t pos;
     while ((pos = strkey.find('-')) != std::string::npos)
@@ -2448,8 +2456,6 @@ bool Session::InitializeDRM()
       const char* defkid = adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty()
                                ? nullptr
                                : adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data();
-      session.single_sample_decryptor_ = nullptr;
-      session.shared_single_sample_decryptor_ = false;
 
       if (decrypter_ && defkid)
       {
@@ -2554,10 +2560,15 @@ bool Session::InitializePeriod()
     SAFE_DELETE(*b);
   streams_.clear();
 
-  if (psshChanged && !InitializeDRM())
-    return false;
-  else if (adaptiveTree_->current_period_->encryptionState_)
+  if (!psshChanged)
     kodi::Log(ADDON_LOG_DEBUG, "Reusing DRM psshSets for new period!");
+  else
+  {
+    kodi::Log(ADDON_LOG_DEBUG, "New period, dispose sample decrypter and reinitialize");
+    DisposeSampleDecrypter();
+    if (!InitializeDRM())
+      return false;
+  }
 
   bool hdcpOverride = kodi::GetSettingBoolean("HDCPOVERRIDE");
 
@@ -2757,6 +2768,7 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     case adaptive::AdaptiveTree::PREPARE_RESULT_DRMCHANGED:
       if (!InitializeDRM())
         return nullptr;
+    case adaptive::AdaptiveTree::PREPARE_RESULT_DRMUNCHANGED:
       stream->encrypted = stream->stream_.getRepresentation()->pssh_set_ > 0;
       needRefetch = true;
       break;

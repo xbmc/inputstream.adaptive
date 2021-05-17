@@ -1435,6 +1435,11 @@ public:
     return false;
   }
 
+  virtual bool HasCdmSession() 
+  { 
+    return cdmsession_ != nullptr; 
+  }
+
   virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
   {
     if (!decrypter || !initData)
