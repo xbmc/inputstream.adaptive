@@ -349,27 +349,26 @@ public:
 
     static bool mergeable(const AdaptationSet* a, const AdaptationSet *b)
     {
-      if (a->type_ == b->type_
-        && a->timescale_ == b->timescale_
-        && a->duration_ == b->duration_
-        && a->startPTS_ == b->startPTS_
-        && a->startNumber_ == b->startNumber_
-        && a->impaired_ == b->impaired_
-        && a->original_ == b->original_
-        && a->default_ == b->default_
-        && a->language_ == b->language_
-        && a->mimeType_ == b->mimeType_
-        && a->base_url_ == b->base_url_
-        && a->audio_track_id_ == b->audio_track_id_
-        && a->name_ == b->name_
-        && a->id_ == b->id_
-        && a->group_ == b->group_
-        && compareCodecs(a->codecs_, b->codecs_))
+      if (a->type_ == VIDEO && b->type_ == VIDEO && a->default_ == b->default_ &&
+          a->language_ == b->language_ && a->startPTS_ == b->startPTS_ && a->group_ == b->group_)
       {
-        return a->type_ == AUDIO
-          && a->representations_[0]->channelCount_ == b->representations_[0]->channelCount_
-          && compareCodecs(a->representations_[0]->codecs_, b->representations_[0]->codecs_);
+        return true;
       }
+
+      if (a->type_ == AUDIO && b->type_ == AUDIO && a->timescale_ == b->timescale_ &&
+          a->duration_ == b->duration_ && a->startPTS_ == b->startPTS_ &&
+          a->startNumber_ == b->startNumber_ && a->impaired_ == b->impaired_ &&
+          a->original_ == b->original_ && a->default_ == b->default_ &&
+          a->language_ == b->language_ && a->mimeType_ == b->mimeType_ &&
+          a->base_url_ == b->base_url_ && a->audio_track_id_ == b->audio_track_id_ &&
+          a->name_ == b->name_ && a->id_ == b->id_ && a->group_ == b->group_ &&
+          compareCodecs(a->codecs_, b->codecs_) &&
+          a->representations_[0]->channelCount_ == b->representations_[0]->channelCount_ &&
+          compareCodecs(a->representations_[0]->codecs_, b->representations_[0]->codecs_))
+      {
+        return true;
+      }
+
       return false;
     };
   }*current_adaptationset_;
