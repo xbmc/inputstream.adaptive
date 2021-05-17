@@ -39,7 +39,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree, AdaptiveTree::StreamType type
     currentPTSOffset_(0),
     absolutePTSOffset_(0),
     lastUpdated_(std::chrono::system_clock::now()),
-    lastMediaRenewal_(std::chrono::system_clock::now()),
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
     play_timeshift_buffer_(false)
@@ -115,21 +114,6 @@ int AdaptiveStream::SecondsSinceUpdate() const
   return static_cast<int>(
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint)
           .count());
-}
-
-uint32_t AdaptiveStream::SecondsSinceMediaRenewal() const
-{
-  const std::chrono::time_point<std::chrono::system_clock>& tPoint(
-      lastMediaRenewal_ > tree_.GetLastMediaRenewal() ? lastMediaRenewal_
-                                                      : tree_.GetLastMediaRenewal());
-  return static_cast<int>(
-      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint)
-          .count());
-}
-
-void AdaptiveStream::UpdateSecondsSinceMediaRenewal()
-{
-  lastMediaRenewal_ = std::chrono::system_clock::now();
 }
 
 bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size)
@@ -310,7 +294,7 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Segment* seg)
       if (current_rep_->flags_ & AdaptiveTree::Representation::URLSEGMENTS)
       {
         download_url_ = seg->url;
-        if (download_url_.find("://", 0) == std::string::npos)
+        if (download_url_.find("://") == std::string::npos)
           download_url_ = current_rep_->url_ + download_url_;
       }
       else

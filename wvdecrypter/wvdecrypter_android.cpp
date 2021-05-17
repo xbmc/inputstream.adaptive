@@ -645,7 +645,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(AMediaDrmByteArray &sessio
   resLimit = host->CURLGetProperty(file, SSD_HOST::CURLPROPERTY::PROPERTY_HEADER, "X-Limit-Video");
   if (!resLimit.empty())
   {
-    std::string::size_type posMax = resLimit.find("max=", 0);
+    std::string::size_type posMax = resLimit.find("max=");
     if (posMax != std::string::npos)
       resolution_limit_ = atoi(resLimit.data() + (posMax + 4));
   }

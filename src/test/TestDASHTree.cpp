@@ -21,6 +21,9 @@ protected:
 
   void OpenTestFile(std::string testfilename, std::string url, std::string manifestHeaders)
   {
+    if (url.empty())
+      url = "http://foo.bar/" + testfilename;
+
     SetFileName(testHelper::testFile, testfilename);
     if (!tree->open(url, manifestHeaders))
     {
@@ -91,13 +94,12 @@ TEST_F(DASHTreeTest, CalculateBaseDomain)
   EXPECT_EQ(tree->base_domain_, "https://foo.bar");
 }
 
-TEST_F(DASHTreeTest, CalculateEffectiveUrlFromRedirect)
+TEST_F(DASHTreeTest, CalculateBaseUrlFromRedirect)
 {
-  // like base_url_, effective_url_ should be path, not including filename
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
-  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd", "");
-
-  EXPECT_EQ(tree->effective_url_, "https://foo.bar/mpd/");
+  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd", "");
+  EXPECT_EQ(tree->base_url_, "https://foo.bar/mpd/");
+  EXPECT_EQ(tree->manifest_url_, "https://foo.bar/mpd/stream.mpd");
 }
 
 TEST_F(DASHTreeTest, CalculateBaseURLFromBaseURLTag)
@@ -301,11 +303,19 @@ TEST_F(DASHTreeTest, updateParameterLiveSegmentTimeline)
   EXPECT_EQ(tree->update_parameter_, "full");
 }
 
-TEST_F(DASHTreeTest, updateParameterProvidedLiveSegmentTimeline)
+TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumber)
 {
-  tree->update_parameter_ = "ABC";
-  OpenTestFile("mpd/segtimeline_live_pd.mpd", "", "");
-  EXPECT_EQ(tree->update_parameter_, "ABC");
+  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux&start_seq=$START_NUMBER$", "");
+  EXPECT_EQ(tree->update_parameter_, "&start_seq=$START_NUMBER$");
+  EXPECT_EQ(tree->manifest_url_, "https://foo.bar/dash.mpd?foo=bar&baz=qux");
+}
+
+TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumberRedirect)
+{
+  testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123";
+  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?start_seq=$START_NUMBER$", "");
+  EXPECT_EQ(tree->update_parameter_, "?start_seq=$START_NUMBER$");
+  EXPECT_EQ(tree->manifest_url_, "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123");
 }
 
 TEST_F(DASHTreeTest, updateParameterVODSegmentTimeline)
@@ -430,4 +440,16 @@ TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.media, "https://foo.bar/dash/abc2_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.timescale, 68000);
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segments_[0]->range_end_, 5);
+}
+
+TEST_F(DASHTreeTest, CalculateRedirectSegTpl)
+{
+  testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
+  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd", "");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/V300/init.mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media, "https://foo.bar/mpd/V300/$Number$.m4s");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/A48/init.mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media, "https://foo.bar/A48/$Number$.m4s");
 }

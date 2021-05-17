@@ -40,7 +40,6 @@ namespace adaptive
   AdaptiveTree::AdaptiveTree()
     : current_period_(nullptr)
     , next_period_(nullptr)
-    , update_parameter_pos_(std::string::npos)
     , parser_(0)
     , currentNode_(0)
     , segcount_(0)
@@ -56,7 +55,6 @@ namespace adaptive
     , updateInterval_(~0)
     , updateThread_(nullptr)
     , lastUpdated_(std::chrono::system_clock::now())
-    , lastMediaRenewal_(std::chrono::system_clock::now())
   {
   }
 
@@ -171,7 +169,7 @@ namespace adaptive
   }
 
   void AdaptiveTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
-  { 
+  {
     memcpy(dst + dstOffset, src, dataSize);
   }
 
@@ -315,17 +313,17 @@ namespace adaptive
           ++br;
   }
 
-  bool AdaptiveTree::PreparePaths(const std::string &url, const std::string &manifestUpdateParam)
+  bool AdaptiveTree::PreparePaths(const std::string &url)
   {
+    manifest_url_ = url;
+
     size_t paramPos = url.find('?');
     base_url_ = (paramPos == std::string::npos) ? url : url.substr(0, paramPos);
-    if (paramPos != std::string::npos)
-      manifest_parameter_= url.substr(paramPos);
 
     paramPos = base_url_.find_last_of('/', base_url_.length());
     if (paramPos == std::string::npos)
     {
-      Log(LOGLEVEL_ERROR, "Invalid mpdURL: / expected (%s)", manifest_url_.c_str());
+      Log(LOGLEVEL_ERROR, "Invalid url: / expected (%s)", url.c_str());
       return false;
     }
     base_url_.resize(paramPos + 1);
@@ -341,6 +339,11 @@ namespace adaptive
     else
       base_domain_.clear();
 
+    return true;
+  }
+
+  void AdaptiveTree::PrepareManifestUrl(const std::string &url, const std::string &manifestUpdateParam)
+  {
     manifest_url_ = url;
 
     if (manifestUpdateParam.empty())
@@ -362,63 +365,19 @@ namespace adaptive
     }
     else
       update_parameter_ = manifestUpdateParam;
-
-    if (!update_parameter_.empty())
-    {
-      if (update_parameter_ != "full")
-      {
-        if ((update_parameter_pos_ = update_parameter_.find("$START_NUMBER$")) != std::string::npos)
-        {
-          if (update_parameter_[0] == '&' && manifest_url_.find("?") == std::string::npos)
-            update_parameter_[0] = '?';
-        }
-        else
-          update_parameter_.clear();
-      }
-    }
-    return true;
-  }
-
-  void AdaptiveTree::SetEffectiveURL(const std::string& url)
-  {
-    effective_url_ = url;
-    effective_domain_.clear();
-    std::string::size_type paramPos = effective_url_.find_first_of('?');
-    if (paramPos != std::string::npos)
-      effective_url_.resize(paramPos);
-
-    paramPos = effective_url_.find_last_of('/');
-    if (paramPos != std::string::npos)
-      effective_url_.resize(paramPos + 1);
-    else
-      effective_url_.clear();
-
-    if (effective_url_ == base_url_)
-      effective_url_.clear();
-
-    if (!effective_url_.empty())
-    {
-      paramPos = effective_url_.find_first_of('/', 8);
-      effective_domain_ = effective_url_.substr(0, paramPos);
-    }
   }
 
   std::string AdaptiveTree::BuildDownloadUrl(const std::string& url) const
   {
     if (!url.empty())
     {
-      if (url.front() == '/')
-        return effective_domain_.empty() ? base_domain_ + url : effective_domain_ + url;
-      else if (!effective_url_.empty() && url.compare(0, base_url_.size(), base_url_) == 0)
-      {
-        std::string newUrl(url);
-        newUrl.replace(0, base_url_.size(), effective_url_);
-        return newUrl;
-      }
+      if (url.front() != '/' && url.find("://") == std::string::npos)
+        return base_url_ + url;
+      else if (url.front() == '/')
+        return base_domain_ + url;
     }
     return url;
   }
-
 
   void AdaptiveTree::SortTree()
   {

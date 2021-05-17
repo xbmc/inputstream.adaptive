@@ -107,7 +107,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   if (map["METHOD"] == "AES-128" && !map["URI"].empty())
   {
     current_pssh_ = map["URI"];
-    if (current_pssh_[0] != '/' && current_pssh_.find("://", 0) == std::string::npos)
+    if (current_pssh_[0] != '/' && current_pssh_.find("://") == std::string::npos)
       current_pssh_ = baseUrl + current_pssh_;
 
     current_iv_ = m_decrypter->convertIV(map["IV"]);
@@ -158,13 +158,13 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
 
 bool HLSTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
-  PreparePaths(url, manifestUpdateParam);
+  PrepareManifestUrl(url, manifestUpdateParam);
   if (download(manifest_url_.c_str(), manifest_headers_, &manifest_stream))
-    return processManifest(manifest_stream, url);
+    return processManifest(manifest_stream);
   return false;
 }
 
-bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
+bool HLSTree::processManifest(std::stringstream& stream)
 {
 #if FILEDEBUG
   FILE* f = fopen("inputstream_adaptive_master.m3u8", "w");
@@ -232,10 +232,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
       std::map<std::string, std::string>::iterator res;
       if ((res = map.find("URI")) != map.end())
       {
-        if (res->second[0] != '/' && res->second.find("://", 0) == std::string::npos)
-          rep->source_url_ = base_url_ + res->second;
-        else
-          rep->source_url_ = res->second;
+        rep->source_url_ = BuildDownloadUrl(res->second);
 
         // default to WebVTT
         if (type == SUBTITLE)
@@ -306,7 +303,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
       current_representation_->bandwidth_ = 0;
       current_representation_->codecs_ = getVideoCodec("");
       current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
-      current_representation_->source_url_ = url;
+      current_representation_->source_url_ = manifest_url_;
       current_adaptationset_->representations_.push_back(current_representation_);
 
       // We assume audio is included
@@ -316,10 +313,7 @@ bool HLSTree::processManifest(std::stringstream& stream, const std::string& url)
     }
     else if (!line.empty() && line.compare(0, 1, "#") != 0 && current_representation_)
     {
-      if (line[0] != '/' && line.find("://", 0) == std::string::npos)
-        current_representation_->source_url_ = base_url_ + line;
-      else
-        current_representation_->source_url_ = line;
+      current_representation_->source_url_ = BuildDownloadUrl(line);
 
       //Ignore duplicate reps
       for (auto const* rep : current_adaptationset_->representations_)
@@ -394,7 +388,6 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     Segment newInitialization;
     uint32_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
-    std::string download_url = BuildDownloadUrl(rep->source_url_);
     uint32_t adp_pos =
         std::find(period->adaptationSets_.begin(), period->adaptationSets_.end(), adp) -
         period->adaptationSets_.begin();
@@ -407,7 +400,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
     if (rep->flags_ & Representation::DOWNLOADED)
       ;
-    else if (download(download_url.c_str(), manifest_headers_, &stream, false))
+    else if (download(rep->source_url_.c_str(), manifest_headers_, &stream, false))
     {
 #if FILEDEBUG
       FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -434,9 +427,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       segment.startPTS_ = ~0ULL;
       segment.pssh_set_ = 0;
 
-      std::string::size_type paramPos = rep->source_url_.find('?');
+      std::string::size_type paramPos = effective_url_.find('?');
       base_url =
-          (paramPos == std::string::npos) ? rep->source_url_ : rep->source_url_.substr(0, paramPos);
+          (paramPos == std::string::npos) ? effective_url_ : effective_url_.substr(0, paramPos);
 
       paramPos = base_url.rfind('/');
       if (paramPos != std::string::npos)
@@ -504,7 +497,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           if (!byteRange || rep->url_.empty())
           {
             std::string url;
-            if (line[0] != '/' && line.find("://", 0) == std::string::npos)
+            if (line[0] != '/' && line.find("://") == std::string::npos)
               url = base_url + line;
             else
               url = line;
@@ -673,7 +666,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
               delete[] newInitialization.url;
             segmentInitialization = true;
             std::string uri = map["URI"];
-            if (uri[0] != '/' && uri.find("://", 0) == std::string::npos)
+            if (uri[0] != '/' && uri.find("://") == std::string::npos)
               map_url = base_url + uri;
             else
               map_url = uri;

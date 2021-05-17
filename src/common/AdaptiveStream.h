@@ -89,10 +89,6 @@ namespace adaptive
     virtual bool parseIndexRange() { return false; };
     bool write_data(const void *buffer, size_t buffer_size);
     bool prepareDownload(const AdaptiveTree::Segment *seg);
-    const std::string& getMediaRenewalUrl() const { return tree_.media_renewal_url_; };
-    const uint32_t& getMediaRenewalTime() const { return tree_.media_renewal_time_; };
-    uint32_t SecondsSinceMediaRenewal() const;
-    void UpdateSecondsSinceMediaRenewal();
     adaptive::AdaptiveTree& GetTree() { return tree_; };
 
   private:
@@ -144,7 +140,6 @@ namespace adaptive
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
-    std::chrono::time_point<std::chrono::system_clock> lastMediaRenewal_;
 
     uint16_t width_, height_;
     uint32_t bandwidth_;

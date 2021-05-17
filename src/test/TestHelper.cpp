@@ -23,14 +23,22 @@ void SetFileName(std::string& file, std::string name)
 bool adaptive::AdaptiveTree::download(const char* url,
                                       const std::map<std::string, std::string>& manifestHeaders,
                                       void* opaque,
-                                      bool scanEffectiveURL)
+                                      bool isManifest)
 {
   FILE* f = fopen(testHelper::testFile.c_str(), "rb");
   if (!f)
     return false;
 
-  if (scanEffectiveURL && !testHelper::effectiveUrl.empty())
-    SetEffectiveURL(testHelper::effectiveUrl);
+  if (!testHelper::effectiveUrl.empty())
+    effective_url_ = testHelper::effectiveUrl;
+  else
+    effective_url_ = url;
+
+  if (isManifest && !PreparePaths(effective_url_))
+  {
+    fclose(f);
+    return false;
+  }
 
   // read the file
   static const unsigned int CHUNKSIZE = 16384;

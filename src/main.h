@@ -87,8 +87,6 @@ public:
           const std::string& strLicKey,
           const std::string& strLicData,
           const std::string& strCert,
-          const std::string& strMediaRenewalUrl,
-          const uint32_t intMediaRenewalTime,
           const std::map<std::string, std::string>& manifestHeaders,
           const std::map<std::string, std::string>& mediaHeaders,
           const std::string& profile_path,
@@ -175,7 +173,7 @@ protected:
 
 private:
   MANIFEST_TYPE manifest_type_;
-  std::string mpdFileURL_, mpdUpdateParam_;
+  std::string manifestURL_, manifestUpdateParam_;
   std::string license_key_, license_type_, license_data_;
   std::map<std::string, std::string> media_headers_;
   AP4_DataBuffer server_certificate_;

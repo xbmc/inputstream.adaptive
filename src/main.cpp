@@ -264,7 +264,7 @@ Kodi Streams implementation
 bool adaptive::AdaptiveTree::download(const char* url,
                                       const std::map<std::string, std::string>& manifestHeaders,
                                       void* opaque,
-                                      bool scanEffectiveURL)
+                                      bool isManifest)
 {
   // open the file
   kodi::vfs::CFile file;
@@ -281,15 +281,16 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
   {
-    kodi::Log(ADDON_LOG_ERROR, "Cannot download %s", url);
+    kodi::Log(ADDON_LOG_ERROR, "Download failed: %s", url);
     return false;
   }
 
-  if (scanEffectiveURL)
+  effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+
+  if (isManifest && !PreparePaths(effective_url_))
   {
-    std::string effective_url = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-    kodi::Log(ADDON_LOG_DEBUG, "Effective URL %s", effective_url.c_str());
-    SetEffectiveURL(effective_url);
+    file.Close();
+    return false;
   }
 
   // read the file
@@ -307,7 +308,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   file.Close();
 
-  kodi::Log(ADDON_LOG_DEBUG, "Download %s finished", url);
+  kodi::Log(ADDON_LOG_DEBUG, "Download finished: %s", effective_url_.c_str());
 
   return nbRead == 0;
 }
@@ -315,12 +316,8 @@ bool adaptive::AdaptiveTree::download(const char* url,
 bool KodiAdaptiveStream::download(const char* url,
                                   const std::map<std::string, std::string>& mediaHeaders)
 {
-  bool retry_403 = true;
-  bool retry_MRT = true;
   kodi::vfs::CFile file;
-  std::string newUrl;
 
-RETRY:
   // open the file
   if (!file.CURLCreate(url))
     return false;
@@ -346,37 +343,9 @@ RETRY:
 
     size_t nbRead = ~0UL;
 
-    if (((returnCode == 403 && retry_403) ||
-         (getMediaRenewalTime() > 0 && SecondsSinceMediaRenewal() >= getMediaRenewalTime() &&
-          retry_MRT)) &&
-        !getMediaRenewalUrl().empty())
+    if (returnCode >= 400)
     {
-      UpdateSecondsSinceMediaRenewal();
-
-      if (returnCode == 403)
-        retry_403 = false;
-      else
-        retry_MRT = false;
-
-      std::vector<kodi::vfs::CDirEntry> items;
-      if (kodi::vfs::GetDirectory(getMediaRenewalUrl(), "", items) && items.size() == 1)
-      {
-        std::string effective_url = items[0].Path();
-        if (effective_url.back() != '/')
-          effective_url += '/';
-        kodi::Log(ADDON_LOG_DEBUG, "Renewed URL: %s", effective_url.c_str());
-        GetTree().SetEffectiveURL(effective_url);
-        newUrl = GetTree().BuildDownloadUrl(url);
-        url = newUrl.c_str();
-        goto RETRY;
-      }
-      else
-        kodi::Log(ADDON_LOG_ERROR, "Retrieving renewal URL failed (%s)",
-                  getMediaRenewalUrl().c_str());
-    }
-    else if (returnCode >= 400)
-    {
-      kodi::Log(ADDON_LOG_ERROR, "Download %s failed with error: %d", url, returnCode);
+      kodi::Log(ADDON_LOG_ERROR, "Download failed with error %d: %s", returnCode, url);
     }
     else
     {
@@ -389,7 +358,7 @@ RETRY:
 
       if (!nbReadOverall)
       {
-        kodi::Log(ADDON_LOG_ERROR, "Download %s doesn't provide any data: invalid", url);
+        kodi::Log(ADDON_LOG_ERROR, "Download doesn't provide any data: %s", url);
         return false;
       }
 
@@ -405,7 +374,7 @@ RETRY:
                            current_download_speed_ * ratio);
       }
       kodi::Log(ADDON_LOG_DEBUG,
-                "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
+                "Download finished: %s , avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
                 get_download_speed(), current_download_speed_);
     }
     file.Close();
@@ -2002,8 +1971,6 @@ Session::Session(MANIFEST_TYPE manifestType,
                  const std::string& strLicKey,
                  const std::string& strLicData,
                  const std::string& strCert,
-                 const std::string& strMediaRenewalUrl,
-                 const uint32_t intMediaRenewalTime,
                  const std::map<std::string, std::string>& manifestHeaders,
                  const std::map<std::string, std::string>& mediaHeaders,
                  const std::string& profile_path,
@@ -2013,8 +1980,8 @@ Session::Session(MANIFEST_TYPE manifestType,
                  bool play_timeshift_buffer,
                  bool force_secure_decoder)
   : manifest_type_(manifestType),
-    mpdFileURL_(strURL),
-    mpdUpdateParam_(strUpdateParam),
+    manifestURL_(strURL),
+    manifestUpdateParam_(strUpdateParam),
     license_key_(strLicKey),
     license_type_(strLicType),
     license_data_(strLicData),
@@ -2110,8 +2077,6 @@ Session::Session(MANIFEST_TYPE manifestType,
     server_certificate_.SetDataSize(dstsz);
   }
   adaptiveTree_->manifest_headers_ = manifestHeaders;
-  adaptiveTree_->media_renewal_url_ = strMediaRenewalUrl;
-  adaptiveTree_->media_renewal_time_ = intMediaRenewalTime;
 }
 
 Session::~Session()
@@ -2252,16 +2217,16 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
   }
 
-  // Open mpd file with mpd location redirect support  bool mpdSuccess;
-  std::string mpdUrl =
-      adaptiveTree_->location_.empty() ? mpdFileURL_.c_str() : adaptiveTree_->location_;
-  if (!adaptiveTree_->open(mpdUrl.c_str(), mpdUpdateParam_.c_str()) || adaptiveTree_->empty())
+  // Open manifest file with location redirect support  bool mpdSuccess;
+  std::string manifestUrl =
+      adaptiveTree_->location_.empty() ? manifestURL_.c_str() : adaptiveTree_->location_;
+  if (!adaptiveTree_->open(manifestUrl.c_str(), manifestUpdateParam_.c_str()) || adaptiveTree_->empty())
   {
-    kodi::Log(ADDON_LOG_ERROR, "Could not open / parse mpdURL (%s)", mpdFileURL_.c_str());
+    kodi::Log(ADDON_LOG_ERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
     return false;
   }
   kodi::Log(ADDON_LOG_INFO,
-            "Successfully parsed .mpd file. #Periods: %ld, #Streams in first period: %ld, Type: "
+            "Successfully parsed manifest file. #Periods: %ld, #Streams in first period: %ld, Type: "
             "%s, Download speed: %0.4f Bytes/s",
             adaptiveTree_->periods_.size(), adaptiveTree_->current_period_->adaptationSets_.size(),
             adaptiveTree_->has_timeshift_buffer_ ? "live" : "VOD", adaptiveTree_->download_speed_);
@@ -3317,10 +3282,9 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 {
   kodi::Log(ADDON_LOG_DEBUG, "Open()");
 
-  std::string lt, lk, ld, lsc, mfup, ov_audio, mru;
-  uint32_t mrt = 0;
+  std::string lt, lk, ld, lsc, mfup, ov_audio;
   std::map<std::string, std::string> manh, medh;
-  std::string mpd_url = props.GetURL();
+  std::string url = props.GetURL();
   MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
   std::uint8_t config(0);
   uint32_t max_user_bandwidth = 0;
@@ -3387,16 +3351,6 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
       kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.original_audio_language: %s",
                 ov_audio.c_str());
     }
-    else if (prop.first == "inputstream.adaptive.media_renewal_url")
-    {
-      mru = prop.second;
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_url: %s", mru.c_str());
-    }
-    else if (prop.first == "inputstream.adaptive.media_renewal_time")
-    {
-      mrt = std::stoi(prop.second);
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.media_renewal_time: %d", mrt);
-    }
     else if (prop.first == "inputstream.adaptive.max_bandwidth")
     {
       max_user_bandwidth = std::stoi(prop.second);
@@ -3413,12 +3367,12 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
     return false;
   }
 
-  std::string::size_type posHeader(mpd_url.find("|"));
+  std::string::size_type posHeader(url.find("|"));
   if (posHeader != std::string::npos)
   {
     manh.clear();
-    parseheader(manh, mpd_url.substr(posHeader + 1));
-    mpd_url = mpd_url.substr(0, posHeader);
+    parseheader(manh, url.substr(posHeader + 1));
+    url = url.substr(0, posHeader);
   }
 
   if (medh.empty())
@@ -3426,8 +3380,8 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 
   kodihost->SetProfilePath(props.GetProfileFolder());
 
-  m_session = std::shared_ptr<Session>(new Session(manifest, mpd_url.c_str(), mfup, lt, lk, ld, lsc,
-                                                   mru, mrt, manh, medh, props.GetProfileFolder(),
+  m_session = std::shared_ptr<Session>(new Session(manifest, url.c_str(), mfup, lt, lk, ld, lsc,
+                                                   manh, medh, props.GetProfileFolder(),
                                                    m_width, m_height, ov_audio,
                                                    m_playTimeshiftBuffer, force_secure_decoder));
   m_session->SetVideoResolution(m_width, m_height);

@@ -61,7 +61,7 @@ public:
                                AdaptationSet* adp,
                                Representation* rep,
                                StreamType type) override;
-  virtual bool processManifest(std::stringstream& stream, const std::string& url);
+  virtual bool processManifest(std::stringstream& stream);
 
 protected:
   virtual void RefreshLiveSegments() override;
