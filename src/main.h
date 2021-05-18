@@ -149,6 +149,7 @@ public:
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
+  std::map<std::string, std::string> GetMediaHeaders() const { return media_headers_; };
   const AP4_UI08 *GetDefaultKeyId(const uint16_t index) const;
   uint32_t GetIncludedStreamMask() const;
   STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;

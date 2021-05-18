@@ -21,6 +21,7 @@
 #include "oscompat.h"
 #include <stdlib.h>
 #include <sstream>
+#include <algorithm>
 
 #ifndef BYTE
 typedef unsigned char BYTE;
@@ -526,7 +527,11 @@ void parseheader(std::map<std::string, std::string>& headerMap, const std::strin
   {
     std::string::size_type pos(b->find('='));
     if(pos != std::string::npos)
-      headerMap[trimcp(b->substr(0, pos))] = url_decode(trimcp(b->substr(pos+1)));
+    {
+      std::string name = trimcp(b->substr(0, pos));
+      std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+      headerMap[name] = url_decode(trimcp(b->substr(pos+1)));
+    }
   }
 }
 

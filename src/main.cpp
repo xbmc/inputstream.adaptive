@@ -272,7 +272,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
     return false;
 
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
+  file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
 
   for (const auto& entry : manifestHeaders)
   {
@@ -321,11 +321,9 @@ bool KodiAdaptiveStream::download(const char* url,
   // open the file
   if (!file.CURLCreate(url))
     return false;
+
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
-  if (mediaHeaders.find("connection") == mediaHeaders.end())
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
+  file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
 
   for (const auto& entry : mediaHeaders)
   {
@@ -1523,7 +1521,8 @@ class ATTRIBUTE_HIDDEN SubtitleSampleReader : public SampleReader
 public:
   SubtitleSampleReader(const std::string& url,
                        AP4_UI32 streamId,
-                       const std::string& codecInternalName)
+                       const std::string& codecInternalName,
+                       const std::map<std::string, std::string>& mediaHeaders)
     : m_pts(0), m_streamId(streamId), m_eos(false)
   {
     // open the file
@@ -1532,8 +1531,18 @@ public:
       return;
 
     file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
-    file.CURLOpen(0);
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
+
+    for (const auto& entry : mediaHeaders)
+    {
+      file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+    }
+
+    if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
+    {
+      kodi::Log(ADDON_LOG_ERROR, "Download failed: %s", url.c_str());
+      return;
+    }
 
     AP4_DataBuffer result;
 
@@ -1550,12 +1559,13 @@ public:
     else
       m_codecHandler = new TTMLCodecHandler(nullptr);
     m_codecHandler->Transform(0, 0, result, 1000);
+    m_started = true;
   };
 
   SubtitleSampleReader(AP4_ByteStream* input,
                        AP4_UI32 streamId,
                        const std::string& codecInternalName)
-    : m_pts(0), m_streamId(streamId), m_eos(false), m_input(input)
+    : m_pts(0), m_streamId(streamId), m_eos(false), m_input(input), m_started(true)
   {
     if (codecInternalName == "wvtt")
       m_codecHandler = new WebVTTCodecHandler(nullptr);
@@ -1563,7 +1573,7 @@ public:
       m_codecHandler = new TTMLCodecHandler(nullptr);
   }
 
-  bool IsStarted() const override { return true; };
+  bool IsStarted() const override { return m_started; };
   bool EOS() const override { return m_eos; };
   uint64_t DTS() const override { return m_pts; };
   uint64_t PTS() const override { return m_pts; };
@@ -1635,6 +1645,7 @@ private:
   uint64_t m_pts, m_ptsOffset = 0, m_ptsDiff = 0;
   AP4_UI32 m_streamId;
   bool m_eos;
+  bool m_started = false;
 
   CodecHandler* m_codecHandler;
 
@@ -3617,8 +3628,12 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
   {
-    stream->reader_ =
-        new SubtitleSampleReader(rep->url_, streamid, stream->info_.GetCodecInternalName());
+    stream->reader_ = new SubtitleSampleReader(
+        rep->url_, streamid, stream->info_.GetCodecInternalName(), m_session->GetMediaHeaders());
+
+    if (!stream->reader_->IsStarted())
+      stream->disable();
+
     return false;
   }
 
