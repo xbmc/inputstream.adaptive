@@ -302,9 +302,7 @@ public:
     static bool compare(const AdaptationSet* a, const AdaptationSet *b)
     {
       if (a->type_ != b->type_)
-        return a->type_ < b->type_;
-      if (a->language_ != b->language_)
-        return a->language_ < b->language_;
+        return false;
       if (a->default_ != b->default_)
         return a->default_;
 
