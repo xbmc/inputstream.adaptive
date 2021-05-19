@@ -60,9 +60,6 @@
     (p) = NULL; \
   } while (0)
 
-//extern definition in helpers.h
-bool preReleaseFeatures = false;
-
 void Log(const LogLevel loglevel, const char* format, ...)
 {
   char buffer[16384];
@@ -2042,10 +2039,6 @@ Session::Session(MANIFEST_TYPE manifestType,
 
   manual_streams_ = kodi::GetSettingInt("STREAMSELECTION");
   kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", manual_streams_);
-
-  preReleaseFeatures = kodi::GetSettingBoolean("PRERELEASEFEATURES");
-  if (preReleaseFeatures)
-    kodi::Log(ADDON_LOG_INFO, "PRERELEASEFEATURES enabled!");
 
   allow_no_secure_decoder_ = kodi::GetSettingBoolean("NOSECUREDECODER");
   kodi::Log(ADDON_LOG_DEBUG, "FORCENONSECUREDECODER selected: %d ", allow_no_secure_decoder_);

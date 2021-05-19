@@ -49,6 +49,4 @@ bool create_ism_license(std::string key, std::string license_data, std::vector<u
 void parseheader(std::map<std::string, std::string>& headerMap, const std::string& headerString);
 int endswith(const char* in, const char* suffix);
 
-extern bool preReleaseFeatures;
-
 #define MKTAG(a,b,c,d) ((a) | ((b) << 8) | ((c) << 16) | ((unsigned)(d) << 24))
