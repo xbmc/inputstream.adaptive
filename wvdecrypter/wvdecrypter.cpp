@@ -508,6 +508,13 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
   if (!caps.hdcpLimit)
     caps.hdcpLimit = resolution_limit_;
 
+  if (media == SSD_DECRYPTER::SSD_CAPS::SSD_MEDIA_VIDEO)
+    caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
+  else
+    caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT;
+
+  return;
+
   //caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
   //return;
 
