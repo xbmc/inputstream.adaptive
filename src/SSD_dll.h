@@ -21,7 +21,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 12;
+    static const uint32_t version = 13;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
