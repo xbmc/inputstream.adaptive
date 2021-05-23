@@ -275,3 +275,13 @@ TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
   EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
   EXPECT_EQ(pts, 20993000);
 }
+
+TEST_F(HLSTreeTest, TestLocalFilePath)
+{
+  OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "C:/temp/redirect_absolute_1v_master.m3u8", "");
+
+  std::string rep_url = tree->BuildDownloadUrl(
+      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
+
+  EXPECT_EQ(rep_url, "https://bit.ly/abcd");
+}

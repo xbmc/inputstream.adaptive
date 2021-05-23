@@ -323,7 +323,6 @@ namespace adaptive
     paramPos = base_url_.find_last_of('/', base_url_.length());
     if (paramPos == std::string::npos)
     {
-      Log(LOGLEVEL_ERROR, "Invalid url: / expected (%s)", url.c_str());
       return false;
     }
     base_url_.resize(paramPos + 1);

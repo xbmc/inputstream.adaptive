@@ -34,11 +34,8 @@ bool adaptive::AdaptiveTree::download(const char* url,
   else
     effective_url_ = url;
 
-  if (isManifest && !PreparePaths(effective_url_))
-  {
-    fclose(f);
-    return false;
-  }
+  if (isManifest)
+    PreparePaths(effective_url_);
 
   // read the file
   static const unsigned int CHUNKSIZE = 16384;

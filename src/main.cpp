@@ -287,8 +287,16 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
 
+  // effective url is empty for local paths
+  if (effective_url_.empty())
+  {
+    kodi::Log(ADDON_LOG_WARNING, "Local file support will be removed in Kodi 20");
+    effective_url_ = url;
+  }
+
   if (isManifest && !PreparePaths(effective_url_))
   {
+    kodi::Log(ADDON_LOG_ERROR, "Invalid url: %s", effective_url_.c_str());
     file.Close();
     return false;
   }
