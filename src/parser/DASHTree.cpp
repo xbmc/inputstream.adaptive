@@ -483,7 +483,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
 
             dash->current_representation_->startNumber_ = ParseSegmentTemplate(
-                attr, dash->current_adaptationset_->base_url_, dash->base_domain_,
+                attr, dash->current_representation_->base_url_, dash->base_domain_,
                 dash->current_representation_->segtpl_, dash->current_adaptationset_->startNumber_);
             ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
                                 dash->current_representation_->id,
@@ -658,13 +658,14 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
           dash->current_representation_->duration_ = dash->current_adaptationset_->duration_;
           dash->current_representation_->startNumber_ = dash->current_adaptationset_->startNumber_;
-          dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
           dash->current_representation_->width_ = dash->adpwidth_;
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
           dash->current_representation_->fpsScale_ = dash->adpfpsScale_;
           dash->current_representation_->aspect_ = dash->adpaspect_;
           dash->current_representation_->containerType_ = dash->adpContainerType_;
+          dash->current_representation_->base_url_ = dash->current_adaptationset_->base_url_;
+          dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
 
           dash->current_pssh_.clear();
           dash->current_hasRepURN_ = false;
@@ -1116,6 +1117,8 @@ static void XMLCALL end(void* data, const char* el)
                 url = dash->strXMLText_;
               else
                 url = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
+
+              dash->current_representation_->base_url_ = url;
 
               if (dash->current_representation_->flags_ & AdaptiveTree::Representation::TEMPLATE)
               {

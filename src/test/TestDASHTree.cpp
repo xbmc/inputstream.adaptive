@@ -453,3 +453,20 @@ TEST_F(DASHTreeTest, CalculateRedirectSegTpl)
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/A48/init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media, "https://foo.bar/A48/$Number$.m4s");
 }
+
+TEST_F(DASHTreeTest, CalculateReprensentationBaseURL)
+{
+  OpenTestFile("mpd/rep_base_url.mpd", "https://bit.ly/mpd/abcd.mpd", "");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/slices/A_init.mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media, "https://foo.bar/mpd/slices/A$Number%08d$.m4f");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.initialization, "https://bit.ly/mpd/B_init.mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.media, "https://bit.ly/mpd/B$Number%08d$.m4f");
+
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/slices/A_init.mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media, "https://foo.bar/mpd/slices/A$Number%08d$.m4f");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[1]->segtpl_.initialization, "https://foo.bar/mpd/slices2/B_init.mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[1]->segtpl_.media, "https://foo.bar/mpd/slices2/B$Number%08d$.m4f");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[2]->segtpl_.initialization, "https://foo.bar/mpd/slices2/C_init.mp4");
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[2]->segtpl_.media, "https://foo.bar/mpd/slices2/C$Number%08d$.m4f");
+}
