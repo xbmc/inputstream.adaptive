@@ -1141,7 +1141,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 
   bool useSingleDecrypt(false);
 
-  if ((fragInfo.decrypter_flags_ & SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT) != 0 && subsample_count > 1)
+  if ((fragInfo.decrypter_flags_ & SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT) != 0)
   {
     decrypt_in_.Reserve(data_in.GetDataSize());
     decrypt_in_.SetDataSize(0);
