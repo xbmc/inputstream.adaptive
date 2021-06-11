@@ -554,6 +554,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           {
             dash->currentNode_ |= MPDNODE_SEGMENTTIMELINE;
             dash->adp_timelined_ = true;
+
+            if (dash->update_parameter_.empty() && dash->has_timeshift_buffer_)
+              dash->update_parameter_ = "full";
           }
         }
         else if (dash->currentNode_ & MPDNODE_SEGMENTDURATIONS)
