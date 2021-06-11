@@ -487,7 +487,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
                 rep->containerType_ = CONTAINERTYPE_ADTS;
               else if (strncmp(line.c_str() + ext, ".mp4", 4) == 0)
                 rep->containerType_ = CONTAINERTYPE_MP4;
-              else if (strncmp(line.c_str() + ext, ".vtt", 4) == 0)
+              else if (strncmp(line.c_str() + ext, ".vtt", 4) == 0 ||
+                       strncmp(line.c_str() + ext, ".webvtt", 7) == 0)
                 rep->containerType_ = CONTAINERTYPE_TEXT;
               else
               {
