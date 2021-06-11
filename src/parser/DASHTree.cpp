@@ -1033,6 +1033,10 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       {
         uint64_t dur(0);
         AddDuration((const char*)*(attr + 1), dur, 1500);
+        // 0S minimumUpdatePeriod = refresh after every segment
+        // We already do that so lets set our minimum updateInterval to 30s
+        if (dur == 0)
+          dur = 30000;
         dash->SetUpdateInterval(static_cast<uint32_t>(dur));
       }
       attr += 2;
