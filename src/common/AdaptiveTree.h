@@ -171,6 +171,7 @@ public:
     std::string codecs_;
     std::string codec_private_data_;
     std::string source_url_;
+    std::string base_url_;
     uint32_t bandwidth_;
     uint32_t samplingRate_;
     uint16_t width_, height_;
