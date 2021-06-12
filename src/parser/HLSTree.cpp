@@ -155,8 +155,8 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   }
 
   // UNKNOWN
-  Log(LOGLEVEL_WARNING, "Unknown encryption method: %s with keyformat %s",
-      map["METHOD"].c_str(), map["KEYFORMAT"].c_str());
+  Log(LOGLEVEL_WARNING, "Unknown encryption method: %s with keyformat %s", map["METHOD"].c_str(),
+      map["KEYFORMAT"].c_str());
   return ENCRYPTIONTYPE_UNKNOWN;
 }
 
@@ -405,6 +405,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     uint32_t rep_pos = std::find(adp->representations_.begin(), adp->representations_.end(), rep) -
                        adp->representations_.begin();
     uint32_t discont_count = 0;
+    bool cp_lost(false);
+    Representation* entry_rep = rep;
     PREPARE_RESULT retVal = PREPARE_RESULT_OK;
 
     if (rep->flags_ & Representation::DOWNLOADED)
@@ -546,14 +548,47 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           if (newInterval < updateInterval_)
             updateInterval_ = newInterval;
         }
+        else if (line.compare(0, 30, "#EXT-X-DISCONTINUITY-SEQUENCE:") == 0)
+        {
+          m_discontSeq = atol(line.c_str() + 30);
+          if (!~initial_sequence_)
+            initial_sequence_ = m_discontSeq;
+          m_hasDiscontSeq = true;
+          // make sure first period has a sequence on initial prepare
+          if (!update && m_discontSeq && !periods_.back()->sequence_)
+            periods_[0]->sequence_ = m_discontSeq;
+
+          auto bp = periods_.begin();
+          while (bp != periods_.end())
+          {
+            if ((*bp)->sequence_ < m_discontSeq)
+              if (*bp != current_period_)
+              {
+                delete *bp;
+                *bp = nullptr;
+                bp = periods_.erase(bp);
+              }
+              // we end up here after pausing for some time
+              // remove from periods_ for now and reattach later
+              else
+              {
+                cp_lost = true;
+                bp = periods_.erase(bp);
+              }
+            else
+              bp++;
+          }
+          period = periods_[0];
+          adp = period->adaptationSets_[adp_pos];
+          rep = adp->representations_[rep_pos];
+        }
         else if (line.compare(0, 21, "#EXT-X-DISCONTINUITY") == 0)
         {
-          if (newSegments.size() == 0)
-            continue;
-          period->duration_ = pts - newSegments[0]->startPTS_;
+          period->sequence_ = m_discontSeq + discont_count;
+          period->duration_ = newSegments.size() ? pts - newSegments[0]->startPTS_ : 0;
           if (!byteRange)
             rep->flags_ |= Representation::URLSEGMENTS;
-          if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange &&
+          if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && newSegments.size() &&
               newSegments.data[0].range_begin_ > 0)
           {
             rep->flags_ |= Representation::INITIALIZATION;
@@ -561,7 +596,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
             rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
             rep->initialization_.pssh_set_ = 0;
           }
-          FreeSegments(rep);
+          FreeSegments(period, rep);
           rep->segments_.swap(newSegments);
           rep->startNumber_ = newStartNumber;
 
@@ -581,13 +616,13 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           else
             period = periods_[discont_count];
 
+          newStartNumber += rep->segments_.data.size();
           adp = period->adaptationSets_[adp_pos];
           rep = adp->representations_[rep_pos];
           segment.range_begin_ = ~0ULL;
           segment.range_end_ = 0;
           segment.startPTS_ = ~0ULL;
           segment.pssh_set_ = 0;
-          newStartNumber = 0;
           pts = 0;
 
           if (currentEncryptionType == ENCRYPTIONTYPE_WIDEVINE)
@@ -669,11 +704,11 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         rep->initialization_.pssh_set_ = 0;
       }
 
-      FreeSegments(rep);
+      FreeSegments(period, rep);
 
       if (newSegments.data.empty())
       {
-        FreeSegments(rep);
+        FreeSegments(period, rep);
         rep->flags_ = 0;
         return PREPARE_RESULT_FAILURE;
       }
@@ -686,9 +721,11 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
       rep->duration_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) : 0;
 
-      if (discont_count)
+      period->sequence_ = m_discontSeq + discont_count;
+      if (discont_count || m_hasDiscontSeq)
       {
-        periods_[discont_count]->duration_ = (rep->duration_ * periods_[discont_count]->timescale_) / rep->timescale_;
+        periods_[discont_count]->duration_ =
+            (rep->duration_ * periods_[discont_count]->timescale_) / rep->timescale_;
         overallSeconds_ = 0;
         for (auto p : periods_)
         {
@@ -708,7 +745,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
     if (update)
     {
-      if (!segmentId || segmentId < rep->startNumber_)
+      rep = entry_rep;
+      if (!segmentId || segmentId < rep->startNumber_ || !~segmentId)
         rep->current_segment_ = nullptr;
       else
       {
@@ -717,12 +755,17 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         rep->current_segment_ = rep->get_segment(segmentId - rep->startNumber_);
       }
       if ((rep->flags_ & Representation::WAITFORSEGMENT) &&
-          rep->get_next_segment(rep->current_segment_))
+          (rep->get_next_segment(rep->current_segment_) || current_period_ != periods_.back()))
         rep->flags_ &= ~Representation::WAITFORSEGMENT;
     }
     else
       StartUpdateThread();
 
+    if (cp_lost)
+      periods_.insert(periods_.begin(), current_period_);
+    period = current_period_;
+    adp = period->adaptationSets_[adp_pos];
+    rep = adp->representations_[rep_pos];
     return retVal;
   }
   return PREPARE_RESULT_FAILURE;
@@ -824,6 +867,8 @@ void HLSTree::RefreshSegments(Period* period,
 {
   if (m_refreshPlayList)
   {
+    if (rep->flags_ & Representation::INCLUDEDSTREAM)
+      return;
     RefreshUpdateThread();
     prepareRepresentation(period, adp, rep, true);
   }
@@ -834,15 +879,16 @@ void HLSTree::RefreshLiveSegments()
 {
   if (m_refreshPlayList)
   {
-    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep;
-         ++bp)
-      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()),
-           ea((*bp)->adaptationSets_.end());
-           ba != ea; ++ba)
-        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()),
-             er((*ba)->representations_.end());
-             br != er; ++br)
-          if ((*br)->flags_ & Representation::ENABLED)
-            prepareRepresentation((*bp), (*ba), (*br), true);
+    std::vector<std::tuple<AdaptationSet*, Representation*>> refresh_list;
+    for (std::vector<AdaptationSet*>::const_iterator ba(current_period_->adaptationSets_.begin()),
+         ea(current_period_->adaptationSets_.end());
+         ba != ea; ++ba)
+      for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()),
+           er((*ba)->representations_.end());
+           br != er; ++br)
+        if ((*br)->flags_ & Representation::ENABLED)
+          refresh_list.push_back(std::make_tuple(*ba, *br));
+    for (auto t : refresh_list)
+      prepareRepresentation(current_period_, std::get<0>(t), std::get<1>(t), true);
   }
 }

@@ -190,7 +190,7 @@ bool AdaptiveStream::start_stream(const uint32_t seg_offset,
                                   bool play_timeshift_buffer)
 {
   if (!play_timeshift_buffer && !~seg_offset && tree_.has_timeshift_buffer_ &&
-      current_rep_->segments_.data.size() > 1)
+      current_rep_->segments_.data.size() > 1 && tree_.periods_.size() == 1)
   {
     std::int32_t pos;
     if (tree_.has_timeshift_buffer_ || tree_.available_time_ >= tree_.stream_start_)
@@ -400,7 +400,7 @@ bool AdaptiveStream::ensureSegment()
       ResetSegment();
       thread_data_->signal_dl_.notify_one();
     }
-    else if (tree_.HasUpdateThread())
+    else if (tree_.HasUpdateThread() && current_period_ == tree_.periods_.back())
     {
       current_rep_->flags_ |= AdaptiveTree::Representation::WAITFORSEGMENT;
       Log(LOGLEVEL_DEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
