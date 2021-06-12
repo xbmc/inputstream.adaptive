@@ -1039,6 +1039,7 @@ public:
   virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid){};
   virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid){};
   virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { return true; };
+  virtual bool IsStarted() const = 0;
 };
 
 /*******************************************************
@@ -1069,6 +1070,7 @@ public:
   void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override{};
   void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override{};
   bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override { return true; };
+  bool IsStarted() const override { return true; }
 } DummyReader;
 
 /*******************************************************
@@ -1247,6 +1249,7 @@ public:
   }
 
   bool EOS() const override { return m_eos; };
+  bool IsStarted() const override { return m_started; };
   uint64_t DTS() const override { return m_dts; };
   uint64_t PTS() const override { return m_pts; };
   AP4_UI32 GetStreamId() const override { return m_streamId; };
@@ -1572,6 +1575,7 @@ public:
       m_codecHandler = new TTMLCodecHandler(nullptr);
   }
 
+  bool IsStarted() const override { return true; };
   bool EOS() const override { return m_eos; };
   uint64_t DTS() const override { return m_pts; };
   uint64_t PTS() const override { return m_pts; };
@@ -1689,6 +1693,7 @@ public:
     return m_typeMask == 0;
   };
 
+  bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_dts; }
   uint64_t PTS() const override { return m_pts; }
@@ -1783,6 +1788,7 @@ public:
   ADTSSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
     : ADTSReader(input), m_streamId(streamId), m_stream(dynamic_cast<AP4_DASHStream*>(input)){};
 
+  bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_pts; }
   uint64_t PTS() const override { return m_pts; }
@@ -1865,6 +1871,7 @@ public:
   WebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
     : WebmReader(input), m_streamId(streamId), m_stream(dynamic_cast<AP4_DASHStream*>(input)){};
 
+  bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_dts; }
   uint64_t PTS() const override { return m_pts; }
@@ -2851,6 +2858,25 @@ uint64_t Session::GetTimeshiftBufferStart()
     return 0ULL;
 }
 
+void Session::StartReader(
+    STREAM* stream, uint64_t seekTimeCorrected, int64_t ptsDiff, bool preceeding, bool timing)
+{
+  bool bReset = true;
+  if (timing)
+    seekTimeCorrected += stream->stream_.GetAbsolutePTSOffset();
+  else
+    seekTimeCorrected -= ptsDiff;
+  stream->stream_.seek_time(
+      static_cast<double>(seekTimeCorrected / DVD_TIME_BASE),
+      preceeding, bReset);
+  if (bReset)
+    stream->reader_->Reset(false);
+  bool bStarted = false;
+  stream->reader_->Start(bStarted);
+  if (bStarted && (stream->reader_->GetInformation(stream->info_)))
+    changed_ = true;
+}
+
 SampleReader* Session::GetNextSample()
 {
   STREAM *res(0), *waiting(0);
@@ -2916,6 +2942,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 
   seekTime -= chapterTime;
 
+  // don't try to seek past the end of the stream, leave a sensible amount so we can buffer properly
   if (adaptiveTree_->has_timeshift_buffer_)
   {
     uint64_t curTime, maxTime(0);
@@ -2929,11 +2956,19 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     }
   }
 
+  // correct for starting segment pts value of chapter and chapter offset within program
   uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE);
+  int64_t ptsDiff = 0;
   if (timing_stream_)
   {
+    // after seeking across chapters with fmp4 streams the reader will not have started
+    // so we start here to ensure that we have the required information to correctly
+    // seek with proper stream alignment
+    if (!timing_stream_->reader_->IsStarted())
+      StartReader(timing_stream_, seekTimeCorrected, ptsDiff, preceeding, true);
+
     seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
-    int64_t ptsDiff = timing_stream_->reader_->GetPTSDiff();
+    ptsDiff = timing_stream_->reader_->GetPTSDiff();
     if (ptsDiff < 0 && seekTimeCorrected + ptsDiff > seekTimeCorrected)
       seekTimeCorrected = 0;
     else
@@ -2943,13 +2978,19 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
-      bool bReset;
+      bool bReset = true;
+      // all streams must be started before seeking to ensure cross chapter seeks
+      // will seek to the correct location/segment
+      if (!(*b)->reader_->IsStarted())
+        StartReader((*b), seekTimeCorrected, ptsDiff, preceeding, false);
+      // advance adaptiveStream to the correct segment (triggers segment download)
       if ((*b)->stream_.seek_time(
               static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) / DVD_TIME_BASE,
               preceeding, bReset))
       {
         if (bReset)
           (*b)->reader_->Reset(false);
+        // advance reader to requested time
         if (!(*b)->reader_->TimeSeek(seekTimeCorrected, preceeding))
           (*b)->reader_->Reset(true);
         else
@@ -2959,7 +3000,11 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
                     "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
                     (*b)->info_.m_pID, destTime, (*b)->reader_->PTS());
           if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
-            seekTime = destTime, seekTimeCorrected = (*b)->reader_->PTS(), preceeding = false;
+          {
+            seekTime = destTime;
+            seekTimeCorrected = (*b)->reader_->PTS();
+            preceeding = false;
+          }
           ret = true;
         }
       }

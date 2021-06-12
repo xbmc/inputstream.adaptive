@@ -150,6 +150,8 @@ public:
   uint64_t GetElapsedTimeMs()const { return elapsed_time_ / 1000; };
   uint64_t PTSToElapsed(uint64_t pts);
   uint64_t GetTimeshiftBufferStart();
+  void StartReader(
+      STREAM* stream, uint64_t seekTimeCorrected, int64_t ptsDiff, bool preceeding, bool timing);
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
   void SetVideoResolution(unsigned int w, unsigned int h) { width_ = w; height_ = h;};
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
