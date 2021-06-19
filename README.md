@@ -44,10 +44,7 @@ If your display resolution is 720p, you will not be able to watch 1080p videos i
 - This addon uses threads to download segments. The memory consumption is the sum of single segment from each stream currently playing. Refering to known streams it is < 10MB for 720p videos.
 
 ##### Credits:
-[@fernetmenta](github.com/fernetmenta) Best support I ever got regarding streams / codecs and kodi internals.  
-[@notspiff](https://github.com/notspiff) Thanks for your ideas / tipps regarding kodi file system  
-[bento4 library](https://www.bento4.com/) For me the best library choice for mp4 streams. Well written and extensible!
-
-##### Continuous integration:
-[Travis CI build state:](https://travis-ci.org/peak3d) ![alt tag](https://travis-ci.org/peak3d/inputstream.adaptive.svg?branch=master)  
-[Appveyor:](https://ci.appveyor.com/project/peak3d) ![alt tag](https://ci.appveyor.com/api/projects/status/ah9s8usgxhangq7o?svg=true)
+[@peak3d](github.com/peak3d) Original author / creator. Superstar!  
+[@fernetmenta](github.com/fernetmenta) Best support regarding streams / codecs and kodi internals.  
+[@notspiff](https://github.com/notspiff) Ideas / tips regarding kodi file system.  
+[bento4 library](https://www.bento4.com/) Great library for mp4 streams. Well written and extensible!
