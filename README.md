@@ -44,7 +44,7 @@ If your display resolution is 720p, you will not be able to watch 1080p videos i
 - This addon uses threads to download segments. The memory consumption is the sum of single segment from each stream currently playing. Refering to known streams it is < 10MB for 720p videos.
 
 ##### Credits:
-[@peak3d](github.com/peak3d) Original author / creator. Superstar!  
-[@fernetmenta](github.com/fernetmenta) Best support regarding streams / codecs and kodi internals.  
+[@peak3d](https://github.com/peak3d) Original author / creator. Superstar!  
+[@fernetmenta](https://github.com/fernetmenta) Best support regarding streams / codecs and kodi internals.  
 [@notspiff](https://github.com/notspiff) Ideas / tips regarding kodi file system.  
 [bento4 library](https://www.bento4.com/) Great library for mp4 streams. Well written and extensible!
