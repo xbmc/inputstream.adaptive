@@ -2170,8 +2170,11 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
 void Session::DisposeSampleDecrypter()
 {
   if (decrypter_)
+  {
     for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin()), e(cdm_sessions_.end()); b != e;
          ++b)
+    {
+      b->cdm_session_str_ = nullptr;
       if (!b->shared_single_sample_decryptor_)
       {
         decrypter_->DestroySingleSampleDecrypter(b->single_sample_decryptor_);
@@ -2182,6 +2185,8 @@ void Session::DisposeSampleDecrypter()
         b->single_sample_decryptor_ = nullptr;
         b->shared_single_sample_decryptor_ = false;
       }
+    }
+  }
 }
 
 void Session::DisposeDecrypter()
