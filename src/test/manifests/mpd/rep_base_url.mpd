@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2021-06-06T18:49:02Z" maxSegmentDuration="PT4.096S" minBufferTime="PT4.096S" minimumUpdatePeriod="PT8.000S" profiles="urn:mpeg:dash:profile:isoff-live:2011" publishTime="2021-06-06T19:38:20Z" suggestedPresentationDelay="PT12.288S" timeShiftBufferDepth="PT180.000S" type="dynamic">
+  <Period id="2924.544000" start="PT2924.544000S">
+    <AssetIdentifier schemeIdUri="urn:org:dashif:asset-id:2013" value="51aaf401283c45de9aa6d7369c0910d7"/>
+    <AdaptationSet contentType="video" id="1" maxFrameRate="30" maxHeight="504" maxWidth="896" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="2"/>
+      <InbandEventStream schemeIdUri="com.uplynk.asset.metadata"/>
+      <Representation bandwidth="41431" codecs="avc1.42000b" frameRate="22" height="54" id="A" scanType="progressive" width="96">
+        <BaseURL>https://foo.bar/mpd/slices/</BaseURL>
+        <SegmentTemplate initialization="$RepresentationID$_init.mp4" media="$RepresentationID$$Number%08d$.m4f" presentationTimeOffset="263208960" startNumber="714" timescale="90000">
+          <SegmentTimeline>
+            <S d="368640" r="7" t="263208960"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+      <Representation bandwidth="41431" codecs="avc1.42000b" frameRate="22" height="54" id="B" scanType="progressive" width="96">
+        <SegmentTemplate initialization="$RepresentationID$_init.mp4" media="$RepresentationID$$Number%08d$.m4f" presentationTimeOffset="263208960" startNumber="714" timescale="90000">
+          <SegmentTimeline>
+            <S d="368640" r="7" t="263208960"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet contentType="video" id="2" maxFrameRate="30" maxHeight="504" maxWidth="896" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <BaseURL>https://foo.bar/mpd/slices2/</BaseURL>
+      <SupplementalProperty schemeIdUri="urn:mpeg:dash:adaptation-set-switching:2016" value="2"/>
+      <InbandEventStream schemeIdUri="com.uplynk.asset.metadata"/>
+      <Representation bandwidth="41431" codecs="avc1.42000b" frameRate="22" height="54" id="A" scanType="progressive" width="96">
+        <BaseURL>https://foo.bar/mpd/slices/</BaseURL>
+        <SegmentTemplate initialization="$RepresentationID$_init.mp4" media="$RepresentationID$$Number%08d$.m4f" presentationTimeOffset="263208960" startNumber="714" timescale="90000">
+          <SegmentTimeline>
+            <S d="368640" r="7" t="263208960"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+      <Representation bandwidth="41431" codecs="avc1.42000b" frameRate="22" height="54" id="B" scanType="progressive" width="96">
+        <SegmentTemplate initialization="$RepresentationID$_init.mp4" media="$RepresentationID$$Number%08d$.m4f" presentationTimeOffset="263208960" startNumber="714" timescale="90000">
+          <SegmentTimeline>
+            <S d="368640" r="7" t="263208960"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+      <Representation bandwidth="41431" codecs="avc1.42000b" frameRate="22" height="54" id="C" scanType="progressive" width="96">
+        <SegmentTemplate initialization="$RepresentationID$_init.mp4" media="$RepresentationID$$Number%08d$.m4f" presentationTimeOffset="263208960" startNumber="714" timescale="90000">
+          <SegmentTimeline>
+            <S d="368640" r="7" t="263208960"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+  <UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="https://content-aeui1.uplynk.com/misc/utcservertime"/>
+</MPD>
