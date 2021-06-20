@@ -1530,7 +1530,7 @@ public:
 
     file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
     file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
-    file.CURLOpen(0);
+    file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE);
 
     AP4_DataBuffer result;
 
