@@ -174,12 +174,14 @@ public:
 
   void GetCapabilities(const uint8_t* key, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps);
   virtual const char *GetSessionId() override;
+  void CloseSessionId();
   void SetSession(const char* session, uint32_t session_size, const uint8_t *data, size_t data_size)
   {
     std::lock_guard<std::mutex> lock(renewal_lock_);
 
     session_ = std::string(session, session_size);
     challenge_.SetData(data, data_size);
+    Log(SSD_HOST::LL_DEBUG, "%s: opened session with Id: %s", __func__, session_.c_str());
   }
 
   void AddSessionKey(const uint8_t *data, size_t data_size, uint32_t status);
@@ -477,8 +479,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   if (keys_.empty())
   {
     Log(SSD_HOST::LL_ERROR, "License update not successful (no keys)");
-    drm_.GetCdmAdapter()->CloseSession(++promise_id_, session_.data(), session_.size());
-    session_.clear();
+    CloseSessionId();
     return;
   }
   Log(SSD_HOST::LL_DEBUG, "License update successful");
@@ -486,8 +487,6 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
 {
-  if (!session_.empty())
-    drm_.GetCdmAdapter()->CloseSession(++promise_id_, session_.data(), session_.size());
   drm_.removessd(this);
   free(subsample_buffer_decrypt_);
   free(subsample_buffer_video_);
@@ -571,6 +570,18 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
 const char *WV_CencSingleSampleDecrypter::GetSessionId()
 {
   return session_.empty()? nullptr : session_.c_str();
+}
+
+void WV_CencSingleSampleDecrypter::CloseSessionId()
+{
+  if (!session_.empty())
+  {
+    Log(SSD_HOST::LL_DEBUG, "%s: close session with Id: %s", __func__, session_.c_str());
+    drm_.GetCdmAdapter()->CloseSession(++promise_id_, session_.data(), session_.size());
+    session_.clear();
+
+    Log(SSD_HOST::LL_DEBUG, "%s: session closed", __func__);
+  }
 }
 
 void WV_CencSingleSampleDecrypter::CheckLicenseRenewal()
@@ -1418,7 +1429,11 @@ public:
   virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) override
   {
     if (decrypter)
+    {
+      // close session before dispose
+      static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->CloseSessionId();
       delete static_cast<WV_CencSingleSampleDecrypter*>(decrypter);
+    }
   }
 
   virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) override
