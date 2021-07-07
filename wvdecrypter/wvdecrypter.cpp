@@ -174,6 +174,7 @@ public:
 
   void GetCapabilities(const uint8_t* key, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps);
   virtual const char *GetSessionId() override;
+  void SetSessionActive();
   void CloseSessionId();
   void SetSession(const char* session, uint32_t session_size, const uint8_t *data, size_t data_size)
   {
@@ -390,7 +391,10 @@ void WV_DRM::OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG 
     return;
 
   if (msg == CDMADPMSG::kSessionMessage)
+  {
     (*b)->SetSession(session, session_size, data, data_size);
+    (*b)->SetSessionActive();
+  }
   else if (msg == CDMADPMSG::kSessionKeysChange)
     (*b)->AddSessionKey(data, data_size, status);
 };
@@ -570,6 +574,11 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
 const char *WV_CencSingleSampleDecrypter::GetSessionId()
 {
   return session_.empty()? nullptr : session_.c_str();
+}
+
+void WV_CencSingleSampleDecrypter::SetSessionActive()
+{
+  drm_.GetCdmAdapter()->SetSessionActive();
 }
 
 void WV_CencSingleSampleDecrypter::CloseSessionId()
