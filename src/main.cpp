@@ -1036,9 +1036,10 @@ public:
   virtual const AP4_Byte* GetSampleData() const = 0;
   virtual uint64_t GetDuration() const = 0;
   virtual bool IsEncrypted() const = 0;
-  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid){};
-  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid){};
+  virtual void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid){};
+  virtual void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid){};
   virtual bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) { return true; };
+  virtual bool IsStarted() const = 0;
 };
 
 /*******************************************************
@@ -1066,9 +1067,10 @@ public:
   const AP4_Byte* GetSampleData() const override { return nullptr; }
   uint64_t GetDuration() const override { return 0; }
   bool IsEncrypted() const override { return false; }
-  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override{};
-  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override{};
+  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override{};
+  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override{};
   bool RemoveStreamType(INPUTSTREAM_INFO::STREAM_TYPE type) override { return true; };
+  bool IsStarted() const override { return true; }
 } DummyReader;
 
 /*******************************************************
@@ -1247,6 +1249,7 @@ public:
   }
 
   bool EOS() const override { return m_eos; };
+  bool IsStarted() const override { return m_started; };
   uint64_t DTS() const override { return m_dts; };
   uint64_t PTS() const override { return m_pts; };
   AP4_UI32 GetStreamId() const override { return m_streamId; };
@@ -1572,6 +1575,7 @@ public:
       m_codecHandler = new TTMLCodecHandler(nullptr);
   }
 
+  bool IsStarted() const override { return true; };
   bool EOS() const override { return m_eos; };
   uint64_t DTS() const override { return m_pts; };
   uint64_t PTS() const override { return m_pts; };
@@ -1668,7 +1672,7 @@ public:
     m_typeMap[type] = m_typeMap[INPUTSTREAM_INFO::TYPE_NONE] = streamId;
   };
 
-  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  void AddStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask |= (1 << type);
@@ -1676,7 +1680,7 @@ public:
       StartStreaming(m_typeMask);
   };
 
-  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint16_t sid) override
+  void SetStreamType(INPUTSTREAM_INFO::STREAM_TYPE type, uint32_t sid) override
   {
     m_typeMap[type] = sid;
     m_typeMask = (1 << type);
@@ -1689,6 +1693,7 @@ public:
     return m_typeMask == 0;
   };
 
+  bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_dts; }
   uint64_t PTS() const override { return m_pts; }
@@ -1763,7 +1768,7 @@ public:
 
 private:
   uint32_t m_typeMask; //Bit representation of INPUTSTREAM_INFO::STREAM_TYPES
-  uint16_t m_typeMap[16];
+  uint32_t m_typeMap[16];
   bool m_eos = false;
   bool m_started = false;
 
@@ -1783,6 +1788,7 @@ public:
   ADTSSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
     : ADTSReader(input), m_streamId(streamId), m_stream(dynamic_cast<AP4_DASHStream*>(input)){};
 
+  bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_pts; }
   uint64_t PTS() const override { return m_pts; }
@@ -1865,6 +1871,7 @@ public:
   WebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
     : WebmReader(input), m_streamId(streamId), m_stream(dynamic_cast<AP4_DASHStream*>(input)){};
 
+  bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_dts; }
   uint64_t PTS() const override { return m_pts; }
@@ -2509,12 +2516,7 @@ bool Session::InitializePeriod()
     adaptiveTree_->next_period_ = nullptr;
   }
 
-  chapter_start_time_ = 0;
-  for (adaptive::AdaptiveTree::Period* p : adaptiveTree_->periods_)
-    if (p == adaptiveTree_->current_period_)
-      break;
-    else
-      chapter_start_time_ += (p->duration_ * DVD_TIME_BASE) / p->timescale_;
+  chapter_start_time_ = GetChapterStartTime();
 
   if (adaptiveTree_->current_period_->encryptionState_ ==
       adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
@@ -2856,6 +2858,25 @@ uint64_t Session::GetTimeshiftBufferStart()
     return 0ULL;
 }
 
+void Session::StartReader(
+    STREAM* stream, uint64_t seekTimeCorrected, int64_t ptsDiff, bool preceeding, bool timing)
+{
+  bool bReset = true;
+  if (timing)
+    seekTimeCorrected += stream->stream_.GetAbsolutePTSOffset();
+  else
+    seekTimeCorrected -= ptsDiff;
+  stream->stream_.seek_time(
+      static_cast<double>(seekTimeCorrected / DVD_TIME_BASE),
+      preceeding, bReset);
+  if (bReset)
+    stream->reader_->Reset(false);
+  bool bStarted = false;
+  stream->reader_->Start(bStarted);
+  if (bStarted && (stream->reader_->GetInformation(stream->info_)))
+    changed_ = true;
+}
+
 SampleReader* Session::GetNextSample()
 {
   STREAM *res(0), *waiting(0);
@@ -2877,7 +2898,7 @@ SampleReader* Session::GetNextSample()
     if (res->reader_->GetInformation(res->info_))
       changed_ = true;
     if (res->reader_->PTS() != DVD_NOPTS_VALUE)
-      elapsed_time_ = PTSToElapsed(res->reader_->PTS()) + chapter_start_time_;
+      elapsed_time_ = PTSToElapsed(res->reader_->PTS()) + GetChapterStartTime();
     return res->reader_;
   }
   else if (waiting)
@@ -2921,6 +2942,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 
   seekTime -= chapterTime;
 
+  // don't try to seek past the end of the stream, leave a sensible amount so we can buffer properly
   if (adaptiveTree_->has_timeshift_buffer_)
   {
     uint64_t curTime, maxTime(0);
@@ -2934,11 +2956,19 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     }
   }
 
+  // correct for starting segment pts value of chapter and chapter offset within program
   uint64_t seekTimeCorrected = static_cast<uint64_t>(seekTime * DVD_TIME_BASE);
+  int64_t ptsDiff = 0;
   if (timing_stream_)
   {
+    // after seeking across chapters with fmp4 streams the reader will not have started
+    // so we start here to ensure that we have the required information to correctly
+    // seek with proper stream alignment
+    if (!timing_stream_->reader_->IsStarted())
+      StartReader(timing_stream_, seekTimeCorrected, ptsDiff, preceeding, true);
+
     seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
-    int64_t ptsDiff = timing_stream_->reader_->GetPTSDiff();
+    ptsDiff = timing_stream_->reader_->GetPTSDiff();
     if (ptsDiff < 0 && seekTimeCorrected + ptsDiff > seekTimeCorrected)
       seekTimeCorrected = 0;
     else
@@ -2948,13 +2978,19 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     if ((*b)->enabled && (*b)->reader_ && (streamId == 0 || (*b)->info_.m_pID == streamId))
     {
-      bool bReset;
+      bool bReset = true;
+      // all streams must be started before seeking to ensure cross chapter seeks
+      // will seek to the correct location/segment
+      if (!(*b)->reader_->IsStarted())
+        StartReader((*b), seekTimeCorrected, ptsDiff, preceeding, false);
+      // advance adaptiveStream to the correct segment (triggers segment download)
       if ((*b)->stream_.seek_time(
               static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) / DVD_TIME_BASE,
               preceeding, bReset))
       {
         if (bReset)
           (*b)->reader_->Reset(false);
+        // advance reader to requested time
         if (!(*b)->reader_->TimeSeek(seekTimeCorrected, preceeding))
           (*b)->reader_->Reset(true);
         else
@@ -2964,7 +3000,11 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
                     "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
                     (*b)->info_.m_pID, destTime, (*b)->reader_->PTS());
           if ((*b)->info_.m_streamType == INPUTSTREAM_INFO::TYPE_VIDEO)
-            seekTime = destTime, seekTimeCorrected = (*b)->reader_->PTS(), preceeding = false;
+          {
+            seekTime = destTime;
+            seekTimeCorrected = (*b)->reader_->PTS();
+            preceeding = false;
+          }
           ret = true;
         }
       }
@@ -3136,6 +3176,29 @@ int64_t Session::GetChapterPos(int ch) const
   return sum / DVD_TIME_BASE;
 }
 
+uint64_t Session::GetChapterStartTime() const
+{
+  uint64_t start_time = 0;
+  for (adaptive::AdaptiveTree::Period* p : adaptiveTree_->periods_)
+    if (p == adaptiveTree_->current_period_)
+      break;
+    else
+      start_time += (p->duration_ * DVD_TIME_BASE) / p->timescale_;
+  return start_time;
+}
+
+int Session::GetPeriodId() const
+{
+  if (adaptiveTree_)
+    if (IsLive())
+      return adaptiveTree_->current_period_->sequence_ == adaptiveTree_->initial_sequence_
+                 ? 1
+                 : adaptiveTree_->current_period_->sequence_ + 1;
+    else
+      return GetChapter();
+  return -1;
+}
+
 bool Session::SeekChapter(int ch)
 {
   if (adaptiveTree_->next_period_)
@@ -3232,7 +3295,7 @@ public:
 private:
   std::shared_ptr<Session> m_session;
   int m_width, m_height;
-  uint16_t m_IncludedStreams[16];
+  uint32_t m_IncludedStreams[16];
   bool m_checkChapterSeek = false;
   bool m_playTimeshiftBuffer = false;
   int m_failedSeekTime = ~0;
@@ -3414,7 +3477,7 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
 
   if (m_session)
   {
-    int chapter = m_session->GetChapter();
+    int period_id = m_session->GetPeriodId();
     iids.m_streamCount = 0;
 
     for (unsigned int i(1);
@@ -3433,7 +3496,10 @@ struct INPUTSTREAM_IDS CInputStreamAdaptive::GetStreamIds()
           if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
             continue;
         }
-        iids.m_streamIds[iids.m_streamCount++] = i + chapter * 1000;
+        iids.m_streamIds[iids.m_streamCount++] =
+            m_session->IsLive()
+                ? i + (m_session->GetStream(i)->stream_.getPeriod()->sequence_ + 1) * 1000
+                : i + period_id * 1000;
       }
     }
   }
@@ -3484,7 +3550,7 @@ struct INPUTSTREAM_INFO CInputStreamAdaptive::GetStream(int streamid)
 
   kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
 
-  Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
+  Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetPeriodId() * 1000));
 
   if (stream)
   {
@@ -3521,7 +3587,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
   if (!m_session)
     return;
 
-  Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
+  Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetPeriodId() * 1000));
 
   if (!enable && stream && stream->enabled)
   {
@@ -3546,7 +3612,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (!m_session)
     return false;
 
-  Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetChapter() * 1000));
+  Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetPeriodId() * 1000));
 
   if (!stream || stream->enabled)
     return false;
@@ -3688,7 +3754,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         stream->reader_->AddStreamType(static_cast<INPUTSTREAM_INFO::STREAM_TYPE>(i),
                                        m_IncludedStreams[i]);
         stream->reader_->GetInformation(
-            m_session->GetStream(m_IncludedStreams[i] - m_session->GetChapter() * 1000)->info_);
+            m_session->GetStream(m_IncludedStreams[i] - m_session->GetPeriodId() * 1000)->info_);
       }
   }
   m_session->EnableStream(stream, true);
@@ -3770,13 +3836,12 @@ DemuxPacket* CInputStreamAdaptive::DemuxRead(void)
     return p;
   }
 
-  int currentChapter = m_session->GetChapter();
-  if (m_session->SeekChapter(currentChapter + 1))
+  if (m_session->SeekChapter(m_session->GetChapter() + 1))
   {
     m_checkChapterSeek = true;
     for (unsigned int i(1);
          i <= INPUTSTREAM_IDS::MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
-      EnableStream(i + currentChapter * 1000, false);
+      EnableStream(i + m_session->GetPeriodId() * 1000, false);
     m_session->InitializePeriod();
     DemuxPacket* p = AllocateDemuxPacket(0);
     p->iStreamId = DMX_SPECIALID_STREAMCHANGE;

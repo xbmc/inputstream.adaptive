@@ -78,11 +78,11 @@ namespace adaptive
       delete *bp;
   }
 
-  void AdaptiveTree::FreeSegments(Representation *rep)
+  void AdaptiveTree::FreeSegments(Period* period, Representation* rep)
   {
     for (std::vector<Segment>::iterator bs(rep->segments_.data.begin()), es(rep->segments_.data.end()); bs != es; ++bs)
     {
-      --current_period_->psshSets_[bs->pssh_set_].use_count_;
+      --period->psshSets_[bs->pssh_set_].use_count_;
       if (rep->flags_ & Representation::URLSEGMENTS)
         delete[] bs->url;
     }

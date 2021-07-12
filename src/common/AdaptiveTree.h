@@ -171,6 +171,7 @@ public:
     std::string codecs_;
     std::string codec_private_data_;
     std::string source_url_;
+    std::string base_url_;
     uint32_t bandwidth_;
     uint32_t samplingRate_;
     uint16_t width_, height_;
@@ -398,7 +399,7 @@ public:
 
     std::vector<AdaptationSet*> adaptationSets_;
     std::string base_url_, id_;
-    uint32_t timescale_ = 1000, startNumber_ = 1;
+    uint32_t timescale_ = 1000, startNumber_ = 1, sequence_ = 0;
     uint64_t start_ = 0;
     uint64_t startPTS_ = 0;
     uint64_t duration_ = 0;
@@ -422,6 +423,7 @@ public:
   XML_Parser parser_;
   uint32_t currentNode_;
   uint32_t segcount_;
+  uint32_t initial_sequence_ = ~0UL;
   uint64_t overallSeconds_, stream_start_, available_time_, base_time_;
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;
@@ -464,7 +466,7 @@ public:
                                StreamType type){};
 
   bool has_type(StreamType t);
-  void FreeSegments(Representation *rep);
+  void FreeSegments(Period* period, Representation* rep);
   uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
   double get_download_speed() const { return download_speed_; };
   double get_average_download_speed() const { return average_download_speed_; };

@@ -89,9 +89,9 @@ static uint8_t GetChannels(const char** attr)
 static unsigned int ParseSegmentTemplate(const char** attr,
                                          std::string baseURL,
                                          std::string baseDomain,
-                                         DASHTree::SegmentTemplate& tpl)
+                                         DASHTree::SegmentTemplate& tpl,
+                                         unsigned int startNumber)
 {
-  unsigned int startNumber(1);
   for (; *attr;)
   {
     if (strcmp((const char*)*attr, "timescale") == 0)
@@ -481,9 +481,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           {
             dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
 
-            dash->current_representation_->startNumber_ =
-                ParseSegmentTemplate(attr, dash->current_representation_->url_, dash->base_domain_,
-                                     dash->current_representation_->segtpl_);
+            dash->current_representation_->startNumber_ = ParseSegmentTemplate(
+                attr, dash->current_representation_->base_url_, dash->base_domain_,
+                dash->current_representation_->segtpl_, dash->current_adaptationset_->startNumber_);
             ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
                                 dash->current_representation_->id,
                                 dash->current_representation_->bandwidth_);
@@ -554,6 +554,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           {
             dash->currentNode_ |= MPDNODE_SEGMENTTIMELINE;
             dash->adp_timelined_ = true;
+
+            if (dash->update_parameter_.empty() && dash->has_timeshift_buffer_)
+              dash->update_parameter_ = "full";
           }
         }
         else if (dash->currentNode_ & MPDNODE_SEGMENTDURATIONS)
@@ -600,9 +603,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         }
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
-          dash->current_adaptationset_->startNumber_ =
-              ParseSegmentTemplate(attr, dash->current_adaptationset_->base_url_,
-                                   dash->base_domain_, dash->current_adaptationset_->segtpl_);
+          dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(
+              attr, dash->current_adaptationset_->base_url_, dash->base_domain_,
+              dash->current_adaptationset_->segtpl_, dash->current_adaptationset_->startNumber_);
           dash->current_adaptationset_->timescale_ =
               dash->current_adaptationset_->segtpl_.timescale;
           dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
@@ -654,13 +657,14 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
           dash->current_representation_->duration_ = dash->current_adaptationset_->duration_;
           dash->current_representation_->startNumber_ = dash->current_adaptationset_->startNumber_;
-          dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
           dash->current_representation_->width_ = dash->adpwidth_;
           dash->current_representation_->height_ = dash->adpheight_;
           dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
           dash->current_representation_->fpsScale_ = dash->adpfpsScale_;
           dash->current_representation_->aspect_ = dash->adpaspect_;
           dash->current_representation_->containerType_ = dash->adpContainerType_;
+          dash->current_representation_->base_url_ = dash->current_adaptationset_->base_url_;
+          dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
 
           dash->current_pssh_.clear();
           dash->current_hasRepURN_ = false;
@@ -936,9 +940,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       }
       else if (strcmp(el, "SegmentTemplate") == 0)
       {
-        dash->current_period_->startNumber_ =
-            ParseSegmentTemplate(attr, dash->current_period_->base_url_, dash->base_domain_,
-                                 dash->current_period_->segtpl_);
+        dash->current_period_->startNumber_ = ParseSegmentTemplate(
+            attr, dash->current_period_->base_url_, dash->base_domain_,
+            dash->current_period_->segtpl_, dash->current_period_->startNumber_);
         dash->current_period_->timescale_ = dash->current_period_->segtpl_.timescale;
         dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
       }
@@ -1033,6 +1037,10 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       {
         uint64_t dur(0);
         AddDuration((const char*)*(attr + 1), dur, 1500);
+        // 0S minimumUpdatePeriod = refresh after every segment
+        // We already do that so lets set our minimum updateInterval to 30s
+        if (dur == 0)
+          dur = 30000;
         dash->SetUpdateInterval(static_cast<uint32_t>(dur));
       }
       attr += 2;
@@ -1093,6 +1101,8 @@ static void XMLCALL end(void* data, const char* el)
                 url = dash->strXMLText_;
               else
                 url = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
+
+              dash->current_representation_->base_url_ = url;
 
               if (dash->current_representation_->flags_ & AdaptiveTree::Representation::TEMPLATE)
               {

@@ -1,5 +1,5 @@
 # build artifacts
-./build/
+build/
 debian/changelog
 debian/files
 debian/kodi-inputstream-mpd-dbg.debhelper.log

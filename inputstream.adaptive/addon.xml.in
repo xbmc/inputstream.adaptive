@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.4.7"
+  version="2.4.8"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -19,6 +19,18 @@
 	<description lang="es">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
 	<news>
+v2.4.8 (2021-07-11)
+- [DASH] time and number placeholders can be used simultaneously
+- License renewal for widevine
+- [DASH] fix for minimumUpdatePeriod=0
+- [HLS] support webvtt subtitle extensions
+- [DASH] manifest_update_parameter property defaults to 'full' for SegmentTimeline
+- Fix decode failures on some Widevine content
+- [DASH] fix segmentTemplate calculation
+- [HLS] EXT-X-DISCONTINUITY-SEQUENCE support
+- Fix seeking into separate chapters/resume time
+- Fix kodi freeze by session close
+
 v2.4.7 (2021-04-10)
 - [Dash] Fix missing audio languages
 - [Dash] Correctly set timeshift_buffer (live)
