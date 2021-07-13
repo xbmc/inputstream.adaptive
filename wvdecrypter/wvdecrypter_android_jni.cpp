@@ -481,7 +481,7 @@ bool WV_CencSingleSampleDecrypter::HasLicenseKey(const uint8_t *keyid)
 {
   // We work with one session for all streams.
   // All license keys must be given in this key request
-  return true;
+  return false;
 }
 
 void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps)
@@ -1282,7 +1282,7 @@ public:
     return false;
   }
 
-  virtual bool HasCdmSession() 
+  virtual bool HasCdmSession()
   {
     return cdmsession_ != nullptr;
   }
