@@ -82,14 +82,14 @@ AP4_SampleDescription*
 AP4_EncaSampleEntry::ToSampleDescription()
 {
     // get the original sample format
-    AP4_FrmaAtom* frma = static_cast<AP4_FrmaAtom*>(FindChild("sinf/frma"));
+    AP4_FrmaAtom* frma = AP4_DYNAMIC_CAST(AP4_FrmaAtom, FindChild("sinf/frma"));
 
     // get the schi atom
     AP4_ContainerAtom* schi;
-    schi = static_cast<AP4_ContainerAtom*>(FindChild("sinf/schi"));
+    schi = AP4_DYNAMIC_CAST(AP4_ContainerAtom, FindChild("sinf/schi"));
 
     // get the scheme info
-    AP4_SchmAtom* schm = static_cast<AP4_SchmAtom*>(FindChild("sinf/schm"));
+    AP4_SchmAtom* schm = AP4_DYNAMIC_CAST(AP4_SchmAtom, FindChild("sinf/schm"));
     AP4_UI32 original_format = frma?frma->GetOriginalFormat():AP4_ATOM_TYPE_MP4A;
     if (schm) {
         // create the original sample description
@@ -181,14 +181,14 @@ AP4_SampleDescription*
 AP4_EncvSampleEntry::ToSampleDescription()
 {
     // get the original sample format
-    AP4_FrmaAtom* frma = static_cast<AP4_FrmaAtom*>(FindChild("sinf/frma"));
+    AP4_FrmaAtom* frma = AP4_DYNAMIC_CAST(AP4_FrmaAtom, FindChild("sinf/frma"));
 
     // get the schi atom
     AP4_ContainerAtom* schi;
-    schi = static_cast<AP4_ContainerAtom*>(FindChild("sinf/schi"));
+    schi = AP4_DYNAMIC_CAST(AP4_ContainerAtom, FindChild("sinf/schi"));
 
     // get the scheme info
-    AP4_SchmAtom* schm = static_cast<AP4_SchmAtom*>(FindChild("sinf/schm"));
+    AP4_SchmAtom* schm = AP4_DYNAMIC_CAST(AP4_SchmAtom, FindChild("sinf/schm"));
     AP4_UI32 original_format = frma?frma->GetOriginalFormat():AP4_ATOM_TYPE_MP4V;
     if (schm) {
         // create the sample description
@@ -232,6 +232,8 @@ AP4_EncvSampleEntry::ToTargetSampleDescription(AP4_UI32 format)
         case AP4_SAMPLE_FORMAT_AVC2:
         case AP4_SAMPLE_FORMAT_AVC3:
         case AP4_SAMPLE_FORMAT_AVC4:
+        case AP4_SAMPLE_FORMAT_DVAV:
+        case AP4_SAMPLE_FORMAT_DVA1:
             return new AP4_AvcSampleDescription(
                 format,
                 m_Width,
@@ -239,12 +241,21 @@ AP4_EncvSampleEntry::ToTargetSampleDescription(AP4_UI32 format)
                 m_Depth,
                 m_CompressorName.GetChars(),
                 this);
-
+                
         case AP4_SAMPLE_FORMAT_HVC1:
         case AP4_SAMPLE_FORMAT_HEV1:
         case AP4_SAMPLE_FORMAT_DVHE:
         case AP4_SAMPLE_FORMAT_DVH1:
             return new AP4_HevcSampleDescription(
+                format,
+                m_Width,
+                m_Height,
+                m_Depth,
+                m_CompressorName.GetChars(),
+                this);
+
+        case AP4_SAMPLE_FORMAT_AV01:
+            return new AP4_Av1SampleDescription(
                 format,
                 m_Width,
                 m_Height,
@@ -801,8 +812,7 @@ AP4_SampleDecrypter::Create(AP4_ProtectedSampleDescription* sample_description,
                                                                 aux_info_data_offset,
                                                                 key, 
                                                                 key_size, 
-                                                                block_cipher_factory,
-																NULL,
+                                                                block_cipher_factory, 
                                                                 decrypter);
             if (AP4_FAILED(result)) return NULL;
             return decrypter;
@@ -871,7 +881,7 @@ AP4_StandardDecryptingProcessor::Initialize(AP4_AtomParent&   top_level,
 |   AP4_StandardDecryptingProcessor:CreateTrackHandler
 +---------------------------------------------------------------------*/
 AP4_Processor::TrackHandler* 
-AP4_StandardDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak, AP4_TrexAtom* trex)
+AP4_StandardDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak)
 {
     // find the stsd atom
     AP4_StsdAtom* stsd = AP4_DYNAMIC_CAST(AP4_StsdAtom, trak->FindChild("mdia/minf/stbl/stsd"));
@@ -891,9 +901,7 @@ AP4_StandardDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak, AP4_Trex
             const AP4_DataBuffer* key = m_KeyMap.GetKey(trak->GetId());
             if (key) {
                 AP4_OmaDcfTrackDecrypter* handler = NULL;
-                AP4_Result result = AP4_OmaDcfTrackDecrypter::Create(trak,
-                                                                     trex,
-																	 key->GetData(), 
+                AP4_Result result = AP4_OmaDcfTrackDecrypter::Create(key->GetData(), 
                                                                      key->GetDataSize(), 
                                                                      protected_desc, 
                                                                      entry, 
@@ -906,9 +914,7 @@ AP4_StandardDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak, AP4_Trex
             const AP4_DataBuffer* key = m_KeyMap.GetKey(trak->GetId());
             if (key) {
                 AP4_IsmaTrackDecrypter* handler = NULL;
-				AP4_Result result = AP4_IsmaTrackDecrypter::Create(trak,
-					                                               trex,
-					                                               key->GetData(),
+                AP4_Result result = AP4_IsmaTrackDecrypter::Create(key->GetData(), 
                                                                    key->GetDataSize(), 
                                                                    protected_desc, 
                                                                    entry, 

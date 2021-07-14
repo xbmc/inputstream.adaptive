@@ -46,6 +46,7 @@ AP4_SbgpAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version > 1) return NULL;
     return new AP4_SbgpAtom(size, version, flags, stream);
@@ -137,13 +138,14 @@ AP4_SbgpAtom::InspectFields(AP4_AtomInspector& inspector)
     inspector.AddField("entry_count", m_Entries.ItemCount());
 
     if (inspector.GetVerbosity() >= 2) {
-        char header[32];
-        char value[128];
+        inspector.StartArray("entries", m_Entries.ItemCount());
         for (AP4_Ordinal i=0; i<m_Entries.ItemCount(); i++) {
-            AP4_FormatString(header, sizeof(header), "entry %02d", i);
-            AP4_FormatString(value, sizeof(value), "c:%u,g:%u", m_Entries[i].sample_count, m_Entries[i].group_description_index);
-            inspector.AddField(header, value);
+            inspector.StartObject(NULL, 2, true);
+            inspector.AddField("sample_count",            m_Entries[i].sample_count);
+            inspector.AddField("group_description_index", m_Entries[i].group_description_index);
+            inspector.EndObject();
         }
+        inspector.EndArray();
     }
 
     return AP4_SUCCESS;

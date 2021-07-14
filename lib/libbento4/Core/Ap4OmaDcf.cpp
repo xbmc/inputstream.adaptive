@@ -351,6 +351,8 @@ AP4_OmaDcfSampleDecrypter::Create(AP4_ProtectedSampleDescription* sample_descrip
     if (odaf) {
         if (odaf->GetIvLength() > AP4_CIPHER_BLOCK_SIZE) return AP4_ERROR_INVALID_FORMAT;
         if (odaf->GetKeyIndicatorLength() != 0) return AP4_ERROR_INVALID_FORMAT;
+    } else {
+        return AP4_ERROR_INVALID_FORMAT;
     }
 
     // check the scheme details and create the cipher
@@ -434,7 +436,7 @@ AP4_OmaDcfCtrSampleDecrypter::~AP4_OmaDcfCtrSampleDecrypter()
 |   AP4_OmaDcfCtrSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_OmaDcfCtrSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer& data_in,
+AP4_OmaDcfCtrSampleDecrypter::DecryptSampleData(AP4_DataBuffer& data_in,
                                                 AP4_DataBuffer& data_out,
                                                 const AP4_UI08* /*iv*/)
 {   
@@ -529,7 +531,7 @@ AP4_OmaDcfCbcSampleDecrypter::~AP4_OmaDcfCbcSampleDecrypter()
 |   AP4_OmaDbcCbcSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_OmaDcfCbcSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer& data_in,
+AP4_OmaDcfCbcSampleDecrypter::DecryptSampleData(AP4_DataBuffer& data_in,
                                                 AP4_DataBuffer& data_out,
                                                 const AP4_UI08* /*iv*/)
 {   
@@ -771,8 +773,6 @@ AP4_OmaDcfCbcSampleEncrypter::GetEncryptedSampleSize(AP4_Sample& sample)
 +---------------------------------------------------------------------*/
 AP4_Result
 AP4_OmaDcfTrackDecrypter::Create(
-    AP4_TrakAtom*                   trak,
-	AP4_TrexAtom*                   trex,
     const AP4_UI08*                 key,
     AP4_Size                        key_size,
     AP4_ProtectedSampleDescription* sample_description,
@@ -799,7 +799,7 @@ AP4_OmaDcfTrackDecrypter::Create(
     if (AP4_FAILED(result)) return result;
 
     // instantiate the object
-    decrypter = new AP4_OmaDcfTrackDecrypter(trak, trex, cipher, 
+    decrypter = new AP4_OmaDcfTrackDecrypter(cipher, 
                                              sample_entry, 
                                              sample_description->GetOriginalFormat());
     return AP4_SUCCESS;
@@ -808,13 +808,10 @@ AP4_OmaDcfTrackDecrypter::Create(
 /*----------------------------------------------------------------------
 |   AP4_OmaDcfTrackDecrypter::AP4_OmaDcfTrackDecrypter
 +---------------------------------------------------------------------*/
-AP4_OmaDcfTrackDecrypter::AP4_OmaDcfTrackDecrypter(AP4_TrakAtom*              trak,
-	                                               AP4_TrexAtom*              trex,
-	                                               AP4_OmaDcfSampleDecrypter* cipher,
+AP4_OmaDcfTrackDecrypter::AP4_OmaDcfTrackDecrypter(AP4_OmaDcfSampleDecrypter* cipher,
                                                    AP4_SampleEntry*           sample_entry,
                                                    AP4_UI32                   original_format) :
-	AP4_Processor::TrackHandler(trak, trex),
-	m_Cipher(cipher),
+    m_Cipher(cipher),
     m_SampleEntry(sample_entry),
     m_OriginalFormat(original_format)
 {
@@ -856,7 +853,7 @@ AP4_Result
 AP4_OmaDcfTrackDecrypter::ProcessSample(AP4_DataBuffer& data_in,
                                         AP4_DataBuffer& data_out)
 {
-    return m_Cipher->DecryptSampleData(0, data_in, data_out);
+    return m_Cipher->DecryptSampleData(data_in, data_out);
 }
 
 /*----------------------------------------------------------------------
@@ -899,16 +896,15 @@ private:
 |   AP4_OmaDcfTrackEncrypter::AP4_OmaDcfTrackEncrypter
 +---------------------------------------------------------------------*/
 AP4_OmaDcfTrackEncrypter::AP4_OmaDcfTrackEncrypter(
-	AP4_OmaDcfCipherMode cipher_mode,
-	AP4_BlockCipher*     block_cipher,
-	const AP4_UI08*      salt,
-	AP4_SampleEntry*     sample_entry,
-	AP4_UI32             format,
-	const char*          content_id,
-	const char*          rights_issuer_url,
-	const AP4_Byte*      textual_headers,
-	AP4_Size             textual_headers_size) :
-	AP4_Processor::TrackHandler(0, 0),
+    AP4_OmaDcfCipherMode cipher_mode,
+    AP4_BlockCipher*     block_cipher,
+    const AP4_UI08*      salt,
+    AP4_SampleEntry*     sample_entry,
+    AP4_UI32             format,
+    const char*          content_id,
+    const char*          rights_issuer_url,
+    const AP4_Byte*      textual_headers, 
+    AP4_Size             textual_headers_size) :
     m_SampleEntry(sample_entry),
     m_Format(format),
     m_ContentId(content_id),

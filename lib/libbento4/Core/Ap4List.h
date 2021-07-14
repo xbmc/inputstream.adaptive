@@ -90,7 +90,6 @@ public:
     virtual     ~AP4_List<T>();
     AP4_Result   Clear();
     AP4_Result   Add(T* data);
-	AP4_Result   Add(AP4_List<T> &data);
     AP4_Result   Add(Item* item);
     AP4_Result   Remove(Item* item);
     AP4_Result   Remove(T* data);
@@ -159,20 +158,6 @@ AP4_Result
 AP4_List<T>::Add(T* data)
 {
     return Add(new Item(data));
-}
-
-template <typename T>
-inline
-AP4_Result
-AP4_List<T>::Add(AP4_List<T> &data)
-{
-	Item* item = data.m_Head;
-	while (item) {
-		Add(new Item(item->GetData()));
-		item->m_Data = NULL;
-		item = item->m_Next;
-	}
-	return AP4_SUCCESS;
 }
 
 /*----------------------------------------------------------------------

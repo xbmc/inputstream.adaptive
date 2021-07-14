@@ -353,7 +353,7 @@ AP4_MarlinIpmpSampleDecrypter::Create(AP4_AtomParent&                 /*top_leve
                                       AP4_BlockCipherFactory*         block_cipher_factory,
                                       AP4_MarlinIpmpSampleDecrypter*& sample_decrypter)
 {
-    // FIXME: need to parse group key info
+    // TODO: need to parse group key info
     return Create(key, key_size, block_cipher_factory, sample_decrypter);
 }
 
@@ -431,7 +431,7 @@ AP4_MarlinIpmpSampleDecrypter::GetDecryptedSampleSize(AP4_Sample& sample)
 |   AP4_MarlinIpmpSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
 AP4_Result 
-AP4_MarlinIpmpSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer&    data_in,
+AP4_MarlinIpmpSampleDecrypter::DecryptSampleData(AP4_DataBuffer&    data_in,
                                                  AP4_DataBuffer&    data_out,
                                                  const AP4_UI08*    /*iv*/)
 {
@@ -521,7 +521,7 @@ AP4_MarlinIpmpDecryptingProcessor::Initialize(AP4_AtomParent&   top_level,
 |   AP4_MarlinIpmpDecryptingProcessor:CreateTrackHandler
 +---------------------------------------------------------------------*/
 AP4_Processor::TrackHandler* 
-AP4_MarlinIpmpDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak, AP4_TrexAtom* trex)
+AP4_MarlinIpmpDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak)
 {
     // look for this track in the list of entries
     AP4_MarlinIpmpParser::SinfEntry* sinf_entry = NULL;
@@ -575,7 +575,7 @@ AP4_MarlinIpmpDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak, AP4_Tr
 
     // create the decrypter
     AP4_MarlinIpmpTrackDecrypter* decrypter = NULL;
-    AP4_Result result = AP4_MarlinIpmpTrackDecrypter::Create(trak, trex,*m_BlockCipherFactory,
+    AP4_Result result = AP4_MarlinIpmpTrackDecrypter::Create(*m_BlockCipherFactory,
                                                              key->GetData(), 
                                                              key->GetDataSize(),
                                                              decrypter);
@@ -588,8 +588,7 @@ AP4_MarlinIpmpDecryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak, AP4_Tr
 |   AP4_MarlinIpmpTrackDecrypter::Create
 +---------------------------------------------------------------------*/
 AP4_Result
-AP4_MarlinIpmpTrackDecrypter::Create(AP4_TrakAtom* trak, AP4_TrexAtom* trex,
-                                     AP4_BlockCipherFactory&        cipher_factory,
+AP4_MarlinIpmpTrackDecrypter::Create(AP4_BlockCipherFactory&        cipher_factory,
                                      const AP4_UI08*                key,
                                      AP4_Size                       key_size,
                                      AP4_MarlinIpmpTrackDecrypter*& decrypter)
@@ -602,7 +601,7 @@ AP4_MarlinIpmpTrackDecrypter::Create(AP4_TrakAtom* trak, AP4_TrexAtom* trex,
     if (AP4_FAILED(result)) return result;
     
     // create the track decrypter
-    decrypter = new AP4_MarlinIpmpTrackDecrypter(trak, trex, sample_decrypter);
+    decrypter = new AP4_MarlinIpmpTrackDecrypter(sample_decrypter);
     
     return AP4_SUCCESS;
 }
@@ -631,7 +630,7 @@ AP4_Result
 AP4_MarlinIpmpTrackDecrypter::ProcessSample(AP4_DataBuffer& data_in,
                                             AP4_DataBuffer& data_out)
 {
-    return m_SampleDecrypter->DecryptSampleData(0, data_in, data_out);
+    return m_SampleDecrypter->DecryptSampleData(data_in, data_out);
 }
 
 /*----------------------------------------------------------------------
@@ -731,7 +730,7 @@ AP4_MarlinIpmpEncryptingProcessor::Initialize(
     
     // create an initial object descriptor
     AP4_InitialObjectDescriptor* iod = 
-        // FIXME: get real values from the property map
+        // TODO: get real values from the property map
         new AP4_InitialObjectDescriptor(AP4_DESCRIPTOR_TAG_MP4_IOD,
                                         1022, // object descriptor id
                                         false, 
@@ -882,9 +881,10 @@ AP4_MarlinIpmpEncryptingProcessor::Initialize(
                     // parse all the atoms encoded in the data and add them to the 'schi' container
                     AP4_MemoryByteStream* mbs = new AP4_MemoryByteStream(attributes_atoms.GetData(), 
                                                                          attributes_atoms.GetDataSize());
+                    AP4_DefaultAtomFactory atom_factory;
                     do {
                         AP4_Atom* atom = NULL;
-                        result = AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(*mbs, atom);
+                        result = atom_factory.CreateAtomFromStream(*mbs, atom);
                         if (AP4_SUCCEEDED(result) && atom) {
                             satr->AddChild(atom);
                         }
@@ -1022,8 +1022,7 @@ AP4_MarlinIpmpTrackEncrypter::Create(AP4_BlockCipherFactory&        cipher_facto
 +---------------------------------------------------------------------*/
 AP4_MarlinIpmpTrackEncrypter::AP4_MarlinIpmpTrackEncrypter(AP4_StreamCipher* cipher, 
                                                            const AP4_UI08*   iv) :
-	AP4_Processor::TrackHandler(NULL, NULL), 
-	m_Cipher(cipher)
+    m_Cipher(cipher)
 {
     // copy the IV
     AP4_CopyMemory(m_IV, iv, AP4_AES_BLOCK_SIZE);    
@@ -1102,6 +1101,7 @@ AP4_MkidAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version > 0) return NULL;
     return new AP4_MkidAtom(size, version, flags, stream);

@@ -58,14 +58,14 @@ AP4_SampleTable::GenerateStblAtom(AP4_ContainerAtom*& stbl)
     // create the stsd atom
     AP4_StsdAtom* stsd = new AP4_StsdAtom(this);
 
-    // create the stsz atom
-    AP4_StszAtom* stsz = new AP4_StszAtom();
+    // create the stts atom
+    AP4_SttsAtom* stts = new AP4_SttsAtom();
 
     // create the stsc atom
     AP4_StscAtom* stsc = new AP4_StscAtom();
 
-    // create the stts atom
-    AP4_SttsAtom* stts = new AP4_SttsAtom();
+    // create the stsz atom
+    AP4_StszAtom* stsz = new AP4_StszAtom();
 
     // create the stss atom
     AP4_StssAtom* stss = new AP4_StssAtom();
@@ -180,10 +180,10 @@ AP4_SampleTable::GenerateStblAtom(AP4_ContainerAtom*& stbl)
 
     // attach the children of stbl
     stbl->AddChild(stsd);
-    stbl->AddChild(stsz);
-    stbl->AddChild(stsc);
     stbl->AddChild(stts);
     if (ctts) stbl->AddChild(ctts);
+    stbl->AddChild(stsc);
+    stbl->AddChild(stsz);
     if (!all_samples_are_sync && stss->GetEntries().ItemCount() != 0) {
         stbl->AddChild(stss);
     } else {
@@ -191,7 +191,7 @@ AP4_SampleTable::GenerateStblAtom(AP4_ContainerAtom*& stbl)
     }
     
     // see if we need a co64 or an stco atom
-    AP4_Size  chunk_count = chunk_offsets.ItemCount();
+    AP4_Size chunk_count = chunk_offsets.ItemCount();
     if (current_chunk_offset <= 0xFFFFFFFF) {
         // make an array of 32-bit entries
         AP4_UI32* chunk_offsets_32 = new AP4_UI32[chunk_count];

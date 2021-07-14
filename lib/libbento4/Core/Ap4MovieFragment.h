@@ -65,22 +65,20 @@ public:
     AP4_UI32           GetSequenceNumber();
     AP4_Result         GetTrackIds(AP4_Array<AP4_UI32>& ids);
     AP4_Result         GetTrafAtom(AP4_UI32 track_id, AP4_ContainerAtom*& traf);
-    AP4_Result         CreateSampleTable(AP4_MoovAtom* moov,
-      AP4_UI32                  track_id,
-      AP4_ByteStream*           sample_stream,
-      AP4_Position              moof_offset,
-      AP4_Position              mdat_payload_offset, // hack because MS doesn't implement the spec properly
-      AP4_UI64                  mdat_payload_size,
-      AP4_UI64                  dts_origin,
-      AP4_FragmentSampleTable*& sample_table);
-    AP4_Result         CreateSampleTable(AP4_Movie* movie,
-      AP4_UI32                  track_id,
-      AP4_ByteStream*           sample_stream,
-      AP4_Position              moof_offset,
-      AP4_Position              mdat_payload_offset, // hack because MS doesn't implement the spec properly
-      AP4_UI64                  mdat_payload_size,
-      AP4_UI64                  dts_origin,
-      AP4_FragmentSampleTable*& sample_table);
+    AP4_Result         CreateSampleTable(AP4_MoovAtom*             moov,
+                                         AP4_UI32                  track_id, 
+                                         AP4_ByteStream*           sample_stream,
+                                         AP4_Position              moof_offset,
+                                         AP4_Position              mdat_payload_offset, // hack because MS doesn't implement the spec properly
+                                         AP4_UI64                  dts_origin,
+                                         AP4_FragmentSampleTable*& sample_table);
+    AP4_Result         CreateSampleTable(AP4_Movie*                movie,
+                                         AP4_UI32                  track_id, 
+                                         AP4_ByteStream*           sample_stream,
+                                         AP4_Position              moof_offset,
+                                         AP4_Position              mdat_payload_offset, // hack because MS doesn't implement the spec properly
+                                         AP4_UI64                  dts_origin,
+                                         AP4_FragmentSampleTable*& sample_table);
     
 private:
     // members

@@ -63,8 +63,8 @@ class AP4_TrakAtom : public AP4_ContainerAtom
                  AP4_Atom::Type      hdlr_type,
                  const char*         hdlr_name,
                  AP4_UI32            track_id,
-                 AP4_UI32            creation_time,
-                 AP4_UI32            modification_time,
+                 AP4_UI64            creation_time,
+                 AP4_UI64            modification_time,
                  AP4_UI64            track_duration,
                  AP4_UI32            media_time_scale,
                  AP4_UI64            media_duration,
@@ -92,9 +92,6 @@ class AP4_TrakAtom : public AP4_ContainerAtom
     AP4_Result SetWidth(AP4_UI32 width);
     AP4_UI32   GetHeight();
     AP4_Result SetHeight(AP4_UI32 height);
-	AP4_Atom*  Clone(){
-		return AP4_Atom::Clone();
-	};
     
  private:
     // methods

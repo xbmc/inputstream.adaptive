@@ -45,7 +45,6 @@
 |   class references
 +---------------------------------------------------------------------*/
 class AP4_OdafAtom;
-class AP4_TrakAtom;
 class AP4_StreamCipher;
 class AP4_CbcStreamCipher;
 class AP4_CtrStreamCipher;
@@ -134,7 +133,7 @@ public:
     ~AP4_OmaDcfCtrSampleDecrypter();
 
     // methods
-    virtual AP4_Result DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer& data_in,
+    virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
                                          AP4_DataBuffer& data_out,
                                          const AP4_UI08* iv = NULL);
     virtual AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample);
@@ -156,7 +155,7 @@ public:
     ~AP4_OmaDcfCbcSampleDecrypter();
 
     // methods
-    virtual AP4_Result DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer& data_in,
+    virtual AP4_Result DecryptSampleData(AP4_DataBuffer& data_in,
                                          AP4_DataBuffer& data_out,
                                          const AP4_UI08* iv = NULL);
     virtual AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample);
@@ -172,9 +171,7 @@ private:
 class AP4_OmaDcfTrackDecrypter : public AP4_Processor::TrackHandler {
 public:
     // constructor
-	static AP4_Result Create(AP4_TrakAtom*                   trak,
-		                     AP4_TrexAtom*                   trex,
-	                         const AP4_UI08*                 key,
+    static AP4_Result Create(const AP4_UI08*                 key,
                              AP4_Size                        key_size,
                              AP4_ProtectedSampleDescription* sample_description,
                              AP4_SampleEntry*                sample_entry,
@@ -190,9 +187,7 @@ public:
 
 private:
     // constructor
-	AP4_OmaDcfTrackDecrypter(AP4_TrakAtom*              trak,
-		                     AP4_TrexAtom*              trex,
-		                     AP4_OmaDcfSampleDecrypter* cipher,
+    AP4_OmaDcfTrackDecrypter(AP4_OmaDcfSampleDecrypter* cipher,
                              AP4_SampleEntry*           sample_entry,
                              AP4_UI32                   original_format);
 

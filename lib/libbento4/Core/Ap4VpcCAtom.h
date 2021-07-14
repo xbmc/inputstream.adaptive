@@ -1,8 +1,8 @@
 /*****************************************************************
 |
-|    AP4 - VpcC Atom 
+|    AP4 - vpcC Atoms
 |
-|    Copyright 2018 peak3d
+|    Copyright 2002-2020 Axiomatic Systems, LLC
 |
 |
 |    This file is part of Bento4/AP4 (MP4 Atom Processing Library).
@@ -24,11 +24,7 @@
 |    Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 |    02111-1307, USA.
 |
- ****************************************************************/
-/**
-* @file 
-* @brief UUID Atoms
-*/
+****************************************************************/
 
 #ifndef _AP4_VPCC_ATOM_H_
 #define _AP4_VPCC_ATOM_H_
@@ -37,36 +33,70 @@
 |   includes
 +---------------------------------------------------------------------*/
 #include "Ap4Atom.h"
-#include "Ap4ByteStream.h"
+#include "Ap4Array.h"
+#include "Ap4DataBuffer.h"
 
 /*----------------------------------------------------------------------
-|   AP4_VpcCAtom
+|   constants
 +---------------------------------------------------------------------*/
-/**
- * Base class for uuid atoms.
- */
-class AP4_VpcCAtom : public AP4_Atom {
+
+
+/*----------------------------------------------------------------------
+|   AP4_VpccAtom
++---------------------------------------------------------------------*/
+class AP4_VpccAtom : public AP4_Atom
+{
 public:
-    AP4_IMPLEMENT_DYNAMIC_CAST_D(AP4_VpcCAtom, AP4_Atom)
+    AP4_IMPLEMENT_DYNAMIC_CAST_D(AP4_VpccAtom, AP4_Atom)
 
     // class methods
-    static AP4_VpcCAtom* Create(AP4_Size size, AP4_ByteStream& stream);
+    static AP4_VpccAtom* Create(AP4_Size size, AP4_ByteStream& stream);
 
-    // constructor and destructor
-    virtual ~AP4_VpcCAtom() {};
-
-    // accessors
-    const AP4_DataBuffer &GetData() { return m_Data; }
+    // constructors
+    AP4_VpccAtom(AP4_UI08        profile,
+                 AP4_UI08        level,
+                 AP4_UI08        bit_depth,
+                 AP4_UI08        chroma_subsampling,
+                 bool            videofull_range_flag,
+                 AP4_UI08        colour_primaries,
+                 AP4_UI08        transfer_characteristics,
+                 AP4_UI08        matrix_coefficients,
+                 const AP4_UI08* codec_initialization_data,
+                 unsigned int    codec_initialization_data_size
+    );
 
     // methods
-    virtual AP4_Result InspectFields(AP4_AtomInspector& inspector) { return AP4_ERROR_NOT_SUPPORTED;  };
+    virtual AP4_Result InspectFields(AP4_AtomInspector& inspector);
     virtual AP4_Result WriteFields(AP4_ByteStream& stream);
 
-protected:
-    // members
-    AP4_VpcCAtom(AP4_UI64 size, AP4_UI08 version, AP4_UI32 flags, AP4_ByteStream& stream);
+    // accessors
+    AP4_UI08              GetProfile()                 { return m_Profile;                 }
+    AP4_UI08              GetLevel()                   { return m_Level;                   }
+    AP4_UI08              GetBitDepth()                { return m_BitDepth;                }
+    AP4_UI08              GetChromaSubsampling()       { return m_ChromaSubsampling;       }
+    bool                  GetVideoFullRangeFlag()      { return m_VideoFullRangeFlag;      }
+    AP4_UI08              GetColourPrimaries()         { return m_ColourPrimaries;         }
+    AP4_UI08              GetTransferCharacteristics() { return m_TransferCharacteristics; }
+    AP4_UI08              GetMatrixCoefficients()      { return m_MatrixCoefficients;      }
+    const AP4_DataBuffer& GetCodecInitializationData() { return m_CodecIntializationData;  }
 
-    AP4_DataBuffer m_Data;
+    // helpers
+    AP4_Result GetCodecString(AP4_UI32 container_type, AP4_String& codec);
+
+private:
+    // methods
+    AP4_VpccAtom(AP4_UI32 size, const AP4_UI08* payload);
+
+    // members
+    AP4_UI08       m_Profile;
+    AP4_UI08       m_Level;
+    AP4_UI08       m_BitDepth;
+    AP4_UI08       m_ChromaSubsampling;
+    bool           m_VideoFullRangeFlag;
+    AP4_UI08       m_ColourPrimaries;
+    AP4_UI08       m_TransferCharacteristics;
+    AP4_UI08       m_MatrixCoefficients;
+    AP4_DataBuffer m_CodecIntializationData;
 };
 
-#endif // _AP4_UUID_ATOM_H_
+#endif // _AP4_VPCC_ATOM_H_

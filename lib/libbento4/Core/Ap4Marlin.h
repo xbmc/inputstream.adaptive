@@ -118,7 +118,7 @@ public:
     
     // AP4_SampleDecrypter methods
     AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample);
-    AP4_Result DecryptSampleData(AP4_UI32 pool_id, AP4_DataBuffer&    data_in,
+    AP4_Result DecryptSampleData(AP4_DataBuffer&    data_in,
                                  AP4_DataBuffer&    data_out,
                                  const AP4_UI08*    iv = NULL);
                                  
@@ -146,7 +146,7 @@ public:
     virtual AP4_Result Initialize(AP4_AtomParent&   top_level,
                                   AP4_ByteStream&   stream,
                                   ProgressListener* listener);
-	virtual AP4_Processor::TrackHandler* CreateTrackHandler(AP4_TrakAtom* trak, AP4_TrexAtom* trex);
+    virtual AP4_Processor::TrackHandler* CreateTrackHandler(AP4_TrakAtom* trak);
 
 private:
     
@@ -163,14 +163,13 @@ class AP4_MarlinIpmpTrackDecrypter : public AP4_Processor::TrackHandler
 {
 public:
     // class methods
-	static AP4_Result Create(AP4_TrakAtom *trak, AP4_TrexAtom *trex,
-		                     AP4_BlockCipherFactory&        cipher_factory,
+    static AP4_Result Create(AP4_BlockCipherFactory&        cipher_factory,
                              const AP4_UI08*                key,
                              AP4_Size                       key_size,
                              AP4_MarlinIpmpTrackDecrypter*& decrypter);
                              
     // constructor and destructor
-	AP4_MarlinIpmpTrackDecrypter(AP4_TrakAtom *trak, AP4_TrexAtom *trex) : AP4_Processor::TrackHandler(trak, trex), m_SampleDecrypter(NULL) {};
+     AP4_MarlinIpmpTrackDecrypter() : m_SampleDecrypter(NULL) {};
     ~AP4_MarlinIpmpTrackDecrypter();
     
     // AP4_Processor::TrackHandler methods
@@ -181,8 +180,8 @@ public:
 
 private:
     // constructor
-	AP4_MarlinIpmpTrackDecrypter(AP4_TrakAtom *trak, AP4_TrexAtom *trex, AP4_SampleDecrypter* sample_decrypter) :
-		AP4_Processor::TrackHandler(trak, trex), m_SampleDecrypter(sample_decrypter) {}
+    AP4_MarlinIpmpTrackDecrypter(AP4_SampleDecrypter* sample_decrypter) : 
+        m_SampleDecrypter(sample_decrypter) {}
 
     // members
     AP4_SampleDecrypter* m_SampleDecrypter;

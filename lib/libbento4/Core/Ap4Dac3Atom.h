@@ -1,8 +1,8 @@
 /*****************************************************************
 |
-|    AP4 - dec3 Atoms
+|    AP4 - dac3 Atoms
 |
-|    Copyright 2002-2008 Axiomatic Systems, LLC
+|    Copyright 2002-2019 Axiomatic Systems, LLC
 |
 |
 |    This file is part of Bento4/AP4 (MP4 Atom Processing Library).
@@ -33,6 +33,7 @@
 |   includes
 +---------------------------------------------------------------------*/
 #include "Ap4Atom.h"
+#include "Ap4Array.h"
 
 /*----------------------------------------------------------------------
 |   constants
@@ -45,9 +46,23 @@ class AP4_Dac3Atom : public AP4_Atom
 {
 public:
     AP4_IMPLEMENT_DYNAMIC_CAST_D(AP4_Dac3Atom, AP4_Atom)
-    
+
+    // types
+    struct StreamInfo {
+        unsigned int fscod;
+        unsigned int bsid;
+        unsigned int bsmod;
+        unsigned int acmod;
+        unsigned int lfeon;
+        unsigned int bit_rate_code;
+    };
+
     // class methods
     static AP4_Dac3Atom* Create(AP4_Size size, AP4_ByteStream& stream);
+
+    // constructors
+    AP4_Dac3Atom(const AP4_Dac3Atom& other);
+    AP4_Dac3Atom(const StreamInfo* StreamInfo);  // DSI vaiable initialize m_RawBytes (SpecificBoxInfo -> m_RawBytes)
 
     // methods
     virtual AP4_Result InspectFields(AP4_AtomInspector& inspector);
@@ -55,16 +70,18 @@ public:
     virtual AP4_Atom* Clone() { return new AP4_Dac3Atom(m_Size32, m_RawBytes.GetData()); }
 
     // accessors
-    const AP4_DataBuffer&       GetRawBytes()   const { return m_RawBytes;   }
-    AP4_UI08                    GetChannels() const;
-    
+    const AP4_DataBuffer& GetRawBytes()   const { return m_RawBytes;   }
+    unsigned int          GetDataRate()   const { return m_DataRate;   }
+    const StreamInfo&     GetStreamInfo() const { return m_StreamInfo; }
+
 private:
     // methods
-    AP4_Dac3Atom(AP4_UI32 size, const AP4_UI08* payload);
+    AP4_Dac3Atom(AP4_UI32 size, const AP4_UI08* payload);  // box data initialize m_Dsi (m_RawBytes -> SpecificBoxInfo)
     
     // members
-    AP4_DataBuffer            m_RawBytes;
-    AP4_UI08 m_bsmod, m_acmod, m_lfeon;
+    unsigned int   m_DataRate;
+    StreamInfo     m_StreamInfo;
+    AP4_DataBuffer m_RawBytes;
 };
 
-#endif // _AP4_DEC3_ATOM_H_
+#endif // _AP4_DAC3_ATOM_H_

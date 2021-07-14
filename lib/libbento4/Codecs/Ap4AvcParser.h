@@ -37,8 +37,6 @@
 #include "Ap4DataBuffer.h"
 #include "Ap4NalParser.h"
 #include "Ap4Array.h"
-#include "Ap4Utils.h"
-
 
 /*----------------------------------------------------------------------
 |   constants
@@ -61,6 +59,14 @@ const unsigned int AP4_AVC_NAL_UNIT_TYPE_PREFIX                            = 14;
 const unsigned int AP4_AVC_NAL_UNIT_TYPE_SUBSET_SPS                        = 15;
 const unsigned int AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_AUXILIARY_PICTURE  = 19;
 const unsigned int AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_IN_SCALABLE_EXTENSION = 20;
+const unsigned int AP4_AVC_NAL_UNIT_TYPE_UNSPECIFIED28                     = 28;
+const unsigned int AP4_AVC_NAL_UNIT_TYPE_UNSPECIFIED30                     = 30;
+
+const unsigned int AP4_AVC_SLICE_TYPE_P                                    = 0;
+const unsigned int AP4_AVC_SLICE_TYPE_B                                    = 1;
+const unsigned int AP4_AVC_SLICE_TYPE_I                                    = 2;
+const unsigned int AP4_AVC_SLICE_TYPE_SP                                   = 3;
+const unsigned int AP4_AVC_SLICE_TYPE_SI                                   = 4;
 
 const unsigned int AP4_AVC_SPS_MAX_ID                                      = 255;
 const unsigned int AP4_AVC_SPS_MAX_NUM_REF_FRAMES_IN_PIC_ORDER_CNT_CYCLE   = 256;
@@ -84,8 +90,7 @@ typedef struct {
 struct AP4_AvcSequenceParameterSet {
     AP4_AvcSequenceParameterSet();
     
-    bool GetInfo(unsigned int& width, unsigned int& height);
-    bool GetVUIInfo(unsigned int& fps_ticks, unsigned int& fps_scale, float &aspect);
+    void GetInfo(unsigned int& width, unsigned int& height);
     
     AP4_DataBuffer raw_bytes;
 
@@ -126,27 +131,6 @@ struct AP4_AvcSequenceParameterSet {
     unsigned int frame_crop_right_offset;
     unsigned int frame_crop_top_offset;
     unsigned int frame_crop_bottom_offset;
-    unsigned int vui_parameters_present_flag;
-    unsigned int aspect_ratio_info_present_flag;
-    unsigned int aspect_ratio_idc;
-    unsigned int sar_width;
-    unsigned int sar_height;
-    unsigned int overscan_info_present_flag;
-    unsigned int overscan_appropriate_flag;
-    unsigned int video_signal_type_present_flag;
-    unsigned int video_format;
-    unsigned int video_full_range_flag;
-    unsigned int colour_description_present_flag;
-    unsigned int colour_primaries;
-    unsigned int transfer_characteristics;
-    unsigned int matrix_coefficients;
-    unsigned int chroma_loc_info_present_flag;
-    unsigned int chroma_sample_loc_type_top_field;
-    unsigned int chroma_sample_loc_type_bottom_field;
-    unsigned int timing_info_present_flag;
-    unsigned int num_units_in_tick;
-    unsigned int time_scale;
-    unsigned int fixed_frame_rate_flag;
 };
 
 struct AP4_AvcPictureParameterSet {
@@ -181,6 +165,8 @@ struct AP4_AvcPictureParameterSet {
 struct AP4_AvcSliceHeader {
     AP4_AvcSliceHeader();
     
+    unsigned int size; // not from the bitstream, this is computed after parsing
+    
     unsigned int first_mb_in_slice;
     unsigned int slice_type;
     unsigned int pic_parameter_set_id;
@@ -191,7 +177,31 @@ struct AP4_AvcSliceHeader {
     unsigned int idr_pic_id;
     unsigned int pic_order_cnt_lsb;
     int          delta_pic_order_cnt[2];
-    unsigned int redundant_pic_cnt;    
+    unsigned int redundant_pic_cnt;
+    unsigned int direct_spatial_mv_pred_flag;
+    unsigned int num_ref_idx_active_override_flag;
+    unsigned int num_ref_idx_l0_active_minus1;
+    unsigned int num_ref_idx_l1_active_minus1;
+    unsigned int ref_pic_list_reordering_flag_l0;
+    unsigned int reordering_of_pic_nums_idc;
+    unsigned int abs_diff_pic_num_minus1;
+    unsigned int long_term_pic_num;
+    unsigned int ref_pic_list_reordering_flag_l1;
+    unsigned int luma_log2_weight_denom;
+    unsigned int chroma_log2_weight_denom;
+    unsigned int cabac_init_idc;
+    unsigned int slice_qp_delta;
+    unsigned int sp_for_switch_flag;
+    int          slice_qs_delta;
+    unsigned int disable_deblocking_filter_idc;
+    int          slice_alpha_c0_offset_div2;
+    int          slice_beta_offset_div2;
+    unsigned int slice_group_change_cycle;
+    unsigned int no_output_of_prior_pics_flag;
+    unsigned int long_term_reference_flag;
+    unsigned int difference_of_pic_nums_minus1;
+    unsigned int long_term_frame_idx;
+    unsigned int max_long_term_frame_idx_plus1;
 };
 
 /*----------------------------------------------------------------------
@@ -202,7 +212,7 @@ public:
     static const char* NaluTypeName(unsigned int nalu_type);
     static const char* PrimaryPicTypeName(unsigned int primary_pic_type);
     static const char* SliceTypeName(unsigned int slice_type);
-
+    
     AP4_AvcNalParser();
 };
 
@@ -225,24 +235,19 @@ public:
     AP4_AvcFrameParser();
    ~AP4_AvcFrameParser();
     
-   static AP4_Result ParseFrameForSPS(const AP4_Byte* data,
-     AP4_Size data_size,
-     AP4_UI08 naluLengthSize,
-     AP4_AvcSequenceParameterSet &sps);
-
     /**
      * Feed some data to the parser and look for the next NAL Unit.
      *
-     * @param data: Pointer to the memory buffer with the data to feed.
-     * @param data_size: Size in bytes of the buffer pointed to by the
+     * @param data Pointer to the memory buffer with the data to feed.
+     * @param data_size Size in bytes of the buffer pointed to by the
      * data pointer.
-     * @param bytes_consumed: Number of bytes from the data buffer that were
+     * @param bytes_consumed Number of bytes from the data buffer that were
      * consumed and stored by the parser.
-     * @param access_unit_info: Reference to a AccessUnitInfo structure that will
+     * @param access_unit_info Reference to a AccessUnitInfo structure that will
      * contain information about any access unit found in the data. If no
      * access unit was found, the nal_units field of this structure will be an
      * empty array.
-     * @param eos: Boolean flag that indicates if this buffer is the last
+     * @param eos Boolean flag that indicates if this buffer is the last
      * buffer in the stream/file (End Of Stream).
      *
      * @result: AP4_SUCCESS is the call succeeds, or an error code if it
@@ -262,37 +267,38 @@ public:
      * responsible for freeing this data by calling AccessUnitInfo::Reset()
      */
     AP4_Result Feed(const void*     data,
-      AP4_Size        data_size,
-      AP4_Size&       bytes_consumed,
-      AccessUnitInfo& access_unit_info,
-      bool            eos=false);
+                    AP4_Size        data_size,
+                    AP4_Size&       bytes_consumed,
+                    AccessUnitInfo& access_unit_info,
+                    bool            eos=false);
     
-    AP4_AvcSequenceParameterSet** GetSequenceParameterSets() { return &m_SPS[0]; }
-    AP4_AvcPictureParameterSet**  GetPictureParameterSets()  { return &m_PPS[0]; }
+    AP4_Result Feed(const AP4_UI08* nal_unit,
+                    AP4_Size        nal_unit_size,
+                    AccessUnitInfo& access_unit_info,
+                    bool            last_unit=false);
 
-    static AP4_Result ParseSPS(const unsigned char*         data,
-      unsigned int                 data_size,
-      AP4_AvcSequenceParameterSet& sps);
-    static AP4_Result ParsePPS(const unsigned char*        data,
-      unsigned int                data_size,
-      AP4_AvcPictureParameterSet& pps);
-
-    static unsigned int
-      ReadGolomb(AP4_BitReader& bits);
-
-    static int
-      SignedGolomb(unsigned int code_num);
-
-private:
-    // methods
+    AP4_AvcSequenceParameterSet** GetSequenceParameterSets() { return &m_SPS[0];     }
+    AP4_AvcPictureParameterSet**  GetPictureParameterSets()  { return &m_PPS[0];     }
+    const AP4_AvcSliceHeader*     GetSliceHeader()           { return m_SliceHeader; }
+    
+    AP4_Result ParseSPS(const unsigned char*         data,
+                        unsigned int                 data_size,
+                        AP4_AvcSequenceParameterSet& sps);
+    AP4_Result ParsePPS(const unsigned char*        data,
+                        unsigned int                data_size,
+                        AP4_AvcPictureParameterSet& pps);
     AP4_Result ParseSliceHeader(const AP4_UI08*               data,
                                 unsigned int                  data_size,
                                 unsigned int                  nal_unit_type,
+                                unsigned int                  nal_ref_idc,
                                 AP4_AvcSliceHeader&           slice_header);
+
+private:
+    // methods
     bool SameFrame(unsigned int nal_unit_type_1, unsigned int nal_ref_idc_1, AP4_AvcSliceHeader& sh1,
                    unsigned int nal_unit_type_2, unsigned int nal_ref_idc_2, AP4_AvcSliceHeader& sh2);
     AP4_AvcSequenceParameterSet* GetSliceSPS(AP4_AvcSliceHeader& sh);
-    void                         MaybeNewAccessUnit(AccessUnitInfo& access_unit_info);
+    void                         CheckIfAccessUnitIsCompleted(AccessUnitInfo& access_unit_info);
     void                         AppendNalUnitData(const unsigned char* data, unsigned int data_size);
     
     // members
@@ -316,7 +322,6 @@ private:
     unsigned int                 m_PrevFrameNumOffset;
     int                          m_PrevPicOrderCntMsb;
     unsigned int                 m_PrevPicOrderCntLsb;
-
 };
 
 #endif // _AP4_AVC_PARSER_H_
