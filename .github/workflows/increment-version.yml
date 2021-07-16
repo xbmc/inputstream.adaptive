@@ -1,0 +1,62 @@
+name: Increment version when languages are updated
+
+on:
+  push:
+    branches: [ Matrix, Nexus ]
+    paths:
+      - '**resource.language.**strings.po'
+
+jobs:
+  default:
+    if: github.repository == 'xbmc/inputstream.adaptive'
+    runs-on: ubuntu-latest
+    name: Increment add-on version when languages are updated
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          path: ${{ github.event.repository.name }}
+
+      - name: Checkout Scripts
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          repository: xbmc/weblate-supplementary-scripts
+          path: scripts
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+
+      - name: Get changed files
+        uses: trilom/file-changes-action@v1.2.4
+
+      - name: Increment add-on version
+        run: |
+          python3 ../scripts/binary/increment_version.py $HOME/files.json -c -n
+        working-directory: ${{ github.event.repository.name }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install libxml2-utils xmlstarlet
+
+      - name: Get required variables
+        id: required-variables
+        run: |
+          version=$(xmlstarlet fo -R "$(find . -name addon.xml.in)" | xmlstarlet sel -t -v 'string(/addon/@version)')
+          echo ::set-output name=version::$version
+        working-directory: ${{ github.event.repository.name }}
+
+      - name: Create PR for incrementing add-on versions
+        uses: peter-evans/create-pull-request@v3.10.0
+        with:
+          commit-message: Add-on version incremented to ${{ steps.required-variables.outputs.version }} from Weblate
+          title: Add-on version incremented to ${{ steps.required-variables.outputs.version }} from Weblate
+          body: Add-on version incremented triggered by ${{ github.sha }}
+          branch: inc-ver
+          delete-branch: true
+          path: ./${{ github.event.repository.name }}
