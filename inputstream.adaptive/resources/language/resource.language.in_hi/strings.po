@@ -4,12 +4,11 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-
+"Language-Team: Hindi\n"
+"Language: hi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language-Team: Hindi\n"
-"Language: hi\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgctxt "#30100"
@@ -66,6 +65,10 @@ msgstr "विशेषज्ञ"
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
 msgstr "पूर्व-रिलीज़ सुविधाएँ सक्षम करें"
+
+msgctxt "#30122"
+msgid "Don't use secure decoder if possible"
+msgstr ""
 
 msgctxt "#30150"
 msgid "Max"
