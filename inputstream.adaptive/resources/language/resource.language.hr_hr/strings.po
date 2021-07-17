@@ -17,6 +17,14 @@ msgstr ""
 "%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
 "X-Generator: Poedit 2.3\n"
 
+msgctxt "Addon Summary"
+msgid "InputStream client for adaptive streams"
+msgstr ""
+
+msgctxt "Addon Description"
+msgid "InputStream client for adaptive streams"
+msgstr ""
+
 msgctxt "#30100"
 msgid "General"
 msgstr "Opće"
