@@ -4,12 +4,11 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-
+"Language-Team: Swedish (Sweden)\n"
+"Language: sv_SE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language-Team: Swedish (Sweden)\n"
-"Language: sv_SE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgctxt "Addon Summary"
@@ -74,6 +73,10 @@ msgstr "Expert"
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
 msgstr "Aktivera förhandsutgivningsfunktioner"
+
+msgctxt "#30122"
+msgid "Don't use secure decoder if possible"
+msgstr ""
 
 msgctxt "#30150"
 msgid "Max"
