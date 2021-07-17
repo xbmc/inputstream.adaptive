@@ -78,6 +78,10 @@ msgctxt "#30121"
 msgid "Enable Pre-Release Features"
 msgstr "पूर्व-रिलीज़ सुविधाएँ सक्षम करें"
 
+msgctxt "#30122"
+msgid "Don't use secure decoder if possible"
+msgstr ""
+
 msgctxt "#30150"
 msgid "Max"
 msgstr "ज़्यादा से ज़्यादा"
