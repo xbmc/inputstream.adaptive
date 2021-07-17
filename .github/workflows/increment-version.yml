@@ -37,7 +37,7 @@ jobs:
 
       - name: Increment add-on version
         run: |
-          python3 ../scripts/binary/increment_version.py $HOME/files.json -c -n
+          python3 ../scripts/binary/increment_version.py $HOME/files.json -c -n -d
         working-directory: ${{ github.event.repository.name }}
 
       - name: Install dependencies
