@@ -15,6 +15,14 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Weblate 4.7.1\n"
 
+msgctxt "Addon Summary"
+msgid "InputStream client for adaptive streams"
+msgstr ""
+
+msgctxt "Addon Description"
+msgid "InputStream client for adaptive streams"
+msgstr ""
+
 msgctxt "#30100"
 msgid "General"
 msgstr "सामान्य"

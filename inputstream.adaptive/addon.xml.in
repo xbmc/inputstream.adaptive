@@ -13,10 +13,6 @@
     listitemprops="license_type|license_key|license_data|license_flags|manifest_type|server_certificate|stream_headers|manifest_update_parameter|original_audio_language|max_bandwidth|play_timeshift_buffer|pre_init_data"
     library_@PLATFORM@="@LIBRARY_FILENAME@"/>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">InputStream client for adaptive streams</summary>
-    <summary lang="es_ES">Cliente InputStream para flujo de datos adaptativos</summary>
-    <description lang="en_GB">InputStream client for adaptive streams</description>
-    <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <platform>@PLATFORM@</platform>
     <news>
 v2.6.18 (2021-07-13)
@@ -191,5 +187,9 @@ v2.3.15 (2019-02-11)
 v2.3.14 (2019-02-10)
 - Add WebM container parser
     </news>
+    <summary lang="en_GB">InputStream client for adaptive streams</summary>
+    <summary lang="es_ES">Cliente InputStream para flujo de datos adaptativos</summary>
+    <description lang="en_GB">InputStream client for adaptive streams</description>
+    <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
   </extension>
 </addon>

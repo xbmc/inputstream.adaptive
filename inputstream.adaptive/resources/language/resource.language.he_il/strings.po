@@ -12,6 +12,14 @@ msgstr ""
 "Language: he_IL\n"
 "Plural-Forms: nplurals=4; plural=(n==1 ? 0 : n==2 ? 1 : n>10 && n%10==0 ? 2 : 3);\n"
 
+msgctxt "Addon Summary"
+msgid "InputStream client for adaptive streams"
+msgstr ""
+
+msgctxt "Addon Description"
+msgid "InputStream client for adaptive streams"
+msgstr ""
+
 msgctxt "#30100"
 msgid "General"
 msgstr "כללי"
