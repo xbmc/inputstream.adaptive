@@ -67,6 +67,10 @@ jobs:
         id: required-variables
         run: |
           changes=$(cat "$(find . -name changelog.txt)" | awk -v RS= 'NR==1')
+          if [ -z "$changes" ] ;
+          then
+            changes=$(xmlstarlet fo -R "$(find . -name addon.xml.in)" | xmlstarlet sel -t -v 'string(/addon/extension/news)' | awk -v RS= 'NR==1')
+          fi
           changes="${changes//'%'/'%25'}"
           changes="${changes//$'\n'/'%0A'}"
           changes="${changes//$'\r'/'%0D'}"
@@ -113,3 +117,5 @@ jobs:
           body: ${{ steps.required-variables.outputs.changes }}
           draft: false
           prerelease: false
+          commitish: ${{ steps.required-variables.outputs.branch }}
+
