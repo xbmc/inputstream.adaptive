@@ -18,7 +18,7 @@ on:
       add_date:
         description: 'Add date to version number in changelog and news. ie. "v1.0.1 (2021-7-17)" [true|false]'
         required: true
-        default: 'false'
+        default: 'true'
 
 jobs:
   default:
