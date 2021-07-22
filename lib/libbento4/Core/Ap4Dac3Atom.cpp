@@ -143,3 +143,9 @@ AP4_Dac3Atom::InspectFields(AP4_AtomInspector& inspector)
     inspector.AddField("lfeon", m_StreamInfo.lfeon);
     return AP4_SUCCESS;
 }
+
+AP4_UI08 AP4_Dac3Atom::GetChannels() const
+{
+  static const AP4_UI08 CC[] = { 2, 1, 2, 3, 3, 4, 4, 5 };
+  return CC[m_StreamInfo.acmod] + m_StreamInfo.lfeon;
+}

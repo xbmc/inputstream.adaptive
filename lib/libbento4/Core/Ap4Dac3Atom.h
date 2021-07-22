@@ -73,6 +73,7 @@ public:
     const AP4_DataBuffer& GetRawBytes()   const { return m_RawBytes;   }
     unsigned int          GetDataRate()   const { return m_DataRate;   }
     const StreamInfo&     GetStreamInfo() const { return m_StreamInfo; }
+    AP4_UI08              GetChannels() const;
 
 private:
     // methods
