@@ -812,7 +812,8 @@ AP4_SampleDecrypter::Create(AP4_ProtectedSampleDescription* sample_description,
                                                                 aux_info_data_offset,
                                                                 key, 
                                                                 key_size, 
-                                                                block_cipher_factory, 
+                                                                block_cipher_factory,
+                                                                NULL,
                                                                 decrypter);
             if (AP4_FAILED(result)) return NULL;
             return decrypter;
