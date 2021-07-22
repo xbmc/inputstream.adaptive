@@ -55,13 +55,14 @@ AP4_File::AP4_File(AP4_Movie* movie) :
 +---------------------------------------------------------------------*/
 AP4_File::AP4_File(AP4_ByteStream&  stream, 
                    AP4_AtomFactory& atom_factory,
-                   bool             moov_only) :
-    m_Movie(NULL),
+                   bool             moov_only,
+                   AP4_Movie*       movie) :
+    m_Movie(movie),
     m_FileType(NULL),
     m_MetaData(NULL),
     m_MoovIsBeforeMdat(true)
 {
-    ParseStream(stream, atom_factory, moov_only);
+    ParseStream(stream, atom_factory, moov_only, movie);
 }
 
 /*----------------------------------------------------------------------
@@ -75,7 +76,7 @@ AP4_File::AP4_File(AP4_ByteStream&  stream,
     m_MoovIsBeforeMdat(true)
 {
     AP4_DefaultAtomFactory atom_factory;
-    ParseStream(stream, atom_factory, moov_only);
+    ParseStream(stream, atom_factory, moov_only, m_Movie);
 }
 
 /*----------------------------------------------------------------------
@@ -93,12 +94,13 @@ AP4_File::~AP4_File()
 void
 AP4_File::ParseStream(AP4_ByteStream&  stream,
                       AP4_AtomFactory& atom_factory,
-                      bool             moov_only)
+                      bool             moov_only,
+                      AP4_Movie*       movie)
 {
     // parse top-level atoms
     AP4_Atom*    atom;
     AP4_Position stream_position;
-    bool         keep_parsing = true;
+    bool         keep_parsing = movie == 0;
     while (keep_parsing &&
            AP4_SUCCEEDED(stream.Tell(stream_position)) && 
            AP4_SUCCEEDED(atom_factory.CreateAtomFromStream(stream, atom))) {

@@ -130,7 +130,7 @@ AP4_FragmentSampleTable::AddTrun(AP4_TrunAtom*   trun,
         data_offset += trun->GetDataOffset();
     }         
     // MS hack
-    if (data_offset == moof_offset) {
+    if (data_offset < payload_offset) {
         data_offset = payload_offset;
     } else {
         payload_offset = data_offset;
