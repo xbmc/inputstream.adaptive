@@ -33,9 +33,9 @@
 |   includes
 +---------------------------------------------------------------------*/
 #include "Ap4Types.h"
-#include "Ap4AvcParser.h"
-#include "Ap4HevcParser.h"
-#include "Ap4AdtsParser.h"
+#include "../Codecs/Ap4AvcParser.h"
+#include "../Codecs/Ap4HevcParser.h"
+#include "../Codecs/Ap4AdtsParser.h"
 #include "Ap4List.h"
 #include "Ap4Sample.h"
 #include "Ap4String.h"
