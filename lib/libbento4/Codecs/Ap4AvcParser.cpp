@@ -191,8 +191,8 @@ AP4_AvcFrameParser::~AP4_AvcFrameParser()
 /*----------------------------------------------------------------------
 |   ReadGolomb
 +---------------------------------------------------------------------*/
-static unsigned int
-ReadGolomb(AP4_BitReader& bits)
+unsigned int
+AP4_AvcFrameParser::ReadGolomb(AP4_BitReader& bits)
 {
     unsigned int leading_zeros = 0;
     while (bits.ReadBit() == 0) {
@@ -209,8 +209,8 @@ ReadGolomb(AP4_BitReader& bits)
 /*----------------------------------------------------------------------
 |   SignedGolomb
 +---------------------------------------------------------------------*/
-static int
-SignedGolomb(unsigned int code_num)
+int
+AP4_AvcFrameParser::SignedGolomb(unsigned int code_num)
 {
     if (code_num % 2) {
         return (code_num+1)/2;
