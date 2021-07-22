@@ -161,7 +161,8 @@ protected:
     virtual AP4_Result ProcessTrack(AP4_Track* track);
     virtual AP4_Result ProcessMoof(AP4_ContainerAtom* moof, 
                                    AP4_Position       moof_offset, 
-                                   AP4_Position       mdat_payload_offset);
+                                   AP4_Position       mdat_payload_offset,
+                                   AP4_UI64           mdat_payload_size);
     
     // methods
     Tracker*   FindTracker(AP4_UI32 track_id);

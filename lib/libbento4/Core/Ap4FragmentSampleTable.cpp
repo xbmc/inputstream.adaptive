@@ -47,6 +47,7 @@ AP4_FragmentSampleTable::AP4_FragmentSampleTable(AP4_ContainerAtom* traf,
                                                  AP4_ByteStream*    sample_stream,
                                                  AP4_Position       moof_offset,
                                                  AP4_Position       mdat_payload_offset,
+                                                 AP4_UI64           mdat_payload_size,
                                                  AP4_UI64           dts_origin) :
     m_Duration(0)
 {
@@ -73,6 +74,7 @@ AP4_FragmentSampleTable::AP4_FragmentSampleTable(AP4_ContainerAtom* traf,
     }
     
     // process all the trun atoms
+    AP4_UI32 trun_flags(0);
     for (AP4_List<AP4_Atom>::Item* item = traf->GetChildren().FirstItem();
                                    item;
                                    item = item->GetNext()) {
@@ -88,9 +90,13 @@ AP4_FragmentSampleTable::AP4_FragmentSampleTable(AP4_ContainerAtom* traf,
                                             mdat_payload_offset,
                                             dts_origin);
                 if (AP4_FAILED(result)) return;
+                trun_flags |= trun->GetFlags();
             }
         }
-    }    
+    }
+    // Hack if we have a single sample and default sample size is wrong (hbo ttml)
+    if (m_Samples.ItemCount() == 1 && (trun_flags & AP4_TRUN_FLAG_SAMPLE_SIZE_PRESENT) == 0)
+        m_Samples[0].SetSize(mdat_payload_size);
 }
 
 /*----------------------------------------------------------------------

@@ -70,6 +70,7 @@ public:
                                          AP4_ByteStream*           sample_stream,
                                          AP4_Position              moof_offset,
                                          AP4_Position              mdat_payload_offset, // hack because MS doesn't implement the spec properly
+                                         AP4_UI64                  mdat_payload_size,
                                          AP4_UI64                  dts_origin,
                                          AP4_FragmentSampleTable*& sample_table);
     AP4_Result         CreateSampleTable(AP4_Movie*                movie,
@@ -77,6 +78,7 @@ public:
                                          AP4_ByteStream*           sample_stream,
                                          AP4_Position              moof_offset,
                                          AP4_Position              mdat_payload_offset, // hack because MS doesn't implement the spec properly
+                                         AP4_UI64                  mdat_payload_size,
                                          AP4_UI64                  dts_origin,
                                          AP4_FragmentSampleTable*& sample_table);
     
