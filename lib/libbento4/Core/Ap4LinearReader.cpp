@@ -54,8 +54,8 @@ AP4_LinearReader::AP4_LinearReader(AP4_Movie&      movie,
     m_HasFragments = movie.HasFragments();
     if (fragment_stream) {
         fragment_stream->AddReference();
-        fragment_stream->Tell(m_CurrentFragmentPosition);
-        m_NextFragmentPosition = m_CurrentFragmentPosition;
+        //fragment_stream->Tell(m_CurrentFragmentPosition);
+        //m_NextFragmentPosition = m_CurrentFragmentPosition;
     }
 }
 
@@ -360,9 +360,11 @@ AP4_LinearReader::AdvanceFragment()
     AP4_Result result;
      
     // go the the start of the next fragment
-    result = m_FragmentStream->Seek(m_NextFragmentPosition);
-    if (AP4_FAILED(result)) return result;
-    m_CurrentFragmentPosition = m_NextFragmentPosition;
+    if (m_NextFragmentPosition) {
+        result = m_FragmentStream->Seek(m_NextFragmentPosition);
+        if (AP4_FAILED(result)) return result;
+        m_CurrentFragmentPosition = m_NextFragmentPosition;
+    }
 
     // read atoms until we find a moof
     assert(m_HasFragments);
