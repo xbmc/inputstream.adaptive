@@ -482,6 +482,7 @@ AP4_LinearReader::Advance(bool read_data)
                 result = buffer->m_Sample->ReadData(buffer->m_Data);
             }
             if (AP4_FAILED(result)) {
+                buffer->m_Sample = nullptr;
                 delete buffer;
                 return result;
             }
