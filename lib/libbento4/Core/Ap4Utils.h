@@ -262,7 +262,7 @@ public:
     AP4_Result   SkipBytes(AP4_Size byte_count);
     void         SkipBit();
     void         SkipBits(unsigned int bit_count);
-
+    AP4_UI32     BitsLeft();
     unsigned int GetBitsRead();
 
 private:

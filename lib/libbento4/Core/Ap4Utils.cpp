@@ -581,4 +581,12 @@ AP4_BitReader::SkipBit()
    }
 }
 
+/*----------------------------------------------------------------------
+|   AP4_BitReader::BitsLeft
++---------------------------------------------------------------------*/
+AP4_UI32
+AP4_BitReader::BitsLeft()
+{
+    return (m_Buffer.GetDataSize() - m_Position) * 8 + m_BitsCached;
+}
 
