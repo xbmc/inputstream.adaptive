@@ -79,10 +79,13 @@ public:
     AP4_UI08              GetTransferCharacteristics() { return m_TransferCharacteristics; }
     AP4_UI08              GetMatrixCoefficients()      { return m_MatrixCoefficients;      }
     const AP4_DataBuffer& GetCodecInitializationData() { return m_CodecIntializationData;  }
+    const AP4_DataBuffer& GetData() { return m_Data; }
 
     // helpers
     AP4_Result GetCodecString(AP4_UI32 container_type, AP4_String& codec);
 
+protected:
+  AP4_DataBuffer m_Data;
 private:
     // methods
     AP4_VpccAtom(AP4_UI32 size, const AP4_UI08* payload);

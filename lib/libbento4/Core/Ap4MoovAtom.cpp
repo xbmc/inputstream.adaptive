@@ -31,6 +31,7 @@
 +---------------------------------------------------------------------*/
 #include "Ap4MoovAtom.h"
 #include "Ap4TrakAtom.h"
+#include "Ap4PsshAtom.h"
 #include "Ap4AtomFactory.h"
 
 /*----------------------------------------------------------------------
@@ -62,6 +63,29 @@ private:
 };
 
 /*----------------------------------------------------------------------
+|   AP4_PsshAtomCollector
++---------------------------------------------------------------------*/
+class AP4_PsshAtomCollector : public AP4_List<AP4_Atom>::Item::Operator
+{
+public:
+  AP4_PsshAtomCollector(AP4_List<AP4_PsshAtom>* pssh_atoms) :
+    m_PsshAtoms(pssh_atoms) {}
+
+  AP4_Result Action(AP4_Atom* atom) const {
+    if (atom->GetType() == AP4_ATOM_TYPE_PSSH) {
+      AP4_PsshAtom* pssh = AP4_DYNAMIC_CAST(AP4_PsshAtom, atom);
+      if (pssh) {
+        m_PsshAtoms->Add(pssh);
+      }
+    }
+    return AP4_SUCCESS;
+  }
+
+private:
+  AP4_List<AP4_PsshAtom>* m_PsshAtoms;
+};
+
+/*----------------------------------------------------------------------
 |   AP4_MoovAtom::AP4_MoovAtom
 +---------------------------------------------------------------------*/
 AP4_MoovAtom::AP4_MoovAtom() :
@@ -80,7 +104,9 @@ AP4_MoovAtom::AP4_MoovAtom(AP4_UI32         size,
     m_TimeScale(0)
 {
     // collect all trak atoms
-    m_Children.Apply(AP4_TrakAtomCollector(&m_TrakAtoms));    
+    m_Children.Apply(AP4_TrakAtomCollector(&m_TrakAtoms));
+    // collect all pssh atoms
+    m_Children.Apply(AP4_PsshAtomCollector(&m_PsshAtoms));
 }
 
 /*----------------------------------------------------------------------

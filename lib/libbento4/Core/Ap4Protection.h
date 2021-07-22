@@ -393,7 +393,8 @@ public:
     // methods
     virtual AP4_Size   GetDecryptedSampleSize(AP4_Sample& sample) { return sample.GetSize(); }
     virtual AP4_Result SetSampleIndex(AP4_Ordinal /*index*/)      { return AP4_SUCCESS;      }
-    virtual AP4_Result DecryptSampleData(AP4_DataBuffer&    data_in,
+    virtual AP4_Result DecryptSampleData(AP4_UI32 poolid,
+                                         AP4_DataBuffer&    data_in,
                                          AP4_DataBuffer&    data_out,
                                          const AP4_UI08*    iv = NULL) = 0;
 };
