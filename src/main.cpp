@@ -475,10 +475,11 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         adp->min_rep_ = (*br);
 
       if (    ( (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
-        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_) ) ) < valScore) )  //it is bandwidth independent(if multiple same resolution bandwidth, will select first rep)
+        &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_) ) ) <= valScore) )  //it is bandwidth independent(if multiple same resolution bandwidth, will select first rep)
       {
         valScore = score;
-        adp->best_rep_ = (*br);
+        if (!adp->best_rep_ || (*br)->bandwidth_ > adp->best_rep_->bandwidth_)
+          adp->best_rep_ = (*br);
       }
 
     }
