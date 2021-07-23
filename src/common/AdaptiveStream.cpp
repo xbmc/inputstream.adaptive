@@ -316,6 +316,11 @@ bool AdaptiveStream::start_stream()
     valid_segment_buffers_ = valid_segment_buffers + 1;
   }
 
+  currentPTSOffset_ = (next_segment->startPTS_ * current_rep_->timescale_ext_) /
+    current_rep_->timescale_int_;
+  absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
+    current_rep_->timescale_int_;
+
   if (state_ == RUNNING)
   {
     const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ |=
@@ -500,6 +505,12 @@ bool AdaptiveStream::ensureSegment()
 
     if (nextSegment)
     {
+      currentPTSOffset_ =
+        (nextSegment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+
+      absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
+        current_rep_->timescale_int_;
+
       uint32_t nextsegmentPos = current_rep_->get_segment_pos(nextSegment);
       AdaptiveTree::Representation* newRep;
       if (segment_buffers_[0].segment_number == ~0L)
@@ -535,12 +546,6 @@ bool AdaptiveStream::ensureSegment()
 
       current_rep_->current_segment_ = nextSegment;
       ResetSegment(nextSegment);
-
-      currentPTSOffset_ =
-          (nextSegment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
-
-      absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
-                           current_rep_->timescale_int_;
 
       if (observer_ && nextSegment != &current_rep_->initialization_ && ~nextSegment->startPTS_)
         observer_->OnSegmentChanged(this);
