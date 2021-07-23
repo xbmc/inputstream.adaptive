@@ -182,6 +182,7 @@ public:
   const AP4_UI08 *GetDefaultKeyId(const uint16_t index) const;
   uint32_t GetIncludedStreamMask() const;
   STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
+  uint32_t GetInitialSequence() const { return adaptiveTree_->initial_sequence_; }
 
   int GetChapter() const;
   int GetChapterCount() const;

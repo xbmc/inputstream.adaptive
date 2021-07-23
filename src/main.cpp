@@ -3832,8 +3832,10 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
 
   if (m_session)
   {
+    adaptive::AdaptiveTree::Period* period;
     int period_id = m_session->GetPeriodId();
     iids.m_streamCount = 0;
+    unsigned int id;
 
     for (unsigned int i(1);
          i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
@@ -3851,10 +3853,23 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
           if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
             continue;
         }
-        ids.emplace_back(m_session->IsLive()
-                             ? i + (m_session->GetStream(i)->stream_.getPeriod()->sequence_ + 1) *
-                                       1000
-                             : i + period_id * 1000);
+        if (m_session->IsLive())
+        {
+          period = m_session->GetStream(i)->stream_.getPeriod();
+          if (period->sequence_ == m_session->GetInitialSequence())
+          {
+            id = i + 1000;
+          }
+          else
+          {
+            id = i + (period->sequence_ + 1) * 1000;
+          }
+        }
+        else
+        {
+          id = i + period_id * 1000;
+        }
+        ids.emplace_back(id);
       }
     }
   }
