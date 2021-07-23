@@ -279,7 +279,7 @@ public:
 
   struct AdaptationSet
   {
-    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
+    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), best_rep_(0), min_rep_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false) { language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
     void CopyBasicData(AdaptationSet* src);
     StreamType type_;
@@ -296,6 +296,8 @@ public:
     std::string audio_track_id_;
     std::string name_;
     std::vector<Representation*> representations_;
+    Representation* best_rep_;
+    Representation* min_rep_;
     SPINCACHE<uint32_t> segment_durations_;
     SegmentTemplate segtpl_;
 

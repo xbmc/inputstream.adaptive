@@ -218,9 +218,9 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
 
   uint16_t next_display_width_=0, next_display_height_=0;
   bool res_to_be_changed_=1;
-  
+
   adaptive::AdaptiveTree::Representation *best_rep_, *min_rep_;//min_rep_ will be used for window-change detection
-  
+
   std::chrono::steady_clock::time_point lastDimensionUpdated_ = std::chrono::steady_clock::now();
 
   bool ignore_display_;
@@ -238,7 +238,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
 
   //Pending- The plan was to group representations, this will give an easier switching control.
   //Streams will get filtered in 6 buckets: 240p, 480p, HD-720p, FHD-1080p, QHD-1440p, UHD-2160p
-  //This will help in better representation switching when lots of representations are provided by CDN 
+  //This will help in better representation switching when lots of representations are provided by CDN
   //HD-720p and above will opt for highest fps. Eg: 720p24, 720p30, 720p50, 720p60 are available, it will go for 720p60
   //FHD-1080p and above will opt for HDR if available
   /*enum GenRep
@@ -250,7 +250,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     QHD,
     UHD
   };*/
-  //vector<pair<int,int> > mapping_res_to_adp_;   //mapping to <  GenRep  ,adp->representations_ index>     . Will store 6 resolution buckets if available (90% match) 
+  //vector<pair<int,int> > mapping_res_to_adp_;   //mapping to <  GenRep  ,adp->representations_ index>     . Will store 6 resolution buckets if available (90% match)
   //This to be run during initialization function
   //int GenRepPixel[6]={};
   /*for(int i=0;i<6;i++)
@@ -272,14 +272,14 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         if(index!=-1)
           mapping_res_to_adp_.push_back({i,index});
       }
-  */    
+  */
 
 
 
   //SetDisplayDimensions will be called upon changed dimension only (will be filtered beforehand by xbmc api calls to SetVideoResolution)
   void SetDisplayDimensions(unsigned int w, unsigned int h)
   {
-    if(res_to_be_changed_ ) 
+    if(res_to_be_changed_ )
     {
       display_width_ = w;
       display_height_ = h;
@@ -356,17 +356,17 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
               bandwidth_);
   }
   adaptive::AdaptiveTree::Representation* ChooseNextRepresentation(
-      adaptive::AdaptiveTree::AdaptationSet* adp, 
-      adaptive::AdaptiveTree::Representation* rep,  
+      adaptive::AdaptiveTree::AdaptationSet* adp,
+      adaptive::AdaptiveTree::Representation* rep,
       size_t *valid_segment_buffers_,
       size_t *available_segment_buffers_,
       uint32_t *assured_buffer_length_,
-      uint32_t * max_buffer_length_, 
+      uint32_t * max_buffer_length_,
       uint32_t rep_counter_)    override     //to be called from ensuresegment only,  SEPERATED FOR FURTHER DEVELOPMENT, CAN BE MERGED AFTERWARDS
   {
     if( (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - lastDimensionUpdated_).count()  >15 )
-          &&  (!ignore_window_change_) 
-          && (!ignore_display_) 
+          &&  (!ignore_window_change_)
+          && (!ignore_display_)
           && !(next_display_width_==display_width_ && next_display_height_==display_height_)   )
     {
      res_to_be_changed_=true;
@@ -379,27 +379,27 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     uint16_t hdcpVersion = 99;
     uint32_t hdcpLimit = 0;
 
-    
+
     current_bandwidth_=get_average_download_speed();
     kodi::Log(ADDON_LOG_DEBUG, "current_bandwidth_: %u ",current_bandwidth_);
-    
+
     float buffer_hungry_factor=1.0;// can be made as a sliding input
     buffer_hungry_factor= ( (float)*valid_segment_buffers_/(float)*assured_buffer_length_ ) ;
     buffer_hungry_factor=buffer_hungry_factor>0.5? buffer_hungry_factor:0.5;
-        
+
     uint32_t bandwidth= (uint32_t)(buffer_hungry_factor*7.0*current_bandwidth_ );
     kodi::Log(ADDON_LOG_DEBUG, "bandwidth set: %u ",bandwidth);
 
     if(*valid_segment_buffers_ >= *assured_buffer_length_)
-      {
-        return best_rep_;
-      }
-    if( (*valid_segment_buffers_>6) && (bandwidth >= rep->bandwidth_ *2 ) && (rep != best_rep_) && (best_rep_->bandwidth_ <=bandwidth)  ) //overwrite case, more internet data
+    {
+      return adp->best_rep_;
+    }
+    if( (*valid_segment_buffers_>6) && (bandwidth >= rep->bandwidth_ *2 ) && (rep != adp->best_rep_) && (adp->best_rep_->bandwidth_ <=bandwidth)  ) //overwrite case, more internet data
     {
       *valid_segment_buffers_ =std::max(*valid_segment_buffers_/2, *valid_segment_buffers_-rep_counter_);
       *available_segment_buffers_=  *valid_segment_buffers_; //so that ensure writes again with new rep
     }
-    
+
     for (std::vector<adaptive::AdaptiveTree::Representation*>::const_iterator br(adp->representations_.begin()),
          er(adp->representations_.end());
          br != er; ++br)
@@ -420,11 +420,11 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         bestScore = score;
         next_rep = (*br);
       }
-      else if (!min_rep_ || (*br)->bandwidth_ < min_rep_->bandwidth_)
-        min_rep_ = (*br);
+      else if (!adp->min_rep_ || (*br)->bandwidth_ < adp->min_rep_->bandwidth_)
+        adp->min_rep_ = (*br);
     }
     if (!next_rep)
-      next_rep = min_rep_;
+      next_rep = adp->min_rep_;
 
     //kodi::Log(ADDON_LOG_DEBUG, "NextRep bandwidth: %u ",next_rep->bandwidth_);
 
@@ -471,21 +471,21 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         bestScore = score;
         new_rep   = (*br);
       }
-      else if (!min_rep_ || (*br)->bandwidth_ < min_rep_->bandwidth_)
-        min_rep_ = (*br);
+      else if (!adp->min_rep_ || (*br)->bandwidth_ < adp->min_rep_->bandwidth_)
+        adp->min_rep_ = (*br);
 
       if (    ( (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
         &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_) ) ) < valScore) )  //it is bandwidth independent(if multiple same resolution bandwidth, will select first rep)
       {
-        valScore= score;
-        best_rep_= (*br); 
+        valScore = score;
+        adp->best_rep_ = (*br);
       }
 
     }
     if (!new_rep)
-      new_rep = min_rep_;
-    if(!best_rep_)
-      best_rep_=min_rep_;
+      new_rep = adp->min_rep_;
+    if(!adp->best_rep_)
+      adp->best_rep_ = adp->min_rep_;
     kodi::Log(ADDON_LOG_DEBUG, "ASSUREDBUFFERDURATION selected: %d ",new_rep->assured_buffer_duration_);
     kodi::Log(ADDON_LOG_DEBUG, "MAXBUFFERDURATION selected: %d "    ,new_rep->max_buffer_duration_);
 
@@ -679,7 +679,7 @@ bool KodiAdaptiveStream::download(const char* url,
         kodi::Log(ADDON_LOG_DEBUG,
                   "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
                   chooser_->get_download_speed(), current_download_speed_);
-        //pass download speed to 
+        //pass download speed to
       }
       else
         kodi::Log(ADDON_LOG_DEBUG, "Download %s cancelled", url);
