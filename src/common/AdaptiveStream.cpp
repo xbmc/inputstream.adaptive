@@ -494,12 +494,16 @@ bool AdaptiveStream::ensureSegment()
     if (nextSegment)
     {
       uint32_t nextsegmentPos = current_rep_->get_segment_pos(nextSegment);
-      AdaptiveTree::Representation* newRep = tree_.ChooseNextRepresentation(current_adp_,
-                                                                    segment_buffers_[valid_segment_buffers_-1].rep,
-                                                                    &valid_segment_buffers_,&available_segment_buffers_,
-                                                                    &assured_buffer_length_,
-                                                                    &max_buffer_length_,
-                                                                    rep_counter_);
+      AdaptiveTree::Representation* newRep;
+      if (segment_buffers_[0].segment_number == ~0L)
+        newRep = current_rep_;
+      else
+        newRep = tree_.ChooseNextRepresentation(current_adp_,
+                                                segment_buffers_[valid_segment_buffers_ - 1].rep,
+                                                &valid_segment_buffers_,&available_segment_buffers_,
+                                                &assured_buffer_length_,
+                                                &max_buffer_length_,
+                                                rep_counter_);
       // Make sure, new representation has segments!
       ResolveSegmentBase(newRep, false); // For DASH
       tree_.prepareRepresentation(current_period_, current_adp_, newRep, false); // For HLS
