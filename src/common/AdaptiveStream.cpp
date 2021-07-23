@@ -34,7 +34,8 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                AdaptiveTree::AdaptationSet* adp,
                                const std::map<std::string, std::string>& media_headers,
                                bool play_timeshift_buffer,
-                               size_t repId)
+                               size_t repId,
+                               bool choose_rep)
   : thread_data_(nullptr),
     tree_(tree),
     observer_(nullptr),
@@ -52,6 +53,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
     play_timeshift_buffer_(play_timeshift_buffer),
+    choose_rep_(choose_rep),
     rep_counter_(1),
     prev_rep_(0),
     assured_buffer_length_(5),
@@ -217,6 +219,14 @@ bool AdaptiveStream::start_stream()
 {
   if (!current_rep_)
     return false;
+
+  if (choose_rep_)
+  {
+    choose_rep_ = false;
+    current_rep_ = tree_.ChooseNextRepresentation(
+      current_adp_, segment_buffers_[valid_segment_buffers_].rep, &valid_segment_buffers_,
+      &available_segment_buffers_, &assured_buffer_length_, &max_buffer_length_, rep_counter_);
+  }
 
   assured_buffer_length_=current_rep_ ->assured_buffer_duration_;
   assured_buffer_length_ = std::ceil( (assured_buffer_length_ * current_rep_->segtpl_.timescale)/ (float)current_rep_->segtpl_.duration );

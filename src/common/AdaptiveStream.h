@@ -46,7 +46,8 @@ namespace adaptive
                    AdaptiveTree::AdaptationSet* adp,
                    const std::map<std::string, std::string>& media_headers,
                    bool play_timeshift_buffer,
-                   size_t repId);
+                   size_t repId,
+                   bool choose_rep_);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     void Reset();
@@ -178,5 +179,6 @@ namespace adaptive
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
     bool stream_changed_ = false;
+    bool choose_rep_;
   };
 };

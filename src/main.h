@@ -68,8 +68,9 @@ public:
                      const std::map<std::string, std::string>& media_headers,
                      DefaultRepresentationChooser* chooser,
                      bool play_timeshift_buffer,
-                     size_t repId)
-    : adaptive::AdaptiveStream(tree, adp, media_headers, play_timeshift_buffer, repId),
+                     size_t repId,
+                     bool choose_rep)
+    : adaptive::AdaptiveStream(tree, adp, media_headers, play_timeshift_buffer, repId, choose_rep),
       chooser_(chooser){};
 
 protected:
@@ -122,12 +123,13 @@ public:
            const std::map<std::string, std::string>& media_headers,
            DefaultRepresentationChooser* chooser,
            bool play_timeshift_buffer,
-           size_t repId)
+           size_t repId,
+           bool choose_rep)
       : enabled(false),
         encrypted(false),
         mainId_(0),
         current_segment_(0),
-        stream_(t, adp, media_headers, chooser, play_timeshift_buffer, repId),
+        stream_(t, adp, media_headers, chooser, play_timeshift_buffer, repId, choose_rep),
         input_(0),
         input_file_(0),
         reader_(0),
@@ -238,4 +240,5 @@ private:
   bool play_timeshift_buffer_;
   bool force_secure_decoder_;
   bool allow_no_secure_decoder_;
+  bool first_period_initialized_;
 };
