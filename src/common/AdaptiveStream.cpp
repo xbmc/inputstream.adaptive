@@ -70,6 +70,13 @@ AdaptiveStream::~AdaptiveStream()
     delete[] buf.segment.url;
 }
 
+void AdaptiveStream::Reset()
+{
+  segment_read_pos_ = 0;
+  currentPTSOffset_ = 0;
+  absolutePTSOffset_ = 0;
+}
+
 void AdaptiveStream::ResetSegment(const AdaptiveTree::Segment* segment)
 {
   segment_read_pos_ = 0;

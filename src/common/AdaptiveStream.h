@@ -49,6 +49,7 @@ namespace adaptive
                    size_t repId);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
+    void Reset();
     bool start_stream();
     void stop();
     void clear();
