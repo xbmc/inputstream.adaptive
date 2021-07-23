@@ -2681,6 +2681,11 @@ bool Session::InitializeDRM()
   bool secure_video_session = false;
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
+
+  representationChooser_->decrypter_caps_.resize(cdm_sessions_.size());
+  for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
+    representationChooser_->decrypter_caps_.push_back(cdmsession.decrypter_caps_);
+
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->current_period_->encryptionState_)
   {
@@ -2919,6 +2924,7 @@ bool Session::InitializeDRM()
     }
   }
   representationChooser_->Prepare(secure_video_session);
+
   return true;
 }
 
@@ -2959,10 +2965,6 @@ bool Session::InitializePeriod()
     if (!InitializeDRM())
       return false;
   }
-
-  representationChooser_->decrypter_caps_.resize(cdm_sessions_.size());
-  for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
-    representationChooser_->decrypter_caps_.push_back(cdmsession.decrypter_caps_);
 
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
