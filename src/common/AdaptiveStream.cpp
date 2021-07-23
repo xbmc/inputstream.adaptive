@@ -513,8 +513,11 @@ bool AdaptiveStream::ensureSegment()
                                                 rep_counter_);
       // Make sure, new representation has segments!
       ResolveSegmentBase(newRep, false); // For DASH
-      tree_.prepareRepresentation(current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_); // For HLS
-
+      if (tree_.SecondsSinceRepUpdate(newRep) > 1)
+      {
+        tree_.prepareRepresentation(
+          current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_); // For HLS
+      }
       for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_ ; ++updPos)
       {
         const AdaptiveTree::Segment* futureSegment = newRep->get_segment(nextsegmentPos + updPos);

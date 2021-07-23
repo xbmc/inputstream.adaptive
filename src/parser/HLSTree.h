@@ -63,7 +63,11 @@ public:
                                Representation* rep,
                                StreamType type) override;
   virtual bool processManifest(std::stringstream& stream);
-
+  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep)
+  { 
+    return rep->repLastUpdated_;
+  }
+  
 protected:
   virtual void RefreshLiveSegments() override;
 

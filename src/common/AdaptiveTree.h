@@ -217,6 +217,7 @@ public:
     uint32_t timescale_ext_, timescale_int_;
     Segment initialization_;
     SPINCACHE<Segment> segments_;
+    std::chrono::time_point<std::chrono::system_clock> repLastUpdated_;
     const Segment *current_segment_;
     const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
     const Segment *get_next_segment(const Segment *seg)const
@@ -478,6 +479,7 @@ public:
   {
     return PREPARE_RESULT_OK;
   };
+  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep) { return std::chrono::system_clock::now(); }
   virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
@@ -521,6 +523,13 @@ public:
                                                                                       valid_segment_buffers_, assured_buffer_length_,
                                                                                       max_buffer_length_, rep_counter_) : nullptr;
   };
+
+  int SecondsSinceRepUpdate(Representation* rep)
+  {
+    return static_cast<int>(
+      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - GetRepLastUpdated(rep))
+      .count());
+  }
 
 protected:
   virtual bool download(const char* url,
