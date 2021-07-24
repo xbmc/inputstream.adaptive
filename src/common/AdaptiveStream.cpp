@@ -228,6 +228,12 @@ bool AdaptiveStream::start_stream()
       &available_segment_buffers_, &assured_buffer_length_, &max_buffer_length_, rep_counter_);
   }
 
+  if (!(current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZED))
+  {
+    tree_.prepareRepresentation(current_period_, current_adp_, current_rep_,
+      false);
+  }
+
   assured_buffer_length_=current_rep_ ->assured_buffer_duration_;
   assured_buffer_length_ = std::ceil( (assured_buffer_length_ * current_rep_->segtpl_.timescale)/ (float)current_rep_->segtpl_.duration );
 
@@ -537,7 +543,9 @@ bool AdaptiveStream::ensureSegment()
       if (tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
         tree_.prepareRepresentation(
-          current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_); // For HLS
+            current_period_, current_adp_, newRep,
+            tree_.has_timeshift_buffer_ &&
+                (newRep->flags_ & AdaptiveTree::Representation::INITIALIZED)); // For HLS
       }
       for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_ ; ++updPos)
       {

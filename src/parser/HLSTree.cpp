@@ -762,6 +762,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     period = current_period_;
     adp = period->adaptationSets_[adp_pos];
     rep = adp->representations_[rep_pos];
+    rep->flags_ |= Representation::INITIALIZED;
     return retVal;
   }
   return PREPARE_RESULT_FAILURE;
