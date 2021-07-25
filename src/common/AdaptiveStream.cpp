@@ -539,6 +539,12 @@ bool AdaptiveStream::ensureSegment()
       absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
         current_rep_->timescale_int_;
 
+      current_rep_->current_segment_ = nextSegment;
+      ResetSegment(nextSegment);
+
+      if (observer_ && nextSegment != &current_rep_->initialization_ && ~nextSegment->startPTS_)
+        observer_->OnSegmentChanged(this);
+
       uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
       uint32_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
       AdaptiveTree::Representation* newRep;
@@ -560,8 +566,7 @@ bool AdaptiveStream::ensureSegment()
       if (tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
         tree_.prepareRepresentation(
-          current_period_, current_adp_, newRep,
-          false);
+          current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_);
       }
 
       uint32_t nextsegmentPos = nextsegno - newRep->startNumber_;
@@ -583,12 +588,6 @@ bool AdaptiveStream::ensureSegment()
         else
           break;
       }
-
-      current_rep_->current_segment_ = nextSegment;
-      ResetSegment(nextSegment);
-
-      if (observer_ && nextSegment != &current_rep_->initialization_ && ~nextSegment->startPTS_)
-        observer_->OnSegmentChanged(this);
 
       thread_data_->signal_dl_.notify_one();
       // Make sure that we have at least one segment filling
