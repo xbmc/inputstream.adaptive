@@ -56,6 +56,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     choose_rep_(choose_rep),
     rep_counter_(1),
     prev_rep_(0),
+    last_rep_(0),
     assured_buffer_length_(5),
     max_buffer_length_(10)
 {
@@ -269,22 +270,32 @@ bool AdaptiveStream::start_stream()
     if (!play_timeshift_buffer_ && tree_.has_timeshift_buffer_ &&
         current_rep_->segments_.data.size() > 1 && tree_.periods_.size() == 1)
     {
-      std::int32_t pos;
-      if (tree_.has_timeshift_buffer_ || tree_.available_time_ >= tree_.stream_start_)
-        pos = static_cast<int32_t>(current_rep_->segments_.data.size() - 1);
-      else
+      if (!last_rep_)
       {
-        pos = static_cast<int32_t>(
-            ((tree_.stream_start_ - tree_.available_time_) * current_rep_->timescale_) /
-            current_rep_->duration_);
-        if (!pos)
-          pos = 1;
+        std::int32_t pos;
+        if (tree_.has_timeshift_buffer_ || tree_.available_time_ >= tree_.stream_start_)
+          pos = static_cast<int32_t>(current_rep_->segments_.data.size() - 1);
+        else
+        {
+          pos = static_cast<int32_t>(
+              ((tree_.stream_start_ - tree_.available_time_) * current_rep_->timescale_) /
+              current_rep_->duration_);
+          if (!pos)
+            pos = 1;
+        }
+        //go at least 12 secs back
+        uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
+                          current_rep_->get_segment(pos - 1)->startPTS_);
+        pos -= static_cast<uint32_t>((12 * current_rep_->timescale_) / duration) + 1;
+        current_rep_->current_segment_ = current_rep_->get_segment(pos < 0 ? 0 : pos);
       }
-      //go at least 12 secs back
-      uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
-                        current_rep_->get_segment(pos - 1)->startPTS_);
-      pos -= static_cast<uint32_t>((12 * current_rep_->timescale_) / duration) + 1;
-      current_rep_->current_segment_ = current_rep_->get_segment(pos < 0 ? 0 : pos);
+      else // switching streams, align new stream segment no.
+      {
+        std::int32_t segmentId = segment_buffers_[0].segment_number;
+        if (segmentId >= current_rep_->startNumber_ + current_rep_->segments_.size())
+          segmentId = current_rep_->startNumber_ + current_rep_->segments_.size() - 1;
+        current_rep_->current_segment_ = current_rep_->get_segment(segmentId - current_rep_->startNumber_);
+      }
     }
     else
       current_rep_->current_segment_ = nullptr; // start from beginning
@@ -487,6 +498,7 @@ bool AdaptiveStream::ensureSegment()
 
     stream_changed_ = false;
     const AdaptiveTree::Segment* nextSegment;
+    last_rep_ = current_rep_;
     if (valid_segment_buffers_)
     {
       // rotate element 0 to the end
@@ -527,25 +539,35 @@ bool AdaptiveStream::ensureSegment()
       absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
         current_rep_->timescale_int_;
 
-      uint32_t nextsegmentPos = current_rep_->get_segment_pos(nextSegment);
+      uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
+      uint32_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
       AdaptiveTree::Representation* newRep;
-      if (segment_buffers_[0].segment_number == ~0L)
+      if (segment_buffers_[0].segment_number == ~0L || valid_segment_buffers_ == 0)
+      {
         newRep = current_rep_;
+      }
       else
+      {
         newRep = tree_.ChooseNextRepresentation(current_adp_,
                                                 segment_buffers_[valid_segment_buffers_ - 1].rep,
                                                 &valid_segment_buffers_,&available_segment_buffers_,
                                                 &assured_buffer_length_,
                                                 &max_buffer_length_,
                                                 rep_counter_);
+      }
       // Make sure, new representation has segments!
       ResolveSegmentBase(newRep, false); // For DASH
       if (tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
         tree_.prepareRepresentation(
-            current_period_, current_adp_, newRep,
-            tree_.has_timeshift_buffer_ &&
-                (newRep->flags_ & AdaptiveTree::Representation::INITIALIZED)); // For HLS
+          current_period_, current_adp_, newRep,
+          false);
+      }
+
+      uint32_t nextsegmentPos = nextsegno - newRep->startNumber_;
+      if (nextsegmentPos + available_segment_buffers_ >= newRep->segments_.size())
+      {
+        nextsegmentPos = newRep->segments_.size() - available_segment_buffers_;
       }
       for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_ ; ++updPos)
       {

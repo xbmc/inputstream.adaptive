@@ -256,6 +256,11 @@ public:
       return current_segment_ ? get_segment_pos(current_segment_) + startNumber_ : ~0U;
     };
 
+    uint32_t getSegmentNumber(const Segment *segment) const
+    {
+      return segment ? get_segment_pos(segment) + startNumber_ : ~0U;
+    };
+
     void SetScaling()
     {
       if (!timescale_)

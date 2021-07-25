@@ -163,8 +163,8 @@ namespace adaptive
     uint32_t max_buffer_length_; 
     size_t valid_segment_buffers_;
     uint32_t rep_counter_;
-    AdaptiveTree::Representation *prev_rep_;
-
+    AdaptiveTree::Representation *prev_rep_; // used for rep_counter_
+    AdaptiveTree::Representation* last_rep_; // used to align new live rep with old
 
     std::map<std::string, std::string> media_headers_, download_headers_;
     std::size_t segment_read_pos_;
