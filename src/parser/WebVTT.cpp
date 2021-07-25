@@ -192,7 +192,7 @@ bool WebVTT::Prepare(uint64_t &pts, uint32_t &duration)
   m_SRT.clear();
   for (size_t i(0); i < sub.text.size(); ++i)
   {
-    if (i) m_SRT += "\r\n";
+    if (i) m_SRT += "\n";
     m_SRT += sub.text[i];
   }
   m_lastId = sub.id;
