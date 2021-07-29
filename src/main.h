@@ -24,13 +24,13 @@
 
 #include "common/AdaptiveTree.h"
 #include "common/AdaptiveStream.h"
+#include "common/RepresentationChooser.h"
 #include <float.h>
 
 #include "Ap4.h"
 #include "SSD_dll.h"
 
 class SampleReader;
-struct DefaultRepresentationChooser;
 
 namespace XBMCFILE
 {

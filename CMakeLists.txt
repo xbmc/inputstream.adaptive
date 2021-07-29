@@ -9,6 +9,7 @@ find_package(Kodi REQUIRED)
 set(ADP_SOURCES
 	src/main.cpp
 	src/common/AdaptiveTree.cpp
+	src/common/RepresentationChooser.cpp
 	src/parser/DASHTree.cpp
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
@@ -32,6 +33,7 @@ set(ADP_HEADERS
 	src/SSD_dll.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
+	src/common/RepresentationChooser.h
 	src/parser/DASHTree.h
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
