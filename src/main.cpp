@@ -2038,6 +2038,8 @@ Session::Session(MANIFEST_TYPE manifestType,
   };
 
   representationChooser_ = new DefaultRepresentationChooser();
+  representationChooser_->assured_buffer_duration_ = kodi::GetSettingInt("ASSUREDBUFFERDURATION");
+  representationChooser_->max_buffer_duration_ = kodi::GetSettingInt("MAXBUFFERDURATION");
   adaptiveTree_->representation_chooser_ = representationChooser_;
 
   std::string fn(profile_path_ + "bandwidth.bin");

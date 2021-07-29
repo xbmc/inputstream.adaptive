@@ -12,6 +12,7 @@ add_executable(${BINARY}
     ../parser/PRProtectionParser.cpp
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
+	../common/RepresentationChooser.cpp
     ../helpers.cpp
     ../oscompat.cpp
     )

@@ -1,5 +1,4 @@
 #pragma once
-#include <kodi/addon-instance/Inputstream.h>
 #include "AdaptiveStream.h"
 #include "../SSD_dll.h"
 
@@ -40,6 +39,8 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
 
   uint32_t current_bandwidth_;
   uint32_t min_bandwidth_, max_bandwidth_;
+  uint32_t assured_buffer_duration_;
+  uint32_t max_buffer_duration_;
 
   double download_speed_, average_download_speed_;
   std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> decrypter_caps_;

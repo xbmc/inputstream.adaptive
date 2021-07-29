@@ -3,6 +3,7 @@
 ********************************************************/
 
 #include "RepresentationChooser.h"
+#include "../log.h"
 
 
 //Pending- The plan was to group representations, this will give an easier switching control.
@@ -52,7 +53,7 @@ void DefaultRepresentationChooser::SetDisplayDimensions(unsigned int w, unsigned
   {
     display_width_ = w;
     display_height_ = h;
-    //kodi::Log(ADDON_LOG_DEBUG, "SetDisplayDimensions(unsigned int w=%u, unsigned int h=%u) ",w,h);
+    //Log(LOGLEVEL_DEBUG, "SetDisplayDimensions(unsigned int w=%u, unsigned int h=%u) ",w,h);
 
     width_ = ignore_display_ ? 8192 : display_width_;
     switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
@@ -121,7 +122,7 @@ void DefaultRepresentationChooser::Prepare(bool secure_video_session)
   res_to_be_changed_ = true;
   SetDisplayDimensions(display_width_, display_height_);
 
-  kodi::Log(ADDON_LOG_DEBUG, "Stream selection conditions: w: %u, h: %u, bw: %u", width_, height_,
+  Log(LOGLEVEL_DEBUG, "Stream selection conditions: w: %u, h: %u, bw: %u", width_, height_,
     bandwidth_);
 };
 
@@ -140,7 +141,7 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseNext
     && !(next_display_width_ == display_width_ && next_display_height_ == display_height_))
   {
     res_to_be_changed_ = true;
-    kodi::Log(ADDON_LOG_DEBUG, "Updating new display resolution to: (w X h) : (%u X %u)", next_display_width_, next_display_height_);
+    Log(LOGLEVEL_DEBUG, "Updating new display resolution to: (w X h) : (%u X %u)", next_display_width_, next_display_height_);
     SetDisplayDimensions(next_display_width_, next_display_height_);
   }
 
@@ -151,14 +152,14 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseNext
 
 
   current_bandwidth_ = get_average_download_speed();
-  kodi::Log(ADDON_LOG_DEBUG, "current_bandwidth_: %u ", current_bandwidth_);
+  Log(LOGLEVEL_DEBUG, "current_bandwidth_: %u ", current_bandwidth_);
 
   float buffer_hungry_factor = 1.0;// can be made as a sliding input
   buffer_hungry_factor = ((float)*valid_segment_buffers_ / (float)*assured_buffer_length_);
   buffer_hungry_factor = buffer_hungry_factor > 0.5 ? buffer_hungry_factor : 0.5;
 
   uint32_t bandwidth = (uint32_t)(buffer_hungry_factor*7.0*current_bandwidth_);
-  kodi::Log(ADDON_LOG_DEBUG, "bandwidth set: %u ", bandwidth);
+  Log(LOGLEVEL_DEBUG, "bandwidth set: %u ", bandwidth);
 
   if (*valid_segment_buffers_ >= *assured_buffer_length_)
   {
@@ -196,7 +197,7 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseNext
   if (!next_rep)
     next_rep = adp->min_rep_;
 
-  //kodi::Log(ADDON_LOG_DEBUG, "NextRep bandwidth: %u ",next_rep->bandwidth_);
+  //Log(LOGLEVEL_DEBUG, "NextRep bandwidth: %u ",next_rep->bandwidth_);
 
   return next_rep;
 };
@@ -223,8 +224,8 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseRepr
     er(adp->representations_.end());
     br != er; ++br)
   {
-    (*br)->assured_buffer_duration_ = kodi::GetSettingInt("ASSUREDBUFFERDURATION");
-    (*br)->max_buffer_duration_ = kodi::GetSettingInt("MAXBUFFERDURATION");
+    (*br)->assured_buffer_duration_ = assured_buffer_duration_;
+    (*br)->max_buffer_duration_ = max_buffer_duration_;
     unsigned int score;
     if (!hdcp_override_)
     {
@@ -257,8 +258,8 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseRepr
     new_rep = adp->min_rep_;
   if (!adp->best_rep_)
     adp->best_rep_ = adp->min_rep_;
-  kodi::Log(ADDON_LOG_DEBUG, "ASSUREDBUFFERDURATION selected: %d ", new_rep->assured_buffer_duration_);
-  kodi::Log(ADDON_LOG_DEBUG, "MAXBUFFERDURATION selected: %d ", new_rep->max_buffer_duration_);
+  Log(LOGLEVEL_DEBUG, "ASSUREDBUFFERDURATION selected: %d ", new_rep->assured_buffer_duration_);
+  Log(LOGLEVEL_DEBUG, "MAXBUFFERDURATION selected: %d ", new_rep->max_buffer_duration_);
 
   return new_rep;
 };
