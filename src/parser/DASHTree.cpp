@@ -1065,12 +1065,14 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
     if (!mpt)
       mpt = tsbd;
 
-    AddDuration(mpt, dash->overallSeconds_, 1);
+    // Always use timeShiftBufferDepth for live manifest
+    if (dash->has_timeshift_buffer_)
+      AddDuration(tsbd, dash->overallSeconds_, 1);
+    else
+      AddDuration(mpt, dash->overallSeconds_, 1);
+
     dash->has_overall_seconds_ = dash->overallSeconds_ > 0;
-
-    uint64_t overallsecs(dash->overallSeconds_ ? dash->overallSeconds_ + 60 : 86400);
     dash->minPresentationOffset = ~0ULL;
-
     dash->currentNode_ |= MPDNODE_MPD;
   }
 }

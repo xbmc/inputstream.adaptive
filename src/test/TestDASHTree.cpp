@@ -217,12 +217,14 @@ TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
 {
   OpenTestFile("mpd/segtimeline_live_pd.mpd", "", "");
   EXPECT_EQ(tree->has_timeshift_buffer_, true);
+  EXPECT_EQ(tree->overallSeconds_, 78);
 }
 
 TEST_F(DASHTreeTest, CalculateStaticWithPresentationDuration)
 {
   OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd", "", "");
   EXPECT_EQ(tree->has_timeshift_buffer_, false);
+  EXPECT_EQ(tree->overallSeconds_, 6472);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
