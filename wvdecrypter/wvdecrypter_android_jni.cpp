@@ -487,9 +487,9 @@ std::vector<char> WV_CencSingleSampleDecrypter::GetChallengeData()
 
 bool WV_CencSingleSampleDecrypter::HasLicenseKey(const uint8_t *keyid)
 {
-  // We work with one session for all streams.
-  // All license keys must be given in this key request
-  return true;
+  // true = one session for all streams, false = one sessions per stream
+  // false fixes pixaltion issues on some devices when manifest has multiple encrypted streams
+  return false;
 }
 
 void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps)
