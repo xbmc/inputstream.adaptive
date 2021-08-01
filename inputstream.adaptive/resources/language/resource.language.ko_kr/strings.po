@@ -89,11 +89,11 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "자동선택"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "수동선택"
 
 msgctxt "#30157"
 msgid "All"
@@ -110,7 +110,7 @@ msgstr "비디오"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "비디오스트림 수동선택"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
