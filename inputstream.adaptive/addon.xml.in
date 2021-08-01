@@ -204,10 +204,12 @@ v2.3.14 (2019-02-10)
     <summary lang="de_DE">InputStream-Client für adaptive Streams</summary>
     <summary lang="en_GB">InputStream client for adaptive streams</summary>
     <summary lang="es_ES">Cliente InputStream para flujo de datos adaptativos</summary>
+    <summary lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</summary>
     <summary lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</summary>
     <description lang="de_DE">InputStream-Client für adaptive Streams</description>
     <description lang="en_GB">InputStream client for adaptive streams</description>
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
+    <description lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</description>
     <description lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</description>
   </extension>
 </addon>
