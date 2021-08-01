@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.6.22"
+  version="2.6.23"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,10 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v2.6.23 (2021-08-01)
+Translations updates from Weblate
+	- ja_jp, ko_kr
+
 v2.6.22 (2021-07-18)
 - Automation test release
 
