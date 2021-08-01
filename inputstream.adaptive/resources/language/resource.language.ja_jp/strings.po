@@ -76,7 +76,7 @@ msgstr "プレリリース機能を使う。"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr ""
+msgstr "可能な限りセキュアデコーダを使わない"
 
 msgctxt "#30150"
 msgid "Max"
@@ -100,11 +100,11 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "自動選択"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "手動選択"
 
 msgctxt "#30157"
 msgid "All"
@@ -121,8 +121,8 @@ msgstr "ビデオ"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "ビデオストリーム手動選択"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "ビデオと字幕"
