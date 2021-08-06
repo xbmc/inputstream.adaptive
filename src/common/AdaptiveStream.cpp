@@ -548,7 +548,8 @@ bool AdaptiveStream::ensureSegment()
       uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
       uint32_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
       AdaptiveTree::Representation* newRep;
-      if (segment_buffers_[0].segment_number == ~0L || valid_segment_buffers_ == 0)
+      if (segment_buffers_[0].segment_number == ~0L || valid_segment_buffers_ == 0 ||
+          current_adp_->type_ != AdaptiveTree::VIDEO)
       {
         newRep = current_rep_;
       }
