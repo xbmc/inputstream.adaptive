@@ -5,15 +5,15 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2021-07-17 20:22+0000\n"
-"Last-Translator: Christian Gade <gade@kodi.tv>\n"
+"PO-Revision-Date: 2021-08-16 15:29+0000\n"
+"Last-Translator: Marek Adamski <fevbew@wp.pl>\n"
 "Language-Team: Polish <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/pl_pl/>\n"
 "Language: pl_pl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Weblate 4.7.1\n"
+"X-Generator: Weblate 4.7.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -35,7 +35,7 @@ msgstr "Min. przepustowość (Bit/s)"
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Maks. przepustowość"
+msgstr "Maks. przepustowość (Bit/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
@@ -49,7 +49,7 @@ msgstr "Maks. rozdzielczość ogólnego dekodera"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Wybór stremu"
+msgstr "Wybór strumienia"
 
 msgctxt "#30112"
 msgid "Media"
@@ -84,7 +84,7 @@ msgstr "Nie używaj bezpiecznego dekodera, jeśli to możliwe"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr "Maks"
+msgstr "Maks."
 
 msgctxt "#30151"
 msgid "480p"
@@ -120,7 +120,7 @@ msgstr "Audio"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr "Video"
+msgstr "Wideo"
 
 # Show all video streams
 msgctxt "#30160"
