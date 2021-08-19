@@ -248,6 +248,7 @@ bool AdaptiveStream::start_stream()
 
   if (!thread_data_)
   {
+    state_ = STOPPED;
     thread_data_ = new THREADDATA();
     std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
     thread_data_->Start(this);
