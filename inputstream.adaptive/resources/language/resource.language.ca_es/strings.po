@@ -4,125 +4,129 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-"Language-Team: none\n"
+"Report-Msgid-Bugs-To: translations@kodi.tv\n"
+"PO-Revision-Date: 2021-08-19 23:19+0000\n"
+"Last-Translator: Xean <xeanhort007@gmail.com>\n"
+"Language-Team: Catalan (Spain) <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/ca_es/>\n"
 "Language: ca_es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.7.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "Client InputStream per a transmissions adaptatives"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "Client InputStream per a transmissions adaptatives"
 
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "General"
 
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Ample de banda min. (Bits/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Ample de banda màx. (Bits/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Ruta de desxifrat"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr ""
+msgstr "Màx. resolució descodificador general"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr ""
+msgstr "Selecció de transmissió"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr ""
+msgstr "Media"
 
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr ""
+msgstr "Màx. Resolució descodificador segur"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr ""
+msgstr "Substitueix l'estat HDCP"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr ""
+msgstr "Ignora la resolució de la pantalla"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Expert"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr ""
+msgstr "Activeu les funcions de pre-release"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr ""
+msgstr "No utilitzeu el descodificador segur si és possible"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr ""
+msgstr "Màx"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "Seleccionar transmissions automàticament"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "Seleccionar manualment totes les transmissions"
 
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Tot"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Àudio"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Vídeo"
 
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "Seleccionar manualment la transmissió de vídeo"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "Vídeo + Subtítols"
