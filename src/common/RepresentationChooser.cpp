@@ -44,7 +44,7 @@
     }
 */
 
-
+DefaultRepresentationChooser::~DefaultRepresentationChooser() {};
 
   //SetDisplayDimensions will be called upon changed dimension only (will be filtered beforehand by xbmc api calls to SetVideoResolution)
 void DefaultRepresentationChooser::SetDisplayDimensions(unsigned int w, unsigned int h)

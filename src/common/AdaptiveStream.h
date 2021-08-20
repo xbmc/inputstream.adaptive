@@ -89,6 +89,18 @@ namespace adaptive
     bool write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer);
     virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+    virtual bool download_segment();
+    std::string download_url_;
+    std::map<std::string, std::string> media_headers_, download_headers_;
+    struct SEGMENTBUFFER
+    {
+      std::string buffer;
+      AdaptiveTree::Segment segment;
+      unsigned int segment_number;
+      AdaptiveTree::Representation* rep;
+    };
+    std::vector<SEGMENTBUFFER> segment_buffers_;
+
 
   private:
     enum STATE
@@ -102,7 +114,6 @@ namespace adaptive
     void ResetSegment(const AdaptiveTree::Segment* segment);
     void ResetActiveBuffer(bool oneValid);
     void StopWorker(STATE state);
-    bool download_segment();
     void worker();
     bool prepareNextDownload();
     bool prepareDownload(const AdaptiveTree::Representation* rep,
@@ -145,17 +156,8 @@ namespace adaptive
     AdaptiveTree::Period* current_period_;
     AdaptiveTree::AdaptationSet* current_adp_;
     AdaptiveTree::Representation *current_rep_;
-    std::string download_url_;
 
     static const size_t MAXSEGMENTBUFFER;
-    struct SEGMENTBUFFER
-    {
-      std::string buffer;
-      AdaptiveTree::Segment segment;
-      unsigned int segment_number;
-      AdaptiveTree::Representation* rep;
-    };
-    std::vector<SEGMENTBUFFER> segment_buffers_;
     // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
     size_t available_segment_buffers_;
     // number of segment_buffers which are downloaded / downloading
@@ -166,7 +168,6 @@ namespace adaptive
     AdaptiveTree::Representation *prev_rep_; // used for rep_counter_
     AdaptiveTree::Representation* last_rep_; // used to align new live rep with old
 
-    std::map<std::string, std::string> media_headers_, download_headers_;
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;

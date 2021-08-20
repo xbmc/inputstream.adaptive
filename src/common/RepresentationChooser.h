@@ -16,6 +16,7 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     uint32_t * max_buffer_length_,
     uint32_t rep_counter_);
   adaptive::AdaptiveTree::Representation* ChooseRepresentation(adaptive::AdaptiveTree::AdaptationSet* adp);
+  virtual ~DefaultRepresentationChooser();
   double get_download_speed() const;
   double get_average_download_speed() const;
   void set_download_speed(double speed);

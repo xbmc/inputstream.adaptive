@@ -2,7 +2,7 @@
 
 std::string testHelper::testFile;
 std::string testHelper::effectiveUrl;
-std::string testHelper::lastDownloadUrl;
+std::vector<std::string> testHelper::downloadList;
 
 void Log(const LogLevel loglevel, const char* format, ...){}
 
@@ -54,17 +54,34 @@ bool adaptive::AdaptiveTree::download(const char* url,
   return nbRead == 0;
 }
 
-bool TestAdaptiveStream::download(const char* url,
-                                  const std::map<std::string, std::string>& mediaHeaders)
+bool TestAdaptiveStream::download_segment()
 {
-  testHelper::lastDownloadUrl = url;
+  if (download_url_.empty())
+    return false;
+  testHelper::downloadList.push_back(download_url_);
+
+  return download(download_url_.c_str(), download_headers_, nullptr);
+}
+
+bool TestAdaptiveStream::download(const char* url,
+  const std::map<std::string, std::string>& mediaHeaders,
+  std::string* lockfreeBuffer)
+{
   size_t nbRead = ~0UL;
   std::stringstream ss("Sixteen bytes!!!");
 
   char buf[16];
   size_t nbReadOverall = 0;
-  while ((nbRead = ss.readsome(buf, 16)) > 0 && ~nbRead && write_data(buf, nbRead))
+  ss.clear();
+  ss.seekg(0);
+  while (true)
+  {
+    ss.read(buf, 16);
+    nbRead = ss.gcount();
+    if (!nbRead || !~nbRead || !write_data(buf, nbRead, lockfreeBuffer))
+      break;
     nbReadOverall += nbRead;
+  }
 
   if (!nbReadOverall)
   {

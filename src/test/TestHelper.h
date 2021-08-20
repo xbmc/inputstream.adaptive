@@ -3,30 +3,45 @@
 #include "../common/AdaptiveStream.h"
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
+#include "../common/RepresentationChooser.h"
 
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 void Log(const LogLevel loglevel, const char* format, ...);
+
+struct DefaultRepresentationChooser;
 
 class testHelper
 {
 public:
   static std::string testFile;
   static std::string effectiveUrl;
-  static std::string lastDownloadUrl;
+  static std::vector<std::string> downloadList;
 };
 
 class TestAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
-  TestAdaptiveStream(adaptive::AdaptiveTree& tree, adaptive::AdaptiveTree::StreamType type)
-    : adaptive::AdaptiveStream(tree, type){};
+  TestAdaptiveStream(adaptive::AdaptiveTree& tree,
+    adaptive::AdaptiveTree::AdaptationSet* adp,
+    const std::map<std::string, std::string>& media_headers,
+    DefaultRepresentationChooser* chooser,
+    bool play_timeshift_buffer,
+    size_t repId,
+    bool choose_rep)
+    : adaptive::AdaptiveStream(tree, adp, media_headers, play_timeshift_buffer, repId, choose_rep),
+    chooser_(chooser) {};
   std::chrono::system_clock::time_point mock_time_stream = std::chrono::system_clock::now();
   void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
+  virtual bool download_segment() override;
 
 protected:
   virtual bool download(const char* url,
-                        const std::map<std::string, std::string>& mediaHeaders) override;
+    const std::map<std::string, std::string>& mediaHeaders,
+    std::string* lockfreeBuffer) override;
+
+private:
+  DefaultRepresentationChooser* chooser_ = nullptr;
 };
 
 class AESDecrypter : public IAESDecrypter
