@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.6.23"
+  version="2.6.24"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,10 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v2.6.24 (2021-08-20)
+Translations updates from Weblate
+	- ca_es, da_dk
+
 v2.6.23 (2021-08-06)
 - Translations from weblate - de_de, ja_jp, ko_kr
  - [Android] use multiple drm sessions (solves stuttering)
