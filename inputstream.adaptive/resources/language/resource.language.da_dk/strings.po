@@ -4,125 +4,129 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-"Language-Team: none\n"
+"Report-Msgid-Bugs-To: translations@kodi.tv\n"
+"PO-Revision-Date: 2021-08-20 08:26+0000\n"
+"Last-Translator: Christian Gade <gade@kodi.tv>\n"
+"Language-Team: Danish <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/da_dk/>\n"
 "Language: da_dk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.7.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream-klient til adaptive streams"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream-klient til adaptive streams"
 
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Generel"
 
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Minimum båndbredde (Bit/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Maksimal båndbredde (Bit/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Dekrypter-sti"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr ""
+msgstr "Maksimal opløsning for generel dekoder"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr ""
+msgstr "Valg af stream"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr ""
+msgstr "Medie"
 
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr ""
+msgstr "Maksimal opløsning for sikker dekoder"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr ""
+msgstr "Overskriv HDCP-status"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr ""
+msgstr "Ignorer skærmens opløsning"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Ekspert"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr ""
+msgstr "Aktiver funktioner fra pre-release"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr ""
+msgstr "Brug ikke sikker dekoder, hvis det er muligt"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr ""
+msgstr "Maksimal"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "Vælg automatisk streams"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "Vælg alle streams manuelt"
 
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Alle"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Lyd"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Video"
 
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "Vælg videostream manuelt"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "Video og undertekster"
