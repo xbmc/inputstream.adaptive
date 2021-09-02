@@ -5,7 +5,6 @@
 #include "cdm_adapter.h"
 #include <chrono>
 #include <thread>
-#include <atomic>
 
 #define DCHECK(condition) assert(condition)
 
@@ -64,23 +63,10 @@ void* GetCdmHost(int host_interface_version, void* user_data)
 
 }  // namespace
 
-std::atomic<bool> exit_thread_flag;
-std::atomic<bool> timer_thread_running;
-
 void timerfunc(std::shared_ptr<CdmAdapter> adp, uint64_t delay, void* context)
 {
-  timer_thread_running  = true;
-  uint64_t waited = 0;
-  while (!exit_thread_flag && delay > waited) 
-  {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    waited += 100;
-  }
-  if (!exit_thread_flag) 
-  {
-    adp->TimerExpired(context);
-  }
-  timer_thread_running = false;
+  std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+  adp->TimerExpired(context);
 }
 
 cdm::AudioDecoderConfig_1 ToAudioDecoderConfig_1(
@@ -142,11 +128,6 @@ CdmAdapter::CdmAdapter(
 
 CdmAdapter::~CdmAdapter()
 {
-  exit_thread_flag = true;
-  while (timer_thread_running) 
-  {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
   if (cdm9_)
     cdm9_->Destroy(), cdm9_ = nullptr;
   else if (cdm10_)
@@ -163,8 +144,6 @@ CdmAdapter::~CdmAdapter()
 
 void CdmAdapter::Initialize()
 {
-  exit_thread_flag = false;
-  timer_thread_running = false;
   if (cdm9_ || cdm10_ || cdm11_)
   {
     if (cdm9_)
@@ -328,11 +307,6 @@ void CdmAdapter::CloseSession(uint32_t promise_id,
   const char* session_id,
   uint32_t session_id_size)
 {
-  exit_thread_flag = true;
-  while (timer_thread_running) 
-  {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
   if (cdm9_)
     cdm9_->CloseSession(promise_id, session_id, session_id_size);
   else if (cdm10_)
@@ -501,9 +475,7 @@ cdm::Buffer* CdmAdapter::Allocate(uint32_t capacity)
 
 void CdmAdapter::SetTimer(int64_t delay_ms, void* context)
 {
-  //LICENSERENEWAL
-  exit_thread_flag = false;
-  std::thread(timerfunc, shared_from_this(), delay_ms, context).detach();
+  //LICENSERENEWAL std::thread(timerfunc, shared_from_this(), delay_ms, context).detach();
 }
 
 cdm::Time CdmAdapter::GetCurrentWallTime()
