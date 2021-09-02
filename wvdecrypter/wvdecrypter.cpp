@@ -1234,8 +1234,8 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   CdmDecryptedBlock cdm_out;
   cdm_out.SetDecryptedBuffer(&buf);
 
-  //LICENSERENEWAL: 
-  CheckLicenseRenewal();
+  //LICENSERENEWAL: CheckLicenseRenewal();
+
   cdm::Status ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
 
   if (ret == cdm::Status::kSuccess && useSingleDecrypt)
@@ -1331,8 +1331,8 @@ SSD_DECODE_RETVAL WV_CencSingleSampleDecrypter::DecodeVideo(void* hostInstance, 
       drained_ = false;
 
     //DecryptAndDecode calls Alloc wich cals kodi VideoCodec. Set instance handle.
-    //LICENSERENEWAL:
-    CheckLicenseRenewal();
+    //LICENSERENEWAL: CheckLicenseRenewal();
+
     media::CdmVideoFrame frame;
     cdm::Status ret = drm_.DecryptAndDecodeFrame(hostInstance, cdm_in, &frame);
 
