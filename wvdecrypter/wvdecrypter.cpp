@@ -306,7 +306,7 @@ private:
   std::shared_ptr<media::CdmAdapter> wv_adapter;
   std::string license_url_;
   void *host_instance_;
-
+  bool sessionAlive;
   std::vector<WV_CencSingleSampleDecrypter*> ssds;
 };
 
@@ -360,7 +360,7 @@ WV_DRM::WV_DRM(const char* licenseURL, const AP4_DataBuffer &serverCert, const u
     wv_adapter = nullptr;
     return;
   }
-
+  sessionAlive = true;
   if (serverCert.GetDataSize())
     wv_adapter->SetServerCertificate(0, serverCert.GetData(), serverCert.GetDataSize());
 
@@ -377,7 +377,12 @@ WV_DRM::~WV_DRM()
   if (wv_adapter)
   {
     wv_adapter->RemoveClient();
+    Log(SSD_HOST::LL_DEBUG, "Closing wv_adapter...");
     wv_adapter = nullptr;
+    while (sessionAlive)
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    Log(SSD_HOST::LL_DEBUG, "wv_adapter session closed");
+
   }
 }
 
@@ -397,6 +402,8 @@ void WV_DRM::OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG 
     (*b)->SetSession(session, session_size, data, data_size);
     (*b)->SetSessionActive();
   }
+  else if (msg == CDMADPMSG::kSessionClosed)
+    sessionAlive = false;
   else if (msg == CDMADPMSG::kSessionKeysChange)
     (*b)->AddSessionKey(data, data_size, status);
 };
