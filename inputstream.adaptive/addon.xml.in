@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="2.6.23"
+  version="20.0.0"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,12 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v20.0.0 (2021-09-14)
+- Change test builds to 'Kodi 20 Nexus'
+- Increase version to 20.0.0
+  - With start of Kodi 20 Nexus, takes addon as major the same version number as Kodi.
+    This done to know easier to which Kodi the addon works.
+
 v2.6.23 (2021-08-06)
 - Translations from weblate - de_de, ja_jp, ko_kr
  - [Android] use multiple drm sessions (solves stuttering)
