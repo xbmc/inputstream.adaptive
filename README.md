@@ -1,3 +1,8 @@
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/License-GPL%20v2+-blue.svg)](LICENSE.GPL)
+[![Build Status](https://dev.azure.com/teamkodi/binary-addons/_apis/build/status/xbmc.inputstream.adaptive?branchName=Matrix)](https://dev.azure.com/teamkodi/binary-addons/_build/latest?definitionId=79&branchName=Matrix)
+[![Build and run tests](https://github.com/xbmc/inputstream.adaptive/actions/workflows/build.yml/badge.svg?branch=Matrix)](https://github.com/xbmc/inputstream.adaptive/actions/workflows/build.yml)
+[![Build Status](https://jenkins.kodi.tv/view/Addons/job/xbmc/job/inputstream.adaptive/job/Matrix/badge/icon)](https://jenkins.kodi.tv/blue/organizations/jenkins/xbmc%2Finputstream.rtmp/branches/)
+
 # inputstream.adaptive
 
 This is an adaptive file addon for kodi's new InputStream Interface.

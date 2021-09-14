@@ -23,7 +23,7 @@ environment:
 
 build_script:
   - cd ..
-  - git clone --branch master --depth=1 https://github.com/xbmc/xbmc.git
+  - git clone --branch Matrix --depth=1 https://github.com/xbmc/xbmc.git
   - cd %app_id%
   - mkdir build
   - cd build
