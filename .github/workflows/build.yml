@@ -22,7 +22,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         repository: xbmc/xbmc
-        ref: Matrix
+        ref: master
         path: xbmc
     - name: Checkout inputstream.adaptive repo
       uses: actions/checkout@v2
