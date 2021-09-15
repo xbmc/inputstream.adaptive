@@ -549,15 +549,23 @@ bool AdaptiveStream::ensureSegment()
       uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
       uint32_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
       AdaptiveTree::Representation* newRep;
+      bool lastSeg =
+          (current_period_ != tree_.periods_.back() &&
+           nextsegmentPosold + available_segment_buffers_ == current_rep_->segments_.size() - 1);
+      
       if (segment_buffers_[0].segment_number == ~0L || valid_segment_buffers_ == 0 ||
           current_adp_->type_ != AdaptiveTree::VIDEO)
       {
         newRep = current_rep_;
       }
+      else if (lastSeg) // Don't change reps on last segment of period, use the rep of preceeding seg
+      {
+        newRep = segment_buffers_[valid_segment_buffers_ - 1].rep;
+      }
       else
       {
         newRep = tree_.ChooseNextRepresentation(current_adp_,
-                                                segment_buffers_[valid_segment_buffers_ - 1].rep,
+                                                segment_buffers_[valid_segment_buffers_].rep,
                                                 &valid_segment_buffers_,&available_segment_buffers_,
                                                 &assured_buffer_length_,
                                                 &max_buffer_length_,
