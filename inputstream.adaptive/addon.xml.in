@@ -222,6 +222,7 @@ v2.3.14 (2019-02-10)
     <summary lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</summary>
     <summary lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</summary>
     <summary lang="ru_RU">InputStream клиент для адаптивных трансляций</summary>
+    <summary lang="zh_CN">用于自适应流的 InputStream 客户端</summary>
     <description lang="ca_ES">Client InputStream per a transmissions adaptatives</description>
     <description lang="da_DK">InputStream-klient til adaptive streams</description>
     <description lang="de_DE">InputStream-Client für adaptive Streams</description>
@@ -232,5 +233,6 @@ v2.3.14 (2019-02-10)
     <description lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</description>
     <description lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</description>
     <description lang="ru_RU">InputStream клиент для адаптивных трансляций</description>
+    <description lang="zh_CN">用于自适应流的 InputStream 客户端</description>
   </extension>
 </addon>
