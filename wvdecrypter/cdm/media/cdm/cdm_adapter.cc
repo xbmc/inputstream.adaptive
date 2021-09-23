@@ -517,11 +517,13 @@ cdm::Buffer* CdmAdapter::Allocate(uint32_t capacity)
 void CdmAdapter::SetTimer(int64_t delay_ms, void* context)
 {
   //LICENSERENEWAL
+  #ifndef ANDROID
   if (session_active_)
   {
     exit_thread_flag = false;
     std::thread(timerfunc, shared_from_this(), delay_ms, context).detach();
   }
+  #endif
 }
 
 cdm::Time CdmAdapter::GetCurrentWallTime()
