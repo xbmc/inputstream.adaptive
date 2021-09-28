@@ -42,30 +42,22 @@ namespace adaptive
   class ATTRIBUTE_HIDDEN AdaptiveStream
   {
   public:
-    AdaptiveStream(AdaptiveTree &tree, AdaptiveTree::StreamType type);
+    AdaptiveStream(AdaptiveTree& tree,
+                   AdaptiveTree::AdaptationSet* adp,
+                   const std::map<std::string, std::string>& media_headers,
+                   bool play_timeshift_buffer,
+                   size_t repId,
+                   bool choose_rep_);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
-    bool prepare_stream(AdaptiveTree::AdaptationSet* adp,
-                        const uint32_t width,
-                        const uint32_t height,
-                        uint32_t hdcpLimit,
-                        uint16_t hdcpVersion,
-                        uint32_t min_bandwidth,
-                        uint32_t max_bandwidth,
-                        unsigned int repId,
-                        const std::map<std::string, std::string>& media_headers);
-    bool start_stream(const uint32_t seg_offset, uint16_t width, uint16_t height, bool play_timeshift_buffer);
-    bool restart_stream();
-    bool select_stream(bool force = false, bool justInit = false, unsigned int repId = 0);
+    void Reset();
+    bool start_stream();
     void stop();
     void clear();
     void info(std::ostream &s);
-    unsigned int getWidth() const { return width_; };
-    unsigned int getHeight() const { return height_; };
-    unsigned int getBandwidth() const { return bandwidth_; };
     uint64_t getMaxTimeMs();
 
-    unsigned int get_type()const{ return type_; };
+    unsigned int get_type()const{ return current_adp_->type_; };
 
     bool ensureSegment();
     uint32_t read(void* buffer, uint32_t  bytesToRead);
@@ -76,30 +68,60 @@ namespace adaptive
     AdaptiveTree::Period* getPeriod() { return current_period_; };
     AdaptiveTree::AdaptationSet* getAdaptationSet() { return current_adp_; };
     AdaptiveTree::Representation* getRepresentation() { return current_rep_; };
-    double get_download_speed() const { return tree_.get_download_speed(); };
-    void set_download_speed(double speed) { tree_.set_download_speed(speed); };
     size_t getSegmentPos() { return current_rep_->getCurrentSegmentPos(); };
     uint64_t GetCurrentPTSOffset() { return currentPTSOffset_; };
     uint64_t GetAbsolutePTSOffset() { return absolutePTSOffset_; };
     bool waitingForSegment(bool checkTime = false) const;
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
+    bool StreamChanged() { return stream_changed_; }
   protected:
-    virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
-    virtual bool parseIndexRange() { return false; };
-    bool write_data(const void *buffer, size_t buffer_size);
-    bool prepareDownload(const AdaptiveTree::Segment *seg);
-    adaptive::AdaptiveTree& GetTree() { return tree_; };
+    virtual bool download(const char* url,
+                          const std::map<std::string, std::string>& mediaHeaders,
+                          std::string* lockfreeBuffer)
+    {
+      return false;
+    };
+    virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer)
+    {
+      return false;
+    };
+    bool write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer);
     virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+    virtual bool download_segment();
+    std::string download_url_;
+    std::map<std::string, std::string> media_headers_, download_headers_;
+    struct SEGMENTBUFFER
+    {
+      std::string buffer;
+      AdaptiveTree::Segment segment;
+      unsigned int segment_number;
+      AdaptiveTree::Representation* rep;
+    };
+    std::vector<SEGMENTBUFFER> segment_buffers_;
+
 
   private:
+    enum STATE
+    {
+      RUNNING,
+      STOPPED,
+      PAUSED
+    } state_;
+
     // Segment download section
-    void ResetSegment();
-    bool download_segment();
+    void ResetSegment(const AdaptiveTree::Segment* segment);
+    void ResetActiveBuffer(bool oneValid);
+    void StopWorker(STATE state);
     void worker();
+    bool prepareNextDownload();
+    bool prepareDownload(const AdaptiveTree::Representation* rep,
+                         const AdaptiveTree::Segment* seg,
+                         unsigned int segNum);
     int SecondsSinceUpdate() const;
-    static void ReplacePlaceholder(std::string &url, const std::string placeholder, uint64_t value);
+    static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
+    bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
 
     struct THREADDATA
     {
@@ -117,7 +139,8 @@ namespace adaptive
       {
         thread_stop_ = true;
         signal_dl_.notify_one();
-        download_thread_.join();
+        if (download_thread_.joinable())
+          download_thread_.join();
       };
 
       std::mutex mutex_rw_, mutex_dl_;
@@ -128,30 +151,35 @@ namespace adaptive
     THREADDATA *thread_data_;
 
     AdaptiveTree &tree_;
-    AdaptiveTree::StreamType type_;
     AdaptiveStreamObserver *observer_;
     // Active configuration
     AdaptiveTree::Period* current_period_;
     AdaptiveTree::AdaptationSet* current_adp_;
     AdaptiveTree::Representation *current_rep_;
-    std::string download_url_;
-    //We assume that a single segment can build complete frames
-    std::string segment_buffer_;
-    std::map<std::string, std::string> media_headers_, download_headers_;
+
+    static const size_t MAXSEGMENTBUFFER;
+    // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
+    size_t available_segment_buffers_;
+    // number of segment_buffers which are downloaded / downloading
+    uint32_t assured_buffer_length_;
+    uint32_t max_buffer_length_; 
+    size_t valid_segment_buffers_;
+    uint32_t rep_counter_;
+    AdaptiveTree::Representation *prev_rep_; // used for rep_counter_
+    AdaptiveTree::Representation* last_rep_; // used to align new live rep with old
+
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
 
-    uint16_t width_, height_;
-    uint32_t bandwidth_;
-    uint32_t hdcpLimit_;
-    uint16_t hdcpVersion_;
     uint16_t download_pssh_set_;
     unsigned int download_segNum_;
-    bool stopped_;
+    bool worker_processing_;
     uint8_t m_iv[16];
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
+    bool stream_changed_ = false;
+    bool choose_rep_;
   };
 };

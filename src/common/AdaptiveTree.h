@@ -135,6 +135,7 @@ public:
   struct Segment
   {
     void SetRange(const char *range);
+    void Copy(const Segment* src);
     uint64_t range_begin_ = 0; //Either byterange start or timestamp or ~0
     uint64_t range_end_ = 0; //Either byterange end or sequence_id if range_begin is ~0
     const char *url = nullptr;
@@ -180,6 +181,9 @@ public:
     uint16_t width_, height_;
     uint32_t fpsRate_, fpsScale_;
     float aspect_;
+
+    uint32_t assured_buffer_duration_;
+    uint32_t max_buffer_duration_;
     //Flags
     static const uint16_t BYTERANGE = 0;
     static const uint16_t INDEXRANGEEXACT = 1;
@@ -194,6 +198,7 @@ public:
     static const uint16_t WAITFORSEGMENT = 512;
     static const uint16_t INITIALIZATION_PREFIXED = 1024;
     static const uint16_t DOWNLOADED = 2048;
+    static const uint16_t INITIALIZED = 4096;
 
     uint16_t flags_;
     uint16_t hdcpVersion_;
@@ -213,6 +218,7 @@ public:
     uint32_t timescale_ext_, timescale_int_;
     Segment initialization_;
     SPINCACHE<Segment> segments_;
+    std::chrono::time_point<std::chrono::system_clock> repLastUpdated_;
     const Segment *current_segment_;
     const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
     const Segment *get_next_segment(const Segment *seg)const
@@ -250,6 +256,11 @@ public:
       return current_segment_ ? get_segment_pos(current_segment_) + startNumber_ : ~0U;
     };
 
+    uint32_t getSegmentNumber(const Segment *segment) const
+    {
+      return segment ? get_segment_pos(segment) + startNumber_ : ~0U;
+    };
+
     void SetScaling()
     {
       if (!timescale_)
@@ -275,7 +286,7 @@ public:
 
   struct AdaptationSet
   {
-    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false){ language_ = "unk"; };
+    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), best_rep_(0), min_rep_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false) { language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
     void CopyBasicData(AdaptationSet* src);
     StreamType type_;
@@ -292,6 +303,8 @@ public:
     std::string audio_track_id_;
     std::string name_;
     std::vector<Representation*> representations_;
+    Representation* best_rep_;
+    Representation* min_rep_;
     SPINCACHE<uint32_t> segment_durations_;
     SegmentTemplate segtpl_;
 
@@ -413,6 +426,18 @@ public:
     SegmentTemplate segtpl_;
   }*current_period_, *next_period_;
 
+  struct RepresentationChooser
+  {
+    virtual Representation* ChooseRepresentation(AdaptationSet* adp) = 0;
+  virtual Representation* ChooseNextRepresentation(AdaptationSet* adp , 
+                                                Representation* rep,  
+                                                size_t *available_segment_buffers_,
+                                                size_t *valid_segment_buffers_,
+                                                uint32_t *assured_buffer_length_,
+                                                uint32_t * max_buffer_length_, 
+                                                uint32_t rep_counter_) = 0;
+  } *representation_chooser_ = nullptr;
+
   std::vector<Period*> periods_;
   std::string manifest_url_;
   std::string base_url_;
@@ -431,10 +456,7 @@ public:
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;
 
-  uint32_t bandwidth_;
   std::map<std::string, std::string> manifest_headers_;
-
-  double download_speed_, average_download_speed_;
 
   std::string supportedKeySystem_, location_;
 
@@ -463,6 +485,7 @@ public:
   {
     return PREPARE_RESULT_OK;
   };
+  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep) { return std::chrono::system_clock::now(); }
   virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
@@ -472,9 +495,6 @@ public:
   bool has_type(StreamType t);
   void FreeSegments(Period* period, Representation* rep);
   uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
-  double get_download_speed() const { return download_speed_; };
-  double get_average_download_speed() const { return average_download_speed_; };
-  void set_download_speed(double speed);
   void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale);
   uint16_t insert_psshset(StreamType type, Period* period = nullptr, AdaptationSet* adp = nullptr);
 
@@ -492,6 +512,30 @@ public:
   bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
+
+  Representation* ChooseRepresentation(AdaptationSet* adp)
+  {
+    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp) : nullptr;
+  };
+  Representation* ChooseNextRepresentation(AdaptationSet* adp, 
+                                      Representation* rep,  
+                                      size_t *available_segment_buffers_,
+                                      size_t *valid_segment_buffers_,
+                                      uint32_t *assured_buffer_length_,
+                                      uint32_t * max_buffer_length_, 
+                                      uint32_t rep_counter_)
+  {
+    return representation_chooser_ ? representation_chooser_->ChooseNextRepresentation(adp,rep,available_segment_buffers_,
+                                                                                      valid_segment_buffers_, assured_buffer_length_,
+                                                                                      max_buffer_length_, rep_counter_) : nullptr;
+  };
+
+  int SecondsSinceRepUpdate(Representation* rep)
+  {
+    return static_cast<int>(
+      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - GetRepLastUpdated(rep))
+      .count());
+  }
 
 protected:
   virtual bool download(const char* url,
