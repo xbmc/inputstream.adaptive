@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="20.0.0"
+  version="20.0.1"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,10 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v20.0.1 (2021-09-28)
+- Translations updates from Weblate
+	- en_gb
+
 v20.0.0 (2021-09-14)
 - Change test builds to 'Kodi 20 Nexus'
 - Increase version to 20.0.0
