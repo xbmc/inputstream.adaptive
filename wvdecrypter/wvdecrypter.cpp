@@ -33,7 +33,7 @@
 #error  "WIDEVINECDMFILENAME must be set"
 #endif
 
-#define LOCLICENSE 1
+//#define LOCLICENSE
 
 using namespace SSD;
 
