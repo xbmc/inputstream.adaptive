@@ -18,7 +18,26 @@
 
 #include "WebVTT.h"
 #include "../helpers.h"
+#include "../log.h"
 #include <cstring>
+
+constexpr const char* signatureCharsBOM = "\xEF\xBB\xBF\x57\x45\x42\x56\x54\x54";
+constexpr const char* signatureChars = "\x57\x45\x42\x56\x54\x54";
+constexpr char signatureLastChars[] = {'\x0A', '\x0D', '\x20', '\x09'};
+
+static bool ValidateSignature(const char* data, const char* signature)
+{
+  if (std::strlen(data) > std::strlen(signature))
+  {
+    if (std::strncmp(data, signature, std::strlen(signature)) == 0)
+    {
+      // Check if last char is valid
+      if (std::strchr(signatureLastChars, data[std::strlen(signature)]) != NULL)
+        return true;
+    }
+  }
+  return false;
+}
 
 bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
 {
@@ -136,11 +155,11 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
       }
       else
       {
-        //TODO: BOM
-        while (cbuf < next && *cbuf != 'W')
-          ++cbuf;
-        if (strncmp(cbuf, "WEBVTT", 6) == 0)
+        // Check WEBVTT signature
+        if (ValidateSignature(cbuf, signatureCharsBOM) || ValidateSignature(cbuf, signatureChars))
           webvtt_visited = true;
+        else
+          kodi::Log(ADDON_LOG_ERROR, "WebVTT signature not valid");
       }
 
       cbuf = next;
