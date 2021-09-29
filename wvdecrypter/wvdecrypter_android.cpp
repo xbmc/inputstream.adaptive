@@ -36,7 +36,7 @@ using namespace SSD;
 
 SSD_HOST *host = 0;
 
-#define LOCLICENSE 1
+//#define LOCLICENSE
 
 void Log(unsigned int loglevel, const char *format, ...)
 {
