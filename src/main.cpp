@@ -3852,7 +3852,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     const AP4_UI08* pData(sr->GetSampleData());
     DEMUX_PACKET* p;
 
-    if (iSize && pData && sr->IsEncrypted())
+    if (sr->IsEncrypted() && iSize > 0 && pData)
     {
       unsigned int numSubSamples(*((unsigned int*)pData));
       pData += sizeof(numSubSamples);
@@ -3871,13 +3871,16 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     else
       p = AllocateDemuxPacket(iSize);
 
-    p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
-    p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
-    p->duration = static_cast<double>(sr->GetDuration());
-    p->iStreamId = sr->GetStreamId();
-    p->iGroupId = 0;
-    p->iSize = iSize;
-    memcpy(p->pData, pData, iSize);
+    if (iSize > 0 && pData)
+    {
+      p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
+      p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
+      p->duration = static_cast<double>(sr->GetDuration());
+      p->iStreamId = sr->GetStreamId();
+      p->iGroupId = 0;
+      p->iSize = iSize;
+      memcpy(p->pData, pData, iSize);
+    }
 
     //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
