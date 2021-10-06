@@ -3066,10 +3066,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
       maxSeek = 0;
 
     if (seekTime > maxSeek)
-    {
       seekTime = maxSeek;
-      preceeding = true;
-    }
   }
 
   // correct for starting segment pts value of chapter and chapter offset within program
