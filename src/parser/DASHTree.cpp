@@ -1068,6 +1068,8 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       }
       else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
         dash->available_time_ = getTime((const char*)*(attr + 1));
+      else if (strcmp((const char*)*attr, "suggestedPresentationDelay") == 0)
+        AddDuration((const char*)*(attr + 1), dash->live_delay_, 1);
       else if (strcmp((const char*)*attr, "minimumUpdatePeriod") == 0)
       {
         uint64_t dur(0);

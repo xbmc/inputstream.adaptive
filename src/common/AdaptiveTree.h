@@ -466,7 +466,7 @@ public:
   uint32_t currentNode_;
   uint32_t segcount_;
   uint32_t initial_sequence_ = ~0UL;
-  uint64_t overallSeconds_, stream_start_, available_time_, base_time_;
+  uint64_t overallSeconds_, stream_start_, available_time_, base_time_, live_delay_;
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;
 

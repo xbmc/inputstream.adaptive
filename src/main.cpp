@@ -2295,6 +2295,10 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
   drmConfig_ = config;
 
+  // Always need at least 16s delay from live
+  if (adaptiveTree_->live_delay_ < 16)
+    adaptiveTree_->live_delay_ = 16;
+
   return InitializePeriod();
 }
 
@@ -3051,13 +3055,19 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   // don't try to seek past the end of the stream, leave a sensible amount so we can buffer properly
   if (adaptiveTree_->has_timeshift_buffer_)
   {
+    double maxSeek(0);
     uint64_t curTime, maxTime(0);
     for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
       if ((*b)->enabled && (curTime = (*b)->stream_.getMaxTimeMs()) && curTime > maxTime)
         maxTime = curTime;
-    if (seekTime > (static_cast<double>(maxTime) / 1000) - 12)
+
+    maxSeek = (static_cast<double>(maxTime) / 1000) - adaptiveTree_->live_delay_;
+    if (maxSeek < 0)
+      maxSeek = 0;
+
+    if (seekTime > maxSeek)
     {
-      seekTime = (static_cast<double>(maxTime) / 1000) - 12;
+      seekTime = maxSeek;
       preceeding = true;
     }
   }
