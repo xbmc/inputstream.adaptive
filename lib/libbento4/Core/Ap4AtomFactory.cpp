@@ -85,6 +85,9 @@
 #include "Ap4GrpiAtom.h"
 #include "Ap4AvccAtom.h"
 #include "Ap4HvccAtom.h"
+#include "Ap4DvccAtom.h"
+#include "Ap4VpccAtom.h"
+#include "Ap4Av1cAtom.h"
 #include "Ap4Marlin.h"
 #include "Ap48bdlAtom.h"
 #include "Ap4Piff.h"
@@ -99,13 +102,12 @@
 #include "Ap4BlocAtom.h"
 #include "Ap4AinfAtom.h"
 #include "Ap4PsshAtom.h"
-#include "Ap4Dec3Atom.h"
 #include "Ap4Dac3Atom.h"
+#include "Ap4Dec3Atom.h"
+#include "Ap4Dac4Atom.h"
 #include "Ap4SidxAtom.h"
 #include "Ap4SbgpAtom.h"
 #include "Ap4SgpdAtom.h"
-#include "Ap4TrafAtom.h"
-#include "Ap4VpcCAtom.h"
 
 /*----------------------------------------------------------------------
 |   AP4_AtomFactory::~AP4_AtomFactory
@@ -198,6 +200,12 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
         stream.GetSize(stream_size);
         if (stream_size >= start) {
             size = stream_size - start;
+
+            if (size <= 0xFFFFFFFF) {
+                size_32 = (AP4_UI32)size;
+            } else {
+                size_32 = 1; // signal a large atom
+            }
         }
     } else if (size == 1) {
         // 64-bit size
@@ -207,6 +215,10 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
             return AP4_ERROR_INVALID_FORMAT;
         }
         stream.ReadUI64(size);
+        if (size < 16) {
+            stream.Seek(start);
+            return AP4_ERROR_INVALID_FORMAT;
+        }
         if (size <= 0xFFFFFFFF) {
             force_64 = true;
         }
@@ -263,7 +275,7 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
                                       AP4_Atom*&      atom)
 {
     bool atom_is_large = (size_32 == 1);
-    bool force_64 = (size_32==1 && ((size_64>>32) == 0));
+    bool force_64 = (size_32 == 1 && ((size_64 >> 32) == 0));
     
     // create the atom
     if (GetContext() == AP4_ATOM_TYPE_STSD) {
@@ -302,24 +314,50 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
           case AP4_ATOM_TYPE_AVC2:
           case AP4_ATOM_TYPE_AVC3:
           case AP4_ATOM_TYPE_AVC4:
+          case AP4_ATOM_TYPE_DVAV:
+          case AP4_ATOM_TYPE_DVA1:
             atom = new AP4_AvcSampleEntry(type, size_32, stream, *this);
             break;
 
           case AP4_ATOM_TYPE_HEV1:
           case AP4_ATOM_TYPE_HVC1:
+          case AP4_ATOM_TYPE_DVHE:
+          case AP4_ATOM_TYPE_DVH1:
             atom = new AP4_HevcSampleEntry(type, size_32, stream, *this);
             break;
 
-          case AP4_ATOM_TYPE_ALAC:
+          case AP4_ATOM_TYPE_AV01:
+            atom = new AP4_Av1SampleEntry(type, size_32, stream, *this);
+            break;
+
           case AP4_ATOM_TYPE_AC_3:
+            atom = new AP4_Ac3SampleEntry(type, size_32, stream, *this);
+            break;
+
           case AP4_ATOM_TYPE_EC_3:
+            atom = new AP4_Eac3SampleEntry(type, size_32, stream, *this);
+            break;
+
+          case AP4_ATOM_TYPE_AC_4:
+            atom = new AP4_Ac4SampleEntry(type, size_32, stream, *this);
+            break;
+
+          case AP4_ATOM_TYPE_ALAC:
           case AP4_ATOM_TYPE_DTSC:
           case AP4_ATOM_TYPE_DTSH:
           case AP4_ATOM_TYPE_DTSL:
           case AP4_ATOM_TYPE_DTSE:
+          case AP4_ATOM_TYPE_FLAC:
+          case AP4_ATOM_TYPE_OPUS:
             atom = new AP4_AudioSampleEntry(type, size_32, stream, *this);
             break;
             
+          case AP4_ATOM_TYPE_VP08:
+          case AP4_ATOM_TYPE_VP09:
+          case AP4_ATOM_TYPE_VP10:
+            atom = new AP4_VisualSampleEntry(type, size_32, stream, *this);
+            break;
+
           case AP4_ATOM_TYPE_RTP_:
             atom = new AP4_RtpHintSampleEntry(size_32, stream, *this);
             break;
@@ -478,6 +516,38 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
           case AP4_ATOM_TYPE_HVCC:
             if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
             atom = AP4_HvccAtom::Create(size_32, stream);
+            break;
+
+          case AP4_ATOM_TYPE_DVCC:
+          case AP4_ATOM_TYPE_DVVC:
+            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
+            atom = AP4_DvccAtom::Create(size_32, stream);
+            break;
+
+          case AP4_ATOM_TYPE_VPCC:
+            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
+            atom = AP4_VpccAtom::Create(size_32, stream);
+            break;
+
+          case AP4_ATOM_TYPE_AV1C:
+            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
+            atom = AP4_Av1cAtom::Create(size_32, stream);
+            break;
+
+          case AP4_ATOM_TYPE_HVCE:
+            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
+            atom = AP4_HvccAtom::Create(size_32, stream);
+            if (atom) {
+                atom->SetType(AP4_ATOM_TYPE_HVCE);
+            }
+            break;
+
+          case AP4_ATOM_TYPE_AVCE:
+            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
+            atom = AP4_AvccAtom::Create(size_32, stream);
+            if (atom) {
+                atom->SetType(AP4_ATOM_TYPE_AVCE);
+            }
             break;
 
     #if !defined(AP4_CONFIG_MINI_BUILD)
@@ -679,11 +749,6 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
             atom = AP4_SgpdAtom::Create(size_32, stream);
             break;
 
-          case AP4_ATOM_TYPE_VPCC:
-            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
-            atom = AP4_VpcCAtom::Create(size_32, stream);
-            break;
-
           case AP4_ATOM_TYPE_MKID:
             if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
             if (GetContext() == AP4_ATOM_TYPE_MARL) {
@@ -693,22 +758,24 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
 
           case AP4_ATOM_TYPE_DAC3:
             if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
-            if (GetContext() == AP4_ATOM_TYPE_AC_3) {
-              atom = AP4_Dac3Atom::Create(size_32, stream);
+            if (GetContext() == AP4_ATOM_TYPE_AC_3 || GetContext() == AP4_ATOM_TYPE_ENCA) {
+                atom = AP4_Dac3Atom::Create(size_32, stream);
             }
             break;
 
           case AP4_ATOM_TYPE_DEC3:
             if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
-            if (GetContext() == AP4_ATOM_TYPE_EC_3) {
+            if (GetContext() == AP4_ATOM_TYPE_EC_3 || GetContext() == AP4_ATOM_TYPE_ENCA) {
                 atom = AP4_Dec3Atom::Create(size_32, stream);
             }
             break;
 
-		  case AP4_ATOM_TYPE_TRAF:
-			  if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
-			  atom = AP4_TrafAtom::Create(type, size_64, force_64, stream, *this);
-			  break;
+          case AP4_ATOM_TYPE_DAC4:
+            if (atom_is_large) return AP4_ERROR_INVALID_FORMAT;
+            if (GetContext() == AP4_ATOM_TYPE_AC_4 || GetContext() == AP4_ATOM_TYPE_ENCA) {
+                atom = AP4_Dac4Atom::Create(size_32, stream);
+            }
+            break;
 
           // track ref types
           case AP4_ATOM_TYPE_HINT:
@@ -730,6 +797,7 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
           // container atoms
           case AP4_ATOM_TYPE_MOOF:
           case AP4_ATOM_TYPE_MVEX:
+          case AP4_ATOM_TYPE_TRAF:
           case AP4_ATOM_TYPE_TREF:
           case AP4_ATOM_TYPE_MFRA:
           case AP4_ATOM_TYPE_HNTI:
@@ -858,7 +926,7 @@ AP4_AtomFactory::GetContext(AP4_Ordinal depth)
 /*----------------------------------------------------------------------
 |   AP4_DefaultAtomFactory::Instance
 +---------------------------------------------------------------------*/
-AP4_DefaultAtomFactory AP4_DefaultAtomFactory::Instance;
+AP4_DefaultAtomFactory AP4_DefaultAtomFactory::Instance_;
 
 /*----------------------------------------------------------------------
 |   AP4_DefaultAtomFactory::Instance

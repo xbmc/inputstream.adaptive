@@ -62,8 +62,7 @@ public:
 
     // accessors
     AP4_UI32 GetTrackId()                       { return m_TrackId;                       }
-	void SetTrackId(AP4_UI32 id)                { m_TrackId = id; }
-	AP4_UI32 GetDefaultSampleDescriptionIndex() { return m_DefaultSampleDescriptionIndex; }
+    AP4_UI32 GetDefaultSampleDescriptionIndex() { return m_DefaultSampleDescriptionIndex; }
     AP4_UI32 GetDefaultSampleDuration()         { return m_DefaultSampleDuration;         }
     AP4_UI32 GetDefaultSampleSize()             { return m_DefaultSampleSize;             }
     AP4_UI32 GetDefaultSampleFlags()            { return m_DefaultSampleFlags;            }

@@ -46,6 +46,7 @@ AP4_SaioAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version > 1) return NULL;
     return new AP4_SaioAtom(size, version, flags, stream);
@@ -163,14 +164,14 @@ AP4_SaioAtom::InspectFields(AP4_AtomInspector& inspector)
         inspector.AddField("aux info type", m_AuxInfoType, AP4_AtomInspector::HINT_HEX);
         inspector.AddField("aux info type parameter", m_AuxInfoTypeParameter, AP4_AtomInspector::HINT_HEX);
     }
-    inspector.AddField("entry count", m_Entries.ItemCount());
+    inspector.AddField("entry_count", m_Entries.ItemCount());
 
     if (inspector.GetVerbosity() >= 2) {
-        char header[32];
+        inspector.StartArray("entries", m_Entries.ItemCount());
         for (AP4_Ordinal i=0; i<m_Entries.ItemCount(); i++) {
-            AP4_FormatString(header, sizeof(header), "entry %8d", i);
-            inspector.AddField(header, m_Entries[i]);
+            inspector.AddField(NULL, m_Entries[i]);
         }
+        inspector.EndArray();
     }
 
     return AP4_SUCCESS;

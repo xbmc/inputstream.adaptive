@@ -35,7 +35,6 @@
 #include "Ap4TimsAtom.h"
 #include "Ap4SampleDescription.h"
 #include "Ap4AvccAtom.h"
-#include "Ap4Dac3Atom.h"
 
 /*----------------------------------------------------------------------
 |   dynamic cast support
@@ -45,7 +44,7 @@ AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_SampleEntry)
 /*----------------------------------------------------------------------
 |   AP4_SampleEntry::AP4_SampleEntry
 +---------------------------------------------------------------------*/
-AP4_SampleEntry::AP4_SampleEntry(AP4_Atom::Type format) :
+AP4_SampleEntry::AP4_SampleEntry(AP4_Atom::Type format, const AP4_AtomParent* details) :
     AP4_ContainerAtom(format),
     m_DataReferenceIndex(1)
 {
@@ -56,6 +55,10 @@ AP4_SampleEntry::AP4_SampleEntry(AP4_Atom::Type format) :
     m_Reserved1[4] = 0;
     m_Reserved1[5] = 0;
     m_Size32 += 8;
+    
+    if (details) {
+        details->CopyChildren(*this);
+    }
 }
 
 /*----------------------------------------------------------------------
@@ -455,10 +458,6 @@ AP4_AudioSampleEntry::GetChannelCount()
     if (m_QtVersion == 2) {
         return (AP4_UI16)m_QtV2ChannelCount;
     } else {
-        AP4_Atom *child;
-        if (GetType() == AP4_ATOM_TYPE_AC_3 && (child = GetChild(AP4_ATOM_TYPE_DAC3)))
-          return AP4_DYNAMIC_CAST(AP4_Dac3Atom, child)->GetChannels();
-
         return m_ChannelCount;
     }
 }
@@ -680,6 +679,148 @@ AP4_MpegAudioSampleEntry::ToSampleDescription()
 }
 
 /*----------------------------------------------------------------------
+ |   AP4_Ac3SampleEntry::AP4_Ac3SampleEntry
+ +---------------------------------------------------------------------*/
+AP4_Ac3SampleEntry::AP4_Ac3SampleEntry(AP4_UI32             format,
+                                       AP4_UI32             sample_rate,
+                                       AP4_UI16             sample_size,
+                                       AP4_UI16             channel_count,
+                                       const AP4_AtomParent *details):
+    AP4_AudioSampleEntry(format, sample_rate, sample_size, channel_count)
+{
+    if (details){
+        AP4_AtomParent* parent = new AP4_AtomParent();
+        details->CopyChildren(*parent);
+        AP4_Atom* child = parent->GetChild(AP4_ATOM_TYPE_DAC3);
+        child->Detach();
+        AddChild(child);
+    }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Ac3SampleEntry::AP4_Ac3SampleEntry
++---------------------------------------------------------------------*/
+AP4_Ac3SampleEntry::AP4_Ac3SampleEntry(AP4_UI32         type,
+                                       AP4_Size         size,
+                                       AP4_ByteStream&  stream,
+                                       AP4_AtomFactory& atom_factory) :
+    AP4_AudioSampleEntry(type, size, stream, atom_factory)
+{
+}
+
+/*----------------------------------------------------------------------
+ |   AP4_Ac3SampleEntry::ToSampleDescription
+ +---------------------------------------------------------------------*/
+AP4_SampleDescription*
+AP4_Ac3SampleEntry::ToSampleDescription()
+{
+    // find the dac3 atom
+    AP4_Dac3Atom* dac3 = AP4_DYNAMIC_CAST(AP4_Dac3Atom, GetChild(AP4_ATOM_TYPE_DAC3));
+    if (dac3 == NULL) {
+        return NULL;
+    }else{
+        return new AP4_Ac3SampleDescription(GetSampleRate(),
+                                            GetSampleSize(),
+                                            GetChannelCount(),
+                                            dac3);
+    }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Eac3SampleEntry::AP4_Eac3SampleEntry
++---------------------------------------------------------------------*/
+AP4_Eac3SampleEntry::AP4_Eac3SampleEntry(AP4_UI32             format,
+                                         AP4_UI32             sample_rate,
+                                         AP4_UI16             sample_size,
+                                         AP4_UI16             channel_count,
+                                         const AP4_AtomParent *details): 
+    AP4_AudioSampleEntry(format, sample_rate, sample_size, channel_count)
+{
+    if (details){ 
+        AP4_Atom* child = details->GetChild(AP4_ATOM_TYPE_DEC3)->Clone();
+        AddChild(child);
+    }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Eac3SampleEntry::AP4_Eac3SampleEntry
++---------------------------------------------------------------------*/
+AP4_Eac3SampleEntry::AP4_Eac3SampleEntry(AP4_UI32         type,
+                                         AP4_Size         size,
+                                         AP4_ByteStream&  stream,
+                                         AP4_AtomFactory& atom_factory) :
+    AP4_AudioSampleEntry(type, size, stream, atom_factory)
+{
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Eac3SampleEntry::ToSampleDescription
++---------------------------------------------------------------------*/
+AP4_SampleDescription*
+AP4_Eac3SampleEntry::ToSampleDescription()
+{
+    // find the dec3 atom
+    AP4_Dec3Atom* dec3 = AP4_DYNAMIC_CAST(AP4_Dec3Atom, GetChild(AP4_ATOM_TYPE_DEC3));
+    if (dec3 == NULL) {
+        // shall never happen
+        return new AP4_Eac3SampleDescription();
+    }else{
+         return new AP4_Eac3SampleDescription(GetSampleRate(),
+                                              GetSampleSize(),
+                                              GetChannelCount(),
+                                              dec3);
+    }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Ac4SampleEntry::AP4_Ac4SampleEntry
++---------------------------------------------------------------------*/
+AP4_Ac4SampleEntry::AP4_Ac4SampleEntry(AP4_UI32              format,
+                                       AP4_UI32              sample_rate,
+                                       AP4_UI16              sample_size,
+                                       AP4_UI16              channel_count,
+                                       const AP4_AtomParent* details): 
+    AP4_AudioSampleEntry(format, sample_rate, sample_size, channel_count)
+{
+    if (details){ 
+        AP4_AtomParent* parent = new AP4_AtomParent();
+        details->CopyChildren(*parent);
+        AP4_Atom* child = parent->GetChild(AP4_ATOM_TYPE_DAC4);
+        child->Detach();
+        AddChild(child);
+    }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Ac4SampleEntry::AP4_Ac4SampleEntry
++---------------------------------------------------------------------*/
+AP4_Ac4SampleEntry::AP4_Ac4SampleEntry(AP4_UI32         type,
+                                       AP4_Size         size,
+                                       AP4_ByteStream&  stream,
+                                       AP4_AtomFactory& atom_factory) :
+    AP4_AudioSampleEntry(type, size, stream, atom_factory)
+{
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Ac4SampleEntry::ToSampleDescription
++---------------------------------------------------------------------*/
+AP4_SampleDescription*
+AP4_Ac4SampleEntry::ToSampleDescription()
+{
+    // find the dac4 atom
+    AP4_Dac4Atom* dac4 = AP4_DYNAMIC_CAST(AP4_Dac4Atom, GetChild(AP4_ATOM_TYPE_DAC4));
+    if (dac4 == NULL) {
+        return NULL;
+    } else{
+         return new AP4_Ac4SampleDescription(GetSampleRate(),
+                                             GetSampleSize(),
+                                             GetChannelCount(),
+                                             dac4);
+    }
+}
+
+/*----------------------------------------------------------------------
 |   AP4_Mp4aSampleEntry::AP4_Mp4aSampleEntry
 +---------------------------------------------------------------------*/
 AP4_Mp4aSampleEntry::AP4_Mp4aSampleEntry(AP4_UI32          sample_rate, 
@@ -712,8 +853,9 @@ AP4_VisualSampleEntry::AP4_VisualSampleEntry(
     AP4_UI16          width,
     AP4_UI16          height,
     AP4_UI16          depth,
-    const char*       compressor_name) :
-    AP4_SampleEntry(format),
+    const char*           compressor_name,
+    const AP4_AtomParent* details) :
+    AP4_SampleEntry(format, details),
     m_Predefined1(0),
     m_Reserved2(0),
     m_Width(width),
@@ -772,12 +914,13 @@ AP4_VisualSampleEntry::ReadFields(AP4_ByteStream& stream)
     stream.ReadUI32(m_Reserved3);
     stream.ReadUI16(m_FrameCount);
 
-    char compressor_name[33];
+    AP4_UI08 compressor_name[33];
+    compressor_name[32] = 0;
     stream.Read(compressor_name, 32);
-    int name_length = compressor_name[0];
+    AP4_UI08 name_length = compressor_name[0];
     if (name_length < 32) {
         compressor_name[name_length+1] = 0; // force null termination
-        m_CompressorName = &compressor_name[1];
+        m_CompressorName = (const char*)(&compressor_name[1]);
     }
 
     stream.ReadUI16(m_Depth);
@@ -973,14 +1116,14 @@ AP4_AvcSampleEntry::AP4_AvcSampleEntry(AP4_UI32            format,
                                        AP4_UI16            height,
                                        AP4_UI16            depth,
                                        const char*         compressor_name,
-                                       const AP4_AvccAtom& avcc) :
+                                       const AP4_AtomParent* details) :
     AP4_VisualSampleEntry(format,
                           width, 
                           height, 
                           depth, 
-                          compressor_name)
+                          compressor_name,
+                          details)
 {
-    AddChild(new AP4_AvccAtom(avcc));    
 }
 
 /*----------------------------------------------------------------------
@@ -995,24 +1138,6 @@ AP4_AvcSampleEntry::AP4_AvcSampleEntry(AP4_UI32         format,
 }
 
 /*----------------------------------------------------------------------
-|   AP4_HevcSampleEntry::AP4_HevcSSampleEntry
-+---------------------------------------------------------------------*/
-AP4_HevcSampleEntry::AP4_HevcSampleEntry(AP4_UI32            format,
-                                         AP4_UI16            width,
-                                         AP4_UI16            height,
-                                         AP4_UI16            depth,
-                                         const char*         compressor_name,
-                                         const AP4_HvccAtom& hvcc) :
-    AP4_VisualSampleEntry(format,
-                          width, 
-                          height, 
-                          depth, 
-                          compressor_name)
-{
-    AddChild(new AP4_HvccAtom(hvcc));
-}
-
-/*----------------------------------------------------------------------
 |   AP4_AvcSampleEntry::ToSampleDescription
 +---------------------------------------------------------------------*/
 AP4_SampleDescription*
@@ -1024,7 +1149,25 @@ AP4_AvcSampleEntry::ToSampleDescription()
         m_Height,
         m_Depth,
         m_CompressorName.GetChars(),
-        AP4_DYNAMIC_CAST(AP4_AvccAtom, GetChild(AP4_ATOM_TYPE_AVCC)));
+        this);
+}
+
+/*----------------------------------------------------------------------
+|   AP4_HevcSampleEntry::AP4_HevcSampleEntry
++---------------------------------------------------------------------*/
+AP4_HevcSampleEntry::AP4_HevcSampleEntry(AP4_UI32            format,
+                                         AP4_UI16            width,
+                                         AP4_UI16            height,
+                                         AP4_UI16            depth,
+                                         const char*         compressor_name,
+                                         const AP4_AtomParent* details) :
+    AP4_VisualSampleEntry(format,
+                          width, 
+                          height, 
+                          depth, 
+                          compressor_name,
+                          details)
+{
 }
 
 /*----------------------------------------------------------------------
@@ -1050,7 +1193,51 @@ AP4_HevcSampleEntry::ToSampleDescription()
         m_Height,
         m_Depth,
         m_CompressorName.GetChars(),
-        AP4_DYNAMIC_CAST(AP4_HvccAtom, GetChild(AP4_ATOM_TYPE_HVCC)));
+        this);
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Av1SampleEntry::AP4_Av1SampleEntry
++---------------------------------------------------------------------*/
+AP4_Av1SampleEntry::AP4_Av1SampleEntry(AP4_UI32            format,
+                                       AP4_UI16            width,
+                                       AP4_UI16            height,
+                                       AP4_UI16            depth,
+                                       const char*         compressor_name,
+                                       const AP4_AtomParent* details) :
+    AP4_VisualSampleEntry(format,
+                          width,
+                          height,
+                          depth,
+                          compressor_name,
+                          details)
+{
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Av1SampleEntry::AP4_Av1SampleEntry
++---------------------------------------------------------------------*/
+AP4_Av1SampleEntry::AP4_Av1SampleEntry(AP4_UI32         format,
+                                       AP4_Size         size,
+                                       AP4_ByteStream&  stream,
+                                       AP4_AtomFactory& atom_factory) :
+    AP4_VisualSampleEntry(format, size, stream, atom_factory)
+{
+}
+
+/*----------------------------------------------------------------------
+|   AP4_Av1SampleEntry::ToSampleDescription
++---------------------------------------------------------------------*/
+AP4_SampleDescription*
+AP4_Av1SampleEntry::ToSampleDescription()
+{
+    return new AP4_Av1SampleDescription(
+        m_Type,
+        m_Width,
+        m_Height,
+        m_Depth,
+        m_CompressorName.GetChars(),
+        this);
 }
 
 /*----------------------------------------------------------------------

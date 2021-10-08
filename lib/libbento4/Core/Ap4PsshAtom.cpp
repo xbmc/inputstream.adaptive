@@ -52,6 +52,7 @@ AP4_PsshAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version > 1) return NULL;
     return new AP4_PsshAtom(size, version, flags, stream);
@@ -60,10 +61,16 @@ AP4_PsshAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 /*----------------------------------------------------------------------
 |   AP4_PsshAtom::AP4_PsshAtom
 +---------------------------------------------------------------------*/
-AP4_PsshAtom::AP4_PsshAtom(const unsigned char* system_id) :
-    AP4_Atom(AP4_ATOM_TYPE_PSSH, AP4_FULL_ATOM_HEADER_SIZE+16+4, 0, 0)
+AP4_PsshAtom::AP4_PsshAtom(const unsigned char* system_id,
+                           const AP4_UI08*      kids,
+                           unsigned int         kid_count) :
+    AP4_Atom(AP4_ATOM_TYPE_PSSH, AP4_FULL_ATOM_HEADER_SIZE+16+4+((kids && kid_count)?4+16*kid_count:0), (kids && kid_count)?1:0, 0),
+    m_KidCount(kid_count)
 {
     AP4_CopyMemory(m_SystemId, system_id, 16);
+    if (kids && kid_count) {
+        m_Kids.SetData(kids, kid_count*16);
+    }
 }
 
 /*----------------------------------------------------------------------
@@ -76,10 +83,16 @@ AP4_PsshAtom::AP4_PsshAtom(AP4_UI32        size,
     AP4_Atom(AP4_ATOM_TYPE_PSSH, size, version, flags),
     m_KidCount(0)
 {
+    if (size < AP4_FULL_ATOM_HEADER_SIZE + 20) {
+        return;
+    }
     stream.Read(m_SystemId, 16);
     if (m_Version > 0) {
         stream.ReadUI32(m_KidCount);
-        if (m_KidCount > size) return;
+        if (m_KidCount > (size - (AP4_FULL_ATOM_HEADER_SIZE + 20))/16) {
+            m_KidCount = 0;
+            return;
+        }
         m_Kids.SetDataSize(m_KidCount*16);
         stream.Read(m_Kids.UseData(), m_KidCount*16);
     }
@@ -235,7 +248,7 @@ AP4_PsshAtom::InspectFields(AP4_AtomInspector& inspector)
         if (AP4_CompareMemory(m_SystemId, AP4_MARLIN_PSSH_SYSTEM_ID, 16) == 0) {
             AP4_MemoryByteStream* mbs = new AP4_MemoryByteStream(m_Data);
             AP4_Atom* atom;
-            AP4_AtomFactory& atom_factory = AP4_DefaultAtomFactory::Instance;
+            AP4_DefaultAtomFactory atom_factory;
             while (atom_factory.CreateAtomFromStream(*mbs, atom) == AP4_SUCCESS) {
                 AP4_Position position;
                 mbs->Tell(position);

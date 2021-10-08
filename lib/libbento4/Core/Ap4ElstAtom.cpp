@@ -33,6 +33,11 @@
 #include "Ap4Utils.h"
 
 /*----------------------------------------------------------------------
+|   dynamic cast support
++---------------------------------------------------------------------*/
+AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_ElstAtom)
+
+/*----------------------------------------------------------------------
 |   AP4_ElstAtom::Create
 +---------------------------------------------------------------------*/
 AP4_ElstAtom*
@@ -40,9 +45,18 @@ AP4_ElstAtom::Create(AP4_Size size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version > 1) return NULL;
     return new AP4_ElstAtom(size, version, flags, stream);
+}
+
+/*----------------------------------------------------------------------
+|   AP4_ElstAtom::AP4_ElstAtom
++---------------------------------------------------------------------*/
+AP4_ElstAtom::AP4_ElstAtom() :
+    AP4_Atom(AP4_ATOM_TYPE_ELST, AP4_FULL_ATOM_HEADER_SIZE+4, 0, 0)
+{
 }
 
 /*----------------------------------------------------------------------
@@ -54,10 +68,24 @@ AP4_ElstAtom::AP4_ElstAtom(AP4_UI32        size,
                            AP4_ByteStream& stream) :
     AP4_Atom(AP4_ATOM_TYPE_ELST, size, version, flags)
 {
+    // read the number of entries
     AP4_UI32 entry_count;
     stream.ReadUI32(entry_count);
+
+    // compute bounds
+    AP4_UI32 max_entries;
+    if (version == 0) {
+        max_entries = (size - (AP4_FULL_ATOM_HEADER_SIZE + 4)) / 12;
+    } else {
+        max_entries = (size - (AP4_FULL_ATOM_HEADER_SIZE + 4)) / 20;
+    }
+    if (entry_count > max_entries) {
+        entry_count = max_entries;
+    }
+    
+    // read the entries
     m_Entries.EnsureCapacity(entry_count);
-    for (AP4_UI32 i=0; i<entry_count; i++) {
+    for (AP4_UI32 i=0; i < entry_count; i++) {
         AP4_UI16 media_rate;
         AP4_UI16 zero;
         if (version == 0) {
@@ -67,7 +95,7 @@ AP4_ElstAtom::AP4_ElstAtom(AP4_UI32        size,
             stream.ReadUI32(media_time);
             stream.ReadUI16(media_rate);
             stream.ReadUI16(zero);
-            m_Entries.Append(AP4_ElstEntry(segment_duration, media_time, media_rate));
+            m_Entries.Append(AP4_ElstEntry(segment_duration, (AP4_SI32)media_time, media_rate));
         } else {
             AP4_UI64 segment_duration;
             AP4_UI64 media_time;
@@ -75,7 +103,7 @@ AP4_ElstAtom::AP4_ElstAtom(AP4_UI32        size,
             stream.ReadUI64(media_time);
             stream.ReadUI16(media_rate);
             stream.ReadUI16(zero);
-            m_Entries.Append(AP4_ElstEntry(segment_duration, media_time, media_rate));
+            m_Entries.Append(AP4_ElstEntry(segment_duration, (AP4_SI64)media_time, media_rate));
         }
     }
 }
@@ -117,12 +145,35 @@ AP4_ElstAtom::WriteFields(AP4_ByteStream& stream)
 AP4_Result
 AP4_ElstAtom::InspectFields(AP4_AtomInspector& inspector)
 {
-    inspector.AddField("entry count", m_Entries.ItemCount());
+    inspector.AddField("entry_count", m_Entries.ItemCount());
     for (AP4_Ordinal i=0; i<m_Entries.ItemCount(); i++) {
         inspector.AddField("entry/segment duration", (AP4_UI32)m_Entries[i].m_SegmentDuration);
         inspector.AddField("entry/media time", (AP4_SI32)m_Entries[i].m_MediaTime);
         inspector.AddField("entry/media rate", (AP4_UI16)m_Entries[i].m_MediaRate);
     }
 
+    return AP4_SUCCESS;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_ElstAtom::AddEntry
++---------------------------------------------------------------------*/
+AP4_Result
+AP4_ElstAtom::AddEntry(const AP4_ElstEntry& entry)
+{
+    // check if this requires 64-bit fields
+    if (entry.m_SegmentDuration > 0xFFFFFFFFUL) {
+        m_Version = 1;
+    }
+    if (entry.m_MediaTime > 0 && (AP4_UI64)entry.m_MediaTime > 0xFFFFFFFFUL) {
+        m_Version = 1;
+    }
+    
+    // add the entry
+    m_Entries.Append(entry);
+    
+    // recompute the atom size
+    SetSize(AP4_FULL_ATOM_HEADER_SIZE+4+m_Entries.ItemCount()*(m_Version==0?12:20));
+    
     return AP4_SUCCESS;
 }

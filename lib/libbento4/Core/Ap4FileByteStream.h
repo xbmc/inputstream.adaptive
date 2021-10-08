@@ -1,6 +1,6 @@
 /*****************************************************************
 |
-|    AP4 - FileByteStream 
+|    AP4 - FileByteStream
 |
 |    Copyright 2002-2008 Axiomatic Systems, LLC
 |
@@ -52,18 +52,18 @@ public:
     /**
      * Create a stream from a file (opened or created).
      *
-     * @param name Name of the file open or create
+     * @param name Name of the file to open or create
      * @param mode Mode to use for the file
-     * @param stream Refrence to a pointer where the stream object will
+     * @param stream Reference to a pointer where the stream object will
      * be returned
      * @return AP4_SUCCESS if the file can be opened or created, or an error code if
      * it cannot
      */
     static AP4_Result Create(const char* name, Mode mode, AP4_ByteStream*& stream);
-    
+
     // constructors
     AP4_FileByteStream(AP4_ByteStream* delegate) : m_Delegate(delegate) {}
-    
+
 #if !defined(AP4_CONFIG_NO_EXCEPTIONS)
     /**
      * @deprecated
@@ -72,20 +72,21 @@ public:
 #endif
 
     // AP4_ByteStream methods
-    AP4_Result ReadPartial(void*    buffer, 
-                           AP4_Size  bytesToRead, 
+    AP4_Result ReadPartial(void*    buffer,
+                           AP4_Size  bytesToRead,
                            AP4_Size& bytesRead) {
         return m_Delegate->ReadPartial(buffer, bytesToRead, bytesRead);
     }
-    AP4_Result WritePartial(const void* buffer, 
-                            AP4_Size    bytesToWrite, 
+    AP4_Result WritePartial(const void* buffer,
+                            AP4_Size    bytesToWrite,
                             AP4_Size&   bytesWritten) {
         return m_Delegate->WritePartial(buffer, bytesToWrite, bytesWritten);
     }
     AP4_Result Seek(AP4_Position position)  { return m_Delegate->Seek(position); }
     AP4_Result Tell(AP4_Position& position) { return m_Delegate->Tell(position); }
     AP4_Result GetSize(AP4_LargeSize& size) { return m_Delegate->GetSize(size);  }
-	AP4_Result Flush()						{ return m_Delegate->Flush();        }
+    AP4_Result Flush()                      { return m_Delegate->Flush();        }
+
     // AP4_Referenceable methods
     void AddReference() { m_Delegate->AddReference(); }
     void Release()      { m_Delegate->Release();      }

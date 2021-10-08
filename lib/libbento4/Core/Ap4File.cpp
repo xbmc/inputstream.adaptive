@@ -56,11 +56,46 @@ AP4_File::AP4_File(AP4_Movie* movie) :
 AP4_File::AP4_File(AP4_ByteStream&  stream, 
                    AP4_AtomFactory& atom_factory,
                    bool             moov_only,
-                   AP4_Movie* movie) :
+                   AP4_Movie*       movie) :
     m_Movie(movie),
     m_FileType(NULL),
     m_MetaData(NULL),
     m_MoovIsBeforeMdat(true)
+{
+    ParseStream(stream, atom_factory, moov_only, movie);
+}
+
+/*----------------------------------------------------------------------
+|   AP4_File::AP4_File
++---------------------------------------------------------------------*/
+AP4_File::AP4_File(AP4_ByteStream&  stream, 
+                   bool             moov_only) :
+    m_Movie(NULL),
+    m_FileType(NULL),
+    m_MetaData(NULL),
+    m_MoovIsBeforeMdat(true)
+{
+    AP4_DefaultAtomFactory atom_factory;
+    ParseStream(stream, atom_factory, moov_only, m_Movie);
+}
+
+/*----------------------------------------------------------------------
+|   AP4_File::~AP4_File
++---------------------------------------------------------------------*/
+AP4_File::~AP4_File()
+{
+    delete m_Movie;
+    delete m_MetaData;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_File::ParseStream
++---------------------------------------------------------------------*/
+void
+AP4_File::ParseStream(AP4_ByteStream&  stream,
+                      AP4_AtomFactory& atom_factory,
+                      bool             moov_only,
+                      AP4_Movie*       movie)
 {
     // parse top-level atoms
     AP4_Atom*    atom;
@@ -86,15 +121,6 @@ AP4_File::AP4_File(AP4_ByteStream&  stream,
                 break;
         }
     }
-}
-    
-/*----------------------------------------------------------------------
-|   AP4_File::~AP4_File
-+---------------------------------------------------------------------*/
-AP4_File::~AP4_File()
-{
-    delete m_Movie;
-    delete m_MetaData;
 }
 
 /*----------------------------------------------------------------------

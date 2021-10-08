@@ -95,7 +95,6 @@ public:
                       const Reference& reference) {
         m_References[reference_index] = reference;
     }
-	AP4_UI64 GetDuration();
     
 private:
     // methods
