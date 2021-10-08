@@ -221,9 +221,7 @@ public:
   AP4_Result ReadPartial(void* buffer, AP4_Size bytesToRead, AP4_Size& bytesRead) override
   {
     bytesRead = stream_->read(buffer, bytesToRead);
-    return bytesRead > 0
-               ? AP4_SUCCESS
-               : stream_->StreamChanged() ? AP4_ERROR_STREAM_CHANGED : AP4_ERROR_READ_FAILED;
+    return bytesRead > 0 ? AP4_SUCCESS : AP4_ERROR_READ_FAILED;
   };
   AP4_Result WritePartial(const void* buffer,
                           AP4_Size bytesToWrite,
@@ -244,9 +242,7 @@ public:
   AP4_Result GetSize(AP4_LargeSize& size) override { return AP4_ERROR_NOT_SUPPORTED; };
   AP4_Result GetSegmentSize(AP4_LargeSize& size)
   {
-    return stream_->getSize(size)
-               ? AP4_SUCCESS
-               : stream_->StreamChanged() ? AP4_ERROR_STREAM_CHANGED : AP4_ERROR_EOS;
+    return stream_->getSize(size) ? AP4_SUCCESS : AP4_ERROR_EOS;
   };
   // AP4_Referenceable methods
   void AddReference() override{};
@@ -439,7 +435,7 @@ bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation*
   {
     if (!rep->indexRangeMin_)
     {
-      AP4_File f(byteStream, AP4_DefaultAtomFactory::Instance, true);
+      AP4_File f(byteStream, AP4_DefaultAtomFactory::Instance_, true);
       AP4_Movie* movie = f.GetMovie();
       if (movie == NULL)
       {
@@ -460,7 +456,7 @@ bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation*
     do
     {
       AP4_Atom* atom(NULL);
-      if (AP4_FAILED(AP4_DefaultAtomFactory::Instance.CreateAtomFromStream(byteStream, atom)))
+      if (AP4_FAILED(AP4_DefaultAtomFactory::Instance_.CreateAtomFromStream(byteStream, atom)))
       {
         kodi::Log(ADDON_LOG_ERROR, "Unable to create SIDX from IndexRange bytes");
         return false;
@@ -756,16 +752,17 @@ public:
       AP4_AvcPictureParameterSet pps;
       for (unsigned int i(0); i < ppsList.ItemCount(); ++i)
       {
-        if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParsePPS(ppsList[i].GetData(),
-                                                       ppsList[i].GetDataSize(), pps)) &&
+        AP4_AvcFrameParser fp;
+        if (AP4_SUCCEEDED(fp.ParsePPS(ppsList[i].GetData(),
+                                      ppsList[i].GetDataSize(), pps)) &&
             pps.pic_parameter_set_id == pictureId)
         {
           AP4_Array<AP4_DataBuffer>& spsList = avc->GetSequenceParameters();
           AP4_AvcSequenceParameterSet sps;
           for (unsigned int i(0); i < spsList.ItemCount(); ++i)
           {
-            if (AP4_SUCCEEDED(AP4_AvcFrameParser::ParseSPS(spsList[i].GetData(),
-                                                           spsList[i].GetDataSize(), sps)) &&
+            if (AP4_SUCCEEDED(fp.ParseSPS(spsList[i].GetData(),
+                                          spsList[i].GetDataSize(), sps)) &&
                 sps.seq_parameter_set_id == pps.seq_parameter_set_id)
             {
               unsigned int width = info.GetWidth();
@@ -907,7 +904,7 @@ public:
   {
     if (AP4_Atom* atom = sample_description->GetDetails().GetChild(AP4_ATOM_TYPE_VPCC, 0))
     {
-      AP4_VpcCAtom* vpcc(AP4_DYNAMIC_CAST(AP4_VpcCAtom, atom));
+      AP4_VpccAtom* vpcc(AP4_DYNAMIC_CAST(AP4_VpccAtom, atom));
       if (vpcc)
         extra_data.SetData(vpcc->GetData().GetData(), vpcc->GetData().GetDataSize());
     }
@@ -1422,14 +1419,15 @@ protected:
         if (!m_protectedDesc || !traf)
           return AP4_ERROR_INVALID_FORMAT;
 
+        bool reset_iv(false);
         if (AP4_FAILED(result = AP4_CencSampleInfoTable::Create(m_protectedDesc, traf, algorithm_id,
-                                                                *m_FragmentStream, moof_offset,
+                                                                reset_iv, *m_FragmentStream, moof_offset,
                                                                 sample_table)))
           // we assume unencrypted fragment here
           goto SUCCESS;
 
         if (AP4_FAILED(result =
-                           AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0,
+                           AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, reset_iv,
                                                            m_singleSampleDecryptor, m_decrypter)))
           return result;
       }
@@ -1481,7 +1479,7 @@ private:
       case AP4_SAMPLE_FORMAT_WVTT:
         m_codecHandler = new WebVTTCodecHandler(desc);
         break;
-      case AP4_SAMPLE_FORMAT_VP09:
+      case AP4_SAMPLE_FORMAT_VP9:
         m_codecHandler = new VP9CodecHandler(desc);
         break;
       default:
@@ -2454,7 +2452,7 @@ bool Session::InitializeDRM()
           stream.stream_.start_stream();
 
           stream.input_ = new AP4_DASHStream(&stream.stream_);
-          stream.input_file_ = new AP4_File(*stream.input_, AP4_DefaultAtomFactory::Instance, true);
+          stream.input_file_ = new AP4_File(*stream.input_, AP4_DefaultAtomFactory::Instance_, true);
           AP4_Movie* movie = stream.input_file_->GetMovie();
           if (movie == NULL)
           {
@@ -2462,18 +2460,18 @@ bool Session::InitializeDRM()
             stream.disable();
             return false;
           }
-          AP4_Array<AP4_PsshAtom*>& pssh = movie->GetPsshAtoms();
+          AP4_Array<AP4_PsshAtom>& pssh = movie->GetPsshAtoms();
 
           for (unsigned int i = 0; !init_data.GetDataSize() && i < pssh.ItemCount(); i++)
           {
-            if (memcmp(pssh[i]->GetSystemId(), key_system, 16) == 0)
+            if (memcmp(pssh[i].GetSystemId(), key_system, 16) == 0)
             {
-              init_data.AppendData(pssh[i]->GetData().GetData(), pssh[i]->GetData().GetDataSize());
+              init_data.AppendData(pssh[i].GetData().GetData(), pssh[i].GetData().GetDataSize());
               if (adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty())
               {
-                if (pssh[i]->GetKid(0))
+                if (pssh[i].GetKid(0))
                   adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ =
-                      std::string((const char*)pssh[i]->GetKid(0), 16);
+                      std::string((const char*)pssh[i].GetKid(0), 16);
                 else if (AP4_Track* track = movie->GetTrack(TIDC[stream.stream_.get_type()]))
                 {
                   AP4_ProtectedSampleDescription* m_protectedDesc =
@@ -2901,7 +2899,7 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     {
       AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
       schi.AddChild(
-          new AP4_TencAtom(AP4_CENC_ALGORITHM_ID_CTR, 8,
+          new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8,
                            GetDefaultKeyId(stream->stream_.getRepresentation()->get_psshset())));
       sample_descryption = new AP4_ProtectedSampleDescription(
           0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
@@ -3764,7 +3762,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->input_file_ =
-        new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance, true, movie);
+        new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance_, true, movie);
     movie = stream->input_file_->GetMovie();
 
     if (movie == NULL)
