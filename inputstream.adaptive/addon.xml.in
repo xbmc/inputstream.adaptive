@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="20.0.1"
+  version="20.0.2"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,13 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v20.0.2 (2021-10-09)
+- Fix crash when no data sent to DemuxRead
+- Update Bento4 lib
+- Fix pixellation issue when seeking to head
+- [DASH] support suggestedPresentationDelay
+- increase 'no-seek' area default for live streams to 16 seconds
+
 v20.0.1 (2021-09-28)
 - Adaptive bitrate switching and buffering initial support!
 - Change default license if no pipes in license url
