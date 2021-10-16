@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: inputstream.adaptive\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2020-03-28 19:02+0100\n"
-"Last-Translator: arvvoid\n"
+"PO-Revision-Date: 2021-10-16 22:28+0200\n"
+"Last-Translator: dsardelic\n"
 "Language-Team: Croatian\n"
 "Language: hr_HR\n"
 "MIME-Version: 1.0\n"
@@ -18,11 +18,11 @@ msgstr ""
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream klijent za adaptivne tokove"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream klijent za adaptivne tokove"
 
 msgctxt "#30100"
 msgid "General"
@@ -31,26 +31,26 @@ msgstr "Opće"
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Minimalna propusnost (bit/s)"
+msgstr "Min. propusnost (bit/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Maksimalna propusnost (bit/s)"
+msgstr "Maks. propusnost (bit/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Apsolutni put do mape koja sadrži dekripter"
+msgstr "Putanja prema mapi s dekripterima"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maksimalna rezolucija opći dekoder"
+msgstr "Maks. razlučivost općeg dekodera"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Odabir stream-a"
+msgstr "Odabir toka"
 
 msgctxt "#30112"
 msgid "Media"
@@ -59,29 +59,29 @@ msgstr "Mediji"
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maksimalna rezolucija za sigurni dekoder"
+msgstr "Maks. razlučivost sigurnog dekodera"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Zanemari HDCP status"
+msgstr "Nadjačaj HDCP status"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr "Zanemari rezoluciju ekrana"
+msgstr "Zanemari razlučivost zaslona"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr "Stručnjak"
+msgstr "Stručne"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Omogući eksperimentalne značajke"
+msgstr "Omogući još neobjavljene značajke"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr ""
+msgstr "Ukoliko je moguće, ne koristi sigurni dekoder"
 
 msgctxt "#30150"
 msgid "Max"
@@ -105,11 +105,11 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "Automatski odaberi tokove"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "Ručno odaberi sve tokove"
 
 msgctxt "#30157"
 msgid "All"
@@ -126,8 +126,23 @@ msgstr "Video"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "Ručno odaberi video tok"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
 msgstr "Video + Titlovi"
+
+# Assured buffer length duration (seconds)
+msgctxt "#30200"
+msgid "Assured Buffer Duration (sec)"
+msgstr "Osigurano trajanje međuspremnika (sek)"
+
+# Max buffer length duration (seconds)
+msgctxt "#30201"
+msgid "Max Buffer Duration (sec)"
+msgstr "Maks. trajanje međuspremnika (sek)"
+
+# Ignore Window Display Resolution Change
+msgctxt "#30202"
+msgid "Ignore Window Change"
+msgstr "Ignoriraj promjenu prozora"
