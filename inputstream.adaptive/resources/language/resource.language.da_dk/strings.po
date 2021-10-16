@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2021-08-20 08:26+0000\n"
+"PO-Revision-Date: 2021-10-16 22:41+0000\n"
 "Last-Translator: Christian Gade <gade@kodi.tv>\n"
 "Language-Team: Danish <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/da_dk/>\n"
 "Language: da_dk\n"
@@ -13,7 +13,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.7.2\n"
+"X-Generator: Weblate 4.8\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -45,7 +45,7 @@ msgstr "Dekrypter-sti"
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maksimal opløsning for generel dekoder"
+msgstr "Maksimal opløsning for generel afkoder"
 
 msgctxt "#30111"
 msgid "Stream Selection"
@@ -58,7 +58,7 @@ msgstr "Medie"
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maksimal opløsning for sikker dekoder"
+msgstr "Maksimal opløsning for sikker afkoder"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
@@ -80,7 +80,7 @@ msgstr "Aktiver funktioner fra pre-release"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr "Brug ikke sikker dekoder, hvis det er muligt"
+msgstr "Brug ikke sikker afkoder, hvis det er muligt"
 
 msgctxt "#30150"
 msgid "Max"
