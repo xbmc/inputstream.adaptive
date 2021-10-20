@@ -84,9 +84,12 @@ void AdaptiveStream::ResetSegment(const AdaptiveTree::Segment* segment)
 {
   segment_read_pos_ = 0;
 
-  if (segment && !(current_rep_->flags_ & (AdaptiveTree::Representation::SEGMENTBASE |
-                                           AdaptiveTree::Representation::TEMPLATE |
-                                           AdaptiveTree::Representation::URLSEGMENTS)))
+  if (segment &&
+      !(current_rep_->flags_ &
+        (AdaptiveTree::Representation::SEGMENTBASE | 
+         AdaptiveTree::Representation::TEMPLATE |
+         AdaptiveTree::Representation::URLSEGMENTS)) &&
+      current_rep_->containerType_ != AdaptiveTree::ContainerType::CONTAINERTYPE_TS)
     absolute_position_ = segment->range_begin_;
 }
 
