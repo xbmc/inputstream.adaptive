@@ -2942,12 +2942,14 @@ uint64_t Session::PTSToElapsed(uint64_t pts)
 {
   if (timing_stream_)
   {
-    uint64_t manifest_time = (pts - timing_stream_->reader_->GetPTSDiff() > 0)
-                                 ? pts - timing_stream_->reader_->GetPTSDiff()
-                                 : 0;
-    return (manifest_time > timing_stream_->stream_.GetAbsolutePTSOffset())
-               ? manifest_time - timing_stream_->stream_.GetAbsolutePTSOffset()
-               : 0ULL;
+    int64_t manifest_time = static_cast<int64_t>(pts) - timing_stream_->reader_->GetPTSDiff();
+    if (manifest_time < 0)
+      manifest_time = 0;
+
+    if (static_cast<uint64_t>(manifest_time) > timing_stream_->stream_.GetAbsolutePTSOffset())
+      return static_cast<uint64_t>(manifest_time) - timing_stream_->stream_.GetAbsolutePTSOffset();
+
+    return 0ULL;
   }
   else
     return pts;
