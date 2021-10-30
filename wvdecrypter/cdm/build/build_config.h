@@ -138,8 +138,18 @@
 #define ARCH_CPU_32_BITS 1
 #define ARCH_CPU_LITTLE_ENDIAN 1
 #endif
-#else
-#error Please add support for your architecture in build/build_config.h
+#elif (defined(__PPC64__) || defined(__PPC__)) && defined(__BIG_ENDIAN__)
+#define ARCH_CPU_PPC64_FAMILY 1
+#define ARCH_CPU_PPC64 1
+#define ARCH_CPU_64_BITS 1
+#define ARCH_CPU_BIG_ENDIAN 1
+#elif defined(__PPC64__)
+#define ARCH_CPU_PPC64_FAMILY 1
+#define ARCH_CPU_PPC64 1
+#define ARCH_CPU_64_BITS 1
+#define ARCH_CPU_LITTLE_ENDIAN 1
+# else
+#error Please add support for your architecture in build/build_config.
 #endif
 
 // Type detection for wchar_t.
