@@ -3465,7 +3465,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
   {
     DEMUX_PACKET* p = AllocateDemuxPacket(0);
     p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
-    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
+    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE_AV");
     return p;
   }
 
@@ -3520,7 +3520,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     m_session->InitializePeriod();
     DEMUX_PACKET* p = AllocateDemuxPacket(0);
     p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
-    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
+    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE_AV");
     return p;
   }
   return NULL;
