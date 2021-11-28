@@ -30,7 +30,6 @@
 #include "parser/HLSTree.h"
 #include "parser/SmoothTree.h"
 #include "parser/TTML.h"
-#include "parser/WebVTT.h"
 
 #include <chrono>
 #include <algorithm>
@@ -961,44 +960,55 @@ private:
 class ATTRIBUTE_HIDDEN WebVTTCodecHandler : public CodecHandler
 {
 public:
-  WebVTTCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd), m_ptsOffset(0){};
+  WebVTTCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd), m_ptsOffset(0)
+  {
+    if (sd) // WebVTT ISOBMFF format type (ISO/IEC 14496-30:2014)
+    {
+      // Inform Kodi subtitle parser that this is a WebVTT ISOBMFF format
+      // (the extra data must be 4 characters long as imposed in kodi core)
+      extra_data.SetData(reinterpret_cast<const AP4_Byte*>(&m_extraData), 4);
+    }
+  };
 
   virtual bool Transform(AP4_UI64 pts,
                          AP4_UI32 duration,
                          AP4_DataBuffer& buf,
                          AP4_UI64 timescale) override
   {
-    return m_webVtt.Parse(pts, duration, buf.GetData(), buf.GetDataSize(), timescale, m_ptsOffset);
+    m_data.SetData(buf.GetData(), buf.GetDataSize());
+    m_pts = pts;
+    m_duration = duration;
+    return true;
   }
 
   virtual bool ReadNextSample(AP4_Sample& sample, AP4_DataBuffer& buf) override
   {
-    uint64_t pts;
-    uint32_t dur;
-
-    if (m_webVtt.Prepare(pts, dur))
+    if (m_data.GetDataSize() > 0)
     {
-      buf.SetData(static_cast<const AP4_Byte*>(m_webVtt.GetData()), m_webVtt.GetDataSize());
-      sample.SetDts(pts);
+      buf.SetData(m_data.GetData(), m_data.GetDataSize());
+      sample.SetDts(m_pts);
       sample.SetCtsDelta(0);
-      sample.SetDuration(dur);
+      sample.SetDuration(m_duration);
+      // Reset the source data size otherwise we send always same data without end
+      m_data.SetDataSize(0);
       return true;
     }
-    else
-      buf.SetDataSize(0);
+    buf.SetDataSize(0);
     return false;
   }
 
-  virtual void SetPTSOffset(AP4_UI64 offset) override { m_ptsOffset = offset; };
+  virtual void SetPTSOffset(AP4_UI64 offset) override { m_ptsOffset = offset; }
 
-  virtual bool TimeSeek(AP4_UI64 seekPos) override { return m_webVtt.TimeSeek(seekPos); };
+  virtual bool TimeSeek(AP4_UI64 seekPos) override { return true; }
 
-  virtual void Reset() override { m_webVtt.Reset(); }
-
+  virtual void Reset() override {}
 
 private:
-  WebVTT m_webVtt;
   AP4_UI64 m_ptsOffset;
+  AP4_DataBuffer m_data;
+  AP4_UI64 m_pts;
+  AP4_UI32 m_duration;
+  const AP4_Byte m_extraData[4] = {'f', 'm', 'p', '4'};
 };
 
 /*******************************************************
@@ -1553,6 +1563,7 @@ public:
       m_codecHandler = new WebVTTCodecHandler(nullptr);
     else
       m_codecHandler = new TTMLCodecHandler(nullptr);
+
     m_codecHandler->Transform(0, 0, result, 1000);
   };
 
@@ -1580,16 +1591,18 @@ public:
   {
     if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
     {
+      // Read the sample data from the file url
       m_pts = m_sample.GetCts() * 1000;
       return AP4_SUCCESS;
     }
     else if (m_input)
     {
-      // read the file
+      // Read the sample data from the file stream
       AP4_DataBuffer result;
       const AP4_Size chunkSize = 16384;
       AP4_Byte buf[chunkSize];
       AP4_LargeSize sz;
+
       if (AP4_SUCCEEDED(dynamic_cast<AP4_DASHStream*>(m_input)->GetSegmentSize(sz)))
       {
         while (sz)
@@ -1601,6 +1614,11 @@ public:
           else
             break;
         }
+      }
+      else  // Usually the end of segments
+      {
+        m_eos = true;
+        return AP4_ERROR_EOS;
       }
       m_codecHandler->Transform(0, 0, result, 1000);
       if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
@@ -1621,9 +1639,16 @@ public:
   bool GetInformation(kodi::addon::InputstreamInfo& info) override { return false; };
   bool TimeSeek(uint64_t pts, bool preceeding) override
   {
-    if (m_codecHandler->TimeSeek(pts / 1000))
-      return AP4_SUCCEEDED(ReadSample());
-    return false;
+    if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler))
+    {
+      return true;
+    }
+    else
+    {
+      if (m_codecHandler->TimeSeek(pts / 1000))
+        return AP4_SUCCEEDED(ReadSample());
+      return false;
+    }
   };
   void SetPTSOffset(uint64_t offset) override { m_ptsOffset = offset; };
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
@@ -2821,9 +2846,10 @@ void Session::UpdateStream(STREAM& stream)
     stream.info_.SetCodecName("opus");
   else if (rep->codecs_.find("vorbis") == 0)
     stream.info_.SetCodecName("vorbis");
-  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0 ||
-           rep->codecs_.find("wvtt") == 0)
+  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0)
     stream.info_.SetCodecName("srt");
+  else if (rep->codecs_.find("wvtt") == 0)
+    stream.info_.SetCodecName("webvtt");
   else
     stream.valid = false;
 
