@@ -1967,6 +1967,7 @@ void Session::STREAM::disable()
   if (enabled)
   {
     stream_.stop();
+    stream_.Reset();
     reset();
     enabled = encrypted = false;
   }

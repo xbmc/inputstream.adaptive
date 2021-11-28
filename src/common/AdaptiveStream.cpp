@@ -870,9 +870,13 @@ void AdaptiveStream::info(std::ostream& s)
 
 void AdaptiveStream::stop()
 {
-  if (current_rep_)
+  if (current_rep_) 
+  {
     const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &=
         ~adaptive::AdaptiveTree::Representation::ENABLED;
+    current_rep_->current_segment_ = 0;
+  }
+
   if (thread_data_)
   {
     StopWorker(STOPPED);
