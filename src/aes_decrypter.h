@@ -20,7 +20,7 @@
 
 #include "Iaes_decrypter.h"
 
-#include "Ap4Types.h"
+#include <bento4/Ap4Types.h>
 
 #include <string>
 

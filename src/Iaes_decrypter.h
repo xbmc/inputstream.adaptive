@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Ap4Types.h"
+#include <bento4/Ap4Types.h>
 
 #include <string>
 

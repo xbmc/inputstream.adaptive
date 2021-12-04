@@ -25,7 +25,7 @@
 #include "../src/SSD_dll.h"
 #include "../src/md5.h"
 #include "jsmn.h"
-#include "Ap4.h"
+#include <bento4/Ap4.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <deque>

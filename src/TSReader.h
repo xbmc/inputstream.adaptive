@@ -21,7 +21,7 @@
 #include <stdint.h>
 #include <vector>
 #include "../lib/mpegts/tsDemuxer.h"
-#include "Ap4Types.h"
+#include <bento4/Ap4Types.h>
 #include <kodi/addon-instance/Inputstream.h>
 
 class AP4_ByteStream;

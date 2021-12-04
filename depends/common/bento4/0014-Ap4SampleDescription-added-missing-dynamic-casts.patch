@@ -1,0 +1,26 @@
+From fc781240bc439294d6ed7d3692f5e7d6aee7b9cb Mon Sep 17 00:00:00 2001
+From: Maven85 <janis.semper@googlemail.com>
+Date: Thu, 15 Jul 2021 11:18:43 +0200
+Subject: [PATCH 14/15] Ap4SampleDescription: added missing dynamic casts
+
+---
+ Source/C++/Core/Ap4SampleDescription.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/Source/C++/Core/Ap4SampleDescription.cpp b/Source/C++/Core/Ap4SampleDescription.cpp
+index 82994224..ef5147c0 100644
+--- a/Source/C++/Core/Ap4SampleDescription.cpp
++++ b/Source/C++/Core/Ap4SampleDescription.cpp
+@@ -57,6 +57,9 @@ AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_AvcSampleDescription)
+ AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_HevcSampleDescription)
+ AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_Av1SampleDescription)
+ AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_SubtitleSampleDescription)
++AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_Ac3SampleDescription)
++AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_Eac3SampleDescription)
++AP4_DEFINE_DYNAMIC_CAST_ANCHOR(AP4_Ac4SampleDescription)
+ 
+ /*----------------------------------------------------------------------
+ |  AP4_GetFormatName
+-- 
+2.32.0.windows.2
+
