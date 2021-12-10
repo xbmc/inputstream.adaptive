@@ -55,7 +55,6 @@ endif()
 
 include_directories(${INCLUDES}
                     ${KODI_INCLUDE_DIR}/.. # Hack way with "/..", need bigger Kodi cmake rework to match right include ways (becomes done in future)
-                    lib/libbento4/Core
                     lib/webm_parser/include
 )
 
@@ -79,9 +78,10 @@ add_subdirectory(lib/mpegts)
 
 add_subdirectory(lib/webm_parser)
 
+find_package(Bento4 REQUIRED)
 if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
   set(BENTOUSESTCFS 1)
-  add_subdirectory(lib/libbento4)
+  include_directories(${BENTO4_INCLUDE_DIRS})
 else()
   add_subdirectory(wvdecrypter)
   set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
@@ -89,7 +89,7 @@ endif()
 
 set(DECRYPTERPATH "special://home/cdm")
 
-list(APPEND DEPLIBS bento4)
+list(APPEND DEPLIBS ${BENTO4_LIBRARIES})
 list(APPEND DEPLIBS mpegts)
 list(APPEND DEPLIBS webm_parser)
 

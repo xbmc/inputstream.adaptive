@@ -17,7 +17,7 @@
 */
 
 #include "aes_decrypter.h"
-#include "Ap4Protection.h"
+#include <bento4/Ap4Protection.h>
 #include <kodi/Filesystem.h>
 #include <vector>
 

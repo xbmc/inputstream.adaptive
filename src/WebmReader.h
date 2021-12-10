@@ -21,8 +21,8 @@
 #include <stdint.h>
 #include <vector>
 
-#include "Ap4Types.h"
-#include "Ap4DataBuffer.h"
+#include <bento4/Ap4Types.h>
+#include <bento4/Ap4DataBuffer.h>
 
 #include <kodi/addon-instance/Inputstream.h>
 #include <webm/callback.h>

@@ -19,8 +19,8 @@
 #pragma once
 
 #include <stdint.h>
-#include "Ap4Types.h"
-#include "Ap4DataBuffer.h"
+#include <bento4/Ap4Types.h>
+#include <bento4/Ap4DataBuffer.h>
 #include <kodi/addon-instance/Inputstream.h>
 
 class AP4_ByteStream;

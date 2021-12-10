@@ -17,7 +17,7 @@
 */
 
 #include "WebmReader.h"
-#include "Ap4ByteStream.h"
+#include <bento4/Ap4ByteStream.h>
 
 #include <webm/reader.h>
 #include <webm/webm_parser.h>

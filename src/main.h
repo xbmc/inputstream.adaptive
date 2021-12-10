@@ -27,7 +27,7 @@
 #include "common/RepresentationChooser.h"
 #include <float.h>
 
-#include "Ap4.h"
+#include <bento4/Ap4.h>
 #include "SSD_dll.h"
 
 class SampleReader;

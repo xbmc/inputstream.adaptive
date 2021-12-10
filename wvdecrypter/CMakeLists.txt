@@ -9,25 +9,23 @@ endif()
 
 project(wvdecrypter)
 
+find_package(Bento4 REQUIRED)
+
 if(CORE_SYSTEM_NAME STREQUAL android)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-undefined")
   include_directories (
-    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4/Core
+    ${BENTO4_INCLUDE_DIRS}
     jni/jutils
     jni/src
   )
 else()
   include_directories (
-    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4/Core/
+    ${BENTO4_INCLUDE_DIRS}
     ${CMAKE_CURRENT_SOURCE_DIR}/cdm
   )
 endif()
 
 set(BENTOUSESTCFS 1)
-
-subdirs (
-   ${CMAKE_CURRENT_SOURCE_DIR}/../lib/libbento4
-)
 
 if(CORE_SYSTEM_NAME STREQUAL android)
   subdirs ( jni )
@@ -62,18 +60,18 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   target_link_libraries (ssd_wv
-    bento4
+    ${BENTO4_LIBRARIES}
     "-framework CoreFoundation"
   )
 elseif(CORE_SYSTEM_NAME STREQUAL android)
   target_link_libraries (ssd_wv
 #    mediandk
     jni
-    bento4
+    ${BENTO4_LIBRARIES}
   )
 else()
   target_link_libraries (ssd_wv
     ${CMAKE_DL_LIBS}
-    bento4
+    ${BENTO4_LIBRARIES}
   )
 endif()

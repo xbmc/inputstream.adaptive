@@ -17,7 +17,7 @@
 */
 
 #include "ADTSReader.h"
-#include "Ap4ByteStream.h"
+#include <bento4/Ap4ByteStream.h>
 #include <stdlib.h>
 
 uint64_t ID3TAG::getSize(const uint8_t *data, unsigned int len, unsigned int shift)
