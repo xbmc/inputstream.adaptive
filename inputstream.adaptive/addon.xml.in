@@ -20,6 +20,7 @@
     <summary lang="en_GB">InputStream client for adaptive streams</summary>
     <summary lang="es_ES">Cliente InputStream para flujo de datos adaptativos</summary>
     <summary lang="he_IL">לקוח InputStream לתזרימים מסתגלים</summary>
+    <summary lang="hr_HR">InputStream klijent za adaptivne tokove</summary>
     <summary lang="hu_HU">InputStream kliens az adaptív streamekhez</summary>
     <summary lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</summary>
     <summary lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</summary>
@@ -30,6 +31,7 @@
     <description lang="en_GB">InputStream client for adaptive streams</description>
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <description lang="he_IL">לקוח InputStream לתזרימים מסתגלים</description>
+    <description lang="hr_HR">InputStream klijent za adaptivne tokove</description>
     <description lang="hu_HU">InputStream kliens az adaptív streamekhez</description>
     <description lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</description>
     <description lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</description>
