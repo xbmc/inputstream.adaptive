@@ -1042,6 +1042,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       {
         dash->has_timeshift_buffer_ = true;
       }
+      else if (strcmp((const char*)*attr, "profiles") == 0 &&
+               strstr((const char*)*(attr + 1), "urn:mpeg:dash:profile:isoff-live:2011"))
+      {
+        dash->has_timeshift_buffer_ = true;
+      }
       else if (strcmp((const char*)*attr, "timeShiftBufferDepth") == 0)
       {
         tsbd = (const char*)*(attr + 1);
@@ -1772,7 +1777,7 @@ void DASHTree::RefreshLiveSegments()
                         break;
                       else if (s.range_begin_ > search_pts)
                         misaligned = search_pts - (&s - 1)->range_begin_;
-                      else 
+                      else
                         ++(*brd)->startNumber_;
                     }
                   }
