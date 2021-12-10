@@ -3079,10 +3079,11 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
       if (!(*b)->reader_->IsStarted())
         StartReader((*b), seekTimeCorrected, ptsDiff, preceeding, false);
       // advance adaptiveStream to the correct segment (triggers segment download)
-      if ((*b)->stream_.seek_time(
-              static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) /
-                  STREAM_TIME_BASE,
-              preceeding, bReset))
+      int64_t ptsDiff = timing_stream_ ? timing_stream_->reader_->GetPTSDiff() :
+          (*b)->reader_->GetPTSDiff();
+      if ((*b)->stream_.seek_time(static_cast<double>(seekTimeCorrected - ptsDiff) /
+                                      STREAM_TIME_BASE,
+                                  preceeding, bReset))
       {
         if (bReset)
           (*b)->reader_->Reset(false);
@@ -3096,6 +3097,11 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
           kodi::Log(ADDON_LOG_INFO,
                     "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
                     (*b)->info_.GetPhysicalIndex(), destTime, (*b)->reader_->PTS());
+          
+          // Video streams are the 'anchor' point, so here we 'correct' the seek time 
+          // so that the seeks for other streams are going exactly to where we landed
+          // in the video stream - otherwise playback can resume audio first, or worse
+          // video playback can stall altogether on some platforms (Android)
           if ((*b)->info_.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
           {
             seekTime = destTime;
