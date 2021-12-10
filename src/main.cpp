@@ -63,13 +63,32 @@
 
 void Log(const LogLevel loglevel, const char* format, ...)
 {
+  AddonLog addonLevel;
+
+  switch (loglevel)
+  {
+    case LogLevel::LOGLEVEL_FATAL:
+      addonLevel = AddonLog::ADDON_LOG_FATAL;
+      break;
+    case LogLevel::LOGLEVEL_ERROR:
+      addonLevel = AddonLog::ADDON_LOG_ERROR;
+      break;
+    case LogLevel::LOGLEVEL_WARNING:
+      addonLevel = AddonLog::ADDON_LOG_WARNING;
+      break;
+    case LogLevel::LOGLEVEL_INFO:
+      addonLevel = AddonLog::ADDON_LOG_INFO;
+      break;
+    default:
+      addonLevel = AddonLog::ADDON_LOG_DEBUG;
+  }
+
   char buffer[16384];
   va_list args;
   va_start(args, format);
   vsprintf(buffer, format, args);
   va_end(args);
-  ::kodi::addon::CAddonBase::m_interface->toKodi->addon_log_msg(
-      ::kodi::addon::CAddonBase::m_interface->toKodi->kodiBase, loglevel, buffer);
+  kodi::Log(addonLevel, buffer);
 }
 
 static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
