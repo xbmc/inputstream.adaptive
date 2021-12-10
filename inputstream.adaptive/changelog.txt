@@ -1,3 +1,9 @@
+v20.0.3 (2021-12-10)
+- Fix compile error by GCC 11
+- Fix build about global Kodi API version 1.3.1
+  - Lower versions also still usable
+- Moved changelog text within addon.xml to new changelog.txt
+
 v20.0.2 (2021-10-09)
 - Fix crash when no data sent to DemuxRead
 - Update Bento4 lib
