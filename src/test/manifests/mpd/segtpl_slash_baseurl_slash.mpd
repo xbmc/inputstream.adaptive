@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-live:2011" mediaPresentationDuration="PT1H47M52S" minBufferTime="PT10S" maxSegmentDuration="PT11S">
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" mediaPresentationDuration="PT1H47M52S" minBufferTime="PT10S" maxSegmentDuration="PT11S">
   <Period id="1" duration="PT1H47M52S">
     <BaseURL>https://foo.bar/guid.ism/dash/</BaseURL>
     <AdaptationSet audioSamplingRate="44100" mimeType="audio/mp4" codecs="mp4a.40.2" startWithSAP="1" id="1" group="1" lang="afr" contentType="audio" segmentAlignment="True">
