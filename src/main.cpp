@@ -1126,7 +1126,11 @@ public:
       m_nextDuration(0),
       m_nextTimestamp(0)
   {
-    EnableTrack(m_track->GetId());
+    if (EnableTrack(m_track->GetId()) == AP4_ERROR_NO_SUCH_ITEM)
+    {
+      // If the track is not found try enable our added track
+      EnableTrack(9999);
+    }
 
     AP4_SampleDescription* desc(m_track->GetSampleDescription(0));
     if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
@@ -2956,7 +2960,7 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     }
     sample_table->AddSampleDescription(sample_descryption);
 
-    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0,
+    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, 9999,
                                   stream->stream_.getRepresentation()->timescale_, 0,
                                   stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
     //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
