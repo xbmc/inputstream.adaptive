@@ -1375,12 +1375,35 @@ public:
   };
   uint32_t GetTimeScale() const override { return m_track->GetMediaTimeScale(); };
 
+public:
+  static const AP4_UI32 TRACKID_UNKNOWN = -1;
+
 protected:
   AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
                          AP4_Position moof_offset,
                          AP4_Position mdat_payload_offset,
                          AP4_UI64 mdat_payload_size) override
   {
+    // For prefixed initialization (usually ISM) we don't yet know the
+    // proper track id, let's find it now
+    if (m_track->GetId() == TRACKID_UNKNOWN)
+    {
+      AP4_MovieFragment* fragment = new AP4_MovieFragment(
+          AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->Clone()));
+      AP4_Array<AP4_UI32> ids;
+      fragment->GetTrackIds(ids);
+      if (ids.ItemCount() == 1)
+      {
+        m_track->SetId(ids[0]);
+        delete fragment;
+      }
+      else
+      {
+        delete fragment;
+        return AP4_ERROR_NO_SUCH_ITEM;
+      }
+    }
+    
     AP4_Result result;
 
     if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(
@@ -2956,7 +2979,8 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     }
     sample_table->AddSampleDescription(sample_descryption);
 
-    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table, ~0,
+    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table,
+                                  FragmentedSampleReader::TRACKID_UNKNOWN,
                                   stream->stream_.getRepresentation()->timescale_, 0,
                                   stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
     //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
