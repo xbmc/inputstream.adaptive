@@ -1,1 +1,1 @@
-bento4 https://github.com/axiomatic-systems/Bento4/archive/refs/tags/v1.6.0-639.zip
+bento4 https://github.com/axiomatic-systems/Bento4/archive/refs/tags/v1.6.0-639.tar.gz
