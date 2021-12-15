@@ -79,9 +79,10 @@ add_subdirectory(lib/mpegts)
 add_subdirectory(lib/webm_parser)
 
 find_package(Bento4 REQUIRED)
+include_directories(${BENTO4_INCLUDE_DIRS})
+
 if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
   set(BENTOUSESTCFS 1)
-  include_directories(${BENTO4_INCLUDE_DIRS})
 else()
   add_subdirectory(wvdecrypter)
   set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)

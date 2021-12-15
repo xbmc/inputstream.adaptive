@@ -1,0 +1,24 @@
+From 7a84a4209a301ffd747f0e4bee2bcdb358e6bbc0 Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Thu, 22 Jul 2021 10:35:48 +0200
+Subject: [PATCH 06/15] Fix segfault when AP4_Sample's seek
+
+---
+ Source/C++/Core/Ap4LinearReader.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Source/C++/Core/Ap4LinearReader.cpp b/Source/C++/Core/Ap4LinearReader.cpp
+index 7cc3ebd8..61dd60e4 100644
+--- a/Source/C++/Core/Ap4LinearReader.cpp
++++ b/Source/C++/Core/Ap4LinearReader.cpp
+@@ -482,6 +482,7 @@ AP4_LinearReader::Advance(bool read_data)
+                 result = buffer->m_Sample->ReadData(buffer->m_Data);
+             }
+             if (AP4_FAILED(result)) {
++                buffer->m_Sample = nullptr;
+                 delete buffer;
+                 return result;
+             }
+-- 
+2.32.0.windows.2
+
