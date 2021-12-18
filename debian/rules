@@ -8,7 +8,7 @@ export CXXFLAGS=-O2
 	dh $@ --parallel
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=1
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=1 -DENABLE_INTERNAL_BENTO4=ON -DBENTO4_URL=bento4.tar.gz
 
 override_dh_strip:
 	dh_strip --dbg-package=kodi-inputstream-adaptive-dbg

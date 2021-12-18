@@ -60,10 +60,8 @@ include_directories(${INCLUDES}
 
 set(CMAKE_FIND_FRAMEWORK LAST)
 
-include(FindEXPAT)
 find_package(EXPAT REQUIRED)
-include_directories(${EXPAT_INCLUDE_DIRS})
-list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
+find_package(Bento4 REQUIRED)
 
 if(WIN32)
   add_definitions(-DXML_STATIC -D_CRT_NONSTDC_NO_DEPRECATE)
@@ -74,17 +72,25 @@ endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
 
-add_subdirectory(lib/mpegts)
+include_directories(${EXPAT_INCLUDE_DIRS})
+list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
 
-add_subdirectory(lib/webm_parser)
-
-find_package(Bento4 REQUIRED)
 if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
   set(BENTOUSESTCFS 1)
   include_directories(${BENTO4_INCLUDE_DIRS})
 else()
   add_subdirectory(wvdecrypter)
   set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
+endif()
+
+add_subdirectory(lib/mpegts)
+add_subdirectory(lib/webm_parser)
+
+if(ENABLE_INTERNAL_BENTO4)
+  include_directories(${BENTO4_INCLUDE_DIRS})
+  add_dependencies(ssd_wv bento4)
+  add_dependencies(mpegts bento4)
+  add_dependencies(webm_parser bento4)
 endif()
 
 set(DECRYPTERPATH "special://home/cdm")
@@ -104,4 +110,7 @@ if(NOT CMAKE_CROSSCOMPILING AND BUILD_TESTING)
   find_package(Gtest REQUIRED)
   include_directories(${GTEST_INCLUDE_DIRS})
   add_subdirectory(src/test)
+  if(ENABLE_INTERNAL_BENTO4)
+    add_dependencies(Test${CMAKE_PROJECT_NAME} bento4)
+  endif()
 endif()
