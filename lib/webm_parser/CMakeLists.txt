@@ -96,3 +96,9 @@ set(webm_parser_sources
 
 add_library(webm_parser STATIC ${webm_parser_sources})
 set_target_properties(webm_parser PROPERTIES POSITION_INDEPENDENT_CODE True)
+
+# Fix C++17 Win UWP build error on src/master_parser.h line 156 and 160 with C4996.
+# NOTE: Check sometimes libwebm becomes update byself in future to fix about!
+if(CORE_SYSTEM_NAME MATCHES windows)
+  target_compile_definitions(webm_parser PRIVATE -D_SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING)
+endif()
