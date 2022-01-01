@@ -35,7 +35,7 @@ namespace adaptive
 {
 
 template<typename T>
-struct ATTRIBUTE_HIDDEN SPINCACHE
+struct ATTR_DLL_LOCAL SPINCACHE
 {
   SPINCACHE() :basePos(0) {};
 
@@ -92,7 +92,7 @@ struct ATTRIBUTE_HIDDEN SPINCACHE
   std::vector<T> data;
 };
 
-class ATTRIBUTE_HIDDEN AdaptiveTree
+class ATTR_DLL_LOCAL AdaptiveTree
 {
 public:
   enum StreamType

@@ -25,7 +25,7 @@
 
 class AP4_ByteStream;
 
-class ATTRIBUTE_HIDDEN ID3TAG
+class ATTR_DLL_LOCAL ID3TAG
 {
 public:
   enum PARSECODE
@@ -49,7 +49,7 @@ private:
 };
 
 
-class ATTRIBUTE_HIDDEN ADTSFrame
+class ATTR_DLL_LOCAL ADTSFrame
 {
 public:
   bool parse(AP4_ByteStream *stream);
@@ -74,7 +74,7 @@ private:
   AP4_DataBuffer m_dataBuffer;
 };
 
-class ATTRIBUTE_HIDDEN ADTSReader
+class ATTR_DLL_LOCAL ADTSReader
 {
 public:
   ADTSReader(AP4_ByteStream *stream);

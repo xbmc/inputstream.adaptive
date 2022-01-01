@@ -49,7 +49,7 @@ documentation and/or software.
 //      MD5(std::string).hexdigest()
 //
 // assumes that char is 8 bit and int is 32 bit
-class ATTRIBUTE_HIDDEN MD5
+class ATTR_DLL_LOCAL MD5
 {
 public:
   typedef unsigned int size_type; // must be 32bit

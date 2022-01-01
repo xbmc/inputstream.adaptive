@@ -25,7 +25,7 @@
 namespace adaptive
 {
 
-class ATTRIBUTE_HIDDEN SmoothTree : public AdaptiveTree
+class ATTR_DLL_LOCAL SmoothTree : public AdaptiveTree
 {
 public:
   SmoothTree();

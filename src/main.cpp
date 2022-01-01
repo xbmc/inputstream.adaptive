@@ -63,24 +63,24 @@
 
 void Log(const LogLevel loglevel, const char* format, ...)
 {
-  AddonLog addonLevel;
+  ADDON_LOG addonLevel;
 
   switch (loglevel)
   {
     case LogLevel::LOGLEVEL_FATAL:
-      addonLevel = AddonLog::ADDON_LOG_FATAL;
+      addonLevel = ADDON_LOG::ADDON_LOG_FATAL;
       break;
     case LogLevel::LOGLEVEL_ERROR:
-      addonLevel = AddonLog::ADDON_LOG_ERROR;
+      addonLevel = ADDON_LOG::ADDON_LOG_ERROR;
       break;
     case LogLevel::LOGLEVEL_WARNING:
-      addonLevel = AddonLog::ADDON_LOG_WARNING;
+      addonLevel = ADDON_LOG::ADDON_LOG_WARNING;
       break;
     case LogLevel::LOGLEVEL_INFO:
-      addonLevel = AddonLog::ADDON_LOG_INFO;
+      addonLevel = ADDON_LOG::ADDON_LOG_INFO;
       break;
     default:
-      addonLevel = AddonLog::ADDON_LOG_DEBUG;
+      addonLevel = ADDON_LOG::ADDON_LOG_DEBUG;
   }
 
   char buffer[16384];
@@ -98,7 +98,7 @@ static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
 /*******************************************************
 kodi host - interface for decrypter libraries
 ********************************************************/
-class ATTRIBUTE_HIDDEN KodiHost : public SSD::SSD_HOST
+class ATTR_DLL_LOCAL KodiHost : public SSD::SSD_HOST
 {
 public:
 #if defined(ANDROID)
@@ -164,7 +164,7 @@ public:
 
   virtual void Log(LOGLEVEL level, const char* msg) override
   {
-    const AddonLog xbmcmap[] = {ADDON_LOG_DEBUG, ADDON_LOG_INFO, ADDON_LOG_ERROR};
+    const ADDON_LOG xbmcmap[] = {ADDON_LOG_DEBUG, ADDON_LOG_INFO, ADDON_LOG_ERROR};
     return kodi::Log(xbmcmap[level], msg);
   };
 
@@ -229,7 +229,7 @@ private:
 Bento4 Streams
 ********************************************************/
 
-class ATTRIBUTE_HIDDEN AP4_DASHStream : public AP4_ByteStream
+class ATTR_DLL_LOCAL AP4_DASHStream : public AP4_ByteStream
 {
 public:
   // Constructor
@@ -526,7 +526,7 @@ bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation*
 |   CodecHandler
 ********************************************************/
 
-class ATTRIBUTE_HIDDEN CodecHandler
+class ATTR_DLL_LOCAL CodecHandler
 {
 public:
   CodecHandler(AP4_SampleDescription* sd)
@@ -600,7 +600,7 @@ public:
 
 /***********************   AVC   ************************/
 
-class ATTRIBUTE_HIDDEN AVCCodecHandler : public CodecHandler
+class ATTR_DLL_LOCAL AVCCodecHandler : public CodecHandler
 {
 public:
   AVCCodecHandler(AP4_SampleDescription* sd)
@@ -818,7 +818,7 @@ private:
 
 /***********************   HEVC   ************************/
 
-class ATTRIBUTE_HIDDEN HEVCCodecHandler : public CodecHandler
+class ATTR_DLL_LOCAL HEVCCodecHandler : public CodecHandler
 {
 public:
   HEVCCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
@@ -902,7 +902,7 @@ public:
 
 /***********************   MPEG   ************************/
 
-class ATTRIBUTE_HIDDEN MPEGCodecHandler : public CodecHandler
+class ATTR_DLL_LOCAL MPEGCodecHandler : public CodecHandler
 {
 public:
   MPEGCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
@@ -915,7 +915,7 @@ public:
 
 /***********************   VP9   ************************/
 
-class ATTRIBUTE_HIDDEN VP9CodecHandler : public CodecHandler
+class ATTR_DLL_LOCAL VP9CodecHandler : public CodecHandler
 {
 public:
   VP9CodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
@@ -931,7 +931,7 @@ public:
 
 /***********************   TTML   ************************/
 
-class ATTRIBUTE_HIDDEN TTMLCodecHandler : public CodecHandler
+class ATTR_DLL_LOCAL TTMLCodecHandler : public CodecHandler
 {
 public:
   TTMLCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd), m_ptsOffset(0){};
@@ -976,7 +976,7 @@ private:
 
 /***********************   WebVTT   ************************/
 
-class ATTRIBUTE_HIDDEN WebVTTCodecHandler : public CodecHandler
+class ATTR_DLL_LOCAL WebVTTCodecHandler : public CodecHandler
 {
 public:
   WebVTTCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd), m_ptsOffset(0)
@@ -1034,7 +1034,7 @@ private:
 |   SampleReader
 ********************************************************/
 
-class ATTRIBUTE_HIDDEN SampleReader
+class ATTR_DLL_LOCAL SampleReader
 {
 public:
   virtual ~SampleReader() = default;
@@ -1066,7 +1066,7 @@ public:
 |   DummySampleReader
 ********************************************************/
 
-class ATTRIBUTE_HIDDEN DummyReader : public SampleReader
+class ATTR_DLL_LOCAL DummyReader : public SampleReader
 {
 public:
   virtual ~DummyReader() = default;
@@ -1096,7 +1096,7 @@ public:
 /*******************************************************
 |   FragmentedSampleReader
 ********************************************************/
-class ATTRIBUTE_HIDDEN FragmentedSampleReader : public SampleReader, public AP4_LinearReader
+class ATTR_DLL_LOCAL FragmentedSampleReader : public SampleReader, public AP4_LinearReader
 {
 public:
   FragmentedSampleReader(AP4_ByteStream* input,
@@ -1574,7 +1574,7 @@ private:
 |   SubtitleSampleReader
 ********************************************************/
 
-class ATTRIBUTE_HIDDEN SubtitleSampleReader : public SampleReader
+class ATTR_DLL_LOCAL SubtitleSampleReader : public SampleReader
 {
 public:
   SubtitleSampleReader(const std::string& url,
@@ -1717,7 +1717,7 @@ private:
 /*******************************************************
 |   TSSampleReader
 ********************************************************/
-class ATTRIBUTE_HIDDEN TSSampleReader : public SampleReader, public TSReader
+class ATTR_DLL_LOCAL TSSampleReader : public SampleReader, public TSReader
 {
 public:
   TSSampleReader(AP4_ByteStream* input,
@@ -1844,7 +1844,7 @@ private:
 /*******************************************************
 |   ADTSSampleReader
 ********************************************************/
-class ATTRIBUTE_HIDDEN ADTSSampleReader : public SampleReader, public ADTSReader
+class ATTR_DLL_LOCAL ADTSSampleReader : public SampleReader, public ADTSReader
 {
 public:
   ADTSSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
@@ -1930,7 +1930,7 @@ private:
 /*******************************************************
 |   WebmSampleReader
 ********************************************************/
-class ATTRIBUTE_HIDDEN WebmSampleReader : public SampleReader, public WebmReader
+class ATTR_DLL_LOCAL WebmSampleReader : public SampleReader, public WebmReader
 {
 public:
   WebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
@@ -2104,8 +2104,9 @@ Session::Session(MANIFEST_TYPE manifestType,
   };
 
   representationChooser_ = new DefaultRepresentationChooser();
-  representationChooser_->assured_buffer_duration_ = kodi::GetSettingInt("ASSUREDBUFFERDURATION");
-  representationChooser_->max_buffer_duration_ = kodi::GetSettingInt("MAXBUFFERDURATION");
+  representationChooser_->assured_buffer_duration_ =
+      kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION");
+  representationChooser_->max_buffer_duration_ = kodi::addon::GetSettingInt("MAXBUFFERDURATION");
   adaptiveTree_->representation_chooser_ = representationChooser_;
 
   std::string fn(profile_path_ + "bandwidth.bin");
@@ -2125,21 +2126,22 @@ Session::Session(MANIFEST_TYPE manifestType,
     representationChooser_->bandwidth_ = 4000000;
   kodi::Log(ADDON_LOG_DEBUG, "Initial bandwidth: %u ", representationChooser_->bandwidth_);
 
-  representationChooser_->max_resolution_ = kodi::GetSettingInt("MAXRESOLUTION");
+  representationChooser_->max_resolution_ = kodi::addon::GetSettingInt("MAXRESOLUTION");
   kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTION selected: %d ",
             representationChooser_->max_resolution_);
 
-  representationChooser_->max_secure_resolution_ = kodi::GetSettingInt("MAXRESOLUTIONSECURE");
+  representationChooser_->max_secure_resolution_ =
+      kodi::addon::GetSettingInt("MAXRESOLUTIONSECURE");
   kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTIONSECURE selected: %d ",
             representationChooser_->max_secure_resolution_);
 
-  manual_streams_ = kodi::GetSettingInt("STREAMSELECTION");
+  manual_streams_ = kodi::addon::GetSettingInt("STREAMSELECTION");
   kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", manual_streams_);
 
-  allow_no_secure_decoder_ = kodi::GetSettingBoolean("NOSECUREDECODER");
+  allow_no_secure_decoder_ = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
   kodi::Log(ADDON_LOG_DEBUG, "FORCENONSECUREDECODER selected: %d ", allow_no_secure_decoder_);
 
-  int buf = kodi::GetSettingInt("MEDIATYPE");
+  int buf = kodi::addon::GetSettingInt("MEDIATYPE");
   switch (buf)
   {
     case 1:
@@ -2156,14 +2158,15 @@ Session::Session(MANIFEST_TYPE manifestType,
       media_type_mask_ = static_cast<uint8_t>(~0);
   }
 
-  buf = kodi::GetSettingInt("MINBANDWIDTH");
+  buf = kodi::addon::GetSettingInt("MINBANDWIDTH");
   representationChooser_->min_bandwidth_ = buf;
-  buf = kodi::GetSettingInt("MAXBANDWIDTH");
+  buf = kodi::addon::GetSettingInt("MAXBANDWIDTH");
   representationChooser_->max_bandwidth_ = buf;
 
-  representationChooser_->ignore_display_ =        kodi::GetSettingBoolean("IGNOREDISPLAY");
-  representationChooser_->hdcp_override_  =        kodi::GetSettingBoolean("HDCPOVERRIDE");
-  representationChooser_->ignore_window_change_= kodi::GetSettingBoolean("IGNOREWINDOWCHANGE");
+  representationChooser_->ignore_display_ = kodi::addon::GetSettingBoolean("IGNOREDISPLAY");
+  representationChooser_->hdcp_override_ = kodi::addon::GetSettingBoolean("HDCPOVERRIDE");
+  representationChooser_->ignore_window_change_ =
+      kodi::addon::GetSettingBoolean("IGNOREWINDOWCHANGE");
 
   if (!strCert.empty())
   {
@@ -2204,7 +2207,7 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
   typedef SSD::SSD_DECRYPTER* (*CreateDecryptorInstanceFunc)(SSD::SSD_HOST * host,
                                                              uint32_t version);
 
-  std::string specialpath = kodi::GetSettingString("DECRYPTERPATH");
+  std::string specialpath = kodi::addon::GetSettingString("DECRYPTERPATH");
   if (specialpath.empty())
   {
     kodi::Log(ADDON_LOG_DEBUG, "DECRYPTERPATH not specified in settings.xml");
@@ -2215,7 +2218,7 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
   std::vector<std::string> searchPaths(2);
   searchPaths[0] =
       kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/");
-  searchPaths[1] = kodi::GetAddonInfo("path");
+  searchPaths[1] = kodi::addon::GetAddonInfo("path");
 
   std::vector<kodi::vfs::CDirEntry> items;
 
@@ -3369,13 +3372,11 @@ class CInputStreamAdaptive;
 /*                     VideoCodec                      */
 /*******************************************************/
 
-class ATTRIBUTE_HIDDEN CVideoCodecAdaptive : public kodi::addon::CInstanceVideoCodec
+class ATTR_DLL_LOCAL CVideoCodecAdaptive : public kodi::addon::CInstanceVideoCodec
 {
 public:
-  CVideoCodecAdaptive(KODI_HANDLE instance, const std::string& version);
-  CVideoCodecAdaptive(KODI_HANDLE instance,
-                      const std::string& version,
-                      CInputStreamAdaptive* parent);
+  CVideoCodecAdaptive(const kodi::addon::IInstanceInfo& instance);
+  CVideoCodecAdaptive(const kodi::addon::IInstanceInfo& instance, CInputStreamAdaptive* parent);
   virtual ~CVideoCodecAdaptive();
 
   bool Open(const kodi::addon::VideoCodecInitdata& initData) override;
@@ -3400,15 +3401,12 @@ private:
 /*                     InputStream                     */
 /*******************************************************/
 
-class ATTRIBUTE_HIDDEN CInputStreamAdaptive : public kodi::addon::CInstanceInputStream
+class ATTR_DLL_LOCAL CInputStreamAdaptive : public kodi::addon::CInstanceInputStream
 {
 public:
-  CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion);
-  ADDON_STATUS CreateInstance(int instanceType,
-                              const std::string& instanceID,
-                              KODI_HANDLE instance,
-                              const std::string& version,
-                              KODI_HANDLE& addonInstance) override;
+  CInputStreamAdaptive(const kodi::addon::IInstanceInfo& instance);
+  ADDON_STATUS CreateInstance(const kodi::addon::IInstanceInfo& instance,
+                              KODI_ADDON_INSTANCE_HDL& hdl) override;
 
   bool Open(const kodi::addon::InputstreamProperty& props) override;
   void Close() override;
@@ -3446,29 +3444,18 @@ private:
   void UnlinkIncludedStreams(Session::STREAM* stream);
 };
 
-CInputStreamAdaptive::CInputStreamAdaptive(KODI_HANDLE instance, const std::string& kodiVersion)
-#if INPUTSTREAM_VERSION_LEVEL > 1
-  : CInstanceInputStream(instance, kodiVersion)
-#else
-  : CInstanceInputStream(instance)
-#endif
-    ,
-    m_session(nullptr),
-    m_width(1280),
-    m_height(720)
+CInputStreamAdaptive::CInputStreamAdaptive(const kodi::addon::IInstanceInfo& instance)
+  : CInstanceInputStream(instance), m_session(nullptr), m_width(1280), m_height(720)
 {
   memset(m_IncludedStreams, 0, sizeof(m_IncludedStreams));
 }
 
-ADDON_STATUS CInputStreamAdaptive::CreateInstance(int instanceType,
-                                                  const std::string& instanceID,
-                                                  KODI_HANDLE instance,
-                                                  const std::string& version,
-                                                  KODI_HANDLE& addonInstance)
+ADDON_STATUS CInputStreamAdaptive::CreateInstance(const kodi::addon::IInstanceInfo& instance,
+                                                  KODI_ADDON_INSTANCE_HDL& hdl)
 {
-  if (instanceType == ADDON_INSTANCE_VIDEOCODEC)
+  if (instance.IsType(ADDON_INSTANCE_VIDEOCODEC))
   {
-    addonInstance = new CVideoCodecAdaptive(instance, version, this);
+    hdl = new CVideoCodecAdaptive(instance, this);
     return ADDON_STATUS_OK;
   }
   return ADDON_STATUS_NOT_IMPLEMENTED;
@@ -4062,18 +4049,17 @@ bool CInputStreamAdaptive::SeekChapter(int ch)
 #endif
 /*****************************************************************************************************/
 
-CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance, const std::string& version)
-  : CInstanceVideoCodec(instance, version),
+CVideoCodecAdaptive::CVideoCodecAdaptive(const kodi::addon::IInstanceInfo& instance)
+  : CInstanceVideoCodec(instance),
     m_session(nullptr),
     m_state(0),
     m_name("inputstream.adaptive.decoder")
 {
 }
 
-CVideoCodecAdaptive::CVideoCodecAdaptive(KODI_HANDLE instance,
-                                         const std::string& version,
+CVideoCodecAdaptive::CVideoCodecAdaptive(const kodi::addon::IInstanceInfo& instance,
                                          CInputStreamAdaptive* parent)
-  : CInstanceVideoCodec(instance, version), m_session(parent->GetSession()), m_state(0)
+  : CInstanceVideoCodec(instance), m_session(parent->GetSession()), m_state(0)
 {
 }
 
@@ -4178,16 +4164,13 @@ void CVideoCodecAdaptive::Reset()
 
 /*****************************************************************************************************/
 
-class ATTRIBUTE_HIDDEN CMyAddon : public kodi::addon::CAddonBase
+class ATTR_DLL_LOCAL CMyAddon : public kodi::addon::CAddonBase
 {
 public:
   CMyAddon();
   virtual ~CMyAddon();
-  ADDON_STATUS CreateInstance(int instanceType,
-                              const std::string& instanceID,
-                              KODI_HANDLE instance,
-                              const std::string& version,
-                              KODI_HANDLE& addonInstance) override;
+  ADDON_STATUS CreateInstance(const kodi::addon::IInstanceInfo& instance,
+                              KODI_ADDON_INSTANCE_HDL& hdl) override;
 };
 
 CMyAddon::CMyAddon()
@@ -4201,15 +4184,12 @@ CMyAddon::~CMyAddon()
   delete kodihost;
 }
 
-ADDON_STATUS CMyAddon::CreateInstance(int instanceType,
-                                      const std::string& instanceID,
-                                      KODI_HANDLE instance,
-                                      const std::string& version,
-                                      KODI_HANDLE& addonInstance)
+ADDON_STATUS CMyAddon::CreateInstance(const kodi::addon::IInstanceInfo& instance,
+                                      KODI_ADDON_INSTANCE_HDL& hdl)
 {
-  if (instanceType == ADDON_INSTANCE_INPUTSTREAM)
+  if (instance.IsType(ADDON_INSTANCE_INPUTSTREAM))
   {
-    addonInstance = new CInputStreamAdaptive(instance, version);
+    hdl = new CInputStreamAdaptive(instance);
     kodihost = new KodiHost();
     return ADDON_STATUS_OK;
   }

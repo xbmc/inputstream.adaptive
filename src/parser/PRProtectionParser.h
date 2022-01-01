@@ -25,7 +25,7 @@
 namespace adaptive
 {
 
-class ATTRIBUTE_HIDDEN PRProtectionParser
+class ATTR_DLL_LOCAL PRProtectionParser
 {
 public:
   PRProtectionParser(std::string wrmheader);

@@ -30,7 +30,7 @@ class IAESDecrypter;
 namespace adaptive
 {
 
-class ATTRIBUTE_HIDDEN HLSTree : public AdaptiveTree
+class ATTR_DLL_LOCAL HLSTree : public AdaptiveTree
 {
 public:
   enum

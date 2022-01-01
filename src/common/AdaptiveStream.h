@@ -32,14 +32,14 @@ namespace adaptive
 {
   class AdaptiveStream;
 
-  class ATTRIBUTE_HIDDEN AdaptiveStreamObserver
+  class ATTR_DLL_LOCAL AdaptiveStreamObserver
   {
   public:
     virtual void OnSegmentChanged(AdaptiveStream *stream) = 0;
     virtual void OnStreamChange(AdaptiveStream *stream) = 0;
   };
 
-  class ATTRIBUTE_HIDDEN AdaptiveStream
+  class ATTR_DLL_LOCAL AdaptiveStream
   {
   public:
     AdaptiveStream(AdaptiveTree& tree,

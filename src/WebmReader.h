@@ -32,7 +32,7 @@ class AP4_ByteStream;
 class WebmAP4Reader;
 
 
-class ATTRIBUTE_HIDDEN WebmReader : public webm::Callback
+class ATTR_DLL_LOCAL WebmReader : public webm::Callback
 {
 public:
 
