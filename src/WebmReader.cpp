@@ -22,7 +22,7 @@
 #include <webm/reader.h>
 #include <webm/webm_parser.h>
 
-class ATTRIBUTE_HIDDEN WebmAP4Reader : public webm::Reader
+class ATTR_DLL_LOCAL WebmAP4Reader : public webm::Reader
 {
 public:
   WebmAP4Reader(AP4_ByteStream *stream) :m_stream(stream) {};

@@ -25,7 +25,7 @@
 
 #include <kodi/AddonBase.h>
 
-class ATTRIBUTE_HIDDEN TTML2SRT
+class ATTR_DLL_LOCAL TTML2SRT
 {
 public:
   TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_frameRate(0), m_timescale(0), m_ptsOffset(0) { m_styleStack.push_back(STYLE()); };

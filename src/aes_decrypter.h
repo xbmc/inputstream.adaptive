@@ -26,7 +26,7 @@
 
 #include <kodi/AddonBase.h>
 
-class ATTRIBUTE_HIDDEN AESDecrypter : public IAESDecrypter
+class ATTR_DLL_LOCAL AESDecrypter : public IAESDecrypter
 {
 public:
   AESDecrypter(const std::string& licenseKey) : m_licenseKey(licenseKey){};

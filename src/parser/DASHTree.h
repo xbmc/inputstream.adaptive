@@ -25,7 +25,7 @@
 namespace adaptive
 {
 
-class ATTRIBUTE_HIDDEN DASHTree : public AdaptiveTree
+class ATTR_DLL_LOCAL DASHTree : public AdaptiveTree
 {
 public:
   DASHTree();

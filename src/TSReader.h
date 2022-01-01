@@ -26,7 +26,7 @@
 
 class AP4_ByteStream;
 
-class ATTRIBUTE_HIDDEN TSReader : public TSDemux::TSDemuxer
+class ATTR_DLL_LOCAL TSReader : public TSDemux::TSDemuxer
 {
 public:
   TSReader(AP4_ByteStream *stream, uint32_t requiredMask);
