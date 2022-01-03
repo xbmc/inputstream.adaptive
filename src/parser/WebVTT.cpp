@@ -20,6 +20,17 @@
 #include "../helpers.h"
 #include <cstring>
 
+uint32_t WebVTT::ReadNextUnsignedInt(const char* data)
+{
+  if (!data)
+    return 0;
+
+  return (static_cast<uint32_t>(data[0]) & 0xFF) << 24 |
+         (static_cast<uint32_t>(data[1]) & 0xFF) << 16 |
+         (static_cast<uint32_t>(data[2]) & 0xFF) << 8 |
+         (static_cast<uint32_t>(data[3]) & 0xFF);
+}
+
 bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
 {
   m_timescale = timescale;
@@ -29,7 +40,8 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
 
   const char *cbuf(reinterpret_cast<const char*>(buffer)), *cbufe(cbuf + buffer_size);
 
-  if (buffer_size >= 8 && (memcmp(cbuf + 4, "vtte", 4) == 0 || memcmp(cbuf + 4, "vttc", 4) == 0))
+  if (buffer_size >= 8 && (memcmp(cbuf + 4, "vtte", 4) == 0 || memcmp(cbuf + 4, "vttc", 4) == 0 ||
+                           memcmp(cbuf + 4, "vttx", 4) == 0))
   {
     if (memcmp(cbuf + 4, "vtte", 4) == 0)
     {
@@ -38,14 +50,41 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
     }
     else if (memcmp(cbuf + 4, "vttc", 4) == 0)
     {
-      if (memcmp(cbuf + 12, "payl", 4) == 0)
-        cbuf += 4, buffer_size -= 4;
+      uint32_t remainingVttcBoxSize = ReadNextUnsignedInt(cbuf);
+      int pos = 8;
 
-      std::string text(cbuf + 12, buffer_size - 12);
-      if (m_subTitles.empty() || ~m_subTitles.back().end)
+      while (remainingVttcBoxSize > 0)
       {
-        m_subTitles.push_back(SUBTITLE(pts));
-        m_subTitles.back().text.push_back(text);
+        if (remainingVttcBoxSize < 8)
+          break;
+
+        uint32_t boxSize = ReadNextUnsignedInt(cbuf + pos);
+        if (boxSize == 0)
+          break;
+
+        pos += 4;
+        int payloadLength = boxSize - 8;
+        remainingVttcBoxSize -= 8;
+        remainingVttcBoxSize -= payloadLength;
+
+        if (memcmp(cbuf + pos, "payl", 4) == 0)
+        {
+          pos += 4;
+          std::string text(cbuf + pos, payloadLength);
+          pos += payloadLength;
+          if (m_subTitles.empty() || ~m_subTitles.back().end)
+          {
+            m_subTitles.push_back(SUBTITLE(pts));
+            m_subTitles.back().text.push_back(text);
+          }
+          break;
+        }
+        else
+        {
+          // Skip this box
+          pos += 4;
+          pos += payloadLength;
+        }
       }
     }
   }
