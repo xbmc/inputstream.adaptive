@@ -3950,7 +3950,7 @@ bool CInputStreamAdaptive::PosTime(int ms)
   bool ret = m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
   m_failedSeekTime = ret ? ~0 : ms;
 
-  return m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
+  return ret;
 }
 
 int CInputStreamAdaptive::GetTotalTime()
