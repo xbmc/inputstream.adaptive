@@ -52,6 +52,7 @@ public:
   uint32_t m_pos;
   uint64_t m_tickRate;
 private:
+  uint32_t ReadNextUnsignedInt(const char* data);
   std::deque<SUBTITLE> m_subTitles;
 
   std::string m_SRT, m_lastId;
