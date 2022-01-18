@@ -51,7 +51,7 @@ public:
                                                Representation* rep,
                                                bool update = false) override;
   virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
-  virtual void OnDataArrived(unsigned int segNum,
+  virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
                              uint8_t iv[16],
                              const uint8_t* src,
