@@ -140,6 +140,7 @@ public:
     uint64_t range_end_ = 0; //Either byterange end or sequence_id if range_begin is ~0
     const char *url = nullptr;
     uint64_t startPTS_ = 0;
+    uint64_t m_duration = 0; // If available gives the media duration of a segment (depends on type of stream e.g. HLS)
     uint16_t pssh_set_ = 0;
   };
 

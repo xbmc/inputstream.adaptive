@@ -258,9 +258,13 @@ public:
     return AP4_SUCCESS;
   };
   AP4_Result GetSize(AP4_LargeSize& size) override { return AP4_ERROR_NOT_SUPPORTED; };
-  AP4_Result GetSegmentSize(AP4_LargeSize& size)
+  AP4_Result GetSegmentSize(size_t& size)
   {
-    return stream_->getSize(size) ? AP4_SUCCESS : AP4_ERROR_EOS;
+    if (stream_->ensureSegment() && stream_->retrieveCurrentSegmentBufferSize(size))
+    {
+      return AP4_SUCCESS;
+    }
+    return AP4_ERROR_EOS;
   };
   // AP4_Referenceable methods
   void AddReference() override{};
@@ -979,13 +983,18 @@ private:
 class ATTR_DLL_LOCAL WebVTTCodecHandler : public CodecHandler
 {
 public:
-  WebVTTCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd), m_ptsOffset(0)
+  WebVTTCodecHandler(AP4_SampleDescription* sd, bool asFile) : CodecHandler(sd), m_ptsOffset(0)
   {
-    if (sd) // WebVTT ISOBMFF format type (ISO/IEC 14496-30:2014)
+    // Note: the extra data must be exactly of 4 characters as imposed in kodi core
+    if (asFile)
     {
-      // Inform Kodi subtitle parser that this is a WebVTT ISOBMFF format
-      // (the extra data must be 4 characters long as imposed in kodi core)
-      extra_data.SetData(reinterpret_cast<const AP4_Byte*>(&m_extraData), 4);
+      // Inform Kodi subtitle parser that we process the data as single file
+      extra_data.SetData(reinterpret_cast<const AP4_Byte*>(&m_extraDataFILE), 4);
+    }
+    else if (sd) // WebVTT ISOBMFF format type (ISO/IEC 14496-30:2014)
+    {
+      // Inform Kodi subtitle parser that we process data as ISOBMFF format type
+      extra_data.SetData(reinterpret_cast<const AP4_Byte*>(&m_extraDataFMP4), 4);
     }
   };
 
@@ -1025,9 +1034,10 @@ public:
 private:
   AP4_UI64 m_ptsOffset;
   AP4_DataBuffer m_data;
-  AP4_UI64 m_pts;
-  AP4_UI32 m_duration;
-  const AP4_Byte m_extraData[4] = {'f', 'm', 'p', '4'};
+  AP4_UI64 m_pts{0};
+  AP4_UI32 m_duration{0};
+  const AP4_Byte m_extraDataFILE[4] = {'f', 'i', 'l', 'e'};
+  const AP4_Byte m_extraDataFMP4[4] = {'f', 'm', 'p', '4'};
 };
 
 /*******************************************************
@@ -1529,7 +1539,7 @@ private:
         m_codecHandler = new TTMLCodecHandler(desc);
         break;
       case AP4_SAMPLE_FORMAT_WVTT:
-        m_codecHandler = new WebVTTCodecHandler(desc);
+        m_codecHandler = new WebVTTCodecHandler(desc, false);
         break;
       case AP4_SAMPLE_FORMAT_VP9:
         m_codecHandler = new VP9CodecHandler(desc);
@@ -1602,20 +1612,24 @@ public:
     file.Close();
 
     if (codecInternalName == "wvtt")
-      m_codecHandler = new WebVTTCodecHandler(nullptr);
+      m_codecHandler = new WebVTTCodecHandler(nullptr, true);
     else
       m_codecHandler = new TTMLCodecHandler(nullptr);
 
     m_codecHandler->Transform(0, 0, result, 1000);
   };
 
-  SubtitleSampleReader(AP4_ByteStream* input,
+  SubtitleSampleReader(Session::STREAM* stream,
                        AP4_UI32 streamId,
                        const std::string& codecInternalName)
-    : m_pts(0), m_streamId(streamId), m_eos(false), m_input(input)
+    : m_pts(0),
+      m_streamId(streamId),
+      m_eos(false),
+      m_input(stream->input_),
+      m_adaptiveStream(&stream->stream_)
   {
     if (codecInternalName == "wvtt")
-      m_codecHandler = new WebVTTCodecHandler(nullptr);
+      m_codecHandler = new WebVTTCodecHandler(nullptr, false);
     else
       m_codecHandler = new TTMLCodecHandler(nullptr);
   }
@@ -1631,43 +1645,67 @@ public:
   };
   AP4_Result ReadSample() override
   {
-    if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
+    if (m_codecHandler->ReadNextSample(m_sample,
+                                       m_sampleData)) // Read the sample data from a file url
     {
-      // Read the sample data from the file url
       m_pts = m_sample.GetCts() * 1000;
       return AP4_SUCCESS;
     }
-    else if (m_input)
+    else if (m_input)  // Read the sample data from a segment file stream (e.g. HLS)
     {
-      // Read the sample data from the file stream
-      AP4_DataBuffer result;
-      const AP4_Size chunkSize = 16384;
-      AP4_Byte buf[chunkSize];
-      AP4_LargeSize sz;
-
-      if (AP4_SUCCEEDED(dynamic_cast<AP4_DASHStream*>(m_input)->GetSegmentSize(sz)))
+      // Get the next segment
+      if (m_adaptiveStream && m_adaptiveStream->ensureSegment())
       {
-        while (sz)
+        size_t segSize;
+        if (m_adaptiveStream->retrieveCurrentSegmentBufferSize(segSize))
         {
-          AP4_Size readSize = sz > chunkSize ? chunkSize : static_cast<AP4_Size>(sz);
-          sz -= readSize;
-          if (AP4_SUCCEEDED(m_input->Read(buf, readSize)))
-            result.AppendData(buf, readSize);
+          AP4_DataBuffer segData;
+          while (segSize > 0)
+          {
+            AP4_Size readSize = m_segmentChunkSize;
+            if (segSize < static_cast<size_t>(m_segmentChunkSize))
+              readSize = static_cast<AP4_Size>(segSize);
+
+            AP4_Byte* buf = new AP4_Byte[readSize];
+            segSize -= readSize;
+            if (AP4_SUCCEEDED(m_input->Read(buf, readSize)))
+            {
+              segData.AppendData(buf, readSize);
+              delete[] buf;
+            }
+            else
+            {
+              delete[] buf;
+              break;
+            }
+          }
+          auto rep = m_adaptiveStream->getRepresentation();
+          if (rep)
+          {
+            auto currentSegment = rep->current_segment_;
+            if (currentSegment)
+            {
+              m_codecHandler->Transform(currentSegment->startPTS_, currentSegment->m_duration,
+                                        segData, 1000);
+              if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
+              {
+                m_pts = m_sample.GetCts();
+                m_ptsDiff = m_pts - m_ptsOffset;
+                return AP4_SUCCESS;
+              }
+            }
+            else
+              kodi::Log(ADDON_LOG_ERROR, "%s: Failed to get current segment of subtitle stream",
+                        __func__);
+          }
           else
-            break;
+            kodi::Log(ADDON_LOG_ERROR, "%s: Failed to get Representation of subtitle stream",
+                      __func__);
         }
-      }
-      else  // Usually the end of segments
-      {
-        m_eos = true;
-        return AP4_ERROR_EOS;
-      }
-      m_codecHandler->Transform(0, 0, result, 1000);
-      if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
-      {
-        m_pts = m_sample.GetCts() * 1000;
-        m_ptsDiff = m_pts - m_ptsOffset;
-        return AP4_SUCCESS;
+        else
+        {
+          kodi::Log(ADDON_LOG_ERROR, "%s: Failed to get subtitle segment buffer size", __func__);
+        }
       }
     }
     m_eos = true;
@@ -1678,11 +1716,23 @@ public:
     if (m_input || bEOS)
       m_codecHandler->Reset();
   };
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override { return false; };
+  bool GetInformation(kodi::addon::InputstreamInfo& info) override
+  {
+    if (m_codecHandler->extra_data.GetDataSize() &&
+        !info.CompareExtraData(m_codecHandler->extra_data.GetData(),
+                               m_codecHandler->extra_data.GetDataSize()))
+    {
+      info.SetExtraData(m_codecHandler->extra_data.GetData(),
+                        m_codecHandler->extra_data.GetDataSize());
+      return true;
+    }
+    return false;
+  };
   bool TimeSeek(uint64_t pts, bool preceeding) override
   {
     if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler))
     {
+      m_pts = pts;
       return true;
     }
     else
@@ -1711,7 +1761,9 @@ private:
 
   AP4_Sample m_sample;
   AP4_DataBuffer m_sampleData;
-  AP4_ByteStream* m_input = nullptr;
+  AP4_ByteStream* m_input{nullptr};
+  KodiAdaptiveStream* m_adaptiveStream{nullptr};
+  const AP4_Size m_segmentChunkSize = 16384; // 16kb
 };
 
 /*******************************************************
@@ -2034,7 +2086,6 @@ void Session::STREAM::disable()
   if (enabled)
   {
     stream_.stop();
-    stream_.Reset();
     reset();
     enabled = encrypted = false;
   }
@@ -3794,7 +3845,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   {
     stream->input_ = new AP4_DASHStream(&stream->stream_);
     stream->reader_ =
-        new SubtitleSampleReader(stream->input_, streamid, stream->info_.GetCodecInternalName());
+        new SubtitleSampleReader(stream, streamid, stream->info_.GetCodecInternalName());
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
   {

@@ -63,7 +63,13 @@ namespace adaptive
     uint32_t read(void* buffer, uint32_t  bytesToRead);
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
-    bool getSize(unsigned long long& sz);
+
+   /*!
+    * \brief Get the buffer size of the first segment in the buffer
+    * \param size The segment buffer size
+    * \return Return true if the size has been read, otherwise false
+    */
+    bool retrieveCurrentSegmentBufferSize(size_t& size);
     bool seek_time(double seek_seconds, bool preceeding, bool &needReset);
     AdaptiveTree::Period* getPeriod() { return current_period_; };
     AdaptiveTree::AdaptationSet* getAdaptationSet() { return current_adp_; };
