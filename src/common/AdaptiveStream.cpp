@@ -696,26 +696,24 @@ bool AdaptiveStream::seek(uint64_t const pos)
   return false;
 }
 
-bool AdaptiveStream::getSize(unsigned long long& sz)
+bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
 {
   if (state_ == STOPPED)
     return false;
 
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
-  if (ensureSegment())
+  while (true)
   {
-    while (true)
+    if (worker_processing_)
     {
-      if (worker_processing_)
-      {
-        thread_data_->signal_rw_.wait(lckrw);
-        continue;
-      }
-      sz = segment_buffers_[0].buffer.size();
-      return true;
+      thread_data_->signal_rw_.wait(lckrw);
+      continue;
     }
+    size = segment_buffers_[0].buffer.size();
+    return true;
   }
+
   return false;
 }
 
@@ -877,7 +875,6 @@ void AdaptiveStream::stop()
   {
     const_cast<adaptive::AdaptiveTree::Representation*>(current_rep_)->flags_ &=
         ~adaptive::AdaptiveTree::Representation::ENABLED;
-    current_rep_->current_segment_ = 0;
   }
 
   if (thread_data_)

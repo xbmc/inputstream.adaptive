@@ -458,7 +458,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         if (line.compare(0, 8, "#EXTINF:") == 0)
         {
           segment.startPTS_ = pts;
-          pts += static_cast<uint64_t>(atof(line.c_str() + 8) * rep->timescale_);
+          uint64_t duration = static_cast<uint64_t>(std::atof(line.c_str() + 8) * rep->timescale_);
+          segment.m_duration = duration;
+          pts += duration;
         }
         else if (line.compare(0, 17, "#EXT-X-BYTERANGE:") == 0)
         {
