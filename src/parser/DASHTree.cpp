@@ -1261,10 +1261,10 @@ static void XMLCALL end(void* data, const char* el)
                   {
                     uint64_t sample_time = dash->current_period_->start_ /  1000;
 
-                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ -
-                                                            overallSeconds - sample_time)) *
-                                          tpl.timescale / tpl.duration +
-                                      1;
+                    // seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ -
+                    //                                         overallSeconds - sample_time)) *
+                    //                       tpl.timescale / tpl.duration +
+                    //                   1;
                   }
                   else if (!tpl.duration)
                     tpl.duration = static_cast<unsigned int>(
