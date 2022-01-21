@@ -1210,20 +1210,26 @@ static void XMLCALL end(void* data, const char* el)
             {
               DASHTree::SegmentTemplate& tpl(dash->current_representation_->segtpl_);
 
-              uint64_t overallSeconds =
-                  dash->current_period_->duration_
-                      ? dash->current_period_->duration_ / dash->current_period_->timescale_
-                      : dash->overallSeconds_;
-              if (!tpl.media.empty() && overallSeconds > 0 && tpl.timescale > 0 &&
+              if (!tpl.media.empty() && tpl.timescale > 0 &&
                   (tpl.duration > 0 ||
                    dash->current_adaptationset_->segment_durations_.data.size()))
               {
+                uint64_t overallSeconds;
+
+                if (dash->has_timeshift_buffer_)
+                  overallSeconds = dash->stream_start_ - dash->available_time_ -
+                                   (dash->current_period_->start_ / 1000);
+                else
+                  overallSeconds =
+                      dash->current_period_->duration_
+                          ? dash->current_period_->duration_ / dash->current_period_->timescale_
+                          : dash->overallSeconds_;
+
                 unsigned int countSegs =
                     !dash->current_adaptationset_->segment_durations_.data.empty()
                         ? dash->current_adaptationset_->segment_durations_.data.size()
                         : (unsigned int)((double)overallSeconds /
-                                         (((double)tpl.duration) / tpl.timescale)) +
-                              1;
+                                         (((double)tpl.duration) / tpl.timescale));
 
                 if (countSegs < 65536)
                 {
@@ -1243,7 +1249,7 @@ static void XMLCALL end(void* data, const char* el)
                   std::vector<uint32_t>::const_iterator sdb(
                       dash->current_adaptationset_->segment_durations_.data.begin()),
                       sde(dash->current_adaptationset_->segment_durations_.data.end());
-                  bool timeBased = sdb != sde && tpl.media.find("$Time") != std::string::npos;
+
                   if (dash->adp_timelined_)
                     dash->current_representation_->flags_ |= AdaptiveTree::Representation::TIMELINE;
 
@@ -1256,17 +1262,7 @@ static void XMLCALL end(void* data, const char* el)
                     seg.startPTS_ = 0;
                   seg.range_begin_ = dash->current_adaptationset_->startPTS_;
 
-                  if (!timeBased && dash->has_timeshift_buffer_ &&
-                      tpl.duration)
-                  {
-                    uint64_t sample_time = dash->current_period_->start_ /  1000;
-
-                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ -
-                                                            overallSeconds - sample_time)) *
-                                          tpl.timescale / tpl.duration +
-                                      1;
-                  }
-                  else if (!tpl.duration)
+                  if (!tpl.duration)
                     tpl.duration = static_cast<unsigned int>(
                         (overallSeconds * tpl.timescale) /
                         dash->current_adaptationset_->segment_durations_.data.size());

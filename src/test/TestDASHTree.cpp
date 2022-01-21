@@ -187,30 +187,30 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
 {
-  tree->mock_time = 1617223929L;
+  tree->mock_time = 1616751595L; //1616715843 (avail start) + 35652 (period start) + 100 (in future)
 
   OpenTestFile("mpd/segtpl_pto.mpd", "", "");
 
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
-  EXPECT_EQ(segments.size(), 451);
-  EXPECT_EQ(segments[0]->range_end_, 404305525);
-  EXPECT_EQ(segments[450]->range_end_, 404305975);
+  EXPECT_EQ(segments.size(), 25); //25 * 4 = 100 seconds
+  EXPECT_EQ(segments[0]->range_end_, 404187866);
+  EXPECT_EQ(segments[24]->range_end_, 404187890);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
 {
-  tree->mock_time = 1617229334L;
+  tree->mock_time = 1616715943L; //1616715843 (avail start) + 100 (in future)
 
   OpenTestFile("mpd/segtpl_old_publish_time.mpd", "", "");
 
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
-  EXPECT_EQ(segments.size(), 31);
-  EXPECT_EQ(segments[0]->range_end_, 603272);
-  EXPECT_EQ(segments[30]->range_end_, 603302);
+  EXPECT_EQ(segments.size(), 25); //25 * 4 = 100 seconds
+  EXPECT_EQ(segments[0]->range_end_, 1);
+  EXPECT_EQ(segments[24]->range_end_, 25);
 }
 
 TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
