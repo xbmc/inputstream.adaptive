@@ -577,7 +577,7 @@ public:
                          AP4_Movie* movie,
                          AP4_Track* track,
                          AP4_UI32 streamId,
-                         AP4_CencSingleSampleDecrypter* ssd,
+                         Adaptive_CencSingleSampleDecrypter* ssd,
                          const SSD::SSD_DECRYPTER::SSD_CAPS& dcaps)
     : AP4_LinearReader(*movie, input),
       m_track(track),
@@ -965,6 +965,19 @@ protected:
                            AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, reset_iv,
                                                            m_singleSampleDecryptor, m_decrypter)))
           return result;
+
+        // Inform decrypter of pattern decryption (CBCS)
+        if (m_protectedDesc->GetSchemeType() == AP4_PROTECTION_SCHEME_TYPE_CENC)
+        {
+          m_singleSampleDecryptor->SetEncryptionScheme(ENCRYPTION_SCHEME::CENC);
+          m_singleSampleDecryptor->SetCrypto(0, 0);
+        }
+        else if (m_protectedDesc->GetSchemeType() == AP4_PROTECTION_SCHEME_TYPE_CBCS)
+        {
+          m_singleSampleDecryptor->SetEncryptionScheme(ENCRYPTION_SCHEME::CBCS);
+          m_singleSampleDecryptor->SetCrypto(sample_table->GetCryptByteBlock(),
+                                             sample_table->GetSkipByteBlock());
+        }
       }
     }
   SUCCESS:
@@ -1048,7 +1061,7 @@ private:
   const AP4_UI08* m_defaultKey;
 
   AP4_ProtectedSampleDescription* m_protectedDesc;
-  AP4_CencSingleSampleDecrypter* m_singleSampleDecryptor;
+  Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor;
   AP4_CencSampleDecrypter* m_decrypter;
   uint64_t m_nextDuration, m_nextTimestamp;
 };
@@ -2002,21 +2015,43 @@ bool Session::InitializeDRM()
 
     unsigned char key_system[16];
     AP4_ParseHex(strkey.c_str(), key_system, 16);
+    uint32_t currentSessionTypes = 0;
 
     for (size_t ses(1); ses < cdm_sessions_.size(); ++ses)
     {
       AP4_DataBuffer init_data;
       const char* optionalKeyParameter(nullptr);
+      adaptive::AdaptiveTree::Period::PSSH sessionPsshset =
+        adaptiveTree_->current_period_->psshSets_[ses];
+      uint32_t sessionType = 0;
 
-      if (adaptiveTree_->current_period_->psshSets_[ses].pssh_ == "FILE")
+      if (sessionPsshset.media_ > 0)
+      {
+        sessionType = sessionPsshset.media_;
+      }
+      else
+      {
+        switch (sessionPsshset.adaptation_set_->type_)
+        {
+          case adaptive::AdaptiveTree::VIDEO:
+            sessionType = adaptive::AdaptiveTree::Period::PSSH::MEDIA_VIDEO;
+            break;
+          case adaptive::AdaptiveTree::AUDIO:
+            sessionType = adaptive::AdaptiveTree::Period::PSSH::MEDIA_AUDIO;
+            break;
+          default:
+            break;
+        }
+      }
+
+      if (sessionPsshset.pssh_ == "FILE")
       {
         LOG::Log(LOGDEBUG, "Searching PSSH data in FILE");
 
         if (m_kodiProps.m_licenseData.empty())
         {
-          Session::STREAM stream(
-              *adaptiveTree_, adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_,
-              media_headers_, representationChooser_, m_kodiProps.m_playTimeshiftBuffer, 0, false);
+          Session::STREAM stream(*adaptiveTree_, sessionPsshset.adaptation_set_, media_headers_,
+                                 representationChooser_, m_kodiProps.m_playTimeshiftBuffer, 0, false);
 
           stream.enabled = true;
           stream.m_kodiAdStream.start_stream();
@@ -2037,10 +2072,10 @@ bool Session::InitializeDRM()
             if (memcmp(pssh[i].GetSystemId(), key_system, 16) == 0)
             {
               init_data.AppendData(pssh[i].GetData().GetData(), pssh[i].GetData().GetDataSize());
-              if (adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty())
+              if (sessionPsshset.defaultKID_.empty())
               {
                 if (pssh[i].GetKid(0))
-                  adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ =
+                  sessionPsshset.defaultKID_ =
                       std::string((const char*)pssh[i].GetKid(0), 16);
                 else if (AP4_Track* track = movie->GetTrack(TIDC[stream.m_kodiAdStream.get_type()]))
                 {
@@ -2053,16 +2088,20 @@ bool Session::InitializeDRM()
                     AP4_TencAtom* tenc(
                         AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
                     if (tenc)
-                      adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ =
-                          std::string((const char*)tenc->GetDefaultKid(), 16);
+                    {
+                      sessionPsshset.defaultKID_ =
+                          std::string(reinterpret_cast<const char*>(tenc->GetDefaultKid()), 16);
+                    }
                     else
                     {
                       AP4_PiffTrackEncryptionAtom* piff(
                           AP4_DYNAMIC_CAST(AP4_PiffTrackEncryptionAtom,
                                            schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
                       if (piff)
-                        adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ =
-                            std::string((const char*)piff->GetDefaultKid(), 16);
+                      {
+                        sessionPsshset.defaultKID_ =
+                            std::string(reinterpret_cast<const char*>(piff->GetDefaultKid()), 16);
+                      }
                     }
                   }
                 }
@@ -2079,10 +2118,9 @@ bool Session::InitializeDRM()
           }
           stream.disable();
         }
-        else if (!adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty())
+        else if (!sessionPsshset.defaultKID_.empty())
         {
-          init_data.SetData(
-              (AP4_Byte*)adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data(), 16);
+          init_data.SetData(reinterpret_cast<AP4_Byte*>(sessionPsshset.defaultKID_.data()), 16);
 
           std::string decLicenseData{BASE64::Decode(m_kodiProps.m_licenseData)};
           uint8_t* decLicDataUInt = reinterpret_cast<uint8_t*>(decLicenseData.data());
@@ -2110,61 +2148,60 @@ bool Session::InitializeDRM()
             if (licenseData.empty())
               licenseData = "e0tJRH0="; // {KID}
             std::vector<uint8_t> init_data_v;
-            CreateISMlicense(adaptiveTree_->current_period_->psshSets_[ses].defaultKID_,
+            CreateISMlicense(sessionPsshset.defaultKID_,
                              licenseData, init_data_v);
             init_data.SetData(init_data_v.data(), init_data_v.size());
           }
           else
           {
             init_data.SetData(reinterpret_cast<const uint8_t*>(
-                                  adaptiveTree_->current_period_->psshSets_[ses].pssh_.data()),
-                              adaptiveTree_->current_period_->psshSets_[ses].pssh_.size());
+                                  sessionPsshset.pssh_.data()),
+                              sessionPsshset.pssh_.size());
             optionalKeyParameter =
                 m_kodiProps.m_licenseData.empty() ? nullptr : m_kodiProps.m_licenseData.c_str();
           }
         }
         else
         {
-          std::string decPssh{BASE64::Decode(adaptiveTree_->current_period_->psshSets_[ses].pssh_)};
+          std::string decPssh{BASE64::Decode(sessionPsshset.pssh_)};
           init_data.SetBufferSize(1024);
           init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()), decPssh.size());
         }
       }
 
       CDMSESSION& session(cdm_sessions_[ses]);
-      std::string defaultKid{adaptiveTree_->current_period_->psshSets_[ses].defaultKID_};
+      std::string defaultKid{sessionPsshset.defaultKID_};
 
-      const char* defkid = adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty()
+      const char* defkid = sessionPsshset.defaultKID_.empty()
                                ? nullptr
-                               : adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data();
+                               : sessionPsshset.defaultKID_.data();
 
       if (decrypter_ && !defaultKid.empty())
       {
         std::string hexKid{StringUtils::ToHexadecimal(defaultKid)};
         LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", hexKid.c_str());
 
-        for (unsigned int i(1); i < ses; ++i)
-          if (decrypter_->HasLicenseKey(cdm_sessions_[i].single_sample_decryptor_,
-                                        reinterpret_cast<const uint8_t*>(defaultKid.c_str())))
+        // use shared ssd session if we already have 1 of the same stream type
+        if (currentSessionTypes & sessionType)
+        {
+          for (unsigned int i(1); i < ses; ++i)
           {
-            session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
-            session.shared_single_sample_decryptor_ = true;
-            break;
+            if (decrypter_->HasLicenseKey(cdm_sessions_[i].single_sample_decryptor_,
+                                          reinterpret_cast<const uint8_t*>(defkid)))
+            {
+              session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
+              session.shared_single_sample_decryptor_ = true;
+              break;
+            }
           }
+        }
       }
-      else if (defaultKid.empty())
+      else if (!defkid && !session.single_sample_decryptor_)
       {
-        for (unsigned int i(1); i < ses; ++i)
-          if (adaptiveTree_->current_period_->psshSets_[ses].pssh_ ==
-              adaptiveTree_->current_period_->psshSets_[i].pssh_)
-          {
-            session.single_sample_decryptor_ = cdm_sessions_[i].single_sample_decryptor_;
-            session.shared_single_sample_decryptor_ = true;
-            break;
-          }
-        if (!session.single_sample_decryptor_)
           LOG::Log(LOGWARNING, "Initializing stream with unknown KID!");
       }
+
+      currentSessionTypes |= sessionType;
 
       if (decrypter_ && init_data.GetDataSize() >= 4 &&
           (session.single_sample_decryptor_ ||
@@ -2173,7 +2210,7 @@ bool Session::InitializeDRM()
       {
         decrypter_->GetCapabilities(
             session.single_sample_decryptor_, reinterpret_cast<const uint8_t*>(defaultKid.c_str()),
-            adaptiveTree_->current_period_->psshSets_[ses].media_, session.decrypter_caps_);
+            sessionPsshset.media_, session.decrypter_caps_);
 
         if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID)
           adaptiveTree_->current_period_->RemovePSSHSet(static_cast<std::uint16_t>(ses));
@@ -2808,7 +2845,7 @@ const AP4_UI08* Session::GetDefaultKeyId(const uint16_t index) const
   return default_key;
 }
 
-AP4_CencSingleSampleDecrypter* Session::GetSingleSampleDecrypter(std::string sessionId)
+Adaptive_CencSingleSampleDecrypter* Session::GetSingleSampleDecrypter(std::string sessionId)
 {
   for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin() + 1), e(cdm_sessions_.end());
        b != e; ++b)
@@ -3601,7 +3638,7 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   m_name += ".decoder";
 
   std::string sessionId(initData.GetCryptoSession().GetSessionId());
-  AP4_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
+  Adaptive_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
 
   return m_session->GetDecrypter()->OpenVideoDecoder(
       ssd, reinterpret_cast<const SSD::SSD_VIDEOINITDATA*>(initData.GetCStructure()));

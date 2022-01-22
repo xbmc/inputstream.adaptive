@@ -8,6 +8,7 @@
 
 #include "../src/SSD_dll.h"
 #include "../src/md5.h"
+#include "../src/common/AdaptiveDecrypter.h"
 #include "../src/utils/Base64Utils.h"
 #include "../src/utils/StringUtils.h"
 #include "../src/utils/Utils.h"
@@ -276,7 +277,7 @@ void WV_DRM::SaveServiceCertificate()
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
-class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
+class WV_CencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter
 {
 public:
   // methods
@@ -354,8 +355,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
                                                            AP4_DataBuffer& pssh,
                                                            const char* optionalKeyParameter,
                                                            std::string_view defaultKeyId)
-  : AP4_CencSingleSampleDecrypter(0),
-    media_drm_(drm),
+  : media_drm_(drm),
     provisionRequested(false),
     keyUpdateRequested(false),
     hdcp_limit_(0),
@@ -1278,7 +1278,7 @@ public:
     return cdmsession_->GetMediaDrm();
   }
 
-  virtual AP4_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+  virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
       AP4_DataBuffer& pssh,
       const char* optionalKeyParameter,
       std::string_view defaultkeyid,
@@ -1299,7 +1299,7 @@ public:
     return decrypter;
   }
 
-  virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) override
+  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override
   {
     if (decrypter)
     {
@@ -1313,7 +1313,10 @@ public:
     }
   }
 
-  virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) override
+  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+                               const uint8_t* keyid,
+                               uint32_t media,
+                               SSD_DECRYPTER::SSD_CAPS& caps) override
   {
     if (decrypter)
       static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetCapabilities(keyid,media,caps);
@@ -1321,14 +1324,15 @@ public:
       caps = { 0, 0, 0};
   }
 
-  virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
+  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
+                             const uint8_t* keyid) override
   {
     if (decrypter)
       return static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->HasLicenseKey(keyid);
     return false;
   }
 
-  virtual std::string GetChallengeB64Data(AP4_CencSingleSampleDecrypter* decrypter) override
+  virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override
   {
     if (!decrypter)
       return "";
@@ -1339,12 +1343,13 @@ public:
     return STRING::URLEncode(encChallengeData);
   }
 
-  virtual bool HasCdmSession() 
+  virtual bool HasCdmSession()
   {
     return cdmsession_ != nullptr;
   }
 
-  virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
+  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
+                                const SSD_VIDEOINITDATA* initData) override
   {
     return false;
   }

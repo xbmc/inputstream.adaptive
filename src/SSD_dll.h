@@ -12,7 +12,7 @@
 #include <string_view>
 
 //Functionality wich is supported by the Decrypter
-class AP4_CencSingleSampleDecrypter;
+class Adaptive_CencSingleSampleDecrypter;
 class AP4_DataBuffer;
 
 namespace SSD
@@ -42,7 +42,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 14;
+    static const uint32_t version = 15;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -196,15 +196,23 @@ namespace SSD
     // Return supported URN if type matches to capabilities, otherwise null
     virtual const char *SelectKeySytem(const char* keySystem) = 0;
     virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate, const uint8_t config) = 0;
-    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, std::string_view defaultkeyid, bool skipSessionMessage) = 0;
-    virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
+    virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+        AP4_DataBuffer& pssh,
+        const char* optionalKeyParameter,
+        std::string_view defaultkeyid,
+        bool skipSessionMessage) = 0;
+    virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) = 0;
 
-    virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) = 0;
-    virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
+    virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+                                 const uint8_t* keyid,
+                                 uint32_t media,
+                                 SSD_DECRYPTER::SSD_CAPS& caps) = 0;
+    virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
     virtual bool HasCdmSession() = 0;
-    virtual std::string GetChallengeB64Data(AP4_CencSingleSampleDecrypter* decrypter) = 0;
+    virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) = 0;
 
-    virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) = 0;
+    virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
+                                  const SSD_VIDEOINITDATA* initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
     virtual void ResetVideo() = 0;
   };
