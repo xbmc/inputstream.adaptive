@@ -390,9 +390,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
   if (!rep->source_url_.empty())
   {
     SPINCACHE<Segment> newSegments;
-    unsigned int newStartNumber;
+    uint64_t newStartNumber;
     Segment newInitialization;
-    uint32_t segmentId(rep->getCurrentSegmentNumber());
+    uint64_t segmentId(rep->getCurrentSegmentNumber());
     std::stringstream stream;
     uint32_t adp_pos =
         std::find(period->adaptationSets_.begin(), period->adaptationSets_.end(), adp) -
@@ -529,7 +529,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         }
         else if (line.compare(0, 22, "#EXT-X-MEDIA-SEQUENCE:") == 0)
         {
-          newStartNumber = atol(line.c_str() + 22);
+          newStartNumber = std::stoull(line.substr(22));
         }
         else if (line.compare(0, 21, "#EXT-X-PLAYLIST-TYPE:") == 0)
         {
@@ -750,7 +750,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       {
         if (segmentId >= rep->startNumber_ + rep->segments_.size())
           segmentId = rep->startNumber_ + rep->segments_.size() - 1;
-        rep->current_segment_ = rep->get_segment(segmentId - rep->startNumber_);
+        rep->current_segment_ = rep->get_segment(static_cast<uint32_t>(segmentId - rep->startNumber_));
       }
       if ((rep->flags_ & Representation::WAITFORSEGMENT) &&
           (rep->get_next_segment(rep->current_segment_) || current_period_ != periods_.back()))
@@ -776,7 +776,7 @@ bool HLSTree::write_data(void* buffer, size_t buffer_size, void* opaque)
   return true;
 }
 
-void HLSTree::OnDataArrived(unsigned int segNum,
+void HLSTree::OnDataArrived(uint64_t segNum,
                             uint16_t psshSet,
                             uint8_t iv[16],
                             const uint8_t* src,

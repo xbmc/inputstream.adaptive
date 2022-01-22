@@ -170,7 +170,7 @@ namespace adaptive
       (*b)->segments_.insert(seg);
   }
 
-  void AdaptiveTree::OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
+  void AdaptiveTree::OnDataArrived(uint64_t segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
   {
     memcpy(dst + dstOffset, src, dataSize);
   }

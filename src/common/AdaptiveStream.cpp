@@ -294,10 +294,10 @@ bool AdaptiveStream::start_stream()
       }
       else // switching streams, align new stream segment no.
       {
-        std::int32_t segmentId = segment_buffers_[0].segment_number;
+        std::int64_t segmentId = segment_buffers_[0].segment_number;
         if (segmentId >= current_rep_->startNumber_ + current_rep_->segments_.size())
           segmentId = current_rep_->startNumber_ + current_rep_->segments_.size() - 1;
-        current_rep_->current_segment_ = current_rep_->get_segment(segmentId - current_rep_->startNumber_);
+        current_rep_->current_segment_ = current_rep_->get_segment(static_cast<uint32_t>(segmentId - current_rep_->startNumber_));
       }
     }
     else
@@ -331,7 +331,7 @@ bool AdaptiveStream::start_stream()
 
     segment_buffers_[0].segment.Copy(loadingSeg);
     segment_buffers_[0].rep = current_rep_;
-    segment_buffers_[0].segment_number = ~0U;
+    segment_buffers_[0].segment_number = ~0ULL;
     segment_buffers_[0].buffer.clear();
     segment_read_pos_ = 0;
 
@@ -392,7 +392,7 @@ bool AdaptiveStream::prepareNextDownload()
   const AdaptiveTree::Representation* rep = segment_buffers_[valid_segment_buffers_].rep;
   const AdaptiveTree::Segment* seg = &segment_buffers_[valid_segment_buffers_].segment;
   // segNum == ~0U is initialization segment!
-  unsigned int segNum = segment_buffers_[valid_segment_buffers_].segment_number;
+  uint64_t segNum = segment_buffers_[valid_segment_buffers_].segment_number;
   segment_buffers_[valid_segment_buffers_].buffer.clear();
   ++valid_segment_buffers_;
 
@@ -401,7 +401,7 @@ bool AdaptiveStream::prepareNextDownload()
 
 bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
                                      const AdaptiveTree::Segment* seg,
-                                     unsigned int segNum)
+                                     uint64_t segNum)
 {
   if (!seg)
     return false;
@@ -520,8 +520,8 @@ bool AdaptiveStream::ensureSegment()
     }
     if (valid_segment_buffers_)
       nextSegment = ~segment_buffers_[0].segment_number
-                        ? current_rep_->get_segment(segment_buffers_[0].segment_number -
-                                                    current_rep_->startNumber_)
+                        ? current_rep_->get_segment(static_cast<uint32_t>(
+                              segment_buffers_[0].segment_number - current_rep_->startNumber_))
                         : nullptr;
     else
       nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
@@ -549,13 +549,13 @@ bool AdaptiveStream::ensureSegment()
         observer_->OnSegmentChanged(this);
 
       uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
-      uint32_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
+      uint64_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
       AdaptiveTree::Representation* newRep;
       bool lastSeg =
           (current_period_ != tree_.periods_.back() &&
            nextsegmentPosold + available_segment_buffers_ == current_rep_->segments_.size() - 1);
       
-      if (segment_buffers_[0].segment_number == ~0L || valid_segment_buffers_ == 0 ||
+      if (segment_buffers_[0].segment_number == ~0ULL || valid_segment_buffers_ == 0 ||
           current_adp_->type_ != AdaptiveTree::VIDEO)
       {
         newRep = current_rep_;
@@ -581,14 +581,15 @@ bool AdaptiveStream::ensureSegment()
           current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_);
       }
 
-      uint32_t nextsegmentPos = nextsegno - newRep->startNumber_;
+      uint64_t nextsegmentPos = nextsegno - newRep->startNumber_;
       if (nextsegmentPos + available_segment_buffers_ >= newRep->segments_.size())
       {
         nextsegmentPos = newRep->segments_.size() - available_segment_buffers_;
       }
-      for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_ ; ++updPos)
+      for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_; ++updPos)
       {
-        const AdaptiveTree::Segment* futureSegment = newRep->get_segment(nextsegmentPos + updPos);
+        const AdaptiveTree::Segment* futureSegment =
+            newRep->get_segment(static_cast<uint32_t>(nextsegmentPos + updPos));
 
         if (futureSegment)
         {

@@ -210,7 +210,7 @@ public:
     uint32_t expired_segments_;
     ContainerType containerType_;
     SegmentTemplate segtpl_;
-    unsigned int startNumber_;
+    uint64_t startNumber_;
     uint64_t nextPts_;
     //SegmentList
     uint64_t ptsOffset_;
@@ -252,14 +252,14 @@ public:
       return get_segment_pos(current_segment_);
     };
 
-    uint32_t getCurrentSegmentNumber() const
+    uint64_t getCurrentSegmentNumber() const
     {
-      return current_segment_ ? get_segment_pos(current_segment_) + startNumber_ : ~0U;
+      return current_segment_ ? static_cast<uint64_t>(get_segment_pos(current_segment_)) + startNumber_ : ~0ULL;
     };
 
-    uint32_t getSegmentNumber(const Segment *segment) const
+    uint64_t getSegmentNumber(const Segment *segment) const
     {
-      return segment ? get_segment_pos(segment) + startNumber_ : ~0U;
+      return segment ? static_cast<uint64_t>(get_segment_pos(segment)) + startNumber_ : ~0ULL;
     };
 
     void SetScaling()
@@ -294,7 +294,7 @@ public:
     uint32_t timescale_;
     uint64_t duration_;
     uint64_t startPTS_;
-    unsigned int startNumber_;
+    uint64_t startNumber_;
     bool impaired_, original_, default_, forced_;
     std::string language_;
     std::string mimeType_;
@@ -430,7 +430,9 @@ public:
 
     std::vector<AdaptationSet*> adaptationSets_;
     std::string base_url_, id_;
-    uint32_t timescale_ = 1000, startNumber_ = 1, sequence_ = 0;
+    uint32_t timescale_ = 1000;
+    uint32_t sequence_ = 0;
+    uint64_t startNumber_ = 1;
     uint64_t start_ = 0;
     uint64_t startPTS_ = 0;
     uint64_t duration_ = 0;
@@ -501,7 +503,7 @@ public:
     return PREPARE_RESULT_OK;
   };
   virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep) { return std::chrono::system_clock::now(); }
-  virtual void OnDataArrived(unsigned int segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
+  virtual void OnDataArrived(uint64_t segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize);
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
                                Representation* rep,

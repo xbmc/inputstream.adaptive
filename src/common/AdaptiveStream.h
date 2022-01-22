@@ -102,7 +102,7 @@ namespace adaptive
     {
       std::string buffer;
       AdaptiveTree::Segment segment;
-      unsigned int segment_number;
+      uint64_t segment_number;
       AdaptiveTree::Representation* rep;
     };
     std::vector<SEGMENTBUFFER> segment_buffers_;
@@ -124,7 +124,7 @@ namespace adaptive
     bool prepareNextDownload();
     bool prepareDownload(const AdaptiveTree::Representation* rep,
                          const AdaptiveTree::Segment* seg,
-                         unsigned int segNum);
+                         uint64_t segNum);
     int SecondsSinceUpdate() const;
     static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
     bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
@@ -179,7 +179,7 @@ namespace adaptive
     uint64_t currentPTSOffset_, absolutePTSOffset_;
 
     uint16_t download_pssh_set_;
-    unsigned int download_segNum_;
+    uint64_t download_segNum_;
     bool worker_processing_;
     uint8_t m_iv[16];
     bool m_fixateInitialization;
