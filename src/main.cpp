@@ -505,7 +505,7 @@ bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation*
       }
       AP4_Position pos;
       byteStream.Tell(pos);
-      seg.range_end_ = pos + getRepresentation()->indexRangeMin_ + sidx->GetFirstOffset() - 1;
+      seg.range_end_ = pos + rep->indexRangeMin_ + sidx->GetFirstOffset() - 1;
       rep->timescale_ = sidx->GetTimeScale();
       rep->SetScaling();
 
