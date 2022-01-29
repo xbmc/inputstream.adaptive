@@ -1,3 +1,8 @@
+v20.1.2 (2022-01-29)
+- [WebVTT] - Fix sending segments packages
+- [HLS] - Handle playlists with large media sequences
+- [DASH] - Fix stream switching for byteranged types
+
 v20.1.0 (2021-12-23)
 - Translation updates by Weblate
 - Kodi main API update to version 2.0.0
