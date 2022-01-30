@@ -8,12 +8,19 @@ find_package(Kodi REQUIRED)
 
 set(ADP_SOURCES
 	src/main.cpp
+	src/codechandler/AVCCodecHandler.cpp
+	src/codechandler/CodecHandler.cpp
+	src/codechandler/HEVCCodecHandler.cpp
+	src/codechandler/MPEGCodecHandler.cpp
+	src/codechandler/TTMLCodecHandler.cpp
+	src/codechandler/VP9CodecHandler.cpp
+	src/codechandler/WebVTTCodecHandler.cpp
+	src/codechandler/ttml/TTML.cpp
 	src/common/AdaptiveTree.cpp
 	src/common/RepresentationChooser.cpp
 	src/parser/DASHTree.cpp
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
-	src/parser/TTML.cpp
 	src/parser/PRProtectionParser.cpp
 	src/common/AdaptiveStream.cpp
 	src/helpers.cpp
@@ -30,13 +37,20 @@ set(ADP_HEADERS
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h
+	src/codechandler/AVCCodecHandler.h
+	src/codechandler/CodecHandler.h
+	src/codechandler/HEVCCodecHandler.h
+	src/codechandler/MPEGCodecHandler.h
+	src/codechandler/TTMLCodecHandler.h
+	src/codechandler/VP9CodecHandler.h
+	src/codechandler/WebVTTCodecHandler.h
+	src/codechandler/ttml/TTML.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
 	src/common/RepresentationChooser.h
 	src/parser/DASHTree.h
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
-	src/parser/TTML.h
 	src/parser/PRProtectionParser.h
 	src/TSReader.h
 	src/log.h
