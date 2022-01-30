@@ -147,7 +147,7 @@ namespace adaptive
     uint32_t hdcpLimit_;
     uint16_t hdcpVersion_;
     uint16_t download_pssh_set_;
-    unsigned int download_segNum_;
+    uint64_t download_segNum_;
     bool stopped_;
     uint8_t m_iv[16];
     bool m_fixateInitialization;
