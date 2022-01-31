@@ -87,11 +87,11 @@ static uint8_t GetChannels(const char** attr)
   return 0;
 }
 
-static unsigned int ParseSegmentTemplate(const char** attr,
+static uint64_t ParseSegmentTemplate(const char** attr,
                                          std::string baseURL,
                                          std::string baseDomain,
                                          DASHTree::SegmentTemplate& tpl,
-                                         unsigned int startNumber)
+                                         uint64_t startNumber)
 {
   for (; *attr;)
   {
@@ -1623,7 +1623,7 @@ void DASHTree::RefreshLiveSegments()
   {
     std::string replaced;
     uint32_t numReplace = ~0U;
-    unsigned int nextStartNumber(~0);
+    uint64_t nextStartNumber(~0ULL);
     std::string::size_type update_parameter_pos = update_parameter_.find("$START_NUMBER$");
 
     if (~update_parameter_pos)
@@ -1653,7 +1653,7 @@ void DASHTree::RefreshLiveSegments()
 
       replaced = update_parameter_;
       char buf[32];
-      sprintf(buf, "%u", nextStartNumber);
+      sprintf(buf, "%llu", nextStartNumber);
       replaced.replace(update_parameter_pos, 14, buf);
     }
 
@@ -1753,7 +1753,7 @@ void DASHTree::RefreshLiveSegments()
                 else if ((*br)->startNumber_ <= 1) //Full update, be careful with startnumbers!
                 {
                   //TODO: check if first element or size differs
-                  unsigned int segmentId((*brd)->getCurrentSegmentNumber());
+                  uint64_t segmentId((*brd)->getCurrentSegmentNumber());
                   if ((*br)->flags_ & DASHTree::Representation::TIMELINE)
                   {
                     uint64_t search_pts = (*br)->segments_[0]->range_begin_;
@@ -1804,8 +1804,8 @@ void DASHTree::RefreshLiveSegments()
                   {
                     if (segmentId >= (*brd)->startNumber_ + (*brd)->segments_.size())
                       segmentId = (*brd)->startNumber_ + (*brd)->segments_.size() - 1;
-                    (*brd)->current_segment_ =
-                        (*brd)->get_segment(segmentId - (*brd)->startNumber_);
+                    (*brd)->current_segment_ = (*brd)->get_segment(
+                        static_cast<uint32_t>(segmentId - (*brd)->startNumber_));
                   }
 
                   if (((*brd)->flags_ & Representation::WAITFORSEGMENT) &&
@@ -1820,7 +1820,7 @@ void DASHTree::RefreshLiveSegments()
                          ((*br)->startNumber_ == (*brd)->startNumber_ &&
                           (*br)->segments_.size() > (*brd)->segments_.size()))
                 {
-                  unsigned int segmentId((*brd)->getCurrentSegmentNumber());
+                  uint64_t segmentId((*brd)->getCurrentSegmentNumber());
                   (*br)->segments_.swap((*brd)->segments_);
                   (*brd)->startNumber_ = (*br)->startNumber_;
                   if (!~segmentId || segmentId < (*brd)->startNumber_)
@@ -1829,8 +1829,8 @@ void DASHTree::RefreshLiveSegments()
                   {
                     if (segmentId >= (*brd)->startNumber_ + (*brd)->segments_.size())
                       segmentId = (*brd)->startNumber_ + (*brd)->segments_.size() - 1;
-                    (*brd)->current_segment_ =
-                        (*brd)->get_segment(segmentId - (*brd)->startNumber_);
+                    (*brd)->current_segment_ = (*brd)->get_segment(
+                        static_cast<uint32_t>(segmentId - (*brd)->startNumber_));
                   }
 
                   if (((*brd)->flags_ & Representation::WAITFORSEGMENT) &&
