@@ -235,11 +235,14 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
 
 static void ReplacePlaceHolders(std::string& rep, const std::string& id, uint32_t bandwidth)
 {
-  std::string::size_type repPos = rep.find("$RepresentationID$");
-  if (repPos != std::string::npos)
+  while (1)
+  {
+    std::string::size_type repPos = rep.find("$RepresentationID$");
+    if (repPos == std::string::npos)
+        break;
     rep.replace(repPos, 18, id);
-
-  repPos = rep.find("$Bandwidth$");
+  }
+  std::string::size_type repPos = rep.find("$Bandwidth$");
   if (repPos != std::string::npos)
   {
     char bw[32];
