@@ -780,12 +780,12 @@ public:
       return false;
 
     bool edchanged(false);
-    if (m_bSampleDescChanged && m_codecHandler->extra_data.GetDataSize() &&
-        !info.CompareExtraData(m_codecHandler->extra_data.GetData(),
-                               m_codecHandler->extra_data.GetDataSize()))
+    if (m_bSampleDescChanged && m_codecHandler->m_extraData.GetDataSize() &&
+        !info.CompareExtraData(m_codecHandler->m_extraData.GetData(),
+                               m_codecHandler->m_extraData.GetDataSize()))
     {
-      info.SetExtraData(m_codecHandler->extra_data.GetData(),
-                        m_codecHandler->extra_data.GetDataSize());
+      info.SetExtraData(m_codecHandler->m_extraData.GetData(),
+                        m_codecHandler->m_extraData.GetDataSize());
       edchanged = true;
     }
 
@@ -978,8 +978,8 @@ protected:
   SUCCESS:
     if (m_singleSampleDecryptor && m_codecHandler)
       m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey,
-                                               m_codecHandler->naluLengthSize,
-                                               m_codecHandler->extra_data, m_decrypterCaps.flags);
+                                               m_codecHandler->m_naluLengthSize,
+                                               m_codecHandler->m_extraData, m_decrypterCaps.flags);
 
     return AP4_SUCCESS;
   }
@@ -1199,12 +1199,12 @@ public:
   };
   bool GetInformation(kodi::addon::InputstreamInfo& info) override
   {
-    if (m_codecHandler->extra_data.GetDataSize() &&
-        !info.CompareExtraData(m_codecHandler->extra_data.GetData(),
-                               m_codecHandler->extra_data.GetDataSize()))
+    if (m_codecHandler->m_extraData.GetDataSize() &&
+        !info.CompareExtraData(m_codecHandler->m_extraData.GetData(),
+                               m_codecHandler->m_extraData.GetDataSize()))
     {
-      info.SetExtraData(m_codecHandler->extra_data.GetData(),
-                        m_codecHandler->extra_data.GetDataSize());
+      info.SetExtraData(m_codecHandler->m_extraData.GetData(),
+                        m_codecHandler->m_extraData.GetDataSize());
       return true;
     }
     return false;

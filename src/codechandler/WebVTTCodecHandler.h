@@ -1,3 +1,11 @@
+/*
+ *  Copyright (C) 2022 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #include "CodecHandler.h"
 
 class ATTR_DLL_LOCAL WebVTTCodecHandler : public CodecHandler
@@ -17,6 +25,4 @@ private:
   AP4_DataBuffer m_data;
   AP4_UI64 m_pts{0};
   AP4_UI32 m_duration{0};
-  const AP4_Byte m_extraDataFILE[4] = {'f', 'i', 'l', 'e'};
-  const AP4_Byte m_extraDataFMP4[4] = {'f', 'm', 'p', '4'};
 };

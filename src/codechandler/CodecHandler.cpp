@@ -1,22 +1,39 @@
+/*
+ *  Copyright (C) 2022 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #include "CodecHandler.h"
+
+namespace
+{
+constexpr const char* NETFLIX_FRAMERATE_UUID = "NetflixFrameRate";
+}
 
 bool CodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
 {
-  AP4_GenericAudioSampleDescription* asd(nullptr);
-  if (sample_description)
+  AP4_GenericAudioSampleDescription* audioSampleDescription(nullptr);
+  if (m_sampleDescription)
   {
-    if ((asd = dynamic_cast<AP4_GenericAudioSampleDescription*>(sample_description)))
+    if ((audioSampleDescription =
+             dynamic_cast<AP4_GenericAudioSampleDescription*>(m_sampleDescription)))
     {
-      if ((!info.GetChannels() && asd->GetChannelCount() != info.GetChannels()) ||
-          (!info.GetSampleRate() && asd->GetSampleRate() != info.GetSampleRate()) ||
-          (!info.GetBitsPerSample() && asd->GetSampleSize() != info.GetBitsPerSample()))
+      if ((info.GetChannels() == 0 &&
+           audioSampleDescription->GetChannelCount() != info.GetChannels()) ||
+          (info.GetSampleRate() == 0 &&
+           audioSampleDescription->GetSampleRate() != info.GetSampleRate()) ||
+          (info.GetBitsPerSample() == 0 &&
+           audioSampleDescription->GetSampleSize() != info.GetBitsPerSample()))
       {
-        if (!info.GetChannels())
-          info.SetChannels(asd->GetChannelCount());
-        if (!info.GetSampleRate())
-          info.SetSampleRate(asd->GetSampleRate());
-        if (!info.GetBitsPerSample())
-          info.SetBitsPerSample(asd->GetSampleSize());
+        if (info.GetChannels() == 0)
+          info.SetChannels(audioSampleDescription->GetChannelCount());
+        if (info.GetSampleRate() == 0)
+          info.SetSampleRate(audioSampleDescription->GetSampleRate());
+        if (info.GetBitsPerSample() == 0)
+          info.SetBitsPerSample(audioSampleDescription->GetSampleSize());
         return true;
       }
     }
@@ -25,15 +42,13 @@ bool CodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
       //Netflix Framerate
       AP4_Atom* atom;
       AP4_UnknownUuidAtom* nxfr;
-      static const AP4_UI08 uuid[16] = {0x4e, 0x65, 0x74, 0x66, 0x6c, 0x69, 0x78, 0x46,
-                                        0x72, 0x61, 0x6d, 0x65, 0x52, 0x61, 0x74, 0x65};
-
-      if ((atom =
-               sample_description->GetDetails().GetChild(static_cast<const AP4_UI08*>(uuid), 0)) &&
-          (nxfr = dynamic_cast<AP4_UnknownUuidAtom*>(atom)) && nxfr->GetData().GetDataSize() == 10)
+      atom = m_sampleDescription->GetDetails().GetChild(
+          reinterpret_cast<const AP4_UI08*>(NETFLIX_FRAMERATE_UUID));
+      if (atom && (nxfr = dynamic_cast<AP4_UnknownUuidAtom*>(atom)) &&
+          nxfr->GetData().GetDataSize() == 10)
       {
-        AP4_UI16 fpsRate = nxfr->GetData().GetData()[7] | nxfr->GetData().GetData()[6] << 8;
-        AP4_UI16 fpsScale = nxfr->GetData().GetData()[9] | nxfr->GetData().GetData()[8] << 8;
+        unsigned int fpsRate = nxfr->GetData().GetData()[7] | nxfr->GetData().GetData()[6] << 8;
+        unsigned int fpsScale = nxfr->GetData().GetData()[9] | nxfr->GetData().GetData()[8] << 8;
 
         if (info.GetFpsScale() != fpsScale || info.GetFpsRate() != fpsRate)
         {

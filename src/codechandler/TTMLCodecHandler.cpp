@@ -1,3 +1,11 @@
+/*
+ *  Copyright (C) 2022 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #include "TTMLCodecHandler.h"
 
 bool TTMLCodecHandler::ReadNextSample(AP4_Sample& sample, AP4_DataBuffer& buf)
@@ -7,7 +15,8 @@ bool TTMLCodecHandler::ReadNextSample(AP4_Sample& sample, AP4_DataBuffer& buf)
 
   if (m_ttml.Prepare(pts, dur))
   {
-    buf.SetData(static_cast<const AP4_Byte*>(m_ttml.GetData()), m_ttml.GetDataSize());
+    buf.SetData(static_cast<const AP4_Byte*>(m_ttml.GetData()),
+                static_cast<const AP4_Size>(m_ttml.GetDataSize()));
     sample.SetDts(pts);
     sample.SetCtsDelta(0);
     sample.SetDuration(dur);

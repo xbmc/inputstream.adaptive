@@ -1,4 +1,13 @@
+/*
+ *  Copyright (C) 2022 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
+
 #include <bento4/Ap4.h>
 #include <kodi/AddonBase.h>
 #include <kodi/addon-instance/Inputstream.h>
@@ -7,7 +16,7 @@ class ATTR_DLL_LOCAL CodecHandler
 {
 public:
   CodecHandler(AP4_SampleDescription* sd)
-    : sample_description(sd), naluLengthSize(0), pictureId(0), pictureIdPrev(0xFF){};
+    : m_sampleDescription(sd), m_naluLengthSize(0), m_pictureId(0), m_pictureIdPrev(0xFF){};
   virtual ~CodecHandler(){};
 
   virtual void UpdatePPSId(AP4_DataBuffer const&){};
@@ -23,8 +32,9 @@ public:
   virtual bool TimeSeek(AP4_UI64 seekPos) { return true; };
   virtual void Reset(){};
 
-  AP4_SampleDescription* sample_description;
-  AP4_DataBuffer extra_data;
-  AP4_UI08 naluLengthSize;
-  AP4_UI08 pictureId, pictureIdPrev;
+  AP4_SampleDescription* m_sampleDescription;
+  AP4_DataBuffer m_extraData;
+  AP4_UI08 m_naluLengthSize;
+  AP4_UI08 m_pictureId;
+  AP4_UI08 m_pictureIdPrev;
 };

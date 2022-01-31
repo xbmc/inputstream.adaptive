@@ -1,4 +1,18 @@
+/*
+ *  Copyright (C) 2022 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #include "WebVTTCodecHandler.h"
+
+namespace
+{
+constexpr AP4_Byte EXTRADATA_FILE[4] = {'f', 'i', 'l', 'e'};
+constexpr AP4_Byte EXTRADATA_FMP4[4] = {'f', 'm', 'p', '4'};
+} // namespace
 
 WebVTTCodecHandler::WebVTTCodecHandler(AP4_SampleDescription* sd, bool asFile)
   : CodecHandler(sd), m_ptsOffset(0)
@@ -7,12 +21,12 @@ WebVTTCodecHandler::WebVTTCodecHandler(AP4_SampleDescription* sd, bool asFile)
   if (asFile)
   {
     // Inform Kodi subtitle parser that we process the data as single file
-    extra_data.SetData(reinterpret_cast<const AP4_Byte*>(&m_extraDataFILE), 4);
+    m_extraData.SetData(reinterpret_cast<const AP4_Byte*>(&EXTRADATA_FILE), 4);
   }
   else if (sd) // WebVTT ISOBMFF format type (ISO/IEC 14496-30:2014)
   {
     // Inform Kodi subtitle parser that we process data as ISOBMFF format type
-    extra_data.SetData(reinterpret_cast<const AP4_Byte*>(&m_extraDataFMP4), 4);
+    m_extraData.SetData(reinterpret_cast<const AP4_Byte*>(&EXTRADATA_FMP4), 4);
   }
 };
 
