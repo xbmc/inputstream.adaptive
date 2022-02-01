@@ -1,6 +1,10 @@
-// Copyright 2015 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+/*
+ *  Copyright (C) 2015 The Chromium Authors. All rights reserved.
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: BSD-3-Clause
+ *  See LICENSES/README.md for more information.
+ */
 
 #include "base/files/file_path.h"
 #include "base/native_library.h"

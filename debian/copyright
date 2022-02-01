@@ -1,9 +1,9 @@
 Format: http://dep.debian.net/deps/dep5
 Upstream-Name: inputstream.adaptive
-Source: https://github.com/peak3d/inputstream.adaptive
+Source: https://github.com/xbmc/inputstream.adaptive
 
 Files: *
-Copyright: 2005-2016 Team Kodi
+Copyright: 2005-2022 Team Kodi
 License: GPL-2+
  This package is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
