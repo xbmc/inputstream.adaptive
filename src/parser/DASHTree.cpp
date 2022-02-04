@@ -236,20 +236,8 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
 
 static void ReplacePlaceHolders(std::string& rep, const std::string& id, uint32_t bandwidth)
 {
-  while (1)
-  {
-    std::string::size_type repPos = rep.find("$RepresentationID$");
-    if (repPos == std::string::npos)
-        break;
-    rep.replace(repPos, 18, id);
-  }
-  std::string::size_type repPos = rep.find("$Bandwidth$");
-  if (repPos != std::string::npos)
-  {
-    char bw[32];
-    sprintf(bw, "%u", bandwidth);
-    rep.replace(repPos, 11, bw);
-  }
+  replaceAll(rep, "$RepresentationID$", id, true);
+  replaceAll(rep, "$Bandwidth$", std::to_string(bandwidth).c_str(), true);
 }
 
 static void XMLCALL start(void* data, const char* el, const char** attr)
