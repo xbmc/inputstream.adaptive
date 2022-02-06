@@ -1,10 +1,13 @@
-/*******************************************************
-|   RepresentationChooser
-********************************************************/
+/*
+ *  Copyright (C) 2021 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
 #include "RepresentationChooser.h"
 #include "../log.h"
-
 
 //Pending- The plan was to group representations, this will give an easier switching control.
 //Streams will get filtered in 6 buckets: 240p, 480p, HD-720p, FHD-1080p, QHD-1440p, UHD-2160p

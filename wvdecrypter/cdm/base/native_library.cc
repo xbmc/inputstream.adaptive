@@ -1,3 +1,11 @@
+/*
+ *  Copyright (C) 2015 The Chromium Authors. All rights reserved.
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: BSD-3-Clause
+ *  See LICENSES/README.md for more information.
+ */
+
 #include "native_library.h"
 
 namespace base {
