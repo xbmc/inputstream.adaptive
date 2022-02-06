@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016 peak3d (http://www.peak3d.de)
+ *  Copyright (C) 2022 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -18,18 +18,21 @@
 class ATTR_DLL_LOCAL TTML2SRT
 {
 public:
-  TTML2SRT() :m_node(0), m_pos(0), m_tickRate(0), m_frameRate(0), m_timescale(0), m_ptsOffset(0) { m_styleStack.push_back(STYLE()); };
+  TTML2SRT() : m_node(0), m_pos(0), m_tickRate(0), m_frameRate(0), m_timescale(0), m_ptsOffset(0)
+  {
+    m_styleStack.push_back(STYLE());
+  };
 
-  bool Parse(const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset);
+  bool Parse(const void* buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset);
 
-  bool Prepare(uint64_t &pts, uint32_t &duration);
+  bool Prepare(uint64_t& pts, uint32_t& duration);
   bool TimeSeek(uint64_t seekPos);
   void Reset();
 
-  const void *GetData() const { return m_SRT.data(); };
+  const void* GetData() const { return m_SRT.data(); };
   size_t GetDataSize() const { return m_SRT.size(); };
 
-  bool StackSubTitle(const char *s, const char *e, const char *id);
+  bool StackSubTitle(const char* s, const char* e, const char* id);
   void StackText();
   void StyleText();
 
@@ -38,7 +41,7 @@ public:
 
   struct STYLE
   {
-    STYLE() :italic(0xFF), bold(0xFF), underline(0xFF) {};
+    STYLE() : italic(0xFF), bold(0xFF), underline(0xFF){};
     std::string id;
     std::string color;
 
@@ -47,7 +50,7 @@ public:
     uint8_t underline;
     uint8_t dummy;
   };
-  void InsertStyle(const STYLE &style) { m_styles.push_back(style); };
+  void InsertStyle(const STYLE& style) { m_styles.push_back(style); };
   TTML2SRT::STYLE GetStyle(const char* styleId);
 
   struct SUBTITLE
@@ -70,8 +73,9 @@ public:
 
   uint32_t m_node, m_pos;
   uint64_t m_tickRate, m_frameRate;
+
 private:
-  uint64_t GetTime(const char * tm);
+  uint64_t GetTime(const char* tm);
 
   std::deque<SUBTITLE> m_subTitles;
   std::vector<STYLE> m_styles, m_styleStack;
