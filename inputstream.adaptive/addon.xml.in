@@ -227,9 +227,10 @@ v2.3.14 (2019-02-10)
     <summary lang="es_MX">Cliente InputStream para transmisiones adaptativas</summary>
     <summary lang="fi_FI">InputStream asiakasohjelma adaptiivisille suoratoistoille</summary>
     <summary lang="he_IL">לקוח InputStream לתזרימים מסתגלים</summary>
-    <summary lang="hr_HR">InputStream klijent za adaptivne tokove</summary>
+    <summary lang="hr_HR">InputStream klijent za prilagodljiva strujanja</summary>
     <summary lang="hu_HU">InputStream kliens az adaptív streamekhez</summary>
     <summary lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</summary>
+    <summary lang="nl_NL">InputStream client voor adaptive streams</summary>
     <summary lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</summary>
     <summary lang="ru_RU">InputStream клиент для адаптивных трансляций</summary>
     <summary lang="zh_CN">用于自适应流的 InputStream 客户端</summary>
@@ -241,7 +242,7 @@ v2.3.14 (2019-02-10)
     <description lang="es_MX">Cliente InputStream para transmisiones adaptativas</description>
     <description lang="fi_FI">InputStream asiakasohjelma adaptiivisille suoratoistoille</description>
     <description lang="he_IL">לקוח InputStream לתזרימים מסתגלים</description>
-    <description lang="hr_HR">InputStream klijent za adaptivne tokove</description>
+    <description lang="hr_HR">InputStream klijent za prilagodljiva strujanja</description>
     <description lang="hu_HU">InputStream kliens az adaptív streamekhez</description>
     <description lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</description>
     <description lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</description>
