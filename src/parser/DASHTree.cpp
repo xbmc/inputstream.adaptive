@@ -8,10 +8,10 @@
 
 #include "DASHTree.h"
 
-#include "../log.h"
 #include "../oscompat.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Utils.h"
+#include "../utils/log.h"
 #include "PRProtectionParser.h"
 #include "kodi/tools/StringUtils.h"
 
@@ -1663,8 +1663,8 @@ void DASHTree::RefreshLiveSegments()
             if (replaceable < numReplace)
               numReplace = replaceable;
           }
-      Log(LOGLEVEL_DEBUG, "DASH Update: numReplace: %u, nextStartNumber: %u", numReplace,
-          nextStartNumber);
+      LOG::LogF(LOGDEBUG, "DASH Update: numReplace: %u, nextStartNumber: %u", numReplace,
+                nextStartNumber);
 
       if (update_parameter_[0] == '&' && manifest_url_.find("?") == std::string::npos)
         update_parameter_[0] = '?';
@@ -1741,8 +1741,8 @@ void DASHTree::RefreshLiveSegments()
                       es((*br)->segments_.data.end());
                   for (; bs != es && repFreeSegments; ++bs)
                   {
-                    Log(LOGLEVEL_DEBUG, "DASH Update: insert repid: %s url: %s", (*br)->id.c_str(),
-                        bs->url);
+                    LOG::LogF(LOGDEBUG, "DASH Update: insert repid: %s url: %s", (*br)->id.c_str(),
+                              bs->url);
                     if ((*brd)->flags_ & Representation::URLSEGMENTS)
                       delete[](*brd)->segments_[0]->url;
                     bs->startPTS_ += ptsOffset;
@@ -1760,7 +1760,7 @@ void DASHTree::RefreshLiveSegments()
                       (*brd)->get_next_segment((*brd)->current_segment_))
                   {
                     (*brd)->flags_ &= ~Representation::WAITFORSEGMENT;
-                    Log(LOGLEVEL_DEBUG, "End WaitForSegment stream %s", (*brd)->id.c_str());
+                    LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", (*brd)->id.c_str());
                   }
 
                   if (bs == es)
@@ -1830,8 +1830,8 @@ void DASHTree::RefreshLiveSegments()
                       (*brd)->get_next_segment((*brd)->current_segment_))
                     (*brd)->flags_ &= ~Representation::WAITFORSEGMENT;
 
-                  Log(LOGLEVEL_DEBUG, "DASH Full update (w/o startnum): repid: %s current_start:%u",
-                      (*br)->id.c_str(), (*brd)->startNumber_);
+                  LOG::LogF(LOGDEBUG, "DASH Full update (w/o startnum): repid: %s current_start:%u",
+                            (*br)->id.c_str(), (*brd)->startNumber_);
                   overallSeconds_ = updateTree.overallSeconds_;
                 }
                 else if ((*br)->startNumber_ > (*brd)->startNumber_ ||
@@ -1855,8 +1855,8 @@ void DASHTree::RefreshLiveSegments()
                       (*brd)->get_next_segment((*brd)->current_segment_))
                     (*brd)->flags_ &= ~Representation::WAITFORSEGMENT;
 
-                  Log(LOGLEVEL_DEBUG, "DASH Full update (w/ startnum): repid: %s current_start:%u",
-                      (*br)->id.c_str(), (*brd)->startNumber_);
+                  LOG::LogF(LOGDEBUG, "DASH Full update (w/ startnum): repid: %s current_start:%u",
+                            (*br)->id.c_str(), (*brd)->startNumber_);
                 }
               }
             }

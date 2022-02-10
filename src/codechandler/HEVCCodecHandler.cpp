@@ -8,6 +8,8 @@
 
 #include "HEVCCodecHandler.h"
 
+#include "../utils/log.h"
+
 HEVCCodecHandler::HEVCCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
 {
   if (AP4_HevcSampleDescription* hevcSampleDescription =
@@ -28,7 +30,7 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
 
     if (sequences.ItemCount() == 0)
     {
-      kodi::Log(ADDON_LOG_WARNING, "No available sequences for HEVC codec extra data");
+      LOG::LogF(LOGWARNING, "No available sequences for HEVC codec extra data");
       return false;
     }
 
@@ -58,11 +60,10 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
         cursor += sequences[i].m_Nalus[j].GetDataSize() + 4;
       }
     }
-    kodi::Log(ADDON_LOG_DEBUG, "Converted %lu bytes HEVC codec extradata",
-              m_extraData.GetDataSize());
+    LOG::LogF(LOGDEBUG, "Converted %lu bytes HEVC codec extradata", m_extraData.GetDataSize());
     return true;
   }
-  kodi::Log(ADDON_LOG_WARNING, "No HevcSampleDescription - annexb extradata not available");
+  LOG::LogF(LOGWARNING, "No HevcSampleDescription - annexb extradata not available");
   return false;
 }
 

@@ -8,9 +8,9 @@
 
 #include "PRProtectionParser.h"
 
-#include "../log.h"
 #include "../utils/Base64Utils.h"
 #include "../utils/Utils.h"
+#include "../utils/log.h"
 #include "expat.h"
 
 #include <string.h>
@@ -98,7 +98,7 @@ PRProtectionParser::PRProtectionParser(std::string wwrmheader)
   if (XML_Parse(xmlParser, xmlData.c_str(), static_cast<int>(xmlData.size()), done) !=
       XML_STATUS_OK)
   {
-    Log(LOGLEVEL_WARNING, "%s: Failed to parse protection data", __FUNCTION__);
+    LOG::LogF(LOGWARNING, "Failed to parse protection data");
   }
 
   XML_ParserFree(xmlParser);

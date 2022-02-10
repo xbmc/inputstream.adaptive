@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <stdarg.h> // va_list, va_start, va_arg, va_end
 #include <string_view>
 
 //Functionality wich is supported by the Decrypter
@@ -16,6 +17,16 @@ class AP4_DataBuffer;
 
 namespace SSD
 {
+  // Must match to LogLevel on utils/log.h
+  enum SSDLogLevel
+  {
+    SSDDEBUG,
+    SSDINFO,
+    SSDWARNING,
+    SSDERROR,
+    SSDFATAL
+  };
+
   struct SSD_PICTURE;
 
   //Functionality wich is supported by the Addon
@@ -49,14 +60,7 @@ namespace SSD
     virtual bool GetBuffer(void* instance, SSD_PICTURE &picture) = 0;
     virtual void ReleaseBuffer(void* instance, void *buffer) = 0;
 
-    enum LOGLEVEL
-    {
-      LL_DEBUG,
-      LL_INFO,
-      LL_ERROR
-    };
-
-    virtual void Log(LOGLEVEL level, const char *msg) = 0;
+    virtual void LogVA(const SSDLogLevel level, const char* format, va_list args) = 0;
   };
 
   /****************************************************************************************************/

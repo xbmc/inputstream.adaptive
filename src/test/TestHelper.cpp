@@ -12,8 +12,6 @@ std::string testHelper::testFile;
 std::string testHelper::effectiveUrl;
 std::vector<std::string> testHelper::downloadList;
 
-void Log(const LogLevel loglevel, const char* format, ...){}
-
 std::string GetEnv(const std::string& var)
 {
   const char* val = std::getenv(var.c_str());

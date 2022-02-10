@@ -9,11 +9,10 @@
 #include "HLSTree.h"
 
 #include "../Iaes_decrypter.h"
-#include "../log.h"
 #include "../utils/Base64Utils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Utils.h"
-
+#include "../utils/log.h"
 #include "kodi/tools/StringUtils.h"
 
 #include <algorithm>
@@ -143,7 +142,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   // KNOWN UNSUPPORTED
   if (map["METHOD"] == "SAMPLE-AES")
   {
-    Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+    LOG::LogF(LOGERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
     return ENCRYPTIONTYPE_INVALID;
   }
 

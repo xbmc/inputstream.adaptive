@@ -2,6 +2,8 @@ set(BINARY Test${CMAKE_PROJECT_NAME})
 
 find_package( Threads )
 
+add_definitions(-DINPUTSTREAM_TEST_BUILD)
+
 add_executable(${BINARY}
     TestMain.cpp
     TestDASHTree.cpp

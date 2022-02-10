@@ -7,11 +7,13 @@
  */
 
 #include "AdaptiveTree.h"
-#include <string.h>
+
+#include "../utils/log.h"
+
 #include <algorithm>
-#include <stdlib.h>
 #include <chrono>
-#include "../log.h"
+#include <stdlib.h>
+#include <string.h>
 
 namespace adaptive
 {
@@ -106,7 +108,7 @@ namespace adaptive
 
   uint32_t AdaptiveTree::estimate_segcount(uint64_t duration, uint32_t timescale)
   {
-    Log(LOGLEVEL_DEBUG,"estimate_segcount  duration=%llu , timescale=%u",duration , timescale);
+    LOG::Log(LOGDEBUG,"estimate_segcount  duration=%llu , timescale=%u",duration , timescale);
 
     duration /= timescale;
     return static_cast<uint32_t>((overallSeconds_ / duration)*1.01);
@@ -141,12 +143,14 @@ namespace adaptive
 
     if (!timestamp)
     {
-      Log(LOGLEVEL_DEBUG, "AdaptiveTree: scale fragment duration: fdur:%u, rep-scale:%u, mov-scale:%u", fragmentDuration, rep->timescale_, movie_timescale);
+      LOG::LogF(LOGDEBUG, "Scale fragment duration: fdur:%u, rep-scale:%u, mov-scale:%u",
+                fragmentDuration, rep->timescale_, movie_timescale);
       fragmentDuration = static_cast<std::uint32_t>((static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_) / movie_timescale);
     }
     else
     {
-      Log(LOGLEVEL_DEBUG, "AdaptiveTree: fragment duration from timestamp: ts:%llu, base:%llu, s-pts:%llu", timestamp, base_time_, seg.startPTS_);
+      LOG::LogF(LOGDEBUG, "Fragment duration from timestamp: ts:%llu, base:%llu, s-pts:%llu",
+                timestamp, base_time_, seg.startPTS_);
       fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - seg.startPTS_);
     }
 
@@ -154,7 +158,8 @@ namespace adaptive
     seg.range_begin_ += fragmentDuration;
     seg.range_end_ ++;
 
-    Log(LOGLEVEL_DEBUG, "AdaptiveTree: insert live segment: pts: %llu range_end: %llu", seg.startPTS_, seg.range_end_);
+    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu range_end: %llu", seg.startPTS_,
+              seg.range_end_);
 
     for (std::vector<Representation*>::iterator b(adpm->representations_.begin()), e(adpm->representations_.end()); b != e; ++b)
       (*b)->segments_.insert(seg);
@@ -315,7 +320,7 @@ namespace adaptive
     paramPos = base_url_.find_last_of('/', base_url_.length());
     if (paramPos == std::string::npos)
     {
-      Log(LOGLEVEL_ERROR, "Invalid url: / expected (%s)", url.c_str());
+      LOG::LogF(LOGERROR, "Invalid url: / expected (%s)", url.c_str());
       return false;
     }
     base_url_.resize(paramPos + 1);
@@ -351,7 +356,7 @@ namespace adaptive
         }
         else
         {
-          Log(LOGLEVEL_ERROR, "Cannot find update parameter delimiter (%s)", manifest_url_.c_str());
+          LOG::LogF(LOGERROR, "Cannot find update parameter delimiter (%s)", manifest_url_.c_str());
         }
       }
     }

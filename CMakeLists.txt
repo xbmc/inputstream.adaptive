@@ -54,10 +54,10 @@ set(ADP_HEADERS
 	src/parser/SmoothTree.h
 	src/parser/PRProtectionParser.h
 	src/utils/Base64Utils.h
+	src/utils/log.h
 	src/utils/StringUtils.h
 	src/utils/Utils.h
 	src/TSReader.h
-	src/log.h
 	src/aes_decrypter.h
 	src/ADTSReader.h
 	src/Iaes_decrypter.h

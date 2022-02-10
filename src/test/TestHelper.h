@@ -9,15 +9,13 @@
 #pragma once
 
 #include "../Iaes_decrypter.h"
-#include "../log.h"
 #include "../common/AdaptiveStream.h"
+#include "../common/RepresentationChooser.h"
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
-#include "../common/RepresentationChooser.h"
 
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
-void Log(const LogLevel loglevel, const char* format, ...);
 
 struct DefaultRepresentationChooser;
 

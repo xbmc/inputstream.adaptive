@@ -26,6 +26,16 @@ namespace media {
 
 uint64_t gtc();
 
+// Must match to LogLevel on utils/log.h
+enum CDMLogLevel
+{
+  CDMDEBUG,
+  CDMINFO,
+  CDMWARNING,
+  CDMERROR,
+  CDMFATAL
+};
+
 class CdmAdapterClient
 {
 public:
@@ -38,9 +48,11 @@ public:
     kSessionClosed,
     kLegacySessionError
   };
+
   virtual void OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG msg, const uint8_t *data, size_t data_size, uint32_t status) = 0;
-  virtual void CDMLog(const char *msg) = 0;
   virtual cdm::Buffer *AllocateBuffer(size_t sz) = 0;
+
+  virtual void Log(CDMLogLevel level, const char* format, ...) = 0;
 };
 
 class CdmVideoFrame : public cdm::VideoFrame, public cdm::VideoFrame_2 {

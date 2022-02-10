@@ -13,7 +13,6 @@
 #include "TSReader.h"
 #include "WebmReader.h"
 #include "aes_decrypter.h"
-#include "log.h"
 #include "oscompat.h"
 #include "codechandler/AVCCodecHandler.h"
 #include "codechandler/HEVCCodecHandler.h"
@@ -25,6 +24,7 @@
 #include "parser/HLSTree.h"
 #include "parser/SmoothTree.h"
 #include "utils/Base64Utils.h"
+#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/Utils.h"
 
@@ -33,6 +33,7 @@
 #include <iostream>
 #include <math.h>
 #include <sstream>
+#include <stdarg.h> // va_list, va_start, va_arg, va_end
 #include <stdio.h>
 #include <string.h>
 
@@ -61,36 +62,6 @@
 
 using namespace UTILS;
 using namespace kodi::tools;
-
-void Log(const LogLevel loglevel, const char* format, ...)
-{
-  ADDON_LOG addonLevel;
-
-  switch (loglevel)
-  {
-    case LogLevel::LOGLEVEL_FATAL:
-      addonLevel = ADDON_LOG::ADDON_LOG_FATAL;
-      break;
-    case LogLevel::LOGLEVEL_ERROR:
-      addonLevel = ADDON_LOG::ADDON_LOG_ERROR;
-      break;
-    case LogLevel::LOGLEVEL_WARNING:
-      addonLevel = ADDON_LOG::ADDON_LOG_WARNING;
-      break;
-    case LogLevel::LOGLEVEL_INFO:
-      addonLevel = ADDON_LOG::ADDON_LOG_INFO;
-      break;
-    default:
-      addonLevel = ADDON_LOG::ADDON_LOG_DEBUG;
-  }
-
-  char buffer[16384];
-  va_list args;
-  va_start(args, format);
-  vsprintf(buffer, format, args);
-  va_end(args);
-  kodi::Log(addonLevel, buffer);
-}
 
 static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
     AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO,
@@ -163,10 +134,22 @@ public:
 
   virtual bool CreateDir(const char* dir) override { return kodi::vfs::CreateDirectory(dir); };
 
-  virtual void Log(LOGLEVEL level, const char* msg) override
+  void LogVA(const SSD::SSDLogLevel level, const char* format, va_list args) override
   {
-    const ADDON_LOG xbmcmap[] = {ADDON_LOG_DEBUG, ADDON_LOG_INFO, ADDON_LOG_ERROR};
-    return kodi::Log(xbmcmap[level], msg);
+    std::vector<char> data;
+    data.resize(256);
+
+    va_list argsStart;
+    va_copy(argsStart, args);
+    
+    int ret;
+    while ((ret = vsnprintf(data.data(), data.size(), format, args)) > data.size())
+    {
+      data.resize(data.size() * 2);
+      args = argsStart;
+    }
+    LOG::Log(static_cast<LogLevel>(level), data.data());
+    va_end(argsStart);
   };
 
   void SetLibraryPath(const char* libraryPath)
@@ -303,7 +286,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
   {
-    kodi::Log(ADDON_LOG_ERROR, "Download failed: %s", url);
+    LOG::Log(LOGERROR, "Download failed: %s", url);
     return false;
   }
 
@@ -330,7 +313,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   file.Close();
 
-  kodi::Log(ADDON_LOG_DEBUG, "Download finished: %s", effective_url_.c_str());
+  LOG::Log(LOGDEBUG, "Download finished: %s", effective_url_.c_str());
 
   return nbRead == 0;
 }
@@ -367,7 +350,7 @@ bool KodiAdaptiveStream::download(const char* url,
 
     if (returnCode >= 400)
     {
-      kodi::Log(ADDON_LOG_ERROR, "Download failed with error %d: %s", returnCode, url);
+      LOG::Log(LOGERROR, "Download failed with error %d: %s", returnCode, url);
     }
     else
     {
@@ -384,7 +367,7 @@ bool KodiAdaptiveStream::download(const char* url,
       {
         if (!nbReadOverall)
         {
-          kodi::Log(ADDON_LOG_ERROR, "Download doesn't provide any data: %s", url);
+          LOG::Log(LOGERROR, "Download doesn't provide any data: %s", url);
           return false;
         }
 
@@ -399,13 +382,13 @@ bool KodiAdaptiveStream::download(const char* url,
           chooser_->set_download_speed((chooser_->get_download_speed() * (1.0 - ratio)) +
                                        current_download_speed_ * ratio);
         }
-        kodi::Log(ADDON_LOG_DEBUG,
-                  "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
-                  chooser_->get_download_speed(), current_download_speed_);
+        LOG::Log(LOGDEBUG,
+                 "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
+                 chooser_->get_download_speed(), current_download_speed_);
         //pass download speed to
       }
       else
-        kodi::Log(ADDON_LOG_DEBUG, "Download %s cancelled", url);
+        LOG::Log(LOGDEBUG, "Download %s cancelled", url);
     }
     file.Close();
     return nbRead == 0;
@@ -416,7 +399,7 @@ bool KodiAdaptiveStream::download(const char* url,
 bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation* rep,
                                          const std::string& buffer)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "Build segments from SIDX atom...");
+  LOG::Log(LOGDEBUG, "Build segments from SIDX atom...");
   AP4_MemoryByteStream byteStream((const AP4_Byte*)(buffer.data()), buffer.size());
 
   adaptive::AdaptiveTree::AdaptationSet* adp(
@@ -462,7 +445,7 @@ bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation*
       AP4_Movie* movie = f.GetMovie();
       if (movie == NULL)
       {
-        kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+        LOG::Log(LOGERROR, "No MOOV in stream!");
         return false;
       }
       rep->flags_ |= adaptive::AdaptiveTree::Representation::INITIALIZATION;
@@ -481,7 +464,7 @@ bool KodiAdaptiveStream::parseIndexRange(adaptive::AdaptiveTree::Representation*
       AP4_Atom* atom(NULL);
       if (AP4_FAILED(AP4_DefaultAtomFactory::Instance_.CreateAtomFromStream(byteStream, atom)))
       {
-        kodi::Log(ADDON_LOG_ERROR, "Unable to create SIDX from IndexRange bytes");
+        LOG::Log(LOGERROR, "Unable to create SIDX from IndexRange bytes");
         return false;
       }
 
@@ -724,7 +707,7 @@ public:
         if (AP4_FAILED(
                 result = m_decrypter->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, NULL)))
         {
-          kodi::Log(ADDON_LOG_ERROR, "Decrypt Sample returns failure!");
+          LOG::Log(LOGERROR, "Decrypt Sample returns failure!");
           if (++m_failCount > 50)
           {
             Reset(true);
@@ -1004,7 +987,7 @@ private:
       m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(desc);
       desc = m_protectedDesc->GetOriginalSampleDescription();
     }
-    kodi::Log(ADDON_LOG_DEBUG, "UpdateSampleDescription: codec %d", desc->GetFormat());
+    LOG::Log(LOGDEBUG, "UpdateSampleDescription: codec %d", desc->GetFormat());
     switch (desc->GetFormat())
     {
       case AP4_SAMPLE_FORMAT_AVC1:
@@ -1182,16 +1165,14 @@ public:
               }
             }
             else
-              kodi::Log(ADDON_LOG_ERROR, "%s: Failed to get current segment of subtitle stream",
-                        __func__);
+              LOG::LogF(LOGERROR, "Failed to get current segment of subtitle stream");
           }
           else
-            kodi::Log(ADDON_LOG_ERROR, "%s: Failed to get Representation of subtitle stream",
-                      __func__);
+            LOG::LogF(LOGERROR, "Failed to get Representation of subtitle stream");
         }
         else
         {
-          kodi::Log(ADDON_LOG_ERROR, "%s: Failed to get subtitle segment buffer size", __func__);
+          LOG::LogF(LOGERROR, "Failed to get subtitle segment buffer size");
         }
       }
     }
@@ -1662,22 +1643,22 @@ Session::Session(MANIFEST_TYPE manifestType,
   }
   else
     representationChooser_->bandwidth_ = 4000000;
-  kodi::Log(ADDON_LOG_DEBUG, "Initial bandwidth: %u ", representationChooser_->bandwidth_);
+  LOG::Log(LOGDEBUG, "Initial bandwidth: %u ", representationChooser_->bandwidth_);
 
   representationChooser_->max_resolution_ = kodi::addon::GetSettingInt("MAXRESOLUTION");
-  kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTION selected: %d ",
+  LOG::Log(LOGDEBUG, "MAXRESOLUTION selected: %d ",
             representationChooser_->max_resolution_);
 
   representationChooser_->max_secure_resolution_ =
       kodi::addon::GetSettingInt("MAXRESOLUTIONSECURE");
-  kodi::Log(ADDON_LOG_DEBUG, "MAXRESOLUTIONSECURE selected: %d ",
+  LOG::Log(LOGDEBUG, "MAXRESOLUTIONSECURE selected: %d ",
             representationChooser_->max_secure_resolution_);
 
   manual_streams_ = kodi::addon::GetSettingInt("STREAMSELECTION");
-  kodi::Log(ADDON_LOG_DEBUG, "STREAMSELECTION selected: %d ", manual_streams_);
+  LOG::Log(LOGDEBUG, "STREAMSELECTION selected: %d ", manual_streams_);
 
   allow_no_secure_decoder_ = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
-  kodi::Log(ADDON_LOG_DEBUG, "FORCENONSECUREDECODER selected: %d ", allow_no_secure_decoder_);
+  LOG::Log(LOGDEBUG, "FORCENONSECUREDECODER selected: %d ", allow_no_secure_decoder_);
 
   int buf = kodi::addon::GetSettingInt("MEDIATYPE");
   switch (buf)
@@ -1716,7 +1697,7 @@ Session::Session(MANIFEST_TYPE manifestType,
 
 Session::~Session()
 {
-  kodi::Log(ADDON_LOG_DEBUG, "Session::~Session()");
+  LOG::Log(LOGDEBUG, "Session::~Session()");
   for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
     SAFE_DELETE(*b);
   streams_.clear();
@@ -1746,7 +1727,7 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
   std::string specialpath = kodi::addon::GetSettingString("DECRYPTERPATH");
   if (specialpath.empty())
   {
-    kodi::Log(ADDON_LOG_DEBUG, "DECRYPTERPATH not specified in settings.xml");
+    LOG::Log(LOGDEBUG, "DECRYPTERPATH not specified in settings.xml");
     return;
   }
   kodihost->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
@@ -1761,7 +1742,7 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
   for (std::vector<std::string>::const_iterator path(searchPaths.begin());
        !decrypter_ && path != searchPaths.end(); ++path)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "Searching for decrypters in: %s", path->c_str());
+    LOG::Log(LOGDEBUG, "Searching for decrypters in: %s", path->c_str());
 
     if (!kodi::vfs::GetDirectory(*path, "", items))
       continue;
@@ -1784,7 +1765,7 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
 
             if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_type_.c_str())))
             {
-              kodi::Log(ADDON_LOG_DEBUG, "Found decrypter: %s", items[i].Path().c_str());
+              LOG::Log(LOGDEBUG, "Found decrypter: %s", items[i].Path().c_str());
               success = true;
               decrypter_ = decrypter;
               key_system = suppUrn;
@@ -1794,7 +1775,7 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
       }
       else
       {
-        kodi::Log(ADDON_LOG_DEBUG, "%s", dlerror());
+        LOG::Log(LOGDEBUG, "%s", dlerror());
       }
       if (!success)
       {
@@ -1859,7 +1840,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   if (!license_type_.empty())
   {
     GetSupportedDecrypterURN(adaptiveTree_->supportedKeySystem_);
-    kodi::Log(ADDON_LOG_DEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
+    LOG::Log(LOGDEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
   }
 
   // Preinitialize the DRM, if pre-initialisation data are provided
@@ -1878,7 +1859,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     }
     else
     {
-      kodi::Log(ADDON_LOG_ERROR, "%s - DRM pre-initialization failed", __FUNCTION__);
+      LOG::LogF(LOGERROR, "DRM pre-initialization failed");
       return false;
     }
   }
@@ -1888,10 +1869,10 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
       adaptiveTree_->location_.empty() ? manifestURL_.c_str() : adaptiveTree_->location_;
   if (!adaptiveTree_->open(manifestUrl.c_str(), manifestUpdateParam_.c_str(), additionalHeaders) || adaptiveTree_->empty())
   {
-    kodi::Log(ADDON_LOG_ERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
+    LOG::Log(LOGERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
     return false;
   }
-  kodi::Log(ADDON_LOG_INFO,
+  LOG::Log(LOGINFO,
             "Successfully parsed manifest file. #Periods: %ld, #Streams in first period: %ld, Type: "
             "%s, Download speed: %0.4f Bytes/s",
             adaptiveTree_->periods_.size(), adaptiveTree_->current_period_->adaptationSets_.size(),
@@ -1921,24 +1902,24 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
 
     if (psshData.empty() || kidData.empty())
     {
-      kodi::Log(ADDON_LOG_ERROR, "%s - Invalid DRM pre-init data, must be as: {PSSH as base64}|{KID as base64}", __FUNCTION__);
+      LOG::LogF(LOGERROR, "Invalid DRM pre-init data, must be as: {PSSH as base64}|{KID as base64}");
       return false;
     }
 
     cdm_sessions_.resize(2);
     memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
     // Try to initialize an SingleSampleDecryptor
-    kodi::Log(ADDON_LOG_DEBUG, "%s - Entering encryption section", __FUNCTION__);
+    LOG::LogF(LOGDEBUG, "Entering encryption section");
 
     if (license_key_.empty())
     {
-      kodi::Log(ADDON_LOG_ERROR, "%s - Invalid license_key", __FUNCTION__);
+      LOG::LogF(LOGERROR, "Invalid license_key");
       return false;
     }
 
     if (!decrypter_)
     {
-      kodi::Log(ADDON_LOG_ERROR, "%s - No decrypter found for encrypted stream", __FUNCTION__);
+      LOG::LogF(LOGERROR, "No decrypter found for encrypted stream");
       return false;
     }
 
@@ -1946,7 +1927,7 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
     {
       if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
       {
-        kodi::Log(ADDON_LOG_ERROR, "%s - OpenDRMSystem failed", __FUNCTION__);
+        LOG::LogF(LOGERROR, "OpenDRMSystem failed");
         return false;
       }
     }
@@ -1965,8 +1946,7 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
     CDMSESSION& session(cdm_sessions_[1]);
 
     std::string hexKid{StringUtils::ToHexadecimal(decKid)};
-    kodi::Log(ADDON_LOG_DEBUG, "%s - Initializing session with KID: %s", __FUNCTION__,
-              hexKid.c_str());
+    LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
 
     if (decrypter_ && init_data.GetDataSize() >= 4 &&
         (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(
@@ -1978,7 +1958,7 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
     }
     else
     {
-      kodi::Log(ADDON_LOG_ERROR, "%s - Initialize failed (SingleSampleDecrypter)", __FUNCTION__);
+      LOG::LogF(LOGERROR, "Initialize failed (SingleSampleDecrypter)");
       cdm_sessions_[1].single_sample_decryptor_ = nullptr;
       return false;
     }
@@ -2003,17 +1983,17 @@ bool Session::InitializeDRM()
     if (license_key_.empty())
       license_key_ = adaptiveTree_->license_url_;
 
-    kodi::Log(ADDON_LOG_DEBUG, "Entering encryption section");
+    LOG::Log(LOGDEBUG, "Entering encryption section");
 
     if (license_key_.empty())
     {
-      kodi::Log(ADDON_LOG_ERROR, "Invalid license_key");
+      LOG::Log(LOGERROR, "Invalid license_key");
       return false;
     }
 
     if (!decrypter_)
     {
-      kodi::Log(ADDON_LOG_ERROR, "No decrypter found for encrypted stream");
+      LOG::Log(LOGERROR, "No decrypter found for encrypted stream");
       return false;
     }
 
@@ -2021,7 +2001,7 @@ bool Session::InitializeDRM()
     {
       if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
       {
-        kodi::Log(ADDON_LOG_ERROR, "OpenDRMSystem failed");
+        LOG::Log(LOGERROR, "OpenDRMSystem failed");
         return false;
       }
     }
@@ -2031,7 +2011,7 @@ bool Session::InitializeDRM()
       strkey.erase(pos, 1);
     if (strkey.size() != 32)
     {
-      kodi::Log(ADDON_LOG_ERROR, "Key system mismatch (%s)!",
+      LOG::Log(LOGERROR, "Key system mismatch (%s)!",
                 adaptiveTree_->supportedKeySystem_.c_str());
       return false;
     }
@@ -2046,7 +2026,7 @@ bool Session::InitializeDRM()
 
       if (adaptiveTree_->current_period_->psshSets_[ses].pssh_ == "FILE")
       {
-        kodi::Log(ADDON_LOG_DEBUG, "Searching PSSH data in FILE");
+        LOG::Log(LOGDEBUG, "Searching PSSH data in FILE");
 
         if (license_data_.empty())
         {
@@ -2062,7 +2042,7 @@ bool Session::InitializeDRM()
           AP4_Movie* movie = stream.input_file_->GetMovie();
           if (movie == NULL)
           {
-            kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+            LOG::Log(LOGERROR, "No MOOV in stream!");
             stream.disable();
             return false;
           }
@@ -2108,7 +2088,7 @@ bool Session::InitializeDRM()
 
           if (!init_data.GetDataSize())
           {
-            kodi::Log(ADDON_LOG_ERROR,
+            LOG::Log(LOGERROR,
                       "Could not extract license from video stream (PSSH not found)");
             stream.disable();
             return false;
@@ -2175,7 +2155,7 @@ bool Session::InitializeDRM()
       if (decrypter_ && !defaultKid.empty())
       {
         std::string hexKid{StringUtils::ToHexadecimal(defaultKid)};
-        kodi::Log(ADDON_LOG_DEBUG, "Initializing stream with KID: %s", hexKid.c_str());
+        LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", hexKid.c_str());
 
         for (unsigned int i(1); i < ses; ++i)
           if (decrypter_->HasLicenseKey(cdm_sessions_[i].single_sample_decryptor_,
@@ -2197,7 +2177,7 @@ bool Session::InitializeDRM()
             break;
           }
         if (!session.single_sample_decryptor_)
-          kodi::Log(ADDON_LOG_WARNING, "Initializing stream with unknown KID!");
+          LOG::Log(LOGWARNING, "Initializing stream with unknown KID!");
       }
 
       if (decrypter_ && init_data.GetDataSize() >= 4 &&
@@ -2223,7 +2203,7 @@ bool Session::InitializeDRM()
       }
       else
       {
-        kodi::Log(ADDON_LOG_ERROR, "Initialize failed (SingleSampleDecrypter)");
+        LOG::Log(LOGERROR, "Initialize failed (SingleSampleDecrypter)");
         for (unsigned int i(ses); i < cdm_sessions_.size(); ++i)
           cdm_sessions_[i].single_sample_decryptor_ = nullptr;
         return false;
@@ -2251,7 +2231,7 @@ bool Session::InitializePeriod()
   if (adaptiveTree_->current_period_->encryptionState_ ==
       adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
   {
-    kodi::Log(ADDON_LOG_ERROR, "Unable to handle decryption. Unsupported!");
+    LOG::Log(LOGERROR, "Unable to handle decryption. Unsupported!");
     return false;
   }
 
@@ -2264,10 +2244,10 @@ bool Session::InitializePeriod()
   streams_.clear();
 
   if (!psshChanged)
-    kodi::Log(ADDON_LOG_DEBUG, "Reusing DRM psshSets for new period!");
+    LOG::Log(LOGDEBUG, "Reusing DRM psshSets for new period!");
   else
   {
-    kodi::Log(ADDON_LOG_DEBUG, "New period, dispose sample decrypter and reinitialize");
+    LOG::Log(LOGDEBUG, "New period, dispose sample decrypter and reinitialize");
     DisposeSampleDecrypter();
     if (!InitializeDRM())
       return false;
@@ -2362,7 +2342,7 @@ void Session::UpdateStream(STREAM& stream)
     if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) &&
         stream.info_.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
     {
-      kodi::Log(ADDON_LOG_DEBUG, "UpdateStream: Convert avc -> annexb");
+      LOG::Log(LOGDEBUG, "UpdateStream: Convert avc -> annexb");
       annexb = AvcToAnnexb(rep->codec_private_data_);
     }
     else
@@ -2643,7 +2623,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 
   if ((*pi) != adaptiveTree_->current_period_)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "SeekTime: seeking into new chapter: %d",
+    LOG::Log(LOGDEBUG, "SeekTime: seeking into new chapter: %d",
               static_cast<int>((pi - adaptiveTree_->periods_.begin()) + 1));
     SeekChapter((pi - adaptiveTree_->periods_.begin()) + 1);
     chapter_seek_time_ = seekTime;
@@ -2712,7 +2692,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
         {
           double destTime(static_cast<double>(PTSToElapsed((*b)->reader_->PTS())) /
                           STREAM_TIME_BASE);
-          kodi::Log(ADDON_LOG_INFO,
+          LOG::Log(LOGINFO,
                     "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
                     (*b)->info_.GetPhysicalIndex(), destTime, (*b)->reader_->PTS());
           if ((*b)->info_.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
@@ -2990,7 +2970,7 @@ ADDON_STATUS CInputStreamAdaptive::CreateInstance(const kodi::addon::IInstanceIn
 
 bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "Open()");
+  LOG::Log(LOGDEBUG, "Open()");
 
   std::string lt, lk, ld, lsc, mfup, ov_audio, drmPreInitData;
   std::map<std::string, std::string> manh, medh;
@@ -3004,23 +2984,23 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
   {
     if (prop.first == "inputstream.adaptive.license_type")
     {
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_type: %s",
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_type: %s",
                 prop.second.c_str());
       lt = prop.second;
     }
     else if (prop.first == "inputstream.adaptive.license_key")
     {
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_key: [not shown]");
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_key: [not shown]");
       lk = prop.second;
     }
     else if (prop.first == "inputstream.adaptive.license_data")
     {
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_data: [not shown]");
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_data: [not shown]");
       ld = prop.second;
     }
     else if (prop.first == "inputstream.adaptive.license_flags")
     {
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.license_flags: %s",
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_flags: %s",
                 prop.second.c_str());
       if (prop.second.find("persistent_storage") != std::string::npos)
         config |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
@@ -3029,12 +3009,12 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
     }
     else if (prop.first == "inputstream.adaptive.server_certificate")
     {
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
       lsc = prop.second;
     }
     else if (prop.first == "inputstream.adaptive.manifest_type")
     {
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_type: %s",
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.manifest_type: %s",
                 prop.second.c_str());
       if (prop.second == "mpd")
         manifest = MANIFEST_TYPE_MPD;
@@ -3046,11 +3026,11 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
     else if (prop.first == "inputstream.adaptive.manifest_update_parameter")
     {
       mfup = prop.second;
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.manifest_update_parameter: %s", mfup.c_str());
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.manifest_update_parameter: %s", mfup.c_str());
     }
     else if (prop.first == "inputstream.adaptive.stream_headers")
     {
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.stream_headers: %s",
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.stream_headers: %s",
                 prop.second.c_str());
       ParseHeaderString(manh, prop.second);
       medh = manh;
@@ -3058,13 +3038,13 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
     else if (prop.first == "inputstream.adaptive.original_audio_language")
     {
       ov_audio = prop.second;
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.original_audio_language: %s",
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.original_audio_language: %s",
                 ov_audio.c_str());
     }
     else if (prop.first == "inputstream.adaptive.max_bandwidth")
     {
       max_user_bandwidth = std::stoi(prop.second);
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.max_bandwidth: %d",
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.max_bandwidth: %d",
                 max_user_bandwidth);
     }
     else if (prop.first == "inputstream.adaptive.play_timeshift_buffer")
@@ -3078,14 +3058,14 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
       // The challenge/session ID data generated by the initialisation of the DRM
       // will be attached to the manifest request callback
       // as HTTP headers with the names of "challengeB64" and "sessionId".
-      kodi::Log(ADDON_LOG_DEBUG, "found inputstream.adaptive.pre_init_data: [not shown]");
+      LOG::Log(LOGDEBUG, "found inputstream.adaptive.pre_init_data: [not shown]");
       drmPreInitData = prop.second;
     }
   }
 
   if (manifest == MANIFEST_TYPE_UNKNOWN)
   {
-    kodi::Log(ADDON_LOG_ERROR, "Invalid / not given inputstream.adaptive.manifest_type");
+    LOG::Log(LOGERROR, "Invalid / not given inputstream.adaptive.manifest_type");
     return false;
   }
 
@@ -3117,13 +3097,13 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 
 void CInputStreamAdaptive::Close(void)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "Close()");
+  LOG::Log(LOGDEBUG, "Close()");
   m_session = nullptr;
 }
 
 bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "GetStreamIds()");
+  LOG::Log(LOGDEBUG, "GetStreamIds()");
   INPUTSTREAM_IDS iids;
 
   if (m_session)
@@ -3175,7 +3155,7 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
 
 void CInputStreamAdaptive::GetCapabilities(kodi::addon::InputstreamCapabilities& caps)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "GetCapabilities()");
+  LOG::Log(LOGDEBUG, "GetCapabilities()");
   uint32_t mask = INPUTSTREAM_SUPPORTS_IDEMUX | INPUTSTREAM_SUPPORTS_IDISPLAYTIME |
                   INPUTSTREAM_SUPPORTS_IPOSTIME | INPUTSTREAM_SUPPORTS_SEEK |
                   INPUTSTREAM_SUPPORTS_PAUSE;
@@ -3187,7 +3167,7 @@ void CInputStreamAdaptive::GetCapabilities(kodi::addon::InputstreamCapabilities&
 
 bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo& info)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d)", streamid);
+  LOG::Log(LOGDEBUG, "GetStream(%d)", streamid);
 
   Session::STREAM* stream(m_session->GetStream(streamid - m_session->GetPeriodId() * 1000));
 
@@ -3198,7 +3178,7 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
     {
       kodi::addon::StreamCryptoSession cryptoSession;
 
-      kodi::Log(ADDON_LOG_DEBUG, "GetStream(%d): initalizing crypto session", streamid);
+      LOG::Log(LOGDEBUG, "GetStream(%d): initalizing crypto session", streamid);
       cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem());
 
       const char* sessionId(m_session->GetCDMSession(cdmId));
@@ -3239,7 +3219,7 @@ void CInputStreamAdaptive::UnlinkIncludedStreams(Session::STREAM* stream)
 
 void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "EnableStream(%d: %s)", streamid, enable ? "true" : "false");
+  LOG::Log(LOGDEBUG, "EnableStream(%d: %s)", streamid, enable ? "true" : "false");
 
   if (!m_session)
     return;
@@ -3256,7 +3236,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 // We call true if a reset is required, otherwise false.
 bool CInputStreamAdaptive::OpenStream(int streamid)
 {
-  kodi::Log(ADDON_LOG_DEBUG, "OpenStream(%d)", streamid);
+  LOG::Log(LOGDEBUG, "OpenStream(%d)", streamid);
 
   if (!m_session)
     return false;
@@ -3360,7 +3340,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
     if (movie == NULL)
     {
-      kodi::Log(ADDON_LOG_ERROR, "No MOOV in stream!");
+      LOG::Log(LOGERROR, "No MOOV in stream!");
       m_session->EnableStream(stream, false);
       return false;
     }
@@ -3372,7 +3352,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         track = movie->GetTrack(AP4_Track::TYPE_TEXT);
       if (!track)
       {
-        kodi::Log(ADDON_LOG_ERROR, "No suitable track found in stream");
+        LOG::Log(LOGERROR, "No suitable track found in stream");
         m_session->EnableStream(stream, false);
         return false;
       }
@@ -3422,7 +3402,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 
   if (~m_failedSeekTime)
   {
-    kodi::Log(ADDON_LOG_DEBUG, "Seeking to last failed seek position (%d)", m_failedSeekTime);
+    LOG::Log(LOGDEBUG, "Seeking to last failed seek position (%d)", m_failedSeekTime);
     m_session->SeekTime(static_cast<double>(m_failedSeekTime) * 0.001f, 0, false);
     m_failedSeekTime = ~0;
   }
@@ -3433,7 +3413,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
   {
     DEMUX_PACKET* p = AllocateDemuxPacket(0);
     p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
-    kodi::Log(ADDON_LOG_DEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
+    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
     return p;
   }
 
@@ -3473,7 +3453,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
       memcpy(p->pData, pData, iSize);
     }
 
-    //kodi::Log(ADDON_LOG_DEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
+    //LOG::Log(LOGDEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
 
     sr->ReadSample();
     return p;
@@ -3488,7 +3468,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     m_session->InitializePeriod();
     DEMUX_PACKET* p = AllocateDemuxPacket(0);
     p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
-    kodi::Log(ADDON_LOG_DEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
+    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
     return p;
   }
   return NULL;
@@ -3503,7 +3483,7 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double& st
 //callback - will be called from kodi
 void CInputStreamAdaptive::SetVideoResolution (int width, int height)
 {
-  kodi::Log(ADDON_LOG_INFO, "SetVideoResolution (%d x %d)", width, height);
+  LOG::Log(LOGINFO, "SetVideoResolution (%d x %d)", width, height);
   if (m_session)
     m_session->SetVideoResolution(width, height);
   else
@@ -3518,7 +3498,7 @@ bool CInputStreamAdaptive::PosTime(int ms)
   if (!m_session)
     return false;
 
-  kodi::Log(ADDON_LOG_INFO, "PosTime (%d)", ms);
+  LOG::Log(LOGINFO, "PosTime (%d)", ms);
 
   bool ret = m_session->SeekTime(static_cast<double>(ms) * 0.001f, 0, false);
   m_failedSeekTime = ret ? ~0 : ms;
@@ -3602,13 +3582,13 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   if (initData.GetCodecType() == VIDEOCODEC_H264 && !initData.GetExtraDataSize() &&
       !(m_state & STATE_WAIT_EXTRADATA))
   {
-    kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open: Wait ExtraData");
+    LOG::Log(LOGINFO, "VideoCodec::Open: Wait ExtraData");
     m_state |= STATE_WAIT_EXTRADATA;
     return true;
   }
   m_state &= ~STATE_WAIT_EXTRADATA;
 
-  kodi::Log(ADDON_LOG_INFO, "VideoCodec::Open");
+  LOG::Log(LOGINFO, "VideoCodec::Open");
 
   m_name = "inputstream.adaptive";
   switch (initData.GetCodecType())
