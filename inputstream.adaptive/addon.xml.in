@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="19.0.2"
+  version="19.0.3"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,10 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v19.0.3 (2022-02-10)
+- Translations updates from Weblate
+	- hr_hr, nl_nl, sk_sk
+
 v19.0.2 (2022-01-11)
 - update nl translations
 - [webvtt] only read payl boxes for text
