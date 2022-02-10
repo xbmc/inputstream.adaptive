@@ -7,51 +7,51 @@ msgstr ""
 "Project-Id-Version: inputstream.adaptive\n"
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2021-10-16 22:41+0000\n"
-"Last-Translator: Christian Gade <gade@kodi.tv>\n"
+"PO-Revision-Date: 2022-02-09 11:38+0000\n"
+"Last-Translator: gogogogi <trebelnik2@gmail.com>\n"
 "Language-Team: Croatian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/hr_hr/>\n"
 "Language: hr_hr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.8\n"
+"X-Generator: Weblate 4.10.1\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream klijent za adaptivne tokove"
+msgstr "InputStream klijent za prilagodljiva strujanja"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream klijent za adaptivne tokove"
+msgstr "InputStream klijent za prilagodljiva strujanja"
 
 msgctxt "#30100"
 msgid "General"
-msgstr "Opće"
+msgstr "Općenito"
 
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Minimalna propusnost (bit/s)"
+msgstr "Najmanja propusnost (bit/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Maksimalna propusnost (bit/s)"
+msgstr "Najveća propusnost (bit/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Putanja prema mapi s dekripterima"
+msgstr "Putanja do dekôdera"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Maksimalna razlučivost općeg dekodera"
+msgstr "Najveća razlučivost općeg dekôdera"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Odabir toka"
+msgstr "Odabir strujanja"
 
 msgctxt "#30112"
 msgid "Media"
@@ -60,12 +60,12 @@ msgstr "Mediji"
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Maksimalna razlučivost sigurnog dekodera"
+msgstr "Najveća razlučivost sigurnog dekôdera"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Nadjačaj HDCP status"
+msgstr "Zaobiđi HDCP stanje"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
@@ -74,19 +74,19 @@ msgstr "Zanemari razlučivost zaslona"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr "Stručne"
+msgstr "Stručno"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Omogući još neobjavljene značajke"
+msgstr "Omogući značajke predizdanja"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr "Ukoliko je moguće, ne koristi sigurni dekoder"
+msgstr "Ako je moguće, ne koristi sigurni dekôder"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr "Maks"
+msgstr "Najveća"
 
 msgctxt "#30151"
 msgid "480p"
@@ -106,19 +106,19 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr "Automatski odaberi tokove"
+msgstr "Automatski odabir strujanja"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr "Ručno odaberi sve tokove"
+msgstr "Ručni odabir svih strujanja"
 
 msgctxt "#30157"
 msgid "All"
-msgstr "Sve"
+msgstr "Svi"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr "Audio"
+msgstr "Zvuk"
 
 msgctxt "#30159"
 msgid "Video"
@@ -127,8 +127,8 @@ msgstr "Video"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr "Ručno odaberi video tok"
+msgstr "Ručno odabir video strujanja"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr "Video + Titlovi"
+msgstr "Video + Podnaslovi"

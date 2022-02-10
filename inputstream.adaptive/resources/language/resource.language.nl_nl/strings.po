@@ -5,8 +5,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2021-12-27 12:13+0000\n"
-"Last-Translator: Christian Gade <gade@kodi.tv>\n"
+"PO-Revision-Date: 2022-02-08 22:13+0000\n"
+"Last-Translator: Robin <robin+github@rkslot.nl>\n"
 "Language-Team: Dutch <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/nl_nl/>\n"
 "Language: nl_nl\n"
 "MIME-Version: 1.0\n"
@@ -17,7 +17,7 @@ msgstr ""
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream client voor adaptive streams"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
@@ -104,11 +104,11 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "Automatisch streams selecteren"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "Handmatig alle streams selecteren"
 
 msgctxt "#30157"
 msgid "All"
@@ -125,7 +125,7 @@ msgstr "Video"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "Handmatig videostream selecteren"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
