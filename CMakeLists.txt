@@ -16,13 +16,16 @@ set(ADP_SOURCES
 	src/codechandler/VP9CodecHandler.cpp
 	src/codechandler/WebVTTCodecHandler.cpp
 	src/codechandler/ttml/TTML.cpp
+	src/common/AdaptiveStream.cpp
 	src/common/AdaptiveTree.cpp
 	src/common/RepresentationChooser.cpp
 	src/parser/DASHTree.cpp
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
 	src/parser/PRProtectionParser.cpp
-	src/common/AdaptiveStream.cpp
+	src/utils/Base64Utils.cpp
+	src/utils/StringUtils.cpp
+	src/utils/Utils.cpp
 	src/helpers.cpp
 	src/oscompat.cpp
 	src/TSReader.cpp
@@ -52,6 +55,9 @@ set(ADP_HEADERS
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
 	src/parser/PRProtectionParser.h
+	src/utils/Base64Utils.h
+	src/utils/StringUtils.h
+	src/utils/Utils.h
 	src/TSReader.h
 	src/log.h
 	src/aes_decrypter.h

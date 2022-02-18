@@ -15,6 +15,9 @@ add_executable(${BINARY}
 	../common/RepresentationChooser.cpp
     ../helpers.cpp
     ../oscompat.cpp
+    ../utils/Base64Utils.cpp
+    ../utils/StringUtils.cpp
+    ../utils/Utils.cpp
     )
 
 target_link_libraries(${BINARY} PRIVATE ${EXPAT_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})
