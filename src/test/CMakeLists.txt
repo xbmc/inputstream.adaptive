@@ -13,7 +13,6 @@ add_executable(${BINARY}
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
 	../common/RepresentationChooser.cpp
-    ../helpers.cpp
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
     ../utils/StringUtils.cpp

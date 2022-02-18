@@ -8,10 +8,12 @@
 
 #include "DASHTree.h"
 
-#include "../helpers.h"
 #include "../log.h"
 #include "../oscompat.h"
+#include "../utils/StringUtils.h"
+#include "../utils/Utils.h"
 #include "PRProtectionParser.h"
+#include "kodi/tools/StringUtils.h"
 
 #include <cstring>
 #include <float.h>
@@ -20,6 +22,8 @@
 #include <time.h>
 
 using namespace adaptive;
+using namespace UTILS;
+using namespace kodi::tools;
 
 enum
 {
@@ -194,7 +198,7 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
       else
         urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
     }
-    else if (endswith((const char*)*attr, "default_KID"))
+    else if (StringUtils::EndsWith(*attr, "default_KID"))
       defaultKID = (const char*)*(attr + 1);
     attr += 2;
   }
@@ -210,9 +214,9 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
     {
       if (i == 4 || i == 6 || i == 8 || i == 10)
         ++defaultKID;
-      dash->current_defaultKID_[i] = HexNibble(*defaultKID) << 4;
+      dash->current_defaultKID_[i] = STRING::ToHexNibble(*defaultKID) << 4;
       ++defaultKID;
-      dash->current_defaultKID_[i] |= HexNibble(*defaultKID);
+      dash->current_defaultKID_[i] |= STRING::ToHexNibble(*defaultKID);
       ++defaultKID;
     }
   }
@@ -226,8 +230,8 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
 
 static void ReplacePlaceHolders(std::string& rep, const std::string& id, uint32_t bandwidth)
 {
-  replaceAll(rep, "$RepresentationID$", id, false);
-  replaceAll(rep, "$Bandwidth$", std::to_string(bandwidth), false);
+  STRING::ReplaceAll(rep, "$RepresentationID$", id);
+  STRING::ReplaceAll(rep, "$Bandwidth$", std::to_string(bandwidth));
 }
 
 static void XMLCALL start(void* data, const char* el, const char** attr)
@@ -380,7 +384,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           }
           else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
           {
-            if (endswith(el, "pssh"))
+            if (StringUtils::EndsWith(el, "pssh"))
               dash->currentNode_ |= MPDNODE_PSSH;
             else if (strcmp(el, "widevine:license") == 0)
             {
@@ -549,7 +553,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         }
         else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
         {
-          if (endswith(el, "pssh"))
+          if (StringUtils::EndsWith(el, "pssh"))
             dash->currentNode_ |= MPDNODE_PSSH;
           else if (strcmp(el, "widevine:license") == 0)
           {
@@ -596,7 +600,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           if (schemeIdUri && value)
           {
             if (strcmp(schemeIdUri, "urn:mpeg:dash:adaptation-set-switching:2016") == 0)
-              dash->current_adaptationset_->switching_ids_ = split(value, ',');
+              dash->current_adaptationset_->switching_ids_ = StringUtils::Split(value, ',');
           }
         }
         else if (dash->currentNode_ & MPDNODE_BASEURL)
@@ -696,7 +700,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
               dash->current_representation_->id = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "codecPrivateData") == 0)
               dash->current_representation_->codec_private_data_ =
-                  annexb_to_avc((const char*)*(attr + 1));
+                  AnnexbToAvc((const char*)*(attr + 1));
             else if (strcmp((const char*)*attr, "hdcp") == 0)
               dash->current_representation_->hdcpVersion_ =
                   static_cast<uint16_t>(atof((const char*)*(attr + 1)) * 10);
@@ -1170,7 +1174,7 @@ static void XMLCALL end(void* data, const char* el)
           {
             if (dash->currentNode_ & MPDNODE_PSSH)
             {
-              if (endswith(el, "pssh"))
+              if (StringUtils::EndsWith(el, "pssh"))
               {
                 dash->current_pssh_ = dash->strXMLText_;
                 dash->currentNode_ &= ~MPDNODE_PSSH;
@@ -1376,7 +1380,7 @@ static void XMLCALL end(void* data, const char* el)
         {
           if (dash->currentNode_ & MPDNODE_PSSH)
           {
-            if (endswith(el, "pssh"))
+            if (StringUtils::EndsWith(el, "pssh"))
             {
               dash->current_pssh_ = dash->strXMLText_;
               dash->currentNode_ &= ~MPDNODE_PSSH;

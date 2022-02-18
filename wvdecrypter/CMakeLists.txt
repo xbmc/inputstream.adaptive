@@ -34,7 +34,6 @@ if(CORE_SYSTEM_NAME STREQUAL android)
   add_library ( ssd_wv SHARED
 	wvdecrypter_android.cpp
 	jsmn.c
-	../src/helpers.cpp
     ../src/utils/Utils.cpp
     ../src/utils/StringUtils.cpp
     ../src/utils/Base64Utils.cpp
@@ -55,7 +54,6 @@ else()
   add_library ( ssd_wv SHARED
         wvdecrypter.cpp
         jsmn.c
-        ../src/helpers.cpp
         ../src/md5.cpp
         ../src/utils/Utils.cpp
         ../src/utils/StringUtils.cpp

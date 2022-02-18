@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <string_view>
+
 //Functionality wich is supported by the Decrypter
 class AP4_CencSingleSampleDecrypter;
 class AP4_DataBuffer;
@@ -190,7 +192,7 @@ namespace SSD
     // Return supported URN if type matches to capabilities, otherwise null
     virtual const char *SelectKeySytem(const char* keySystem) = 0;
     virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate, const uint8_t config) = 0;
-    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid, bool skipSessionMessage) = 0;
+    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, std::string_view defaultkeyid, bool skipSessionMessage) = 0;
     virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 
     virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) = 0;

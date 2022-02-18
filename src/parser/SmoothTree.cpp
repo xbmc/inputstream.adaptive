@@ -8,8 +8,8 @@
 
 #include "SmoothTree.h"
 
-#include "../helpers.h"
 #include "../oscompat.h"
+#include "../utils/Utils.h"
 #include "PRProtectionParser.h"
 
 #include <algorithm>
@@ -19,6 +19,7 @@
 #include <string>
 
 using namespace adaptive;
+using namespace UTILS;
 
 SmoothTree::SmoothTree()
 {
@@ -119,9 +120,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         if (codecPrivateData)
         {
           if (dash->current_representation_->codecs_.compare(0, 3, "hev") == 0)
-            dash->current_representation_->codec_private_data_ = annexb_to_hvcc(codecPrivateData);
+            dash->current_representation_->codec_private_data_ = AnnexbToHvcc(codecPrivateData);
           else
-            dash->current_representation_->codec_private_data_ = annexb_to_avc(codecPrivateData);
+            dash->current_representation_->codec_private_data_ = AnnexbToAvc(codecPrivateData);
         }
 
         if (dash->current_representation_->codecs_ == "aacl" &&

@@ -26,7 +26,6 @@ set(ADP_SOURCES
 	src/utils/Base64Utils.cpp
 	src/utils/StringUtils.cpp
 	src/utils/Utils.cpp
-	src/helpers.cpp
 	src/oscompat.cpp
 	src/TSReader.cpp
 	src/aes_decrypter.cpp
@@ -36,7 +35,6 @@ set(ADP_SOURCES
 	)
 
 set(ADP_HEADERS
-	src/helpers.h
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h

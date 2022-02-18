@@ -26,4 +26,18 @@ bool CreateISMlicense(std::string_view key,
                       std::vector<uint8_t>& initData);
 void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std::string& header);
 
+/*!
+ * \brief Make a FourCC code as unsigned integer value
+ * \param c1 The first FourCC char
+ * \param c2 The second FourCC char
+ * \param c3 The third FourCC char
+ * \param c4 The fourth FourCC char
+ * \return The FourCC as unsigned integer value
+ */
+constexpr uint32_t MakeFourCC(char c1, char c2, char c3, char c4)
+{
+  return ((static_cast<uint32_t>(c1) << 24) | (static_cast<uint32_t>(c2) << 16) |
+    (static_cast<uint32_t>(c3) << 8) | (static_cast<uint32_t>(c4)));
+}
+
 } // namespace UTILS
