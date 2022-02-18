@@ -7,7 +7,8 @@
  */
 
 #include "RepresentationChooser.h"
-#include "../log.h"
+
+#include "../utils/log.h"
 
 //Pending- The plan was to group representations, this will give an easier switching control.
 //Streams will get filtered in 6 buckets: 240p, 480p, HD-720p, FHD-1080p, QHD-1440p, UHD-2160p
@@ -56,7 +57,7 @@ void DefaultRepresentationChooser::SetDisplayDimensions(unsigned int w, unsigned
   {
     display_width_ = w;
     display_height_ = h;
-    //Log(LOGLEVEL_DEBUG, "SetDisplayDimensions(unsigned int w=%u, unsigned int h=%u) ",w,h);
+    //LOG::Log(LOGDEBUG, "SetDisplayDimensions(unsigned int w=%u, unsigned int h=%u) ",w,h);
 
     width_ = ignore_display_ ? 8192 : display_width_;
     switch (secure_video_session_ ? max_secure_resolution_ : max_resolution_)
@@ -125,8 +126,8 @@ void DefaultRepresentationChooser::Prepare(bool secure_video_session)
   res_to_be_changed_ = true;
   SetDisplayDimensions(display_width_, display_height_);
 
-  Log(LOGLEVEL_DEBUG, "Stream selection conditions: w: %u, h: %u, bw: %u", width_, height_,
-    bandwidth_);
+  LOG::Log(LOGDEBUG, "Stream selection conditions: w: %u, h: %u, bw: %u", width_, height_,
+           bandwidth_);
 };
 
 adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseNextRepresentation(
@@ -144,7 +145,8 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseNext
     && !(next_display_width_ == display_width_ && next_display_height_ == display_height_))
   {
     res_to_be_changed_ = true;
-    Log(LOGLEVEL_DEBUG, "Updating new display resolution to: (w X h) : (%u X %u)", next_display_width_, next_display_height_);
+    LOG::Log(LOGDEBUG, "Updating new display resolution to: (w X h) : (%u X %u)",
+             next_display_width_, next_display_height_);
     SetDisplayDimensions(next_display_width_, next_display_height_);
   }
 
@@ -155,14 +157,14 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseNext
 
 
   current_bandwidth_ = get_average_download_speed();
-  Log(LOGLEVEL_DEBUG, "current_bandwidth_: %u ", current_bandwidth_);
+  LOG::Log(LOGDEBUG, "current_bandwidth_: %u ", current_bandwidth_);
 
   float buffer_hungry_factor = 1.0;// can be made as a sliding input
   buffer_hungry_factor = ((float)*valid_segment_buffers_ / (float)*assured_buffer_length_);
   buffer_hungry_factor = buffer_hungry_factor > 0.5 ? buffer_hungry_factor : 0.5;
 
   uint32_t bandwidth = (uint32_t)(buffer_hungry_factor*7.0*current_bandwidth_);
-  Log(LOGLEVEL_DEBUG, "bandwidth set: %u ", bandwidth);
+  LOG::Log(LOGDEBUG, "bandwidth set: %u ", bandwidth);
 
   if (*valid_segment_buffers_ >= *assured_buffer_length_)
   {
@@ -200,7 +202,7 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseNext
   if (!next_rep)
     next_rep = adp->min_rep_;
 
-  //Log(LOGLEVEL_DEBUG, "NextRep bandwidth: %u ",next_rep->bandwidth_);
+  //LOG::Log(LOGDEBUG, "NextRep bandwidth: %u ",next_rep->bandwidth_);
 
   return next_rep;
 };
@@ -261,8 +263,8 @@ adaptive::AdaptiveTree::Representation* DefaultRepresentationChooser::ChooseRepr
     new_rep = adp->min_rep_;
   if (!adp->best_rep_)
     adp->best_rep_ = adp->min_rep_;
-  Log(LOGLEVEL_DEBUG, "ASSUREDBUFFERDURATION selected: %d ", new_rep->assured_buffer_duration_);
-  Log(LOGLEVEL_DEBUG, "MAXBUFFERDURATION selected: %d ", new_rep->max_buffer_duration_);
+  LOG::Log(LOGDEBUG, "ASSUREDBUFFERDURATION selected: %d ", new_rep->assured_buffer_duration_);
+  LOG::Log(LOGDEBUG, "MAXBUFFERDURATION selected: %d ", new_rep->max_buffer_duration_);
 
   return new_rep;
 };

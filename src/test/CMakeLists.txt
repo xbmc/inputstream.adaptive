@@ -2,6 +2,8 @@ set(BINARY Test${CMAKE_PROJECT_NAME})
 
 find_package( Threads )
 
+add_definitions(-DINPUTSTREAM_TEST_BUILD)
+
 add_executable(${BINARY}
     TestMain.cpp
     TestDASHTree.cpp
@@ -13,8 +15,10 @@ add_executable(${BINARY}
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
 	../common/RepresentationChooser.cpp
-    ../helpers.cpp
     ../oscompat.cpp
+    ../utils/Base64Utils.cpp
+    ../utils/StringUtils.cpp
+    ../utils/Utils.cpp
     )
 
 target_link_libraries(${BINARY} PRIVATE ${EXPAT_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})

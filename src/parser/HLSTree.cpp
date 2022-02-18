@@ -9,8 +9,11 @@
 #include "HLSTree.h"
 
 #include "../Iaes_decrypter.h"
-#include "../helpers.h"
-#include "../log.h"
+#include "../utils/Base64Utils.h"
+#include "../utils/StringUtils.h"
+#include "../utils/Utils.h"
+#include "../utils/log.h"
+#include "kodi/tools/StringUtils.h"
 
 #include <algorithm>
 #include <map>
@@ -18,6 +21,8 @@
 #include <thread>
 
 using namespace adaptive;
+using namespace UTILS;
+using namespace kodi::tools;
 
 static void parseLine(const std::string& line,
                       size_t offset,
@@ -115,9 +120,9 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
       current_defaultKID_.resize(16);
       for (unsigned int i(0); i < 16; ++i)
       {
-        current_defaultKID_[i] = HexNibble(*defaultKID) << 4;
+        current_defaultKID_[i] = STRING::ToHexNibble(*defaultKID) << 4;
         ++defaultKID;
-        current_defaultKID_[i] |= HexNibble(*defaultKID);
+        current_defaultKID_[i] |= STRING::ToHexNibble(*defaultKID);
         ++defaultKID;
       }
     }
@@ -126,11 +131,9 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
     // Try to get KID from pssh, we assume len+'pssh'+version(0)+systemid+lenkid+kid
     if (current_defaultKID_.empty() && current_pssh_.size() == 68)
     {
-      unsigned int bufLen = 52;
-      uint8_t buf[52];
-      b64_decode(current_pssh_.c_str(), current_pssh_.size(), buf, bufLen);
-      if (bufLen == 50)
-        current_defaultKID_ = std::string(reinterpret_cast<const char*>(&buf[34]), 16);
+      std::string decPssh{BASE64::Decode(current_pssh_)};
+      if (decPssh.size() == 50)
+        current_defaultKID_ = decPssh.substr(34, 16);
     }
 
     return ENCRYPTIONTYPE_WIDEVINE;
@@ -139,7 +142,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   // KNOWN UNSUPPORTED
   if (map["METHOD"] == "SAMPLE-AES")
   {
-    Log(LOGLEVEL_ERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
+    LOG::LogF(LOGERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
     return ENCRYPTIONTYPE_INVALID;
   }
 
@@ -796,7 +799,7 @@ void HLSTree::OnDataArrived(uint64_t segNum,
       RETRY:
         std::stringstream stream;
         std::map<std::string, std::string> headers;
-        std::vector<std::string> keyParts(split(m_decrypter->getLicenseKey(), '|'));
+        std::vector<std::string> keyParts{StringUtils::Split(m_decrypter->getLicenseKey(), '|')};
         std::string url = pssh.pssh_.c_str();
 
         if (keyParts.size() > 0 && !keyParts[0].empty())
@@ -808,7 +811,7 @@ void HLSTree::OnDataArrived(uint64_t segNum,
           url += keyParts[0];
         }
         if (keyParts.size() > 1)
-          parseheader(headers, keyParts[1].c_str());
+          ParseHeaderString(headers, keyParts[1]);
 
         url = BuildDownloadUrl(url);
         if (download(url.c_str(), headers, &stream, false))

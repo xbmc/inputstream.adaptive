@@ -6,37 +6,49 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "../src/SSD_dll.h"
+#include "../src/md5.h"
+#include "../src/utils/Base64Utils.h"
+#include "../src/utils/StringUtils.h"
+#include "../src/utils/Utils.h"
+#include "ClassLoader.h"
 #include "jni/src/MediaDrm.h"
 #include "jni/src/MediaDrmOnEventListener.h"
 #include "jni/src/UUID.h"
-#include "ClassLoader.h"
-
-#include "../src/helpers.h"
-#include "../src/SSD_dll.h"
-#include "../src/md5.h"
 #include "jsmn.h"
-#include <bento4/Ap4.h>
+#include "kodi/tools/StringUtils.h"
+
+#include <chrono>
+#include <deque>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <deque>
-#include <chrono>
 #include <thread>
 
+#include <bento4/Ap4.h>
+
 using namespace SSD;
+using namespace UTILS;
+using namespace kodi::tools;
 
 SSD_HOST *host = 0;
 
 //#define LOCLICENSE
 
-void Log(unsigned int loglevel, const char *format, ...)
+namespace
 {
-  char buffer[16384];
-  va_list args;
-  va_start(args, format);
-  vsprintf(buffer, format, args);
-  va_end(args);
-  return host->Log(static_cast<SSD_HOST::LOGLEVEL>(loglevel), buffer);
-}
+  void Log(SSD::SSDLogLevel level, const char* format, ...)
+  {
+    if (!host)
+      return;
+
+    va_list args;
+    va_start(args, format);
+    host->LogVA(level, format, args);
+    va_end(args);
+  }
+
+#define LogF(level, format, ...) Log((level), ("%s: " format), __FUNCTION__, ##__VA_ARGS__)
+} // namespace
 
 /*******************************************************
 CDM
@@ -96,12 +108,12 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   const char* bspos(strchr(license_url_.c_str(), ':'));
   if (!bspos || bspos[1] != '/' || bspos[2] != '/' || !(bspos = strchr(bspos + 3, '/')))
   {
-    Log(SSD_HOST::LL_ERROR, "Unable to find protocol inside license url - invalid");
+    Log(SSDERROR, "Unable to find protocol inside license URL");
     return;
   }
   if (bspos - license_url_.c_str() > 256)
   {
-    Log(SSD_HOST::LL_ERROR, "Length of license URL exeeds max. size of 256 - invalid");
+    Log(SSDERROR, "Length of license URL exeeds max. size of 256");
     return;
   }
   char buffer[1024];
@@ -124,7 +136,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   media_drm_ = new jni::CJNIMediaDrm(uuid);
   if (xbmc_jnienv()->ExceptionCheck() || !*media_drm_)
   {
-    Log(SSD_HOST::LL_ERROR, "Unable to initialize media_drm");
+    LogF(SSDERROR, "Unable to initialize MediaDrm");
     xbmc_jnienv()->ExceptionClear();
     delete media_drm_, media_drm_ = nullptr;
     return;
@@ -133,7 +145,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
   media_drm_->setOnEventListener(*listener);
   if (xbmc_jnienv()->ExceptionCheck())
   {
-    Log(SSD_HOST::LL_ERROR, "Exception during installation of EventListener");
+    LogF(SSDERROR, "Exception during installation of EventListener");
     xbmc_jnienv()->ExceptionClear();
     media_drm_->release();
     delete media_drm_, media_drm_ = nullptr;
@@ -158,7 +170,7 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
 
     if (xbmc_jnienv()->ExceptionCheck())
     {
-      Log(SSD_HOST::LL_ERROR, "Exception setting Service Certificate");
+      LogF(SSDERROR, "Exception setting Service Certificate");
       xbmc_jnienv()->ExceptionClear();
       media_drm_->release();
       delete media_drm_, media_drm_ = nullptr;
@@ -166,7 +178,9 @@ WV_DRM::WV_DRM(WV_KEYSYSTEM ks, const char* licenseURL, const AP4_DataBuffer &se
     }
   }
 
-  Log(SSD_HOST::LL_DEBUG, "Successful instanciated deviceUniqueIdSize: %ld,systemId: %s security-level: %s", strDeviceId.size(), strSystemId.c_str(), strSecurityLevel.c_str());
+  Log(SSDDEBUG,
+      "MediaDrm initialized (Device unique ID size: %ld, System ID: %s, Security level: %s)",
+      strDeviceId.size(), strSystemId.c_str(), strSecurityLevel.c_str());
 
   if (license_url_.find('|') == std::string::npos)
   {
@@ -186,7 +200,7 @@ WV_DRM::~WV_DRM()
     media_drm_->release();
     if (xbmc_jnienv()->ExceptionCheck())
     {
-      Log(SSD_HOST::LL_ERROR, "Exception releasing media drm");
+      LogF(SSDERROR, "Exception releasing media drm");
       xbmc_jnienv()->ExceptionClear();
     }
     delete media_drm_, media_drm_ = nullptr;
@@ -221,12 +235,12 @@ void WV_DRM::LoadServiceCertificate()
   }
   if (!data)
   {
-    Log(SSD_HOST::LL_DEBUG, "Requesting new Service Certificate");
+    Log(SSDDEBUG, "Requesting new Service Certificate");
     media_drm_->setPropertyString("privacyMode", "enable");
   }
   else
   {
-    Log(SSD_HOST::LL_DEBUG, "Use stored Service Certificate");
+    Log(SSDDEBUG, "Use stored Service Certificate");
     free(data), data = nullptr;
   }
 }
@@ -236,14 +250,14 @@ void WV_DRM::SaveServiceCertificate()
   std::vector<char> sc = media_drm_->getPropertyByteArray("serviceCertificate");
   if (xbmc_jnienv()->ExceptionCheck())
   {
-    Log(SSD_HOST::LL_INFO, "Exception retrieving Service Certificate");
+    LogF(SSDWARNING, "Exception retrieving Service Certificate");
     xbmc_jnienv()->ExceptionClear();
     return;
   }
 
   if (sc.empty())
   {
-    Log(SSD_HOST::LL_INFO, "Empty Service Certificate");
+    LogF(SSDWARNING, "Empty Service Certificate");
     return;
   }
 
@@ -266,7 +280,10 @@ class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 {
 public:
   // methods
-  WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t* defaultKeyId);
+  WV_CencSingleSampleDecrypter(WV_DRM& drm,
+                               AP4_DataBuffer& pssh,
+                               const char* optionalKeyParameter,
+                               std::string_view defaultKeyId);
   ~WV_CencSingleSampleDecrypter();
 
   bool StartSession(bool skipSessionMessage) { return KeyUpdateRequest(true, skipSessionMessage); };
@@ -316,7 +333,7 @@ private:
   char session_id_char_[128];
   bool provisionRequested, keyUpdateRequested;
 
-  uint8_t defaultKeyId_[16];
+  std::string m_defaultKeyId;
 
   struct FINFO
   {
@@ -333,19 +350,24 @@ private:
 |   WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
 
-WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t* defaultKeyId)
-  : AP4_CencSingleSampleDecrypter(0)
-  , media_drm_(drm)
-  , provisionRequested(false)
-  , keyUpdateRequested(false)
-  , hdcp_limit_(0)
-  , resolution_limit_(0)
+WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
+                                                           AP4_DataBuffer& pssh,
+                                                           const char* optionalKeyParameter,
+                                                           std::string_view defaultKeyId)
+  : AP4_CencSingleSampleDecrypter(0),
+    media_drm_(drm),
+    provisionRequested(false),
+    keyUpdateRequested(false),
+    hdcp_limit_(0),
+    resolution_limit_(0),
+    m_defaultKeyId{defaultKeyId}
 {
   SetParentIsOwner(false);
 
   if (pssh.GetDataSize() > 65535)
   {
-    Log(SSD_HOST::LL_ERROR, "Init_data with length: %u seems not to be cenc init data!", pssh.GetDataSize());
+    LogF(SSDERROR, "PSSH init data with length %u seems not to be cenc init data",
+         pssh.GetDataSize());
     return;
   }
 
@@ -377,11 +399,6 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   }
   initial_pssh_ = pssh_;
 
-  if (defaultKeyId)
-    memcpy(defaultKeyId_, defaultKeyId, 16);
-  else
-    memset(defaultKeyId_, 0, 16);
-
   if (optionalKeyParameter)
     optParams_["PRCustomData"] = optionalKeyParameter;
 
@@ -390,8 +407,8 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
   xbmc_jnienv()->ExceptionClear();
   if (pui.size() > 0)
   {
-    std::string encoded = b64_encode(reinterpret_cast<const uint8_t*>(pui.data()), pui.size(), false);
-    optParams_["CDMID"] = encoded;;
+    std::string encoded{BASE64::Encode(pui.data(), pui.size())};
+    optParams_["CDMID"] = encoded;
   }
   */
 
@@ -403,13 +420,13 @@ RETRY_OPEN:
     xbmc_jnienv()->ExceptionClear();
     if (!provisionRequested)
     {
-      Log(SSD_HOST::LL_ERROR, "Exception during open session - provisioning...");
+      LogF(SSDWARNING, "Exception during open session - provisioning...");
       provisionRequested = true;
       if (!ProvisionRequest())
       {
         if (!L3FallbackRequested && media_drm_.GetMediaDrm()->getPropertyString("securityLevel") == "L1")
         {
-          Log(SSD_HOST::LL_INFO, "L1 provisioning failed - retrying with L3...");
+          LogF(SSDWARNING, "L1 provisioning failed - retrying with L3...");
           L3FallbackRequested = true;
           provisionRequested = false;
           media_drm_.GetMediaDrm()->setPropertyString("securityLevel", "L3");
@@ -422,14 +439,14 @@ RETRY_OPEN:
     }
     else
     {
-      Log(SSD_HOST::LL_ERROR, "Exception during open session - abort");
+      LogF(SSDERROR, "Exception during open session - abort");
       return;
     }
   }
 
   if (session_id_.size() == 0)
   {
-    Log(SSD_HOST::LL_ERROR, "Unable to open DRM session");
+    LogF(SSDERROR, "Unable to open DRM session");
     return;
   }
 
@@ -441,8 +458,7 @@ RETRY_OPEN:
     int maxSecuritylevel = media_drm_.GetMediaDrm()->getMaxSecurityLevel();
     xbmc_jnienv()->ExceptionClear();
 
-    Log(SSD_HOST::LL_DEBUG, "SessionId: %s, MaxSecurityLevel: %d",
-      session_id_char_, maxSecuritylevel);
+    Log(SSDDEBUG, "Session ID: %s, Max security level: %d", session_id_char_, maxSecuritylevel);
   }
 }
 
@@ -453,13 +469,13 @@ WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
     media_drm_.GetMediaDrm()->removeKeys(session_id_);
     if (xbmc_jnienv()->ExceptionCheck())
     {
-      Log(SSD_HOST::LL_ERROR, "Exception removeKeys");
+      LogF(SSDERROR, "removeKeys has raised an exception");
       xbmc_jnienv()->ExceptionClear();
     }
     media_drm_.GetMediaDrm()->closeSession(session_id_);
     if (xbmc_jnienv()->ExceptionCheck())
     {
-      Log(SSD_HOST::LL_ERROR, "Exception closeSession");
+      LogF(SSDERROR, "closeSession has raised an exception");
       xbmc_jnienv()->ExceptionClear();
     }
   }
@@ -494,17 +510,17 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_
     caps.hdcpLimit = resolution_limit_; //No restriction
     caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
   }
-  Log(SSD_HOST::LL_DEBUG, "GetCapabilities: hdcpLimit: %u", caps.hdcpLimit);
+  LogF(SSDDEBUG, "hdcpLimit: %u", caps.hdcpLimit);
 }
 
 bool WV_CencSingleSampleDecrypter::ProvisionRequest()
 {
-  Log(SSD_HOST::LL_ERROR, "PrivisionData request: drm:%p" , media_drm_.GetMediaDrm());
+  Log(SSDWARNING, "Provision data request (DRM:%p)" , media_drm_.GetMediaDrm());
 
   jni::CJNIMediaDrmProvisionRequest request = media_drm_.GetMediaDrm()->getProvisionRequest();
   if (xbmc_jnienv()->ExceptionCheck())
   {
-    Log(SSD_HOST::LL_ERROR, "Exception on getProvisionRequest");
+    LogF(SSDERROR, "getProvisionRequest has raised an exception");
     xbmc_jnienv()->ExceptionClear();
     return false;
   }
@@ -512,22 +528,21 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
   std::vector<char> provData = request.getData();
   std::string url = request.getDefaultUrl();
 
-  Log(SSD_HOST::LL_DEBUG, "PrivisionData: size: %lu, url: %s", provData.size(), url.c_str());
+  Log(SSDDEBUG, "Provision data size: %lu, url: %s", provData.size(), url.c_str());
 
-  std::string tmp_str("{\"signedRequest\":\"");
-  tmp_str += std::string(provData.data(), provData.size());
-  tmp_str += "\"}";
-
-  std::string encoded = b64_encode(reinterpret_cast<const uint8_t*>(tmp_str.data()), tmp_str.size(), false);
+  std::string reqData("{\"signedRequest\":\"");
+  reqData += std::string(provData.data(), provData.size());
+  reqData += "\"}";
+  reqData = BASE64::Encode(reqData);
 
   void* file = host->CURLCreate(url.c_str());
   host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "Content-Type", "application/json");
   host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "seekable", "0");
-  host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", encoded.c_str());
+  host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", reqData.c_str());
 
   if (!host->CURLOpen(file))
   {
-    Log(SSD_HOST::LL_ERROR, "Provisioning server returned failure");
+    Log(SSDERROR, "Provisioning server returned failure");
     return false;
   }
   provData.clear();
@@ -541,7 +556,7 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
   media_drm_.GetMediaDrm()->provideProvisionResponse(provData);
   if (xbmc_jnienv()->ExceptionCheck())
   {
-    Log(SSD_HOST::LL_ERROR, "Exception on provideProvisionResponse");
+    LogF(SSDERROR, "provideProvisionResponse has raised an exception");
     xbmc_jnienv()->ExceptionClear();
     return false;
   }
@@ -558,17 +573,17 @@ bool WV_CencSingleSampleDecrypter::GetKeyRequest(std::vector<char>& keyRequestDa
     xbmc_jnienv()->ExceptionClear();
     if (!provisionRequested)
     {
-      Log(SSD_HOST::LL_INFO, "Key request not successful - trying provisioning");
+      Log(SSDWARNING, "Key request not successful - trying provisioning");
       provisionRequested = true;
       return GetKeyRequest(keyRequestData);
     }
     else
-      Log(SSD_HOST::LL_ERROR, "Key request not successful");
+      LogF(SSDERROR, "Key request not successful");
     return false;
   }
 
   keyRequestData = keyRequest.getData();
-  Log(SSD_HOST::LL_DEBUG, "Key request successful size: %lu", keyRequestData.size());
+  Log(SSDDEBUG, "Key request successful size: %lu", keyRequestData.size());
   return true;
 }
 
@@ -596,32 +611,36 @@ bool WV_CencSingleSampleDecrypter::KeyUpdateRequest(bool waitKeys, bool skipSess
       KeyUpdateRequest(false, false);
     else
     {
-      Log(SSD_HOST::LL_ERROR, "Timeout waiting for EVENT_KEYS_REQUIRED!");
+      LogF(SSDERROR, "Timeout waiting for EVENT_KEYS_REQUIRED!");
       return false;
     }
   }
-  Log(SSD_HOST::LL_DEBUG, "License update successful");
+  Log(SSDDEBUG, "License update successful");
 
   if (media_drm_.GetKeySystemType() != PLAYREADY)
   {
     int securityLevel = media_drm_.GetMediaDrm()->getSecurityLevel(session_id_);
     xbmc_jnienv()->ExceptionClear();
-    Log(SSD_HOST::LL_DEBUG, "SecurityLevel: %d", securityLevel);
+    Log(SSDDEBUG, "Security level: %d", securityLevel);
 
     std::map<std::string, std::string> keyStatus = media_drm_.GetMediaDrm()->queryKeyStatus(session_id_);
-    Log(SSD_HOST::LL_DEBUG, "Key Status (%ld):", keyStatus.size());
+    Log(SSDDEBUG, "Key status (%ld):", keyStatus.size());
     for (auto const& ks : keyStatus)
-      Log(SSD_HOST::LL_DEBUG, "-> %s -> %s", ks.first.c_str(), ks.second.c_str());
+    {
+      Log(SSDDEBUG, "-> %s -> %s", ks.first.c_str(), ks.second.c_str());
+    }
   }
   return true;
 }
 
 bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &keyRequestData)
 {
-  std::vector<std::string> headers, header, blocks = split(media_drm_.GetLicenseURL(), '|');
+  std::vector<std::string> blocks{StringUtils::Split(media_drm_.GetLicenseURL(), '|')};
+
   if (blocks.size() != 4)
   {
-    Log(SSD_HOST::LL_ERROR, "4 '|' separated blocks in licURL expected (req / header / body / response)");
+    LogF(SSDERROR, "Wrong \"|\" blocks in license URL. Four blocks (req | header | body | "
+      "response) are expected in license URL");
     return false;
   }
 
@@ -639,12 +658,13 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   {
     if (insPos>0 && blocks[0][insPos - 1] == 'B')
     {
-      std::string msgEncoded = b64_encode(reinterpret_cast<const uint8_t*>(keyRequestData.data()), keyRequestData.size(), true);
+      std::string msgEncoded{BASE64::Encode(keyRequestData.data(), keyRequestData.size())};
+      msgEncoded = STRING::URLEncode(msgEncoded);
       blocks[0].replace(insPos - 1, 6, msgEncoded);
     }
     else
     {
-      Log(SSD_HOST::LL_ERROR, "Unsupported License request template (cmd)");
+      Log(SSDERROR, "Unsupported License request template (command)");
       return false;
     }
   }
@@ -669,18 +689,25 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "seekable", "0");
 
   //Process headers
-  headers = split(blocks[1], '&');
-  for (std::vector<std::string>::iterator b(headers.begin()), e(headers.end()); b != e; ++b)
+  std::vector<std::string> headers{StringUtils::Split(blocks[1], '&')};
+  for (std::string& headerStr : headers)
   {
-    header = split(*b, '=');
-    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, trim(header[0]).c_str(), header.size() > 1 ? url_decode(trim(header[1])).c_str() : "");
+    std::vector<std::string> header{StringUtils::Split(headerStr, '=')};
+    StringUtils::Trim(header[0]);
+    std::string value;
+    if (header.size() > 1)
+    {
+      StringUtils::Trim(header[1]);
+      value = STRING::URLDecode(header[1]);
+    }
+    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, header[0].c_str(), value.c_str());
   }
 
   //Process body
   if (!blocks[2].empty())
   {
     if (blocks[2][0] == '%')
-      blocks[2] = url_decode(blocks[2]);
+      blocks[2] = STRING::URLDecode(blocks[2]);
 
     insPos = blocks[2].find("{SSM}");
     if (insPos != std::string::npos)
@@ -709,13 +736,17 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       {
         if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
         {
-          std::string msgEncoded = b64_encode(reinterpret_cast<const uint8_t*>(keyRequestData.data()), keyRequestData.size(), blocks[2][insPos - 1] == 'B');
+          std::string msgEncoded{BASE64::Encode(keyRequestData.data(), keyRequestData.size())};
+          if (blocks[2][insPos - 1] == 'B') {
+            msgEncoded = STRING::URLEncode(msgEncoded);
+          }
           blocks[2].replace(insPos - 1, 6, msgEncoded);
           size_written = msgEncoded.size();
         }
         else if (blocks[2][insPos - 1] == 'D')
         {
-          std::string msgEncoded = ToDecimal(reinterpret_cast<const uint8_t*>(keyRequestData.data()), keyRequestData.size());
+          std::string msgEncoded{STRING::ToDecimal(
+              reinterpret_cast<const uint8_t*>(keyRequestData.data()), keyRequestData.size())};
           blocks[2].replace(insPos - 1, 6, msgEncoded);
           size_written = msgEncoded.size();
         }
@@ -727,7 +758,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       }
       else
       {
-        Log(SSD_HOST::LL_ERROR, "Unsupported License request template (body / ?{SSM})");
+        Log(SSDERROR, "Unsupported License request template (body / ?{SSM})");
         goto SSMFAIL;
       }
 
@@ -748,7 +779,10 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
         {
           if (blocks[2][sidPos - 1] == 'B' || blocks[2][sidPos - 1] == 'b')
           {
-            std::string msgEncoded = b64_encode(reinterpret_cast<const uint8_t*>(session_id_.data()), session_id_.size(), blocks[2][sidPos - 1] == 'B');
+            std::string msgEncoded{BASE64::Encode(session_id_.data(), session_id_.size())};
+            if (blocks[2][sidPos - 1] == 'B') {
+              msgEncoded = STRING::URLEncode(msgEncoded);
+            }
             blocks[2].replace(sidPos - 1, 6, msgEncoded);
             size_written = msgEncoded.size();
           }
@@ -760,7 +794,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
         }
         else
         {
-          Log(SSD_HOST::LL_ERROR, "Unsupported License request template (body / ?{SID})");
+          Log(SSDERROR, "Unsupported License request template (body / ?{SID})");
           goto SSMFAIL;
         }
       }
@@ -774,16 +808,15 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       size_t kidPlaceholderLen = 6;
       if (kidPos != std::string::npos)
       {
-        char uuid[36];
         if (blocks[2][kidPos - 1] == 'H')
         {
-          AP4_FormatHex(defaultKeyId_, 16, uuid);
-          blocks[2].replace(kidPos - 1, 6, (const char*)uuid, 32);
+          std::string keyIdUUID{StringUtils::ToHexadecimal(m_defaultKeyId)};
+          blocks[2].replace(kidPos - 1, 6, keyIdUUID.c_str(), 32);
         }
         else
         {
-          KIDtoUUID(defaultKeyId_, uuid);
-          blocks[2].replace(kidPos, 5, (const char*)uuid, 36);
+          std::string kidUUID{ConvertKIDtoUUID(m_defaultKeyId)};
+          blocks[2].replace(kidPos, 5, kidUUID.c_str(), 36);
           kidPlaceholderLen = 5;
         }
       }
@@ -793,13 +826,23 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
 
       if (psshPos != std::string::npos)
       {
-        std::string msgEncoded = b64_encode(reinterpret_cast<const uint8_t*>(initial_pssh_.data()), initial_pssh_.size(), blocks[2][psshPos - 1] == 'B');
+        std::string msgEncoded{BASE64::Encode(initial_pssh_.data(), initial_pssh_.size())};
+        if (blocks[2][psshPos - 1] == 'B') {
+          msgEncoded = STRING::URLEncode(msgEncoded);
+        }
         blocks[2].replace(psshPos - 1, 7, msgEncoded);
         size_written = msgEncoded.size();
       }
 
       if (fullDecode)
-        blocks[2] = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), fullDecode == 'B');
+      {
+        std::string msgEncoded{BASE64::Encode(blocks[2])};
+        if (fullDecode == 'B')
+        {
+          msgEncoded = STRING::URLEncode(msgEncoded);
+        }
+        blocks[2] = msgEncoded;
+      }
 
 #ifdef LOCLICENSE
       std::string strDbg = host->GetProfilePath();
@@ -809,13 +852,14 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       fclose(f);
 #endif
     }
-    std::string decoded = b64_encode(reinterpret_cast<const unsigned char*>(blocks[2].data()), blocks[2].size(), false);
-    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", decoded.c_str());
+
+    std::string encData{BASE64::Encode(blocks[2])};
+    host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, "postdata", encData.c_str());
   }
 
   if (!host->CURLOpen(file))
   {
-    Log(SSD_HOST::LL_ERROR, "License server returned failure");
+    Log(SSDERROR, "License server returned failure");
     goto SSMFAIL;
   }
 
@@ -838,12 +882,12 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
 
   if (nbRead != 0)
   {
-    Log(SSD_HOST::LL_ERROR, "Could not read full SessionMessage response");
+    LogF(SSDERROR, "Could not read full SessionMessage response");
     goto SSMFAIL;
   }
   else if (response.empty())
   {
-    Log(SSD_HOST::LL_ERROR, "Empty SessionMessage response - invalid");
+    LogF(SSDERROR, "Empty SessionMessage response - invalid");
     goto SSMFAIL;
   }
 
@@ -854,7 +898,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
     std::string::size_type srcPosS(challenge.find("<LicenseNonce>"));
     if (dstPos != std::string::npos && srcPosS != std::string::npos)
     {
-      Log(SSD_HOST::LL_DEBUG, "Inserting <LicenseNonce>");
+      Log(SSDDEBUG, "Inserting <LicenseNonce>");
       std::string::size_type srcPosE(challenge.find("</LicenseNonce>", srcPosS));
       if (srcPosE != std::string::npos)
         response.insert(dstPos + 11, challenge.c_str() + srcPosS, srcPosE - srcPosS + 15);
@@ -877,10 +921,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
 
       if (response.size() >= 3 && blocks[3][0] == 'B')
       {
-        unsigned int decoded_size = 2048;
-        uint8_t decoded[2048];
-        b64_decode(response.c_str(), response.size(), decoded, decoded_size);
-        response = std::string(reinterpret_cast<const char*>(decoded), decoded_size);
+        response = BASE64::Decode(response);
         dataPos = 3;
       }
 
@@ -890,7 +931,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
       jsmn_init(&jsn);
       int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 256);
 
-      std::vector<std::string> jsonVals = split(blocks[3].c_str() + dataPos, ';');
+      std::vector<std::string> jsonVals{StringUtils::Split(blocks[3].substr(dataPos), ';')};
 
       // Find HDCP limit
       if (jsonVals.size() > 1)
@@ -919,20 +960,16 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
 
       if (i < numTokens)
       {
+        response = response.substr(tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start);
+
         if (blocks[3][dataPos - 1] == 'B')
         {
-          unsigned int decoded_size = 2048;
-          uint8_t decoded[2048];
-
-          b64_decode(response.c_str() + tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start, decoded, decoded_size);
-          response = std::string(reinterpret_cast<char*>(decoded), decoded_size);
+          response = BASE64::Decode(response);
         }
-        else
-          response = std::string(response.c_str() + tokens[i + 1].start, response.c_str() + tokens[i + 1].end);
       }
       else
       {
-        Log(SSD_HOST::LL_ERROR, "Unable to find %s in JSON string", blocks[3].c_str() + 2);
+        LogF(SSDERROR, "Unable to find %s in JSON string", blocks[3].c_str() + 2);
         goto SSMFAIL;
       }
     }
@@ -947,26 +984,23 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
           response = std::string(response.c_str() + payloadPos, response.c_str() + response.size());
         else
         {
-          Log(SSD_HOST::LL_ERROR, "Unsupported HTTP payload data type definition");
+          LogF(SSDERROR, "Unsupported HTTP payload data type definition");
           goto SSMFAIL;
         }
       }
       else
       {
-        Log(SSD_HOST::LL_ERROR, "Unable to find HTTP payload in response");
+        LogF(SSDERROR, "Unable to find HTTP payload in response");
         goto SSMFAIL;
       }
     }
     else if (blocks[3][0] == 'B' && blocks[3].size() == 1)
     {
-      unsigned int decoded_size = 2048;
-      uint8_t decoded[2048];
-      b64_decode(response.c_str(), response.size(), decoded, decoded_size);
-      response = std::string(reinterpret_cast<char*>(decoded), decoded_size);
+      response = BASE64::Decode(response);
     }
     else
     {
-      Log(SSD_HOST::LL_ERROR, "Unsupported License request template (response)");
+      LogF(SSDERROR, "Unsupported License request template (response)");
       goto SSMFAIL;
     }
   }
@@ -974,7 +1008,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   keySetId_ = media_drm_.GetMediaDrm()->provideKeyResponse(session_id_, std::vector<char>(response.data(), response.data() + response.size()));
   if (xbmc_jnienv()->ExceptionCheck())
   {
-    Log(SSD_HOST::LL_INFO, "Exception in provideKeyResponse");
+    LogF(SSDERROR, "provideKeyResponse has raised an exception");
     xbmc_jnienv()->ExceptionClear();
     return false;
   }
@@ -1051,7 +1085,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 
     if (fragInfo.nal_length_size_ > 4)
     {
-      Log(SSD_HOST::LL_ERROR, "Nalu length size > 4 not supported");
+      LogF(SSDERROR, "Nalu length size > 4 not supported");
       return AP4_ERROR_NOT_SUPPORTED;
     }
 
@@ -1132,10 +1166,10 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 
           if (nalsize + fragInfo.nal_length_size_ + nalunitsum > summedBytes)
           {
-            Log(SSD_HOST::LL_ERROR, "NAL Unit exceeds subsample definition (nls: %u) %u -> %u ",
-              static_cast<unsigned int>(fragInfo.nal_length_size_),
-              static_cast<unsigned int>(nalsize + fragInfo.nal_length_size_ + nalunitsum),
-              summedBytes);
+            LogF(SSDERROR, "NAL Unit exceeds subsample definition (nls: %u) %u -> %u ",
+                 static_cast<unsigned int>(fragInfo.nal_length_size_),
+                 static_cast<unsigned int>(nalsize + fragInfo.nal_length_size_ + nalunitsum),
+                 summedBytes);
             return AP4_ERROR_NOT_SUPPORTED;
           }
           nalunitsum = 0;
@@ -1145,7 +1179,8 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
       }
       if (packet_in != packet_in_e || subsample_count)
       {
-        Log(SSD_HOST::LL_ERROR, "NAL Unit definition incomplete (nls: %d) %d -> %u ", fragInfo.nal_length_size_, (int)(packet_in_e - packet_in), subsample_count);
+        LogF(SSDERROR, "NAL Unit definition incomplete (nls: %d) %d -> %u ",
+             fragInfo.nal_length_size_, (int)(packet_in_e - packet_in), subsample_count);
         return AP4_ERROR_NOT_SUPPORTED;
       }
       data_out.SetDataSize(data_out.GetDataSize() + data_in.GetDataSize() + configSize + (4 - fragInfo.nal_length_size_) * nalunitcount);
@@ -1178,12 +1213,12 @@ public:
 #endif
     if (xbmc_jnienv()->ExceptionCheck())
     {
-      Log(SSD_HOST::LL_ERROR, "Failed to load MediaDrmOnEventListener");
+      LogF(SSDERROR, "Failed to load MediaDrmOnEventListener");
       xbmc_jnienv()->ExceptionDescribe();
       xbmc_jnienv()->ExceptionClear();
       return;
     }
-    Log(SSD_HOST::LL_DEBUG, "WVDecrypter constructed");
+    Log(SSDDEBUG, "WVDecrypter constructed");
   };
 
   ~WVDecrypter()
@@ -1197,7 +1232,7 @@ public:
     delete jniWorker;
 #endif
 
-    Log(SSD_HOST::LL_DEBUG, "WVDecrypter destructed");
+    Log(SSDDEBUG, "WVDecrypter destructed");
   };
 
 #ifdef DRMTHREAD
@@ -1207,13 +1242,13 @@ public:
     std::unique_lock<std::mutex> lk(jniMutex_);
     jniCondition_.wait(lk);
 
-    Log(SSD_HOST::LL_DEBUG, "JNI thread terminated");
+    Log(SSDDEBUG, "JNI thread terminated");
   }
 #endif
 
   virtual const char *SelectKeySytem(const char* keySystem) override
   {
-    Log(SSD_HOST::LL_ERROR, "Key system request: %s", keySystem);
+    Log(SSDDEBUG, "Key system request: %s", keySystem);
     if (strcmp(keySystem, "com.widevine.alpha") == 0)
     {
       key_system_ = WIDEVINE;
@@ -1243,7 +1278,11 @@ public:
     return cdmsession_->GetMediaDrm();
   }
 
-  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid, bool skipSessionMessage) override
+  virtual AP4_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+      AP4_DataBuffer& pssh,
+      const char* optionalKeyParameter,
+      std::string_view defaultkeyid,
+      bool skipSessionMessage) override
   {
     WV_CencSingleSampleDecrypter *decrypter = new WV_CencSingleSampleDecrypter(*cdmsession_, pssh, optionalKeyParameter, defaultkeyid);
 
@@ -1292,11 +1331,12 @@ public:
   virtual std::string GetChallengeB64Data(AP4_CencSingleSampleDecrypter* decrypter) override
   {
     if (!decrypter)
-      return nullptr;
+      return "";
 
     std::vector<char> challengeData = static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetChallengeData();
-    // Keep b64_encode urlEncode enabled otherwise the data will not be sent correctly in the HTTP header
-    return b64_encode(reinterpret_cast<const uint8_t*>(challengeData.data()), challengeData.size(), true);
+    std::string encChallengeData{BASE64::Encode(challengeData.data(), challengeData.size())};
+    // Keep data URL encoded otherwise will not be sent correctly in the HTTP header
+    return STRING::URLEncode(encChallengeData);
   }
 
   virtual bool HasCdmSession() 
@@ -1320,7 +1360,7 @@ public:
 
   virtual void onEvent(const jni::CJNIMediaDrm &mediaDrm, const std::vector<char> &sessionId, int event, int extra, const std::vector<char> &data) override
   {
-    Log(SSD_HOST::LL_DEBUG, "EVENT: %d arrived, #decrypter: %lu", event, decrypterList.size());
+    LogF(SSDDEBUG, "%d arrived, #decrypter: %lu", event, decrypterList.size());
     //we have only one DRM system running (cdmsession_) so there is no need to compare mediaDrm
     std::lock_guard<std::mutex> lk(decrypterListMutex);
     for (std::vector<WV_CencSingleSampleDecrypter*>::iterator b(decrypterList.begin()), e(decrypterList.end()); b != e; ++b)
@@ -1336,7 +1376,7 @@ public:
       }
       else
       {
-        Log(SSD_HOST::LL_DEBUG, "Session does not match: sizes: %lu -> %lu", sessionId.size(), (*b)->GetSessionIdRaw().size());
+        LogF(SSDDEBUG, "Session does not match: sizes: %lu -> %lu", sessionId.size(), (*b)->GetSessionIdRaw().size());
       }
   }
 
@@ -1377,7 +1417,8 @@ extern "C" {
     CJNIBase::SetSDKVersion(host->GetSDKVersion());
     CJNIBase::SetBaseClassName(host->GetClassName());
 
-    Log(SSD_HOST::LL_DEBUG, "WVDecrypter JNI, SDK version: %d, class: %s", CJNIBase::GetSDKVersion(), CJNIBase::GetBaseClassName().c_str());
+    Log(SSDDEBUG, "WVDecrypter JNI, SDK version: %d, class: %s", CJNIBase::GetSDKVersion(),
+        CJNIBase::GetBaseClassName().c_str());
 
     const char *apkEnv = getenv("XBMC_ANDROID_APK");
     if (!apkEnv)
@@ -1391,7 +1432,7 @@ extern "C" {
     classLoader = new CJNIClassLoader(apkPath);
     if (xbmc_jnienv()->ExceptionCheck())
     {
-      Log(SSD_HOST::LL_ERROR, "Failed to create JNI::ClassLoader");
+      LogF(SSDERROR, "Failed to create JNI::ClassLoader");
       xbmc_jnienv()->ExceptionDescribe();
       xbmc_jnienv()->ExceptionClear();
 

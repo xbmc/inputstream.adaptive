@@ -186,8 +186,8 @@ void CdmAdapter::Initialize()
 
   if (!library_)
   {
-    std::string log_error = "CDM LoadNativeLibrary error: " + error.ToString();
-    client_->CDMLog(log_error.c_str());
+    client_->Log(CDMERROR, "%s: Failed to load library: %s", __FUNCTION__,
+                 error.ToString().c_str());
     return;
   }
 
@@ -203,9 +203,8 @@ void CdmAdapter::Initialize()
     return;
   }
 
-  std::string version = get_cdm_verion_func();
-  version = "CDM version: " + version;
-  client_->CDMLog(version.c_str());
+  std::string version{get_cdm_verion_func()};
+  client_->Log(CDMDEBUG, "CDM version: %s", version.c_str());
 
 #if defined(OS_WIN)
   // Load DXVA before sandbox lockdown to give CDM access to Output Protection
@@ -552,12 +551,12 @@ void CdmAdapter::OnSessionKeysChange(const char* session_id,
 {
   for (uint32_t i(0); i < keys_info_count; ++i)
   {
-    char fmtbuf[128], *fmtptr(fmtbuf+11);
-    strcpy(fmtbuf, "Sessionkey: ");
-    for (unsigned int j(0); j < keys_info[i].key_id_size; ++j)
-      fmtptr += sprintf(fmtptr, "%02X", (int)keys_info[i].key_id[j]);
-    sprintf(fmtptr, " status: %d syscode: %u", keys_info[i].status, keys_info[i].system_code);
-    client_->CDMLog(fmtbuf);
+    char buffer[128];
+    char* bufferPtr{buffer};
+    for (uint32_t j{0}; j < keys_info[i].key_id_size; ++j)
+      bufferPtr += sprintf(bufferPtr, "%02X", (int)keys_info[i].key_id[j]);
+    client_->Log(CDMDEBUG, "%s: Sessionkey %s status: %d syscode: %u", __func__, buffer,
+                 keys_info[i].status, keys_info[i].system_code);
 
     SendClientMessage(session_id, session_id_size, CdmAdapterClient::kSessionKeysChange,
       keys_info[i].key_id, keys_info[i].key_id_size, keys_info[i].status);
@@ -632,9 +631,7 @@ void CdmAdapter::RequestStorageId(uint32_t version)
 
 void CdmAdapter::OnInitialized(bool success)
 {
-  char fmtbuf[64];
-  sprintf(fmtbuf, "cdm::OnInitialized: %s", success ? "true" : "false");
-  client_->CDMLog(fmtbuf);
+  client_->Log(CDMDEBUG, "CDM is initialized: %s", success ? "true" : "false");
 }
 
 

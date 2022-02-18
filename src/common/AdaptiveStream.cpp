@@ -8,13 +8,13 @@
 
 #include "AdaptiveStream.h"
 
-#include "../log.h"
 #include "../oscompat.h"
+#include "../utils/log.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <iostream>
-#include <cmath>
 
 using namespace adaptive;
 
@@ -150,7 +150,7 @@ void AdaptiveStream::worker()
       while (!ret && state_ == RUNNING && retryCount-- && tree_.has_timeshift_buffer_)
       {
         std::this_thread::sleep_for(std::chrono::seconds(1));
-        Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
+        LOG::LogF(LOGDEBUG, "Trying to reload segment ...");
         ret = download_segment();
       }
 
@@ -608,7 +608,7 @@ bool AdaptiveStream::ensureSegment()
     else if (tree_.HasUpdateThread() && current_period_ == tree_.periods_.back())
     {
       current_rep_->flags_ |= AdaptiveTree::Representation::WAITFORSEGMENT;
-      Log(LOGLEVEL_DEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
+      LOG::LogF(LOGDEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
     }
