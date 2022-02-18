@@ -53,13 +53,6 @@
 
 #define STREAM_TIME_BASE 1000000
 
-#define SAFE_DELETE(p) \
-  do \
-  { \
-    delete (p); \
-    (p) = NULL; \
-  } while (0)
-
 using namespace UTILS;
 using namespace kodi::tools;
 
@@ -213,16 +206,17 @@ private:
 Bento4 Streams
 ********************************************************/
 
-class ATTR_DLL_LOCAL AP4_DASHStream : public AP4_ByteStream
+class ATTR_DLL_LOCAL AdaptiveByteStream : public AP4_ByteStream
 {
 public:
   // Constructor
-  AP4_DASHStream(adaptive::AdaptiveStream* stream) : stream_(stream){};
+  AdaptiveByteStream(adaptive::AdaptiveStream* adStream) : m_adStream(adStream){};
+  virtual ~AdaptiveByteStream() {};
 
   // AP4_ByteStream methods
   AP4_Result ReadPartial(void* buffer, AP4_Size bytesToRead, AP4_Size& bytesRead) override
   {
-    bytesRead = stream_->read(buffer, bytesToRead);
+    bytesRead = m_adStream->read(buffer, bytesToRead);
     return bytesRead > 0 ? AP4_SUCCESS : AP4_ERROR_READ_FAILED;
   };
   AP4_Result WritePartial(const void* buffer,
@@ -234,17 +228,17 @@ public:
   };
   AP4_Result Seek(AP4_Position position) override
   {
-    return stream_->seek(position) ? AP4_SUCCESS : AP4_ERROR_NOT_SUPPORTED;
+    return m_adStream->seek(position) ? AP4_SUCCESS : AP4_ERROR_NOT_SUPPORTED;
   };
   AP4_Result Tell(AP4_Position& position) override
   {
-    position = stream_->tell();
+    position = m_adStream->tell();
     return AP4_SUCCESS;
   };
   AP4_Result GetSize(AP4_LargeSize& size) override { return AP4_ERROR_NOT_SUPPORTED; };
   AP4_Result GetSegmentSize(size_t& size)
   {
-    if (stream_->ensureSegment() && stream_->retrieveCurrentSegmentBufferSize(size))
+    if (m_adStream->ensureSegment() && m_adStream->retrieveCurrentSegmentBufferSize(size))
     {
       return AP4_SUCCESS;
     }
@@ -253,13 +247,12 @@ public:
   // AP4_Referenceable methods
   void AddReference() override{};
   void Release() override{};
-  bool waitingForSegment() const { return stream_->waitingForSegment(); }
-  void FixateInitialization(bool on) { stream_->FixateInitialization(on); }
-  void SetSegmentFileOffset(uint64_t offset) { stream_->SetSegmentFileOffset(offset); }
+  bool waitingForSegment() const { return m_adStream->waitingForSegment(); }
+  void FixateInitialization(bool on) { m_adStream->FixateInitialization(on); }
+  void SetSegmentFileOffset(uint64_t offset) { m_adStream->SetSegmentFileOffset(offset); }
 
 protected:
-  // members
-  adaptive::AdaptiveStream* stream_;
+  adaptive::AdaptiveStream* m_adStream;
 };
 
 /*******************************************************
@@ -518,6 +511,7 @@ class ATTR_DLL_LOCAL SampleReader
 {
 public:
   virtual ~SampleReader() = default;
+  virtual bool Initialize() { return true; };
   virtual bool EOS() const = 0;
   virtual uint64_t DTS() const = 0;
   virtual uint64_t PTS() const = 0;
@@ -681,10 +675,19 @@ public:
       {
         if (result == AP4_ERROR_EOS)
         {
-          if (dynamic_cast<AP4_DASHStream*>(m_FragmentStream)->waitingForSegment())
-            m_sampleData.SetDataSize(0);
-          else
+          auto adByteStream = dynamic_cast<AdaptiveByteStream*>(m_FragmentStream);
+          if (!adByteStream)
+          {
+            LOG::LogF(LOGERROR, "Fragment stream cannot be casted to AdaptiveByteStream");
             m_eos = true;
+          }
+          else
+          {
+            if (adByteStream->waitingForSegment())
+              m_sampleData.SetDataSize(0);
+            else
+              m_eos = true;
+          }
         }
         return result;
       }
@@ -1095,8 +1098,8 @@ public:
     : m_pts(0),
       m_streamId(streamId),
       m_eos(false),
-      m_input(stream->input_),
-      m_adaptiveStream(&stream->stream_)
+      m_adByteStream(stream->GetAdByteStream()),
+      m_kodiAdStream(&stream->m_kodiAdStream)
   {
     if (codecInternalName == "wvtt")
       m_codecHandler = new WebVTTCodecHandler(nullptr, false);
@@ -1121,13 +1124,13 @@ public:
       m_pts = m_sample.GetCts() * 1000;
       return AP4_SUCCESS;
     }
-    else if (m_input)  // Read the sample data from a segment file stream (e.g. HLS)
+    else if (m_adByteStream)  // Read the sample data from a segment file stream (e.g. HLS)
     {
       // Get the next segment
-      if (m_adaptiveStream && m_adaptiveStream->ensureSegment())
+      if (m_kodiAdStream && m_kodiAdStream->ensureSegment())
       {
         size_t segSize;
-        if (m_adaptiveStream->retrieveCurrentSegmentBufferSize(segSize))
+        if (m_kodiAdStream->retrieveCurrentSegmentBufferSize(segSize))
         {
           AP4_DataBuffer segData;
           while (segSize > 0)
@@ -1138,7 +1141,7 @@ public:
 
             AP4_Byte* buf = new AP4_Byte[readSize];
             segSize -= readSize;
-            if (AP4_SUCCEEDED(m_input->Read(buf, readSize)))
+            if (AP4_SUCCEEDED(m_adByteStream->Read(buf, readSize)))
             {
               segData.AppendData(buf, readSize);
               delete[] buf;
@@ -1149,7 +1152,7 @@ public:
               break;
             }
           }
-          auto rep = m_adaptiveStream->getRepresentation();
+          auto rep = m_kodiAdStream->getRepresentation();
           if (rep)
           {
             auto currentSegment = rep->current_segment_;
@@ -1181,7 +1184,7 @@ public:
   }
   void Reset(bool bEOS) override
   {
-    if (m_input || bEOS)
+    if (m_adByteStream || bEOS)
       m_codecHandler->Reset();
   };
   bool GetInformation(kodi::addon::InputstreamInfo& info) override
@@ -1229,8 +1232,8 @@ private:
 
   AP4_Sample m_sample;
   AP4_DataBuffer m_sampleData;
-  AP4_ByteStream* m_input{nullptr};
-  KodiAdaptiveStream* m_adaptiveStream{nullptr};
+  AdaptiveByteStream* m_adByteStream{nullptr};
+  KodiAdaptiveStream* m_kodiAdStream{nullptr};
   const AP4_Size m_segmentChunkSize = 16384; // 16kb
 };
 
@@ -1245,11 +1248,13 @@ public:
                  AP4_UI32 streamId,
                  uint32_t requiredMask)
     : TSReader(input, requiredMask),
-      m_stream(dynamic_cast<AP4_DASHStream*>(input)),
+      m_adByteStream(dynamic_cast<AdaptiveByteStream*>(input)),
       m_typeMask(1 << type)
   {
     m_typeMap[type] = m_typeMap[INPUTSTREAM_TYPE_NONE] = streamId;
   };
+
+  bool Initialize() override { return TSReader::Initialize(); }
 
   void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override
   {
@@ -1306,7 +1311,7 @@ public:
       }
       return AP4_SUCCESS;
     }
-    if (!m_stream || !m_stream->waitingForSegment())
+    if (!m_adByteStream || !m_adByteStream->waitingForSegment())
       m_eos = true;
     return AP4_ERROR_EOS;
   }
@@ -1358,7 +1363,7 @@ private:
   uint64_t m_dts = 0;
   int64_t m_ptsDiff = 0;
   uint64_t m_ptsOffs = ~0ULL;
-  AP4_DASHStream* m_stream;
+  AdaptiveByteStream* m_adByteStream;
 };
 
 /*******************************************************
@@ -1368,7 +1373,9 @@ class ATTR_DLL_LOCAL ADTSSampleReader : public SampleReader, public ADTSReader
 {
 public:
   ADTSSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
-    : ADTSReader(input), m_streamId(streamId), m_stream(dynamic_cast<AP4_DASHStream*>(input)){};
+    : ADTSReader(input),
+      m_streamId(streamId),
+      m_adByteStream(dynamic_cast<AdaptiveByteStream*>(input)){};
 
   bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
@@ -1397,7 +1404,7 @@ public:
       }
       return AP4_SUCCESS;
     }
-    if (!m_stream || !m_stream->waitingForSegment())
+    if (!m_adByteStream || !m_adByteStream->waitingForSegment())
       m_eos = true;
     return AP4_ERROR_EOS;
   }
@@ -1443,7 +1450,7 @@ private:
   uint64_t m_pts = 0;
   int64_t m_ptsDiff = 0;
   uint64_t m_ptsOffs = ~0ULL;
-  AP4_DASHStream* m_stream;
+  AdaptiveByteStream* m_adByteStream;
 };
 
 
@@ -1454,20 +1461,22 @@ class ATTR_DLL_LOCAL WebmSampleReader : public SampleReader, public WebmReader
 {
 public:
   WebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
-    : WebmReader(input), m_streamId(streamId), m_stream(dynamic_cast<AP4_DASHStream*>(input)){};
+    : WebmReader(input),
+      m_streamId(streamId),
+      m_adByteStream(dynamic_cast<AdaptiveByteStream*>(input)){};
 
   bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_dts; }
   uint64_t PTS() const override { return m_pts; }
 
-  bool Initialize()
+  bool Initialize() override
   {
-    m_stream->FixateInitialization(true);
+    m_adByteStream->FixateInitialization(true);
     bool ret = WebmReader::Initialize();
     WebmReader::Reset();
-    m_stream->FixateInitialization(false);
-    m_stream->SetSegmentFileOffset(GetCueOffset());
+    m_adByteStream->FixateInitialization(false);
+    m_adByteStream->SetSegmentFileOffset(GetCueOffset());
     return ret;
   }
 
@@ -1494,7 +1503,7 @@ public:
       }
       return AP4_SUCCESS;
     }
-    if (!m_stream || !m_stream->waitingForSegment())
+    if (!m_adByteStream || !m_adByteStream->waitingForSegment())
       m_eos = true;
     return AP4_ERROR_EOS;
   }
@@ -1542,7 +1551,7 @@ private:
   uint64_t m_dts = 0;
   int64_t m_ptsDiff = 0;
   uint64_t m_ptsOffs = ~0ULL;
-  AP4_DASHStream* m_stream;
+  AdaptiveByteStream* m_adByteStream;
 };
 
 /*******************************************************
@@ -1553,7 +1562,7 @@ void Session::STREAM::disable()
 {
   if (enabled)
   {
-    stream_.stop();
+    m_kodiAdStream.stop();
     reset();
     enabled = encrypted = false;
   }
@@ -1563,9 +1572,9 @@ void Session::STREAM::reset()
 {
   if (enabled)
   {
-    SAFE_DELETE(reader_);
-    SAFE_DELETE(input_file_);
-    SAFE_DELETE(input_);
+    m_streamReader.reset();
+    m_streamFile.reset();
+    m_adByteStream.reset();
     mainId_ = 0;
   }
 }
@@ -1698,9 +1707,7 @@ Session::Session(MANIFEST_TYPE manifestType,
 Session::~Session()
 {
   LOG::Log(LOGDEBUG, "Session::~Session()");
-  for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    SAFE_DELETE(*b);
-  streams_.clear();
+  m_streams.clear();
 
   DisposeDecrypter();
 
@@ -2035,11 +2042,11 @@ bool Session::InitializeDRM()
                                  media_headers_, representationChooser_, play_timeshift_buffer_, 0, false);
 
           stream.enabled = true;
-          stream.stream_.start_stream();
-
-          stream.input_ = new AP4_DASHStream(&stream.stream_);
-          stream.input_file_ = new AP4_File(*stream.input_, AP4_DefaultAtomFactory::Instance_, true);
-          AP4_Movie* movie = stream.input_file_->GetMovie();
+          stream.m_kodiAdStream.start_stream();
+          stream.SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream.m_kodiAdStream));
+          stream.SetStreamFile(std::make_unique<AP4_File>(*stream.GetAdByteStream(),
+                                                          AP4_DefaultAtomFactory::Instance_, true));
+          AP4_Movie* movie = stream.GetStreamFile()->GetMovie();
           if (movie == NULL)
           {
             LOG::Log(LOGERROR, "No MOOV in stream!");
@@ -2058,7 +2065,7 @@ bool Session::InitializeDRM()
                 if (pssh[i].GetKid(0))
                   adaptiveTree_->current_period_->psshSets_[ses].defaultKID_ =
                       std::string((const char*)pssh[i].GetKid(0), 16);
-                else if (AP4_Track* track = movie->GetTrack(TIDC[stream.stream_.get_type()]))
+                else if (AP4_Track* track = movie->GetTrack(TIDC[stream.m_kodiAdStream.get_type()]))
                 {
                   AP4_ProtectedSampleDescription* m_protectedDesc =
                       static_cast<AP4_ProtectedSampleDescription*>(track->GetSampleDescription(0));
@@ -2239,9 +2246,7 @@ bool Session::InitializePeriod()
   unsigned int i(0);
   adaptive::AdaptiveTree::AdaptationSet* adp;
 
-  for (std::vector<STREAM*>::iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    SAFE_DELETE(*b);
-  streams_.clear();
+  m_streams.clear();
 
   if (!psshChanged)
     LOG::Log(LOGDEBUG, "Reusing DRM psshSets for new period!");
@@ -2269,9 +2274,10 @@ bool Session::InitializePeriod()
 
     do
     {
-      streams_.push_back(new STREAM(*adaptiveTree_, adp, media_headers_, representationChooser_,
-                                    play_timeshift_buffer_, repId, first_period_initialized_));
-      STREAM& stream(*streams_.back());
+      m_streams.push_back(std::make_unique<STREAM>(*adaptiveTree_, adp, media_headers_,
+                                                   representationChooser_, play_timeshift_buffer_,
+                                                   repId, first_period_initialized_));
+      STREAM& stream(*m_streams.back());
 
       uint32_t flags = INPUTSTREAM_FLAG_NONE;
       size_t copySize = adp->name_.size() > 255 ? 255 : adp->name_.size();
@@ -2281,7 +2287,7 @@ bool Session::InitializePeriod()
       {
         case adaptive::AdaptiveTree::VIDEO:
           stream.info_.SetStreamType(INPUTSTREAM_TYPE_VIDEO);
-          if (manual_streams && stream.stream_.getRepresentation() == defaultRepresentation)
+          if (manual_streams && stream.m_kodiAdStream.getRepresentation() == defaultRepresentation)
             flags |= INPUTSTREAM_FLAG_DEFAULT;
           break;
         case adaptive::AdaptiveTree::AUDIO:
@@ -2310,7 +2316,7 @@ bool Session::InitializePeriod()
       stream.info_.SetLanguage(adp->language_);
       stream.info_.ClearExtraData();
       stream.info_.SetFeatures(0);
-      stream.stream_.set_observer(dynamic_cast<adaptive::AdaptiveStreamObserver*>(this));
+      stream.m_kodiAdStream.set_observer(dynamic_cast<adaptive::AdaptiveStreamObserver*>(this));
 
       UpdateStream(stream);
 
@@ -2322,7 +2328,7 @@ bool Session::InitializePeriod()
 
 void Session::UpdateStream(STREAM& stream)
 {
-  const adaptive::AdaptiveTree::Representation* rep(stream.stream_.getRepresentation());
+  const adaptive::AdaptiveTree::Representation* rep(stream.m_kodiAdStream.getRepresentation());
   const SSD::SSD_DECRYPTER::SSD_CAPS& caps = GetDecrypterCaps(rep->pssh_set_);
 
   stream.info_.SetWidth(rep->width_);
@@ -2425,9 +2431,9 @@ void Session::UpdateStream(STREAM& stream)
 AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
 {
   needRefetch = false;
-  switch (adaptiveTree_->prepareRepresentation(stream->stream_.getPeriod(),
-                                               stream->stream_.getAdaptationSet(),
-                                               stream->stream_.getRepresentation()))
+  switch (adaptiveTree_->prepareRepresentation(stream->m_kodiAdStream.getPeriod(),
+                                               stream->m_kodiAdStream.getAdaptationSet(),
+                                               stream->m_kodiAdStream.getRepresentation()))
   {
     case adaptive::AdaptiveTree::PREPARE_RESULT_FAILURE:
       return nullptr;
@@ -2435,17 +2441,17 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
       if (!InitializeDRM())
         return nullptr;
     case adaptive::AdaptiveTree::PREPARE_RESULT_DRMUNCHANGED:
-      stream->encrypted = stream->stream_.getRepresentation()->pssh_set_ > 0;
+      stream->encrypted = stream->m_kodiAdStream.getRepresentation()->pssh_set_ > 0;
       needRefetch = true;
       break;
     default:;
   }
 
-  if (stream->stream_.getRepresentation()->containerType_ ==
+  if (stream->m_kodiAdStream.getRepresentation()->containerType_ ==
           adaptive::AdaptiveTree::CONTAINERTYPE_MP4 &&
-      (stream->stream_.getRepresentation()->flags_ &
+      (stream->m_kodiAdStream.getRepresentation()->flags_ &
        adaptive::AdaptiveTree::Representation::INITIALIZATION_PREFIXED) == 0 &&
-      stream->stream_.getRepresentation()->get_initialization() == nullptr)
+      stream->m_kodiAdStream.getRepresentation()->get_initialization() == nullptr)
   {
     //We'll create a Movie out of the things we got from manifest file
     //note: movie will be deleted in destructor of stream->input_file_
@@ -2456,7 +2462,7 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     AP4_SampleDescription* sample_descryption;
     if (stream->info_.GetCodecName() == "h264")
     {
-      const std::string& extradata(stream->stream_.getRepresentation()->codec_private_data_);
+      const std::string& extradata(stream->m_kodiAdStream.getRepresentation()->codec_private_data_);
       AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
       AP4_AvccAtom* atom = AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
       sample_descryption =
@@ -2465,7 +2471,7 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     }
     else if (stream->info_.GetCodecName() == "hevc")
     {
-      const std::string& extradata(stream->stream_.getRepresentation()->codec_private_data_);
+      const std::string& extradata(stream->m_kodiAdStream.getRepresentation()->codec_private_data_);
       AP4_MemoryByteStream ms((const uint8_t*)extradata.data(), extradata.size());
       AP4_HvccAtom* atom = AP4_HvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
       sample_descryption =
@@ -2478,21 +2484,21 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     else
       sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
 
-    if (stream->stream_.getRepresentation()->get_psshset() > 0)
+    if (stream->m_kodiAdStream.getRepresentation()->get_psshset() > 0)
     {
       AP4_ContainerAtom schi(AP4_ATOM_TYPE_SCHI);
       schi.AddChild(
           new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8,
-                           GetDefaultKeyId(stream->stream_.getRepresentation()->get_psshset())));
+                           GetDefaultKeyId(stream->m_kodiAdStream.getRepresentation()->get_psshset())));
       sample_descryption = new AP4_ProtectedSampleDescription(
           0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
     }
     sample_table->AddSampleDescription(sample_descryption);
 
-    movie->AddTrack(new AP4_Track(TIDC[stream->stream_.get_type()], sample_table,
+    movie->AddTrack(new AP4_Track(TIDC[stream->m_kodiAdStream.get_type()], sample_table,
                                   FragmentedSampleReader::TRACKID_UNKNOWN,
-                                  stream->stream_.getRepresentation()->timescale_, 0,
-                                  stream->stream_.getRepresentation()->timescale_, 0, "", 0, 0));
+                                  stream->m_kodiAdStream.getRepresentation()->timescale_, 0,
+                                  stream->m_kodiAdStream.getRepresentation()->timescale_, 0, "", 0, 0));
     //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
     AP4_MoovAtom* moov = new AP4_MoovAtom();
     moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
@@ -2522,12 +2528,18 @@ uint64_t Session::PTSToElapsed(uint64_t pts)
 {
   if (timing_stream_)
   {
-    int64_t manifest_time = static_cast<int64_t>(pts) - timing_stream_->reader_->GetPTSDiff();
+    SampleReader* timingReader = timing_stream_->GetReader();
+    if (!timingReader) {
+      LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
+      return 0;
+    }
+
+    int64_t manifest_time = static_cast<int64_t>(pts) - timingReader->GetPTSDiff();
     if (manifest_time < 0)
       manifest_time = 0;
 
-    if (static_cast<uint64_t>(manifest_time) > timing_stream_->stream_.GetAbsolutePTSOffset())
-      return static_cast<uint64_t>(manifest_time) - timing_stream_->stream_.GetAbsolutePTSOffset();
+    if (static_cast<uint64_t>(manifest_time) > timing_stream_->m_kodiAdStream.GetAbsolutePTSOffset())
+      return static_cast<uint64_t>(manifest_time) - timing_stream_->m_kodiAdStream.GetAbsolutePTSOffset();
 
     return 0ULL;
   }
@@ -2538,7 +2550,15 @@ uint64_t Session::PTSToElapsed(uint64_t pts)
 uint64_t Session::GetTimeshiftBufferStart()
 {
   if (timing_stream_)
-    return timing_stream_->stream_.GetAbsolutePTSOffset() + timing_stream_->reader_->GetPTSDiff();
+  {
+    SampleReader* timingReader = timing_stream_->GetReader();
+    if (!timingReader)
+    {
+      LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
+      return 0;
+    }
+    return timing_stream_->m_kodiAdStream.GetAbsolutePTSOffset() + timingReader->GetPTSDiff();
+  }
   else
     return 0ULL;
 }
@@ -2548,17 +2568,25 @@ void Session::StartReader(
 {
   bool bReset = true;
   if (timing)
-    seekTimeCorrected += stream->stream_.GetAbsolutePTSOffset();
+    seekTimeCorrected += stream->m_kodiAdStream.GetAbsolutePTSOffset();
   else
     seekTimeCorrected -= ptsDiff;
-  stream->stream_.seek_time(
+  stream->m_kodiAdStream.seek_time(
       static_cast<double>(seekTimeCorrected / STREAM_TIME_BASE),
       preceeding, bReset);
+
+  SampleReader* streamReader = stream->GetReader();
+  if (!streamReader) {
+    LOG::LogF(LOGERROR, "Cannot get the stream reader");
+    return;
+  }
+
   if (bReset)
-    stream->reader_->Reset(false);
+    streamReader->Reset(false);
+
   bool bStarted = false;
-  stream->reader_->Start(bStarted);
-  if (bStarted && (stream->reader_->GetInformation(stream->info_)))
+  streamReader->Start(bStarted);
+  if (bStarted && (streamReader->GetInformation(stream->info_)))
     changed_ = true;
 }
 
@@ -2569,34 +2597,48 @@ void Session::SetVideoResolution(unsigned int w, unsigned int h)
 
 SampleReader* Session::GetNextSample()
 {
-  STREAM *res(0), *waiting(0);
-  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-  {
-    bool bStarted(false);
-    if ((*b)->enabled && (*b)->reader_ && !(*b)->reader_->EOS() &&
-        AP4_SUCCEEDED((*b)->reader_->Start(bStarted)) &&
-        (!res || (*b)->reader_->DTSorPTS() < res->reader_->DTSorPTS()))
-      ((*b)->stream_.waitingForSegment(true) ? waiting : res) = *b;
+  STREAM* res{nullptr};
+  STREAM* waiting{nullptr};
 
-    if (bStarted && ((*b)->reader_->GetInformation((*b)->info_)))
+  for (auto& stream : m_streams)
+  {
+    bool isStarted{false};
+    SampleReader* streamReader = stream->GetReader();
+    if (!streamReader)
+    {
+      LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
+      continue;
+    }
+    if (stream->enabled && !streamReader->EOS() && AP4_SUCCEEDED(streamReader->Start(isStarted)))
+    {
+      if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
+      {
+        if (stream->m_kodiAdStream.waitingForSegment(true))
+          waiting = stream.get();
+        else
+          res = stream.get();
+      }
+    }
+
+    if (isStarted && streamReader->GetInformation(stream->info_))
       changed_ = true;
   }
 
   if (res)
   {
     CheckFragmentDuration(*res);
-    if (res->reader_->GetInformation(res->info_))
+    if (res->GetReader()->GetInformation(res->info_))
       changed_ = true;
-    if (res->reader_->PTS() != STREAM_NOPTS_VALUE)
-      elapsed_time_ = PTSToElapsed(res->reader_->PTS()) + GetChapterStartTime();
-    return res->reader_;
+    if (res->GetReader()->PTS() != STREAM_NOPTS_VALUE)
+      elapsed_time_ = PTSToElapsed(res->GetReader()->PTS()) + GetChapterStartTime();
+    return res->GetReader();
   }
   else if (waiting)
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     return &DummyReader;
   }
-  return 0;
+  return nullptr;
 }
 
 bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
@@ -2637,9 +2679,13 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   {
     double maxSeek(0);
     uint64_t curTime, maxTime(0);
-    for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-      if ((*b)->enabled && (curTime = (*b)->stream_.getMaxTimeMs()) && curTime > maxTime)
+    for (auto& stream : m_streams)
+    {
+      if (stream->enabled && (curTime = stream->m_kodiAdStream.getMaxTimeMs()) && curTime > maxTime)
+      {
         maxTime = curTime;
+      }
+    }
 
     maxSeek = (static_cast<double>(maxTime) / 1000) - adaptiveTree_->live_delay_;
     if (maxSeek < 0)
@@ -2657,89 +2703,121 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     // after seeking across chapters with fmp4 streams the reader will not have started
     // so we start here to ensure that we have the required information to correctly
     // seek with proper stream alignment
-    if (!timing_stream_->reader_->IsStarted())
+    SampleReader* timingReader = timing_stream_->GetReader();
+    if (!timingReader)
+    {
+      LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
+      return false;
+    }
+    if (!timingReader->IsStarted())
       StartReader(timing_stream_, seekTimeCorrected, ptsDiff, preceeding, true);
 
-    seekTimeCorrected += timing_stream_->stream_.GetAbsolutePTSOffset();
-    ptsDiff = timing_stream_->reader_->GetPTSDiff();
+    seekTimeCorrected += timing_stream_->m_kodiAdStream.GetAbsolutePTSOffset();
+    ptsDiff = timingReader->GetPTSDiff();
     if (ptsDiff < 0 && seekTimeCorrected + ptsDiff > seekTimeCorrected)
       seekTimeCorrected = 0;
     else
       seekTimeCorrected += ptsDiff;
   }
 
-  for (std::vector<STREAM*>::const_iterator b(streams_.begin()), e(streams_.end()); b != e; ++b)
-    if ((*b)->enabled && (*b)->reader_ &&
-        (streamId == 0 || (*b)->info_.GetPhysicalIndex() == streamId))
+  for (auto& stream : m_streams)
+  {
+    SampleReader* streamReader = stream->GetReader();
+    if (!streamReader)
     {
-      bool bReset = true;
+      LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
+      continue;
+    }
+    if (stream->enabled && (streamId == 0 || stream->info_.GetPhysicalIndex() == streamId))
+    {
+      bool reset{true};
       // all streams must be started before seeking to ensure cross chapter seeks
       // will seek to the correct location/segment
-      if (!(*b)->reader_->IsStarted())
-        StartReader((*b), seekTimeCorrected, ptsDiff, preceeding, false);
-      // advance adaptiveStream to the correct segment (triggers segment download)
-      if ((*b)->stream_.seek_time(
-              static_cast<double>(seekTimeCorrected - (*b)->reader_->GetPTSDiff()) /
-                  STREAM_TIME_BASE,
-              preceeding, bReset))
+      if (!streamReader->IsStarted())
+        StartReader(stream.get(), seekTimeCorrected, ptsDiff, preceeding, false);
+
+      double seekSecs{static_cast<double>(seekTimeCorrected - streamReader->GetPTSDiff()) /
+                      STREAM_TIME_BASE};
+      if (stream->m_kodiAdStream.seek_time(seekSecs, preceeding, reset))
       {
-        if (bReset)
-          (*b)->reader_->Reset(false);
+        if (reset)
+          streamReader->Reset(false);
         // advance reader to requested time
-        if (!(*b)->reader_->TimeSeek(seekTimeCorrected, preceeding))
-          (*b)->reader_->Reset(true);
+        if (!streamReader->TimeSeek(seekTimeCorrected, preceeding))
+        {
+          streamReader->Reset(true);
+        }
         else
         {
-          double destTime(static_cast<double>(PTSToElapsed((*b)->reader_->PTS())) /
-                          STREAM_TIME_BASE);
-          LOG::Log(LOGINFO,
-                    "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
-                    (*b)->info_.GetPhysicalIndex(), destTime, (*b)->reader_->PTS());
-          if ((*b)->info_.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
+          double destTime{static_cast<double>(PTSToElapsed(streamReader->PTS())) /
+                          STREAM_TIME_BASE};
+          LOG::Log(LOGINFO, "Seek time (%0.1lf) for stream: %d continues at %0.1lf (PTS: %llu)",
+                   seekTime, stream->info_.GetPhysicalIndex(), destTime, streamReader->PTS());
+          if (stream->info_.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
           {
             seekTime = destTime;
-            seekTimeCorrected = (*b)->reader_->PTS();
+            seekTimeCorrected = streamReader->PTS();
             preceeding = false;
           }
           ret = true;
         }
       }
       else
-        (*b)->reader_->Reset(true);
+        streamReader->Reset(true);
     }
+  }
+
   return ret;
 }
 
-void Session::OnSegmentChanged(adaptive::AdaptiveStream* stream)
+void Session::OnSegmentChanged(adaptive::AdaptiveStream* adStream)
 {
-  for (STREAM* s : streams_)
-    if (&s->stream_ == stream)
+  for (auto& stream : m_streams)
+  {
+    if (&stream->m_kodiAdStream == adStream)
     {
-      if (s->reader_)
-        s->reader_->SetPTSOffset(s->stream_.GetCurrentPTSOffset());
-      s->segmentChanged = true;
+      SampleReader* streamReader = stream->GetReader();
+      if (!streamReader)
+        LOG::LogF(LOGWARNING, "Cannot get the stream sample reader");
+      else
+        streamReader->SetPTSOffset(stream->m_kodiAdStream.GetCurrentPTSOffset());
+
+      stream->segmentChanged = true;
       break;
     }
+  }
 }
 
-void Session::OnStreamChange(adaptive::AdaptiveStream* stream)
+void Session::OnStreamChange(adaptive::AdaptiveStream* adStream)
 {
-  for (STREAM* s : streams_)
-    if (s->enabled && &s->stream_ == stream)
+  for (auto& stream : m_streams)
+  {
+    if (stream->enabled && &stream->m_kodiAdStream == adStream)
     {
-      UpdateStream(*s);
+      UpdateStream(*stream);
       changed_ = true;
     }
+  }
 }
 
 void Session::CheckFragmentDuration(STREAM& stream)
 {
-  uint64_t nextTs, nextDur;
-  if (stream.segmentChanged && stream.reader_->GetNextFragmentInfo(nextTs, nextDur))
+  uint64_t nextTs;
+  uint64_t nextDur;
+  SampleReader* streamReader = stream.GetReader();
+  if (!streamReader)
+  {
+    LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
+    return;
+  }
+
+  if (stream.segmentChanged && streamReader->GetNextFragmentInfo(nextTs, nextDur))
+  {
     adaptiveTree_->SetFragmentDuration(
-        stream.stream_.getAdaptationSet(), stream.stream_.getRepresentation(),
-        stream.stream_.getSegmentPos(), nextTs, static_cast<uint32_t>(nextDur),
-        stream.reader_->GetTimeScale());
+        stream.m_kodiAdStream.getAdaptationSet(), stream.m_kodiAdStream.getRepresentation(),
+        stream.m_kodiAdStream.getSegmentPos(), nextTs, static_cast<uint32_t>(nextDur),
+        streamReader->GetTimeScale());
+  }
   stream.segmentChanged = false;
 }
 
@@ -2861,10 +2939,11 @@ bool Session::SeekChapter(int ch)
       adaptiveTree_->periods_[ch] != adaptiveTree_->current_period_)
   {
     adaptiveTree_->next_period_ = adaptiveTree_->periods_[ch];
-    for (STREAM* stream : streams_)
-      if (stream->reader_)
-        stream->reader_->Reset(true);
-
+    for (auto& stream : m_streams)
+    {
+      if (stream->GetReader())
+        stream->GetReader()->Reset(true);
+    }
     return true;
   }
 
@@ -3113,25 +3192,29 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
     iids.m_streamCount = 0;
     unsigned int id;
 
-    for (unsigned int i(1);
-         i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
+    for (unsigned int i(1); i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount();
+         ++i)
     {
-      uint8_t cdmId(
-          static_cast<uint8_t>(m_session->GetStream(i)->stream_.getRepresentation()->pssh_set_));
-      if (m_session->GetStream(i)->valid &&
-          (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1)
-                                               << m_session->GetStream(i)->stream_.get_type()))
+      Session::STREAM* stream = m_session->GetStream(i);
+      if (!stream)
+      {
+        LOG::LogF(LOGERROR, "Cannot get the stream from sid %u", i);
+        continue;
+      }
+
+      uint8_t cdmId(static_cast<uint8_t>(stream->m_kodiAdStream.getRepresentation()->pssh_set_));
+      if (stream->valid &&
+          (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << stream->m_kodiAdStream.get_type()))
       {
         if (m_session->GetMediaTypeMask() != 0xFF)
         {
-          const adaptive::AdaptiveTree::Representation* rep(
-              m_session->GetStream(i)->stream_.getRepresentation());
+          const adaptive::AdaptiveTree::Representation* rep(stream->m_kodiAdStream.getRepresentation());
           if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
             continue;
         }
         if (m_session->IsLive())
         {
-          period = m_session->GetStream(i)->stream_.getPeriod();
+          period = stream->m_kodiAdStream.getPeriod();
           if (period->sequence_ == m_session->GetInitialSequence())
           {
             id = i + 1000;
@@ -3173,7 +3256,7 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
 
   if (stream)
   {
-    uint8_t cdmId(static_cast<uint8_t>(stream->stream_.getRepresentation()->pssh_set_));
+    uint8_t cdmId(static_cast<uint8_t>(stream->m_kodiAdStream.getRepresentation()->pssh_set_));
     if (stream->encrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
       kodi::addon::StreamCryptoSession cryptoSession;
@@ -3209,10 +3292,10 @@ void CInputStreamAdaptive::UnlinkIncludedStreams(Session::STREAM* stream)
   if (stream->mainId_)
   {
     Session::STREAM* mainStream(m_session->GetStream(stream->mainId_));
-    if (mainStream->reader_)
-      mainStream->reader_->RemoveStreamType(stream->info_.GetStreamType());
+    if (mainStream->GetReader())
+      mainStream->GetReader()->RemoveStreamType(stream->info_.GetStreamType());
   }
-  const adaptive::AdaptiveTree::Representation* rep(stream->stream_.getRepresentation());
+  const adaptive::AdaptiveTree::Representation* rep(stream->m_kodiAdStream.getRepresentation());
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
     m_IncludedStreams[stream->info_.GetStreamType()] = 0;
 }
@@ -3248,11 +3331,11 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   if (stream->enabled)
   {
-    if (stream->stream_.StreamChanged())
+    if (stream->m_kodiAdStream.StreamChanged())
     {
       UnlinkIncludedStreams(stream);
       stream->reset();
-      stream->stream_.Reset();
+      stream->m_kodiAdStream.Reset();
     }
     else
       return false;
@@ -3261,7 +3344,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   bool needRefetch = false; //Make sure that Kodi fetches changes
   stream->enabled = true;
 
-  const adaptive::AdaptiveTree::Representation* rep(stream->stream_.getRepresentation());
+  const adaptive::AdaptiveTree::Representation* rep(stream->m_kodiAdStream.getRepresentation());
 
   // If we select a dummy (=inside video) stream, open the video part
   // Dummy streams will be never enabled, they will only enable / activate audio track.
@@ -3274,19 +3357,29 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         break;
     if (mainStream)
     {
-      mainStream->reader_->AddStreamType(stream->info_.GetStreamType(), streamid);
-      mainStream->reader_->GetInformation(stream->info_);
+      SampleReader* mainReader = mainStream->GetReader();
+      if (!mainReader)
+      {
+        LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
+      }
+      else
+      {
+        mainReader->AddStreamType(stream->info_.GetStreamType(), streamid);
+        mainReader->GetInformation(stream->info_);
+      }
     }
     else
+    {
       stream->mainId_ = 0;
+    }
     m_IncludedStreams[stream->info_.GetStreamType()] = streamid;
     return false;
   }
 
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
   {
-    stream->reader_ =
-        new SubtitleSampleReader(rep->url_, streamid, stream->info_.GetCodecInternalName());
+    stream->SetReader(std::make_unique<SubtitleSampleReader>(
+        rep->url_, streamid, stream->info_.GetCodecInternalName()));
     return false;
   }
 
@@ -3294,38 +3387,40 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   // We load fragments on PrepareTime for HLS manifests and have to reevaluate the start-segment
   //if (m_session->GetManifestType() == MANIFEST_TYPE_HLS)
-  //  stream->stream_.restart_stream();
-  stream->stream_.start_stream();
+  //  stream->m_kodiAdStream.restart_stream();
+  stream->m_kodiAdStream.start_stream();
 
   if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TEXT)
   {
-    stream->input_ = new AP4_DASHStream(&stream->stream_);
-    stream->reader_ =
-        new SubtitleSampleReader(stream, streamid, stream->info_.GetCodecInternalName());
+    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_kodiAdStream));
+    stream->SetReader(std::make_unique<SubtitleSampleReader>(stream, streamid,
+                                                             stream->info_.GetCodecInternalName()));
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
   {
-    stream->input_ = new AP4_DASHStream(&stream->stream_);
-    stream->reader_ = new TSSampleReader(stream->input_, stream->info_.GetStreamType(), streamid,
-                                         (1U << stream->info_.GetStreamType()) |
-                                             m_session->GetIncludedStreamMask());
-    if (!static_cast<TSSampleReader*>(stream->reader_)->Initialize())
+    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_kodiAdStream));
+
+    uint32_t mask{(1U << stream->info_.GetStreamType()) | m_session->GetIncludedStreamMask()};
+    stream->SetReader(std::make_unique<TSSampleReader>(
+        stream->GetAdByteStream(), stream->info_.GetStreamType(), streamid, mask));
+
+    if (!stream->GetReader()->Initialize())
     {
       stream->disable();
       return false;
     }
-    m_session->OnSegmentChanged(&stream->stream_);
+    m_session->OnSegmentChanged(&stream->m_kodiAdStream);
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
   {
-    stream->input_ = new AP4_DASHStream(&stream->stream_);
-    stream->reader_ = new ADTSSampleReader(stream->input_, streamid);
+    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_kodiAdStream));
+    stream->SetReader(std::make_unique<ADTSSampleReader>(stream->GetAdByteStream(), streamid));
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
   {
-    stream->input_ = new AP4_DASHStream(&stream->stream_);
-    stream->reader_ = new WebmSampleReader(stream->input_, streamid);
-    if (!static_cast<WebmSampleReader*>(stream->reader_)->Initialize())
+    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_kodiAdStream));
+    stream->SetReader(std::make_unique<WebmSampleReader>(stream->GetAdByteStream(), streamid));
+    if (!stream->GetReader()->Initialize())
     {
       stream->disable();
       return false;
@@ -3333,10 +3428,10 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {
-    stream->input_ = new AP4_DASHStream(&stream->stream_);
-    stream->input_file_ =
-        new AP4_File(*stream->input_, AP4_DefaultAtomFactory::Instance_, true, movie);
-    movie = stream->input_file_->GetMovie();
+    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_kodiAdStream));
+    stream->SetStreamFile(std::make_unique<AP4_File>(
+        *stream->GetAdByteStream(), AP4_DefaultAtomFactory::Instance_, true, movie));
+    movie = stream->GetStreamFile()->GetMovie();
 
     if (movie == NULL)
     {
@@ -3345,10 +3440,10 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       return false;
     }
 
-    AP4_Track* track = movie->GetTrack(TIDC[stream->stream_.get_type()]);
+    AP4_Track* track = movie->GetTrack(TIDC[stream->m_kodiAdStream.get_type()]);
     if (!track)
     {
-      if (stream->stream_.get_type() == adaptive::AdaptiveTree::SUBTITLE)
+      if (stream->m_kodiAdStream.get_type() == adaptive::AdaptiveTree::SUBTITLE)
         track = movie->GetTrack(AP4_Track::TYPE_TEXT);
       if (!track)
       {
@@ -3358,10 +3453,12 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       }
     }
 
-    stream->reader_ = new FragmentedSampleReader(
-        stream->input_, movie, track, streamid,
-        m_session->GetSingleSampleDecryptor(stream->stream_.getRepresentation()->pssh_set_),
-        m_session->GetDecrypterCaps(stream->stream_.getRepresentation()->pssh_set_));
+    auto sampleDecrypter =
+        m_session->GetSingleSampleDecryptor(stream->m_kodiAdStream.getRepresentation()->pssh_set_);
+    auto caps = m_session->GetDecrypterCaps(stream->m_kodiAdStream.getRepresentation()->pssh_set_);
+
+    stream->SetReader(std::make_unique<FragmentedSampleReader>(
+        stream->GetAdByteStream(), movie, track, streamid, sampleDecrypter, caps));
   }
   else
   {
@@ -3372,16 +3469,22 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (stream->info_.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
   {
     for (uint16_t i(0); i < 16; ++i)
+    {
       if (m_IncludedStreams[i])
       {
-        stream->reader_->AddStreamType(static_cast<INPUTSTREAM_TYPE>(i),
-                                       m_IncludedStreams[i]);
-        stream->reader_->GetInformation(
+        stream->GetReader()->AddStreamType(static_cast<INPUTSTREAM_TYPE>(i), m_IncludedStreams[i]);
+        unsigned int sid = m_IncludedStreams[i] - m_session->GetPeriodId() * 1000;
+        Session::STREAM* incStream = m_session->GetStream(sid);
+        if (!incStream) {
+          LOG::LogF(LOGERROR, "Cannot get the stream from sid %u", sid);
+        }
+        stream->GetReader()->GetInformation(
             m_session->GetStream(m_IncludedStreams[i] - m_session->GetPeriodId() * 1000)->info_);
       }
+    }
   }
   m_session->EnableStream(stream, true);
-  return stream->reader_->GetInformation(stream->info_) || needRefetch;
+  return stream->GetReader()->GetInformation(stream->info_) || needRefetch;
 }
 
 
