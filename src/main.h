@@ -6,19 +6,20 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "SSD_dll.h"
+#include "common/AdaptiveStream.h"
+#include "common/AdaptiveTree.h"
+#include "common/RepresentationChooser.h"
+
+#include <float.h>
+#include <memory>
 #include <vector>
 
+#include <bento4/Ap4.h>
 #include <kodi/addon-instance/Inputstream.h>
 #include <kodi/tools/DllHelper.h>
 
-#include "common/AdaptiveTree.h"
-#include "common/AdaptiveStream.h"
-#include "common/RepresentationChooser.h"
-#include <float.h>
-
-#include <bento4/Ap4.h>
-#include "SSD_dll.h"
-
+class AdaptiveByteStream;
 class SampleReader;
 
 namespace XBMCFILE
@@ -118,39 +119,80 @@ public:
         encrypted(false),
         mainId_(0),
         current_segment_(0),
-        stream_(t, adp, media_headers, chooser, play_timeshift_buffer, repId, choose_rep),
-        input_(0),
-        input_file_(0),
-        reader_(0),
+        m_kodiAdStream(t, adp, media_headers, chooser, play_timeshift_buffer, repId, choose_rep),
         segmentChanged(false),
-        valid(true)
-    {
-    };
-    ~STREAM()
-    {
-      disable();
-    };
+        valid(true){};
+
+    ~STREAM() { disable(); };
+
     void disable();
     void reset();
+
+    /*!
+     * \brief Get the stream sample reader pointer
+     * \return The sample reader, otherwise nullptr if not set
+     */
+    SampleReader* GetReader() const { return m_streamReader.get(); }
+
+    /*!
+     * \brief Set the stream sample reader
+     * \param reader The reader
+     */
+    void SetReader(std::unique_ptr<SampleReader> reader) { m_streamReader = std::move(reader); }
+
+    /*!
+     * \brief Get the stream file handler pointer
+     * \return The stream file handler, otherwise nullptr if not set
+     */
+    AP4_File* GetStreamFile() const { return m_streamFile.get(); }
+
+    /*!
+     * \brief Set the stream file handler
+     * \param streamFile The stream file handler
+     */
+    void SetStreamFile(std::unique_ptr<AP4_File> streamFile)
+    {
+      m_streamFile = std::move(streamFile);
+    }
+
+    /*!
+     * \brief Get the adaptive byte stream handler pointer
+     * \return The adaptive byte stream handler, otherwise nullptr if not set
+     */
+    AdaptiveByteStream* GetAdByteStream() const { return m_adByteStream.get(); }
+
+    /*!
+     * \brief Set the adaptive byte stream handler
+     * \param dataStream The adaptive byte stream handler
+     */
+    void SetAdByteStream(std::unique_ptr<AdaptiveByteStream> adByteStream)
+    {
+      m_adByteStream = std::move(adByteStream);
+    }
 
     bool enabled, encrypted;
     uint16_t mainId_;
     uint32_t current_segment_;
-    KodiAdaptiveStream stream_;
-    AP4_ByteStream *input_;
-    AP4_File *input_file_;
+    KodiAdaptiveStream m_kodiAdStream;
     kodi::addon::InputstreamInfo info_;
-    SampleReader *reader_;
     bool segmentChanged;
     bool valid;
+
+  private:
+    std::unique_ptr<SampleReader> m_streamReader;
+    std::unique_ptr<AdaptiveByteStream> m_adByteStream;
+    std::unique_ptr<AP4_File> m_streamFile;
   };
 
   void UpdateStream(STREAM &stream);
   AP4_Movie* PrepareStream(STREAM* stream, bool& needRefetch);
 
-  STREAM* GetStream(unsigned int sid)const { return sid - 1 < streams_.size() ? streams_[sid - 1] : 0; };
+  STREAM* GetStream(unsigned int sid) const
+  {
+    return sid - 1 < m_streams.size() ? m_streams[sid - 1].get() : nullptr;
+  }
   void EnableStream(STREAM* stream, bool enable);
-  unsigned int GetStreamCount() const { return streams_.size(); };
+  unsigned int GetStreamCount() const { return m_streams.size(); };
   const char *GetCDMSession(int nSet) { return cdm_sessions_[nSet].cdm_session_str_; };;
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
   AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor(unsigned int nIndex)const{ return cdm_sessions_[nIndex].single_sample_decryptor_; };
@@ -184,8 +226,8 @@ public:
   void ResetChapterSeekTime() { chapter_seek_time_ = 0; };
 
   //Observer Section
-  void OnSegmentChanged(adaptive::AdaptiveStream *stream) override;
-  void OnStreamChange(adaptive::AdaptiveStream *stream) override;
+  void OnSegmentChanged(adaptive::AdaptiveStream* adStream) override;
+  void OnStreamChange(adaptive::AdaptiveStream* adStream) override;
 
 protected:
   void CheckFragmentDuration(STREAM &stream);
@@ -217,7 +259,7 @@ private:
   adaptive::AdaptiveTree* adaptiveTree_;
   DefaultRepresentationChooser* representationChooser_;
 
-  std::vector<STREAM*> streams_;
+  std::vector<std::unique_ptr<STREAM>> m_streams;
   STREAM* timing_stream_;
 
   uint32_t fixed_bandwidth_;
