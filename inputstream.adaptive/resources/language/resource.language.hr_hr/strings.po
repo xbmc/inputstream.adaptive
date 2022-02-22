@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: inputstream.adaptive\n"
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2022-02-09 11:38+0000\n"
+"PO-Revision-Date: 2022-02-14 12:13+0000\n"
 "Last-Translator: gogogogi <trebelnik2@gmail.com>\n"
 "Language-Team: Croatian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/hr_hr/>\n"
 "Language: hr_hr\n"
@@ -32,12 +32,12 @@ msgstr "Općenito"
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Najmanja propusnost (bit/s)"
+msgstr "Najmanja propusnost (Bit/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Najveća propusnost (bit/s)"
+msgstr "Najveća propusnost (Bit/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
@@ -127,7 +127,7 @@ msgstr "Video"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr "Ručno odabir video strujanja"
+msgstr "Ručni odabir video strujanja"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
