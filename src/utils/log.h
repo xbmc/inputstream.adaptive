@@ -10,6 +10,9 @@
 
 #ifndef INPUTSTREAM_TEST_BUILD
 #include <kodi/AddonBase.h>
+#else
+#include "kodi/tools/StringUtils.h"
+#include <iostream>
 #endif
 
 #include <utility>
@@ -54,6 +57,27 @@ inline void Log(const LogLevel level, const char* format, Args&&... args)
   }
 
   kodi::Log(addonLevel, format, std::forward<Args>(args)...);
+#else
+  std::string logStr = kodi::tools::StringUtils::Format(format, std::forward<Args>(args)...);
+  switch (level)
+  {
+  case LogLevel::LOGFATAL:
+    std::cout << "[ LOG-FATAL ] " << logStr << std::endl;
+    break;
+  case LogLevel::LOGERROR:
+    std::cout << "[ LOG-ERROR ] " << logStr << std::endl;
+    break;
+/*
+  case LogLevel::LOGWARNING:
+    std::cout << "[ LOG-WARN  ] " << logStr << std::endl;
+    break;
+  case LogLevel::LOGINFO:
+    std::cout << "[ LOG-INFO  ] " << logStr << std::endl;
+    break;
+  default:
+    std::cout << "[ LOG-DEBUG ] " << logStr << std::endl;
+*/
+  }
 #endif
 }
 
