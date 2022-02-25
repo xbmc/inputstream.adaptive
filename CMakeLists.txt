@@ -122,7 +122,7 @@ build_addon(inputstream.adaptive ADP DEPLIBS)
 include(CPack)
 
 if(NOT CMAKE_CROSSCOMPILING AND BUILD_TESTING)
-  list(APPEND CMAKE_CTEST_ARGUMENTS "--output-on-failure")
+  list(APPEND CMAKE_CTEST_ARGUMENTS "-V")
   enable_testing()
   include(FindGtest)
   find_package(Gtest REQUIRED)
