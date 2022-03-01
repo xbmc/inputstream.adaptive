@@ -1,4 +1,4 @@
-set(BINARY Test${CMAKE_PROJECT_NAME})
+set(BINARY ${CMAKE_PROJECT_NAME}_test)
 
 find_package( Threads )
 
