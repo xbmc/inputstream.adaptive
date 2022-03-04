@@ -2605,10 +2605,8 @@ SampleReader* Session::GetNextSample()
     bool isStarted{false};
     SampleReader* streamReader = stream->GetReader();
     if (!streamReader)
-    {
-      LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
       continue;
-    }
+
     if (stream->enabled && !streamReader->EOS() && AP4_SUCCEEDED(streamReader->Start(isStarted)))
     {
       if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
