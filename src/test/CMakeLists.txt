@@ -17,6 +17,7 @@ add_executable(${BINARY}
 	../common/RepresentationChooser.cpp
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
+    ../utils/PropertiesUtils.cpp
     ../utils/StringUtils.cpp
     ../utils/Utils.cpp
     )

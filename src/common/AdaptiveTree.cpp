@@ -41,23 +41,25 @@ namespace adaptive
     }
   }
 
-  AdaptiveTree::AdaptiveTree()
-    : current_period_(nullptr)
-    , next_period_(nullptr)
-    , parser_(0)
-    , currentNode_(0)
-    , segcount_(0)
-    , overallSeconds_(0)
-    , stream_start_(0)
-    , available_time_(0)
-    , base_time_(0)
-    , live_delay_(0)
-    , minPresentationOffset(0)
-    , has_timeshift_buffer_(false)
-    , has_overall_seconds_(false)
-    , updateInterval_(~0)
-    , updateThread_(nullptr)
-    , lastUpdated_(std::chrono::system_clock::now())
+  AdaptiveTree::AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+    : m_kodiProps(kodiProps),
+      m_streamHeaders(kodiProps.m_streamHeaders),
+      current_period_(nullptr),
+      next_period_(nullptr),
+      parser_(0),
+      currentNode_(0),
+      segcount_(0),
+      overallSeconds_(0),
+      stream_start_(0),
+      available_time_(0),
+      base_time_(0),
+      live_delay_(0),
+      minPresentationOffset(0),
+      has_timeshift_buffer_(false),
+      has_overall_seconds_(false),
+      updateInterval_(~0),
+      updateThread_(nullptr),
+      lastUpdated_(std::chrono::system_clock::now())
   {
   }
 

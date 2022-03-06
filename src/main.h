@@ -10,6 +10,7 @@
 #include "common/AdaptiveStream.h"
 #include "common/AdaptiveTree.h"
 #include "common/RepresentationChooser.h"
+#include "utils/PropertiesUtils.h"
 
 #include <float.h>
 #include <memory>
@@ -74,31 +75,13 @@ private:
   DefaultRepresentationChooser* chooser_ = nullptr;
 };
 
-enum MANIFEST_TYPE
-{
-  MANIFEST_TYPE_UNKNOWN,
-  MANIFEST_TYPE_MPD,
-  MANIFEST_TYPE_ISM,
-  MANIFEST_TYPE_HLS
-};
-
 class ATTR_DLL_LOCAL Session : public adaptive::AdaptiveStreamObserver
 {
 public:
-  Session(MANIFEST_TYPE manifestType,
-          const std::string& strURL,
-          const std::string& strUpdateParam,
-          const std::string& strLicType,
-          const std::string& strLicKey,
-          const std::string& strLicData,
-          const std::string& strCert,
-          const std::map<std::string, std::string>& manifestHeaders,
+  Session(const UTILS::PROPERTIES::KodiProperties& properties,
+          const std::string& url,
           const std::map<std::string, std::string>& mediaHeaders,
-          const std::string& profile_path,
-          const std::string& ov_audio,
-          bool play_timeshift_buffer,
-          bool force_secure_decoder,
-          const std::string& drm_preinit_data);
+          const std::string& profilePath);
   virtual ~Session();
   bool Initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
   bool PreInitializeDRM(std::string& challengeB64, std::string& sessionId);
@@ -209,7 +192,7 @@ public:
   void SetVideoResolution(unsigned int w, unsigned int h);
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
-  MANIFEST_TYPE GetManifestType() const { return manifest_type_; };
+  UTILS::PROPERTIES::ManifestType GetManifestType() const { return m_kodiProps.m_manifestType; }
   const AP4_UI08 *GetDefaultKeyId(const uint16_t index) const;
   uint32_t GetIncludedStreamMask() const;
   STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
@@ -236,16 +219,13 @@ protected:
   void DisposeDecrypter();
 
 private:
-  MANIFEST_TYPE manifest_type_;
-  std::string manifestURL_, manifestUpdateParam_;
-  std::string license_key_, license_type_, license_data_;
-  std::string drmPreInitData_;
+  const UTILS::PROPERTIES::KodiProperties m_kodiProps;
+  std::string manifestURL_;
   std::map<std::string, std::string> media_headers_;
   AP4_DataBuffer server_certificate_;
   std::string profile_path_;
-  std::string ov_audio_;
-  kodi::tools::CDllHelper* decrypterModule_;
-  SSD::SSD_DECRYPTER *decrypter_;
+  kodi::tools::CDllHelper* decrypterModule_{nullptr};
+  SSD::SSD_DECRYPTER* decrypter_{nullptr};
 
   struct CDMSESSION
   {
@@ -256,21 +236,20 @@ private:
   };
   std::vector<CDMSESSION> cdm_sessions_;
 
-  adaptive::AdaptiveTree* adaptiveTree_;
+  adaptive::AdaptiveTree* adaptiveTree_{nullptr};
   DefaultRepresentationChooser* representationChooser_;
 
   std::vector<std::unique_ptr<STREAM>> m_streams;
-  STREAM* timing_stream_;
+  STREAM* timing_stream_{nullptr};
 
-  uint32_t fixed_bandwidth_;
-  bool changed_;
-  int manual_streams_;
-  uint64_t elapsed_time_, chapter_start_time_; // In STREAM_TIME_BASE
-  double chapter_seek_time_; // In seconds
-  uint8_t media_type_mask_;
-  uint8_t drmConfig_;
-  bool play_timeshift_buffer_;
-  bool force_secure_decoder_;
+  uint32_t fixed_bandwidth_{0};
+  bool changed_{false};
+  int manual_streams_{0};
+  uint64_t elapsed_time_{0};
+  uint64_t chapter_start_time_{0}; // In STREAM_TIME_BASE
+  double chapter_seek_time_{0.0}; // In seconds
+  uint8_t media_type_mask_{0};
+  uint8_t drmConfig_{0};
   bool allow_no_secure_decoder_;
-  bool first_period_initialized_;
+  bool first_period_initialized_{0};
 };

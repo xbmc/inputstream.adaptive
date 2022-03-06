@@ -31,7 +31,8 @@ public:
     ENCRYPTIONTYPE_WIDEVINE = 3,
     ENCRYPTIONTYPE_UNKNOWN = 4,
   };
-  HLSTree(IAESDecrypter* decrypter) : AdaptiveTree(), m_decrypter(decrypter){};
+  HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps, IAESDecrypter* decrypter)
+    : AdaptiveTree(kodiProps), m_decrypter(decrypter){};
   virtual ~HLSTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;

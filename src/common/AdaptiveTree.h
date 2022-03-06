@@ -10,6 +10,8 @@
 
 #include "expat.h"
 
+#include "../utils/PropertiesUtils.h"
+
 #include <chrono>
 #include <condition_variable>
 #include <inttypes.h>
@@ -463,8 +465,6 @@ public:
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;
 
-  std::map<std::string, std::string> manifest_headers_;
-
   std::string supportedKeySystem_, location_;
 
   uint8_t adpChannelCount_, adp_pssh_set_;
@@ -480,7 +480,7 @@ public:
 
   std::string strXMLText_;
 
-  AdaptiveTree();
+  AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& properties);
   virtual ~AdaptiveTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) = 0;
@@ -563,6 +563,8 @@ protected:
   std::condition_variable updateVar_;
   std::thread *updateThread_;
   std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
+  std::map<std::string, std::string> m_streamHeaders;
+  const UTILS::PROPERTIES::KodiProperties m_kodiProps;
 
 private:
   void SegmentUpdateWorker();

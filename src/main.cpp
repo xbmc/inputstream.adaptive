@@ -1579,55 +1579,28 @@ void Session::STREAM::reset()
   }
 }
 
-Session::Session(MANIFEST_TYPE manifestType,
-                 const std::string& strURL,
-                 const std::string& strUpdateParam,
-                 const std::string& strLicType,
-                 const std::string& strLicKey,
-                 const std::string& strLicData,
-                 const std::string& strCert,
-                 const std::map<std::string, std::string>& manifestHeaders,
+Session::Session(const PROPERTIES::KodiProperties& kodiProps,
+                 const std::string& url,
                  const std::map<std::string, std::string>& mediaHeaders,
-                 const std::string& profile_path,
-                 const std::string& ov_audio,
-                 bool play_timeshift_buffer,
-                 bool force_secure_decoder,
-                 const std::string& drmPreInitData)
-  : manifest_type_(manifestType),
-    manifestURL_(strURL),
-    manifestUpdateParam_(strUpdateParam),
-    license_key_(strLicKey),
-    license_type_(strLicType),
-    license_data_(strLicData),
+                 const std::string& profilePath)
+  : m_kodiProps(kodiProps),
+    manifestURL_(url),
     media_headers_(mediaHeaders),
-    profile_path_(profile_path),
-    ov_audio_(ov_audio),
-    decrypterModule_(0),
-    decrypter_(0),
-    adaptiveTree_(0),
-    timing_stream_(nullptr),
-    changed_(false),
-    manual_streams_(0),
-    elapsed_time_(0),
-    chapter_start_time_(0),
-    chapter_seek_time_(0.0),
-    play_timeshift_buffer_(play_timeshift_buffer),
-    force_secure_decoder_(force_secure_decoder),
-    drmPreInitData_(drmPreInitData),
-    first_period_initialized_(false)
+    profile_path_(profilePath)
 {
-  switch (manifest_type_)
+  switch (kodiProps.m_manifestType)
   {
-    case MANIFEST_TYPE_MPD:
-      adaptiveTree_ = new adaptive::DASHTree;
+    case PROPERTIES::ManifestType::MPD:
+      adaptiveTree_ = new adaptive::DASHTree(kodiProps);
       break;
-    case MANIFEST_TYPE_ISM:
-      adaptiveTree_ = new adaptive::SmoothTree;
+    case PROPERTIES::ManifestType::ISM:
+      adaptiveTree_ = new adaptive::SmoothTree(kodiProps);
       break;
-    case MANIFEST_TYPE_HLS:
-      adaptiveTree_ = new adaptive::HLSTree(new AESDecrypter(license_key_));
+    case PROPERTIES::ManifestType::HLS:
+      adaptiveTree_ = new adaptive::HLSTree(kodiProps, new AESDecrypter(kodiProps.m_licenseKey));
       break;
     default:
+      LOG::LogF(LOGFATAL, "Manifest type not handled");
       return;
   };
 
@@ -1696,12 +1669,11 @@ Session::Session(MANIFEST_TYPE manifestType,
   representationChooser_->ignore_window_change_ =
       kodi::addon::GetSettingBoolean("IGNOREWINDOWCHANGE");
 
-  if (!strCert.empty())
+  if (!kodiProps.m_serverCertificate.empty())
   {
-    std::string decCert{ BASE64::Decode(strCert) };
+    std::string decCert{ BASE64::Decode(kodiProps.m_serverCertificate) };
     server_certificate_.SetData(reinterpret_cast<const AP4_Byte*>(decCert.data()), decCert.size());
   }
-  adaptiveTree_->manifest_headers_ = manifestHeaders;
 }
 
 Session::~Session()
@@ -1770,7 +1742,8 @@ void Session::GetSupportedDecrypterURN(std::string& key_system)
             SSD::SSD_DECRYPTER* decrypter = startup(kodihost, SSD::SSD_HOST::version);
             const char* suppUrn(0);
 
-            if (decrypter && (suppUrn = decrypter->SelectKeySytem(license_type_.c_str())))
+            if (decrypter &&
+                (suppUrn = decrypter->SelectKeySytem(m_kodiProps.m_licenseType.c_str())))
             {
               LOG::Log(LOGDEBUG, "Found decrypter: %s", items[i].Path().c_str());
               success = true;
@@ -1844,7 +1817,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   representationChooser_->SetMaxUserBandwidth(max_user_bandwidth);
 
   // Get URN's wich are supported by this addon
-  if (!license_type_.empty())
+  if (!m_kodiProps.m_licenseType.empty())
   {
     GetSupportedDecrypterURN(adaptiveTree_->supportedKeySystem_);
     LOG::Log(LOGDEBUG, "Supported URN: %s", adaptiveTree_->supportedKeySystem_.c_str());
@@ -1853,7 +1826,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   // Preinitialize the DRM, if pre-initialisation data are provided
   std::map<std::string, std::string> additionalHeaders = std::map<std::string, std::string>();
 
-  if (!drmPreInitData_.empty())
+  if (!m_kodiProps.m_drmPreInitData.empty())
   {
     std::string challengeB64;
     std::string sessionId;
@@ -1873,8 +1846,9 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
   // Open manifest file with location redirect support  bool mpdSuccess;
   std::string manifestUrl =
-      adaptiveTree_->location_.empty() ? manifestURL_.c_str() : adaptiveTree_->location_;
-  if (!adaptiveTree_->open(manifestUrl.c_str(), manifestUpdateParam_.c_str(), additionalHeaders) || adaptiveTree_->empty())
+      adaptiveTree_->location_.empty() ? manifestURL_ : adaptiveTree_->location_;
+  if (!adaptiveTree_->open(manifestUrl, m_kodiProps.m_manifestUpdateParam, additionalHeaders) ||
+      adaptiveTree_->empty())
   {
     LOG::Log(LOGERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
     return false;
@@ -1900,11 +1874,11 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
     std::string psshData;
     std::string kidData;
     // Parse the PSSH/KID data
-    std::string::size_type posSplitter(drmPreInitData_.find("|"));
+    std::string::size_type posSplitter(m_kodiProps.m_drmPreInitData.find("|"));
     if (posSplitter != std::string::npos)
     {
-      psshData = drmPreInitData_.substr(0, posSplitter);
-      kidData = drmPreInitData_.substr(posSplitter + 1);
+      psshData = m_kodiProps.m_drmPreInitData.substr(0, posSplitter);
+      kidData = m_kodiProps.m_drmPreInitData.substr(posSplitter + 1);
     }
 
     if (psshData.empty() || kidData.empty())
@@ -1918,7 +1892,7 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
     // Try to initialize an SingleSampleDecryptor
     LOG::LogF(LOGDEBUG, "Entering encryption section");
 
-    if (license_key_.empty())
+    if (m_kodiProps.m_licenseKey.empty())
     {
       LOG::LogF(LOGERROR, "Invalid license_key");
       return false;
@@ -1932,7 +1906,8 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
 
     if (!decrypter_->HasCdmSession())
     {
-      if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
+      if (!decrypter_->OpenDRMSystem(m_kodiProps.m_licenseKey.c_str(), server_certificate_,
+                                     drmConfig_))
       {
         LOG::LogF(LOGERROR, "OpenDRMSystem failed");
         return false;
@@ -1987,12 +1962,14 @@ bool Session::InitializeDRM()
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->current_period_->encryptionState_)
   {
-    if (license_key_.empty())
-      license_key_ = adaptiveTree_->license_url_;
+    std::string licenseKey{m_kodiProps.m_licenseKey};
+
+    if (licenseKey.empty())
+      licenseKey = adaptiveTree_->license_url_;
 
     LOG::Log(LOGDEBUG, "Entering encryption section");
 
-    if (license_key_.empty())
+    if (licenseKey.empty())
     {
       LOG::Log(LOGERROR, "Invalid license_key");
       return false;
@@ -2006,7 +1983,7 @@ bool Session::InitializeDRM()
 
     if (!decrypter_->HasCdmSession())
     {
-      if (!decrypter_->OpenDRMSystem(license_key_.c_str(), server_certificate_, drmConfig_))
+      if (!decrypter_->OpenDRMSystem(licenseKey.c_str(), server_certificate_, drmConfig_))
       {
         LOG::Log(LOGERROR, "OpenDRMSystem failed");
         return false;
@@ -2035,11 +2012,11 @@ bool Session::InitializeDRM()
       {
         LOG::Log(LOGDEBUG, "Searching PSSH data in FILE");
 
-        if (license_data_.empty())
+        if (m_kodiProps.m_licenseData.empty())
         {
-          Session::STREAM stream(*adaptiveTree_,
-                                 adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_,
-                                 media_headers_, representationChooser_, play_timeshift_buffer_, 0, false);
+          Session::STREAM stream(
+              *adaptiveTree_, adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_,
+              media_headers_, representationChooser_, m_kodiProps.m_playTimeshiftBuffer, 0, false);
 
           stream.enabled = true;
           stream.m_kodiAdStream.start_stream();
@@ -2107,33 +2084,34 @@ bool Session::InitializeDRM()
           init_data.SetData(
               (AP4_Byte*)adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data(), 16);
 
-          std::string decLicenseData{BASE64::Decode(license_data_)};
+          std::string decLicenseData{BASE64::Decode(m_kodiProps.m_licenseData)};
           uint8_t* decLicDataUInt = reinterpret_cast<uint8_t*>(decLicenseData.data());
 
           uint8_t* uuid(reinterpret_cast<uint8_t*>(strstr(decLicenseData.data(), "{KID}")));
           if (uuid)
           {
-            memmove(uuid + 11, uuid, license_data_.size() - (uuid - decLicDataUInt));
+            memmove(uuid + 11, uuid, m_kodiProps.m_licenseData.size() - (uuid - decLicDataUInt));
             memcpy(uuid, init_data.GetData(), init_data.GetDataSize());
-            init_data.SetData(decLicDataUInt, license_data_.size() + 11);
+            init_data.SetData(decLicDataUInt, m_kodiProps.m_licenseData.size() + 11);
           }
           else
-            init_data.SetData(decLicDataUInt, license_data_.size());
+            init_data.SetData(decLicDataUInt, m_kodiProps.m_licenseData.size());
         }
         else
           return false;
       }
       else
       {
-        if (manifest_type_ == MANIFEST_TYPE_ISM)
+        if (m_kodiProps.m_manifestType == PROPERTIES::ManifestType::ISM)
         {
-          if (license_type_ == "com.widevine.alpha")
+          if (m_kodiProps.m_licenseType == "com.widevine.alpha")
           {
-            if (license_data_.empty())
-              license_data_ = "e0tJRH0="; // {KID}
+            std::string licenseData{m_kodiProps.m_licenseData};
+            if (licenseData.empty())
+              licenseData = "e0tJRH0="; // {KID}
             std::vector<uint8_t> init_data_v;
             CreateISMlicense(adaptiveTree_->current_period_->psshSets_[ses].defaultKID_,
-                             license_data_, init_data_v);
+                             licenseData, init_data_v);
             init_data.SetData(init_data_v.data(), init_data_v.size());
           }
           else
@@ -2141,7 +2119,8 @@ bool Session::InitializeDRM()
             init_data.SetData(reinterpret_cast<const uint8_t*>(
                                   adaptiveTree_->current_period_->psshSets_[ses].pssh_.data()),
                               adaptiveTree_->current_period_->psshSets_[ses].pssh_.size());
-            optionalKeyParameter = license_data_.empty() ? nullptr : license_data_.c_str();
+            optionalKeyParameter =
+                m_kodiProps.m_licenseData.empty() ? nullptr : m_kodiProps.m_licenseData.c_str();
           }
         }
         else
@@ -2203,8 +2182,8 @@ bool Session::InitializeDRM()
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
           secure_video_session = true;
 
-          if (allow_no_secure_decoder_
-              && !force_secure_decoder_ && !adaptiveTree_->current_period_->need_secure_decoder_)
+          if (allow_no_secure_decoder_ && !m_kodiProps.m_isLicenseForceSecureDecoder &&
+              !adaptiveTree_->current_period_->need_secure_decoder_)
             session.decrypter_caps_.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
       }
@@ -2274,9 +2253,9 @@ bool Session::InitializePeriod()
 
     do
     {
-      m_streams.push_back(std::make_unique<STREAM>(*adaptiveTree_, adp, media_headers_,
-                                                   representationChooser_, play_timeshift_buffer_,
-                                                   repId, first_period_initialized_));
+      m_streams.push_back(std::make_unique<STREAM>(
+          *adaptiveTree_, adp, media_headers_, representationChooser_,
+          m_kodiProps.m_playTimeshiftBuffer, repId, first_period_initialized_));
       STREAM& stream(*m_streams.back());
 
       uint32_t flags = INPUTSTREAM_FLAG_NONE;
@@ -2296,7 +2275,8 @@ bool Session::InitializePeriod()
             flags |= INPUTSTREAM_FLAG_VISUAL_IMPAIRED;
           if (adp->default_)
             flags |= INPUTSTREAM_FLAG_DEFAULT;
-          if (adp->original_ || (!ov_audio_.empty() && adp->language_ == ov_audio_))
+          if (adp->original_ || (!m_kodiProps.m_audioLanguageOrig.empty() &&
+                                 adp->language_ == m_kodiProps.m_audioLanguageOrig))
             flags |= INPUTSTREAM_FLAG_ORIGINAL;
           break;
         case adaptive::AdaptiveTree::SUBTITLE:
@@ -2851,13 +2831,13 @@ uint32_t Session::GetIncludedStreamMask() const
 
 STREAM_CRYPTO_KEY_SYSTEM Session::GetCryptoKeySystem() const
 {
-  if (license_type_ == "com.widevine.alpha")
+  if (m_kodiProps.m_licenseType == "com.widevine.alpha")
     return STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE;
 #if STREAMCRYPTO_VERSION_LEVEL >= 1
-  else if (license_type_ == "com.huawei.wiseplay")
+  else if (m_kodiProps.m_licenseType == "com.huawei.wiseplay")
     return STREAM_CRYPTO_KEY_SYSTEM_WISEPLAY;
 #endif
-  else if (license_type_ == "com.microsoft.playready")
+  else if (m_kodiProps.m_licenseType == "com.microsoft.playready")
     return STREAM_CRYPTO_KEY_SYSTEM_PLAYREADY;
   else
     return STREAM_CRYPTO_KEY_SYSTEM_NONE;
@@ -3019,10 +2999,10 @@ public:
 
 private:
   std::shared_ptr<Session> m_session;
+  UTILS::PROPERTIES::KodiProperties m_kodiProps;
   int m_width, m_height;
   uint32_t m_IncludedStreams[16];
   bool m_checkChapterSeek = false;
-  bool m_playTimeshiftBuffer = false;
   int m_failedSeekTime = ~0;
 
   void UnlinkIncludedStreams(Session::STREAM* stream);
@@ -3049,122 +3029,35 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 {
   LOG::Log(LOGDEBUG, "Open()");
 
-  std::string lt, lk, ld, lsc, mfup, ov_audio, drmPreInitData;
-  std::map<std::string, std::string> manh, medh;
   std::string url = props.GetURL();
-  MANIFEST_TYPE manifest(MANIFEST_TYPE_UNKNOWN);
-  std::uint8_t config(0);
-  uint32_t max_user_bandwidth = 0;
-  bool force_secure_decoder = false;
+  m_kodiProps = PROPERTIES::ParseKodiProperties(props.GetProperties());
 
-  for (const auto& prop : props.GetProperties())
-  {
-    if (prop.first == "inputstream.adaptive.license_type")
-    {
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_type: %s",
-                prop.second.c_str());
-      lt = prop.second;
-    }
-    else if (prop.first == "inputstream.adaptive.license_key")
-    {
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_key: [not shown]");
-      lk = prop.second;
-    }
-    else if (prop.first == "inputstream.adaptive.license_data")
-    {
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_data: [not shown]");
-      ld = prop.second;
-    }
-    else if (prop.first == "inputstream.adaptive.license_flags")
-    {
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.license_flags: %s",
-                prop.second.c_str());
-      if (prop.second.find("persistent_storage") != std::string::npos)
-        config |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
-      if (prop.second.find("force_secure_decoder") != std::string::npos)
-        force_secure_decoder = true;
-    }
-    else if (prop.first == "inputstream.adaptive.server_certificate")
-    {
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.server_certificate: [not shown]");
-      lsc = prop.second;
-    }
-    else if (prop.first == "inputstream.adaptive.manifest_type")
-    {
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.manifest_type: %s",
-                prop.second.c_str());
-      if (prop.second == "mpd")
-        manifest = MANIFEST_TYPE_MPD;
-      else if (prop.second == "ism")
-        manifest = MANIFEST_TYPE_ISM;
-      else if (prop.second == "hls")
-        manifest = MANIFEST_TYPE_HLS;
-    }
-    else if (prop.first == "inputstream.adaptive.manifest_update_parameter")
-    {
-      mfup = prop.second;
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.manifest_update_parameter: %s", mfup.c_str());
-    }
-    else if (prop.first == "inputstream.adaptive.stream_headers")
-    {
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.stream_headers: %s",
-                prop.second.c_str());
-      ParseHeaderString(manh, prop.second);
-      medh = manh;
-    }
-    else if (prop.first == "inputstream.adaptive.original_audio_language")
-    {
-      ov_audio = prop.second;
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.original_audio_language: %s",
-                ov_audio.c_str());
-    }
-    else if (prop.first == "inputstream.adaptive.max_bandwidth")
-    {
-      max_user_bandwidth = std::stoi(prop.second);
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.max_bandwidth: %d",
-                max_user_bandwidth);
-    }
-    else if (prop.first == "inputstream.adaptive.play_timeshift_buffer")
-    {
-      m_playTimeshiftBuffer = stricmp(prop.second.c_str(), "true") == 0;
-    }
-    else if (prop.first == "inputstream.adaptive.pre_init_data")
-    {
-      // This property allow to "pre-initialize" the DRM with a PSSH/KID,
-      // the property value must be as "{PSSH as base64}|{KID as base64}".
-      // The challenge/session ID data generated by the initialisation of the DRM
-      // will be attached to the manifest request callback
-      // as HTTP headers with the names of "challengeB64" and "sessionId".
-      LOG::Log(LOGDEBUG, "found inputstream.adaptive.pre_init_data: [not shown]");
-      drmPreInitData = prop.second;
-    }
-  }
-
-  if (manifest == MANIFEST_TYPE_UNKNOWN)
-  {
-    LOG::Log(LOGERROR, "Invalid / not given inputstream.adaptive.manifest_type");
+  if (m_kodiProps.m_manifestType == PROPERTIES::ManifestType::UNKNOWN)
     return false;
-  }
 
+  std::uint8_t drmConfig{0};
+  if (m_kodiProps.m_isLicensePersistentStorage)
+    drmConfig |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
+
+  std::map<std::string, std::string> mediaHeaders{m_kodiProps.m_streamHeaders};
+
+  // If the URL contains headers then replace the stream headers
   std::string::size_type posHeader(url.find("|"));
   if (posHeader != std::string::npos)
   {
-    manh.clear();
-    ParseHeaderString(manh, url.substr(posHeader + 1));
+    m_kodiProps.m_streamHeaders.clear();
+    ParseHeaderString(m_kodiProps.m_streamHeaders, url.substr(posHeader + 1));
     url = url.substr(0, posHeader);
   }
-
-  if (medh.empty())
-    medh = manh;
+  if (mediaHeaders.empty())
+    mediaHeaders = m_kodiProps.m_streamHeaders;
 
   kodihost->SetProfilePath(props.GetProfileFolder());
 
-  m_session = std::shared_ptr<Session>(new Session(
-      manifest, url.c_str(), mfup, lt, lk, ld, lsc, manh, medh, props.GetProfileFolder(),
-      ov_audio, m_playTimeshiftBuffer, force_secure_decoder, drmPreInitData));
+  m_session = std::make_shared<Session>(m_kodiProps, url, mediaHeaders, props.GetProfileFolder());
   m_session->SetVideoResolution(m_width, m_height);
 
-  if (!m_session->Initialize(config, max_user_bandwidth))
+  if (!m_session->Initialize(drmConfig, m_kodiProps.m_bandwidthMax))
   {
     m_session = nullptr;
     return false;
@@ -3384,7 +3277,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   AP4_Movie* movie(m_session->PrepareStream(stream, needRefetch));
 
   // We load fragments on PrepareTime for HLS manifests and have to reevaluate the start-segment
-  //if (m_session->GetManifestType() == MANIFEST_TYPE_HLS)
+  //if (m_session->GetManifestType() == PROPERTIES::ManifestType::HLS)
   //  stream->m_kodiAdStream.restart_stream();
   stream->m_kodiAdStream.start_stream();
 

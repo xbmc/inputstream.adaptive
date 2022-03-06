@@ -8,6 +8,8 @@
 
 #include "TestHelper.h"
 
+#include "../utils/PropertiesUtils.h"
+
 #include <gtest/gtest.h>
 
 
@@ -16,7 +18,8 @@ class DASHTreeTest : public ::testing::Test
 protected:
   void SetUp() override
   {
-    tree = new DASHTestTree;
+    UTILS::PROPERTIES::KodiProperties kodiProps;
+    tree = new DASHTestTree(kodiProps);
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
@@ -209,7 +212,7 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
 {
-  tree->mock_time = 1617223929L;
+  tree->SetNowTime(1617223929L);
 
   OpenTestFile("mpd/segtpl_pto.mpd", "", "");
 
@@ -223,7 +226,7 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
 {
-  tree->mock_time = 1617229334L;
+  tree->SetNowTime(1617229334L);
 
   OpenTestFile("mpd/segtpl_old_publish_time.mpd", "", "");
 

@@ -24,6 +24,7 @@ set(ADP_SOURCES
 	src/parser/SmoothTree.cpp
 	src/parser/PRProtectionParser.cpp
 	src/utils/Base64Utils.cpp
+	src/utils/PropertiesUtils.cpp
 	src/utils/StringUtils.cpp
 	src/utils/Utils.cpp
 	src/oscompat.cpp
@@ -55,6 +56,7 @@ set(ADP_HEADERS
 	src/parser/PRProtectionParser.h
 	src/utils/Base64Utils.h
 	src/utils/log.h
+	src/utils/PropertiesUtils.h
 	src/utils/StringUtils.h
 	src/utils/Utils.h
 	src/TSReader.h

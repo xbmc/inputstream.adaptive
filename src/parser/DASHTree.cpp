@@ -48,10 +48,6 @@ enum
 
 static const char* CONTENTPROTECTION_TAG = "ContentProtection";
 
-DASHTree::DASHTree()
-{
-}
-
 static uint8_t GetChannels(const char** attr)
 {
   const char *schemeIdUri(0), *value(0);
@@ -1592,7 +1588,7 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
   strXMLText_.clear();
 
   PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(manifest_headers_.begin(), manifest_headers_.end());
+  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
   bool ret = download(manifest_url_.c_str(), additionalHeaders) && !periods_.empty();
 
   XML_ParserFree(parser_);
@@ -1675,8 +1671,7 @@ void DASHTree::RefreshLiveSegments()
       replaced.replace(update_parameter_pos, 14, buf);
     }
 
-    DASHTree updateTree;
-    updateTree.manifest_headers_ = manifest_headers_;
+    DASHTree updateTree(m_kodiProps);
     updateTree.base_time_ = base_time_;
     updateTree.supportedKeySystem_ = supportedKeySystem_;
     //Location element should be used on updates
@@ -1685,9 +1680,9 @@ void DASHTree::RefreshLiveSegments()
     if (!~update_parameter_pos)
     {
       if (!etag_.empty())
-        updateTree.manifest_headers_["If-None-Match"] = "\"" + etag_ + "\"";
+        updateTree.m_streamHeaders["If-None-Match"] = "\"" + etag_ + "\"";
       if (!last_modified_.empty())
-        updateTree.manifest_headers_["If-Modified-Since"] = last_modified_;
+        updateTree.m_streamHeaders["If-Modified-Since"] = last_modified_;
     }
 
     if (updateTree.open(manifest_url_ + replaced, ""))

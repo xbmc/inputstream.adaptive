@@ -7,6 +7,9 @@
  */
 
 #include "TestHelper.h"
+
+#include "../utils/PropertiesUtils.h"
+
 #include <gtest/gtest.h>
 
 
@@ -15,7 +18,8 @@ class HLSTreeTest : public ::testing::Test
 protected:
   void SetUp() override
   {
-    tree = new adaptive::HLSTree(new AESDecrypter(std::string()));
+    UTILS::PROPERTIES::KodiProperties kodiProps;
+    tree = new adaptive::HLSTree(kodiProps, new AESDecrypter(std::string()));
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
