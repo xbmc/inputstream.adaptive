@@ -157,7 +157,7 @@ bool HLSTree::open(const std::string& url, const std::string& manifestUpdatePara
 bool HLSTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
 {
   PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(manifest_headers_.begin(), manifest_headers_.end());
+  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
   if (download(manifest_url_.c_str(), additionalHeaders, &manifest_stream))
     return processManifest(manifest_stream);
   return false;
@@ -399,7 +399,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
     if (rep->flags_ & Representation::DOWNLOADED)
       ;
-    else if (download(rep->source_url_.c_str(), manifest_headers_, &stream, false))
+    else if (download(rep->source_url_.c_str(), m_streamHeaders, &stream, false))
     {
 #if FILEDEBUG
       FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");

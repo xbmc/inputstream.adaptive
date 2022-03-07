@@ -21,7 +21,7 @@
 using namespace adaptive;
 using namespace UTILS;
 
-SmoothTree::SmoothTree()
+SmoothTree::SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps) : AdaptiveTree(kodiProps)
 {
   current_period_ = new AdaptiveTree::Period;
   periods_.push_back(current_period_);
@@ -355,7 +355,7 @@ bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateP
   strXMLText_.clear();
 
   PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(manifest_headers_.begin(), manifest_headers_.end());
+  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
   bool ret = download(manifest_url_.c_str(), additionalHeaders);
 
   XML_ParserFree(parser_);
