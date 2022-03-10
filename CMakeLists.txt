@@ -26,6 +26,7 @@ set(ADP_SOURCES
 	src/utils/Base64Utils.cpp
 	src/utils/PropertiesUtils.cpp
 	src/utils/StringUtils.cpp
+	src/utils/UrlUtils.cpp
 	src/utils/Utils.cpp
 	src/oscompat.cpp
 	src/TSReader.cpp
@@ -58,6 +59,7 @@ set(ADP_HEADERS
 	src/utils/log.h
 	src/utils/PropertiesUtils.h
 	src/utils/StringUtils.h
+	src/utils/UrlUtils.h
 	src/utils/Utils.h
 	src/TSReader.h
 	src/aes_decrypter.h
