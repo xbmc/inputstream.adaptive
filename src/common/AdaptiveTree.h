@@ -451,7 +451,6 @@ public:
   std::string manifest_url_;
   std::string base_url_;
   std::string effective_url_;
-  std::string base_domain_;
   std::string update_parameter_;
   std::string etag_;
   std::string last_modified_;
@@ -545,7 +544,7 @@ public:
   }
 
 protected:
-  virtual bool download(const char* url,
+  virtual bool download(const std::string& url,
                         const std::map<std::string, std::string>& manifestHeaders,
                         void* opaque = nullptr,
                         bool isManifest = true);

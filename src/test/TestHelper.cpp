@@ -26,7 +26,7 @@ void SetFileName(std::string& file, std::string name)
   file = GetEnv("DATADIR") + "/" + name;
 }
 
-bool adaptive::AdaptiveTree::download(const char* url,
+bool adaptive::AdaptiveTree::download(const std::string& url,
                                       const std::map<std::string, std::string>& manifestHeaders,
                                       void* opaque,
                                       bool isManifest)
@@ -66,12 +66,12 @@ bool TestAdaptiveStream::download_segment()
     return false;
   testHelper::downloadList.push_back(download_url_);
 
-  return download(download_url_.c_str(), download_headers_, nullptr);
+  return download(download_url_, download_headers_, nullptr);
 }
 
-bool TestAdaptiveStream::download(const char* url,
-  const std::map<std::string, std::string>& mediaHeaders,
-  std::string* lockfreeBuffer)
+bool TestAdaptiveStream::download(const std::string& url,
+                                  const std::map<std::string, std::string>& mediaHeaders,
+                                  std::string* lockfreeBuffer)
 {
   size_t nbRead = ~0UL;
   std::stringstream ss("Sixteen bytes!!!");

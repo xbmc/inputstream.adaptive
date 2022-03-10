@@ -10,6 +10,7 @@
 
 #include "../oscompat.h"
 #include "../utils/StringUtils.h"
+#include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
 #include "../utils/log.h"
 #include "PRProtectionParser.h"
@@ -79,7 +80,6 @@ static uint8_t GetChannels(const char** attr)
 
 static uint64_t ParseSegmentTemplate(const char** attr,
                                          std::string baseURL,
-                                         std::string baseDomain,
                                          DASHTree::SegmentTemplate& tpl,
                                          uint64_t startNumber)
 {
@@ -101,25 +101,14 @@ static uint64_t ParseSegmentTemplate(const char** attr,
   if (!tpl.timescale) // if not specified timescale defaults to seconds
     tpl.timescale = 1;
 
-  if (tpl.media.compare(0, 7, "http://") != 0 && tpl.media.compare(0, 8, "https://") != 0)
+  if (!URL::IsUrlAbsolute(tpl.media))
   {
-    if (!tpl.media.empty() && tpl.media[0] == '/')
-      tpl.media = baseDomain + tpl.media;
-    else if (!baseURL.empty() && baseURL.back() != '/')
-      tpl.media = baseURL + '/' + tpl.media;
-    else
-      tpl.media = baseURL + tpl.media;
+    tpl.media = URL::Join(baseURL, tpl.media);
   }
 
-  if (!tpl.initialization.empty() && tpl.initialization.compare(0, 7, "http://") != 0 &&
-      tpl.initialization.compare(0, 8, "https://") != 0)
+  if (!URL::IsUrlAbsolute(tpl.initialization))
   {
-    if (!tpl.initialization.empty() && tpl.initialization[0] == '/')
-      tpl.initialization = baseDomain + tpl.initialization;
-    else if (!baseURL.empty() && baseURL.back() != '/')
-      tpl.initialization = baseURL + '/' + tpl.initialization;
-    else
-      tpl.initialization = baseURL + tpl.initialization;
+    tpl.initialization = URL::Join(baseURL, tpl.initialization);
   }
   return startNumber;
 }
@@ -464,7 +453,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
 
             dash->current_representation_->startNumber_ = ParseSegmentTemplate(
-                attr, dash->current_representation_->base_url_, dash->base_domain_,
+                attr, dash->current_representation_->base_url_,
                 dash->current_representation_->segtpl_, dash->current_adaptationset_->startNumber_);
             ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
                                 dash->current_representation_->id,
@@ -605,8 +594,8 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         else if (strcmp(el, "SegmentTemplate") == 0)
         {
           dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(
-              attr, dash->current_adaptationset_->base_url_, dash->base_domain_,
-              dash->current_adaptationset_->segtpl_, dash->current_adaptationset_->startNumber_);
+              attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_,
+              dash->current_adaptationset_->startNumber_);
           dash->current_adaptationset_->timescale_ =
               dash->current_adaptationset_->segtpl_.timescale;
           dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
@@ -959,8 +948,8 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       else if (strcmp(el, "SegmentTemplate") == 0)
       {
         dash->current_period_->startNumber_ = ParseSegmentTemplate(
-            attr, dash->current_period_->base_url_, dash->base_domain_,
-            dash->current_period_->segtpl_, dash->current_period_->startNumber_);
+            attr, dash->current_period_->base_url_, dash->current_period_->segtpl_,
+            dash->current_period_->startNumber_);
         dash->current_period_->timescale_ = dash->current_period_->segtpl_.timescale;
         dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
       }
@@ -1112,13 +1101,9 @@ static void XMLCALL end(void* data, const char* el)
                      (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
                 dash->strXMLText_.erase(dash->strXMLText_.begin());
 
-              std::string url;
-              if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
-                  dash->strXMLText_.compare(0, 7, "http://") == 0 ||
-                  dash->strXMLText_.compare(0, 8, "https://") == 0)
-                url = dash->strXMLText_;
-              else
-                url = dash->current_adaptationset_->base_url_ + dash->strXMLText_;
+              std::string url{dash->strXMLText_};
+              if (!URL::IsUrlAbsolute(url) && !URL::IsUrlRelative(url))
+                url = URL::Join(dash->current_adaptationset_->base_url_, url);
 
               dash->current_representation_->base_url_ = url;
 
@@ -1126,12 +1111,14 @@ static void XMLCALL end(void* data, const char* el)
               {
                 if (dash->current_representation_->flags_ &
                     AdaptiveTree::Representation::INITIALIZATION)
+                {
                   dash->current_representation_->url_ =
-                      url + dash->current_representation_->url_.substr(
-                                dash->current_adaptationset_->base_url_.size());
+                      URL::Join(url, dash->current_representation_->url_.substr(
+                                          dash->current_adaptationset_->base_url_.size()));
+                }
                 dash->current_representation_->segtpl_.media =
-                    url + dash->current_representation_->segtpl_.media.substr(
-                              dash->current_adaptationset_->base_url_.size());
+                    URL::Join(url, dash->current_representation_->segtpl_.media.substr(
+                                        dash->current_adaptationset_->base_url_.size()));
               }
               else
                 dash->current_representation_->url_ = url;
@@ -1336,12 +1323,11 @@ static void XMLCALL end(void* data, const char* el)
         {
           if (strcmp(el, "BaseURL") == 0)
           {
-            if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
-                dash->strXMLText_.compare(0, 7, "http://") == 0 ||
-                dash->strXMLText_.compare(0, 8, "https://") == 0)
+            if (URL::IsUrlAbsolute(dash->strXMLText_) || URL::IsUrlRelative(dash->strXMLText_))
                 dash->current_adaptationset_->base_url_ = dash->strXMLText_;
             else
-                dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_ + dash->strXMLText_;
+              dash->current_adaptationset_->base_url_ =
+                  URL::Join(dash->current_period_->base_url_, dash->strXMLText_);
             dash->currentNode_ &= ~MPDNODE_BASEURL;
           }
         }
@@ -1478,13 +1464,18 @@ static void XMLCALL end(void* data, const char* el)
         {
           while (dash->strXMLText_.size() &&
                  (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
+          {
             dash->strXMLText_.erase(dash->strXMLText_.begin());
-          if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
-              dash->strXMLText_.compare(0, 7, "http://") == 0 ||
-              dash->strXMLText_.compare(0, 8, "https://") == 0)
+          }
+          if (URL::IsUrlAbsolute(dash->strXMLText_) || URL::IsUrlRelative(dash->strXMLText_))
+          {
             dash->current_period_->base_url_ = dash->strXMLText_;
+          }
           else
-            dash->current_period_->base_url_ += dash->strXMLText_;
+          {
+            dash->current_period_->base_url_ =
+                URL::Join(dash->current_period_->base_url_, dash->strXMLText_);
+          }
           dash->currentNode_ &= ~MPDNODE_BASEURL;
         }
       }
@@ -1511,13 +1502,17 @@ static void XMLCALL end(void* data, const char* el)
       {
         while (dash->strXMLText_.size() &&
                (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
+        {
           dash->strXMLText_.erase(dash->strXMLText_.begin());
-        if (dash->strXMLText_.compare(0, 1, "/") == 0 ||
-            dash->strXMLText_.compare(0, 7, "http://") == 0 ||
-            dash->strXMLText_.compare(0, 8, "https://") == 0)
+        }
+        if (URL::IsUrlAbsolute(dash->strXMLText_) || URL::IsUrlRelative(dash->strXMLText_))
+        {
           dash->mpd_url_ = dash->strXMLText_;
+        }
         else
-          dash->mpd_url_ += dash->strXMLText_;
+        {
+          dash->mpd_url_ = URL::Join(dash->mpd_url_, dash->strXMLText_);
+        }
         dash->currentNode_ &= ~MPDNODE_BASEURL;
       }
     }
@@ -1589,7 +1584,7 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
 
   PrepareManifestUrl(url, manifestUpdateParam);
   additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-  bool ret = download(manifest_url_.c_str(), additionalHeaders) && !periods_.empty();
+  bool ret = download(manifest_url_, additionalHeaders) && !periods_.empty();
 
   XML_ParserFree(parser_);
   parser_ = 0;
@@ -1635,40 +1630,44 @@ void DASHTree::RefreshLiveSegments()
 {
   if (has_timeshift_buffer_ && !update_parameter_.empty())
   {
-    std::string replaced;
     uint32_t numReplace = ~0U;
     uint64_t nextStartNumber(~0ULL);
-    std::string::size_type update_parameter_pos = update_parameter_.find("$START_NUMBER$");
 
-    if (~update_parameter_pos)
+    std::string manifestUrlUpd{manifest_url_};
+    bool urlHaveStartNumber{update_parameter_.find("$START_NUMBER$") != std::string::npos};
+
+    if (urlHaveStartNumber)
     {
-      for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep;
-           ++bp)
-        for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()),
-             ea((*bp)->adaptationSets_.end());
-             ba != ea; ++ba)
-          for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()),
-               er((*ba)->representations_.end());
-               br != er; ++br)
+      for (auto period : periods_)
+      {
+        if (!period)
+          continue;
+        for (auto adaptSet : period->adaptationSets_)
+        {
+          if (!adaptSet)
+            continue;
+          for (auto repr : adaptSet->representations_)
           {
-            if ((*br)->startNumber_ + (*br)->segments_.size() < nextStartNumber)
-              nextStartNumber = (*br)->startNumber_ + (*br)->segments_.size();
-            uint32_t replaceable = (*br)->getCurrentSegmentPos() + 1;
+            if (!repr)
+              continue;
+
+            if (repr->startNumber_ + repr->segments_.size() < nextStartNumber)
+              nextStartNumber = repr->startNumber_ + repr->segments_.size();
+
+            uint32_t replaceable = repr->getCurrentSegmentPos() + 1;
             if (!replaceable)
-              replaceable = (*br)->segments_.size();
+              replaceable = repr->segments_.size();
+
             if (replaceable < numReplace)
               numReplace = replaceable;
           }
+        }
+      }
       LOG::LogF(LOGDEBUG, "DASH Update: numReplace: %u, nextStartNumber: %u", numReplace,
                 nextStartNumber);
 
-      if (update_parameter_[0] == '&' && manifest_url_.find("?") == std::string::npos)
-        update_parameter_[0] = '?';
-
-      replaced = update_parameter_;
-      char buf[32];
-      sprintf(buf, "%llu", nextStartNumber);
-      replaced.replace(update_parameter_pos, 14, buf);
+      URL::AppendParameters(manifestUrlUpd, update_parameter_);
+      STRING::ReplaceFirst(manifestUrlUpd, "$START_NUMBER$", std::to_string(nextStartNumber));
     }
 
     DASHTree updateTree(m_kodiProps);
@@ -1677,7 +1676,7 @@ void DASHTree::RefreshLiveSegments()
     //Location element should be used on updates
     updateTree.location_ = location_;
 
-    if (!~update_parameter_pos)
+    if (!urlHaveStartNumber)
     {
       if (!etag_.empty())
         updateTree.m_streamHeaders["If-None-Match"] = "\"" + etag_ + "\"";
@@ -1685,14 +1684,14 @@ void DASHTree::RefreshLiveSegments()
         updateTree.m_streamHeaders["If-Modified-Since"] = last_modified_;
     }
 
-    if (updateTree.open(manifest_url_ + replaced, ""))
+    if (updateTree.open(manifestUrlUpd, ""))
     {
       etag_ = updateTree.etag_;
       last_modified_ = updateTree.last_modified_;
       location_ = updateTree.location_;
 
       //Youtube returns last smallest number in case the requested data is not available
-      if (~update_parameter_pos && updateTree.firstStartNumber_ < nextStartNumber)
+      if (urlHaveStartNumber && updateTree.firstStartNumber_ < nextStartNumber)
         return;
 
       std::vector<Period*>::const_iterator bpd(periods_.begin()), epd(periods_.end());
@@ -1726,7 +1725,7 @@ void DASHTree::RefreshLiveSegments()
                 ;
               if (brd != erd && !(*br)->segments_.empty())
               {
-                if (~update_parameter_pos) // partitial update
+                if (urlHaveStartNumber) // partitial update
                 {
                   //Here we go -> Insert new segments
                   uint64_t ptsOffset = (*brd)->nextPts_ - (*br)->segments_[0]->startPTS_;

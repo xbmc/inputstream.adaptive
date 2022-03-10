@@ -233,8 +233,7 @@ TEST_F(HLSTreeTest, ParseKeyUriRelative)
 
   std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
   EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
-  EXPECT_EQ(pssh_url,
-            "https://foo.bar/hls/video/stream_name/../../key/key.php?stream=stream_name");
+  EXPECT_EQ(pssh_url, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
@@ -256,8 +255,7 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
 
   std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
   EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
-  EXPECT_EQ(pssh_url,
-            "https://foo.bar/hls/video/stream_name/../../key/key.php?stream=stream_name");
+  EXPECT_EQ(pssh_url, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, PtsSetInMultiPeriod)

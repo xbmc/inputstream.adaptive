@@ -72,7 +72,7 @@ namespace adaptive
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
     bool StreamChanged() { return stream_changed_; }
   protected:
-    virtual bool download(const char* url,
+    virtual bool download(const std::string& url,
                           const std::map<std::string, std::string>& mediaHeaders,
                           std::string* lockfreeBuffer)
     {

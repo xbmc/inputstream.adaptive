@@ -8,12 +8,15 @@
 
 #include "AdaptiveTree.h"
 
+#include "../utils/UrlUtils.h"
 #include "../utils/log.h"
 
 #include <algorithm>
 #include <chrono>
 #include <stdlib.h>
 #include <string.h>
+
+using namespace UTILS;
 
 namespace adaptive
 {
@@ -314,30 +317,13 @@ namespace adaptive
 
   bool AdaptiveTree::PreparePaths(const std::string &url)
   {
-    manifest_url_ = url;
-
-    size_t paramPos = url.find('?');
-    base_url_ = (paramPos == std::string::npos) ? url : url.substr(0, paramPos);
-
-    paramPos = base_url_.find_last_of('/', base_url_.length());
-    if (paramPos == std::string::npos)
+    if (!URL::IsValidUrl(url))
     {
-      LOG::LogF(LOGERROR, "Invalid url: / expected (%s)", url.c_str());
+      LOG::LogF(LOGERROR, "URL not valid (%s)", url.c_str());
       return false;
     }
-    base_url_.resize(paramPos + 1);
-
-    paramPos = base_url_.find("://");
-    if (paramPos != std::string::npos)
-    {
-      base_domain_ = base_url_;
-      paramPos = base_domain_.find_first_of('/', paramPos + 3);
-      if (paramPos != std::string::npos)
-        base_domain_.resize(paramPos);
-    }
-    else
-      base_domain_.clear();
-
+    manifest_url_ = url;
+    base_url_ = URL::RemoveParameters(url);
     return true;
   }
 
@@ -347,20 +333,8 @@ namespace adaptive
 
     if (manifestUpdateParam.empty())
     {
-      std::string::size_type repPos = manifest_url_.find("$START_NUMBER$");
-      if (repPos != std::string::npos)
-      {
-        while (repPos && manifest_url_[repPos] != '&' && manifest_url_[repPos] != '?')--repPos;
-        if (repPos)
-        {
-          update_parameter_ = manifest_url_.substr(repPos);
-          manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
-        }
-        else
-        {
-          LOG::LogF(LOGERROR, "Cannot find update parameter delimiter (%s)", manifest_url_.c_str());
-        }
-      }
+      update_parameter_ = URL::GetParametersFromPlaceholder(manifest_url_, "$START_NUMBER$");
+      manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
     }
     else
       update_parameter_ = manifestUpdateParam;
@@ -368,14 +342,10 @@ namespace adaptive
 
   std::string AdaptiveTree::BuildDownloadUrl(const std::string& url) const
   {
-    if (!url.empty())
-    {
-      if (url.front() != '/' && url.find("://") == std::string::npos)
-        return base_url_ + url;
-      else if (url.front() == '/')
-        return base_domain_ + url;
-    }
-    return url;
+    if (URL::IsUrlAbsolute(url))
+      return url;
+
+    return URL::Join(base_url_, url);
   }
 
   void AdaptiveTree::SortTree()

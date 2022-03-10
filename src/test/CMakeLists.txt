@@ -19,6 +19,7 @@ add_executable(${BINARY}
     ../utils/Base64Utils.cpp
     ../utils/PropertiesUtils.cpp
     ../utils/StringUtils.cpp
+    ../utils/UrlUtils.cpp
     ../utils/Utils.cpp
     )
 

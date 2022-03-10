@@ -11,6 +11,7 @@
 #include "../Iaes_decrypter.h"
 #include "../utils/Base64Utils.h"
 #include "../utils/StringUtils.h"
+#include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
 #include "../utils/log.h"
 #include "kodi/tools/StringUtils.h"
@@ -102,8 +103,8 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   if (map["METHOD"] == "AES-128" && !map["URI"].empty())
   {
     current_pssh_ = map["URI"];
-    if (current_pssh_[0] != '/' && current_pssh_.find("://") == std::string::npos)
-      current_pssh_ = baseUrl + current_pssh_;
+    if (!URL::IsUrlRelative(current_pssh_) && !URL::IsUrlAbsolute(current_pssh_))
+      current_pssh_ = URL::Join(baseUrl, current_pssh_);
 
     current_iv_ = m_decrypter->convertIV(map["IV"]);
 
@@ -158,7 +159,7 @@ bool HLSTree::open(const std::string& url, const std::string& manifestUpdatePara
 {
   PrepareManifestUrl(url, manifestUpdateParam);
   additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-  if (download(manifest_url_.c_str(), additionalHeaders, &manifest_stream))
+  if (download(manifest_url_, additionalHeaders, &manifest_stream))
     return processManifest(manifest_stream);
   return false;
 }
@@ -399,7 +400,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
     if (rep->flags_ & Representation::DOWNLOADED)
       ;
-    else if (download(rep->source_url_.c_str(), m_streamHeaders, &stream, false))
+    else if (download(rep->source_url_, m_streamHeaders, &stream, false))
     {
 #if FILEDEBUG
       FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -426,13 +427,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       segment.startPTS_ = ~0ULL;
       segment.pssh_set_ = 0;
 
-      std::string::size_type paramPos = effective_url_.find('?');
-      base_url =
-          (paramPos == std::string::npos) ? effective_url_ : effective_url_.substr(0, paramPos);
-
-      paramPos = base_url.rfind('/');
-      if (paramPos != std::string::npos)
-        base_url = base_url.substr(0, paramPos + 1);
+      base_url = URL::RemoveParameters(effective_url_);
 
       while (std::getline(stream, line))
       {
@@ -498,8 +493,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           if (!byteRange || rep->url_.empty())
           {
             std::string url;
-            if (line[0] != '/' && line.find("://") == std::string::npos)
-              url = base_url + line;
+            if (!URL::IsUrlRelative(line) && !URL::IsUrlAbsolute(line))
+              url = URL::Join(base_url, line);
             else
               url = line;
             if (!byteRange)
@@ -667,8 +662,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
               delete[] newInitialization.url;
             segmentInitialization = true;
             std::string uri = map["URI"];
-            if (uri[0] != '/' && uri.find("://") == std::string::npos)
-              map_url = base_url + uri;
+            if (!URL::IsUrlRelative(uri) && !URL::IsUrlAbsolute(uri))
+              map_url = URL::Join(base_url, uri);
             else
               map_url = uri;
             newInitialization.url = new char[map_url.size() + 1];
@@ -802,19 +797,14 @@ void HLSTree::OnDataArrived(uint64_t segNum,
         std::vector<std::string> keyParts{StringUtils::Split(m_decrypter->getLicenseKey(), '|')};
         std::string url = pssh.pssh_.c_str();
 
-        if (keyParts.size() > 0 && !keyParts[0].empty())
+        if (keyParts.size() > 0)
         {
-          if (url.find_first_of('?') == std::string::npos)
-            url += "?";
-          else
-            url += "&";
-          url += keyParts[0];
+          URL::AppendParameters(url, keyParts[0]);
         }
         if (keyParts.size() > 1)
           ParseHeaderString(headers, keyParts[1]);
 
-        url = BuildDownloadUrl(url);
-        if (download(url.c_str(), headers, &stream, false))
+        if (download(url, headers, &stream, false))
         {
           pssh.defaultKID_ = stream.str();
         }

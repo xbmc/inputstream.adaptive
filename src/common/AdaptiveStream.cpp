@@ -10,6 +10,7 @@
 
 #include "../oscompat.h"
 #include "../utils/log.h"
+#include "../utils/UrlUtils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -17,6 +18,7 @@
 #include <iostream>
 
 using namespace adaptive;
+using namespace UTILS;
 
 const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
 
@@ -114,7 +116,7 @@ bool AdaptiveStream::download_segment()
   if (download_url_.empty())
     return false;
 
-  return download(download_url_.c_str(), download_headers_, nullptr);
+  return download(download_url_, download_headers_, nullptr);
 }
 
 void AdaptiveStream::worker()
@@ -404,9 +406,10 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
     {
       if (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS)
       {
-        download_url_ = seg->url;
-        if (download_url_.find("://") == std::string::npos)
-          download_url_ = rep->url_ + download_url_;
+        if (URL::IsUrlAbsolute(seg->url))
+          download_url_ = seg->url;
+        else
+          download_url_ = URL::Join(rep->url_, seg->url);
       }
       else
         download_url_ = rep->url_;
@@ -842,10 +845,11 @@ bool AdaptiveStream::ResolveSegmentBase(AdaptiveTree::Representation* rep, bool 
 
     std::string sidxBuffer;
     if (prepareDownload(rep, &seg, segNum) &&
-        download(download_url_.c_str(), download_headers_, &sidxBuffer) &&
-        parseIndexRange(rep, sidxBuffer))
+        download(download_url_, download_headers_, &sidxBuffer) && parseIndexRange(rep, sidxBuffer))
+    {
       const_cast<AdaptiveTree::Representation*>(rep)->flags_ &=
           ~AdaptiveTree::Representation::SEGMENTBASE;
+    }
     else
       return false;
   }
