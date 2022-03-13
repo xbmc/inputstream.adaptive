@@ -45,9 +45,9 @@ public:
   virtual bool download_segment() override;
 
 protected:
-  virtual bool download(const char* url,
-    const std::map<std::string, std::string>& mediaHeaders,
-    std::string* lockfreeBuffer) override;
+  virtual bool download(const std::string& url,
+                        const std::map<std::string, std::string>& mediaHeaders,
+                        std::string* lockfreeBuffer) override;
 
 private:
   DefaultRepresentationChooser* chooser_ = nullptr;

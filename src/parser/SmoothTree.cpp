@@ -9,6 +9,7 @@
 #include "SmoothTree.h"
 
 #include "../oscompat.h"
+#include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
 #include "PRProtectionParser.h"
 
@@ -226,7 +227,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_adaptationset_->segment_durations_.data.reserve(
               atoi((const char*)*(attr + 1)));
         else if (strcmp((const char*)*attr, "Url") == 0)
-          dash->current_adaptationset_->base_url_ = dash->base_url_ + (const char*)*(attr + 1);
+          dash->current_adaptationset_->base_url_ = URL::Join(dash->base_url_, *(attr + 1));
         attr += 2;
       }
       dash->segcount_ = 0;
@@ -356,7 +357,7 @@ bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateP
 
   PrepareManifestUrl(url, manifestUpdateParam);
   additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-  bool ret = download(manifest_url_.c_str(), additionalHeaders);
+  bool ret = download(manifest_url_, additionalHeaders);
 
   XML_ParserFree(parser_);
   parser_ = 0;

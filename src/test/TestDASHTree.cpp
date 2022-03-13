@@ -9,6 +9,7 @@
 #include "TestHelper.h"
 
 #include "../utils/PropertiesUtils.h"
+#include "../utils/UrlUtils.h"
 
 #include <gtest/gtest.h>
 
@@ -122,9 +123,9 @@ TEST_F(DASHTreeTest, CalculateBaseURL)
 
 TEST_F(DASHTreeTest, CalculateBaseDomain)
 {
-  OpenTestFile("mpd/segtpl.mpd", "https://foo.bar/mpd/test.mpd", "");
-
-  EXPECT_EQ(tree->base_domain_, "https://foo.bar");
+  std::string url{"https://foo.bar/mpd/test.mpd"};
+  std::string domainUrl{UTILS::URL::GetDomainUrl(url)};
+  EXPECT_EQ(domainUrl, "https://foo.bar");
 }
 
 TEST_F(DASHTreeTest, CalculateBaseUrlFromRedirect)

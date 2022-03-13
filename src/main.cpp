@@ -259,7 +259,7 @@ protected:
 Kodi Streams implementation
 ********************************************************/
 
-bool adaptive::AdaptiveTree::download(const char* url,
+bool adaptive::AdaptiveTree::download(const std::string& url,
                                       const std::map<std::string, std::string>& manifestHeaders,
                                       void* opaque,
                                       bool isManifest)
@@ -279,7 +279,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
   if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
   {
-    LOG::Log(LOGERROR, "Download failed: %s", url);
+    LOG::Log(LOGERROR, "Download failed: %s", url.c_str());
     return false;
   }
 
@@ -311,7 +311,7 @@ bool adaptive::AdaptiveTree::download(const char* url,
   return nbRead == 0;
 }
 
-bool KodiAdaptiveStream::download(const char* url,
+bool KodiAdaptiveStream::download(const std::string& url,
                                   const std::map<std::string, std::string>& mediaHeaders,
                                   std::string* lockfreeBuffer)
 {
@@ -343,7 +343,7 @@ bool KodiAdaptiveStream::download(const char* url,
 
     if (returnCode >= 400)
     {
-      LOG::Log(LOGERROR, "Download failed with error %d: %s", returnCode, url);
+      LOG::Log(LOGERROR, "Download failed with error %d: %s", returnCode, url.c_str());
     }
     else
     {
@@ -360,7 +360,7 @@ bool KodiAdaptiveStream::download(const char* url,
       {
         if (!nbReadOverall)
         {
-          LOG::Log(LOGERROR, "Download doesn't provide any data: %s", url);
+          LOG::Log(LOGERROR, "Download doesn't provide any data: %s", url.c_str());
           return false;
         }
 
@@ -376,12 +376,12 @@ bool KodiAdaptiveStream::download(const char* url,
                                        current_download_speed_ * ratio);
         }
         LOG::Log(LOGDEBUG,
-                 "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s", url,
-                 chooser_->get_download_speed(), current_download_speed_);
+                 "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s",
+                 url.c_str(), chooser_->get_download_speed(), current_download_speed_);
         //pass download speed to
       }
       else
-        LOG::Log(LOGDEBUG, "Download %s cancelled", url);
+        LOG::Log(LOGDEBUG, "Download %s cancelled", url.c_str());
     }
     file.Close();
     return nbRead == 0;

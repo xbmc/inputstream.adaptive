@@ -45,12 +45,6 @@ namespace XBMCFILE
 Kodi Streams implementation
 ********************************************************/
 
-class ATTR_DLL_LOCAL KodiAdaptiveTree : public adaptive::AdaptiveTree
-{
-protected:
-  virtual bool download(const char* url);
-};
-
 class ATTR_DLL_LOCAL KodiAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
@@ -65,7 +59,7 @@ public:
       chooser_(chooser){};
 
 protected:
-  bool download(const char* url,
+  bool download(const std::string& url,
                 const std::map<std::string, std::string>& mediaHeaders,
                 std::string* lockfreeBuffer) override;
   bool parseIndexRange(adaptive::AdaptiveTree::Representation* rep,
