@@ -60,9 +60,6 @@ AdaptiveStream::~AdaptiveStream()
 {
   stop();
   clear();
-
-  for (SEGMENTBUFFER& buf : segment_buffers_)
-    delete[] buf.segment.url;
 }
 
 void AdaptiveStream::Reset()
@@ -268,28 +265,37 @@ bool AdaptiveStream::start_stream()
     {
       if (!last_rep_)
       {
-        std::int32_t pos;
+        std::size_t pos;
         if (tree_.has_timeshift_buffer_ || tree_.available_time_ >= tree_.stream_start_)
-          pos = static_cast<int32_t>(current_rep_->segments_.data.size() - 1);
+        {
+          pos = current_rep_->segments_.data.size() - 1;
+        }
         else
         {
-          pos = static_cast<int32_t>(
+          pos = static_cast<size_t>(
               ((tree_.stream_start_ - tree_.available_time_) * current_rep_->timescale_) /
               current_rep_->duration_);
-          if (!pos)
+          if (pos == 0)
             pos = 1;
         }
         uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
                           current_rep_->get_segment(pos - 1)->startPTS_);
-        pos -= static_cast<uint32_t>((tree_.live_delay_ * current_rep_->timescale_) / duration);
-        current_rep_->current_segment_ = current_rep_->get_segment(pos < 0 ? 0 : pos);
+        size_t segmentPos{0};
+        if (pos > (tree_.live_delay_ * current_rep_->timescale_) / duration)
+        {
+          segmentPos = pos - ((tree_.live_delay_ * current_rep_->timescale_) / duration);
+        }
+        current_rep_->current_segment_ = current_rep_->get_segment(segmentPos);
       }
       else // switching streams, align new stream segment no.
       {
-        std::int64_t segmentId = segment_buffers_[0].segment_number;
+        uint64_t segmentId = segment_buffers_[0].segment_number;
         if (segmentId >= current_rep_->startNumber_ + current_rep_->segments_.size())
+        {
           segmentId = current_rep_->startNumber_ + current_rep_->segments_.size() - 1;
-        current_rep_->current_segment_ = current_rep_->get_segment(static_cast<uint32_t>(segmentId - current_rep_->startNumber_));
+        }
+        current_rep_->current_segment_ =
+            current_rep_->get_segment(static_cast<size_t>(segmentId - current_rep_->startNumber_));
       }
     }
     else
@@ -318,7 +324,7 @@ bool AdaptiveStream::start_stream()
     if (available_segment_buffers_)
       std::rotate(segment_buffers_.rend() - (available_segment_buffers_ + 1),
                   segment_buffers_.rend() - available_segment_buffers_, segment_buffers_.rend());
-    segment_buffers_[0].segment.url = nullptr;
+    segment_buffers_[0].segment.url.clear();
     ++available_segment_buffers_;
 
     segment_buffers_[0].segment.Copy(loadingSeg);
@@ -338,9 +344,16 @@ bool AdaptiveStream::start_stream()
     valid_segment_buffers_ = valid_segment_buffers + 1;
   }
 
+  if (!current_rep_->segments_.Get(0))
+  {
+    LOG::LogF(LOGERROR, "Segment at position 0 not found from representation id: %s",
+      current_rep_->id.c_str());
+    return false;
+  }
+
   currentPTSOffset_ = (next_segment->startPTS_ * current_rep_->timescale_ext_) /
     current_rep_->timescale_int_;
-  absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
+  absolutePTSOffset_ = (current_rep_->segments_.Get(0)->startPTS_ * current_rep_->timescale_ext_) /
     current_rep_->timescale_int_;
 
   if (state_ == RUNNING)
@@ -512,10 +525,15 @@ bool AdaptiveStream::ensureSegment()
       }
     }
     if (valid_segment_buffers_)
-      nextSegment = ~segment_buffers_[0].segment_number
-                        ? current_rep_->get_segment(static_cast<uint32_t>(
-                              segment_buffers_[0].segment_number - current_rep_->startNumber_))
-                        : nullptr;
+    {
+      if (~segment_buffers_[0].segment_number)
+      {
+        nextSegment = current_rep_->get_segment(
+            static_cast<size_t>(segment_buffers_[0].segment_number - current_rep_->startNumber_));
+      }
+      else
+        nextSegment = nullptr;
+    }
     else
       nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
 
@@ -532,8 +550,9 @@ bool AdaptiveStream::ensureSegment()
       currentPTSOffset_ =
         (nextSegment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
 
-      absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
-        current_rep_->timescale_int_;
+      absolutePTSOffset_ =
+          (current_rep_->segments_.Get(0)->startPTS_ * current_rep_->timescale_ext_) /
+          current_rep_->timescale_int_;
 
       current_rep_->current_segment_ = nextSegment;
       ResetSegment(nextSegment);
@@ -541,8 +560,8 @@ bool AdaptiveStream::ensureSegment()
       if (observer_ && nextSegment != &current_rep_->initialization_ && ~nextSegment->startPTS_)
         observer_->OnSegmentChanged(this);
 
-      uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
-      uint64_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
+      size_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
+      size_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
       AdaptiveTree::Representation* newRep;
       bool lastSeg =
           (current_period_ != tree_.periods_.back() &&
@@ -574,15 +593,14 @@ bool AdaptiveStream::ensureSegment()
           current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_);
       }
 
-      uint64_t nextsegmentPos = nextsegno - newRep->startNumber_;
+      size_t nextsegmentPos = nextsegno - newRep->startNumber_;
       if (nextsegmentPos + available_segment_buffers_ >= newRep->segments_.size())
       {
         nextsegmentPos = newRep->segments_.size() - available_segment_buffers_;
       }
       for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_; ++updPos)
       {
-        const AdaptiveTree::Segment* futureSegment =
-            newRep->get_segment(static_cast<uint32_t>(nextsegmentPos + updPos));
+        const AdaptiveTree::Segment* futureSegment = newRep->get_segment(nextsegmentPos + updPos);
 
         if (futureSegment)
         {
@@ -719,14 +737,15 @@ uint64_t AdaptiveStream::getMaxTimeMs()
   if (current_rep_->segments_.empty())
     return 0;
 
-  uint64_t duration =
-      current_rep_->segments_.size() > 1
-          ? current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ -
-                current_rep_->segments_[current_rep_->segments_.size() - 2]->startPTS_
-          : 0;
+  uint64_t duration{0};
+  if (current_rep_->segments_.size() > 1)
+  {
+    duration = current_rep_->segments_.Get(current_rep_->segments_.size() - 1)->startPTS_ -
+               current_rep_->segments_.Get(current_rep_->segments_.size() - 2)->startPTS_;
+  }
 
   uint64_t timeExt =
-      ((current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ + duration) *
+      ((current_rep_->segments_.Get(current_rep_->segments_.size() - 1)->startPTS_ + duration) *
        current_rep_->timescale_ext_) /
       current_rep_->timescale_int_;
 
@@ -757,7 +776,14 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
 
   if (choosen_seg == current_rep_->segments_.data.size())
   {
-    if (sec_in_ts < current_rep_->segments_[0]->startPTS_ + current_rep_->duration_)
+    if (!current_rep_->segments_.Get(0))
+    {
+      LOG::LogF(LOGERROR, "Segment at position 0 not found from representation id: %s",
+        current_rep_->id.c_str());
+      return false;
+    }
+
+    if (sec_in_ts < current_rep_->segments_.Get(0)->startPTS_ + current_rep_->duration_)
       --choosen_seg;
     else
       return false;
