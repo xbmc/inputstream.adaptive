@@ -499,8 +499,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
               url = line;
             if (!byteRange)
             {
-              segment.url = new char[url.size() + 1];
-              memcpy((char*)segment.url, url.c_str(), url.size() + 1);
+              segment.url = url;
             }
             else
               rep->url_ = url;
@@ -569,8 +568,13 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         }
         else if (line.compare(0, 21, "#EXT-X-DISCONTINUITY") == 0)
         {
+          if (!newSegments.Get(0))
+          {
+            LOG::LogF(LOGERROR, "Segment at position 0 not found");
+            continue;
+          }
           period->sequence_ = m_discontSeq + discont_count;
-          period->duration_ = newSegments.size() ? pts - newSegments[0]->startPTS_ : 0;
+          period->duration_ = newSegments.size() ? pts - newSegments.Get(0)->startPTS_ : 0;
           if (!byteRange)
             rep->flags_ |= Representation::URLSEGMENTS;
           if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && newSegments.size() &&
@@ -589,8 +593,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           {
             std::swap(rep->initialization_, newInitialization);
             // EXT-X-MAP init url must persist to next period until overrided by new tag
-            newInitialization.url = new char[map_url.size() + 1];
-            memcpy((char*)newInitialization.url, map_url.c_str(), map_url.size() + 1);
+            newInitialization.url = map_url;
           }
           if (periods_.size() == ++discont_count)
           {
@@ -657,17 +660,13 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           {
             if (!map["BYTERANGE"].empty())
               continue;
-            // delete init url if persisted from previous period
-            if (hasMap)
-              delete[] newInitialization.url;
             segmentInitialization = true;
             std::string uri = map["URI"];
             if (!URL::IsUrlRelative(uri) && !URL::IsUrlAbsolute(uri))
               map_url = URL::Join(base_url, uri);
             else
               map_url = uri;
-            newInitialization.url = new char[map_url.size() + 1];
-            memcpy((char*)newInitialization.url, map_url.c_str(), map_url.size() + 1);
+            newInitialization.url = map_url;
             newInitialization.range_begin_ = ~0ULL;
             newInitialization.startPTS_ = ~0ULL;
             newInitialization.pssh_set_ = 0;
@@ -705,7 +704,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       if (segmentInitialization)
         std::swap(rep->initialization_, newInitialization);
 
-      rep->duration_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) : 0;
+      rep->duration_ = rep->segments_.Get(0) ? (pts - rep->segments_.Get(0)->startPTS_) : 0;
 
       period->sequence_ = m_discontSeq + discont_count;
       if (discont_count || m_hasDiscontSeq)

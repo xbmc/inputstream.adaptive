@@ -207,8 +207,8 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
   EXPECT_EQ(segments.size(), 13);
-  EXPECT_EQ(segments[0]->range_end_, 487050);
-  EXPECT_EQ(segments[12]->range_end_, 487062);
+  EXPECT_EQ(segments.Get(0)->range_end_, 487050);
+  EXPECT_EQ(segments.Get(12)->range_end_, 487062);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
@@ -221,8 +221,8 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
   EXPECT_EQ(segments.size(), 451);
-  EXPECT_EQ(segments[0]->range_end_, 404305525);
-  EXPECT_EQ(segments[450]->range_end_, 404305975);
+  EXPECT_EQ(segments.Get(0)->range_end_, 404305525);
+  EXPECT_EQ(segments.Get(450)->range_end_, 404305975);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
@@ -235,8 +235,8 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
   EXPECT_EQ(segments.size(), 31);
-  EXPECT_EQ(segments[0]->range_end_, 603272);
-  EXPECT_EQ(segments[30]->range_end_, 603302);
+  EXPECT_EQ(segments.Get(0)->range_end_, 603272);
+  EXPECT_EQ(segments.Get(30)->range_end_, 603302);
 }
 
 TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
@@ -453,22 +453,22 @@ TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.timescale, 120000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_[0]->range_end_, 3);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_.Get(0)->range_end_, 3);
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.media, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.timescale, 90000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segments_[0]->range_end_, 5);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segments_.Get(0)->range_end_, 5);
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.timescale, 48000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segments_[0]->range_end_, 1);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segments_.Get(0)->range_end_, 1);
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/abc_aac1init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.media, "https://foo.bar/dash/abc2_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.timescale, 68000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segments_[0]->range_end_, 5);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segments_.Get(0)->range_end_, 5);
 }
 
 TEST_F(DASHTreeTest, CalculateRedirectSegTpl)

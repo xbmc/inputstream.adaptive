@@ -29,32 +29,54 @@ namespace adaptive
 template<typename T>
 struct ATTR_DLL_LOCAL SPINCACHE
 {
-  SPINCACHE() :basePos(0) {};
-
-  size_t basePos;
-
-  const T *operator[](uint32_t pos) const
+  /*! \brief Get the <T> value pointer from the specified position
+   *  \param pos The position of <T>
+   *  \return <T> value pointer, otherwise nullptr if not found
+   */
+  const T* Get(size_t pos) const
   {
     if (!~pos)
-      return 0;
+      return nullptr;
     size_t realPos = basePos + pos;
     if (realPos >= data.size())
     {
       realPos -= data.size();
       if (realPos == basePos)
-        return 0;
+        return nullptr;
     }
     return &data[realPos];
-  };
+  }
 
-  uint32_t pos(const T* elem) const
+  /*! \brief Get the <T> value pointer from the specified position
+   *  \param pos The position of <T>
+   *  \return <T> value pointer, otherwise nullptr if not found
+   */
+  T* Get(size_t pos)
+  {
+    if (!~pos)
+      return nullptr;
+    size_t realPos = basePos + pos;
+    if (realPos >= data.size())
+    {
+      realPos -= data.size();
+      if (realPos == basePos)
+        return nullptr;
+    }
+    return &data[realPos];
+  }
+
+  /*! \brief Get index position of <T> value pointer
+   *  \param elem The <T> pointer to get the position
+   *  \return The index position
+   */
+  const size_t GetPosition(const T* elem) const
   {
     size_t realPos = elem - &data[0];
     if (realPos < basePos)
       realPos += data.size() - basePos;
     else
       realPos -= basePos;
-    return static_cast<std::uint32_t>(realPos);
+    return realPos;
   };
 
   void insert(const T &elem)
@@ -81,6 +103,7 @@ struct ATTR_DLL_LOCAL SPINCACHE
 
   size_t size() const { return data.size(); };
 
+  size_t basePos{0};
   std::vector<T> data;
 };
 
@@ -130,7 +153,7 @@ public:
     void Copy(const Segment* src);
     uint64_t range_begin_ = 0; //Either byterange start or timestamp or ~0
     uint64_t range_end_ = 0; //Either byterange end or sequence_id if range_begin is ~0
-    const char *url = nullptr;
+    std::string url;
     uint64_t startPTS_ = 0;
     uint64_t m_duration = 0; // If available gives the media duration of a segment (depends on type of stream e.g. HLS)
     uint16_t pssh_set_ = 0;
@@ -151,18 +174,9 @@ public:
       containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), ptsOffset_(0), nextPts_(0), duration_(0), timescale_(0), current_segment_(nullptr)
     {
       initialization_.range_begin_ = initialization_.range_end_ = ~0ULL;
-      initialization_.url = nullptr;
     };
     void CopyBasicData(Representation* src);
-    ~Representation() {
-      if (flags_ & Representation::URLSEGMENTS)
-      {
-        for (std::vector<Segment>::iterator bs(segments_.data.begin()), es(segments_.data.end()); bs != es; ++bs)
-          delete[] bs->url;
-        if (flags_ & Representation::INITIALIZATION)
-          delete[]initialization_.url;
-      }
-    };
+    ~Representation() {};
     std::string url_;
     std::string id;
     std::string codecs_;
@@ -214,24 +228,23 @@ public:
     std::chrono::time_point<std::chrono::system_clock> repLastUpdated_;
     const Segment *current_segment_;
     const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
-    const Segment *get_next_segment(const Segment *seg)const
+    const Segment* get_next_segment(const Segment* seg) const
     {
       if (!seg || seg == &initialization_)
-        return segments_[0];
-      else if (segments_.pos(seg) + 1 == segments_.data.size())
+        return segments_.Get(0);
+
+      size_t nextPos{segments_.GetPosition(seg) + 1};
+      if (nextPos == segments_.data.size())
         return nullptr;
-      else
-        return segments_[segments_.pos(seg) + 1];
+
+      return segments_.Get(nextPos);
     };
 
-    const Segment *get_segment(uint32_t pos)const
-    {
-      return ~pos ? segments_[pos] : nullptr;
-    };
+    const Segment* get_segment(size_t pos) const { return ~pos ? segments_.Get(pos) : nullptr; };
 
-    const uint32_t get_segment_pos(const Segment *segment)const
+    const size_t get_segment_pos(const Segment* segment) const
     {
-      return segment ? segments_.data.empty() ? 0 : segments_.pos(segment) : ~0;
+      return segment ? segments_.data.empty() ? 0 : segments_.GetPosition(segment) : ~(size_t)0;
     }
 
     const uint16_t get_psshset() const
@@ -239,19 +252,19 @@ public:
       return pssh_set_;
     }
 
-    uint32_t getCurrentSegmentPos() const
+    const size_t getCurrentSegmentPos() const
     {
       return get_segment_pos(current_segment_);
     };
 
-    uint64_t getCurrentSegmentNumber() const
+    const size_t getCurrentSegmentNumber() const
     {
-      return current_segment_ ? static_cast<uint64_t>(get_segment_pos(current_segment_)) + startNumber_ : ~0ULL;
+      return current_segment_ ? get_segment_pos(current_segment_) + startNumber_ : ~(size_t)0;
     };
 
-    uint64_t getSegmentNumber(const Segment *segment) const
+    const size_t getSegmentNumber(const Segment *segment) const
     {
-      return segment ? static_cast<uint64_t>(get_segment_pos(segment)) + startNumber_ : ~0ULL;
+      return segment ? get_segment_pos(segment) + startNumber_ : ~(size_t)0;
     };
 
     void SetScaling()
@@ -302,9 +315,12 @@ public:
     SPINCACHE<uint32_t> segment_durations_;
     SegmentTemplate segtpl_;
 
-    const uint32_t get_segment_duration(uint32_t pos)const
+    const uint32_t get_segment_duration(size_t pos)
     {
-      return *segment_durations_[pos];
+      uint32_t* value = segment_durations_.Get(pos);
+      if (value)
+        return *value;
+      return 0;
     };
 
     static bool compare(const AdaptationSet* a, const AdaptationSet* b)
@@ -458,7 +474,7 @@ public:
   /* XML Parsing*/
   XML_Parser parser_;
   uint32_t currentNode_;
-  uint32_t segcount_;
+  size_t segcount_;
   uint32_t initial_sequence_ = ~0UL;
   uint64_t overallSeconds_, stream_start_, available_time_, base_time_, live_delay_;
   uint64_t minPresentationOffset;

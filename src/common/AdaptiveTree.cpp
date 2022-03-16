@@ -34,14 +34,7 @@ namespace adaptive
 
   void AdaptiveTree::Segment::Copy(const Segment* src)
   {
-    delete[] url, url = nullptr;
     *this = *src;
-    if (src->url)
-    {
-      size_t len = strlen(src->url) + 1;
-      url = new char[len];
-      memcpy((void*)url, src->url, len);
-    }
   }
 
   AdaptiveTree::AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps)
@@ -86,15 +79,14 @@ namespace adaptive
 
   void AdaptiveTree::FreeSegments(Period* period, Representation* rep)
   {
-    for (std::vector<Segment>::iterator bs(rep->segments_.data.begin()), es(rep->segments_.data.end()); bs != es; ++bs)
-    {
-      --period->psshSets_[bs->pssh_set_].use_count_;
-      if (rep->flags_ & Representation::URLSEGMENTS)
-        delete[] bs->url;
+    for (auto& segment : rep->segments_.data) {
+      --period->psshSets_[segment.pssh_set_].use_count_;
     }
-    if ((rep->flags_ & (Representation::INITIALIZATION | Representation::URLSEGMENTS))
-      == (Representation::INITIALIZATION | Representation::URLSEGMENTS))
-      delete[]rep->initialization_.url;
+    if ((rep->flags_ & (Representation::INITIALIZATION | Representation::URLSEGMENTS)) ==
+        (Representation::INITIALIZATION | Representation::URLSEGMENTS))
+    {
+      rep->initialization_.url.clear();
+    }
     rep->segments_.clear();
     rep->current_segment_ = nullptr;
   }
@@ -144,7 +136,14 @@ namespace adaptive
     else if (pos != rep->segments_.data.size() - 1)
       return;
 
-    Segment seg(*(rep->segments_[pos]));
+    if (!rep->segments_.Get(pos))
+    {
+      LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
+                rep->id.c_str());
+      return;
+    }
+
+    Segment segment(*(rep->segments_.Get(pos)));
 
     if (!timestamp)
     {
@@ -155,19 +154,19 @@ namespace adaptive
     else
     {
       LOG::LogF(LOGDEBUG, "Fragment duration from timestamp: ts:%llu, base:%llu, s-pts:%llu",
-                timestamp, base_time_, seg.startPTS_);
-      fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - seg.startPTS_);
+                timestamp, base_time_, segment.startPTS_);
+      fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - segment.startPTS_);
     }
 
-    seg.startPTS_ += fragmentDuration;
-    seg.range_begin_ += fragmentDuration;
-    seg.range_end_ ++;
+    segment.startPTS_ += fragmentDuration;
+    segment.range_begin_ += fragmentDuration;
+    segment.range_end_ ++;
 
-    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu range_end: %llu", seg.startPTS_,
-              seg.range_end_);
+    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu range_end: %llu", segment.startPTS_,
+              segment.range_end_);
 
     for (std::vector<Representation*>::iterator b(adpm->representations_.begin()), e(adpm->representations_.end()); b != e; ++b)
-      (*b)->segments_.insert(seg);
+      (*b)->segments_.insert(segment);
   }
 
   void AdaptiveTree::OnDataArrived(uint64_t segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
