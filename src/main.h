@@ -7,6 +7,7 @@
  */
 
 #include "SSD_dll.h"
+#include "common/AdaptiveDecrypter.h"
 #include "common/AdaptiveStream.h"
 #include "common/AdaptiveTree.h"
 #include "common/RepresentationChooser.h"
@@ -172,9 +173,12 @@ public:
   unsigned int GetStreamCount() const { return m_streams.size(); };
   const char *GetCDMSession(int nSet) { return cdm_sessions_[nSet].cdm_session_str_; };;
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
-  AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor(unsigned int nIndex)const{ return cdm_sessions_[nIndex].single_sample_decryptor_; };
+  Adaptive_CencSingleSampleDecrypter* GetSingleSampleDecryptor(unsigned int nIndex) const
+  {
+    return cdm_sessions_[nIndex].single_sample_decryptor_;
+  };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
-  AP4_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
+  Adaptive_CencSingleSampleDecrypter* GetSingleSampleDecrypter(std::string sessionId);
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
   uint64_t GetTotalTimeMs()const { return adaptiveTree_->overallSeconds_ * 1000; };
   uint64_t GetElapsedTimeMs()const { return elapsed_time_ / 1000; };
@@ -224,7 +228,7 @@ private:
   struct CDMSESSION
   {
     SSD::SSD_DECRYPTER::SSD_CAPS decrypter_caps_;
-    AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
+    Adaptive_CencSingleSampleDecrypter* single_sample_decryptor_;
     const char* cdm_session_str_ = nullptr;
     bool shared_single_sample_decryptor_ = false;
   };
