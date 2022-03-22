@@ -79,9 +79,30 @@ public:
           const std::string& profilePath);
   virtual ~Session();
   bool Initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
-  bool PreInitializeDRM(std::string& challengeB64, std::string& sessionId);
-  bool InitializeDRM();
-  bool InitializePeriod();
+
+  /*! \brief Pre-Initialize the DRM
+   *  \param challengeB64 [OUT] Provide the challenge data as base64
+   *  \param sessionId [OUT] Provide the session ID
+   *  \param isSessionOpened [OUT] Will be true if the DRM session has been opened
+   *  \return True if has success, false otherwise
+   */
+  bool PreInitializeDRM(std::string& challengeB64,
+                        std::string& sessionId,
+                        bool& isSessionOpened);
+
+  /*! \brief Initialize the DRM
+   *  \param addDefaultKID Set True to add the default KID to the first session
+   *  \return True if has success, false otherwise
+   */
+  bool InitializeDRM(bool addDefaultKID = false);
+
+  /*! \brief Initialize adaptive tree period
+   *  \param isSessionOpened Set True to kept and re-use the DRM session opened,
+   *         otherwise False to reinitialize the DRM session
+   *  \return True if has success, false otherwise
+   */
+  bool InitializePeriod(bool isSessionOpened = false);
+
   SampleReader *GetNextSample();
 
   struct STREAM

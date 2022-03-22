@@ -1838,6 +1838,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
   // Preinitialize the DRM, if pre-initialisation data are provided
   std::map<std::string, std::string> additionalHeaders = std::map<std::string, std::string>();
+  bool isSessionOpened{false};
 
   if (!m_kodiProps.m_drmPreInitData.empty())
   {
@@ -1845,16 +1846,13 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     std::string sessionId;
     // Pre-initialize the DRM allow to generate the challenge and session ID data
     // used to make licensed manifest requests (via proxy callback)
-    if (PreInitializeDRM(challengeB64, sessionId))
+    if (PreInitializeDRM(challengeB64, sessionId, isSessionOpened))
     {
-      additionalHeaders["challengeB64"] = challengeB64;
+      additionalHeaders["challengeB64"] = STRING::URLEncode(challengeB64);
       additionalHeaders["sessionId"] = sessionId;
     }
     else
-    {
-      LOG::LogF(LOGERROR, "DRM pre-initialization failed");
       return false;
-    }
   }
 
   // Open manifest file with location redirect support  bool mpdSuccess;
@@ -1879,90 +1877,97 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   if (adaptiveTree_->live_delay_ < 16)
     adaptiveTree_->live_delay_ = 16;
 
-  return InitializePeriod();
+  return InitializePeriod(isSessionOpened);
 }
 
-bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId)
+bool Session::PreInitializeDRM(std::string& challengeB64,
+                               std::string& sessionId,
+                               bool& isSessionOpened)
 {
-    std::string psshData;
-    std::string kidData;
-    // Parse the PSSH/KID data
-    std::string::size_type posSplitter(m_kodiProps.m_drmPreInitData.find("|"));
-    if (posSplitter != std::string::npos)
-    {
-      psshData = m_kodiProps.m_drmPreInitData.substr(0, posSplitter);
-      kidData = m_kodiProps.m_drmPreInitData.substr(posSplitter + 1);
-    }
+  std::string psshData;
+  std::string kidData;
+  // Parse the PSSH/KID data
+  std::string::size_type posSplitter(m_kodiProps.m_drmPreInitData.find("|"));
+  if (posSplitter != std::string::npos)
+  {
+    psshData = m_kodiProps.m_drmPreInitData.substr(0, posSplitter);
+    kidData = m_kodiProps.m_drmPreInitData.substr(posSplitter + 1);
+  }
 
-    if (psshData.empty() || kidData.empty())
+  if (psshData.empty() || kidData.empty())
+  {
+    LOG::LogF(LOGERROR, "Invalid DRM pre-init data, must be as: {PSSH as base64}|{KID as base64}");
+    return false;
+  }
+
+  cdm_sessions_.resize(2);
+  memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
+  // Try to initialize an SingleSampleDecryptor
+  LOG::LogF(LOGDEBUG, "Entering encryption section");
+
+  if (m_kodiProps.m_licenseKey.empty())
+  {
+    LOG::LogF(LOGERROR, "Invalid license_key");
+    return false;
+  }
+
+  if (!decrypter_)
+  {
+    LOG::LogF(LOGERROR, "No decrypter found for encrypted stream");
+    return false;
+  }
+
+  if (!decrypter_->HasCdmSession())
+  {
+    if (!decrypter_->OpenDRMSystem(m_kodiProps.m_licenseKey.c_str(), server_certificate_,
+                                   drmConfig_))
     {
-      LOG::LogF(LOGERROR, "Invalid DRM pre-init data, must be as: {PSSH as base64}|{KID as base64}");
+      LOG::LogF(LOGERROR, "OpenDRMSystem failed");
       return false;
     }
+  }
 
-    cdm_sessions_.resize(2);
-    memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
-    // Try to initialize an SingleSampleDecryptor
-    LOG::LogF(LOGDEBUG, "Entering encryption section");
+  AP4_DataBuffer init_data;
+  init_data.SetBufferSize(1024);
+  const char* optionalKeyParameter(nullptr);
 
-    if (m_kodiProps.m_licenseKey.empty())
-    {
-      LOG::LogF(LOGERROR, "Invalid license_key");
-      return false;
-    }
+  // Set the provided PSSH
+  std::string decPssh{BASE64::Decode(psshData)};
+  init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()), decPssh.size());
 
-    if (!decrypter_)
-    {
-      LOG::LogF(LOGERROR, "No decrypter found for encrypted stream");
-      return false;
-    }
+  // Decode the provided KID
+  std::string decKid{BASE64::Decode(kidData)};
 
-    if (!decrypter_->HasCdmSession())
-    {
-      if (!decrypter_->OpenDRMSystem(m_kodiProps.m_licenseKey.c_str(), server_certificate_,
-                                     drmConfig_))
-      {
-        LOG::LogF(LOGERROR, "OpenDRMSystem failed");
-        return false;
-      }
-    }
+  CDMSESSION& session(cdm_sessions_[1]);
 
-    AP4_DataBuffer init_data;
-    init_data.SetBufferSize(1024);
-    const char* optionalKeyParameter(nullptr);
+  std::string hexKid{StringUtils::ToHexadecimal(decKid)};
+  LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
 
-    // Set the provided PSSH
-    std::string decPssh{BASE64::Decode(psshData)};
-    init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()), decPssh.size());
-
-    // Decode the provided KID
-    std::string decKid{BASE64::Decode(kidData)};
-
-    CDMSESSION& session(cdm_sessions_[1]);
-
-    std::string hexKid{StringUtils::ToHexadecimal(decKid)};
-    LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
-
-    if (decrypter_ && init_data.GetDataSize() >= 4 &&
-        (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(
-             init_data, optionalKeyParameter, decKid, true)) != 0)
-    {
-      session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
-      sessionId = session.cdm_session_str_;
-      challengeB64 = decrypter_->GetChallengeB64Data(session.single_sample_decryptor_);
-    }
-    else
-    {
-      LOG::LogF(LOGERROR, "Initialize failed (SingleSampleDecrypter)");
-      cdm_sessions_[1].single_sample_decryptor_ = nullptr;
-      return false;
-    }
-
+  if (decrypter_ && init_data.GetDataSize() >= 4 &&
+      (session.single_sample_decryptor_ = decrypter_->CreateSingleSampleDecrypter(
+           init_data, optionalKeyParameter, decKid, true)) != 0)
+  {
+    session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
+    sessionId = session.cdm_session_str_;
+    challengeB64 = decrypter_->GetChallengeB64Data(session.single_sample_decryptor_);
+  }
+  else
+  {
+    LOG::LogF(LOGERROR, "Initialize failed (SingleSampleDecrypter)");
+    session.single_sample_decryptor_ = nullptr;
+    return false;
+  }
+#if defined(ANDROID)
+  // On android is not possible add the default KID key
+  // then we cannot re-use same session
   DisposeSampleDecrypter();
+#else
+  isSessionOpened = true;
+#endif
   return true;
 }
 
-bool Session::InitializeDRM()
+bool Session::InitializeDRM(bool addDefaultKID /* = false */)
 {
   bool secure_video_session = false;
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
@@ -2176,6 +2181,15 @@ bool Session::InitializeDRM()
                                ? nullptr
                                : sessionPsshset.defaultKID_.data();
 
+      if (addDefaultKID && ses == 1 && session.single_sample_decryptor_)
+      {
+        // If the CDM has been pre-initialized, on non-android systems
+        // we use the same session opened then we have to add the current KID
+        // because the session has been opened with a different PSSH/KID
+        session.single_sample_decryptor_->AddKeyId(defaultKid);
+        session.single_sample_decryptor_->SetDefaultKeyId(defaultKid);
+      }
+
       if (decrypter_ && !defaultKid.empty())
       {
         std::string hexKid{StringUtils::ToHexadecimal(defaultKid)};
@@ -2238,7 +2252,7 @@ bool Session::InitializeDRM()
   return true;
 }
 
-bool Session::InitializePeriod()
+bool Session::InitializePeriod(bool isSessionOpened /* = false */)
 {
   bool psshChanged = true;
   if (adaptiveTree_->next_period_)
@@ -2268,9 +2282,16 @@ bool Session::InitializePeriod()
     LOG::Log(LOGDEBUG, "Reusing DRM psshSets for new period!");
   else
   {
-    LOG::Log(LOGDEBUG, "New period, dispose sample decrypter and reinitialize");
-    DisposeSampleDecrypter();
-    if (!InitializeDRM())
+    if (isSessionOpened)
+    {
+      LOG::Log(LOGDEBUG, "New period, reinitialize by using same session");
+    }
+    else
+    {
+      LOG::Log(LOGDEBUG, "New period, dispose sample decrypter and reinitialize");
+      DisposeSampleDecrypter();
+    }
+    if (!InitializeDRM(isSessionOpened))
       return false;
   }
 

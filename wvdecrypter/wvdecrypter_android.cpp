@@ -615,7 +615,6 @@ bool WV_CencSingleSampleDecrypter::KeyUpdateRequest(bool waitKeys, bool skipSess
       return false;
     }
   }
-  Log(SSDDEBUG, "License update successful");
 
   if (media_drm_.GetKeySystemType() != PLAYREADY)
   {
@@ -1016,6 +1015,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   if (keyRequestData.size() == 2)
    media_drm_.SaveServiceCertificate();
 
+  Log(SSDDEBUG, "License update successful");
   return true;
 
 SSMFAIL:
@@ -1338,9 +1338,7 @@ public:
       return "";
 
     std::vector<char> challengeData = static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetChallengeData();
-    std::string encChallengeData{BASE64::Encode(challengeData.data(), challengeData.size())};
-    // Keep data URL encoded otherwise will not be sent correctly in the HTTP header
-    return STRING::URLEncode(encChallengeData);
+    return BASE64::Encode(challengeData.data(), challengeData.size());
   }
 
   virtual bool HasCdmSession()
