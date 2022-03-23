@@ -218,6 +218,8 @@ public:
   void ResetVideo();
 
   void SetEncryptionScheme(ENCRYPTION_SCHEME encryptionScheme) override;
+  void SetDefaultKeyId(std::string_view keyId) override;
+  void AddKeyId(std::string_view keyId) override;
 
 private:
   void CheckLicenseRenewal();
@@ -485,7 +487,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
 
   if (session_.empty())
   {
-    LogF(SSDERROR, "License update not successful (no session)");
+    LogF(SSDERROR, "Cannot perform License update, no session available");
     return;
   }
 
@@ -493,14 +495,6 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
     return;
 
   while (challenge_.GetDataSize() > 0 && SendSessionMessage());
-
-  if (keys_.empty())
-  {
-    LogF(SSDERROR, "License update not successful (no keys)");
-    CloseSessionId();
-    return;
-  }
-  Log(SSDDEBUG, "License update successful");
 }
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
@@ -963,11 +957,24 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       LogF(SSDERROR, "Unsupported License request template (response)");
       goto SSMFAIL;
     }
-  } else //its binary - simply push the returned data as update
+  }
+  else // its binary - simply push the returned data as update
+  {
     drm_.GetCdmAdapter()->UpdateSession(++promise_id_, session_.data(), session_.size(),
-      reinterpret_cast<const uint8_t*>(response.data()), response.size());
+                                        reinterpret_cast<const uint8_t*>(response.data()),
+                                        response.size());
+  }
 
+  if (keys_.empty())
+  {
+    LogF(SSDERROR, "License update not successful (no keys)");
+    CloseSessionId();
+    return false;
+  }
+
+  Log(SSDDEBUG, "License update successful");
   return true;
+
 SSMFAIL:
   if (file)
     host->CloseFile(file);
@@ -1453,6 +1460,23 @@ void WV_CencSingleSampleDecrypter::SetEncryptionScheme(ENCRYPTION_SCHEME encrypt
   }
 }
 
+void WV_CencSingleSampleDecrypter::SetDefaultKeyId(std::string_view keyId)
+{
+  m_defaultKeyId = keyId;
+}
+
+void WV_CencSingleSampleDecrypter::AddKeyId(std::string_view keyId)
+{
+  WVSKEY key;
+  key.keyid = keyId;
+  key.status = cdm::KeyStatus::kUsable;
+
+  if (std::find(keys_.begin(), keys_.end(), key) == keys_.end())
+  {
+    keys_.push_back(key);
+  }
+}
+
 /*********************************************************************************************/
 
 class WVDecrypter : public SSD_DECRYPTER
@@ -1536,10 +1560,7 @@ public:
       return "";
 
     AP4_DataBuffer challengeData = static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetChallengeData();
-    std::string encChallengeData{
-        BASE64::Encode(challengeData.GetData(), challengeData.GetDataSize())};
-    // Keep data URL encoded otherwise will not be sent correctly in the HTTP header
-    return STRING::URLEncode(encChallengeData);
+    return BASE64::Encode(challengeData.GetData(), challengeData.GetDataSize());
   }
 
   virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,

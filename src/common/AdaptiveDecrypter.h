@@ -8,6 +8,9 @@
 
 #include <bento4/Ap4.h>
 
+#include <stdexcept>
+#include <string_view>
+
 enum class ENCRYPTION_SCHEME
 {
   NONE,
@@ -26,6 +29,22 @@ public:
     m_SkipBlocks = static_cast<uint32_t>(skipBlocks);
   };
   virtual void SetEncryptionScheme(ENCRYPTION_SCHEME encryptionScheme){};
+
+  /*! \brief Add a Key ID to the current session
+   *  \param keyId The KID
+   */
+  virtual void AddKeyId(std::string_view keyId)
+  {
+    throw std::logic_error("AddKeyId method not implemented.");
+  };
+
+  /*! \brief Set a Key ID as default
+   *  \param keyId The KID
+   */
+  virtual void SetDefaultKeyId(std::string_view keyId)
+  {
+    throw std::logic_error("SetDefaultKeyId method not implemented.");
+  };
 
 protected:
   uint32_t m_CryptBlocks{0};
