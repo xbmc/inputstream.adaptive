@@ -22,6 +22,7 @@
 #include <kodi/addon-instance/Inputstream.h>
 #include <kodi/tools/DllHelper.h>
 
+#include "common/AdaptiveDecrypter.h"
 #include "common/AdaptiveTree.h"
 #include "common/AdaptiveStream.h"
 #include <float.h>
@@ -98,9 +99,28 @@ public:
           const std::string& drm_preinit_data);
   virtual ~Session();
   bool Initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
-  bool PreInitializeDRM(std::string& challengeB64, std::string& sessionId);
-  bool InitializeDRM();
-  bool InitializePeriod();
+
+  /*! \brief Pre-Initialize the DRM
+   *  \param challengeB64 [OUT] Provide the challenge data as base64
+   *  \param sessionId [OUT] Provide the session ID
+   *  \param isSessionOpened [OUT] Will be true if the DRM session has been opened
+   *  \return True if has success, false otherwise
+   */
+  bool PreInitializeDRM(std::string& challengeB64, std::string& sessionId, bool& isSessionOpened);
+
+  /*! \brief Initialize the DRM
+   *  \param addDefaultKID Set True to add the default KID to the first session
+   *  \return True if has success, false otherwise
+   */
+  bool InitializeDRM(bool addDefaultKID = false);
+
+  /*! \brief Initialize adaptive tree period
+   *  \param isSessionOpened Set True to kept and re-use the DRM session opened,
+   *         otherwise False to reinitialize the DRM session
+   *  \return True if has success, false otherwise
+   */
+  bool InitializePeriod(bool isSessionOpened = false);
+
   SampleReader *GetNextSample();
 
   struct STREAM
@@ -136,9 +156,9 @@ public:
   uint8_t GetMediaTypeMask() const { return media_type_mask_; };
   std::uint16_t GetVideoWidth()const;
   std::uint16_t GetVideoHeight()const;
-  AP4_CencSingleSampleDecrypter * GetSingleSampleDecryptor(unsigned int nIndex)const{ return cdm_sessions_[nIndex].single_sample_decryptor_; };
+  Adaptive_CencSingleSampleDecrypter * GetSingleSampleDecryptor(unsigned int nIndex)const{ return cdm_sessions_[nIndex].single_sample_decryptor_; };
   SSD::SSD_DECRYPTER *GetDecrypter() { return decrypter_; };
-  AP4_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
+  Adaptive_CencSingleSampleDecrypter *GetSingleSampleDecrypter(std::string sessionId);
   const SSD::SSD_DECRYPTER::SSD_CAPS &GetDecrypterCaps(unsigned int nIndex) const{ return cdm_sessions_[nIndex].decrypter_caps_; };
   uint64_t GetTotalTimeMs()const { return adaptiveTree_->overallSeconds_ * 1000; };
   uint64_t GetElapsedTimeMs()const { return elapsed_time_ / 1000; };
@@ -190,7 +210,7 @@ private:
   struct CDMSESSION
   {
     SSD::SSD_DECRYPTER::SSD_CAPS decrypter_caps_;
-    AP4_CencSingleSampleDecrypter *single_sample_decryptor_;
+    Adaptive_CencSingleSampleDecrypter *single_sample_decryptor_;
     const char* cdm_session_str_ = nullptr;
     bool shared_single_sample_decryptor_ = false;
   };

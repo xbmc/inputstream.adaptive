@@ -17,6 +17,7 @@
 */
 
 #include "media/NdkMediaDrm.h"
+#include "../src/common/AdaptiveDecrypter.h"
 #include "../src/helpers.h"
 #include "../src/SSD_dll.h"
 #include "../src/md5.h"
@@ -165,7 +166,7 @@ WV_DRM::~WV_DRM()
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
-class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
+class WV_CencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter
 {
 public:
   // methods
@@ -266,15 +267,17 @@ void MediaDrmEventListener(AMediaDrm *media_drm, const AMediaDrmSessionId *sessi
 |   WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
 
-WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t* defaultKeyId)
-  : AP4_CencSingleSampleDecrypter(0)
-  , media_drm_(drm)
-  , provisionRequested(false)
-  , keyUpdateRequested(false)
-  , key_request_(nullptr)
-  , key_request_size_(0)
-  , hdcp_limit_(0)
-  , resolution_limit_(0)
+WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
+                                                           AP4_DataBuffer& pssh,
+                                                           const char* optionalKeyParameter,
+                                                           const uint8_t* defaultKeyId)
+  : media_drm_(drm),
+    provisionRequested(false),
+    keyUpdateRequested(false),
+    key_request_(nullptr),
+    key_request_size_(0),
+    hdcp_limit_(0),
+    resolution_limit_(0)
 {
   SetParentIsOwner(false);
 
@@ -996,7 +999,7 @@ public:
     return cdmsession_->GetMediaDrm();
   }
 
-  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid) override
+  virtual Adaptive_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid) override
   {
     WV_CencSingleSampleDecrypter *decrypter = new WV_CencSingleSampleDecrypter(*cdmsession_, pssh, optionalKeyParameter, defaultkeyid);
     if (!decrypter->GetSessionId())
@@ -1007,13 +1010,13 @@ public:
     return decrypter;
   }
 
-  virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) override
+  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override
   {
     if (decrypter)
       delete static_cast<WV_CencSingleSampleDecrypter*>(decrypter);
   }
 
-  virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) override
+  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) override
   {
     if (decrypter)
       static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetCapabilities(keyid,media,caps);
@@ -1021,14 +1024,14 @@ public:
       caps = { 0, 0, 0};
   }
 
-  virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
+  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
   {
     if (decrypter)
       return static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->HasLicenseKey(keyid);
     return false;
   }
 
-  virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
+  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
   {
     return false;
   }
