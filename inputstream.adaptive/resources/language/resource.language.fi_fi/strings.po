@@ -5,23 +5,23 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2021-12-04 15:13+0000\n"
-"Last-Translator: G0mez82 <jalehto_99@hotmail.com>\n"
+"PO-Revision-Date: 2022-03-24 15:09+0000\n"
+"Last-Translator: Oskari Lavinto <olavinto@protonmail.com>\n"
 "Language-Team: Finnish <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/fi_fi/>\n"
 "Language: fi_fi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.9.1\n"
+"X-Generator: Weblate 4.11.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream asiakasohjelma adaptiivisille suoratoistoille"
+msgstr "InputStream-asiakaspääte mukautuville mediavirroille"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream asiakasohjelma adaptiivisille suoratoistoille"
+msgstr "InputStream-asiakaspääte mukautuville mediavirroille"
 
 msgctxt "#30100"
 msgid "General"
@@ -30,26 +30,26 @@ msgstr "Yleiset"
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr "Min. Kaistanleveys (Bit/s)"
+msgstr "Vähimmäiskaistanleveys (Bit/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr "Max. Kaistanleveys (Bit/s)"
+msgstr "Enimmäiskaistanleveys (Bit/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Salauksen purkaimien polku"
+msgstr "Salauksen purkaimen polku"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Max. Resoluutio yleinen dekooderi"
+msgstr "Yleisen dekoodauksen enimmäistresoluutio"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Suoratoiston valinta"
+msgstr "Mediavirran valinta"
 
 msgctxt "#30112"
 msgid "Media"
@@ -58,12 +58,12 @@ msgstr "Media"
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Max. Resoluutio suojattu dekooderi"
+msgstr "Suojatun dekoodauksen enimmäistresoluutio"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr "Ohita HDCP tila"
+msgstr "Ohita HDCP-tila"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
@@ -72,19 +72,19 @@ msgstr "Älä huomioi näytön resoluutiota"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr "Asiantuntija"
+msgstr "Lisäasetukset"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Ota ennakkojulkaisuominaisuudet käyttöön"
+msgstr "Käytä testiominaisuuksia"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr "Älä käytä suojattua dekooderia, jos mahdollista"
+msgstr "Älä käytä suojattua dekoodausta, jos mahdollista"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr "Max"
+msgstr "Enimmäis"
 
 msgctxt "#30151"
 msgid "480p"
@@ -104,11 +104,11 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr "Valitse suoratoistot automaattisesti"
+msgstr "Valitse mediavirrat automaattisesti"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr "Valitse kaikki suoratoistot manuaalisesti"
+msgstr "Valitse kaikki mediavirrat manuaalisesti"
 
 msgctxt "#30157"
 msgid "All"
@@ -125,7 +125,7 @@ msgstr "Video"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr "Valitse videon suoratoisto manuaalisesti"
+msgstr "Valitse videovirta manuaalisesti"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
