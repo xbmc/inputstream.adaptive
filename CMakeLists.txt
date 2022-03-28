@@ -30,6 +30,7 @@ set(ADP_HEADERS
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h
+	src/common/AdaptiveDecrypter.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
 	src/parser/DASHTree.h

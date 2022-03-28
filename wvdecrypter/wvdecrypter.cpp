@@ -17,6 +17,7 @@
 */
 
 #include "cdm/media/cdm/cdm_adapter.h"
+#include "../src/common/AdaptiveDecrypter.h"
 #include "../src/helpers.h"
 #include "../src/SSD_dll.h"
 #include "../src/md5.h"
@@ -165,7 +166,7 @@ private:
 +---------------------------------------------------------------------*/
 class WV_DRM;
 
-class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
+class WV_CencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter
 {
 public:
   // methods
@@ -215,6 +216,9 @@ public:
   bool OpenVideoDecoder(const SSD_VIDEOINITDATA *initData);
   SSD_DECODE_RETVAL DecodeVideo(void* hostInstance, SSD_SAMPLE *sample, SSD_PICTURE *picture);
   void ResetVideo();
+
+  void SetDefaultKeyId(const std::string& keyId) override;
+  void AddKeyId(const std::string& keyId) override;
 
 private:
   void CheckLicenseRenewal();
@@ -405,19 +409,21 @@ void WV_DRM::OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG 
 |   WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
 
-WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, const uint8_t *defaultKeyId, bool skipSessionMessage)
-  : AP4_CencSingleSampleDecrypter(0)
-  , drm_(drm)
-  , pssh_(pssh)
-  , hdcp_version_(99)
-  , hdcp_limit_(0)
-  , resolution_limit_ (0)
-  , max_subsample_count_decrypt_(0)
-  , max_subsample_count_video_(0)
-  , subsample_buffer_decrypt_(0)
-  , subsample_buffer_video_(0)
-  , promise_id_(1)
-  , drained_(true)
+WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
+                                                           AP4_DataBuffer& pssh,
+                                                           const uint8_t* defaultKeyId,
+                                                           bool skipSessionMessage)
+  : drm_(drm),
+    pssh_(pssh),
+    hdcp_version_(99),
+    hdcp_limit_(0),
+    resolution_limit_(0),
+    max_subsample_count_decrypt_(0),
+    max_subsample_count_video_(0),
+    subsample_buffer_decrypt_(0),
+    subsample_buffer_video_(0),
+    promise_id_(1),
+    drained_(true)
 {
   SetParentIsOwner(false);
 
@@ -476,7 +482,7 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
 
   if (session_.empty())
   {
-    Log(SSD_HOST::LL_ERROR, "License update not successful (no session)");
+    Log(SSD_HOST::LL_ERROR, "Cannot perform License update, no session available");
     return;
   }
 
@@ -484,14 +490,6 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_Data
     return;
 
   while (challenge_.GetDataSize() > 0 && SendSessionMessage());
-
-  if (keys_.empty())
-  {
-    Log(SSD_HOST::LL_ERROR, "License update not successful (no keys)");
-    CloseSessionId();
-    return;
-  }
-  Log(SSD_HOST::LL_DEBUG, "License update successful");
 }
 
 WV_CencSingleSampleDecrypter::~WV_CencSingleSampleDecrypter()
@@ -935,11 +933,24 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
       Log(SSD_HOST::LL_ERROR, "Unsupported License request template (response)");
       goto SSMFAIL;
     }
-  } else //its binary - simply push the returned data as update
+  }
+  else // its binary - simply push the returned data as update
+  {
     drm_.GetCdmAdapter()->UpdateSession(++promise_id_, session_.data(), session_.size(),
-      reinterpret_cast<const uint8_t*>(response.data()), response.size());
+                                        reinterpret_cast<const uint8_t*>(response.data()),
+                                        response.size());
+  }
 
+  if (keys_.empty())
+  {
+    Log(SSD_HOST::LL_ERROR, "License update not successful (no keys)");
+    CloseSessionId();
+    return false;
+  }
+
+  Log(SSD_HOST::LL_DEBUG, "License update successful");
   return true;
+
 SSMFAIL:
   if (file)
     host->CloseFile(file);
@@ -1407,6 +1418,23 @@ void WV_CencSingleSampleDecrypter::ResetVideo()
   drained_ = true;
 }
 
+void WV_CencSingleSampleDecrypter::SetDefaultKeyId(const std::string& keyId)
+{
+  memcpy(defaultKeyId_, keyId.c_str(), 16);
+}
+
+void WV_CencSingleSampleDecrypter::AddKeyId(const std::string& keyId)
+{
+  WVSKEY key;
+  key.keyid = keyId;
+  key.status = cdm::KeyStatus::kUsable;
+
+  if (std::find(keys_.begin(), keys_.end(), key) == keys_.end())
+  {
+    keys_.push_back(key);
+  }
+}
+
 /*********************************************************************************************/
 
 class WVDecrypter : public SSD_DECRYPTER
@@ -1434,7 +1462,7 @@ public:
     return cdmsession_->GetCdmAdapter() != nullptr;
   }
 
-  virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid, bool skipSessionMessage) override
+  virtual Adaptive_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, const uint8_t *defaultkeyid, bool skipSessionMessage) override
   {
     WV_CencSingleSampleDecrypter *decrypter = new WV_CencSingleSampleDecrypter(*cdmsession_, pssh, defaultkeyid, skipSessionMessage);
     if (!decrypter->GetSessionId())
@@ -1445,7 +1473,7 @@ public:
     return decrypter;
   }
 
-  virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) override
+  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override
   {
     if (decrypter)
     {
@@ -1455,7 +1483,7 @@ public:
     }
   }
 
-  virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) override
+  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) override
   {
     if (!decrypter)
     {
@@ -1466,7 +1494,7 @@ public:
     static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetCapabilities(keyid, media, caps);
   }
 
-  virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
+  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
   {
     if (decrypter)
       return static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->HasKeyId(keyid);
@@ -1478,7 +1506,7 @@ public:
     return cdmsession_ != nullptr; 
   }
 
-  virtual std::string GetChallengeB64Data(AP4_CencSingleSampleDecrypter* decrypter) override
+  virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override
   {
     if (!decrypter)
       return nullptr;
@@ -1488,7 +1516,7 @@ public:
     return b64_encode(challengeData.GetData(), challengeData.GetDataSize(), true);
   }
 
-  virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
+  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
   {
     if (!decrypter || !initData)
       return false;

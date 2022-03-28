@@ -1067,7 +1067,7 @@ public:
                          AP4_Movie* movie,
                          AP4_Track* track,
                          AP4_UI32 streamId,
-                         AP4_CencSingleSampleDecrypter* ssd,
+                         Adaptive_CencSingleSampleDecrypter* ssd,
                          const SSD::SSD_DECRYPTER::SSD_CAPS& dcaps)
     : AP4_LinearReader(*movie, input),
       m_track(track),
@@ -1506,7 +1506,7 @@ private:
   const AP4_UI08* m_defaultKey;
 
   AP4_ProtectedSampleDescription* m_protectedDesc;
-  AP4_CencSingleSampleDecrypter* m_singleSampleDecryptor;
+  Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor;
   AP4_CencSampleDecrypter* m_decrypter;
   uint64_t m_nextDuration, m_nextTimestamp;
 };
@@ -2226,6 +2226,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
 
   // Preinitialize the DRM, if pre-initialisation data are provided
   std::map<std::string, std::string> additionalHeaders = std::map<std::string, std::string>();
+  bool isSessionOpened{false};
 
   if (!drmPreInitData_.empty())
   {
@@ -2233,16 +2234,13 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
     std::string sessionId;
     // Pre-initialize the DRM allow to generate the challenge and session ID data 
     // used to make licensed manifest requests (via proxy callback)
-    if (PreInitializeDRM(challengeB64, sessionId))
+    if (PreInitializeDRM(challengeB64, sessionId, isSessionOpened))
     {
       additionalHeaders["challengeB64"] = challengeB64;
       additionalHeaders["sessionId"] = sessionId;
     }
     else
-    {
-      kodi::Log(ADDON_LOG_ERROR, "%s - DRM pre-initialization failed", __FUNCTION__);
       return false;
-    }
   }
 
   // Open manifest file with location redirect support  bool mpdSuccess;
@@ -2262,10 +2260,12 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   drmConfig_ = config;
   maxUserBandwidth_ = max_user_bandwidth;
 
-  return InitializePeriod();
+  return InitializePeriod(isSessionOpened);
 }
 
-bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId)
+bool Session::PreInitializeDRM(std::string& challengeB64,
+                               std::string& sessionId,
+                               bool& isSessionOpened)
 {
     std::string psshData;
     std::string kidData;
@@ -2345,12 +2345,17 @@ bool Session::PreInitializeDRM(std::string& challengeB64, std::string& sessionId
       cdm_sessions_[1].single_sample_decryptor_ = nullptr;
       return false;
     }
-
-  DisposeSampleDecrypter();
+#if defined(ANDROID)
+    // On android is not possible add the default KID key
+    // then we cannot re-use same session
+    DisposeSampleDecrypter();
+#else
+    isSessionOpened = true;
+#endif
   return true;
 }
 
-bool Session::InitializeDRM()
+bool Session::InitializeDRM(bool addDefaultKID /* = false */)
 {
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
@@ -2531,9 +2536,17 @@ bool Session::InitializeDRM()
       }
 
       CDMSESSION& session(cdm_sessions_[ses]);
-      const char* defkid = adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.empty()
-                               ? nullptr
-                               : adaptiveTree_->current_period_->psshSets_[ses].defaultKID_.data();
+      std::string defaultKid{adaptiveTree_->current_period_->psshSets_[ses].defaultKID_};
+      const char* defkid = defaultKid.empty() ? nullptr : defaultKid.data();
+
+      if (addDefaultKID && ses == 1 && session.single_sample_decryptor_)
+      {
+        // If the CDM has been pre-initialized, on non-android systems
+        // we use the same session opened then we have to add the current KID
+        // because the session has been opened with a different PSSH/KID
+        session.single_sample_decryptor_->AddKeyId(defaultKid);
+        session.single_sample_decryptor_->SetDefaultKeyId(defaultKid);
+      }
 
       if (decrypter_ && defkid)
       {
@@ -2598,7 +2611,7 @@ bool Session::InitializeDRM()
   return true;
 }
 
-bool Session::InitializePeriod()
+bool Session::InitializePeriod(bool isSessionOpened /* = false */)
 {
   bool psshChanged = true;
   if (adaptiveTree_->next_period_)
@@ -2642,9 +2655,16 @@ bool Session::InitializePeriod()
     kodi::Log(ADDON_LOG_DEBUG, "Reusing DRM psshSets for new period!");
   else
   {
-    kodi::Log(ADDON_LOG_DEBUG, "New period, dispose sample decrypter and reinitialize");
-    DisposeSampleDecrypter();
-    if (!InitializeDRM())
+    if (isSessionOpened)
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "New period, reinitialize by using same session");
+    }
+    else
+    {
+      kodi::Log(ADDON_LOG_DEBUG, "New period, dispose sample decrypter and reinitialize");
+      DisposeSampleDecrypter();
+    }
+    if (!InitializeDRM(isSessionOpened))
       return false;
   }
 
@@ -3199,7 +3219,7 @@ std::uint16_t Session::GetVideoHeight() const
   return ret;
 }
 
-AP4_CencSingleSampleDecrypter* Session::GetSingleSampleDecrypter(std::string sessionId)
+Adaptive_CencSingleSampleDecrypter* Session::GetSingleSampleDecrypter(std::string sessionId)
 {
   for (std::vector<CDMSESSION>::iterator b(cdm_sessions_.begin() + 1), e(cdm_sessions_.end());
        b != e; ++b)
@@ -4055,7 +4075,7 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   m_name += ".decoder";
 
   std::string sessionId(initData.GetCryptoSession().GetSessionId());
-  AP4_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
+  Adaptive_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
 
   return m_session->GetDecrypter()->OpenVideoDecoder(
       ssd, reinterpret_cast<const SSD::SSD_VIDEOINITDATA*>(initData.GetCStructure()));
