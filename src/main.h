@@ -10,7 +10,7 @@
 #include "common/AdaptiveDecrypter.h"
 #include "common/AdaptiveStream.h"
 #include "common/AdaptiveTree.h"
-#include "common/RepresentationChooser.h"
+#include "common/RepresentationChooserDefault.h"
 #include "utils/PropertiesUtils.h"
 
 #include <float.h>
