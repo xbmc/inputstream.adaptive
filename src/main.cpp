@@ -2448,7 +2448,11 @@ void Session::UpdateStream(STREAM& stream)
   else if (rep->codecs_.find("wvtt") == 0)
     stream.info_.SetCodecName("webvtt");
   else
+  {
+    LOG::Log(LOGWARNING, "Unsupported codec %s in stream ID: %s", rep->codecs_.c_str(),
+             rep->id.c_str());
     stream.valid = false;
+  }
 
   // We support currently only mp4 / ts / adts
   if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_NOTYPE &&
@@ -2457,7 +2461,10 @@ void Session::UpdateStream(STREAM& stream)
       rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS &&
       rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_WEBM &&
       rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TEXT)
+  {
+    LOG::Log(LOGWARNING, "Unsupported container in stream ID: %s", rep->id.c_str());
     stream.valid = false;
+  }
 
   stream.info_.SetFpsRate(rep->fpsRate_);
   stream.info_.SetFpsScale(rep->fpsScale_);
