@@ -4,125 +4,129 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-"Language-Team: none\n"
+"Report-Msgid-Bugs-To: translations@kodi.tv\n"
+"PO-Revision-Date: 2022-03-29 22:18+0000\n"
+"Last-Translator: Kryštof Černý <cleverline1mc@gmail.com>\n"
+"Language-Team: Czech <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/cs_cz/>\n"
 "Language: cs_cz\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+"X-Generator: Weblate 4.11.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "Klient adaptivních toků protokolu InputStream"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "Klient adaptivních toků protokolu InputStream"
 
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Obecné"
 
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Min. šířka pásma (b/s)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Max. šířka pásma (b/s)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Cesta k dešifrovači"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr ""
+msgstr "Max. rozlišení obecného dekodéru"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr ""
+msgstr "Výběr proudu"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr ""
+msgstr "Média"
 
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr ""
+msgstr "Max. rozlišení zabezpečeného dekodŕu"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr ""
+msgstr "Přepsat stav DHCP"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr ""
+msgstr "Ignorovat rozlišení displeje"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Expert"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr ""
+msgstr "Povolit nestabilní funkce"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr ""
+msgstr "Pokud možno nepoužívat zabezpečený dekodér"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr ""
+msgstr "Max"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "Automaticky vybrat proudy"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "Ručně vybrat proudy"
 
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Všechno"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Zvuk"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Obraz"
 
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "Ručně vybrat proud obrazu"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "Obraz + titulky"
