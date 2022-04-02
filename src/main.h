@@ -47,30 +47,6 @@ namespace XBMCFILE
 Kodi Streams implementation
 ********************************************************/
 
-class ATTR_DLL_LOCAL KodiAdaptiveStream : public adaptive::AdaptiveStream
-{
-public:
-  KodiAdaptiveStream(adaptive::AdaptiveTree& tree,
-                     adaptive::AdaptiveTree::AdaptationSet* adp,
-                     adaptive::AdaptiveTree::Representation* initialRepr,
-                     const std::map<std::string, std::string>& media_headers,
-                     adaptive::IRepresentationChooser* reprChooser,
-                     bool play_timeshift_buffer,
-                     bool choose_rep)
-    : adaptive::AdaptiveStream(tree, adp, initialRepr, media_headers, play_timeshift_buffer, choose_rep),
-      m_reprChooser(reprChooser){};
-
-protected:
-  bool download(const std::string& url,
-                const std::map<std::string, std::string>& mediaHeaders,
-                std::string* lockfreeBuffer) override;
-  bool parseIndexRange(adaptive::AdaptiveTree::Representation* rep,
-                       const std::string& buffer) override;
-
-private:
-  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
-};
-
 class ATTR_DLL_LOCAL Session : public adaptive::AdaptiveStreamObserver
 {
 public:
@@ -119,8 +95,7 @@ public:
         encrypted(false),
         mainId_(0),
         current_segment_(0),
-        m_kodiAdStream(
-            t, adp, initialRepr, media_headers, reprChooser, play_timeshift_buffer, choose_rep),
+        m_adStream(t, adp, initialRepr, media_headers, play_timeshift_buffer, choose_rep),
         segmentChanged(false),
         valid(true){};
 
@@ -174,7 +149,7 @@ public:
     bool enabled, encrypted;
     uint16_t mainId_;
     uint32_t current_segment_;
-    KodiAdaptiveStream m_kodiAdStream;
+    adaptive::AdaptiveStream m_adStream;
     kodi::addon::InputstreamInfo info_;
     bool segmentChanged;
     bool valid;

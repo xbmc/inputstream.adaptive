@@ -48,12 +48,10 @@ public:
                      adaptive::AdaptiveTree::AdaptationSet* adp,
                      adaptive::AdaptiveTree::Representation* initialRepr,
                      const std::map<std::string, std::string>& media_headers,
-                     adaptive::IRepresentationChooser* reprChooser,
                      bool play_timeshift_buffer,
                      bool choose_rep)
     : adaptive::AdaptiveStream(
-          tree, adp, initialRepr, media_headers, play_timeshift_buffer, choose_rep),
-      m_reprChooser(reprChooser){};
+          tree, adp, initialRepr, media_headers, play_timeshift_buffer, choose_rep){};
 
   std::chrono::system_clock::time_point mock_time_stream = std::chrono::system_clock::now();
   void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
@@ -63,9 +61,6 @@ protected:
   virtual bool download(const std::string& url,
                         const std::map<std::string, std::string>& mediaHeaders,
                         std::string* lockfreeBuffer) override;
-
-private:
-  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 class AESDecrypter : public IAESDecrypter

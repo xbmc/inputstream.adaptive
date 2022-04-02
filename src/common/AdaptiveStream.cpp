@@ -8,16 +8,23 @@
 
 #include "AdaptiveStream.h"
 
-#include "RepresentationChooser.h"
-
+#ifndef INPUTSTREAM_TEST_BUILD
+#include "../WebmReader.h"
+#endif
 #include "../oscompat.h"
-#include "../utils/log.h"
 #include "../utils/UrlUtils.h"
+#include "../utils/log.h"
+#include "RepresentationChooser.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <iostream>
+
+#include <bento4/Ap4.h>
+#ifndef INPUTSTREAM_TEST_BUILD
+#include <kodi/Filesystem.h>
+#endif
 
 using namespace adaptive;
 using namespace UTILS;
@@ -179,6 +186,208 @@ int AdaptiveStream::SecondsSinceUpdate() const
           .count());
 }
 
+bool AdaptiveStream::download(const std::string& url,
+                              const std::map<std::string, std::string>& mediaHeaders,
+                              std::string* lockfreeBuffer)
+{
+#ifndef INPUTSTREAM_TEST_BUILD
+  kodi::vfs::CFile file;
+
+  // open the file
+  if (!file.CURLCreate(url))
+    return false;
+  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
+  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
+  if (mediaHeaders.find("connection") == mediaHeaders.end())
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
+  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
+
+  for (const auto& entry : mediaHeaders)
+  {
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+  }
+
+  if (file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE | ADDON_READ_AUDIO_VIDEO))
+  {
+    int returnCode = -1;
+    std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
+    std::string::size_type posResponseCode = proto.find(' ');
+    if (posResponseCode != std::string::npos)
+      returnCode = atoi(proto.c_str() + (posResponseCode + 1));
+
+    size_t nbRead = ~0UL;
+
+    if (returnCode >= 400)
+    {
+      LOG::Log(LOGERROR, "Download failed with error %d: %s", returnCode, url.c_str());
+    }
+    else
+    {
+      // read the file
+      char* buf = (char*)malloc(32 * 1024);
+      size_t nbReadOverall = 0;
+      bool write_ok = true;
+      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead &&
+             (write_ok = write_data(buf, nbRead, lockfreeBuffer)))
+        nbReadOverall += nbRead;
+      free(buf);
+
+      if (write_ok)
+      {
+        if (!nbReadOverall)
+        {
+          LOG::Log(LOGERROR, "Download doesn't provide any data: %s", url.c_str());
+          return false;
+        }
+
+        double downloadSpeed = file.GetFileDownloadSpeed();
+        double downloadAvgSpeed{downloadSpeed};
+
+        //Calculate the new downloadspeed to 1MB
+        static const size_t ref_packet = 1024 * 1024;
+        if (nbReadOverall < ref_packet)
+        {
+          double ratio = (double)nbReadOverall / ref_packet;
+          downloadAvgSpeed =
+              (tree_.GetRepChooser()->GetDownloadSpeed() * (1.0 - ratio)) + downloadSpeed * ratio;
+        }
+
+        tree_.GetRepChooser()->SetDownloadSpeed(downloadAvgSpeed);
+
+        LOG::Log(LOGDEBUG,
+                 "Download finished: %s (avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s)",
+                 url.c_str(), downloadAvgSpeed, downloadSpeed);
+      }
+      else
+        LOG::Log(LOGDEBUG, "Download cancelled: %s", url.c_str());
+    }
+    file.Close();
+    return nbRead == 0;
+  }
+#endif
+  return false;
+}
+
+bool AdaptiveStream::parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer)
+{
+#ifndef INPUTSTREAM_TEST_BUILD
+  LOG::Log(LOGDEBUG, "Build segments from SIDX atom...");
+  AP4_MemoryByteStream byteStream{reinterpret_cast<const AP4_Byte*>(buffer.data()),
+                                  static_cast<AP4_Size>(buffer.size())};
+  AdaptiveTree::AdaptationSet* adp{const_cast<AdaptiveTree::AdaptationSet*>(getAdaptationSet())};
+
+  if (rep->containerType_ == AdaptiveTree::CONTAINERTYPE_WEBM)
+  {
+    if (!rep->indexRangeMin_)
+      return false;
+
+    WebmReader reader(&byteStream);
+    std::vector<WebmReader::CUEPOINT> cuepoints;
+    reader.GetCuePoints(cuepoints);
+
+    if (!cuepoints.empty())
+    {
+      AdaptiveTree::Segment seg;
+
+      rep->timescale_ = 1000;
+      rep->SetScaling();
+
+      rep->segments_.data.reserve(cuepoints.size());
+      adp->segment_durations_.data.reserve(cuepoints.size());
+
+      for (const WebmReader::CUEPOINT& cue : cuepoints)
+      {
+        seg.startPTS_ = cue.pts;
+        seg.range_begin_ = cue.pos_start;
+        seg.range_end_ = cue.pos_end;
+        rep->segments_.data.push_back(seg);
+
+        if (adp->segment_durations_.data.size() < rep->segments_.data.size())
+          adp->segment_durations_.data.push_back(static_cast<const uint32_t>(cue.duration));
+      }
+      return true;
+    }
+  }
+  else if (rep->containerType_ == AdaptiveTree::CONTAINERTYPE_MP4)
+  {
+    if (!rep->indexRangeMin_)
+    {
+      AP4_File fileStream{byteStream, AP4_DefaultAtomFactory::Instance_, true};
+      AP4_Movie* movie{fileStream.GetMovie()};
+
+      if (movie == nullptr)
+      {
+        LOG::Log(LOGERROR, "No MOOV in stream!");
+        return false;
+      }
+
+      rep->flags_ |= AdaptiveTree::Representation::INITIALIZATION;
+      rep->initialization_.range_begin_ = 0;
+      AP4_Position pos;
+      byteStream.Tell(pos);
+      rep->initialization_.range_end_ = pos - 1;
+    }
+
+    AdaptiveTree::Segment seg;
+    seg.startPTS_ = 0;
+    AP4_Cardinal numSIDX{1};
+
+    while (numSIDX > 0)
+    {
+      AP4_Atom* atom{nullptr};
+      if (AP4_FAILED(AP4_DefaultAtomFactory::Instance_.CreateAtomFromStream(byteStream, atom)))
+      {
+        LOG::Log(LOGERROR, "Unable to create SIDX from IndexRange bytes");
+        return false;
+      }
+
+      if (atom->GetType() == AP4_ATOM_TYPE_MOOF)
+      {
+        delete atom;
+        break;
+      }
+      else if (atom->GetType() != AP4_ATOM_TYPE_SIDX)
+      {
+        delete atom;
+        continue;
+      }
+
+      AP4_SidxAtom* sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
+      const AP4_Array<AP4_SidxAtom::Reference>& refs(sidx->GetReferences());
+
+      if (refs[0].m_ReferenceType == 1)
+      {
+        numSIDX = refs.ItemCount();
+        delete atom;
+        continue;
+      }
+
+      AP4_Position pos;
+      byteStream.Tell(pos);
+      seg.range_end_ = pos + rep->indexRangeMin_ + sidx->GetFirstOffset() - 1;
+      rep->timescale_ = sidx->GetTimeScale();
+      rep->SetScaling();
+
+      for (AP4_Cardinal i{0}; i < refs.ItemCount(); i++)
+      {
+        seg.range_begin_ = seg.range_end_ + 1;
+        seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
+        rep->segments_.data.push_back(seg);
+        if (adp->segment_durations_.data.size() < rep->segments_.data.size())
+          adp->segment_durations_.data.push_back(refs[i].m_SubsegmentDuration);
+
+        seg.startPTS_ += refs[i].m_SubsegmentDuration;
+      }
+
+      delete atom;
+      numSIDX--;
+    }
+
+    return true;
+  }
+#endif
+  return false;
+}
 
 bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer)
 {

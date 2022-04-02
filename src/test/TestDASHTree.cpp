@@ -79,8 +79,7 @@ protected:
   TestAdaptiveStream* NewStream(adaptive::AdaptiveTree::AdaptationSet* adp, bool playTsb=true)
   {
     auto initialRepr{tree->GetRepChooser()->ChooseRepresentation(adp)};
-    return new TestAdaptiveStream(*tree, adp, initialRepr, mediaHeaders, tree->GetRepChooser(),
-                                  playTsb, false);
+    return new TestAdaptiveStream(*tree, adp, initialRepr, mediaHeaders, playTsb, false);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,
