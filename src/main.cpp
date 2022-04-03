@@ -20,6 +20,7 @@
 #include "codechandler/TTMLCodecHandler.h"
 #include "codechandler/VP9CodecHandler.h"
 #include "codechandler/WebVTTCodecHandler.h"
+#include "common/RepresentationChooserDefault.h"
 #include "parser/DASHTree.h"
 #include "parser/HLSTree.h"
 #include "parser/SmoothTree.h"
@@ -302,7 +303,7 @@ bool adaptive::AdaptiveTree::download(const std::string& url,
   etag_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
   last_modified_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
 
-  //download_speed_ = file.GetFileDownloadSpeed();
+  //m_downloadCurrentSpeed = file.GetFileDownloadSpeed();
 
   file.Close();
 
@@ -364,24 +365,26 @@ bool KodiAdaptiveStream::download(const std::string& url,
           return false;
         }
 
-        double current_download_speed_ = file.GetFileDownloadSpeed();
+        double downloadSpeed = file.GetFileDownloadSpeed();
+        double downloadAvgSpeed{downloadSpeed};
+
         //Calculate the new downloadspeed to 1MB
         static const size_t ref_packet = 1024 * 1024;
-        if (nbReadOverall >= ref_packet)
-          chooser_->set_download_speed(current_download_speed_);
-        else
+        if (nbReadOverall < ref_packet)
         {
           double ratio = (double)nbReadOverall / ref_packet;
-          chooser_->set_download_speed((chooser_->get_download_speed() * (1.0 - ratio)) +
-                                       current_download_speed_ * ratio);
+          downloadAvgSpeed =
+              (m_reprChooser->GetDownloadSpeed() * (1.0 - ratio)) + downloadSpeed * ratio;
         }
+
+        m_reprChooser->SetDownloadSpeed(downloadAvgSpeed);
+
         LOG::Log(LOGDEBUG,
-                 "Download %s finished, avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s",
-                 url.c_str(), chooser_->get_download_speed(), current_download_speed_);
-        //pass download speed to
+                 "Download finished: %s (avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s)",
+                 url.c_str(), downloadAvgSpeed, downloadSpeed);
       }
       else
-        LOG::Log(LOGDEBUG, "Download %s cancelled", url.c_str());
+        LOG::Log(LOGDEBUG, "Download cancelled: %s", url.c_str());
     }
     file.Close();
     return nbRead == 0;
@@ -1598,65 +1601,38 @@ Session::Session(const PROPERTIES::KodiProperties& kodiProps,
                  const std::string& profilePath)
   : m_kodiProps(kodiProps),
     manifestURL_(url),
-    media_headers_(mediaHeaders),
-    profile_path_(profilePath)
+    media_headers_(mediaHeaders)
 {
+  // Create the representation chooser
+  m_reprChooser = new adaptive::CRepresentationChooserDefault(profilePath);
+  m_reprChooser->Initialize(kodiProps);
+
+  // Create the adaptive tree
   switch (kodiProps.m_manifestType)
   {
     case PROPERTIES::ManifestType::MPD:
-      adaptiveTree_ = new adaptive::DASHTree(kodiProps);
+      adaptiveTree_ = new adaptive::DASHTree(kodiProps, m_reprChooser);
       break;
     case PROPERTIES::ManifestType::ISM:
-      adaptiveTree_ = new adaptive::SmoothTree(kodiProps);
+      adaptiveTree_ = new adaptive::SmoothTree(kodiProps, m_reprChooser);
       break;
     case PROPERTIES::ManifestType::HLS:
-      adaptiveTree_ = new adaptive::HLSTree(kodiProps, new AESDecrypter(kodiProps.m_licenseKey));
+      adaptiveTree_ =
+          new adaptive::HLSTree(kodiProps, m_reprChooser, new AESDecrypter(kodiProps.m_licenseKey));
       break;
     default:
       LOG::LogF(LOGFATAL, "Manifest type not handled");
       return;
   };
 
-  representationChooser_ = new DefaultRepresentationChooser();
-  representationChooser_->assured_buffer_duration_ =
-      kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION");
-  representationChooser_->max_buffer_duration_ = kodi::addon::GetSettingInt("MAXBUFFERDURATION");
-  adaptiveTree_->representation_chooser_ = representationChooser_;
+  m_settingStreamSelection =
+      static_cast<SETTINGS::StreamSelection>(kodi::addon::GetSettingInt("STREAMSELECTION"));
+  LOG::Log(LOGDEBUG, "Setting STREAMSELECTION value: %d", m_settingStreamSelection);
 
-  std::string fn(profile_path_ + "bandwidth.bin");
-  FILE* f = fopen(fn.c_str(), "rb");
-  if (f)
-  {
-    double val;
-    size_t sz(fread(&val, sizeof(double), 1, f));
-    if (sz)
-    {
-      representationChooser_->bandwidth_ = static_cast<uint32_t>(val * 8);
-      representationChooser_->set_download_speed(val);
-    }
-    fclose(f);
-  }
-  else
-    representationChooser_->bandwidth_ = 4000000;
-  LOG::Log(LOGDEBUG, "Initial bandwidth: %u ", representationChooser_->bandwidth_);
+  m_settingNoSecureDecoder = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
+  LOG::Log(LOGDEBUG, "Setting NOSECUREDECODER value: %d", m_settingNoSecureDecoder);
 
-  representationChooser_->max_resolution_ = kodi::addon::GetSettingInt("MAXRESOLUTION");
-  LOG::Log(LOGDEBUG, "MAXRESOLUTION selected: %d ",
-            representationChooser_->max_resolution_);
-
-  representationChooser_->max_secure_resolution_ =
-      kodi::addon::GetSettingInt("MAXRESOLUTIONSECURE");
-  LOG::Log(LOGDEBUG, "MAXRESOLUTIONSECURE selected: %d ",
-            representationChooser_->max_secure_resolution_);
-
-  manual_streams_ = kodi::addon::GetSettingInt("STREAMSELECTION");
-  LOG::Log(LOGDEBUG, "STREAMSELECTION selected: %d ", manual_streams_);
-
-  allow_no_secure_decoder_ = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
-  LOG::Log(LOGDEBUG, "FORCENONSECUREDECODER selected: %d ", allow_no_secure_decoder_);
-
-  int buf = kodi::addon::GetSettingInt("MEDIATYPE");
-  switch (buf)
+  switch (kodi::addon::GetSettingInt("MEDIATYPE"))
   {
     case 1:
       media_type_mask_ = static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::AUDIO;
@@ -1672,16 +1648,6 @@ Session::Session(const PROPERTIES::KodiProperties& kodiProps,
       media_type_mask_ = static_cast<uint8_t>(~0);
   }
 
-  buf = kodi::addon::GetSettingInt("MINBANDWIDTH");
-  representationChooser_->min_bandwidth_ = buf;
-  buf = kodi::addon::GetSettingInt("MAXBANDWIDTH");
-  representationChooser_->max_bandwidth_ = buf;
-
-  representationChooser_->ignore_display_ = kodi::addon::GetSettingBoolean("IGNOREDISPLAY");
-  representationChooser_->hdcp_override_ = kodi::addon::GetSettingBoolean("HDCPOVERRIDE");
-  representationChooser_->ignore_window_change_ =
-      kodi::addon::GetSettingBoolean("IGNOREWINDOWCHANGE");
-
   if (!kodiProps.m_serverCertificate.empty())
   {
     std::string decCert{ BASE64::Decode(kodiProps.m_serverCertificate) };
@@ -1696,19 +1662,11 @@ Session::~Session()
 
   DisposeDecrypter();
 
-  std::string fn(profile_path_ + "bandwidth.bin");
-  FILE* f = fopen(fn.c_str(), "wb");
-  if (f)
-  {
-    double val(representationChooser_->get_average_download_speed());
-    fwrite((const char*)&val, sizeof(double), 1, f);
-    fclose(f);
-  }
   delete adaptiveTree_;
   adaptiveTree_ = nullptr;
 
-  delete representationChooser_;
-  representationChooser_ = nullptr;
+  delete m_reprChooser;
+  m_reprChooser = nullptr;
 }
 
 void Session::GetSupportedDecrypterURN(std::string& key_system)
@@ -1822,12 +1780,10 @@ void Session::DisposeDecrypter()
 |   initialize
 +---------------------------------------------------------------------*/
 
-bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
+bool Session::Initialize(const std::uint8_t config)
 {
   if (!adaptiveTree_)
     return false;
-
-  representationChooser_->SetMaxUserBandwidth(max_user_bandwidth);
 
   // Get URN's wich are supported by this addon
   if (!m_kodiProps.m_licenseType.empty())
@@ -1869,7 +1825,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
             "%s, Download speed: %0.4f Bytes/s",
             adaptiveTree_->periods_.size(), adaptiveTree_->current_period_->adaptationSets_.size(),
             adaptiveTree_->has_timeshift_buffer_ ? "live" : "VOD",
-            representationChooser_->download_speed_);
+            m_reprChooser->GetDownloadSpeed());
 
   drmConfig_ = config;
 
@@ -1969,13 +1925,14 @@ bool Session::PreInitializeDRM(std::string& challengeB64,
 
 bool Session::InitializeDRM(bool addDefaultKID /* = false */)
 {
-  bool secure_video_session = false;
+  bool isSecureVideoSession = false;
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
 
-  representationChooser_->decrypter_caps_.resize(cdm_sessions_.size());
   for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
-    representationChooser_->decrypter_caps_.push_back(cdmsession.decrypter_caps_);
+  {
+    m_reprChooser->AddDecrypterCaps(cdmsession.decrypter_caps_);
+  }
 
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->current_period_->encryptionState_)
@@ -2055,8 +2012,12 @@ bool Session::InitializeDRM(bool addDefaultKID /* = false */)
 
         if (m_kodiProps.m_licenseData.empty())
         {
-          Session::STREAM stream(*adaptiveTree_, sessionPsshset.adaptation_set_, media_headers_,
-                                 representationChooser_, m_kodiProps.m_playTimeshiftBuffer, 0, false);
+          adaptive::AdaptiveTree::Representation* initialRepr{
+              m_reprChooser->ChooseRepresentation(sessionPsshset.adaptation_set_)};
+
+          Session::STREAM stream(*adaptiveTree_, sessionPsshset.adaptation_set_, initialRepr,
+                                 media_headers_, m_reprChooser, m_kodiProps.m_playTimeshiftBuffer,
+                                 false);
 
           stream.enabled = true;
           stream.m_kodiAdStream.start_stream();
@@ -2231,9 +2192,9 @@ bool Session::InitializeDRM(bool addDefaultKID /* = false */)
         else if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
-          secure_video_session = true;
+          isSecureVideoSession = true;
 
-          if (allow_no_secure_decoder_ && !m_kodiProps.m_isLicenseForceSecureDecoder &&
+          if (m_settingNoSecureDecoder && !m_kodiProps.m_isLicenseForceSecureDecoder &&
               !adaptiveTree_->current_period_->need_secure_decoder_)
             session.decrypter_caps_.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
@@ -2247,7 +2208,8 @@ bool Session::InitializeDRM(bool addDefaultKID /* = false */)
       }
     }
   }
-  representationChooser_->Prepare(secure_video_session);
+  m_reprChooser->SetSecureSession(isSecureVideoSession);
+  m_reprChooser->PostInit();
 
   return true;
 }
@@ -2273,9 +2235,6 @@ bool Session::InitializePeriod(bool isSessionOpened /* = false */)
   }
 
   // create SESSION::STREAM objects. One for each AdaptationSet
-  unsigned int i(0);
-  adaptive::AdaptiveTree::AdaptationSet* adp;
-
   m_streams.clear();
 
   if (!psshChanged)
@@ -2295,73 +2254,115 @@ bool Session::InitializePeriod(bool isSessionOpened /* = false */)
       return false;
   }
 
-  while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
+  uint32_t adpIndex{0};
+  adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
+
+  while ((adp = adaptiveTree_->GetAdaptationSet(adpIndex++)))
   {
     if (adp->representations_.empty())
       continue;
 
-    bool manual_streams = adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO
-                              ? manual_streams_ != 0
-                              : manual_streams_ == 1;
+    bool isManualStreamSelection;
+    if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO)
+      isManualStreamSelection = m_settingStreamSelection != SETTINGS::StreamSelection::AUTO;
+    else
+      isManualStreamSelection = m_settingStreamSelection == SETTINGS::StreamSelection::MANUAL;
 
-    // Select good video stream
-    adaptive::AdaptiveTree::Representation* defaultRepresentation =
-        adaptiveTree_->ChooseRepresentation(adp);
-    size_t repId = manual_streams ? adp->representations_.size() : 0;
+    // Get the default initial stream repr. based on "adaptive repr. chooser"
+    adaptive::AdaptiveTree::Representation* defaultRepr{adaptiveTree_->GetRepChooser()->ChooseRepresentation(adp)};
 
-    do
+    if (isManualStreamSelection)
     {
-      m_streams.push_back(std::make_unique<STREAM>(
-          *adaptiveTree_, adp, media_headers_, representationChooser_,
-          m_kodiProps.m_playTimeshiftBuffer, repId, first_period_initialized_));
-      STREAM& stream(*m_streams.back());
-
-      uint32_t flags = INPUTSTREAM_FLAG_NONE;
-      size_t copySize = adp->name_.size() > 255 ? 255 : adp->name_.size();
-      stream.info_.SetName(adp->name_);
-
-      switch (adp->type_)
+      // Add all stream representations
+      for (size_t i{0}; i < adp->representations_.size(); i++)
       {
-        case adaptive::AdaptiveTree::VIDEO:
-          stream.info_.SetStreamType(INPUTSTREAM_TYPE_VIDEO);
-          if (manual_streams && stream.m_kodiAdStream.getRepresentation() == defaultRepresentation)
-            flags |= INPUTSTREAM_FLAG_DEFAULT;
-          break;
-        case adaptive::AdaptiveTree::AUDIO:
-          stream.info_.SetStreamType(INPUTSTREAM_TYPE_AUDIO);
-          if (adp->impaired_)
-            flags |= INPUTSTREAM_FLAG_VISUAL_IMPAIRED;
-          if (adp->default_)
-            flags |= INPUTSTREAM_FLAG_DEFAULT;
-          if (adp->original_ || (!m_kodiProps.m_audioLanguageOrig.empty() &&
-                                 adp->language_ == m_kodiProps.m_audioLanguageOrig))
-            flags |= INPUTSTREAM_FLAG_ORIGINAL;
-          break;
-        case adaptive::AdaptiveTree::SUBTITLE:
-          stream.info_.SetStreamType(INPUTSTREAM_TYPE_SUBTITLE);
-          if (adp->impaired_)
-            flags |= INPUTSTREAM_FLAG_HEARING_IMPAIRED;
-          if (adp->forced_)
-            flags |= INPUTSTREAM_FLAG_FORCED;
-          if (adp->default_)
-            flags |= INPUTSTREAM_FLAG_DEFAULT;
-          break;
-        default:
-          break;
+        size_t reprIndex{adp->representations_.size() - i};
+        uint32_t uniqueId{adpIndex};
+        uniqueId |= reprIndex << 16;
+
+        adaptive::AdaptiveTree::Representation* currentRepr{adp->representations_[i]};
+        bool isDefaultRepr{currentRepr == defaultRepr};
+
+        AddStream(adp, currentRepr, isDefaultRepr, uniqueId);
       }
-      stream.info_.SetFlags(flags);
-      stream.info_.SetPhysicalIndex(i | (repId << 16));
-      stream.info_.SetLanguage(adp->language_);
-      stream.info_.ClearExtraData();
-      stream.info_.SetFeatures(0);
-      stream.m_kodiAdStream.set_observer(dynamic_cast<adaptive::AdaptiveStreamObserver*>(this));
+    }
+    else
+    {
+      // Add the default stream representation only
+      size_t reprIndex{adp->representations_.size()};
+      uint32_t uniqueId{adpIndex};
+      uniqueId |= reprIndex << 16;
 
-      UpdateStream(stream);
-
-    } while (repId-- != (manual_streams ? 1 : 0));
+      AddStream(adp, defaultRepr, true, uniqueId);
+    }
   }
+
   first_period_initialized_ = true;
   return true;
+}
+
+void Session::AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
+                        adaptive::AdaptiveTree::Representation* initialRepr,
+                        bool isDefaultRepr,
+                        uint32_t uniqueId)
+{
+  m_streams.push_back(std::make_unique<STREAM>(*adaptiveTree_, adp, initialRepr, media_headers_,
+                                               m_reprChooser, m_kodiProps.m_playTimeshiftBuffer,
+                                               first_period_initialized_));
+
+  STREAM& stream(*m_streams.back());
+
+  uint32_t flags = INPUTSTREAM_FLAG_NONE;
+  size_t copySize = adp->name_.size() > 255 ? 255 : adp->name_.size();
+  stream.info_.SetName(adp->name_);
+
+  switch (adp->type_)
+  {
+    case adaptive::AdaptiveTree::VIDEO:
+    {
+      stream.info_.SetStreamType(INPUTSTREAM_TYPE_VIDEO);
+      if (isDefaultRepr)
+        flags |= INPUTSTREAM_FLAG_DEFAULT;
+      break;
+    }
+    case adaptive::AdaptiveTree::AUDIO:
+    {
+      stream.info_.SetStreamType(INPUTSTREAM_TYPE_AUDIO);
+      if (adp->impaired_)
+        flags |= INPUTSTREAM_FLAG_VISUAL_IMPAIRED;
+      if (adp->default_)
+        flags |= INPUTSTREAM_FLAG_DEFAULT;
+      if (adp->original_ || (!m_kodiProps.m_audioLanguageOrig.empty() &&
+                             adp->language_ == m_kodiProps.m_audioLanguageOrig))
+      {
+        flags |= INPUTSTREAM_FLAG_ORIGINAL;
+      }
+      break;
+    }
+    case adaptive::AdaptiveTree::SUBTITLE:
+    {
+      stream.info_.SetStreamType(INPUTSTREAM_TYPE_SUBTITLE);
+      if (adp->impaired_)
+        flags |= INPUTSTREAM_FLAG_HEARING_IMPAIRED;
+      if (adp->forced_)
+        flags |= INPUTSTREAM_FLAG_FORCED;
+      if (adp->default_)
+        flags |= INPUTSTREAM_FLAG_DEFAULT;
+      break;
+    }
+    default:
+      break;
+  }
+
+  stream.info_.SetFlags(flags);
+  stream.info_.SetPhysicalIndex(uniqueId);
+  stream.info_.SetLanguage(adp->language_);
+  stream.info_.ClearExtraData();
+  stream.info_.SetFeatures(0);
+
+  stream.m_kodiAdStream.set_observer(dynamic_cast<adaptive::AdaptiveStreamObserver*>(this));
+
+  UpdateStream(stream);
 }
 
 void Session::UpdateStream(STREAM& stream)
@@ -2369,8 +2370,8 @@ void Session::UpdateStream(STREAM& stream)
   const adaptive::AdaptiveTree::Representation* rep(stream.m_kodiAdStream.getRepresentation());
   const SSD::SSD_DECRYPTER::SSD_CAPS& caps = GetDecrypterCaps(rep->pssh_set_);
 
-  stream.info_.SetWidth(rep->width_);
-  stream.info_.SetHeight(rep->height_);
+  stream.info_.SetWidth(static_cast<uint32_t>(rep->width_));
+  stream.info_.SetHeight(static_cast<uint32_t>(rep->height_));
   stream.info_.SetAspect(rep->aspect_);
 
   if (stream.info_.GetAspect() == 0.0f && stream.info_.GetHeight())
@@ -2635,9 +2636,9 @@ void Session::StartReader(
     changed_ = true;
 }
 
-void Session::SetVideoResolution(unsigned int w, unsigned int h)
+void Session::SetVideoResolution(int width, int height)
 {
-  representationChooser_->SetDisplayDimensions(w, h);
+  m_reprChooser->SetScreenResolution(width, height);
 };
 
 SampleReader* Session::GetNextSample()
@@ -3063,9 +3064,10 @@ public:
   std::shared_ptr<Session> GetSession() { return m_session; };
 
 private:
-  std::shared_ptr<Session> m_session;
+  std::shared_ptr<Session> m_session{nullptr};
   UTILS::PROPERTIES::KodiProperties m_kodiProps;
-  int m_width, m_height;
+  int m_currentVideoWidth{1280};
+  int m_currentVideoHeight{720};
   uint32_t m_IncludedStreams[16];
   bool m_checkChapterSeek = false;
   int m_failedSeekTime = ~0;
@@ -3074,7 +3076,7 @@ private:
 };
 
 CInputStreamAdaptive::CInputStreamAdaptive(const kodi::addon::IInstanceInfo& instance)
-  : CInstanceInputStream(instance), m_session(nullptr), m_width(1280), m_height(720)
+  : CInstanceInputStream(instance)
 {
   memset(m_IncludedStreams, 0, sizeof(m_IncludedStreams));
 }
@@ -3120,9 +3122,9 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
   kodihost->SetProfilePath(props.GetProfileFolder());
 
   m_session = std::make_shared<Session>(m_kodiProps, url, mediaHeaders, props.GetProfileFolder());
-  m_session->SetVideoResolution(m_width, m_height);
+  m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight);
 
-  if (!m_session->Initialize(drmConfig, m_kodiProps.m_bandwidthMax))
+  if (!m_session->Initialize(drmConfig))
   {
     m_session = nullptr;
     return false;
@@ -3540,16 +3542,14 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double& st
 }
 
 //callback - will be called from kodi
-void CInputStreamAdaptive::SetVideoResolution (int width, int height)
+void CInputStreamAdaptive::SetVideoResolution(int width, int height)
 {
-  LOG::Log(LOGINFO, "SetVideoResolution (%d x %d)", width, height);
+  LOG::Log(LOGINFO, "SetVideoResolution (%dx%d)", width, height);
+  m_currentVideoWidth = width;
+  m_currentVideoHeight = height;
+
   if (m_session)
     m_session->SetVideoResolution(width, height);
-  else
-  {
-    m_width = width;
-    m_height = height;
-  }
 }
 
 bool CInputStreamAdaptive::PosTime(int ms)

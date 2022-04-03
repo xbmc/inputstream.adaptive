@@ -22,7 +22,9 @@
 using namespace adaptive;
 using namespace UTILS;
 
-SmoothTree::SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps) : AdaptiveTree(kodiProps)
+SmoothTree::SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                       IRepresentationChooser* reprChooser)
+  : AdaptiveTree(kodiProps, reprChooser)
 {
   current_period_ = new AdaptiveTree::Period;
   periods_.push_back(current_period_);
@@ -97,11 +99,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
                            dash->current_representation_->codecs_.begin(), ::tolower);
           }
           else if (strcmp((const char*)*attr, "MaxWidth") == 0)
-            dash->current_representation_->width_ =
-                static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
+            dash->current_representation_->width_ = std::atoi((const char*)*(attr + 1));
           else if (strcmp((const char*)*attr, "MaxHeight") == 0)
-            dash->current_representation_->height_ =
-                static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
+            dash->current_representation_->height_ = std::atoi((const char*)*(attr + 1));
           else if (strcmp((const char*)*attr, "SamplingRate") == 0)
             dash->current_representation_->samplingRate_ =
                 static_cast<uint32_t>(atoi((const char*)*(attr + 1)));

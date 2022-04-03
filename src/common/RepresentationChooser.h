@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2021 Team Kodi
+ *  Copyright (C) 2022 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,50 +8,68 @@
 
 #pragma once
 
-#include "AdaptiveStream.h"
 #include "../SSD_dll.h"
+#include "../utils/PropertiesUtils.h"
+#include "AdaptiveTree.h"
 
-struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChooser
+namespace adaptive
 {
-  void SetDisplayDimensions(unsigned int w, unsigned int h);
-  void SetMaxUserBandwidth(uint32_t max_user_bandwidth);
-  void Prepare(bool secure_video_session);
-  adaptive::AdaptiveTree::Representation* ChooseNextRepresentation(
-    adaptive::AdaptiveTree::AdaptationSet* adp,
-    adaptive::AdaptiveTree::Representation* rep,
-    size_t *valid_segment_buffers_,
-    size_t *available_segment_buffers_,
-    uint32_t *assured_buffer_length_,
-    uint32_t * max_buffer_length_,
-    uint32_t rep_counter_);
-  adaptive::AdaptiveTree::Representation* ChooseRepresentation(adaptive::AdaptiveTree::AdaptationSet* adp);
-  virtual ~DefaultRepresentationChooser();
-  double get_download_speed() const;
-  double get_average_download_speed() const;
-  void set_download_speed(double speed);
 
-  uint16_t display_width_, display_height_;
-  uint16_t width_, height_;
-  uint32_t bandwidth_;
+class ATTR_DLL_LOCAL IRepresentationChooser
+{
+public:
+  IRepresentationChooser() {}
+  virtual ~IRepresentationChooser() {}
 
-  uint16_t next_display_width_ = 0, next_display_height_ = 0;
-  bool res_to_be_changed_ = 1;
+  /*! \brief Initialize the representation chooser.
+   *   (Variables like current screen resolution and
+   *   DRM data can be read only with PostInit callback)
+   *  \param m_kodiProps The Kodi properties
+   */
+  virtual void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) {}
 
-  adaptive::AdaptiveTree::Representation *best_rep_, *min_rep_;//min_rep_ will be used for window-change detection
+  /*! \brief Post initialization, will be called just after DRM initialization
+   */
+  virtual void PostInit() {}
 
-  std::chrono::steady_clock::time_point lastDimensionUpdated_ = std::chrono::steady_clock::now();
+  /*! \brief Set the current screen resolution.
+  *    To be called every time the screen resolution change.
+   *  \param width Width resolution
+   *  \param height Height resolution
+   */
+  virtual void SetScreenResolution(int width, int height) {}
 
-  bool ignore_display_;
-  bool secure_video_session_;
-  bool hdcp_override_;
-  int max_resolution_, max_secure_resolution_;
-  bool ignore_window_change_;
+  /*! \brief Set the current download speed.
+   *   To be called at each segment download.
+   *  \param speed The speed in byte/s
+   */
+  virtual void SetDownloadSpeed(double speed) {}
 
-  uint32_t current_bandwidth_;
-  uint32_t min_bandwidth_, max_bandwidth_;
-  uint32_t assured_buffer_duration_;
-  uint32_t max_buffer_duration_;
+  /*! \brief Get the current donwload speed
+   *  \return The speed in byte/s
+   */
+  virtual double GetDownloadSpeed() { return 0.0; }
 
-  double download_speed_, average_download_speed_;
-  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> decrypter_caps_;
+  /*! \brief Set if the DRM use a secure session
+   *  \param isSecureSession Set true if a secure session is in use
+   */
+  virtual void SetSecureSession(bool isSecureSession) {}
+
+  /*! \brief Add the decrypter caps of a session. Can be used to determine the
+   *   HDCP version and limit of each stream representation.
+   *  \param ssdCaps The SSD decripter caps of a session
+   */
+  virtual void AddDecrypterCaps(const SSD::SSD_DECRYPTER::SSD_CAPS& ssdCaps) {}
+
+  virtual AdaptiveTree::Representation* ChooseRepresentation(AdaptiveTree::AdaptationSet* adp) = 0;
+
+  virtual AdaptiveTree::Representation* ChooseNextRepresentation(AdaptiveTree::AdaptationSet* adp,
+                                                                 AdaptiveTree::Representation* rep,
+                                                                 size_t& validSegmentBuffers,
+                                                                 size_t& availableSegmentBuffers,
+                                                                 uint32_t& bufferLengthAssured,
+                                                                 uint32_t& bufferLengthMax,
+                                                                 uint32_t repCounter) = 0;
 };
+
+} // namespace adaptive

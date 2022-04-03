@@ -11,14 +11,13 @@
 #include "../Iaes_decrypter.h"
 #include "../common/AdaptiveStream.h"
 #include "../common/RepresentationChooser.h"
+#include "../common/RepresentationChooserDefault.h"
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
 #include "../utils/PropertiesUtils.h"
 
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
-
-struct DefaultRepresentationChooser;
 
 class testHelper
 {
@@ -28,18 +27,34 @@ public:
   static std::vector<std::string> downloadList;
 };
 
+class CTestRepresentationChooserDefault : public adaptive::CRepresentationChooserDefault
+{
+public:
+  CTestRepresentationChooserDefault() : adaptive::CRepresentationChooserDefault("") {}
+  ~CTestRepresentationChooserDefault() override {}
+
+  void Initialize(const UTILS::PROPERTIES::KodiProperties& m_kodiProps) override
+  {
+    m_isHdcpOverride = true;
+    m_bufferDurationAssured = 5;
+    m_bufferDurationMax = 5;
+  }
+};
+
 class TestAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
   TestAdaptiveStream(adaptive::AdaptiveTree& tree,
-    adaptive::AdaptiveTree::AdaptationSet* adp,
-    const std::map<std::string, std::string>& media_headers,
-    DefaultRepresentationChooser* chooser,
-    bool play_timeshift_buffer,
-    size_t repId,
-    bool choose_rep)
-    : adaptive::AdaptiveStream(tree, adp, media_headers, play_timeshift_buffer, repId, choose_rep),
-    chooser_(chooser) {};
+                     adaptive::AdaptiveTree::AdaptationSet* adp,
+                     adaptive::AdaptiveTree::Representation* initialRepr,
+                     const std::map<std::string, std::string>& media_headers,
+                     adaptive::IRepresentationChooser* reprChooser,
+                     bool play_timeshift_buffer,
+                     bool choose_rep)
+    : adaptive::AdaptiveStream(
+          tree, adp, initialRepr, media_headers, play_timeshift_buffer, choose_rep),
+      m_reprChooser(reprChooser){};
+
   std::chrono::system_clock::time_point mock_time_stream = std::chrono::system_clock::now();
   void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
   virtual bool download_segment() override;
@@ -50,7 +65,7 @@ protected:
                         std::string* lockfreeBuffer) override;
 
 private:
-  DefaultRepresentationChooser* chooser_ = nullptr;
+  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 class AESDecrypter : public IAESDecrypter
@@ -76,7 +91,9 @@ private:
 class DASHTestTree : public adaptive::DASHTree
 {
 public:
-  DASHTestTree(UTILS::PROPERTIES::KodiProperties kodiProps);
+  DASHTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
+               adaptive::IRepresentationChooser* reprChooser)
+    : DASHTree(kodiProps, reprChooser){};
   uint64_t GetNowTime() override { return m_mockTime; }
   void SetNowTime(uint64_t time) { m_mockTime = time; }
   void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };

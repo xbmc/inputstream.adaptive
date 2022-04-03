@@ -25,6 +25,8 @@
 
 namespace adaptive
 {
+  // Forward classes
+  class IRepresentationChooser;
 
 template<typename T>
 struct ATTR_DLL_LOCAL SPINCACHE
@@ -185,7 +187,8 @@ public:
     std::string base_url_;
     uint32_t bandwidth_;
     uint32_t samplingRate_;
-    uint16_t width_, height_;
+    int width_;
+    int height_;
     uint32_t fpsRate_, fpsScale_;
     float aspect_;
 
@@ -451,18 +454,6 @@ public:
     SegmentTemplate segtpl_;
   }*current_period_, *next_period_;
 
-  struct RepresentationChooser
-  {
-    virtual Representation* ChooseRepresentation(AdaptationSet* adp) = 0;
-  virtual Representation* ChooseNextRepresentation(AdaptationSet* adp , 
-                                                Representation* rep,  
-                                                size_t *available_segment_buffers_,
-                                                size_t *valid_segment_buffers_,
-                                                uint32_t *assured_buffer_length_,
-                                                uint32_t * max_buffer_length_, 
-                                                uint32_t rep_counter_) = 0;
-  } *representation_chooser_ = nullptr;
-
   std::vector<Period*> periods_;
   std::string manifest_url_;
   std::string base_url_;
@@ -483,7 +474,8 @@ public:
   std::string supportedKeySystem_, location_;
 
   uint8_t adpChannelCount_, adp_pssh_set_;
-  uint16_t adpwidth_, adpheight_;
+  int adpwidth_;
+  int adpheight_;
   uint32_t adpfpsRate_, adpfpsScale_;
   float adpaspect_;
   ContainerType adpContainerType_;
@@ -495,7 +487,8 @@ public:
 
   std::string strXMLText_;
 
-  AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& properties);
+  AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& properties,
+               IRepresentationChooser* reprChooser);
   virtual ~AdaptiveTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) = 0;
@@ -535,22 +528,7 @@ public:
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 
-  Representation* ChooseRepresentation(AdaptationSet* adp)
-  {
-    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp) : nullptr;
-  };
-  Representation* ChooseNextRepresentation(AdaptationSet* adp, 
-                                      Representation* rep,  
-                                      size_t *available_segment_buffers_,
-                                      size_t *valid_segment_buffers_,
-                                      uint32_t *assured_buffer_length_,
-                                      uint32_t * max_buffer_length_, 
-                                      uint32_t rep_counter_)
-  {
-    return representation_chooser_ ? representation_chooser_->ChooseNextRepresentation(adp,rep,available_segment_buffers_,
-                                                                                      valid_segment_buffers_, assured_buffer_length_,
-                                                                                      max_buffer_length_, rep_counter_) : nullptr;
-  };
+  IRepresentationChooser* GetRepChooser() { return m_reprChooser; }
 
   int SecondsSinceRepUpdate(Representation* rep)
   {
@@ -583,6 +561,8 @@ protected:
 
 private:
   void SegmentUpdateWorker();
+
+  IRepresentationChooser* m_reprChooser{nullptr};
 };
 
-}
+} // namespace adaptive

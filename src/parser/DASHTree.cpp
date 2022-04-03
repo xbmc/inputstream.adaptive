@@ -664,11 +664,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             else if (strcmp((const char*)*attr, "codecs") == 0)
               dash->current_representation_->codecs_ = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "width") == 0)
-              dash->current_representation_->width_ =
-                  static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
+              dash->current_representation_->width_ = std::atoi((const char*)*(attr + 1));
             else if (strcmp((const char*)*attr, "height") == 0)
-              dash->current_representation_->height_ =
-                  static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
+              dash->current_representation_->height_ = std::atoi((const char*)*(attr + 1));
             else if (strcmp((const char*)*attr, "audioSamplingRate") == 0)
               dash->current_representation_->samplingRate_ =
                   static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
@@ -1670,7 +1668,7 @@ void DASHTree::RefreshLiveSegments()
       STRING::ReplaceFirst(manifestUrlUpd, "$START_NUMBER$", std::to_string(nextStartNumber));
     }
 
-    DASHTree updateTree(m_kodiProps);
+    DASHTree updateTree{m_kodiProps, GetRepChooser()};
     updateTree.base_time_ = base_time_;
     updateTree.supportedKeySystem_ = supportedKeySystem_;
     //Location element should be used on updates

@@ -18,7 +18,7 @@ set(ADP_SOURCES
 	src/codechandler/ttml/TTML.cpp
 	src/common/AdaptiveStream.cpp
 	src/common/AdaptiveTree.cpp
-	src/common/RepresentationChooser.cpp
+	src/common/RepresentationChooserDefault.cpp
 	src/parser/DASHTree.cpp
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
@@ -52,6 +52,7 @@ set(ADP_HEADERS
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
 	src/common/RepresentationChooser.h
+	src/common/RepresentationChooserDefault.h
 	src/parser/DASHTree.h
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
@@ -59,6 +60,7 @@ set(ADP_HEADERS
 	src/utils/Base64Utils.h
 	src/utils/log.h
 	src/utils/PropertiesUtils.h
+	src/utils/SettingsUtils.h
 	src/utils/StringUtils.h
 	src/utils/UrlUtils.h
 	src/utils/Utils.h

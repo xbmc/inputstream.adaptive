@@ -18,7 +18,8 @@ namespace adaptive
 class ATTR_DLL_LOCAL DASHTree : public AdaptiveTree
 {
 public:
-  DASHTree(const UTILS::PROPERTIES::KodiProperties& kodiProps) : AdaptiveTree(kodiProps){};
+  DASHTree(const UTILS::PROPERTIES::KodiProperties& kodiProps, IRepresentationChooser* reprChooser)
+    : AdaptiveTree(kodiProps, reprChooser){};
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders) override;
   virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;

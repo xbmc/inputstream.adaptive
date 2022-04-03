@@ -7,6 +7,7 @@
  */
 
 #include "AdaptiveTree.h"
+#include "RepresentationChooser.h"
 
 #include "../utils/UrlUtils.h"
 #include "../utils/log.h"
@@ -37,8 +38,10 @@ namespace adaptive
     *this = *src;
   }
 
-  AdaptiveTree::AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+  AdaptiveTree::AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                             IRepresentationChooser* reprChooser)
     : m_kodiProps(kodiProps),
+      m_reprChooser(reprChooser),
       m_streamHeaders(kodiProps.m_streamHeaders),
       current_period_(nullptr),
       next_period_(nullptr),
@@ -90,7 +93,6 @@ namespace adaptive
     rep->segments_.clear();
     rep->current_segment_ = nullptr;
   }
-
 
   bool AdaptiveTree::has_type(StreamType t)
   {

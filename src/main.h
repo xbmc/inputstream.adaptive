@@ -11,6 +11,7 @@
 #include "common/AdaptiveStream.h"
 #include "common/AdaptiveTree.h"
 #include "common/RepresentationChooser.h"
+#include "utils/SettingsUtils.h"
 #include "utils/PropertiesUtils.h"
 
 #include <float.h>
@@ -51,13 +52,13 @@ class ATTR_DLL_LOCAL KodiAdaptiveStream : public adaptive::AdaptiveStream
 public:
   KodiAdaptiveStream(adaptive::AdaptiveTree& tree,
                      adaptive::AdaptiveTree::AdaptationSet* adp,
+                     adaptive::AdaptiveTree::Representation* initialRepr,
                      const std::map<std::string, std::string>& media_headers,
-                     DefaultRepresentationChooser* chooser,
+                     adaptive::IRepresentationChooser* reprChooser,
                      bool play_timeshift_buffer,
-                     size_t repId,
                      bool choose_rep)
-    : adaptive::AdaptiveStream(tree, adp, media_headers, play_timeshift_buffer, repId, choose_rep),
-      chooser_(chooser){};
+    : adaptive::AdaptiveStream(tree, adp, initialRepr, media_headers, play_timeshift_buffer, choose_rep),
+      m_reprChooser(reprChooser){};
 
 protected:
   bool download(const std::string& url,
@@ -67,7 +68,7 @@ protected:
                        const std::string& buffer) override;
 
 private:
-  DefaultRepresentationChooser* chooser_ = nullptr;
+  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 class ATTR_DLL_LOCAL Session : public adaptive::AdaptiveStreamObserver
@@ -78,7 +79,7 @@ public:
           const std::map<std::string, std::string>& mediaHeaders,
           const std::string& profilePath);
   virtual ~Session();
-  bool Initialize(const std::uint8_t config, uint32_t max_user_bandwidth);
+  bool Initialize(const std::uint8_t config);
 
   /*! \brief Pre-Initialize the DRM
    *  \param challengeB64 [OUT] Provide the challenge data as base64
@@ -109,16 +110,17 @@ public:
   {
     STREAM(adaptive::AdaptiveTree& t,
            adaptive::AdaptiveTree::AdaptationSet* adp,
+           adaptive::AdaptiveTree::Representation* initialRepr,
            const std::map<std::string, std::string>& media_headers,
-           DefaultRepresentationChooser* chooser,
+           adaptive::IRepresentationChooser* reprChooser,
            bool play_timeshift_buffer,
-           size_t repId,
            bool choose_rep)
       : enabled(false),
         encrypted(false),
         mainId_(0),
         current_segment_(0),
-        m_kodiAdStream(t, adp, media_headers, chooser, play_timeshift_buffer, repId, choose_rep),
+        m_kodiAdStream(
+            t, adp, initialRepr, media_headers, reprChooser, play_timeshift_buffer, choose_rep),
         segmentChanged(false),
         valid(true){};
 
@@ -183,7 +185,11 @@ public:
     std::unique_ptr<AP4_File> m_streamFile;
   };
 
-  void UpdateStream(STREAM &stream);
+  void AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
+                 adaptive::AdaptiveTree::Representation* repr,
+                 bool isDefaultRepr,
+                 uint32_t uniqueId);
+  void UpdateStream(STREAM& stream);
   AP4_Movie* PrepareStream(STREAM* stream, bool& needRefetch);
 
   STREAM* GetStream(unsigned int sid) const
@@ -208,7 +214,7 @@ public:
   void StartReader(
       STREAM* stream, uint64_t seekTimeCorrected, int64_t ptsDiff, bool preceeding, bool timing);
   bool CheckChange(bool bSet = false){ bool ret = changed_; changed_ = bSet; return ret; };
-  void SetVideoResolution(unsigned int w, unsigned int h);
+  void SetVideoResolution(int width, int height);
   bool SeekTime(double seekTime, unsigned int streamId = 0, bool preceeding=true);
   bool IsLive() const { return adaptiveTree_->has_timeshift_buffer_; };
   UTILS::PROPERTIES::ManifestType GetManifestType() const { return m_kodiProps.m_manifestType; }
@@ -242,7 +248,6 @@ private:
   std::string manifestURL_;
   std::map<std::string, std::string> media_headers_;
   AP4_DataBuffer server_certificate_;
-  std::string profile_path_;
   kodi::tools::CDllHelper* decrypterModule_{nullptr};
   SSD::SSD_DECRYPTER* decrypter_{nullptr};
 
@@ -256,19 +261,19 @@ private:
   std::vector<CDMSESSION> cdm_sessions_;
 
   adaptive::AdaptiveTree* adaptiveTree_{nullptr};
-  DefaultRepresentationChooser* representationChooser_;
+  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
 
   std::vector<std::unique_ptr<STREAM>> m_streams;
   STREAM* timing_stream_{nullptr};
 
   uint32_t fixed_bandwidth_{0};
   bool changed_{false};
-  int manual_streams_{0};
+  UTILS::SETTINGS::StreamSelection m_settingStreamSelection{UTILS::SETTINGS::StreamSelection::AUTO};
   uint64_t elapsed_time_{0};
   uint64_t chapter_start_time_{0}; // In STREAM_TIME_BASE
   double chapter_seek_time_{0.0}; // In seconds
   uint8_t media_type_mask_{0};
   uint8_t drmConfig_{0};
-  bool allow_no_secure_decoder_;
+  bool m_settingNoSecureDecoder{false};
   bool first_period_initialized_{0};
 };

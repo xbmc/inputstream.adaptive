@@ -20,7 +20,12 @@ protected:
   void SetUp() override
   {
     UTILS::PROPERTIES::KodiProperties kodiProps;
-    tree = new DASHTestTree(kodiProps);
+
+    m_reprChooser = new CTestRepresentationChooserDefault();
+    m_reprChooser->Initialize(kodiProps);
+
+    tree = new DASHTestTree(kodiProps, m_reprChooser);
+
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
@@ -29,6 +34,8 @@ protected:
     testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
+    delete m_reprChooser;
+    m_reprChooser = nullptr;
   }
 
   void OpenTestFile(std::string testfilename, std::string url, std::string manifestHeaders)
@@ -45,6 +52,7 @@ protected:
   }
 
   DASHTestTree* tree;
+  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 class DASHTreeAdaptiveStreamTest : public DASHTreeTest
@@ -53,18 +61,11 @@ protected:
   void SetUp() override
   {
     DASHTreeTest::SetUp();
-    m_chooser = new DefaultRepresentationChooser();
-    m_chooser->hdcp_override_ = true;
-    m_chooser->assured_buffer_duration_ = 5;
-    m_chooser->max_buffer_duration_ = 5;
-    tree->representation_chooser_ = m_chooser;
-
   }
 
   void TearDown() override
   {
     delete testStream;
-    delete m_chooser;
     DASHTreeTest::TearDown();
   }
 
@@ -77,8 +78,9 @@ protected:
 
   TestAdaptiveStream* NewStream(adaptive::AdaptiveTree::AdaptationSet* adp, bool playTsb=true)
   {
-    tree->ChooseRepresentation(adp);
-    return new TestAdaptiveStream(*tree, adp, mediaHeaders, m_chooser, playTsb, 0, false);
+    auto initialRepr{tree->GetRepChooser()->ChooseRepresentation(adp)};
+    return new TestAdaptiveStream(*tree, adp, initialRepr, mediaHeaders, tree->GetRepChooser(),
+                                  playTsb, false);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,
@@ -105,14 +107,13 @@ protected:
     tree->SetLastUpdated(std::chrono::system_clock::now() - std::chrono::seconds(2));
     stream->SetLastUpdated(std::chrono::system_clock::now() - std::chrono::seconds(2));
   }
-  DefaultRepresentationChooser* m_chooser;
+
   TestAdaptiveStream* testStream = nullptr;
   TestAdaptiveStream* newStream = nullptr;
   std::vector<std::string> downloadedUrls;
   std::map<std::string, std::string> mediaHeaders;
   unsigned char buf[16];
 };
-
 
 TEST_F(DASHTreeTest, CalculateBaseURL)
 {
