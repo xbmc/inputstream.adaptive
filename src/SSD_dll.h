@@ -42,7 +42,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 16;
+    static const uint32_t version = 17;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -188,7 +188,7 @@ namespace SSD
       manifest / representation have to check if they are allowed to be played.
       */
       uint16_t hdcpVersion; //The HDCP version streams has to be restricted 0,10,20,21,22.....
-      uint32_t hdcpLimit; // If set, streams wich wxh > this value cannot be played.
+      int hdcpLimit; // If set (> 0) streams that are greater than the multiplication of "Width x Height" cannot be played.
     };
 
     static const uint8_t CONFIG_PERSISTENTSTORAGE = 1;

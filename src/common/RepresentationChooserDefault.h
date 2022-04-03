@@ -8,50 +8,75 @@
 
 #pragma once
 
-#include "AdaptiveStream.h"
-#include "../SSD_dll.h"
+#include "RepresentationChooser.h"
 
-struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChooser
+#include <chrono>
+
+namespace adaptive
 {
-  void SetDisplayDimensions(unsigned int w, unsigned int h);
-  void SetMaxUserBandwidth(uint32_t max_user_bandwidth);
-  void Prepare(bool secure_video_session);
-  adaptive::AdaptiveTree::Representation* ChooseNextRepresentation(
-    adaptive::AdaptiveTree::AdaptationSet* adp,
-    adaptive::AdaptiveTree::Representation* rep,
-    size_t *valid_segment_buffers_,
-    size_t *available_segment_buffers_,
-    uint32_t *assured_buffer_length_,
-    uint32_t * max_buffer_length_,
-    uint32_t rep_counter_);
-  adaptive::AdaptiveTree::Representation* ChooseRepresentation(adaptive::AdaptiveTree::AdaptationSet* adp);
-  virtual ~DefaultRepresentationChooser();
-  double get_download_speed() const;
-  double get_average_download_speed() const;
-  void set_download_speed(double speed);
 
-  uint16_t display_width_, display_height_;
-  uint16_t width_, height_;
-  uint32_t bandwidth_;
+class ATTR_DLL_LOCAL CRepresentationChooserDefault : public IRepresentationChooser
+{
+public:
+  CRepresentationChooserDefault(std::string kodiProfilePath);
+  ~CRepresentationChooserDefault() override;
 
-  uint16_t next_display_width_ = 0, next_display_height_ = 0;
-  bool res_to_be_changed_ = 1;
+  virtual void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
+  virtual void PostInit() override;
 
-  adaptive::AdaptiveTree::Representation *best_rep_, *min_rep_;//min_rep_ will be used for window-change detection
+  void SetScreenResolution(int width, int height) override;
 
-  std::chrono::steady_clock::time_point lastDimensionUpdated_ = std::chrono::steady_clock::now();
+  void SetDownloadSpeed(double speed) override;
+  double GetDownloadSpeed() override { return m_downloadCurrentSpeed; }
 
-  bool ignore_display_;
-  bool secure_video_session_;
-  bool hdcp_override_;
-  int max_resolution_, max_secure_resolution_;
-  bool ignore_window_change_;
+  void SetSecureSession(bool isSecureSession) override { m_isSecureSession = isSecureSession; }
+  void AddDecrypterCaps(const SSD::SSD_DECRYPTER::SSD_CAPS& ssdCaps) override;
 
-  uint32_t current_bandwidth_;
-  uint32_t min_bandwidth_, max_bandwidth_;
-  uint32_t assured_buffer_duration_;
-  uint32_t max_buffer_duration_;
+  AdaptiveTree::Representation* ChooseRepresentation(AdaptiveTree::AdaptationSet* adp) override;
 
-  double download_speed_, average_download_speed_;
-  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> decrypter_caps_;
+  AdaptiveTree::Representation* ChooseNextRepresentation(AdaptiveTree::AdaptationSet* adp,
+                                                         AdaptiveTree::Representation* rep,
+                                                         size_t& validSegmentBuffers,
+                                                         size_t& availableSegmentBuffers,
+                                                         uint32_t& bufferLengthAssured,
+                                                         uint32_t& bufferLengthMax,
+                                                         uint32_t repCounter) override;
+
+protected:
+  int m_screenCurrentWidth{0};
+  int m_screenCurrentHeight{0};
+  int m_screenSelWidth{0};
+  int m_screenSelHeight{0};
+  int m_screenNextWidth{0};
+  int m_screenNextHeight{0};
+
+  bool m_isScreenResNeedUpdate{true};
+  std::chrono::steady_clock::time_point m_screenResLastUpdate{std::chrono::steady_clock::now()};
+
+  bool m_isSecureSession{false};
+  bool m_isHdcpOverride{false};
+
+  int m_screenWidthMax{0}; // Max resolution for non-protected video content
+  int m_screenWidthMaxSecure{0}; // Max resolution for protected video content
+
+  // Ignore screen resolution, from playback starts and when it changes while playing
+  bool m_ignoreScreenRes{false};
+  // Ignore resolution change, while it is playing only
+  bool m_ignoreScreenResChange{false};
+
+  uint32_t m_bandwidthStored{0};
+  uint32_t m_bandwidthCurrent{0};
+  uint32_t m_bandwidthMin{0};
+  uint32_t m_bandwidthMax{0};
+
+  uint32_t m_bufferDurationAssured{0};
+  uint32_t m_bufferDurationMax{0};
+
+  double m_downloadCurrentSpeed{0};
+  double m_downloadAverageSpeed{0};
+
+  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> m_decrypterCaps;
+  std::string m_bandwidthFilePath;
 };
+
+} // namespace adaptive

@@ -238,8 +238,8 @@ private:
   std::vector<WVSKEY> keys_;
 
   AP4_UI16 hdcp_version_;
-  AP4_UI32 hdcp_limit_;
-  AP4_UI32 resolution_limit_;
+  int hdcp_limit_;
+  int resolution_limit_;
 
   unsigned int max_subsample_count_decrypt_, max_subsample_count_video_;
   cdm::SubsampleEntry *subsample_buffer_decrypt_, *subsample_buffer_video_;
@@ -830,7 +830,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   {
     std::string::size_type posMax = resLimit.find("max=");
     if (posMax != std::string::npos)
-      resolution_limit_ = atoi(resLimit.data() + (posMax + 4));
+      resolution_limit_ = std::atoi(resLimit.data() + (posMax + 4));
   }
 
   host->CloseFile(file);
@@ -885,7 +885,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
             && strncmp(response.c_str() + tokens[i].start, jsonVals[1].c_str(), tokens[i].end - tokens[i].start) == 0)
             break;
         if (i < numTokens)
-          hdcp_limit_ = atoi((response.c_str() + tokens[i + 1].start));
+          hdcp_limit_ = std::atoi((response.c_str() + tokens[i + 1].start));
       }
       // Find license key
       if (jsonVals.size() > 0)

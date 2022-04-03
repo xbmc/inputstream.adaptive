@@ -51,6 +51,7 @@ set(ADP_HEADERS
     src/common/AdaptiveDecrypter.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
+	src/common/RepresentationChooser.h
 	src/common/RepresentationChooserDefault.h
 	src/parser/DASHTree.h
 	src/parser/HLSTree.h
@@ -59,6 +60,7 @@ set(ADP_HEADERS
 	src/utils/Base64Utils.h
 	src/utils/log.h
 	src/utils/PropertiesUtils.h
+	src/utils/SettingsUtils.h
 	src/utils/StringUtils.h
 	src/utils/UrlUtils.h
 	src/utils/Utils.h

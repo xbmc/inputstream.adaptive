@@ -19,7 +19,11 @@ protected:
   void SetUp() override
   {
     UTILS::PROPERTIES::KodiProperties kodiProps;
-    tree = new adaptive::HLSTree(kodiProps, new AESDecrypter(std::string()));
+
+    m_reprChooser = new CTestRepresentationChooserDefault();
+    m_reprChooser->Initialize(kodiProps);
+
+    tree = new adaptive::HLSTree(kodiProps, m_reprChooser, new AESDecrypter(std::string()));
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
@@ -28,6 +32,8 @@ protected:
     testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
+    delete m_reprChooser;
+    m_reprChooser = nullptr;
   }
 
   void OpenTestFileMaster(std::string testfilename, std::string url, std::string manifestHeaders)
@@ -54,7 +60,9 @@ protected:
     SetFileName(testHelper::testFile, testfilename);
     return tree->prepareRepresentation(per, adp, rep);
   }
+
   adaptive::HLSTree* tree;
+  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 

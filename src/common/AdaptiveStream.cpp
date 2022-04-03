@@ -8,6 +8,8 @@
 
 #include "AdaptiveStream.h"
 
+#include "RepresentationChooser.h"
+
 #include "../oscompat.h"
 #include "../utils/log.h"
 #include "../utils/UrlUtils.h"
@@ -24,17 +26,16 @@ const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
 
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                AdaptiveTree::AdaptationSet* adp,
+                               AdaptiveTree::Representation* initialRepr,
                                const std::map<std::string, std::string>& media_headers,
                                bool play_timeshift_buffer,
-                               size_t repId,
                                bool choose_rep)
   : thread_data_(nullptr),
     tree_(tree),
     observer_(nullptr),
     current_period_(tree_.current_period_),
     current_adp_(adp),
-    current_rep_(repId ? adp->representations_[adp->representations_.size() - repId]
-                       : tree.ChooseRepresentation(adp)),
+    current_rep_(initialRepr),
     available_segment_buffers_(0),
     valid_segment_buffers_(0),
     media_headers_(media_headers),
@@ -216,9 +217,9 @@ bool AdaptiveStream::start_stream()
   if (choose_rep_)
   {
     choose_rep_ = false;
-    current_rep_ = tree_.ChooseNextRepresentation(
-      current_adp_, segment_buffers_[valid_segment_buffers_].rep, &valid_segment_buffers_,
-      &available_segment_buffers_, &assured_buffer_length_, &max_buffer_length_, rep_counter_);
+    current_rep_ = tree_.GetRepChooser()->ChooseNextRepresentation(
+        current_adp_, segment_buffers_[valid_segment_buffers_].rep, valid_segment_buffers_,
+        available_segment_buffers_, assured_buffer_length_, max_buffer_length_, rep_counter_);
   }
 
   if (!(current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZED))
@@ -578,12 +579,9 @@ bool AdaptiveStream::ensureSegment()
       }
       else
       {
-        newRep = tree_.ChooseNextRepresentation(current_adp_,
-                                                segment_buffers_[valid_segment_buffers_].rep,
-                                                &valid_segment_buffers_,&available_segment_buffers_,
-                                                &assured_buffer_length_,
-                                                &max_buffer_length_,
-                                                rep_counter_);
+        newRep = tree_.GetRepChooser()->ChooseNextRepresentation(
+            current_adp_, segment_buffers_[valid_segment_buffers_].rep, valid_segment_buffers_,
+            available_segment_buffers_, assured_buffer_length_, max_buffer_length_, rep_counter_);
       }
       // Make sure, new representation has segments!
       ResolveSegmentBase(newRep, false); // For DASH

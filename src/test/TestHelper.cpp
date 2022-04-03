@@ -112,7 +112,3 @@ std::string AESDecrypter::convertIV(const std::string& input)
 void AESDecrypter::ivFromSequence(uint8_t* buffer, uint64_t sid){}
 
 bool AESDecrypter::RenewLicense(const std::string& pluginUrl){return false;}
-
-DASHTestTree::DASHTestTree(UTILS::PROPERTIES::KodiProperties kodiProps) : DASHTree(kodiProps)
-{
-}

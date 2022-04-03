@@ -46,13 +46,13 @@ static void parseLine(const std::string& line,
   }
 }
 
-static void parseResolution(std::uint16_t& width, std::uint16_t& height, const std::string& val)
+static void parseResolution(int& width, int& height, const std::string& val)
 {
   std::string::size_type pos(val.find('x'));
   if (pos != std::string::npos)
   {
-    width = atoi(val.c_str());
-    height = atoi(val.c_str() + pos + 1);
+    width = std::atoi(val.c_str());
+    height = std::atoi(val.c_str() + pos + 1);
   }
 }
 

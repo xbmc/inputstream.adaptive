@@ -34,9 +34,9 @@ namespace adaptive
   public:
     AdaptiveStream(AdaptiveTree& tree,
                    AdaptiveTree::AdaptationSet* adp,
+                   AdaptiveTree::Representation* initialRepr,
                    const std::map<std::string, std::string>& media_headers,
                    bool play_timeshift_buffer,
-                   size_t repId,
                    bool choose_rep_);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };

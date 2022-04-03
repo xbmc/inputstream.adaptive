@@ -344,7 +344,8 @@ private:
     AP4_DataBuffer annexb_sps_pps_;
   };
   std::vector<FINFO> fragment_pool_;
-  AP4_UI32 hdcp_limit_, resolution_limit_;
+  int hdcp_limit_;
+  int resolution_limit_;
 };
 
 /*----------------------------------------------------------------------
@@ -510,7 +511,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_
     caps.hdcpLimit = resolution_limit_; //No restriction
     caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
   }
-  LogF(SSDDEBUG, "hdcpLimit: %u", caps.hdcpLimit);
+  LogF(SSDDEBUG, "hdcpLimit: %i", caps.hdcpLimit);
 }
 
 bool WV_CencSingleSampleDecrypter::ProvisionRequest()
@@ -873,7 +874,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   {
     std::string::size_type posMax = resLimit.find("max=");
     if (posMax != std::string::npos)
-      resolution_limit_ = atoi(resLimit.data() + (posMax + 4));
+      resolution_limit_ = std::atoi(resLimit.data() + (posMax + 4));
   }
 
   host->CloseFile(file);
