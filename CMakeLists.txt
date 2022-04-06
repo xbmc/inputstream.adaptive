@@ -7,6 +7,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 find_package(Kodi REQUIRED)
 
 set(ADP_SOURCES
+    src/AdaptiveByteStream.cpp
 	src/main.cpp
 	src/codechandler/AVCCodecHandler.cpp
 	src/codechandler/CodecHandler.cpp
@@ -23,6 +24,11 @@ set(ADP_SOURCES
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
 	src/parser/PRProtectionParser.cpp
+	src/samplereader/ADTSSampleReader.cpp
+	src/samplereader/FragmentedSampleReader.cpp
+	src/samplereader/SubtitleSampleReader.cpp
+	src/samplereader/TSSampleReader.cpp
+	src/samplereader/WebmSampleReader.cpp
 	src/utils/Base64Utils.cpp
 	src/utils/PropertiesUtils.cpp
 	src/utils/StringUtils.cpp
@@ -37,6 +43,7 @@ set(ADP_SOURCES
 	)
 
 set(ADP_HEADERS
+    src/AdaptiveByteStream.h
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h
@@ -57,6 +64,13 @@ set(ADP_HEADERS
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
 	src/parser/PRProtectionParser.h
+	src/samplereader/ADTSSampleReader.h
+	src/samplereader/DummySampleReader.h
+	src/samplereader/FragmentedSampleReader.h
+	src/samplereader/SampleReader.h
+	src/samplereader/SubtitleSampleReader.h
+	src/samplereader/TSSampleReader.h
+	src/samplereader/WebmSampleReader.h
 	src/utils/Base64Utils.h
 	src/utils/log.h
 	src/utils/PropertiesUtils.h

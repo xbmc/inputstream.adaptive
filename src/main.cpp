@@ -20,6 +20,12 @@
 #include "codechandler/VP9CodecHandler.h"
 #include "codechandler/WebVTTCodecHandler.h"
 #include "common/RepresentationChooserDefault.h"
+#include "samplereader/ADTSSampleReader.h"
+#include "samplereader/DummySampleReader.h"
+#include "samplereader/FragmentedSampleReader.h"
+#include "samplereader/SubtitleSampleReader.h"
+#include "samplereader/TSSampleReader.h"
+#include "samplereader/WebmSampleReader.h"
 #include "parser/DASHTree.h"
 #include "parser/HLSTree.h"
 #include "parser/SmoothTree.h"
@@ -134,7 +140,7 @@ public:
 
     va_list argsStart;
     va_copy(argsStart, args);
-    
+
     int ret;
     while ((ret = vsnprintf(data.data(), data.size(), format, args)) > data.size())
     {
@@ -203,59 +209,6 @@ private:
 } * kodihost;
 
 /*******************************************************
-Bento4 Streams
-********************************************************/
-
-class ATTR_DLL_LOCAL AdaptiveByteStream : public AP4_ByteStream
-{
-public:
-  // Constructor
-  AdaptiveByteStream(adaptive::AdaptiveStream* adStream) : m_adStream(adStream){};
-  virtual ~AdaptiveByteStream() {};
-
-  // AP4_ByteStream methods
-  AP4_Result ReadPartial(void* buffer, AP4_Size bytesToRead, AP4_Size& bytesRead) override
-  {
-    bytesRead = m_adStream->read(buffer, bytesToRead);
-    return bytesRead > 0 ? AP4_SUCCESS : AP4_ERROR_READ_FAILED;
-  };
-  AP4_Result WritePartial(const void* buffer,
-                          AP4_Size bytesToWrite,
-                          AP4_Size& bytesWritten) override
-  {
-    /* unimplemented */
-    return AP4_ERROR_NOT_SUPPORTED;
-  };
-  AP4_Result Seek(AP4_Position position) override
-  {
-    return m_adStream->seek(position) ? AP4_SUCCESS : AP4_ERROR_NOT_SUPPORTED;
-  };
-  AP4_Result Tell(AP4_Position& position) override
-  {
-    position = m_adStream->tell();
-    return AP4_SUCCESS;
-  };
-  AP4_Result GetSize(AP4_LargeSize& size) override { return AP4_ERROR_NOT_SUPPORTED; };
-  AP4_Result GetSegmentSize(size_t& size)
-  {
-    if (m_adStream->ensureSegment() && m_adStream->retrieveCurrentSegmentBufferSize(size))
-    {
-      return AP4_SUCCESS;
-    }
-    return AP4_ERROR_EOS;
-  };
-  // AP4_Referenceable methods
-  void AddReference() override{};
-  void Release() override{};
-  bool waitingForSegment() const { return m_adStream->waitingForSegment(); }
-  void FixateInitialization(bool on) { m_adStream->FixateInitialization(on); }
-  void SetSegmentFileOffset(uint64_t offset) { m_adStream->SetSegmentFileOffset(offset); }
-
-protected:
-  adaptive::AdaptiveStream* m_adStream;
-};
-
-/*******************************************************
 Kodi Streams implementation
 ********************************************************/
 
@@ -312,1070 +265,6 @@ bool adaptive::AdaptiveTree::download(const std::string& url,
 }
 
 /*******************************************************
-|   SampleReader
-********************************************************/
-
-class ATTR_DLL_LOCAL SampleReader
-{
-public:
-  virtual ~SampleReader() = default;
-  virtual bool Initialize() { return true; };
-  virtual bool EOS() const = 0;
-  virtual uint64_t DTS() const = 0;
-  virtual uint64_t PTS() const = 0;
-  virtual uint64_t DTSorPTS() const { return DTS() < PTS() ? DTS() : PTS(); };
-  virtual AP4_Result Start(bool& bStarted) = 0;
-  virtual AP4_Result ReadSample() = 0;
-  virtual void Reset(bool bEOS) = 0;
-  virtual bool GetInformation(kodi::addon::InputstreamInfo& info) = 0;
-  virtual bool TimeSeek(uint64_t pts, bool preceeding) = 0;
-  virtual void SetPTSOffset(uint64_t offset) = 0;
-  virtual int64_t GetPTSDiff() const = 0;
-  virtual bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) = 0;
-  virtual uint32_t GetTimeScale() const = 0;
-  virtual AP4_UI32 GetStreamId() const = 0;
-  virtual AP4_Size GetSampleDataSize() const = 0;
-  virtual const AP4_Byte* GetSampleData() const = 0;
-  virtual uint64_t GetDuration() const = 0;
-  virtual bool IsEncrypted() const = 0;
-  virtual void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid){};
-  virtual void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid){};
-  virtual bool RemoveStreamType(INPUTSTREAM_TYPE type) { return true; };
-  virtual bool IsStarted() const = 0;
-};
-
-/*******************************************************
-|   DummySampleReader
-********************************************************/
-
-class ATTR_DLL_LOCAL DummyReader : public SampleReader
-{
-public:
-  virtual ~DummyReader() = default;
-  bool EOS() const override { return false; }
-  uint64_t DTS() const override { return STREAM_NOPTS_VALUE; }
-  uint64_t PTS() const override { return STREAM_NOPTS_VALUE; }
-  AP4_Result Start(bool& bStarted) override { return AP4_SUCCESS; }
-  AP4_Result ReadSample() override { return AP4_SUCCESS; }
-  void Reset(bool bEOS) override {}
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override { return false; }
-  bool TimeSeek(uint64_t pts, bool preceeding) override { return false; }
-  void SetPTSOffset(uint64_t offset) override {}
-  int64_t GetPTSDiff() const override { return 0; }
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
-  uint32_t GetTimeScale() const override { return 1; }
-  AP4_UI32 GetStreamId() const override { return 0; }
-  AP4_Size GetSampleDataSize() const override { return 0; }
-  const AP4_Byte* GetSampleData() const override { return nullptr; }
-  uint64_t GetDuration() const override { return 0; }
-  bool IsEncrypted() const override { return false; }
-  void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override{};
-  void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override{};
-  bool RemoveStreamType(INPUTSTREAM_TYPE type) override { return true; };
-  bool IsStarted() const override { return true; }
-} DummyReader;
-
-/*******************************************************
-|   FragmentedSampleReader
-********************************************************/
-class ATTR_DLL_LOCAL FragmentedSampleReader : public SampleReader, public AP4_LinearReader
-{
-public:
-  FragmentedSampleReader(AP4_ByteStream* input,
-                         AP4_Movie* movie,
-                         AP4_Track* track,
-                         AP4_UI32 streamId,
-                         Adaptive_CencSingleSampleDecrypter* ssd,
-                         const SSD::SSD_DECRYPTER::SSD_CAPS& dcaps)
-    : AP4_LinearReader(*movie, input),
-      m_track(track),
-      m_streamId(streamId),
-      m_sampleDescIndex(1),
-      m_bSampleDescChanged(false),
-      m_decrypterCaps(dcaps),
-      m_failCount(0),
-      m_eos(false),
-      m_started(false),
-      m_dts(0),
-      m_pts(0),
-      m_ptsDiff(0),
-      m_ptsOffs(~0ULL),
-      m_codecHandler(0),
-      m_defaultKey(0),
-      m_protectedDesc(0),
-      m_singleSampleDecryptor(ssd),
-      m_decrypter(0),
-      m_nextDuration(0),
-      m_nextTimestamp(0)
-  {
-    EnableTrack(m_track->GetId());
-
-    AP4_SampleDescription* desc(m_track->GetSampleDescription(0));
-    if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
-    {
-      m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(desc);
-
-      AP4_ContainerAtom* schi;
-      if (m_protectedDesc->GetSchemeInfo() &&
-          (schi = m_protectedDesc->GetSchemeInfo()->GetSchiAtom()))
-      {
-        AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
-        if (tenc)
-          m_defaultKey = tenc->GetDefaultKid();
-        else
-        {
-          AP4_PiffTrackEncryptionAtom* piff(AP4_DYNAMIC_CAST(
-              AP4_PiffTrackEncryptionAtom, schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
-          if (piff)
-            m_defaultKey = piff->GetDefaultKid();
-        }
-      }
-    }
-    if (m_singleSampleDecryptor)
-      m_poolId = m_singleSampleDecryptor->AddPool();
-
-    m_timeBaseExt = STREAM_TIME_BASE;
-    m_timeBaseInt = m_track->GetMediaTimeScale();
-
-    while (m_timeBaseExt > 1)
-      if ((m_timeBaseInt / 10) * 10 == m_timeBaseInt)
-      {
-        m_timeBaseExt /= 10;
-        m_timeBaseInt /= 10;
-      }
-      else
-        break;
-
-    //We need this to fill extradata
-    UpdateSampleDescription();
-  }
-
-  ~FragmentedSampleReader()
-  {
-    if (m_singleSampleDecryptor)
-      m_singleSampleDecryptor->RemovePool(m_poolId);
-    delete m_decrypter;
-    delete m_codecHandler;
-  }
-
-  AP4_Result Start(bool& bStarted) override
-  {
-    bStarted = false;
-    if (m_started)
-      return AP4_SUCCESS;
-    m_started = true;
-    bStarted = true;
-    return ReadSample();
-  }
-
-  AP4_Result ReadSample() override
-  {
-    AP4_Result result;
-    if (!m_codecHandler || !m_codecHandler->ReadNextSample(m_sample, m_sampleData))
-    {
-      bool useDecryptingDecoder =
-          m_protectedDesc &&
-          (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0;
-      bool decrypterPresent(m_decrypter != nullptr);
-      if (AP4_FAILED(result = ReadNextSample(m_track->GetId(), m_sample,
-                                             (m_decrypter || useDecryptingDecoder) ? m_encrypted
-                                                                                   : m_sampleData)))
-      {
-        if (result == AP4_ERROR_EOS)
-        {
-          auto adByteStream = dynamic_cast<AdaptiveByteStream*>(m_FragmentStream);
-          if (!adByteStream)
-          {
-            LOG::LogF(LOGERROR, "Fragment stream cannot be casted to AdaptiveByteStream");
-            m_eos = true;
-          }
-          else
-          {
-            if (adByteStream->waitingForSegment())
-              m_sampleData.SetDataSize(0);
-            else
-              m_eos = true;
-          }
-        }
-        return result;
-      }
-
-      //AP4_AvcSequenceParameterSet sps;
-      //AP4_AvcFrameParser::ParseFrameForSPS(m_sampleData.GetData(), m_sampleData.GetDataSize(), 4, sps);
-
-      //Protection could have changed in ProcessMoof
-      if (!decrypterPresent && m_decrypter != nullptr && !useDecryptingDecoder)
-        m_encrypted.SetData(m_sampleData.GetData(), m_sampleData.GetDataSize());
-      else if (decrypterPresent && m_decrypter == nullptr && !useDecryptingDecoder)
-        m_sampleData.SetData(m_encrypted.GetData(), m_encrypted.GetDataSize());
-
-      if (m_decrypter)
-      {
-        // Make sure that the decrypter is NOT allocating memory!
-        // If decrypter and addon are compiled with different DEBUG / RELEASE
-        // options freeing HEAP memory will fail.
-        m_sampleData.Reserve(m_encrypted.GetDataSize() + 4096);
-        if (AP4_FAILED(
-                result = m_decrypter->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, NULL)))
-        {
-          LOG::Log(LOGERROR, "Decrypt Sample returns failure!");
-          if (++m_failCount > 50)
-          {
-            Reset(true);
-            return result;
-          }
-          else
-            m_sampleData.SetDataSize(0);
-        }
-        else
-          m_failCount = 0;
-      }
-      else if (useDecryptingDecoder)
-      {
-        m_sampleData.Reserve(m_encrypted.GetDataSize() + 1024);
-        m_singleSampleDecryptor->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, nullptr, 0,
-                                                   nullptr, nullptr);
-      }
-
-      if (m_codecHandler->Transform(m_sample.GetDts(), m_sample.GetDuration(), m_sampleData,
-                                    m_track->GetMediaTimeScale()))
-        m_codecHandler->ReadNextSample(m_sample, m_sampleData);
-    }
-
-    m_dts = (m_sample.GetDts() * m_timeBaseExt) / m_timeBaseInt;
-    m_pts = (m_sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
-
-    m_codecHandler->UpdatePPSId(m_sampleData);
-
-    return AP4_SUCCESS;
-  };
-
-  void Reset(bool bEOS) override
-  {
-    AP4_LinearReader::Reset();
-    m_eos = bEOS;
-    if (m_codecHandler)
-      m_codecHandler->Reset();
-  }
-
-  bool EOS() const override { return m_eos; };
-  bool IsStarted() const override { return m_started; };
-  uint64_t DTS() const override { return m_dts; };
-  uint64_t PTS() const override { return m_pts; };
-  AP4_UI32 GetStreamId() const override { return m_streamId; };
-  AP4_Size GetSampleDataSize() const override { return m_sampleData.GetDataSize(); };
-  const AP4_Byte* GetSampleData() const override { return m_sampleData.GetData(); };
-  uint64_t GetDuration() const override
-  {
-    return (m_sample.GetDuration() * m_timeBaseExt) / m_timeBaseInt;
-  };
-  bool IsEncrypted() const override
-  {
-    return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 &&
-           m_decrypter != nullptr;
-  };
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override
-  {
-    if (!m_codecHandler)
-      return false;
-
-    bool edchanged(false);
-    if (m_bSampleDescChanged && m_codecHandler->m_extraData.GetDataSize() &&
-        !info.CompareExtraData(m_codecHandler->m_extraData.GetData(),
-                               m_codecHandler->m_extraData.GetDataSize()))
-    {
-      info.SetExtraData(m_codecHandler->m_extraData.GetData(),
-                        m_codecHandler->m_extraData.GetDataSize());
-      edchanged = true;
-    }
-
-    AP4_SampleDescription* desc(m_track->GetSampleDescription(0));
-    if (desc->GetType() == AP4_SampleDescription::TYPE_MPEG)
-    {
-      switch (static_cast<AP4_MpegSampleDescription*>(desc)->GetObjectTypeId())
-      {
-        case AP4_OTI_MPEG4_AUDIO:
-        case AP4_OTI_MPEG2_AAC_AUDIO_MAIN:
-        case AP4_OTI_MPEG2_AAC_AUDIO_LC:
-        case AP4_OTI_MPEG2_AAC_AUDIO_SSRP:
-          info.SetCodecName("aac");
-          break;
-        case AP4_OTI_DTS_AUDIO:
-        case AP4_OTI_DTS_HIRES_AUDIO:
-        case AP4_OTI_DTS_MASTER_AUDIO:
-        case AP4_OTI_DTS_EXPRESS_AUDIO:
-          info.SetCodecName("dca");
-          break;
-        case AP4_OTI_AC3_AUDIO:
-          info.SetCodecName("ac3");
-          break;
-        case AP4_OTI_EAC3_AUDIO:
-          info.SetCodecName("eac3");
-          break;
-      }
-    }
-
-    m_bSampleDescChanged = false;
-
-    if (m_codecHandler->GetInformation(info))
-      return true;
-
-    return edchanged;
-  }
-
-  bool TimeSeek(uint64_t pts, bool preceeding) override
-  {
-    AP4_Ordinal sampleIndex;
-    AP4_UI64 seekPos(static_cast<AP4_UI64>((pts * m_timeBaseInt) / m_timeBaseExt));
-    if (AP4_SUCCEEDED(SeekSample(m_track->GetId(), seekPos, sampleIndex, preceeding)))
-    {
-      if (m_decrypter)
-        m_decrypter->SetSampleIndex(sampleIndex);
-      if (m_codecHandler)
-        m_codecHandler->TimeSeek(seekPos);
-      m_started = true;
-      return AP4_SUCCEEDED(ReadSample());
-    }
-    return false;
-  };
-
-  void SetPTSOffset(uint64_t offset) override
-  {
-    FindTracker(m_track->GetId())->m_NextDts = (offset * m_timeBaseInt) / m_timeBaseExt;
-    m_ptsOffs = offset;
-    if (m_codecHandler)
-      m_codecHandler->SetPTSOffset((offset * m_timeBaseInt) / m_timeBaseExt);
-  };
-
-  int64_t GetPTSDiff() const override { return m_ptsDiff; }
-
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override
-  {
-    if (m_nextDuration)
-    {
-      dur = m_nextDuration;
-      ts = m_nextTimestamp;
-    }
-    else
-    {
-      dur = dynamic_cast<AP4_FragmentSampleTable*>(FindTracker(m_track->GetId())->m_SampleTable)
-                ->GetDuration();
-      ts = 0;
-    }
-    return true;
-  };
-  uint32_t GetTimeScale() const override { return m_track->GetMediaTimeScale(); };
-
-public:
-  static const AP4_UI32 TRACKID_UNKNOWN = -1;
-
-protected:
-  AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
-                         AP4_Position moof_offset,
-                         AP4_Position mdat_payload_offset,
-                         AP4_UI64 mdat_payload_size) override
-  {
-    // For prefixed initialization (usually ISM) we don't yet know the
-    // proper track id, let's find it now
-    if (m_track->GetId() == TRACKID_UNKNOWN)
-    {
-      AP4_MovieFragment* fragment = new AP4_MovieFragment(
-          AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->Clone()));
-      AP4_Array<AP4_UI32> ids;
-      fragment->GetTrackIds(ids);
-      if (ids.ItemCount() == 1)
-      {
-        m_track->SetId(ids[0]);
-        delete fragment;
-      }
-      else
-      {
-        delete fragment;
-        return AP4_ERROR_NO_SUCH_ITEM;
-      }
-    }
-    
-    AP4_Result result;
-
-    if (AP4_SUCCEEDED((result = AP4_LinearReader::ProcessMoof(
-                           moof, moof_offset, mdat_payload_offset, mdat_payload_size))))
-    {
-      AP4_ContainerAtom* traf =
-          AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));
-
-      //For ISM Livestreams we have an UUID atom with one / more following fragment durations
-      m_nextDuration = m_nextTimestamp = 0;
-      AP4_Atom* atom;
-      unsigned int atom_pos(0);
-      const uint8_t uuid[16] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46, 0x95,
-                                0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f};
-      while ((atom = traf->GetChild(AP4_ATOM_TYPE_UUID, atom_pos++)) != nullptr)
-      {
-        AP4_UuidAtom* uuid_atom(AP4_DYNAMIC_CAST(AP4_UuidAtom, atom));
-        if (memcmp(uuid_atom->GetUuid(), uuid, 16) == 0)
-        {
-          //verison(8) + flags(24) + numpairs(8) + pairs(ts(64)/dur(64))*numpairs
-          const AP4_DataBuffer& buf(AP4_DYNAMIC_CAST(AP4_UnknownUuidAtom, uuid_atom)->GetData());
-          if (buf.GetDataSize() >= 21)
-          {
-            const uint8_t* data(buf.GetData());
-            m_nextTimestamp = AP4_BytesToUInt64BE(data + 5);
-            m_nextDuration = AP4_BytesToUInt64BE(data + 13);
-          }
-          break;
-        }
-      }
-
-      //Check if the sample table description has changed
-      AP4_TfhdAtom* tfhd = AP4_DYNAMIC_CAST(AP4_TfhdAtom, traf->GetChild(AP4_ATOM_TYPE_TFHD, 0));
-      if ((tfhd && tfhd->GetSampleDescriptionIndex() != m_sampleDescIndex) ||
-          (!tfhd && (m_sampleDescIndex = 1)))
-      {
-        m_sampleDescIndex = tfhd->GetSampleDescriptionIndex();
-        UpdateSampleDescription();
-      }
-
-      //Correct PTS
-      AP4_Sample sample;
-      if (~m_ptsOffs)
-      {
-        if (AP4_SUCCEEDED(GetSample(m_track->GetId(), sample, 0)))
-        {
-          m_pts = m_dts = (sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
-          m_ptsDiff = m_pts - m_ptsOffs;
-        }
-        m_ptsOffs = ~0ULL;
-      }
-
-      if (m_protectedDesc)
-      {
-        //Setup the decryption
-        AP4_CencSampleInfoTable* sample_table;
-        AP4_UI32 algorithm_id = 0;
-
-        delete m_decrypter;
-        m_decrypter = 0;
-
-        AP4_ContainerAtom* traf =
-            AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));
-
-        if (!m_protectedDesc || !traf)
-          return AP4_ERROR_INVALID_FORMAT;
-
-        bool reset_iv(false);
-        if (AP4_FAILED(result = AP4_CencSampleInfoTable::Create(m_protectedDesc, traf, algorithm_id,
-                                                                reset_iv, *m_FragmentStream, moof_offset,
-                                                                sample_table)))
-          // we assume unencrypted fragment here
-          goto SUCCESS;
-
-        if (AP4_FAILED(result =
-                           AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0, reset_iv,
-                                                           m_singleSampleDecryptor, m_decrypter)))
-          return result;
-
-        // Inform decrypter of pattern decryption (CBCS)
-        if (m_protectedDesc->GetSchemeType() == AP4_PROTECTION_SCHEME_TYPE_CENC)
-        {
-          m_singleSampleDecryptor->SetEncryptionScheme(ENCRYPTION_SCHEME::CENC);
-          m_singleSampleDecryptor->SetCrypto(0, 0);
-        }
-        else if (m_protectedDesc->GetSchemeType() == AP4_PROTECTION_SCHEME_TYPE_CBCS)
-        {
-          m_singleSampleDecryptor->SetEncryptionScheme(ENCRYPTION_SCHEME::CBCS);
-          m_singleSampleDecryptor->SetCrypto(sample_table->GetCryptByteBlock(),
-                                             sample_table->GetSkipByteBlock());
-        }
-      }
-    }
-  SUCCESS:
-    if (m_singleSampleDecryptor && m_codecHandler)
-      m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey,
-                                               m_codecHandler->m_naluLengthSize,
-                                               m_codecHandler->m_extraData, m_decrypterCaps.flags);
-
-    return AP4_SUCCESS;
-  }
-
-private:
-  void UpdateSampleDescription()
-  {
-    if (m_codecHandler)
-      delete m_codecHandler;
-    m_codecHandler = 0;
-    m_bSampleDescChanged = true;
-
-    AP4_SampleDescription* desc(m_track->GetSampleDescription(m_sampleDescIndex - 1));
-    if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
-    {
-      m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(desc);
-      desc = m_protectedDesc->GetOriginalSampleDescription();
-    }
-    LOG::Log(LOGDEBUG, "UpdateSampleDescription: codec %d", desc->GetFormat());
-    switch (desc->GetFormat())
-    {
-      case AP4_SAMPLE_FORMAT_AVC1:
-      case AP4_SAMPLE_FORMAT_AVC2:
-      case AP4_SAMPLE_FORMAT_AVC3:
-      case AP4_SAMPLE_FORMAT_AVC4:
-        m_codecHandler = new AVCCodecHandler(desc);
-        break;
-      case AP4_SAMPLE_FORMAT_HEV1:
-      case AP4_SAMPLE_FORMAT_HVC1:
-      case AP4_SAMPLE_FORMAT_DVHE:
-      case AP4_SAMPLE_FORMAT_DVH1:
-        m_codecHandler = new HEVCCodecHandler(desc);
-        break;
-      case AP4_SAMPLE_FORMAT_MP4A:
-        m_codecHandler = new MPEGCodecHandler(desc);
-        break;
-      case AP4_SAMPLE_FORMAT_STPP:
-        m_codecHandler = new TTMLCodecHandler(desc);
-        break;
-      case AP4_SAMPLE_FORMAT_WVTT:
-        m_codecHandler = new WebVTTCodecHandler(desc, false);
-        break;
-      case AP4_SAMPLE_FORMAT_VP9:
-        m_codecHandler = new VP9CodecHandler(desc);
-        break;
-      default:
-        m_codecHandler = new CodecHandler(desc);
-        break;
-    }
-
-    if ((m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
-      m_codecHandler->ExtraDataToAnnexB();
-  }
-
-private:
-  AP4_Track* m_track;
-  AP4_UI32 m_streamId;
-  AP4_UI32 m_sampleDescIndex;
-  bool m_bSampleDescChanged;
-  SSD::SSD_DECRYPTER::SSD_CAPS m_decrypterCaps;
-  unsigned int m_failCount;
-  AP4_UI32 m_poolId;
-
-  bool m_eos, m_started;
-  int64_t m_dts, m_pts, m_ptsDiff;
-  AP4_UI64 m_ptsOffs;
-
-  uint64_t m_timeBaseExt, m_timeBaseInt;
-
-  AP4_Sample m_sample;
-  AP4_DataBuffer m_encrypted, m_sampleData;
-
-  CodecHandler* m_codecHandler;
-  const AP4_UI08* m_defaultKey;
-
-  AP4_ProtectedSampleDescription* m_protectedDesc;
-  Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor;
-  AP4_CencSampleDecrypter* m_decrypter;
-  uint64_t m_nextDuration, m_nextTimestamp;
-};
-
-/*******************************************************
-|   SubtitleSampleReader
-********************************************************/
-
-class ATTR_DLL_LOCAL SubtitleSampleReader : public SampleReader
-{
-public:
-  SubtitleSampleReader(const std::string& url,
-                       AP4_UI32 streamId,
-                       const std::string& codecInternalName)
-    : m_pts(0), m_streamId(streamId), m_eos(false)
-  {
-    // open the file
-    kodi::vfs::CFile file;
-    if (!file.CURLCreate(url))
-      return;
-
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
-    file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE);
-
-    AP4_DataBuffer result;
-
-    // read the file
-    static const unsigned int CHUNKSIZE = 16384;
-    AP4_Byte buf[CHUNKSIZE];
-    size_t nbRead;
-    while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead)
-      result.AppendData(buf, nbRead);
-    file.Close();
-
-    if (codecInternalName == "wvtt")
-      m_codecHandler = new WebVTTCodecHandler(nullptr, true);
-    else
-      m_codecHandler = new TTMLCodecHandler(nullptr);
-
-    m_codecHandler->Transform(0, 0, result, 1000);
-  };
-
-  SubtitleSampleReader(Session::STREAM* stream,
-                       AP4_UI32 streamId,
-                       const std::string& codecInternalName)
-    : m_pts(0),
-      m_streamId(streamId),
-      m_eos(false),
-      m_adByteStream(stream->GetAdByteStream()),
-      m_adStream(&stream->m_adStream)
-  {
-    if (codecInternalName == "wvtt")
-      m_codecHandler = new WebVTTCodecHandler(nullptr, false);
-    else
-      m_codecHandler = new TTMLCodecHandler(nullptr);
-  }
-
-  bool IsStarted() const override { return true; };
-  bool EOS() const override { return m_eos; };
-  uint64_t DTS() const override { return m_pts; };
-  uint64_t PTS() const override { return m_pts; };
-  AP4_Result Start(bool& bStarted) override
-  {
-    m_eos = false;
-    return AP4_SUCCESS;
-  };
-  AP4_Result ReadSample() override
-  {
-    if (m_codecHandler->ReadNextSample(m_sample,
-                                       m_sampleData)) // Read the sample data from a file url
-    {
-      m_pts = m_sample.GetCts() * 1000;
-      return AP4_SUCCESS;
-    }
-    else if (m_adByteStream)  // Read the sample data from a segment file stream (e.g. HLS)
-    {
-      // Get the next segment
-      if (m_adStream && m_adStream->ensureSegment())
-      {
-        size_t segSize;
-        if (m_adStream->retrieveCurrentSegmentBufferSize(segSize))
-        {
-          AP4_DataBuffer segData;
-          while (segSize > 0)
-          {
-            AP4_Size readSize = m_segmentChunkSize;
-            if (segSize < static_cast<size_t>(m_segmentChunkSize))
-              readSize = static_cast<AP4_Size>(segSize);
-
-            AP4_Byte* buf = new AP4_Byte[readSize];
-            segSize -= readSize;
-            if (AP4_SUCCEEDED(m_adByteStream->Read(buf, readSize)))
-            {
-              segData.AppendData(buf, readSize);
-              delete[] buf;
-            }
-            else
-            {
-              delete[] buf;
-              break;
-            }
-          }
-          auto rep = m_adStream->getRepresentation();
-          if (rep)
-          {
-            auto currentSegment = rep->current_segment_;
-            if (currentSegment)
-            {
-              m_codecHandler->Transform(currentSegment->startPTS_, currentSegment->m_duration,
-                                        segData, 1000);
-              if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
-              {
-                m_pts = m_sample.GetCts();
-                m_ptsDiff = m_pts - m_ptsOffset;
-                return AP4_SUCCESS;
-              }
-            }
-            else
-              LOG::LogF(LOGERROR, "Failed to get current segment of subtitle stream");
-          }
-          else
-            LOG::LogF(LOGERROR, "Failed to get Representation of subtitle stream");
-        }
-        else
-        {
-          LOG::LogF(LOGERROR, "Failed to get subtitle segment buffer size");
-        }
-      }
-    }
-    m_eos = true;
-    return AP4_ERROR_EOS;
-  }
-  void Reset(bool bEOS) override
-  {
-    if (m_adByteStream || bEOS)
-      m_codecHandler->Reset();
-  };
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override
-  {
-    if (m_codecHandler->m_extraData.GetDataSize() &&
-        !info.CompareExtraData(m_codecHandler->m_extraData.GetData(),
-                               m_codecHandler->m_extraData.GetDataSize()))
-    {
-      info.SetExtraData(m_codecHandler->m_extraData.GetData(),
-                        m_codecHandler->m_extraData.GetDataSize());
-      return true;
-    }
-    return false;
-  };
-  bool TimeSeek(uint64_t pts, bool preceeding) override
-  {
-    if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler))
-    {
-      m_pts = pts;
-      return true;
-    }
-    else
-    {
-      if (m_codecHandler->TimeSeek(pts / 1000))
-        return AP4_SUCCEEDED(ReadSample());
-      return false;
-    }
-  };
-  void SetPTSOffset(uint64_t offset) override { m_ptsOffset = offset; };
-  int64_t GetPTSDiff() const override { return m_ptsDiff; }
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; };
-  uint32_t GetTimeScale() const override { return 1000; };
-  AP4_UI32 GetStreamId() const override { return m_streamId; };
-  AP4_Size GetSampleDataSize() const override { return m_sampleData.GetDataSize(); };
-  const AP4_Byte* GetSampleData() const override { return m_sampleData.GetData(); };
-  uint64_t GetDuration() const override { return m_sample.GetDuration() * 1000; };
-  bool IsEncrypted() const override { return false; };
-
-private:
-  uint64_t m_pts, m_ptsOffset = 0, m_ptsDiff = 0;
-  AP4_UI32 m_streamId;
-  bool m_eos;
-
-  CodecHandler* m_codecHandler;
-
-  AP4_Sample m_sample;
-  AP4_DataBuffer m_sampleData;
-  AdaptiveByteStream* m_adByteStream{nullptr};
-  adaptive::AdaptiveStream* m_adStream{nullptr};
-  const AP4_Size m_segmentChunkSize = 16384; // 16kb
-};
-
-/*******************************************************
-|   TSSampleReader
-********************************************************/
-class ATTR_DLL_LOCAL TSSampleReader : public SampleReader, public TSReader
-{
-public:
-  TSSampleReader(AP4_ByteStream* input,
-                 INPUTSTREAM_TYPE type,
-                 AP4_UI32 streamId,
-                 uint32_t requiredMask)
-    : TSReader(input, requiredMask),
-      m_adByteStream(dynamic_cast<AdaptiveByteStream*>(input)),
-      m_typeMask(1 << type)
-  {
-    m_typeMap[type] = m_typeMap[INPUTSTREAM_TYPE_NONE] = streamId;
-  };
-
-  bool Initialize() override { return TSReader::Initialize(); }
-
-  void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override
-  {
-    m_typeMap[type] = sid;
-    m_typeMask |= (1 << type);
-    if (m_started)
-      StartStreaming(m_typeMask);
-  };
-
-  void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override
-  {
-    m_typeMap[type] = sid;
-    m_typeMask = (1 << type);
-  };
-
-  bool RemoveStreamType(INPUTSTREAM_TYPE type) override
-  {
-    m_typeMask &= ~(1 << type);
-    StartStreaming(m_typeMask);
-    return m_typeMask == 0;
-  };
-
-  bool IsStarted() const override { return m_started; }
-  bool EOS() const override { return m_eos; }
-  uint64_t DTS() const override { return m_dts; }
-  uint64_t PTS() const override { return m_pts; }
-  AP4_Result Start(bool& bStarted) override
-  {
-    bStarted = false;
-    if (m_started)
-      return AP4_SUCCESS;
-
-    if (!StartStreaming(m_typeMask))
-    {
-      m_eos = true;
-      return AP4_ERROR_CANNOT_OPEN_FILE;
-    }
-
-    m_started = bStarted = true;
-    return ReadSample();
-  }
-
-  AP4_Result ReadSample() override
-  {
-    if (ReadPacket())
-    {
-      m_dts = (GetDts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetDts() * 100) / 9;
-      m_pts = (GetPts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetPts() * 100) / 9;
-
-      if (~m_ptsOffs)
-      {
-        m_ptsDiff = m_pts - m_ptsOffs;
-        m_ptsOffs = ~0ULL;
-      }
-      return AP4_SUCCESS;
-    }
-    if (!m_adByteStream || !m_adByteStream->waitingForSegment())
-      m_eos = true;
-    return AP4_ERROR_EOS;
-  }
-
-  void Reset(bool bEOS) override
-  {
-    TSReader::Reset();
-    m_eos = bEOS;
-  }
-
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override
-  {
-    return TSReader::GetInformation(info);
-  }
-
-  bool TimeSeek(uint64_t pts, bool preceeding) override
-  {
-    if (!StartStreaming(m_typeMask))
-      return false;
-
-    AP4_UI64 seekPos((pts * 9) / 100);
-    if (TSReader::SeekTime(seekPos, preceeding))
-    {
-      m_started = true;
-      return AP4_SUCCEEDED(ReadSample());
-    }
-    return AP4_ERROR_EOS;
-  }
-
-  void SetPTSOffset(uint64_t offset) override { m_ptsOffs = offset; }
-
-  int64_t GetPTSDiff() const override { return m_ptsDiff; }
-
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
-  uint32_t GetTimeScale() const override { return 90000; }
-  AP4_UI32 GetStreamId() const override { return m_typeMap[GetStreamType()]; }
-  AP4_Size GetSampleDataSize() const override { return GetPacketSize(); }
-  const AP4_Byte* GetSampleData() const override { return GetPacketData(); }
-  uint64_t GetDuration() const override { return (TSReader::GetDuration() * 100) / 9; }
-  bool IsEncrypted() const override { return false; };
-
-private:
-  uint32_t m_typeMask; //Bit representation of INPUTSTREAM_TYPES
-  uint32_t m_typeMap[16];
-  bool m_eos = false;
-  bool m_started = false;
-
-  uint64_t m_pts = 0;
-  uint64_t m_dts = 0;
-  int64_t m_ptsDiff = 0;
-  uint64_t m_ptsOffs = ~0ULL;
-  AdaptiveByteStream* m_adByteStream;
-};
-
-/*******************************************************
-|   ADTSSampleReader
-********************************************************/
-class ATTR_DLL_LOCAL ADTSSampleReader : public SampleReader, public ADTSReader
-{
-public:
-  ADTSSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
-    : ADTSReader(input),
-      m_streamId(streamId),
-      m_adByteStream(dynamic_cast<AdaptiveByteStream*>(input)){};
-
-  bool IsStarted() const override { return m_started; }
-  bool EOS() const override { return m_eos; }
-  uint64_t DTS() const override { return m_pts; }
-  uint64_t PTS() const override { return m_pts; }
-  AP4_Result Start(bool& bStarted) override
-  {
-    bStarted = false;
-    if (m_started)
-      return AP4_SUCCESS;
-
-    m_started = bStarted = true;
-    return ReadSample();
-  }
-
-  AP4_Result ReadSample() override
-  {
-    if (ReadPacket())
-    {
-      m_pts = (GetPts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetPts() * 100) / 9;
-
-      if (~m_ptsOffs)
-      {
-        m_ptsDiff = m_pts - m_ptsOffs;
-        m_ptsOffs = ~0ULL;
-      }
-      return AP4_SUCCESS;
-    }
-    if (!m_adByteStream || !m_adByteStream->waitingForSegment())
-      m_eos = true;
-    return AP4_ERROR_EOS;
-  }
-
-  void Reset(bool bEOS) override
-  {
-    ADTSReader::Reset();
-    m_eos = bEOS;
-  }
-
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override
-  {
-    return ADTSReader::GetInformation(info);
-  }
-
-  bool TimeSeek(uint64_t pts, bool preceeding) override
-  {
-    AP4_UI64 seekPos((pts * 9) / 100);
-    if (ADTSReader::SeekTime(seekPos, preceeding))
-    {
-      m_started = true;
-      return AP4_SUCCEEDED(ReadSample());
-    }
-    return AP4_ERROR_EOS;
-  }
-
-  void SetPTSOffset(uint64_t offset) override { m_ptsOffs = offset; }
-
-  int64_t GetPTSDiff() const override { return m_ptsDiff; }
-
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
-  uint32_t GetTimeScale() const override { return 90000; }
-  AP4_UI32 GetStreamId() const override { return m_streamId; }
-  AP4_Size GetSampleDataSize() const override { return GetPacketSize(); }
-  const AP4_Byte* GetSampleData() const override { return GetPacketData(); }
-  uint64_t GetDuration() const override { return (ADTSReader::GetDuration() * 100) / 9; }
-  bool IsEncrypted() const override { return false; };
-
-private:
-  bool m_eos = false;
-  bool m_started = false;
-  AP4_UI32 m_streamId = 0;
-  uint64_t m_pts = 0;
-  int64_t m_ptsDiff = 0;
-  uint64_t m_ptsOffs = ~0ULL;
-  AdaptiveByteStream* m_adByteStream;
-};
-
-
-/*******************************************************
-|   WebmSampleReader
-********************************************************/
-class ATTR_DLL_LOCAL WebmSampleReader : public SampleReader, public WebmReader
-{
-public:
-  WebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
-    : WebmReader(input),
-      m_streamId(streamId),
-      m_adByteStream(dynamic_cast<AdaptiveByteStream*>(input)){};
-
-  bool IsStarted() const override { return m_started; }
-  bool EOS() const override { return m_eos; }
-  uint64_t DTS() const override { return m_dts; }
-  uint64_t PTS() const override { return m_pts; }
-
-  bool Initialize() override
-  {
-    m_adByteStream->FixateInitialization(true);
-    bool ret = WebmReader::Initialize();
-    WebmReader::Reset();
-    m_adByteStream->FixateInitialization(false);
-    m_adByteStream->SetSegmentFileOffset(GetCueOffset());
-    return ret;
-  }
-
-  AP4_Result Start(bool& bStarted) override
-  {
-    bStarted = false;
-    if (m_started)
-      return AP4_SUCCESS;
-    m_started = bStarted = true;
-    return ReadSample();
-  }
-
-  AP4_Result ReadSample() override
-  {
-    if (ReadPacket())
-    {
-      m_dts = GetDts() * 1000;
-      m_pts = GetPts() * 1000;
-
-      if (~m_ptsOffs)
-      {
-        m_ptsDiff = m_pts - m_ptsOffs;
-        m_ptsOffs = ~0ULL;
-      }
-      return AP4_SUCCESS;
-    }
-    if (!m_adByteStream || !m_adByteStream->waitingForSegment())
-      m_eos = true;
-    return AP4_ERROR_EOS;
-  }
-
-  void Reset(bool bEOS) override
-  {
-    WebmReader::Reset();
-    m_eos = bEOS;
-  }
-
-  bool GetInformation(kodi::addon::InputstreamInfo& info) override
-  {
-    return WebmReader::GetInformation(info);
-  }
-
-  bool TimeSeek(uint64_t pts, bool preceeding) override
-  {
-    AP4_UI64 seekPos((pts * 9) / 100);
-    if (WebmReader::SeekTime(seekPos, preceeding))
-    {
-      m_started = true;
-      return AP4_SUCCEEDED(ReadSample());
-    }
-    return AP4_ERROR_EOS;
-  }
-
-  void SetPTSOffset(uint64_t offset) override { m_ptsOffs = offset; }
-
-  int64_t GetPTSDiff() const override { return m_ptsDiff; }
-
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
-  uint32_t GetTimeScale() const override { return 1000; }
-  AP4_UI32 GetStreamId() const override { return m_streamId; }
-  AP4_Size GetSampleDataSize() const override { return GetPacketSize(); }
-  const AP4_Byte* GetSampleData() const override { return GetPacketData(); }
-  uint64_t GetDuration() const override { return WebmReader::GetDuration() * 1000; }
-  bool IsEncrypted() const override { return false; };
-
-private:
-  AP4_UI32 m_streamId = 0;
-  bool m_eos = false;
-  bool m_started = false;
-
-  uint64_t m_pts = 0;
-  uint64_t m_dts = 0;
-  int64_t m_ptsDiff = 0;
-  uint64_t m_ptsOffs = ~0ULL;
-  AdaptiveByteStream* m_adByteStream;
-};
-
-/*******************************************************
 Main class Session
 ********************************************************/
 
@@ -1406,7 +295,8 @@ Session::Session(const PROPERTIES::KodiProperties& kodiProps,
                  const std::string& profilePath)
   : m_kodiProps(kodiProps),
     manifestURL_(url),
-    media_headers_(mediaHeaders)
+    media_headers_(mediaHeaders),
+    m_dummySampleReader(new CDummySampleReader)
 {
   // Create the representation chooser
   m_reprChooser = new adaptive::CRepresentationChooserDefault(profilePath);
@@ -1826,7 +716,7 @@ bool Session::InitializeDRM(bool addDefaultKID /* = false */)
 
           stream.enabled = true;
           stream.m_adStream.start_stream();
-          stream.SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream.m_adStream));
+          stream.SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream.m_adStream));
           stream.SetStreamFile(std::make_unique<AP4_File>(*stream.GetAdByteStream(),
                                                           AP4_DefaultAtomFactory::Instance_, true));
           AP4_Movie* movie = stream.GetStreamFile()->GetMovie();
@@ -2347,7 +1237,7 @@ AP4_Movie* Session::PrepareStream(STREAM* stream, bool& needRefetch)
     sample_table->AddSampleDescription(sample_descryption);
 
     movie->AddTrack(new AP4_Track(TIDC[stream->m_adStream.get_type()], sample_table,
-                                  FragmentedSampleReader::TRACKID_UNKNOWN,
+                                  CFragmentedSampleReader::TRACKID_UNKNOWN,
                                   stream->m_adStream.getRepresentation()->timescale_, 0,
                                   stream->m_adStream.getRepresentation()->timescale_, 0, "", 0, 0));
     //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
@@ -2379,7 +1269,7 @@ uint64_t Session::PTSToElapsed(uint64_t pts)
 {
   if (timing_stream_)
   {
-    SampleReader* timingReader = timing_stream_->GetReader();
+    ISampleReader* timingReader = timing_stream_->GetReader();
     if (!timingReader) {
       LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
       return 0;
@@ -2402,7 +1292,7 @@ uint64_t Session::GetTimeshiftBufferStart()
 {
   if (timing_stream_)
   {
-    SampleReader* timingReader = timing_stream_->GetReader();
+    ISampleReader* timingReader = timing_stream_->GetReader();
     if (!timingReader)
     {
       LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
@@ -2426,7 +1316,7 @@ void Session::StartReader(
       static_cast<double>(seekTimeCorrected / STREAM_TIME_BASE),
       preceeding, bReset);
 
-  SampleReader* streamReader = stream->GetReader();
+  ISampleReader* streamReader = stream->GetReader();
   if (!streamReader) {
     LOG::LogF(LOGERROR, "Cannot get the stream reader");
     return;
@@ -2446,7 +1336,7 @@ void Session::SetVideoResolution(int width, int height)
   m_reprChooser->SetScreenResolution(width, height);
 };
 
-SampleReader* Session::GetNextSample()
+ISampleReader* Session::GetNextSample()
 {
   STREAM* res{nullptr};
   STREAM* waiting{nullptr};
@@ -2454,7 +1344,7 @@ SampleReader* Session::GetNextSample()
   for (auto& stream : m_streams)
   {
     bool isStarted{false};
-    SampleReader* streamReader = stream->GetReader();
+    ISampleReader* streamReader = stream->GetReader();
     if (!streamReader)
       continue;
 
@@ -2485,7 +1375,7 @@ SampleReader* Session::GetNextSample()
   else if (waiting)
   {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    return &DummyReader;
+    return m_dummySampleReader.get();
   }
   return nullptr;
 }
@@ -2552,7 +1442,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
     // after seeking across chapters with fmp4 streams the reader will not have started
     // so we start here to ensure that we have the required information to correctly
     // seek with proper stream alignment
-    SampleReader* timingReader = timing_stream_->GetReader();
+    ISampleReader* timingReader = timing_stream_->GetReader();
     if (!timingReader)
     {
       LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
@@ -2571,7 +1461,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 
   for (auto& stream : m_streams)
   {
-    SampleReader* streamReader = stream->GetReader();
+    ISampleReader* streamReader = stream->GetReader();
     if (!streamReader)
     {
       LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
@@ -2625,7 +1515,7 @@ void Session::OnSegmentChanged(adaptive::AdaptiveStream* adStream)
   {
     if (&stream->m_adStream == adStream)
     {
-      SampleReader* streamReader = stream->GetReader();
+      ISampleReader* streamReader = stream->GetReader();
       if (!streamReader)
         LOG::LogF(LOGWARNING, "Cannot get the stream sample reader");
       else
@@ -2653,7 +1543,7 @@ void Session::CheckFragmentDuration(STREAM& stream)
 {
   uint64_t nextTs;
   uint64_t nextDur;
-  SampleReader* streamReader = stream.GetReader();
+  ISampleReader* streamReader = stream.GetReader();
   if (!streamReader)
   {
     LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
@@ -3120,7 +2010,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         break;
     if (mainStream)
     {
-      SampleReader* mainReader = mainStream->GetReader();
+      ISampleReader* mainReader = mainStream->GetReader();
       if (!mainReader)
       {
         LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
@@ -3141,7 +2031,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
   {
-    stream->SetReader(std::make_unique<SubtitleSampleReader>(
+    stream->SetReader(std::make_unique<CSubtitleSampleReader>(
         rep->url_, streamid, stream->info_.GetCodecInternalName()));
     return false;
   }
@@ -3155,16 +2045,16 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TEXT)
   {
-    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_adStream));
-    stream->SetReader(std::make_unique<SubtitleSampleReader>(stream, streamid,
+    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
+    stream->SetReader(std::make_unique<CSubtitleSampleReader>(stream, streamid,
                                                              stream->info_.GetCodecInternalName()));
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
   {
-    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_adStream));
+    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
 
     uint32_t mask{(1U << stream->info_.GetStreamType()) | m_session->GetIncludedStreamMask()};
-    stream->SetReader(std::make_unique<TSSampleReader>(
+    stream->SetReader(std::make_unique<CTSSampleReader>(
         stream->GetAdByteStream(), stream->info_.GetStreamType(), streamid, mask));
 
     if (!stream->GetReader()->Initialize())
@@ -3176,13 +2066,13 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
   {
-    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_adStream));
-    stream->SetReader(std::make_unique<ADTSSampleReader>(stream->GetAdByteStream(), streamid));
+    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
+    stream->SetReader(std::make_unique<CADTSSampleReader>(stream->GetAdByteStream(), streamid));
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
   {
-    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_adStream));
-    stream->SetReader(std::make_unique<WebmSampleReader>(stream->GetAdByteStream(), streamid));
+    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
+    stream->SetReader(std::make_unique<CWebmSampleReader>(stream->GetAdByteStream(), streamid));
     if (!stream->GetReader()->Initialize())
     {
       stream->disable();
@@ -3191,7 +2081,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
   {
-    stream->SetAdByteStream(std::make_unique<AdaptiveByteStream>(&stream->m_adStream));
+    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
     stream->SetStreamFile(std::make_unique<AP4_File>(
         *stream->GetAdByteStream(), AP4_DefaultAtomFactory::Instance_, true, movie));
     movie = stream->GetStreamFile()->GetMovie();
@@ -3220,7 +2110,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         m_session->GetSingleSampleDecryptor(stream->m_adStream.getRepresentation()->pssh_set_);
     auto caps = m_session->GetDecrypterCaps(stream->m_adStream.getRepresentation()->pssh_set_);
 
-    stream->SetReader(std::make_unique<FragmentedSampleReader>(
+    stream->SetReader(std::make_unique<CFragmentedSampleReader>(
         stream->GetAdByteStream(), movie, track, streamid, sampleDecrypter, caps));
   }
   else
@@ -3273,7 +2163,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     m_failedSeekTime = ~0;
   }
 
-  SampleReader* sr(m_session->GetNextSample());
+  ISampleReader* sr(m_session->GetNextSample());
 
   if (m_session->CheckChange())
   {

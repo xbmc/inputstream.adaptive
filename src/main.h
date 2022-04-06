@@ -6,11 +6,14 @@
  *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
+#include "AdaptiveByteStream.h"
 #include "SSD_dll.h"
-#include "common/AdaptiveDecrypter.h"
 #include "common/AdaptiveStream.h"
 #include "common/AdaptiveTree.h"
 #include "common/RepresentationChooser.h"
+#include "samplereader/SampleReader.h"
 #include "utils/SettingsUtils.h"
 #include "utils/PropertiesUtils.h"
 
@@ -22,8 +25,7 @@
 #include <kodi/addon-instance/Inputstream.h>
 #include <kodi/tools/DllHelper.h>
 
-class AdaptiveByteStream;
-class SampleReader;
+class Adaptive_CencSingleSampleDecrypter;
 
 namespace XBMCFILE
 {
@@ -80,7 +82,7 @@ public:
    */
   bool InitializePeriod(bool isSessionOpened = false);
 
-  SampleReader *GetNextSample();
+  ISampleReader *GetNextSample();
 
   struct STREAM
   {
@@ -108,13 +110,13 @@ public:
      * \brief Get the stream sample reader pointer
      * \return The sample reader, otherwise nullptr if not set
      */
-    SampleReader* GetReader() const { return m_streamReader.get(); }
+    ISampleReader* GetReader() const { return m_streamReader.get(); }
 
     /*!
      * \brief Set the stream sample reader
      * \param reader The reader
      */
-    void SetReader(std::unique_ptr<SampleReader> reader) { m_streamReader = std::move(reader); }
+    void SetReader(std::unique_ptr<ISampleReader> reader) { m_streamReader = std::move(reader); }
 
     /*!
      * \brief Get the stream file handler pointer
@@ -135,13 +137,13 @@ public:
      * \brief Get the adaptive byte stream handler pointer
      * \return The adaptive byte stream handler, otherwise nullptr if not set
      */
-    AdaptiveByteStream* GetAdByteStream() const { return m_adByteStream.get(); }
+    CAdaptiveByteStream* GetAdByteStream() const { return m_adByteStream.get(); }
 
     /*!
      * \brief Set the adaptive byte stream handler
      * \param dataStream The adaptive byte stream handler
      */
-    void SetAdByteStream(std::unique_ptr<AdaptiveByteStream> adByteStream)
+    void SetAdByteStream(std::unique_ptr<CAdaptiveByteStream> adByteStream)
     {
       m_adByteStream = std::move(adByteStream);
     }
@@ -155,8 +157,8 @@ public:
     bool valid;
 
   private:
-    std::unique_ptr<SampleReader> m_streamReader;
-    std::unique_ptr<AdaptiveByteStream> m_adByteStream;
+    std::unique_ptr<ISampleReader> m_streamReader;
+    std::unique_ptr<CAdaptiveByteStream> m_adByteStream;
     std::unique_ptr<AP4_File> m_streamFile;
   };
 
@@ -225,6 +227,7 @@ private:
   AP4_DataBuffer server_certificate_;
   kodi::tools::CDllHelper* decrypterModule_{nullptr};
   SSD::SSD_DECRYPTER* decrypter_{nullptr};
+  std::unique_ptr<ISampleReader> m_dummySampleReader;
 
   struct CDMSESSION
   {

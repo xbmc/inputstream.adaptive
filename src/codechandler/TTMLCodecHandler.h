@@ -6,6 +6,8 @@
  *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "CodecHandler.h"
 #include "ttml/TTML.h"
 
