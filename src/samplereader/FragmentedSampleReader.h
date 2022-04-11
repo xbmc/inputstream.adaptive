@@ -86,4 +86,5 @@ private:
   AP4_CencSampleDecrypter* m_decrypter{nullptr};
   uint64_t m_nextDuration{0};
   uint64_t m_nextTimestamp{0};
+  ReaderCryptoInfo m_readerCryptoInfo{ReaderCryptoInfo()};
 };

@@ -217,7 +217,7 @@ public:
   SSD_DECODE_RETVAL DecodeVideo(void* hostInstance, SSD_SAMPLE *sample, SSD_PICTURE *picture);
   void ResetVideo();
 
-  void SetEncryptionScheme(ENCRYPTION_SCHEME encryptionScheme) override;
+  void SetEncryptionScheme(CryptoMode encryptionScheme) override;
   void SetDefaultKeyId(std::string_view keyId) override;
   void AddKeyId(std::string_view keyId) override;
 
@@ -1442,17 +1442,17 @@ void WV_CencSingleSampleDecrypter::ResetVideo()
   drained_ = true;
 }
 
-void WV_CencSingleSampleDecrypter::SetEncryptionScheme(ENCRYPTION_SCHEME encryptionScheme)
+void WV_CencSingleSampleDecrypter::SetEncryptionScheme(CryptoMode encryptionScheme)
 {
   switch (encryptionScheme)
   {
-    case ENCRYPTION_SCHEME::NONE:
+  case CryptoMode::NONE:
       m_EncryptionScheme = cdm::EncryptionScheme::kUnencrypted;
       break;
-    case ENCRYPTION_SCHEME::CENC:
+    case CryptoMode::AES_CTR:
       m_EncryptionScheme = cdm::EncryptionScheme::kCenc;
       break;
-    case ENCRYPTION_SCHEME::CBCS:
+    case CryptoMode::AES_CBC:
       m_EncryptionScheme = cdm::EncryptionScheme::kCbcs;
       break;
     default:
