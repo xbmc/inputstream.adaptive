@@ -1969,7 +1969,8 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
   }
 }
 
-// We call true if a reset is required, otherwise false.
+// If we change some Kodi stream property we must to return true
+// to allow Kodi demuxer to reset with our changes the stream properties.
 bool CInputStreamAdaptive::OpenStream(int streamid)
 {
   LOG::Log(LOGDEBUG, "OpenStream(%d)", streamid);
@@ -2033,7 +2034,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   {
     stream->SetReader(std::make_unique<CSubtitleSampleReader>(
         rep->url_, streamid, stream->info_.GetCodecInternalName()));
-    return false;
+    return stream->GetReader()->GetInformation(stream->info_);
   }
 
   AP4_Movie* movie(m_session->PrepareStream(stream, needRefetch));
