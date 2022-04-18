@@ -11,7 +11,12 @@
 #include "common/AdaptiveStream.h"
 
 #include <bento4/Ap4.h>
+
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "test/KodiStubs.h"
+#else
 #include <kodi/AddonBase.h>
+#endif
 
 class ATTR_DLL_LOCAL CAdaptiveByteStream : public AP4_ByteStream
 {

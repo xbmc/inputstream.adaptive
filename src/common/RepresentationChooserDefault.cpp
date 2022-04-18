@@ -9,188 +9,152 @@
 #include "RepresentationChooserDefault.h"
 
 #include "../utils/log.h"
+#include "RepresentationSelector.h"
 
+#include <algorithm>
 #include <cmath>
+#include <numeric>
+#include <string_view>
 
+using namespace CHOOSER;
 using namespace adaptive;
 
 namespace
 {
 
-constexpr const long long SCREEN_RES_REFRESH_SECS = 15;
-// Bandwidth with which to select the initial representation (4 Mbps)
-constexpr const uint32_t INITIAL_BANDWIDTH = 4000000;
+constexpr const long long SCREEN_RES_REFRESH_SECS = 10;
 
 } // unnamed namespace
 
-CRepresentationChooserDefault::CRepresentationChooserDefault(std::string kodiProfilePath)
+CRepresentationChooserDefault::CRepresentationChooserDefault()
 {
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Default");
-
-  //! @todo Remove retrieving/saving average bandwidth to disk
-  //! this value not reflect actual network bandwidth
-  if (!kodiProfilePath.empty())
-  {
-    m_bandwidthFilePath = kodiProfilePath + "bandwidth.bin";
-
-    FILE* f = fopen(m_bandwidthFilePath.c_str(), "rb");
-    if (f)
-    {
-      double val;
-      size_t sz(fread(&val, sizeof(double), 1, f));
-      if (sz)
-      {
-        m_bandwidthStored = static_cast<uint32_t>(val * 8);
-        SetDownloadSpeed(val);
-      }
-      fclose(f);
-    }
-  }
-}
-
-CRepresentationChooserDefault::~CRepresentationChooserDefault()
-{
-  //! @todo Remove retrieving/saving average bandwidth to disk
-  //! this value not reflect actual network bandwidth
-  if (!m_bandwidthFilePath.empty())
-  {
-    std::string fn(m_bandwidthFilePath + "bandwidth.bin");
-    FILE* f = fopen(fn.c_str(), "wb");
-    if (f)
-    {
-      double val(m_downloadAverageSpeed);
-      fwrite((const char*)&val, sizeof(double), 1, f);
-      fclose(f);
-    }
-  }
 }
 
 void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps)
 {
-  if (m_bandwidthStored == 0)
-    m_bandwidthStored = INITIAL_BANDWIDTH;
+  IRepresentationChooser::Initialize(kodiProps);
 
-#ifndef INPUTSTREAM_TEST_BUILD
+  m_screenWidthMax = kodi::addon::GetSettingString("adaptivestream.res.max");
+  m_screenWidthMaxSecure = kodi::addon::GetSettingString("adaptivestream.res.max.secure");
 
-  m_bufferDurationAssured = kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION");
-  m_bufferDurationMax = kodi::addon::GetSettingInt("MAXBUFFERDURATION");
+  m_bandwidthInitAuto = kodi::addon::GetSettingBoolean("adaptivestream.bandwidth.init.auto");
+  m_bandwidthInit =
+      static_cast<uint32_t>(kodi::addon::GetSettingInt("adaptivestream.bandwidth.init") * 1000);
 
-  m_screenWidthMax = kodi::addon::GetSettingInt("MAXRESOLUTION");
-  m_screenWidthMaxSecure = kodi::addon::GetSettingInt("MAXRESOLUTIONSECURE");
+  m_bandwidthMin =
+      static_cast<uint32_t>(kodi::addon::GetSettingInt("adaptivestream.bandwidth.min") * 1000);
+  m_bandwidthMax =
+      static_cast<uint32_t>(kodi::addon::GetSettingInt("adaptivestream.bandwidth.max") * 1000);
 
-  m_bandwidthMin = kodi::addon::GetSettingInt("MINBANDWIDTH");
-  m_bandwidthMax = kodi::addon::GetSettingInt("MAXBANDWIDTH");
+  m_ignoreScreenRes = kodi::addon::GetSettingBoolean("adaptivestream.ignore.screen.res");
+  m_ignoreScreenResChange =
+      kodi::addon::GetSettingBoolean("adaptivestream.ignore.screen.res.change");
 
-  m_ignoreScreenRes = kodi::addon::GetSettingBoolean("IGNOREDISPLAY");
-  m_ignoreScreenResChange = kodi::addon::GetSettingBoolean("IGNOREWINDOWCHANGE");
-
+  //! @todo: move hdcp override and m_decrypterCaps out of repr. chooser
+  //! an idea would be to add a disable flag or remove from the list the
+  //! representations that cannot be played just after DRM initialization.
   m_isHdcpOverride = kodi::addon::GetSettingBoolean("HDCPOVERRIDE");
 
-#endif
-
   if (m_bandwidthMax == 0 ||
-      (kodiProps.m_bandwidthMax && m_bandwidthMax > kodiProps.m_bandwidthMax))
+      (kodiProps.m_bandwidthMax > 0 && m_bandwidthMax > kodiProps.m_bandwidthMax))
   {
     m_bandwidthMax = kodiProps.m_bandwidthMax;
   }
 
   LOG::Log(LOGDEBUG,
            "[Repr. chooser] Configuration\n"
-           "Resolution max: %i\n"
-           "Resolution max for secure decoder: %i\n"
-           "Bandwidth limits: min %u, max %u\n"
-           "Ignore display res.: %i\n"
-           "Ignore resolution change: %i\n"
+           "Resolution max: %s\n"
+           "Resolution max for secure decoder: %s\n"
+           "Bandwidth limits (bit/s): min %u, max %u\n"
+           "Ignore screen resolution: %i\n"
+           "Ignore screen resolution change: %i\n"
            "HDCP override: %i",
-           m_screenWidthMax, m_screenWidthMaxSecure, m_bandwidthMin, m_bandwidthMax,
+           m_screenWidthMax.c_str(), m_screenWidthMaxSecure.c_str(), m_bandwidthMin, m_bandwidthMax,
            m_ignoreScreenRes, m_ignoreScreenResChange, m_isHdcpOverride);
 }
 
 void CRepresentationChooserDefault::PostInit()
 {
+  RefreshResolution();
+
+  if (!m_bandwidthInitAuto)
+  {
+    m_bandwidthCurrent = std::max(m_bandwidthInit, m_bandwidthMin);
+  }
+  else if (m_bandwidthCurrent == 0)
+  {
+    LOG::Log(
+        LOGDEBUG,
+        "[Repr. chooser] The initial bandwidth cannot be determined due to download speed at 0. "
+        "Fallback to default user setting.");
+    m_bandwidthCurrent = std::max(m_bandwidthInit, m_bandwidthMin);
+  }
+
   LOG::Log(LOGDEBUG,
            "[Repr. chooser] Stream selection conditions\n"
            "Resolution: %ix%i\n"
-           "Initial bandwidth: %u\n"
-           "Buffer duration: assured %u secs, max %u secs",
-           m_screenSelWidth, m_screenSelHeight, m_bandwidthStored, m_bufferDurationAssured,
-           m_bufferDurationMax);
+           "Initial bandwidth: %u bit/s",
+           m_screenWidth, m_screenHeight, m_bandwidthCurrent);
 }
 
-//SetScreenResolution will be called upon changed video resolution only (will be filtered beforehand by xbmc api calls to SetVideoResolution)
-void CRepresentationChooserDefault::SetScreenResolution(int width, int height)
+void CRepresentationChooserDefault::RefreshResolution()
 {
-  if (m_isScreenResNeedUpdate)
+  if (m_screenWidth == m_screenCurrentWidth && m_screenHeight == m_screenCurrentHeight)
+    return;
+
+  // Update the screen resolution values only after n seconds
+  // to prevent too fast update when Kodi window will be resized
+  if (m_screenResLastUpdate.has_value() &&
+      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
+                                                       *m_screenResLastUpdate)
+              .count() < SCREEN_RES_REFRESH_SECS)
   {
-    m_screenCurrentWidth = width;
-    m_screenCurrentHeight = height;
-    //LOG::Log(LOGDEBUG, "[Repr. chooser] Screen resolution set to: %ux%u", width, height);
-
-    m_screenSelWidth = m_ignoreScreenRes ? 8192 : m_screenCurrentWidth;
-    switch (m_isSecureSession ? m_screenWidthMaxSecure : m_screenWidthMax)
-    {
-      case 1:
-        if (m_screenSelWidth > 640)
-          m_screenSelWidth = 640;
-        break;
-      case 2:
-        if (m_screenSelWidth > 960)
-          m_screenSelWidth = 960;
-        break;
-      case 3:
-        if (m_screenSelWidth > 1280)
-          m_screenSelWidth = 1280;
-        break;
-      case 4:
-        if (m_screenSelWidth > 1920)
-          m_screenSelWidth = 1920;
-        break;
-      default:
-        break;
-    }
-
-    m_screenSelHeight = m_ignoreScreenRes ? 8192 : m_screenCurrentHeight;
-    switch (m_isSecureSession ? m_screenWidthMaxSecure : m_screenWidthMax)
-    {
-      case 1:
-        if (m_screenSelHeight > 480)
-          m_screenSelHeight = 480;
-        break;
-      case 2:
-        if (m_screenSelHeight > 640)
-          m_screenSelHeight = 640;
-        break;
-      case 3:
-        if (m_screenSelHeight > 720)
-          m_screenSelHeight = 720;
-        break;
-      case 4:
-        if (m_screenSelHeight > 1080)
-          m_screenSelHeight = 1080;
-        break;
-      default:
-        break;
-    }
-
-    m_screenNextWidth = m_screenCurrentWidth;
-    m_screenNextHeight = m_screenCurrentHeight;
-    m_isScreenResNeedUpdate = false;
+    return;
   }
-  else
+
+  m_screenWidth = m_ignoreScreenRes ? 16384 : m_screenCurrentWidth;
+  m_screenHeight = m_ignoreScreenRes ? 16384 : m_screenCurrentHeight;
+
+  // If set, limit resolution to user choice
+  std::string_view userMaxRes{m_isSecureSession ? m_screenWidthMaxSecure : m_screenWidthMax};
+
+  auto mapIt{RESOLUTION_LIMITS.find(userMaxRes)};
+
+  if (mapIt != RESOLUTION_LIMITS.end())
   {
-    m_screenNextWidth = width;
-    m_screenNextHeight = height;
+    const std::pair<int, int>& resLimit{mapIt->second};
+
+    if (m_screenWidth > resLimit.first)
+      m_screenWidth = resLimit.first;
+
+    if (m_screenHeight > resLimit.second)
+      m_screenHeight = resLimit.second;
   }
+
+  LOG::Log(LOGDEBUG, "[Repr. chooser] Screen resolution set: %ix%i", m_screenCurrentWidth,
+           m_screenCurrentHeight);
   m_screenResLastUpdate = std::chrono::steady_clock::now();
 }
 
-void CRepresentationChooserDefault::SetDownloadSpeed(double speed)
+void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
 {
-  m_downloadCurrentSpeed = speed;
-  if (!m_downloadAverageSpeed)
-    m_downloadAverageSpeed = m_downloadCurrentSpeed;
+  m_downloadSpeedChron.push_back(speed);
+
+  // Calculate the average speed of last 10 download speeds
+  if (m_downloadSpeedChron.size() > 10)
+    m_downloadSpeedChron.pop_front();
+
+  // Calculate the current bandwidth from the average download speed
+  if (m_bandwidthCurrent == 0)
+    m_bandwidthCurrent = speed * 8;
   else
-    m_downloadAverageSpeed = m_downloadAverageSpeed * 0.8 + m_downloadCurrentSpeed * 0.2;
+  {
+    double avgSpeedBytes{
+        std::accumulate(m_downloadSpeedChron.begin(), m_downloadSpeedChron.end(), 0.0) /
+        m_downloadSpeedChron.size()};
+    m_bandwidthCurrent = avgSpeedBytes * 8;
+  }
 }
 
 void CRepresentationChooserDefault::AddDecrypterCaps(const SSD::SSD_DECRYPTER::SSD_CAPS& ssdCaps)
@@ -201,16 +165,22 @@ void CRepresentationChooserDefault::AddDecrypterCaps(const SSD::SSD_DECRYPTER::S
 AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentation(
     AdaptiveTree::AdaptationSet* adp)
 {
+  CRepresentationSelector selector(m_screenWidth, m_screenHeight);
   AdaptiveTree::Representation* newRep{nullptr};
 
-  uint32_t bandwidth = m_bandwidthMin;
-  if (m_bandwidthCurrent > m_bandwidthStored)
-    bandwidth = m_bandwidthCurrent;
-  if (m_bandwidthMax && m_bandwidthStored > m_bandwidthMax)
+  // Force the bandwidth to the limits set by the user
+  uint32_t bandwidth = m_bandwidthCurrent;
+  if (m_bandwidthMin > 0 && bandwidth < m_bandwidthMin)
+    bandwidth = m_bandwidthMin;
+  if (m_bandwidthMax > 0 && bandwidth > m_bandwidthMax)
     bandwidth = m_bandwidthMax;
 
-  bandwidth =
-      static_cast<uint32_t>(m_bandwidthStored * (adp->type_ == AdaptiveTree::VIDEO ? 0.9 : 0.1));
+  // From bandwidth take in consideration:
+  // 90% of bandwidth for video - 10 % for other
+  if (adp->type_ == AdaptiveTree::VIDEO)
+    bandwidth = static_cast<uint32_t>(bandwidth * 0.9);
+  else
+    bandwidth = static_cast<uint32_t>(bandwidth * 0.1);
 
   int valScore{-1};
   int bestScore{-1};
@@ -220,15 +190,7 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentatio
   for (auto rep : adp->representations_)
   {
     if (!rep)
-    {
-      LOG::LogF(LOGERROR, "The representation pointer is nullptr");
       continue;
-    }
-
-    // Set buffer durations to representation
-    //! @todo: buffers currently unused
-    rep->assured_buffer_duration_ = m_bufferDurationAssured;
-    rep->max_buffer_duration_ = m_bufferDurationMax;
 
     if (!m_isHdcpOverride)
     {
@@ -236,7 +198,7 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentatio
       hdcpLimit = m_decrypterCaps[rep->pssh_set_].hdcpLimit;
     }
 
-    int score = std::abs(rep->width_ * rep->height_ - m_screenSelWidth * m_screenSelHeight) +
+    int score = std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight) +
                 static_cast<int>(std::sqrt(bandwidth - rep->bandwidth_));
 
     if (rep->bandwidth_ <= bandwidth && rep->hdcpVersion_ <= hdcpVersion &&
@@ -246,81 +208,26 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentatio
       bestScore = score;
       newRep = rep;
     }
-    else if (!adp->min_rep_ || rep->bandwidth_ < adp->min_rep_->bandwidth_)
-    {
-      adp->min_rep_ = rep;
-    }
-
-    // It is bandwidth independent (if multiple same resolution bandwidth, will select first rep)
-    score = std::abs(rep->width_ * rep->height_ - m_screenSelWidth * m_screenSelHeight);
-
-    if (rep->hdcpVersion_ <= hdcpVersion &&
-        (hdcpLimit == 0 || rep->width_ * rep->height_ <= hdcpLimit) &&
-        (valScore == -1 || score <= valScore))
-    {
-      valScore = score;
-      if (!adp->best_rep_ || rep->bandwidth_ > adp->best_rep_->bandwidth_)
-        adp->best_rep_ = rep;
-    }
   }
 
   if (!newRep)
-    newRep = adp->min_rep_;
-
-  if (!adp->best_rep_)
-    adp->best_rep_ = adp->min_rep_;
+    newRep = selector.Lowest(adp);
 
   return newRep;
 }
 
-//! @todo: to be called from ensuresegment method only, SEPERATED FOR FURTHER DEVELOPMENT, CAN BE MERGED AFTERWARDS
 AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp,
-    AdaptiveTree::Representation* rep,
-    size_t& validSegmentBuffers,
-    size_t& availableSegmentBuffers,
-    uint32_t& bufferLengthAssured,
-    uint32_t& bufferLengthMax,
-    uint32_t repCounter)
+    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
 {
-  if (!m_ignoreScreenResChange && !m_ignoreScreenRes &&
-      !(m_screenNextWidth == m_screenCurrentWidth && m_screenNextHeight == m_screenCurrentHeight))
-  {
-    // Update resolution values only after n seconds
-    if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
-                                                         m_screenResLastUpdate)
-            .count() > SCREEN_RES_REFRESH_SECS)
-    {
-      m_isScreenResNeedUpdate = true;
-      LOG::Log(LOGDEBUG, "[Repr. chooser] Updating display resolution to: %ix%i", m_screenNextWidth,
-               m_screenNextHeight);
-      SetScreenResolution(m_screenNextWidth, m_screenNextHeight);
-    }
-  }
+  //! @todo: Need to implement in Kodi core a callback for resolution change event
+  // if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
+  //  RefreshResolution();
 
-  AdaptiveTree::Representation* nextRep{nullptr}; //nextRep definition to be finalised
+  CRepresentationSelector selector(m_screenWidth, m_screenHeight);
 
-  m_bandwidthCurrent = m_downloadAverageSpeed;
-  LOG::Log(LOGDEBUG, "[Repr. chooser] Current bandwidth: %u", m_bandwidthCurrent);
+  LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s", m_bandwidthCurrent);
 
-  float bufferHungryFactor = 1.0; // can be made as a sliding input
-  bufferHungryFactor = static_cast<float>(validSegmentBuffers) / bufferLengthAssured;
-  bufferHungryFactor = bufferHungryFactor > 0.5 ? bufferHungryFactor : 0.5;
-
-  uint32_t bandwidth = static_cast<uint32_t>(bufferHungryFactor * 7.0 * m_bandwidthCurrent);
-  LOG::Log(LOGDEBUG, "[Repr. chooser] Bandwidth set: %u", bandwidth);
-
-  if (validSegmentBuffers >= bufferLengthAssured)
-  {
-    return adp->best_rep_;
-  }
-  if ((validSegmentBuffers > 6) && (bandwidth >= rep->bandwidth_ * 2) && (rep != adp->best_rep_) &&
-      (adp->best_rep_->bandwidth_ <= bandwidth)) //overwrite case, more internet data
-  {
-    validSegmentBuffers = std::max(validSegmentBuffers / 2, validSegmentBuffers - repCounter);
-    availableSegmentBuffers = validSegmentBuffers; //so that ensure writes again with new rep
-  }
-
+  AdaptiveTree::Representation* nextRep{nullptr};
   int bestScore{-1};
   uint16_t hdcpVersion{99};
   int hdcpLimit{0};
@@ -328,10 +235,7 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresent
   for (auto rep : adp->representations_)
   {
     if (!rep)
-    {
-      LOG::LogF(LOGERROR, "The representation pointer is nullptr");
       continue;
-    }
 
     if (!m_isHdcpOverride)
     {
@@ -339,26 +243,27 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresent
       hdcpLimit = m_decrypterCaps[rep->pssh_set_].hdcpLimit;
     }
 
-    int score = std::abs(rep->width_ * rep->height_ - m_screenSelWidth * m_screenSelHeight) +
-                static_cast<int>(std::sqrt(bandwidth - rep->bandwidth_));
+    int score = std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight) +
+                static_cast<int>(std::sqrt(m_bandwidthCurrent - rep->bandwidth_));
 
-    if (rep->bandwidth_ <= bandwidth && rep->hdcpVersion_ <= hdcpVersion &&
+    if (rep->bandwidth_ <= m_bandwidthCurrent && rep->hdcpVersion_ <= hdcpVersion &&
         (hdcpLimit == 0 || rep->width_ * rep->height_ <= hdcpLimit) &&
         (bestScore == -1 || score < bestScore))
     {
       bestScore = score;
       nextRep = rep;
     }
-    else if (!adp->min_rep_ || rep->bandwidth_ < adp->min_rep_->bandwidth_)
-    {
-      adp->min_rep_ = rep;
-    }
   }
 
   if (!nextRep)
-    nextRep = adp->min_rep_;
+    nextRep = selector.Lowest(adp);
 
-  // LOG::Log(LOGDEBUG, "[Repr. chooser] Next rep. bandwidth: %u", nextRep->m_bandwidthStored);
-
+  if (currentRep != nextRep)
+  {
+    LOG::Log(LOGDEBUG,
+             "[Repr. chooser] Selected next representation ID %s "
+             "(repr. bandwidth changed from: %u bit/s, to: %u bit/s)",
+             nextRep->id.c_str(), currentRep->bandwidth_, nextRep->bandwidth_);
+  }
   return nextRep;
 }

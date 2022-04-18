@@ -10,66 +10,92 @@
 
 #include "../SSD_dll.h"
 #include "../utils/PropertiesUtils.h"
+#include "../utils/SettingsUtils.h"
 #include "AdaptiveTree.h"
 
-namespace adaptive
+#include <string_view>
+
+namespace CHOOSER
 {
+
+const std::map<std::string_view, std::pair<int, int>> RESOLUTION_LIMITS{
+    {"480p", {640, 480}}, {"640p", {960, 640}},    {"720p", {1280, 720}}, {"1080p", {1920, 1080}},
+    {"2K", {2048, 1080}}, {"1440p", {2560, 1440}}, {"4K", {3840, 2160}}};
 
 class ATTR_DLL_LOCAL IRepresentationChooser
 {
 public:
-  IRepresentationChooser() {}
   virtual ~IRepresentationChooser() {}
 
-  /*! \brief Initialize the representation chooser.
-   *   (Variables like current screen resolution and
-   *   DRM data can be read only with PostInit callback)
-   *  \param m_kodiProps The Kodi properties
+  /*!
+   * \brief Initialize the representation chooser.
+   *        (Variables like current screen resolution and
+   *        DRM data can be read only with PostInit callback)
+   * \param m_kodiProps The Kodi properties
    */
   virtual void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) {}
 
-  /*! \brief Post initialization, will be called just after DRM initialization
+  /*!
+   * \brief Post initialization, will be called just after DRM initialization
    */
   virtual void PostInit() {}
 
-  /*! \brief Set the current screen resolution.
-  *    To be called every time the screen resolution change.
-   *  \param width Width resolution
-   *  \param height Height resolution
+  /*!
+   * \brief Set the current screen resolution.
+   *        To be called every time the screen resolution change.
+   * \param width Width resolution
+   * \param height Height resolution
    */
-  virtual void SetScreenResolution(int width, int height) {}
+  void SetScreenResolution(const int width, const int height);
 
-  /*! \brief Set the current download speed.
-   *   To be called at each segment download.
-   *  \param speed The speed in byte/s
+  /*!
+   * \brief Set the current download speed.
+   *        To be called at each segment download.
+   * \param speed The speed in byte/s
    */
-  virtual void SetDownloadSpeed(double speed) {}
+  virtual void SetDownloadSpeed(const double speed) {}
 
-  /*! \brief Get the current donwload speed
-   *  \return The speed in byte/s
+  /*!
+   * \brief Get the stream selection mode. Determine whether to provide the user
+   *        with the ability to choose a/v tracks from Kodi GUI settings while
+   *        in playback.
+   * \return The stream selection mode
    */
-  virtual double GetDownloadSpeed() { return 0.0; }
+  virtual UTILS::SETTINGS::StreamSelection GetStreamSelectionMode()
+  {
+    return UTILS::SETTINGS::StreamSelection::AUTO;
+  }
 
-  /*! \brief Set if the DRM use a secure session
-   *  \param isSecureSession Set true if a secure session is in use
+  /*!
+   * \brief Set if the DRM use a secure session
+   * \param isSecureSession Set true if a secure session is in use
    */
-  virtual void SetSecureSession(bool isSecureSession) {}
+  virtual void SetSecureSession(const bool isSecureSession) { m_isSecureSession = isSecureSession; }
 
-  /*! \brief Add the decrypter caps of a session. Can be used to determine the
-   *   HDCP version and limit of each stream representation.
-   *  \param ssdCaps The SSD decripter caps of a session
+  /*!
+   * \brief Add the decrypter caps of a session. Can be used to determine the
+   *        HDCP version and limit of each stream representation.
+   * \param ssdCaps The SSD decripter caps of a session
    */
   virtual void AddDecrypterCaps(const SSD::SSD_DECRYPTER::SSD_CAPS& ssdCaps) {}
 
-  virtual AdaptiveTree::Representation* ChooseRepresentation(AdaptiveTree::AdaptationSet* adp) = 0;
+  virtual adaptive::AdaptiveTree::Representation* ChooseRepresentation(
+      adaptive::AdaptiveTree::AdaptationSet* adp) = 0;
 
-  virtual AdaptiveTree::Representation* ChooseNextRepresentation(AdaptiveTree::AdaptationSet* adp,
-                                                                 AdaptiveTree::Representation* rep,
-                                                                 size_t& validSegmentBuffers,
-                                                                 size_t& availableSegmentBuffers,
-                                                                 uint32_t& bufferLengthAssured,
-                                                                 uint32_t& bufferLengthMax,
-                                                                 uint32_t repCounter) = 0;
+  virtual adaptive::AdaptiveTree::Representation* ChooseNextRepresentation(
+      adaptive::AdaptiveTree::AdaptationSet* adp,
+      adaptive::AdaptiveTree::Representation* currentRep) = 0;
+
+protected:
+  bool m_isSecureSession{false};
+
+  // Current screen width resolution (this value is auto-updated by Kodi)
+  int m_screenCurrentWidth{0};
+  // Current screen height resolution (this value is auto-updated by Kodi)
+  int m_screenCurrentHeight{0};
 };
 
-} // namespace adaptive
+IRepresentationChooser* CreateRepresentationChooser(
+    const UTILS::PROPERTIES::KodiProperties& kodiProps);
+
+} // namespace CHOOSER

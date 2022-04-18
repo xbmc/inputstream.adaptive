@@ -14,7 +14,6 @@
 #include "common/AdaptiveTree.h"
 #include "common/RepresentationChooser.h"
 #include "samplereader/SampleReader.h"
-#include "utils/SettingsUtils.h"
 #include "utils/PropertiesUtils.h"
 
 #include <float.h>
@@ -90,7 +89,7 @@ public:
            adaptive::AdaptiveTree::AdaptationSet* adp,
            adaptive::AdaptiveTree::Representation* initialRepr,
            const std::map<std::string, std::string>& media_headers,
-           adaptive::IRepresentationChooser* reprChooser,
+           CHOOSER::IRepresentationChooser* reprChooser,
            bool play_timeshift_buffer,
            bool choose_rep)
       : enabled(false),
@@ -239,14 +238,13 @@ private:
   std::vector<CDMSESSION> cdm_sessions_;
 
   adaptive::AdaptiveTree* adaptiveTree_{nullptr};
-  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
+  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 
   std::vector<std::unique_ptr<STREAM>> m_streams;
   STREAM* timing_stream_{nullptr};
 
   uint32_t fixed_bandwidth_{0};
   bool changed_{false};
-  UTILS::SETTINGS::StreamSelection m_settingStreamSelection{UTILS::SETTINGS::StreamSelection::AUTO};
   uint64_t elapsed_time_{0};
   uint64_t chapter_start_time_{0}; // In STREAM_TIME_BASE
   double chapter_seek_time_{0.0}; // In seconds

@@ -13,7 +13,11 @@
 #include <string>
 #include <vector>
 
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "../test/KodiStubs.h"
+#else
 #include <kodi/AddonBase.h>
+#endif
 
 class ATTR_DLL_LOCAL TTML2SRT
 {

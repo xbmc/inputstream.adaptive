@@ -16,8 +16,6 @@
 #include <string>
 #include <thread>
 
-#include <kodi/AddonBase.h>
-
 namespace adaptive
 {
   class AdaptiveStream;

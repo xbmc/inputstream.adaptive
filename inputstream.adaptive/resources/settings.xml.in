@@ -2,112 +2,174 @@
 <settings version="1">
   <section id="default">
     <category id="default" label="30100">
-      <group id="0">
-        <setting id="MINBANDWIDTH" type="integer" label="30101">
+      <group id="adaptivestream" label="30162">
+        <setting id="adaptivestream.type" type="string" label="30174" help="30175">
           <level>0</level>
-          <default>0</default>
-          <control type="edit" format="integer" />
+          <default>default</default>
+          <constraints>
+            <options>
+              <option label="30176">default</option>
+              <option label="30177">manual-osd</option>
+            </options>
+          </constraints>
+          <control type="spinner" format="string" />
         </setting>
-        <setting id="MAXBANDWIDTH" type="integer" label="30102">
+        <setting parent="adaptivestream.type" id="adaptivestream.res.max" type="string" label="30110">
           <level>0</level>
-          <default>0</default>
-          <control type="edit" format="integer" />
+          <default>auto</default>
+          <constraints>
+            <options>
+              <option label="30210">auto</option>
+              <option label="30211">480p</option>
+              <option label="30212">640p</option>
+              <option label="30213">720p</option>
+              <option label="30214">1080p</option>
+              <option label="30215">2K</option>
+              <option label="30216">1440p</option>
+              <option label="30217">4K</option>
+            </options>
+          </constraints>
+          <dependencies>
+            <dependency type="visible">
+              <or>
+                <condition setting="adaptivestream.type">default</condition>
+                <condition setting="adaptivestream.type">manual-osd</condition>
+              </or>
+			</dependency>
+          </dependencies>
+          <control type="spinner" format="string" />
         </setting>
-        <setting id="ASSUREDBUFFERDURATION" type="integer" label="30200">
-          <level>1</level>
-          <default>60</default>
-          <control type="edit" format="integer" />
-        </setting> 
-        <setting id="MAXBUFFERDURATION" type="integer" label="30201">
-          <level>1</level>
-          <default>120</default>
-          <control type="edit" format="integer" />
+        <setting parent="adaptivestream.type" id="adaptivestream.res.max.secure" type="string" label="30113">
+          <level>0</level>
+          <default>auto</default>
+          <constraints>
+            <options>
+              <option label="30210">auto</option>
+              <option label="30211">480p</option>
+              <option label="30212">640p</option>
+              <option label="30213">720p</option>
+              <option label="30214">1080p</option>
+              <option label="30215">2K</option>
+              <option label="30216">1440p</option>
+              <option label="30217">4K</option>
+            </options>
+          </constraints>
+          <dependencies>
+            <dependency type="visible">
+              <or>
+                <condition setting="adaptivestream.type">default</condition>
+                <condition setting="adaptivestream.type">manual-osd</condition>
+              </or>
+			</dependency>
+          </dependencies>
+          <control type="spinner" format="string" />
         </setting>
-        <setting id="IGNOREWINDOWCHANGE" type="boolean" label="30202">
-          <level>1</level>
+        <setting parent="adaptivestream.type" id="adaptivestream.ignore.screen.res.change" type="boolean" label="30202" help="30203">
+          <level>0</level>
+          <default>false</default>
+          <visible>false</visible><!-- Not fully implemented yet -->
+          <dependencies>
+             <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
+          <control type="toggle" />
+        </setting>
+        <setting parent="adaptivestream.type" id="adaptivestream.ignore.screen.res" type="boolean" label="30115" help="30116">
+          <level>0</level>
+          <default>false</default>
+          <dependencies>
+             <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
+          <control type="toggle" />
+        </setting>
+        <setting parent="adaptivestream.type" id="adaptivestream.bandwidth.init.auto" type="boolean" label="30168" help="30169">
+          <level>0</level>
           <default>true</default>
-          <control type="toggle" />
-        </setting> 
-        <setting id="MAXRESOLUTION" type="integer" label="30110">
-          <level>0</level>
-          <default>0</default>
-          <constraints>
-            <options>
-              <option label="30150">0</option> <!-- Max -->
-              <option label="30151">1</option>  <!-- 480p -->
-              <option label="30152">2</option>  <!-- 640p -->
-              <option label="30153">3</option>  <!-- 720p -->
-              <option label="30154">4</option> <!-- 1080p -->
-            </options>
-          </constraints>
-          <control type="spinner" format="string" />
-        </setting>
-        <setting id="MAXRESOLUTIONSECURE" type="integer" label="30113">
-          <level>0</level>
-          <default>0</default>
-          <constraints>
-            <options>
-              <option label="30150">0</option> <!-- Max -->
-              <option label="30151">1</option>  <!-- 480p -->
-              <option label="30152">2</option>  <!-- 640p -->
-              <option label="30153">3</option>  <!-- 720p -->
-              <option label="30154">4</option> <!-- 1080p -->
-            </options>
-          </constraints>
-          <control type="spinner" format="string" />
-        </setting>
-        <setting id="STREAMSELECTION" type="integer" label="30111">
-          <level>0</level>
-          <default>0</default>
-          <constraints>
-            <options>
-              <option label="30155">0</option> <!-- Auto -->
-              <option label="30156">1</option>  <!-- Manual -->
-              <option label="30160">2</option>  <!-- Manual video -->
-            </options>
-          </constraints>
-          <control type="spinner" format="string" />
-        </setting>
-        <setting id="MEDIATYPE" type="integer" label="30112">
-          <level>0</level>
-          <default>0</default>
-          <constraints>
-            <options>
-              <option label="30157">0</option> <!-- All -->
-              <option label="30158">1</option>  <!-- Audio -->
-              <option label="30159">2</option>  <!-- Video -->
-              <option label="30161">3</option>  <!-- Video + Subs -->
-            </options>
-          </constraints>
-          <control type="spinner" format="string" />
-        </setting>
-        <setting id="HDCPOVERRIDE" type="boolean" label="30114">
-          <level>0</level>
-          <default>false</default>
+          <dependencies>
+             <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
           <control type="toggle" />
         </setting>
-        <setting id="IGNOREDISPLAY" type="boolean" label="30115">
+        <setting parent="adaptivestream.type" id="adaptivestream.bandwidth.init" type="integer" label="30170" help="30171">
           <level>0</level>
-          <default>false</default>
-          <control type="toggle" />
+          <default>4000</default>
+          <constraints>
+            <minimum>500</minimum>
+            <step>1</step>
+            <maximum>1000000</maximum>
+          </constraints>
+          <dependencies>
+             <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
+          <control type="edit" format="integer"><heading>30170</heading></control>
+        </setting>
+        <setting parent="adaptivestream.type" id="adaptivestream.bandwidth.min" type="integer" label="30101" help="30103">
+          <level>0</level>
+          <default>0</default>
+          <dependencies>
+             <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
+          <control type="edit" format="integer"><heading>30101</heading></control>
+        </setting>
+        <setting parent="adaptivestream.type" id="adaptivestream.bandwidth.max" type="integer" label="30102" help="30103">
+          <level>0</level>
+          <default>0</default>
+          <dependencies>
+             <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
+          <control type="edit" format="integer"><heading>30102</heading></control>
+        </setting>
+        <setting parent="adaptivestream.type" id="adaptivestream.streamselection.mode" type="string" label="30117" help="30118">
+          <level>0</level>
+          <default>manual-v</default>
+          <constraints>
+            <options>
+              <option label="30160">manual-v</option>
+              <option label="30156">manual-av</option>
+            </options>
+          </constraints>
+          <dependencies>
+             <dependency type="visible" setting="adaptivestream.type">manual-osd</dependency>
+          </dependencies>
+          <control type="spinner" format="string" />
         </setting>
       </group>
-      <group id="1">
-        <setting id="DECRYPTERPATH" type="string" label="30103">
-          <level>0</level>
-          <default>@DECRYPTERPATH@</default>
-          <control type="edit" format="string" />
-        </setting>
-        <setting id="WIDEVINE_API" type="integer">
-          <level>4</level>
-          <default>10</default>
+      <group id="misc">
+        <setting id="HDCPOVERRIDE" type="boolean" label="30172" help="30173">
+          <level>1</level>
+          <default>false</default>
+          <control type="toggle" />
         </setting>
       </group>
     </category>
     <category id="expert" label="30120">
-      <group id="0">
-        <setting id="NOSECUREDECODER" type="boolean" label="30122">
-          <level>0</level>
+      <group id="misc">
+        <setting id="ASSUREDBUFFERDURATION" type="integer" label="30200" help="30167">
+          <level>1</level>
+          <default>60</default>
+          <control type="edit" format="integer" />
+        </setting>
+        <setting id="MAXBUFFERDURATION" type="integer" label="30201" help="30167">
+          <level>1</level>
+          <default>120</default>
+          <control type="edit" format="integer" />
+        </setting>
+        <setting id="MEDIATYPE" type="integer" label="30112">
+          <level>1</level>
+          <default>0</default>
+          <constraints>
+            <options>
+              <option label="30157">0</option><!-- All -->
+              <option label="30158">1</option><!-- Audio -->
+              <option label="30159">2</option><!-- Video -->
+              <option label="30161">3</option><!-- Video + Subs -->
+            </options>
+          </constraints>
+          <control type="spinner" format="string" />
+        </setting>
+      </group>
+      <group id="widevine" label="30166">
+        <setting id="NOSECUREDECODER" type="boolean" label="30122" help="30123">
+          <level>2</level>
           <default>false</default>
           <control type="toggle" />
           <dependencies>
@@ -115,6 +177,16 @@
               <condition on="property" name="InfoBool">system.platform.android</condition>
             </dependency>
           </dependencies>
+        </setting>
+        <setting id="DECRYPTERPATH" type="string" label="30204">
+          <level>2</level>
+          <default>@DECRYPTERPATH@</default>
+          <dependencies>
+            <dependency type="visible">
+              <condition on="property" name="InfoBool" operator="!is">system.platform.android</condition>
+            </dependency>
+          </dependencies>
+          <control type="edit" format="string" />
         </setting>
       </group>
     </category>

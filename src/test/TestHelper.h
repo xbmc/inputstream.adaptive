@@ -19,6 +19,11 @@
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 
+static bool DownloadFile(const std::string& url,
+                         const std::map<std::string, std::string>& reqHeaders,
+                         std::stringstream& data,
+                         adaptive::HTTPRespHeaders& respHeaders);
+
 class testHelper
 {
 public:
@@ -27,17 +32,15 @@ public:
   static std::vector<std::string> downloadList;
 };
 
-class CTestRepresentationChooserDefault : public adaptive::CRepresentationChooserDefault
+class CTestRepresentationChooserDefault : public CHOOSER::CRepresentationChooserDefault
 {
 public:
-  CTestRepresentationChooserDefault() : adaptive::CRepresentationChooserDefault("") {}
+  CTestRepresentationChooserDefault() : CHOOSER::CRepresentationChooserDefault() {}
   ~CTestRepresentationChooserDefault() override {}
 
-  void Initialize(const UTILS::PROPERTIES::KodiProperties& m_kodiProps) override
+  void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) override
   {
     m_isHdcpOverride = true;
-    m_bufferDurationAssured = 5;
-    m_bufferDurationMax = 5;
   }
 };
 
@@ -87,7 +90,7 @@ class DASHTestTree : public adaptive::DASHTree
 {
 public:
   DASHTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
-               adaptive::IRepresentationChooser* reprChooser)
+               CHOOSER::IRepresentationChooser* reprChooser)
     : DASHTree(kodiProps, reprChooser){};
   uint64_t GetNowTime() override { return m_mockTime; }
   void SetNowTime(uint64_t time) { m_mockTime = time; }
@@ -95,6 +98,30 @@ public:
   std::chrono::system_clock::time_point GetNowTimeChrono() { return m_mock_time_chrono; };
 
 private:
+  bool download(const std::string& url,
+                const std::map<std::string, std::string>& reqHeaders,
+                std::stringstream& data,
+                adaptive::HTTPRespHeaders& respHeaders) override;
+
+  virtual DASHTree* Clone() const override { return new DASHTestTree{*this}; }
+
   uint64_t m_mockTime = 10000000L;
   std::chrono::system_clock::time_point m_mock_time_chrono = std::chrono::system_clock::now();
+};
+
+class HLSTestTree : public adaptive::HLSTree
+{
+public:
+  HLSTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
+              CHOOSER::IRepresentationChooser* reprChooser,
+              IAESDecrypter* decrypter)
+    : HLSTree(kodiProps, reprChooser, decrypter){};
+
+  virtual HLSTestTree* Clone() const override { return new HLSTestTree{*this}; }
+
+private:
+  bool download(const std::string& url,
+                const std::map<std::string, std::string>& reqHeaders,
+                std::stringstream& data,
+                adaptive::HTTPRespHeaders& respHeaders) override;
 };

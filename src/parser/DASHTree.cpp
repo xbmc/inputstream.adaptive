@@ -638,7 +638,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         }
         else if (strcmp(el, "Representation") == 0)
         {
-          dash->current_representation_ = new DASHTree::Representation();
+          dash->current_representation_ = new AdaptiveTree::Representation();
           dash->current_representation_->channelCount_ = dash->adpChannelCount_;
           dash->current_representation_->codecs_ = dash->current_adaptationset_->codecs_;
           dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
@@ -652,6 +652,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_representation_->aspect_ = dash->adpaspect_;
           dash->current_representation_->containerType_ = dash->adpContainerType_;
           dash->current_representation_->base_url_ = dash->current_adaptationset_->base_url_;
+          dash->current_representation_->assured_buffer_duration_ =
+              dash->m_settings.m_bufferAssuredDuration;
+          dash->current_representation_->max_buffer_duration_ =
+              dash->m_settings.m_bufferMaxDuration;
+
           dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
 
           dash->current_pssh_.clear();
@@ -1560,6 +1565,11 @@ static void XMLCALL end(void* data, const char* el)
   }
 }
 
+adaptive::DASHTree::DASHTree(const DASHTree& left)
+  : AdaptiveTree(left.m_kodiProps, left.m_reprChooser)
+{
+}
+
 /*----------------------------------------------------------------------
 |   DASHTree
 +---------------------------------------------------------------------*/
@@ -1570,42 +1580,61 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
 
 bool DASHTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
 {
-  parser_ = XML_ParserCreate(NULL);
+  currentNode_ = 0;
+
+  PrepareManifestUrl(url, manifestUpdateParam);
+  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
+
+  std::stringstream data;
+  HTTPRespHeaders respHeaders;
+  if (!download(manifest_url_, additionalHeaders, data, respHeaders))
+    return false;
+
+  effective_url_ = respHeaders.m_effectiveUrl;
+  m_manifestHeaders = respHeaders;
+
+  if (!PreparePaths(effective_url_))
+    return false;
+
+  if (!ParseManifest(data.str()))
+    return false;
+
+  if (periods_.empty())
+  {
+    LOG::Log(LOGWARNING, "No periods in the manifest");
+    return false;
+  }
+
+  current_period_ = periods_[0];
+  SortTree();
+  StartUpdateThread();
+
+  return true;
+}
+
+bool DASHTree::ParseManifest(const std::string& data)
+{
+  strXMLText_.clear();
+
+  parser_ = XML_ParserCreate(nullptr);
   if (!parser_)
     return false;
 
   XML_SetUserData(parser_, (void*)this);
   XML_SetElementHandler(parser_, start, end);
   XML_SetCharacterDataHandler(parser_, text);
-  currentNode_ = 0;
-  strXMLText_.clear();
-
-  PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-  bool ret = download(manifest_url_, additionalHeaders) && !periods_.empty();
+  int isDone{0};
+  XML_Status status{XML_Parse(parser_, data.c_str(), static_cast<int>(data.size()), isDone)};
 
   XML_ParserFree(parser_);
-  parser_ = 0;
+  parser_ = nullptr;
 
-  if (ret)
+  if (status == XML_STATUS_ERROR)
   {
-    current_period_ = periods_[0];
-    SortTree();
-    StartUpdateThread();
-  }
-  return ret;
-}
-
-bool DASHTree::write_data(void* buffer, size_t buffer_size, void* opaque)
-{
-  bool done(false);
-  XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);
-
-  if (retval == XML_STATUS_ERROR)
-  {
-    //unsigned int byteNumber = XML_GetErrorByteIndex(parser_);
+    LOG::LogF(LOGERROR, "Failed to parse the manifest file");
     return false;
   }
+
   return true;
 }
 
@@ -1668,35 +1697,36 @@ void DASHTree::RefreshLiveSegments()
       STRING::ReplaceFirst(manifestUrlUpd, "$START_NUMBER$", std::to_string(nextStartNumber));
     }
 
-    DASHTree updateTree{m_kodiProps, GetRepChooser()};
-    updateTree.base_time_ = base_time_;
-    updateTree.supportedKeySystem_ = supportedKeySystem_;
+    std::unique_ptr<DASHTree> updateTree{std::move(Clone())};
+
+    updateTree->base_time_ = base_time_;
+    updateTree->supportedKeySystem_ = supportedKeySystem_;
     //Location element should be used on updates
-    updateTree.location_ = location_;
+    updateTree->location_ = location_;
 
     if (!urlHaveStartNumber)
     {
-      if (!etag_.empty())
-        updateTree.m_streamHeaders["If-None-Match"] = "\"" + etag_ + "\"";
-      if (!last_modified_.empty())
-        updateTree.m_streamHeaders["If-Modified-Since"] = last_modified_;
+      if (!m_manifestHeaders.m_etag.empty())
+        updateTree->m_streamHeaders["If-None-Match"] = "\"" + m_manifestHeaders.m_etag + "\"";
+      if (!m_manifestHeaders.m_lastModified.empty())
+        updateTree->m_streamHeaders["If-Modified-Since"] = m_manifestHeaders.m_lastModified;
     }
 
-    if (updateTree.open(manifestUrlUpd, ""))
+    if (updateTree->open(manifestUrlUpd, ""))
     {
-      etag_ = updateTree.etag_;
-      last_modified_ = updateTree.last_modified_;
-      location_ = updateTree.location_;
+      m_manifestHeaders.m_etag = updateTree->m_manifestHeaders.m_etag;
+      m_manifestHeaders.m_lastModified = updateTree->m_manifestHeaders.m_lastModified;
+      location_ = updateTree->location_;
 
       //Youtube returns last smallest number in case the requested data is not available
-      if (urlHaveStartNumber && updateTree.firstStartNumber_ < nextStartNumber)
+      if (urlHaveStartNumber && updateTree->firstStartNumber_ < nextStartNumber)
         return;
 
-      for (size_t index{0}; index < updateTree.periods_.size(); index++)
+      for (size_t index{0}; index < updateTree->periods_.size(); index++)
       {
         if (index == periods_.size()) // Exceeded periods
           break;
-        auto updPeriod = updateTree.periods_[index];
+        auto updPeriod = updateTree->periods_[index];
         if (!updPeriod)
           continue;
 
@@ -1857,7 +1887,7 @@ void DASHTree::RefreshLiveSegments()
                         LOGDEBUG,
                         "Full update without start number (repr. id: %s current start: %u)",
                         updRepr->id.c_str(), repr->startNumber_);
-                    overallSeconds_ = updateTree.overallSeconds_;
+                    overallSeconds_ = updateTree->overallSeconds_;
                   }
                   else if (updRepr->startNumber_ > repr->startNumber_ ||
                            (updRepr->startNumber_ == repr->startNumber_ &&

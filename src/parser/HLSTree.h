@@ -13,8 +13,6 @@
 #include <map>
 #include <sstream>
 
-#include <kodi/AddonBase.h>
-
 class IAESDecrypter;
 
 namespace adaptive
@@ -32,9 +30,11 @@ public:
     ENCRYPTIONTYPE_UNKNOWN = 4,
   };
   HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-          IRepresentationChooser* reprChooser,
+          CHOOSER::IRepresentationChooser* reprChooser,
           IAESDecrypter* decrypter)
     : AdaptiveTree(kodiProps, reprChooser), m_decrypter(decrypter){};
+  HLSTree(const HLSTree& left);
+
   virtual ~HLSTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
@@ -43,7 +43,7 @@ public:
                                                AdaptationSet* adp,
                                                Representation* rep,
                                                bool update = false) override;
-  virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
+
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
                              uint8_t iv[16],
@@ -55,13 +55,16 @@ public:
                                AdaptationSet* adp,
                                Representation* rep,
                                StreamType type) override;
-  virtual bool processManifest(std::stringstream& stream);
+
   virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep)
   { 
     return rep->repLastUpdated_;
   }
   
+  virtual HLSTree* Clone() const override { return new HLSTree{*this}; }
+
 protected:
+  virtual bool ParseManifest(std::stringstream& stream);
   virtual void RefreshLiveSegments() override;
 
 private:
@@ -88,7 +91,6 @@ private:
   bool m_refreshPlayList = true;
   uint8_t m_segmentIntervalSec = 4;
   IAESDecrypter *m_decrypter;
-  std::stringstream manifest_stream;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;
 };

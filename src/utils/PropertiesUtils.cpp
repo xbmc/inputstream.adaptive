@@ -32,6 +32,7 @@ constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original
 constexpr std::string_view PROP_BANDWIDTH_MAX = "inputstream.adaptive.max_bandwidth";
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
+constexpr std::string_view PROP_STREAM_SELECTION_TYPE = "inputstream.adaptive.stream_selection_type";
 // clang-format on
 } // unnamed namespace
 
@@ -95,7 +96,7 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     }
     else if (prop.first == PROP_BANDWIDTH_MAX)
     {
-      props.m_bandwidthMax = std::stoul(prop.second);
+      props.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
@@ -105,6 +106,10 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     {
       props.m_drmPreInitData = prop.second;
       logPropValRedacted = true;
+    }
+    else if (prop.first == PROP_STREAM_SELECTION_TYPE)
+    {
+      props.m_drmPreInitData = prop.second;
     }
     else
     {

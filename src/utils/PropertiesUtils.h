@@ -44,6 +44,8 @@ struct KodiProperties
   // by the initialisation of the DRM will be attached to the manifest request
   // callback as HTTP headers with the names of "challengeB64" and "sessionId"
   std::string m_drmPreInitData;
+  // Define the representation chooser type to be used, to override add-on user settings
+  std::string m_streamSelectionType;
 };
 
 KodiProperties ParseKodiProperties(const std::map<std::string, std::string> properties);

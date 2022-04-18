@@ -19,7 +19,6 @@
 #include "codechandler/TTMLCodecHandler.h"
 #include "codechandler/VP9CodecHandler.h"
 #include "codechandler/WebVTTCodecHandler.h"
-#include "common/RepresentationChooserDefault.h"
 #include "samplereader/ADTSSampleReader.h"
 #include "samplereader/DummySampleReader.h"
 #include "samplereader/FragmentedSampleReader.h"
@@ -31,6 +30,7 @@
 #include "parser/SmoothTree.h"
 #include "utils/Base64Utils.h"
 #include "utils/log.h"
+#include "utils/SettingsUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/Utils.h"
 
@@ -209,62 +209,6 @@ private:
 } * kodihost;
 
 /*******************************************************
-Kodi Streams implementation
-********************************************************/
-
-bool adaptive::AdaptiveTree::download(const std::string& url,
-                                      const std::map<std::string, std::string>& manifestHeaders,
-                                      void* opaque,
-                                      bool isManifest)
-{
-  // open the file
-  kodi::vfs::CFile file;
-  if (!file.CURLCreate(url))
-    return false;
-
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
-
-  for (const auto& entry : manifestHeaders)
-  {
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
-  }
-
-  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
-  {
-    LOG::Log(LOGERROR, "Download failed: %s", url.c_str());
-    return false;
-  }
-
-  effective_url_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-
-  if (isManifest && !PreparePaths(effective_url_))
-  {
-    file.Close();
-    return false;
-  }
-
-  // read the file
-  static const unsigned int CHUNKSIZE = 16384;
-  char buf[CHUNKSIZE];
-  size_t nbRead;
-
-  while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead && write_data(buf, nbRead, opaque))
-    ;
-
-  etag_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
-  last_modified_ = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
-
-  //m_downloadCurrentSpeed = file.GetFileDownloadSpeed();
-
-  file.Close();
-
-  LOG::Log(LOGDEBUG, "Download finished: %s", effective_url_.c_str());
-
-  return nbRead == 0;
-}
-
-/*******************************************************
 Main class Session
 ********************************************************/
 
@@ -298,11 +242,8 @@ Session::Session(const PROPERTIES::KodiProperties& kodiProps,
     media_headers_(mediaHeaders),
     m_dummySampleReader(new CDummySampleReader)
 {
-  // Create the representation chooser
-  m_reprChooser = new adaptive::CRepresentationChooserDefault(profilePath);
-  m_reprChooser->Initialize(kodiProps);
+  m_reprChooser = CHOOSER::CreateRepresentationChooser(kodiProps);
 
-  // Create the adaptive tree
   switch (kodiProps.m_manifestType)
   {
     case PROPERTIES::ManifestType::MPD:
@@ -319,10 +260,6 @@ Session::Session(const PROPERTIES::KodiProperties& kodiProps,
       LOG::LogF(LOGFATAL, "Manifest type not handled");
       return;
   };
-
-  m_settingStreamSelection =
-      static_cast<SETTINGS::StreamSelection>(kodi::addon::GetSettingInt("STREAMSELECTION"));
-  LOG::Log(LOGDEBUG, "Setting STREAMSELECTION value: %d", m_settingStreamSelection);
 
   m_settingNoSecureDecoder = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
   LOG::Log(LOGDEBUG, "Setting NOSECUREDECODER value: %d", m_settingNoSecureDecoder);
@@ -515,12 +452,11 @@ bool Session::Initialize(const std::uint8_t config)
     LOG::Log(LOGERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
     return false;
   }
-  LOG::Log(LOGINFO,
-            "Successfully parsed manifest file. #Periods: %ld, #Streams in first period: %ld, Type: "
-            "%s, Download speed: %0.4f Bytes/s",
-            adaptiveTree_->periods_.size(), adaptiveTree_->current_period_->adaptationSets_.size(),
-            adaptiveTree_->has_timeshift_buffer_ ? "live" : "VOD",
-            m_reprChooser->GetDownloadSpeed());
+  LOG::Log(
+      LOGINFO,
+      "Successfully parsed manifest file (Periods: %ld, Streams in first period: %ld, Type: %s)",
+      adaptiveTree_->periods_.size(), adaptiveTree_->current_period_->adaptationSets_.size(),
+      adaptiveTree_->has_timeshift_buffer_ ? "live" : "VOD");
 
   drmConfig_ = config;
 
@@ -951,6 +887,7 @@ bool Session::InitializePeriod(bool isSessionOpened /* = false */)
 
   uint32_t adpIndex{0};
   adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
+  SETTINGS::StreamSelection streamSelectionMode{m_reprChooser->GetStreamSelectionMode()};
 
   while ((adp = adaptiveTree_->GetAdaptationSet(adpIndex++)))
   {
@@ -959,12 +896,12 @@ bool Session::InitializePeriod(bool isSessionOpened /* = false */)
 
     bool isManualStreamSelection;
     if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO)
-      isManualStreamSelection = m_settingStreamSelection != SETTINGS::StreamSelection::AUTO;
+      isManualStreamSelection = streamSelectionMode != SETTINGS::StreamSelection::AUTO;
     else
-      isManualStreamSelection = m_settingStreamSelection == SETTINGS::StreamSelection::MANUAL;
+      isManualStreamSelection = streamSelectionMode == SETTINGS::StreamSelection::MANUAL;
 
     // Get the default initial stream repr. based on "adaptive repr. chooser"
-    adaptive::AdaptiveTree::Representation* defaultRepr{adaptiveTree_->GetRepChooser()->ChooseRepresentation(adp)};
+    adaptive::AdaptiveTree::Representation* defaultRepr{m_reprChooser->ChooseRepresentation(adp)};
 
     if (isManualStreamSelection)
     {
@@ -2237,15 +2174,18 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double& st
   return true;
 }
 
-//callback - will be called from kodi
+// Kodi callback, called just before CInputStreamAdaptive::Open method
 void CInputStreamAdaptive::SetVideoResolution(int width, int height)
 {
   LOG::Log(LOGINFO, "SetVideoResolution (%dx%d)", width, height);
   m_currentVideoWidth = width;
   m_currentVideoHeight = height;
 
-  if (m_session)
-    m_session->SetVideoResolution(width, height);
+  //! @todo: Kodi call this method just before call Open method only,
+  //! but not when the resolution change while in playback (e.g. window resize)
+  //! needed implementation on Kodi InputStream interface.
+  // if (m_session)
+  //   m_session->SetVideoResolution(width, height);
 }
 
 bool CInputStreamAdaptive::PosTime(int ms)
