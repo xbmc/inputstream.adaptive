@@ -28,8 +28,6 @@ public:
 
   void SetDownloadSpeed(const double speed) override;
 
-  void AddDecrypterCaps(const SSD::SSD_DECRYPTER::SSD_CAPS& ssdCaps) override;
-
   adaptive::AdaptiveTree::Representation* ChooseRepresentation(
       adaptive::AdaptiveTree::AdaptationSet* adp) override;
 
@@ -46,8 +44,6 @@ protected:
   int m_screenWidth{0};
   int m_screenHeight{0};
   std::optional<std::chrono::steady_clock::time_point> m_screenResLastUpdate;
-
-  bool m_isHdcpOverride{false};
 
   std::string m_screenWidthMax; // Max resolution for non-protected video content
   std::string m_screenWidthMaxSecure; // Max resolution for protected video content
@@ -68,8 +64,6 @@ protected:
   uint32_t m_bandwidthInit{0};
 
   std::deque<double> m_downloadSpeedChron;
-
-  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> m_decrypterCaps;
 };
 
 } // namespace CHOOSER
