@@ -20,7 +20,7 @@ msgid "InputStream client for adaptive streams"
 msgstr ""
 
 msgctxt "Addon Description"
-msgid "InputStream client for adaptive streams"
+msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
 msgstr ""
 
 msgctxt "#30100"
