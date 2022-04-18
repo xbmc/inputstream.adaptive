@@ -52,7 +52,7 @@ protected:
   }
 
   DASHTestTree* tree;
-  adaptive::IRepresentationChooser* m_reprChooser{nullptr};
+  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 class DASHTreeAdaptiveStreamTest : public DASHTreeTest

@@ -190,7 +190,6 @@ bool AdaptiveStream::download(const std::string& url,
                               const std::map<std::string, std::string>& mediaHeaders,
                               std::string* lockfreeBuffer)
 {
-#ifndef INPUTSTREAM_TEST_BUILD
   kodi::vfs::CFile file;
 
   // open the file
@@ -207,64 +206,90 @@ bool AdaptiveStream::download(const std::string& url,
     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
   }
 
-  if (file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE | ADDON_READ_AUDIO_VIDEO))
+  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE | ADDON_READ_AUDIO_VIDEO)) {
+    LOG::Log(LOGERROR, "CURLOpen returned an error, download failed: %s", url.c_str());
+    return false;
+  }
+
+  int returnCode = -1;
+  std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
+  std::string::size_type posResponseCode = proto.find(' ');
+  if (posResponseCode != std::string::npos)
+    returnCode = atoi(proto.c_str() + (posResponseCode + 1));
+
+  if (returnCode >= 400)
   {
-    int returnCode = -1;
-    std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
-    std::string::size_type posResponseCode = proto.find(' ');
-    if (posResponseCode != std::string::npos)
-      returnCode = atoi(proto.c_str() + (posResponseCode + 1));
+    LOG::Log(LOGERROR, "Download failed with error %d: %s", returnCode, url.c_str());
+  }
+  else
+  {
+    // read the file
+    static const size_t bufferSize{32 * 1024}; // 32 Kbyte
+    std::vector<char> bufferData(bufferSize);
+    ssize_t totalReadBytes{0};
+    bool isEOF{false};
 
-    size_t nbRead = ~0UL;
-
-    if (returnCode >= 400)
+    while (!isEOF)
     {
-      LOG::Log(LOGERROR, "Download failed with error %d: %s", returnCode, url.c_str());
-    }
-    else
-    {
-      // read the file
-      char* buf = (char*)malloc(32 * 1024);
-      size_t nbReadOverall = 0;
-      bool write_ok = true;
-      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead &&
-             (write_ok = write_data(buf, nbRead, lockfreeBuffer)))
-        nbReadOverall += nbRead;
-      free(buf);
-
-      if (write_ok)
+      // Read the data in chunks
+      ssize_t byteRead{file.Read(bufferData.data(), bufferSize)};
+      if (byteRead == -1)
       {
-        if (!nbReadOverall)
-        {
-          LOG::Log(LOGERROR, "Download doesn't provide any data: %s", url.c_str());
-          return false;
-        }
-
-        double downloadSpeed = file.GetFileDownloadSpeed();
-        double downloadAvgSpeed{downloadSpeed};
-
-        //Calculate the new downloadspeed to 1MB
-        static const size_t ref_packet = 1024 * 1024;
-        if (nbReadOverall < ref_packet)
-        {
-          double ratio = (double)nbReadOverall / ref_packet;
-          downloadAvgSpeed =
-              (tree_.GetRepChooser()->GetDownloadSpeed() * (1.0 - ratio)) + downloadSpeed * ratio;
-        }
-
-        tree_.GetRepChooser()->SetDownloadSpeed(downloadAvgSpeed);
-
-        LOG::Log(LOGDEBUG,
-                 "Download finished: %s (avg speed: %0.2lfbyte/s, current speed: %0.2lfbyte/s)",
-                 url.c_str(), downloadAvgSpeed, downloadSpeed);
+        LOG::Log(LOGERROR, "An error occurred in the download: %s", url.c_str());
+        break;
+      }
+      else if (byteRead == 0) // EOF or undectetable error
+      {
+        isEOF = true;
       }
       else
-        LOG::Log(LOGDEBUG, "Download cancelled: %s", url.c_str());
+      {
+        // Store the data
+        if (write_data(bufferData.data(), byteRead, lockfreeBuffer))
+        {
+          totalReadBytes += byteRead;
+        }
+        else
+        {
+          LOG::Log(LOGDEBUG, "The download has been cancelled: %s", url.c_str());
+          break;
+        }
+      }
     }
-    file.Close();
-    return nbRead == 0;
+
+    if (isEOF)
+    {
+      if (totalReadBytes > 0)
+      {
+        // Get body lenght (could be gzip compressed)
+        std::string contentLengthStr{
+            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
+        long contentLength{std::atol(contentLengthStr.c_str())};
+        if (contentLength == 0)
+          contentLength = static_cast<long>(totalReadBytes);
+
+        double downloadSpeed{file.GetFileDownloadSpeed()};
+
+        // Set current download speed to repr. chooser (to update average).
+        // Small files are usually subtitles and their download speed are inaccurate
+        // by causing side effects in the average bandwidth so we ignore them.
+        static const int minSize{512 * 1024}; // 512 Kbyte
+        if (contentLength > minSize)
+          tree_.GetRepChooser()->SetDownloadSpeed(downloadSpeed);
+
+        LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %i byte, speed %0.2lf byte/s)",
+                 url.c_str(), contentLength, downloadSpeed);
+
+        file.Close();
+        return true;
+      }
+      else
+      {
+        LOG::Log(LOGERROR, "A problem occurred in the download, no data received: %s", url.c_str());
+      }
+    }
   }
-#endif
+  file.Close();
   return false;
 }
 
@@ -427,8 +452,7 @@ bool AdaptiveStream::start_stream()
   {
     choose_rep_ = false;
     current_rep_ = tree_.GetRepChooser()->ChooseNextRepresentation(
-        current_adp_, segment_buffers_[valid_segment_buffers_].rep, valid_segment_buffers_,
-        available_segment_buffers_, assured_buffer_length_, max_buffer_length_, rep_counter_);
+        current_adp_, segment_buffers_[valid_segment_buffers_].rep);
   }
 
   if (!(current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZED))
@@ -437,7 +461,14 @@ bool AdaptiveStream::start_stream()
       false);
   }
 
-  assured_buffer_length_=current_rep_ ->assured_buffer_duration_;
+  //! @todo: the assured_buffer_duration_ and max_buffer_duration_
+  //! isnt implemeted correctly and need to be reworked,
+  //! these properties are intended to determine the amount of buffer
+  //! customizable in seconds, but segments do not ensure that they always have
+  //! a fixed duration of 1 sec moreover these properties currently works for
+  //! the DASH manifest with "SegmentTemplate" tags defined only,
+  //! in all other type of manifest cases always fallback on hardcoded values
+  assured_buffer_length_=current_rep_->assured_buffer_duration_;
   assured_buffer_length_ = std::ceil( (assured_buffer_length_ * current_rep_->segtpl_.timescale)/ (float)current_rep_->segtpl_.duration );
 
   max_buffer_length_=current_rep_ ->max_buffer_duration_;
@@ -772,7 +803,7 @@ bool AdaptiveStream::ensureSegment()
 
       size_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
       size_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
-      AdaptiveTree::Representation* newRep;
+      AdaptiveTree::Representation* newRep{nullptr};
       bool lastSeg =
           (current_period_ != tree_.periods_.back() &&
            nextsegmentPosold + available_segment_buffers_ == current_rep_->segments_.size() - 1);
@@ -788,12 +819,18 @@ bool AdaptiveStream::ensureSegment()
       }
       else
       {
-        newRep = tree_.GetRepChooser()->ChooseNextRepresentation(
-            current_adp_, segment_buffers_[valid_segment_buffers_].rep, valid_segment_buffers_,
-            available_segment_buffers_, assured_buffer_length_, max_buffer_length_, rep_counter_);
+        // Defer until we have some free buffer
+        if (available_segment_buffers_ < max_buffer_length_) {
+          newRep = tree_.GetRepChooser()->ChooseNextRepresentation(
+              current_adp_, segment_buffers_[available_segment_buffers_ - 1].rep);
+        }
+        else
+          newRep = current_rep_;
       }
+
       // Make sure, new representation has segments!
       ResolveSegmentBase(newRep, false); // For DASH
+
       if (tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
         tree_.prepareRepresentation(

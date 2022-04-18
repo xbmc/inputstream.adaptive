@@ -84,6 +84,11 @@ static std::string getAudioCodec(const std::string& codecs)
     return "aac";
 }
 
+HLSTree::HLSTree(const HLSTree& left)
+  : AdaptiveTree(left.m_kodiProps, left.m_reprChooser), m_decrypter(left.m_decrypter)
+{
+}
+
 HLSTree::~HLSTree()
 {
   delete m_decrypter;
@@ -159,12 +164,27 @@ bool HLSTree::open(const std::string& url, const std::string& manifestUpdatePara
 {
   PrepareManifestUrl(url, manifestUpdateParam);
   additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-  if (download(manifest_url_, additionalHeaders, &manifest_stream))
-    return processManifest(manifest_stream);
-  return false;
+
+  std::stringstream data;
+  HTTPRespHeaders respHeaders;
+  if (!download(manifest_url_, additionalHeaders, data, respHeaders))
+    return false;
+
+  effective_url_ = respHeaders.m_effectiveUrl;
+
+  if (!PreparePaths(effective_url_))
+    return false;
+
+  if (!ParseManifest(data))
+  {
+    LOG::LogF(LOGERROR, "Failed to parse the manifest file");
+    return false;
+  }
+
+  return true;
 }
 
-bool HLSTree::processManifest(std::stringstream& stream)
+bool HLSTree::ParseManifest(std::stringstream& stream)
 {
 #if FILEDEBUG
   FILE* f = fopen("inputstream_adaptive_master.m3u8", "w");
@@ -246,6 +266,9 @@ bool HLSTree::processManifest(std::stringstream& stream)
 
       if ((res = map.find("CHANNELS")) != map.end())
         rep->channelCount_ = atoi(res->second.c_str());
+
+      rep->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+      rep->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
     }
     else if (line.compare(0, 18, "#EXT-X-STREAM-INF:") == 0)
     {
@@ -289,6 +312,9 @@ bool HLSTree::processManifest(std::stringstream& stream)
         current_representation_->fpsRate_ = static_cast<int>(std::stof(map["FRAME-RATE"]) * 1000);
         current_representation_->fpsScale_ = 1000;
       }
+
+      current_representation_->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+      current_representation_->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
     }
     else if (line.compare(0, 8, "#EXTINF:") == 0)
     {
@@ -304,6 +330,8 @@ bool HLSTree::processManifest(std::stringstream& stream)
       current_representation_->codecs_ = getVideoCodec("");
       current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
       current_representation_->source_url_ = manifest_url_;
+      current_representation_->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+      current_representation_->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
       current_adaptationset_->representations_.push_back(current_representation_);
 
       // We assume audio is included
@@ -359,6 +387,8 @@ bool HLSTree::processManifest(std::stringstream& stream)
       current_representation_->timescale_ = 1000000;
       current_representation_->codecs_ = m_audioCodec;
       current_representation_->flags_ = Representation::INCLUDEDSTREAM;
+      current_representation_->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+      current_representation_->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
       current_adaptationset_->representations_.push_back(current_representation_);
     }
 
@@ -387,7 +417,6 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     uint64_t newStartNumber;
     Segment newInitialization;
     uint64_t segmentId(rep->getCurrentSegmentNumber());
-    std::stringstream stream;
     uint32_t adp_pos =
         std::find(period->adaptationSets_.begin(), period->adaptationSets_.end(), adp) -
         period->adaptationSets_.begin();
@@ -398,9 +427,12 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     Representation* entry_rep = rep;
     PREPARE_RESULT retVal = PREPARE_RESULT_OK;
 
-    if (rep->flags_ & Representation::DOWNLOADED)
-      ;
-    else if (download(rep->source_url_, m_streamHeaders, &stream, false))
+    std::stringstream streamData;
+    HTTPRespHeaders respHeaders;
+
+    if (rep->flags_ & Representation::DOWNLOADED) {
+    }
+    else if (download(rep->source_url_, m_streamHeaders, streamData, respHeaders))
     {
 #if FILEDEBUG
       FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -429,7 +461,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
       base_url = URL::RemoveParameters(effective_url_);
 
-      while (std::getline(stream, line))
+      while (std::getline(streamData, line))
       {
         if (!startCodeFound)
         {
@@ -757,12 +789,6 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
   return PREPARE_RESULT_FAILURE;
 };
 
-bool HLSTree::write_data(void* buffer, size_t buffer_size, void* opaque)
-{
-  static_cast<std::stringstream*>(opaque)->write(static_cast<const char*>(buffer), buffer_size);
-  return true;
-}
-
 void HLSTree::OnDataArrived(uint64_t segNum,
                             uint16_t psshSet,
                             uint8_t iv[16],
@@ -791,7 +817,6 @@ void HLSTree::OnDataArrived(uint64_t segNum,
       if (pssh.defaultKID_.empty())
       {
       RETRY:
-        std::stringstream stream;
         std::map<std::string, std::string> headers;
         std::vector<std::string> keyParts{StringUtils::Split(m_decrypter->getLicenseKey(), '|')};
         std::string url = pssh.pssh_.c_str();
@@ -803,9 +828,12 @@ void HLSTree::OnDataArrived(uint64_t segNum,
         if (keyParts.size() > 1)
           ParseHeaderString(headers, keyParts[1]);
 
-        if (download(url, headers, &stream, false))
+        std::stringstream streamData;
+        HTTPRespHeaders respHeaders;
+
+        if (download(url, headers, streamData, respHeaders))
         {
-          pssh.defaultKID_ = stream.str();
+          pssh.defaultKID_ = streamData.str();
         }
         else if (pssh.defaultKID_ != "0")
         {

@@ -10,19 +10,19 @@
 
 #include "../common/AdaptiveTree.h"
 
-#include <kodi/AddonBase.h>
-
 namespace adaptive
 {
 
 class ATTR_DLL_LOCAL DASHTree : public AdaptiveTree
 {
 public:
-  DASHTree(const UTILS::PROPERTIES::KodiProperties& kodiProps, IRepresentationChooser* reprChooser)
+  DASHTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+           CHOOSER::IRepresentationChooser* reprChooser)
     : AdaptiveTree(kodiProps, reprChooser){};
+  DASHTree(const DASHTree& left);
+
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders) override;
-  virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
                                Representation* rep,
@@ -35,12 +35,16 @@ public:
   };
   virtual void SetLastUpdated(std::chrono::system_clock::time_point tm){};
   void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
+
   uint64_t pts_helper_, timeline_time_;
   uint64_t firstStartNumber_;
   std::string current_playready_wrmheader_;
   std::string mpd_url_;
 
 protected:
+  virtual bool ParseManifest(const std::string& data);
   virtual void RefreshLiveSegments() override;
-  };
-}
+
+  virtual DASHTree* Clone() const override { return new DASHTree{*this}; }
+};
+} // namespace adaptive

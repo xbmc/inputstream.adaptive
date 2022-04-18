@@ -12,21 +12,33 @@
 
 #include "../utils/PropertiesUtils.h"
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <inttypes.h>
 #include <map>
+#include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
 
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "../test/KodiStubs.h"
+#else
 #include <kodi/AddonBase.h>
+#endif
+
+ // Forward namespace/class
+namespace CHOOSER
+{
+class IRepresentationChooser;
+}
 
 namespace adaptive
 {
-  // Forward classes
-  class IRepresentationChooser;
+  
 
 template<typename T>
 struct ATTR_DLL_LOCAL SPINCACHE
@@ -109,9 +121,22 @@ struct ATTR_DLL_LOCAL SPINCACHE
   std::vector<T> data;
 };
 
+struct ATTR_DLL_LOCAL HTTPRespHeaders {
+
+  std::string m_effectiveUrl;
+  std::string m_etag; // etag header
+  std::string m_lastModified; // last-modified header
+};
+
 class ATTR_DLL_LOCAL AdaptiveTree
 {
 public:
+  struct Settings
+  {
+    uint32_t m_bufferAssuredDuration{60};
+    uint32_t m_bufferMaxDuration{120};
+  };
+
   enum StreamType
   {
     NOTYPE,
@@ -185,15 +210,15 @@ public:
     std::string codec_private_data_;
     std::string source_url_;
     std::string base_url_;
-    uint32_t bandwidth_;
+    uint32_t bandwidth_; // as bit/s
     uint32_t samplingRate_;
     int width_;
     int height_;
     uint32_t fpsRate_, fpsScale_;
     float aspect_;
 
-    uint32_t assured_buffer_duration_;
-    uint32_t max_buffer_duration_;
+    uint32_t assured_buffer_duration_{0};
+    uint32_t max_buffer_duration_{0};
     //Flags
     static const uint16_t BYTERANGE = 0;
     static const uint16_t INDEXRANGEEXACT = 1;
@@ -295,7 +320,7 @@ public:
 
   struct AdaptationSet
   {
-    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), best_rep_(0), min_rep_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false) { language_ = "unk"; };
+    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false) { language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
     void CopyBasicData(AdaptationSet* src);
     StreamType type_;
@@ -313,8 +338,6 @@ public:
     std::string name_;
     std::vector<std::string> switching_ids_;
     std::vector<Representation*> representations_;
-    Representation* best_rep_;
-    Representation* min_rep_;
     SPINCACHE<uint32_t> segment_durations_;
     SegmentTemplate segtpl_;
 
@@ -459,8 +482,7 @@ public:
   std::string base_url_;
   std::string effective_url_;
   std::string update_parameter_;
-  std::string etag_;
-  std::string last_modified_;
+  HTTPRespHeaders m_manifestHeaders;
 
   /* XML Parsing*/
   XML_Parser parser_;
@@ -488,7 +510,7 @@ public:
   std::string strXMLText_;
 
   AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& properties,
-               IRepresentationChooser* reprChooser);
+    CHOOSER::IRepresentationChooser* reprChooser);
   virtual ~AdaptiveTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) = 0;
@@ -528,7 +550,7 @@ public:
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 
-  IRepresentationChooser* GetRepChooser() { return m_reprChooser; }
+  CHOOSER::IRepresentationChooser* GetRepChooser() { return m_reprChooser; }
 
   int SecondsSinceRepUpdate(Representation* rep)
   {
@@ -537,12 +559,25 @@ public:
       .count());
   }
 
+  virtual AdaptiveTree* Clone() const = 0;
+
+  Settings m_settings;
+
 protected:
+  /*!
+   * \brief Download a file (At each call feed also the repr. chooser
+            to calculate the initial bandwidth).
+   * \param url The url of the file to download
+   * \param reqHeaders The headers to use in the HTTP request
+   * \param data [OUT] Return the HTTP response data
+   * \param respHeaders [OUT] Return the HTTP response headers
+   * \return True if has success, otherwise false
+   */
   virtual bool download(const std::string& url,
-                        const std::map<std::string, std::string>& manifestHeaders,
-                        void* opaque = nullptr,
-                        bool isManifest = true);
-  virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) = 0;
+                        const std::map<std::string, std::string>& reqHeaders,
+                        std::stringstream& data,
+                        HTTPRespHeaders& respHeaders);
+
   bool PreparePaths(const std::string &url);
   void PrepareManifestUrl(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
@@ -558,11 +593,10 @@ protected:
   std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
   std::map<std::string, std::string> m_streamHeaders;
   const UTILS::PROPERTIES::KodiProperties m_kodiProps;
+  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 
 private:
   void SegmentUpdateWorker();
-
-  IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 } // namespace adaptive

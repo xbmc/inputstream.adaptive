@@ -12,6 +12,11 @@
 #include "../utils/UrlUtils.h"
 #include "../utils/log.h"
 
+#ifndef INPUTSTREAM_TEST_BUILD
+#include <kodi/Filesystem.h>
+#include <kodi/General.h>
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <stdlib.h>
@@ -39,7 +44,7 @@ namespace adaptive
   }
 
   AdaptiveTree::AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                             IRepresentationChooser* reprChooser)
+                             CHOOSER::IRepresentationChooser* reprChooser)
     : m_kodiProps(kodiProps),
       m_reprChooser(reprChooser),
       m_streamHeaders(kodiProps.m_streamHeaders),
@@ -60,6 +65,12 @@ namespace adaptive
       updateThread_(nullptr),
       lastUpdated_(std::chrono::system_clock::now())
   {
+    // Convenience way to share common addon settings we avoid
+    // calling the API many times to improve parsing performance
+    m_settings.m_bufferAssuredDuration =
+        static_cast<uint32_t>(kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION"));
+    m_settings.m_bufferMaxDuration =
+        static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
   }
 
   AdaptiveTree::~AdaptiveTree()
@@ -410,4 +421,99 @@ namespace adaptive
       }
     }
   }
+
+  bool AdaptiveTree::download(const std::string& url,
+                              const std::map<std::string, std::string>& reqHeaders,
+                              std::stringstream& data,
+                              HTTPRespHeaders& respHeaders)
+  {
+    // open the file
+    kodi::vfs::CFile file;
+    if (!file.CURLCreate(url))
+      return false;
+
+    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
+    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
+
+    for (const auto& entry : reqHeaders)
+    {
+      file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+    }
+
+    if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
+    {
+      LOG::Log(LOGERROR, "CURLOpen returned an error, download failed: %s", url.c_str());
+      return false;
+    }
+
+    respHeaders.m_effectiveUrl = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+
+    // read the file
+    static const size_t bufferSize{16 * 1024}; // 16 Kbyte
+    std::vector<char> bufferData(bufferSize);
+    bool isEOF{false};
+
+    while (!isEOF)
+    {
+      // Read the data in chunks
+      ssize_t byteRead{file.Read(bufferData.data(), bufferSize)};
+      if (byteRead == -1)
+      {
+        LOG::Log(LOGERROR, "An error occurred in the download: %s", url.c_str());
+        break;
+      }
+      else if (byteRead == 0) // EOF or undetectable error
+      {
+        isEOF = true;
+      }
+      else
+      {
+        data.write(bufferData.data(), byteRead);
+      }
+    }
+
+    if (isEOF)
+    {
+      long dataSizeBytes{static_cast<long>(data.tellp())};
+      if(dataSizeBytes > 0)
+      {
+        // Get body lenght (could be gzip compressed)
+        std::string contentLengthStr{
+            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
+        long contentLength{std::atol(contentLengthStr.c_str())};
+        if (contentLength == 0)
+          contentLength = dataSizeBytes;
+        
+        double downloadSpeed{file.GetFileDownloadSpeed()};
+        // The download speed with small file sizes are not accurate
+        // we should have at least 512Kb to have a sufficient acceptable value
+        // to calculate the bandwidth, then we make a proportion for cases
+        // with less than 512Kb to have a better value
+        static const int minSize{512 * 1024};
+        if (contentLength < minSize)
+          downloadSpeed = (downloadSpeed / contentLength) * minSize;
+
+        respHeaders.m_etag = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
+        respHeaders.m_lastModified =
+            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
+
+        // We set the download speed to calculate the initial network bandwidth
+        m_reprChooser->SetDownloadSpeed(downloadSpeed);
+
+        LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %i byte, speed %0.2lf byte/s)",
+          url.c_str(), contentLength, downloadSpeed);
+
+        file.Close();
+        return true;
+      }
+      else
+      {
+        LOG::Log(LOGERROR, "A problem occurred in the download, no data received: %s", url.c_str());
+      }
+    }
+
+    file.Close();
+    return false;
+  }
+
 } // namespace

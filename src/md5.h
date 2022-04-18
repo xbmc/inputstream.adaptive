@@ -14,8 +14,11 @@
 #include <cstring>
 #include <iostream>
 
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "test/KodiStubs.h"
+#else
 #include <kodi/AddonBase.h>
-
+#endif
 
 // a small class for calculating MD5 hashes of strings or byte arrays
 // it is not meant to be fast or secure

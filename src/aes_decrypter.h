@@ -14,7 +14,11 @@
 
 #include <string>
 
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "test/KodiStubs.h"
+#else
 #include <kodi/AddonBase.h>
+#endif
 
 class ATTR_DLL_LOCAL AESDecrypter : public IAESDecrypter
 {
