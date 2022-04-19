@@ -40,7 +40,6 @@ public:
 
   void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) override
   {
-    m_isHdcpOverride = true;
   }
 };
 

@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "expat.h"
-
+#include "../SSD_dll.h"
 #include "../utils/PropertiesUtils.h"
+#include "expat.h"
 
 #include <algorithm>
 #include <chrono>
@@ -531,6 +531,12 @@ public:
 
   bool has_type(StreamType t);
   void FreeSegments(Period* period, Representation* rep);
+
+  /*!
+   * \brief Check HDCP parameters to remove unplayable representations
+   */
+  void CheckHDCP();
+
   uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
   void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale);
   uint16_t insert_psshset(StreamType type, Period* period = nullptr, AdaptationSet* adp = nullptr);
@@ -562,6 +568,7 @@ public:
   virtual AdaptiveTree* Clone() const = 0;
 
   Settings m_settings;
+  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> m_decrypterCaps;
 
 protected:
   /*!

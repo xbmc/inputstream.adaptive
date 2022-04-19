@@ -264,6 +264,9 @@ Session::Session(const PROPERTIES::KodiProperties& kodiProps,
   m_settingNoSecureDecoder = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
   LOG::Log(LOGDEBUG, "Setting NOSECUREDECODER value: %d", m_settingNoSecureDecoder);
 
+  m_settingIsHdcpOverride = kodi::addon::GetSettingBoolean("HDCPOVERRIDE");
+  LOG::Log(LOGDEBUG, "Ignore HDCP status setting value: %i", m_settingIsHdcpOverride);
+
   switch (kodi::addon::GetSettingInt("MEDIATYPE"))
   {
     case 1:
@@ -560,11 +563,6 @@ bool Session::InitializeDRM(bool addDefaultKID /* = false */)
   cdm_sessions_.resize(adaptiveTree_->current_period_->psshSets_.size());
   memset(&cdm_sessions_.front(), 0, sizeof(CDMSESSION));
 
-  for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
-  {
-    m_reprChooser->AddDecrypterCaps(cdmsession.decrypter_caps_);
-  }
-
   // Try to initialize an SingleSampleDecryptor
   if (adaptiveTree_->current_period_->encryptionState_)
   {
@@ -839,6 +837,17 @@ bool Session::InitializeDRM(bool addDefaultKID /* = false */)
       }
     }
   }
+
+  adaptiveTree_->m_decrypterCaps.clear();
+  if (!m_settingIsHdcpOverride)
+  {
+    for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
+    {
+      adaptiveTree_->m_decrypterCaps.emplace_back(cdmsession.decrypter_caps_);
+    }
+    adaptiveTree_->CheckHDCP();
+  }
+
   m_reprChooser->SetSecureSession(isSecureVideoSession);
   m_reprChooser->PostInit();
 

@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "../SSD_dll.h"
 #include "../utils/PropertiesUtils.h"
 #include "../utils/SettingsUtils.h"
 #include "AdaptiveTree.h"
@@ -71,13 +70,6 @@ public:
    * \param isSecureSession Set true if a secure session is in use
    */
   virtual void SetSecureSession(const bool isSecureSession) { m_isSecureSession = isSecureSession; }
-
-  /*!
-   * \brief Add the decrypter caps of a session. Can be used to determine the
-   *        HDCP version and limit of each stream representation.
-   * \param ssdCaps The SSD decripter caps of a session
-   */
-  virtual void AddDecrypterCaps(const SSD::SSD_DECRYPTER::SSD_CAPS& ssdCaps) {}
 
   virtual adaptive::AdaptiveTree::Representation* ChooseRepresentation(
       adaptive::AdaptiveTree::AdaptationSet* adp) = 0;

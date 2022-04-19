@@ -512,6 +512,8 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_
     caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
   }
   LogF(SSDDEBUG, "hdcpLimit: %i", caps.hdcpLimit);
+
+  caps.hdcpVersion = 99;
 }
 
 bool WV_CencSingleSampleDecrypter::ProvisionRequest()

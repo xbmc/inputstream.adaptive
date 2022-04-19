@@ -166,6 +166,7 @@ public:
                  bool isDefaultRepr,
                  uint32_t uniqueId);
   void UpdateStream(STREAM& stream);
+
   AP4_Movie* PrepareStream(STREAM* stream, bool& needRefetch);
 
   STREAM* GetStream(unsigned int sid) const
@@ -251,5 +252,6 @@ private:
   uint8_t media_type_mask_{0};
   uint8_t drmConfig_{0};
   bool m_settingNoSecureDecoder{false};
+  bool m_settingIsHdcpOverride{false};
   bool first_period_initialized_{0};
 };

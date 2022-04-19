@@ -51,11 +51,6 @@ void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::KodiProp
   m_ignoreScreenResChange =
       kodi::addon::GetSettingBoolean("adaptivestream.ignore.screen.res.change");
 
-  //! @todo: move hdcp override and m_decrypterCaps out of repr. chooser
-  //! an idea would be to add a disable flag or remove from the list the
-  //! representations that cannot be played just after DRM initialization.
-  m_isHdcpOverride = kodi::addon::GetSettingBoolean("HDCPOVERRIDE");
-
   if (m_bandwidthMax == 0 ||
       (kodiProps.m_bandwidthMax > 0 && m_bandwidthMax > kodiProps.m_bandwidthMax))
   {
@@ -68,10 +63,9 @@ void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::KodiProp
            "Resolution max for secure decoder: %s\n"
            "Bandwidth limits (bit/s): min %u, max %u\n"
            "Ignore screen resolution: %i\n"
-           "Ignore screen resolution change: %i\n"
-           "HDCP override: %i",
+           "Ignore screen resolution change: %i",
            m_screenWidthMax.c_str(), m_screenWidthMaxSecure.c_str(), m_bandwidthMin, m_bandwidthMax,
-           m_ignoreScreenRes, m_ignoreScreenResChange, m_isHdcpOverride);
+           m_ignoreScreenRes, m_ignoreScreenResChange);
 }
 
 void CRepresentationChooserDefault::PostInit()
@@ -157,11 +151,6 @@ void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
   }
 }
 
-void CRepresentationChooserDefault::AddDecrypterCaps(const SSD::SSD_DECRYPTER::SSD_CAPS& ssdCaps)
-{
-  m_decrypterCaps.emplace_back(ssdCaps);
-}
-
 AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentation(
     AdaptiveTree::AdaptationSet* adp)
 {
@@ -184,26 +173,16 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentatio
 
   int valScore{-1};
   int bestScore{-1};
-  uint16_t hdcpVersion{99};
-  int hdcpLimit{0};
 
   for (auto rep : adp->representations_)
   {
     if (!rep)
       continue;
 
-    if (!m_isHdcpOverride)
-    {
-      hdcpVersion = m_decrypterCaps[rep->pssh_set_].hdcpVersion;
-      hdcpLimit = m_decrypterCaps[rep->pssh_set_].hdcpLimit;
-    }
-
     int score = std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight) +
                 static_cast<int>(std::sqrt(bandwidth - rep->bandwidth_));
 
-    if (rep->bandwidth_ <= bandwidth && rep->hdcpVersion_ <= hdcpVersion &&
-        (hdcpLimit == 0 || rep->width_ * rep->height_ <= hdcpLimit) &&
-        (bestScore == -1 || score < bestScore))
+    if (rep->bandwidth_ <= bandwidth && (bestScore == -1 || score < bestScore))
     {
       bestScore = score;
       newRep = rep;
@@ -229,26 +208,16 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresent
 
   AdaptiveTree::Representation* nextRep{nullptr};
   int bestScore{-1};
-  uint16_t hdcpVersion{99};
-  int hdcpLimit{0};
 
   for (auto rep : adp->representations_)
   {
     if (!rep)
       continue;
 
-    if (!m_isHdcpOverride)
-    {
-      hdcpVersion = m_decrypterCaps[rep->pssh_set_].hdcpVersion;
-      hdcpLimit = m_decrypterCaps[rep->pssh_set_].hdcpLimit;
-    }
-
     int score = std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight) +
                 static_cast<int>(std::sqrt(m_bandwidthCurrent - rep->bandwidth_));
 
-    if (rep->bandwidth_ <= m_bandwidthCurrent && rep->hdcpVersion_ <= hdcpVersion &&
-        (hdcpLimit == 0 || rep->width_ * rep->height_ <= hdcpLimit) &&
-        (bestScore == -1 || score < bestScore))
+    if (rep->bandwidth_ <= m_bandwidthCurrent && (bestScore == -1 || score < bestScore))
     {
       bestScore = score;
       nextRep = rep;
