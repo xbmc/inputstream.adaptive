@@ -8,6 +8,7 @@
 
 #include "RepresentationChooserDefault.h"
 
+#include "../utils/SettingsUtils.h"
 #include "../utils/log.h"
 #include "RepresentationSelector.h"
 
@@ -16,8 +17,9 @@
 #include <numeric>
 #include <string_view>
 
-using namespace CHOOSER;
 using namespace adaptive;
+using namespace CHOOSER;
+using namespace UTILS;
 
 namespace
 {
@@ -31,12 +33,18 @@ CRepresentationChooserDefault::CRepresentationChooserDefault()
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Default");
 }
 
-void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::ChooserProps& props)
 {
-  IRepresentationChooser::Initialize(kodiProps);
-
-  m_screenWidthMax = kodi::addon::GetSettingString("adaptivestream.res.max");
-  m_screenWidthMaxSecure = kodi::addon::GetSettingString("adaptivestream.res.max.secure");
+  std::pair<int, int> res;
+  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.max"), res))
+  {
+    m_screenResMax = res;
+  }
+  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.secure.max"),
+                                     res))
+  {
+    m_screenResSecureMax = res;
+  }
 
   m_bandwidthInitAuto = kodi::addon::GetSettingBoolean("adaptivestream.bandwidth.init.auto");
   m_bandwidthInit =
@@ -51,21 +59,35 @@ void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::KodiProp
   m_ignoreScreenResChange =
       kodi::addon::GetSettingBoolean("adaptivestream.ignore.screen.res.change");
 
-  if (m_bandwidthMax == 0 ||
-      (kodiProps.m_bandwidthMax > 0 && m_bandwidthMax > kodiProps.m_bandwidthMax))
+  // Override settings with Kodi/video add-on properties
+
+  if (m_bandwidthMax == 0 || (props.m_bandwidthMax > 0 && m_bandwidthMax > props.m_bandwidthMax))
   {
-    m_bandwidthMax = kodiProps.m_bandwidthMax;
+    m_bandwidthMax = props.m_bandwidthMax;
+  }
+
+  if (m_screenResMax.first == 0 ||
+      (props.m_resolutionMax.first > 0 && m_screenResMax > props.m_resolutionMax))
+  {
+    m_screenResMax = props.m_resolutionMax;
+  }
+
+  if (m_screenResSecureMax.first == 0 ||
+      (props.m_resolutionSecureMax.first > 0 && m_screenResSecureMax > props.m_resolutionSecureMax))
+  {
+    m_screenResSecureMax = props.m_resolutionSecureMax;
   }
 
   LOG::Log(LOGDEBUG,
            "[Repr. chooser] Configuration\n"
-           "Resolution max: %s\n"
-           "Resolution max for secure decoder: %s\n"
+           "Resolution max: %ix%i\n"
+           "Resolution max for secure decoder: %ix%i\n"
            "Bandwidth limits (bit/s): min %u, max %u\n"
            "Ignore screen resolution: %i\n"
            "Ignore screen resolution change: %i",
-           m_screenWidthMax.c_str(), m_screenWidthMaxSecure.c_str(), m_bandwidthMin, m_bandwidthMax,
-           m_ignoreScreenRes, m_ignoreScreenResChange);
+           m_screenResMax.first, m_screenResMax.second, m_screenResSecureMax.first,
+           m_screenResSecureMax.second, m_bandwidthMin, m_bandwidthMax, m_ignoreScreenRes,
+           m_ignoreScreenResChange);
 }
 
 void CRepresentationChooserDefault::PostInit()
@@ -87,7 +109,7 @@ void CRepresentationChooserDefault::PostInit()
 
   LOG::Log(LOGDEBUG,
            "[Repr. chooser] Stream selection conditions\n"
-           "Resolution: %ix%i\n"
+           "Screen resolution: %ix%i (may be limited by settings)\n"
            "Initial bandwidth: %u bit/s",
            m_screenWidth, m_screenHeight, m_bandwidthCurrent);
 }
@@ -111,22 +133,18 @@ void CRepresentationChooserDefault::RefreshResolution()
   m_screenHeight = m_ignoreScreenRes ? 16384 : m_screenCurrentHeight;
 
   // If set, limit resolution to user choice
-  std::string_view userMaxRes{m_isSecureSession ? m_screenWidthMaxSecure : m_screenWidthMax};
+  const auto& userResLimit{m_isSecureSession ? m_screenResSecureMax : m_screenResMax};
 
-  auto mapIt{RESOLUTION_LIMITS.find(userMaxRes)};
-
-  if (mapIt != RESOLUTION_LIMITS.end())
+  if (userResLimit.first > 0 && userResLimit.second > 0)
   {
-    const std::pair<int, int>& resLimit{mapIt->second};
+    if (m_screenWidth > userResLimit.first)
+      m_screenWidth = userResLimit.first;
 
-    if (m_screenWidth > resLimit.first)
-      m_screenWidth = resLimit.first;
-
-    if (m_screenHeight > resLimit.second)
-      m_screenHeight = resLimit.second;
+    if (m_screenHeight > userResLimit.second)
+      m_screenHeight = userResLimit.second;
   }
 
-  LOG::Log(LOGDEBUG, "[Repr. chooser] Screen resolution set: %ix%i", m_screenCurrentWidth,
+  LOG::Log(LOGDEBUG, "[Repr. chooser] Screen resolution has changed: %ix%i", m_screenCurrentWidth,
            m_screenCurrentHeight);
   m_screenResLastUpdate = std::chrono::steady_clock::now();
 }
@@ -141,14 +159,21 @@ void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
 
   // Calculate the current bandwidth from the average download speed
   if (m_bandwidthCurrent == 0)
-    m_bandwidthCurrent = speed * 8;
+    m_bandwidthCurrent = static_cast<uint32_t>(speed * 8);
   else
   {
     double avgSpeedBytes{
         std::accumulate(m_downloadSpeedChron.begin(), m_downloadSpeedChron.end(), 0.0) /
         m_downloadSpeedChron.size()};
-    m_bandwidthCurrent = avgSpeedBytes * 8;
+    m_bandwidthCurrent = static_cast<uint32_t>(avgSpeedBytes * 8);
   }
+
+  // Force the bandwidth to the limits set by the user or add-on
+  m_bandwidthCurrentLimited = m_bandwidthCurrent;
+  if (m_bandwidthMin > 0 && m_bandwidthCurrent < m_bandwidthMin)
+    m_bandwidthCurrentLimited = m_bandwidthMin;
+  if (m_bandwidthMax > 0 && m_bandwidthCurrent > m_bandwidthMax)
+    m_bandwidthCurrentLimited = m_bandwidthMax;
 }
 
 AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentation(
@@ -156,20 +181,14 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentatio
 {
   CRepresentationSelector selector(m_screenWidth, m_screenHeight);
   AdaptiveTree::Representation* newRep{nullptr};
-
-  // Force the bandwidth to the limits set by the user
-  uint32_t bandwidth = m_bandwidthCurrent;
-  if (m_bandwidthMin > 0 && bandwidth < m_bandwidthMin)
-    bandwidth = m_bandwidthMin;
-  if (m_bandwidthMax > 0 && bandwidth > m_bandwidthMax)
-    bandwidth = m_bandwidthMax;
+  uint32_t bandwidth;
 
   // From bandwidth take in consideration:
   // 90% of bandwidth for video - 10 % for other
   if (adp->type_ == AdaptiveTree::VIDEO)
-    bandwidth = static_cast<uint32_t>(bandwidth * 0.9);
+    bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.9);
   else
-    bandwidth = static_cast<uint32_t>(bandwidth * 0.1);
+    bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.1);
 
   int valScore{-1};
   int bestScore{-1};
@@ -204,7 +223,8 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresent
 
   CRepresentationSelector selector(m_screenWidth, m_screenHeight);
 
-  LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s", m_bandwidthCurrent);
+  LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s (filtered to %u bit/s)",
+           m_bandwidthCurrent, m_bandwidthCurrentLimited);
 
   AdaptiveTree::Representation* nextRep{nullptr};
   int bestScore{-1};
@@ -215,9 +235,9 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresent
       continue;
 
     int score = std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight) +
-                static_cast<int>(std::sqrt(m_bandwidthCurrent - rep->bandwidth_));
+                static_cast<int>(std::sqrt(m_bandwidthCurrentLimited - rep->bandwidth_));
 
-    if (rep->bandwidth_ <= m_bandwidthCurrent && (bestScore == -1 || score < bestScore))
+    if (rep->bandwidth_ <= m_bandwidthCurrentLimited && (bestScore == -1 || score < bestScore))
     {
       bestScore = score;
       nextRep = rep;

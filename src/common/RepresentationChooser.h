@@ -12,14 +12,12 @@
 #include "../utils/SettingsUtils.h"
 #include "AdaptiveTree.h"
 
+#include <map>
 #include <string_view>
+#include <utility>
 
 namespace CHOOSER
 {
-
-const std::map<std::string_view, std::pair<int, int>> RESOLUTION_LIMITS{
-    {"480p", {640, 480}}, {"640p", {960, 640}},    {"720p", {1280, 720}}, {"1080p", {1920, 1080}},
-    {"2K", {2048, 1080}}, {"1440p", {2560, 1440}}, {"4K", {3840, 2160}}};
 
 class ATTR_DLL_LOCAL IRepresentationChooser
 {
@@ -32,7 +30,7 @@ public:
    *        DRM data can be read only with PostInit callback)
    * \param m_kodiProps The Kodi properties
    */
-  virtual void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) {}
+  virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) {}
 
   /*!
    * \brief Post initialization, will be called just after DRM initialization

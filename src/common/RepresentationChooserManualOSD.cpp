@@ -8,11 +8,12 @@
 
 #include "RepresentationChooserManualOSD.h"
 
+#include "../utils/SettingsUtils.h"
 #include "../utils/log.h"
 #include "RepresentationSelector.h"
 
-using namespace CHOOSER;
 using namespace adaptive;
+using namespace CHOOSER;
 using namespace UTILS;
 
 CRepresentationChooserManualOSD::CRepresentationChooserManualOSD()
@@ -20,7 +21,7 @@ CRepresentationChooserManualOSD::CRepresentationChooserManualOSD()
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Manual OSD");
 }
 
-void CRepresentationChooserManualOSD::Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+void CRepresentationChooserManualOSD::Initialize(const UTILS::PROPERTIES::ChooserProps& props)
 {
   std::string manualSelMode{kodi::addon::GetSettingString("adaptivestream.streamselection.mode")};
 
@@ -29,15 +30,24 @@ void CRepresentationChooserManualOSD::Initialize(const UTILS::PROPERTIES::KodiPr
   else
     m_streamSelectionMode = SETTINGS::StreamSelection::MANUAL;
 
-  m_screenWidthMax = kodi::addon::GetSettingString("adaptivestream.res.max");
-  m_screenWidthMaxSecure = kodi::addon::GetSettingString("adaptivestream.res.max.secure");
+  std::pair<int, int> res;
+  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.max"), res))
+  {
+    m_screenResMax = res;
+  }
+  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.secure.max"),
+                                     res))
+  {
+    m_screenResSecureMax = res;
+  }
 
   LOG::Log(LOGDEBUG,
            "[Repr. chooser] Configuration\n"
            "Stream manual selection mode: %s\n"
-           "Resolution max: %s\n"
-           "Resolution max for secure decoder: %s",
-           manualSelMode.c_str(), m_screenWidthMax.c_str(), m_screenWidthMaxSecure.c_str());
+           "Resolution max: %ix%i\n"
+           "Resolution max for secure decoder: %ix%i",
+           manualSelMode.c_str(), m_screenResMax.first, m_screenResMax.second,
+           m_screenResSecureMax.first, m_screenResSecureMax.second);
 }
 
 void CRepresentationChooserManualOSD::RefreshResolution()
@@ -46,19 +56,15 @@ void CRepresentationChooserManualOSD::RefreshResolution()
   m_screenHeight = m_screenCurrentHeight;
 
   // If set, limit resolution to user choice
-  std::string_view userMaxRes{m_isSecureSession ? m_screenWidthMaxSecure : m_screenWidthMax};
+  const auto& userResLimit{m_isSecureSession ? m_screenResSecureMax : m_screenResMax};
 
-  auto mapIt{RESOLUTION_LIMITS.find(userMaxRes)};
-
-  if (mapIt != RESOLUTION_LIMITS.end())
+  if (userResLimit.first > 0 && userResLimit.second > 0)
   {
-    const std::pair<int, int>& resLimit{mapIt->second};
+    if (m_screenWidth > userResLimit.first)
+      m_screenWidth = userResLimit.first;
 
-    if (m_screenWidth > resLimit.first)
-      m_screenWidth = resLimit.first;
-
-    if (m_screenHeight > resLimit.second)
-      m_screenHeight = resLimit.second;
+    if (m_screenHeight > userResLimit.second)
+      m_screenHeight = userResLimit.second;
   }
 }
 

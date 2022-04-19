@@ -10,6 +10,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 
 namespace UTILS
 {
@@ -22,6 +23,13 @@ enum class ManifestType
   MPD,
   ISM,
   HLS
+};
+
+struct ChooserProps
+{
+  uint32_t m_bandwidthMax{0};
+  std::pair<int, int> m_resolutionMax; // Res. limit for non-protected videos
+  std::pair<int, int> m_resolutionSecureMax; // Res. limit for DRM protected videos
 };
 
 struct KodiProperties
@@ -37,7 +45,6 @@ struct KodiProperties
   // HTTP headers used to download manifest and streams
   std::map<std::string, std::string> m_streamHeaders;
   std::string m_audioLanguageOrig;
-  uint32_t m_bandwidthMax{0};
   bool m_playTimeshiftBuffer{false};
   // PSSH/KID used to "pre-initialize" the DRM, the property value must be as
   // "{PSSH as base64}|{KID as base64}". The challenge/session ID data generated
@@ -46,6 +53,8 @@ struct KodiProperties
   std::string m_drmPreInitData;
   // Define the representation chooser type to be used, to override add-on user settings
   std::string m_streamSelectionType;
+  // Representation chooser properties, to override add-on user settings
+  ChooserProps m_chooserProps;
 };
 
 KodiProperties ParseKodiProperties(const std::map<std::string, std::string> properties);

@@ -21,6 +21,7 @@ add_executable(${BINARY}
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
     ../utils/PropertiesUtils.cpp
+    ../utils/SettingsUtils.cpp
     ../utils/StringUtils.cpp
     ../utils/UrlUtils.cpp
     ../utils/Utils.cpp

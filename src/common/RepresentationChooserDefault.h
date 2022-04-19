@@ -13,6 +13,7 @@
 #include <chrono>
 #include <deque>
 #include <optional>
+#include <utility>
 
 namespace CHOOSER
 {
@@ -23,7 +24,7 @@ public:
   CRepresentationChooserDefault();
   ~CRepresentationChooserDefault() override {}
 
-  virtual void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
+  virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
   virtual void PostInit() override;
 
   void SetDownloadSpeed(const double speed) override;
@@ -45,8 +46,8 @@ protected:
   int m_screenHeight{0};
   std::optional<std::chrono::steady_clock::time_point> m_screenResLastUpdate;
 
-  std::string m_screenWidthMax; // Max resolution for non-protected video content
-  std::string m_screenWidthMaxSecure; // Max resolution for protected video content
+  std::pair<int, int> m_screenResMax; // Max resolution for non-protected video content
+  std::pair<int, int> m_screenResSecureMax; // Max resolution for protected video content
 
   // Ignore screen resolution, from playback starts and when it changes while playing
   bool m_ignoreScreenRes{false};
@@ -55,6 +56,8 @@ protected:
 
   // The bandwidth (bit/s) calculated by the average download speed
   uint32_t m_bandwidthCurrent{0};
+  // The average bandwidth (bit/s) that could be limited by user settings or add-on
+  uint32_t m_bandwidthCurrentLimited{0};
   uint32_t m_bandwidthMin{0};
   uint32_t m_bandwidthMax{0};
 

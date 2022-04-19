@@ -35,11 +35,11 @@
                 <condition setting="adaptivestream.type">default</condition>
                 <condition setting="adaptivestream.type">manual-osd</condition>
               </or>
-			</dependency>
+            </dependency>
           </dependencies>
           <control type="spinner" format="string" />
         </setting>
-        <setting parent="adaptivestream.type" id="adaptivestream.res.max.secure" type="string" label="30113">
+        <setting parent="adaptivestream.type" id="adaptivestream.res.secure.max" type="string" label="30113">
           <level>0</level>
           <default>auto</default>
           <constraints>
@@ -60,7 +60,7 @@
                 <condition setting="adaptivestream.type">default</condition>
                 <condition setting="adaptivestream.type">manual-osd</condition>
               </or>
-			</dependency>
+            </dependency>
           </dependencies>
           <control type="spinner" format="string" />
         </setting>
