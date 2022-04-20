@@ -104,7 +104,7 @@ namespace adaptive
 
     uint32_t adpIndex{0};
     adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
-    while (adp = GetAdaptationSet(adpIndex++))
+    while ((adp = GetAdaptationSet(adpIndex++)))
     {
       if (adp->type_ != adaptive::AdaptiveTree::StreamType::VIDEO)
         continue;
