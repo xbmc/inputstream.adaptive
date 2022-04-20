@@ -12,7 +12,10 @@
 
 namespace CHOOSER
 {
-
+/*!
+ * \brief The quality of the streams is fixed and can be changed
+ *        through Kodi OSD settings.
+ */
 class ATTR_DLL_LOCAL CRepresentationChooserManualOSD : public IRepresentationChooser
 {
 public:

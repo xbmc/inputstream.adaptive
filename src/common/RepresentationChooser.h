@@ -18,7 +18,9 @@
 
 namespace CHOOSER
 {
-
+/*!
+ * \brief Defines the behaviours on which the quality of streams is chosen
+ */
 class ATTR_DLL_LOCAL IRepresentationChooser
 {
 public:

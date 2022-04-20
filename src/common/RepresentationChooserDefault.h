@@ -17,7 +17,10 @@
 
 namespace CHOOSER
 {
-
+/*!
+ * \brief Adaptive stream, the quality of the stream is changed according
+ *        to the bandwidth and screen resolution
+ */
 class ATTR_DLL_LOCAL CRepresentationChooserDefault : public IRepresentationChooser
 {
 public:
