@@ -142,7 +142,8 @@ public:
     va_copy(argsStart, args);
 
     int ret;
-    while ((ret = vsnprintf(data.data(), data.size(), format, args)) > data.size())
+    while (static_cast<size_t>(ret = vsnprintf(data.data(), data.size(), format, args)) >
+           data.size())
     {
       data.resize(data.size() * 2);
       args = argsStart;
