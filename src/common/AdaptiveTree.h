@@ -488,7 +488,7 @@ public:
   XML_Parser parser_;
   uint32_t currentNode_;
   size_t segcount_;
-  uint32_t initial_sequence_ = ~0UL;
+  uint32_t initial_sequence_ = ~0U;
   uint64_t overallSeconds_, stream_start_, available_time_, base_time_, live_delay_;
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;

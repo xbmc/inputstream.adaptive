@@ -1344,7 +1344,7 @@ public:
     return BASE64::Encode(challengeData.data(), challengeData.size());
   }
 
-  virtual bool HasCdmSession()
+  virtual bool HasCdmSession() override
   {
     return cdmsession_ != nullptr;
   }

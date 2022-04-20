@@ -66,7 +66,7 @@ public:
   void SetFrameBuffer(cdm::Buffer* frame_buffer) override { m_buffer = frame_buffer; }
   cdm::Buffer* FrameBuffer() override { return m_buffer; }
   void SetPlaneOffset(cdm::VideoPlane plane, uint32_t offset) override { m_planeOffsets[plane] = offset; }
-  void SetColorSpace(cdm::ColorSpace color_space) { m_colorSpace = color_space; };
+  void SetColorSpace(cdm::ColorSpace color_space) override { m_colorSpace = color_space; }
 
   virtual uint32_t PlaneOffset(cdm::VideoPlane plane) override { return m_planeOffsets[plane]; }
   virtual void SetStride(cdm::VideoPlane plane, uint32_t stride) override { m_stride[plane] = stride; }

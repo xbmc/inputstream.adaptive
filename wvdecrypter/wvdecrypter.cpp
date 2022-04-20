@@ -1549,7 +1549,7 @@ public:
     return false;
   }
 
-  virtual bool HasCdmSession()
+  virtual bool HasCdmSession() override
   {
     return cdmsession_ != nullptr;
   }

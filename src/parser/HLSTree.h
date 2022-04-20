@@ -56,8 +56,9 @@ public:
                                Representation* rep,
                                StreamType type) override;
 
-  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep)
-  { 
+  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(
+      const Representation* rep) override
+  {
     return rep->repLastUpdated_;
   }
   
