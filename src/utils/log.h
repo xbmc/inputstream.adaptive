@@ -74,9 +74,11 @@ inline void Log(const LogLevel level, const char* format, Args&&... args)
   case LogLevel::LOGINFO:
     std::cout << "[ LOG-INFO  ] " << logStr << std::endl;
     break;
-  default:
+  case LogLevel::LOGDEBUG:
     std::cout << "[ LOG-DEBUG ] " << logStr << std::endl;
 */
+  default:
+    break;
   }
 #endif
 }
