@@ -33,7 +33,7 @@ public:
 
   AP4_Result Start(bool& bStarted) override;
   AP4_Result ReadSample() override;
-  void Reset(bool bEOS);
+  void Reset(bool bEOS) override;
   bool EOS() const override { return m_eos; }
   bool IsStarted() const override { return m_started; }
   uint64_t DTS() const override { return m_dts; }
@@ -43,11 +43,11 @@ public:
   const AP4_Byte* GetSampleData() const override { return m_sampleData.GetData(); }
   uint64_t GetDuration() const override;
   bool IsEncrypted() const override;
-  bool GetInformation(kodi::addon::InputstreamInfo& info);
-  bool TimeSeek(uint64_t pts, bool preceeding);
-  void SetPTSOffset(uint64_t offset);
+  bool GetInformation(kodi::addon::InputstreamInfo& info) override;
+  bool TimeSeek(uint64_t pts, bool preceeding) override;
+  void SetPTSOffset(uint64_t offset) override;
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur);
+  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override;
   uint32_t GetTimeScale() const override { return m_track->GetMediaTimeScale(); }
 
   static const AP4_UI32 TRACKID_UNKNOWN = -1;
@@ -56,7 +56,7 @@ protected:
   AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
                          AP4_Position moof_offset,
                          AP4_Position mdat_payload_offset,
-                         AP4_UI64 mdat_payload_size);
+                         AP4_UI64 mdat_payload_size) override;
 
 private:
   void UpdateSampleDescription();
