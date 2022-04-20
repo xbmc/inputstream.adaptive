@@ -38,7 +38,7 @@ public:
   CTestRepresentationChooserDefault() : CHOOSER::CRepresentationChooserDefault() {}
   ~CTestRepresentationChooserDefault() override {}
 
-  void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) override
+  void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override
   {
   }
 };

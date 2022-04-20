@@ -35,6 +35,7 @@ set(ADP_SOURCES
 	src/utils/Base64Utils.cpp
 	src/utils/PropertiesUtils.cpp
 	src/utils/StringUtils.cpp
+	src/utils/SettingsUtils.cpp
 	src/utils/UrlUtils.cpp
 	src/utils/Utils.cpp
 	src/oscompat.cpp

@@ -8,6 +8,7 @@
 
 #include "PropertiesUtils.h"
 
+#include "SettingsUtils.h"
 #include "Utils.h"
 #include "kodi/tools/StringUtils.h"
 #include "log.h"
@@ -29,10 +30,15 @@ constexpr std::string_view PROP_MANIFEST_TYPE = "inputstream.adaptive.manifest_t
 constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter";
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
-constexpr std::string_view PROP_BANDWIDTH_MAX = "inputstream.adaptive.max_bandwidth";
+constexpr std::string_view PROP_BANDWIDTH_MAX = "inputstream.adaptive.max_bandwidth"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
+
+// Chooser's properties
 constexpr std::string_view PROP_STREAM_SELECTION_TYPE = "inputstream.adaptive.stream_selection_type";
+constexpr std::string_view PROP_CHOOSER_BANDWIDTH_MAX = "inputstream.adaptive.chooser_bandwidth_max";
+constexpr std::string_view PROP_CHOOSER_RES_MAX = "inputstream.adaptive.chooser_resolution_max";
+constexpr std::string_view PROP_CHOOSER_RES_SECURE_MAX = "inputstream.adaptive.chooser_resolution_secure_max";
 // clang-format on
 } // unnamed namespace
 
@@ -94,9 +100,12 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     {
       props.m_audioLanguageOrig = prop.second;
     }
-    else if (prop.first == PROP_BANDWIDTH_MAX)
+    else if (prop.first == PROP_BANDWIDTH_MAX) //! @todo: deprecated, to be removed on next Kodi release
     {
-      props.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
+      LOG::Log(LOGWARNING, "Warning \"inputstream.adaptive.max_bandwidth\" property is deprecated "
+                           "and may not works. Please read \"Integration\" and \"Stream selection types\" "
+                           "pages on the Wiki to learn more about the new properties.");
+      props.m_chooserProps.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
@@ -110,6 +119,26 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     else if (prop.first == PROP_STREAM_SELECTION_TYPE)
     {
       props.m_drmPreInitData = prop.second;
+    }
+    else if (prop.first == PROP_CHOOSER_BANDWIDTH_MAX)
+    {
+      props.m_chooserProps.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
+    }
+    else if (prop.first == PROP_CHOOSER_RES_MAX)
+    {
+      std::pair<int, int> res;
+      if (SETTINGS::ParseResolutionLimit(prop.second, res))
+        props.m_chooserProps.m_resolutionMax = res;
+      else
+        LOG::Log(LOGERROR, "Resolution not valid on \"%s\" property.", prop.first.c_str());
+    }
+    else if (prop.first == PROP_CHOOSER_RES_SECURE_MAX)
+    {
+      std::pair<int, int> res;
+      if (SETTINGS::ParseResolutionLimit(prop.second, res))
+        props.m_chooserProps.m_resolutionSecureMax = res;
+      else
+        LOG::Log(LOGERROR, "Resolution not valid on \"%s\" property.", prop.first.c_str());
     }
     else
     {

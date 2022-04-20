@@ -22,7 +22,7 @@ protected:
     UTILS::PROPERTIES::KodiProperties kodiProps;
 
     m_reprChooser = new CTestRepresentationChooserDefault();
-    m_reprChooser->Initialize(kodiProps);
+    m_reprChooser->Initialize(kodiProps.m_chooserProps);
 
     tree = new DASHTestTree(kodiProps, m_reprChooser);
 

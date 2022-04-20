@@ -20,10 +20,11 @@ namespace
 {
 IRepresentationChooser* GetReprChooser(std::string_view type)
 {
-  if (type == "manual-osd")
-    return new CRepresentationChooserManualOSD();
-  else if (type == "default")
+  // Chooser's names are used for add-on settings and Kodi properties
+  if (type == "default" || type == "adaptive")
     return new CRepresentationChooserDefault();
+  else if (type == "manual-osd")
+    return new CRepresentationChooserManualOSD();
   else
     return nullptr;
 }
@@ -49,7 +50,7 @@ IRepresentationChooser* CHOOSER::CreateRepresentationChooser(
   if (!reprChooser)
     reprChooser = new CRepresentationChooserDefault();
 
-  reprChooser->Initialize(kodiProps);
+  reprChooser->Initialize(kodiProps.m_chooserProps);
 
   return reprChooser;
 }

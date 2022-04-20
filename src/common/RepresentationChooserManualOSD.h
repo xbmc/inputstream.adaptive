@@ -12,14 +12,17 @@
 
 namespace CHOOSER
 {
-
+/*!
+ * \brief The quality of the streams is fixed and can be changed
+ *        through Kodi OSD settings.
+ */
 class ATTR_DLL_LOCAL CRepresentationChooserManualOSD : public IRepresentationChooser
 {
 public:
   CRepresentationChooserManualOSD();
   ~CRepresentationChooserManualOSD() override {}
 
-  virtual void Initialize(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
+  virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
 
   virtual void PostInit() override;
 
@@ -43,8 +46,8 @@ protected:
   int m_screenWidth{0};
   int m_screenHeight{0};
 
-  std::string m_screenWidthMax; // Max resolution for non-protected video content
-  std::string m_screenWidthMaxSecure; // Max resolution for protected video content
+  std::pair<int, int> m_screenResMax; // Max resolution for non-protected video content
+  std::pair<int, int> m_screenResSecureMax; // Max resolution for protected video content
 };
 
 } // namespace CHOOSER
