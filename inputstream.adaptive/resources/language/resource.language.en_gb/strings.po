@@ -193,7 +193,12 @@ msgctxt "#30177"
 msgid "Manual OSD"
 msgstr ""
 
-#empty strings reserved for "stream selection types" from id 30177 to 30190
+#. Item list value of setting with label #30174
+msgctxt "#30178"
+msgid "Fixed resolution"
+msgstr ""
+
+#empty strings reserved for "stream selection types" from id 30179 to 30190
 
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
