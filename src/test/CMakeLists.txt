@@ -15,6 +15,7 @@ add_executable(${BINARY}
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
     ../common/RepresentationChooser.cpp
+    ../common/RepresentationChooserAskQuality.cpp
     ../common/RepresentationChooserDefault.cpp
     ../common/RepresentationChooserFixedRes.cpp
     ../common/RepresentationChooserManualOSD.cpp

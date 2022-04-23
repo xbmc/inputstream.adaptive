@@ -64,6 +64,10 @@ namespace kodi
 {
 namespace addon
 {
+inline std::string GetLocalizedString(uint32_t labelId, const std::string& defaultStr = "")
+{
+  return defaultStr;
+}
 
 inline std::string GetSettingString(const std::string& settingName,
                                     const std::string& defaultValue = "")
@@ -148,4 +152,28 @@ public:
 };
 
 } // namespace vfs
+
+namespace gui
+{
+
+namespace dialogs
+{
+
+namespace Select
+{
+
+inline int Show(const std::string& heading,
+                const std::vector<std::string>& entries,
+                int selected = -1,
+                unsigned int autoclose = 0)
+{
+  return selected;
+}
+
+} // namespace Select
+
+} // namespace dialogs
+
+} // namespace gui
+
 } // namespace kodi

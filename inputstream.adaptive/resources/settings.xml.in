@@ -10,6 +10,7 @@
             <options>
               <option label="30176">default</option>
               <option label="30178">fixed-res</option>
+              <option label="30179">ask-quality</option>
               <option label="30177">manual-osd</option>
             </options>
           </constraints>

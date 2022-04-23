@@ -9,6 +9,7 @@
 #include "RepresentationChooser.h"
 
 #include "../utils/log.h"
+#include "RepresentationChooserAskQuality.h"
 #include "RepresentationChooserDefault.h"
 #include "RepresentationChooserFixedRes.h"
 #include "RepresentationChooserManualOSD.h"
@@ -26,6 +27,8 @@ IRepresentationChooser* GetReprChooser(std::string_view type)
     return new CRepresentationChooserDefault();
   else if (type == "fixed-res")
     return new CRepresentationChooserFixedRes();
+  else if (type == "ask-quality")
+    return new CRepresentationChooserAskQuality();
   else if (type == "manual-osd")
     return new CRepresentationChooserManualOSD();
   else
