@@ -9,6 +9,8 @@
           <constraints>
             <options>
               <option label="30176">default</option>
+              <option label="30178">fixed-res</option>
+              <option label="30179">ask-quality</option>
               <option label="30177">manual-osd</option>
             </options>
           </constraints>
@@ -33,6 +35,7 @@
             <dependency type="visible">
               <or>
                 <condition setting="adaptivestream.type">default</condition>
+                <condition setting="adaptivestream.type">fixed-res</condition>
                 <condition setting="adaptivestream.type">manual-osd</condition>
               </or>
             </dependency>
@@ -58,6 +61,7 @@
             <dependency type="visible">
               <or>
                 <condition setting="adaptivestream.type">default</condition>
+                <condition setting="adaptivestream.type">fixed-res</condition>
                 <condition setting="adaptivestream.type">manual-osd</condition>
               </or>
             </dependency>

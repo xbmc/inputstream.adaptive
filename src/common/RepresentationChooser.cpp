@@ -9,7 +9,9 @@
 #include "RepresentationChooser.h"
 
 #include "../utils/log.h"
+#include "RepresentationChooserAskQuality.h"
 #include "RepresentationChooserDefault.h"
+#include "RepresentationChooserFixedRes.h"
 #include "RepresentationChooserManualOSD.h"
 
 #include <vector>
@@ -23,6 +25,10 @@ IRepresentationChooser* GetReprChooser(std::string_view type)
   // Chooser's names are used for add-on settings and Kodi properties
   if (type == "default" || type == "adaptive")
     return new CRepresentationChooserDefault();
+  else if (type == "fixed-res")
+    return new CRepresentationChooserFixedRes();
+  else if (type == "ask-quality")
+    return new CRepresentationChooserAskQuality();
   else if (type == "manual-osd")
     return new CRepresentationChooserManualOSD();
   else

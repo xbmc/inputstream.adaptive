@@ -20,7 +20,9 @@ set(ADP_SOURCES
 	src/common/AdaptiveStream.cpp
 	src/common/AdaptiveTree.cpp
 	src/common/RepresentationChooser.cpp
+	src/common/RepresentationChooserAskQuality.cpp
 	src/common/RepresentationChooserDefault.cpp
+	src/common/RepresentationChooserFixedRes.cpp
 	src/common/RepresentationChooserManualOSD.cpp
 	src/common/RepresentationSelector.cpp
 	src/parser/DASHTree.cpp
@@ -63,7 +65,9 @@ set(ADP_HEADERS
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
 	src/common/RepresentationChooser.h
+	src/common/RepresentationChooserAskQuality.h
 	src/common/RepresentationChooserDefault.h
+	src/common/RepresentationChooserFixedRes.h
 	src/common/RepresentationChooserManualOSD.h
 	src/common/RepresentationSelector.h
 	src/parser/DASHTree.h

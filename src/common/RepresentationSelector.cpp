@@ -49,3 +49,22 @@ AdaptiveTree::Representation* CRepresentationSelector::Highest(AdaptiveTree::Ada
 
   return highestRep;
 }
+
+AdaptiveTree::Representation* CRepresentationSelector::HighestBw(
+    AdaptiveTree::AdaptationSet* adaptSet) const
+{
+  AdaptiveTree::Representation* repHigherBw{nullptr};
+
+  for (auto rep : adaptSet->representations_)
+  {
+    if (!rep)
+      continue;
+
+    if (!repHigherBw || rep->bandwidth_ > repHigherBw->bandwidth_)
+    {
+      repHigherBw = rep;
+    }
+  }
+
+  return repHigherBw;
+}

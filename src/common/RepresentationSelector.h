@@ -35,6 +35,14 @@ public:
   adaptive::AdaptiveTree::Representation* Highest(
       adaptive::AdaptiveTree::AdaptationSet* adaptSet) const;
 
+  /*!
+   * \brief Select the representation with the higher bandwidth
+   * \param adaptSet The adaption set
+   * \return The representation with higher bandwidth, otherwise nullptr if no available
+   */
+  adaptive::AdaptiveTree::Representation* HighestBw(
+      adaptive::AdaptiveTree::AdaptationSet* adaptSet) const;
+
 private:
   int m_screenWidth{0};
   int m_screenHeight{0};

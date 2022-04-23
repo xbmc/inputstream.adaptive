@@ -193,7 +193,17 @@ msgctxt "#30177"
 msgid "Manual OSD"
 msgstr ""
 
-#empty strings reserved for "stream selection types" from id 30177 to 30190
+#. Item list value of setting with label #30174
+msgctxt "#30178"
+msgid "Fixed resolution"
+msgstr ""
+
+#. Item list value of setting with label #30174
+msgctxt "#30179"
+msgid "Ask quality"
+msgstr ""
+
+#empty strings reserved for "stream selection types" from id 30180 to 30190
 
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
@@ -263,3 +273,16 @@ msgid "4K"
 msgstr ""
 
 #empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
+
+#. Dialog window to select the video stream
+#: src/common/RepresentationChooserAskQuality.cpp
+msgctxt "#30231"
+msgid "Select video stream"
+msgstr ""
+
+#. Description of each list item in #30231 dialog window
+#. Do not translate placeholders: {codec} {quality}
+#: src/common/RepresentationChooserAskQuality.cpp
+msgctxt "#30232"
+msgid "Video stream {codec} {quality}"
+msgstr ""
