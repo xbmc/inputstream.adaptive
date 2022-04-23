@@ -21,9 +21,9 @@ public:
   CRepresentationChooserFixedRes();
   ~CRepresentationChooserFixedRes() override {}
 
-  virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
+  void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
 
-  virtual void PostInit() override;
+  void PostInit() override;
 
   adaptive::AdaptiveTree::Representation* ChooseRepresentation(
       adaptive::AdaptiveTree::AdaptationSet* adp) override;
@@ -32,7 +32,7 @@ public:
       adaptive::AdaptiveTree::AdaptationSet* adp,
       adaptive::AdaptiveTree::Representation* currentRep) override;
 
-protected:
+private:
   std::pair<int, int> m_screenResMax; // Max resolution for non-protected video content
   std::pair<int, int> m_screenResSecureMax; // Max resolution for protected video content
 };
