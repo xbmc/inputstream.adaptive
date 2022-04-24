@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="19.0.3"
+  version="19.0.4"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,11 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v19.0.4 (2022-04-24)
+- Translations updates from Weblate -be_by, fi_fi, cs_cz
+- [DRM] Keep same session from pre-init
+- Fix crash related to mp4 webvtt subtitles
+
 v19.0.3 (2022-02-10)
 - Translations updates from Weblate - hr_hr, nl_nl, sk_s
 - [HLS] Fix for large media sequence numbers
