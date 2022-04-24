@@ -53,11 +53,8 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
       uint32_t remainingVttcBoxSize = ReadNextUnsignedInt(cbuf);
       int pos = 8;
 
-      while (remainingVttcBoxSize > 0)
+      while (remainingVttcBoxSize > 8)
       {
-        if (remainingVttcBoxSize < 8)
-          break;
-
         uint32_t boxSize = ReadNextUnsignedInt(cbuf + pos);
         if (boxSize == 0)
           break;
