@@ -37,7 +37,9 @@ AdaptiveTree::Representation* CRepresentationSelector::Highest(AdaptiveTree::Ada
 
     if (rep->width_ <= m_screenWidth && rep->height_ <= m_screenHeight)
     {
-      if (!highestRep || (highestRep->width_ < rep->width_ && highestRep->height_ < rep->height_))
+      if (!highestRep ||
+          (highestRep->width_ <= rep->width_ && highestRep->height_ <= rep->height_ &&
+           highestRep->bandwidth_ < rep->bandwidth_))
       {
         highestRep = rep;
       }
