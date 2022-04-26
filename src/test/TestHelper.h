@@ -10,8 +10,8 @@
 
 #include "../Iaes_decrypter.h"
 #include "../common/AdaptiveStream.h"
-#include "../common/RepresentationChooser.h"
-#include "../common/RepresentationChooserDefault.h"
+#include "../common/Chooser.h"
+#include "../common/ChooserDefault.h"
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
 #include "../utils/PropertiesUtils.h"

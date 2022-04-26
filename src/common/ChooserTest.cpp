@@ -6,11 +6,11 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "RepresentationChooserTest.h"
+#include "ChooserTest.h"
 
 #include "../utils/SettingsUtils.h"
 #include "../utils/log.h"
-#include "RepresentationSelector.h"
+#include "ReprSelector.h"
 
 using namespace adaptive;
 using namespace CHOOSER;

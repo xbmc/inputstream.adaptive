@@ -7,7 +7,7 @@
  */
 
 #include "AdaptiveTree.h"
-#include "RepresentationChooser.h"
+#include "Chooser.h"
 
 #include "../utils/UrlUtils.h"
 #include "../utils/log.h"

@@ -6,7 +6,7 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "RepresentationSelector.h"
+#include "ReprSelector.h"
 
 #include <algorithm>
 #include <vector>

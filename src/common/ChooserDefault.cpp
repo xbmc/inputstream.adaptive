@@ -6,11 +6,11 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "RepresentationChooserDefault.h"
+#include "ChooserDefault.h"
 
 #include "../utils/SettingsUtils.h"
 #include "../utils/log.h"
-#include "RepresentationSelector.h"
+#include "ReprSelector.h"
 
 #include <algorithm>
 #include <cmath>

@@ -6,14 +6,14 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "RepresentationChooser.h"
+#include "Chooser.h"
 
 #include "../utils/log.h"
-#include "RepresentationChooserAskQuality.h"
-#include "RepresentationChooserDefault.h"
-#include "RepresentationChooserFixedRes.h"
-#include "RepresentationChooserManualOSD.h"
-#include "RepresentationChooserTest.h"
+#include "ChooserAskQuality.h"
+#include "ChooserDefault.h"
+#include "ChooserFixedRes.h"
+#include "ChooserManualOSD.h"
+#include "ChooserTest.h"
 
 #include <vector>
 

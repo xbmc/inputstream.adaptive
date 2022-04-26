@@ -8,18 +8,18 @@
 
 #pragma once
 
-#include "RepresentationChooser.h"
+#include "Chooser.h"
 
 namespace CHOOSER
 {
 /*!
- * \brief The quality of the stream is asked to the user by a dialog window
+ * \brief The stream quality is fixed to the max available resolution
  */
-class ATTR_DLL_LOCAL CRepresentationChooserAskQuality : public IRepresentationChooser
+class ATTR_DLL_LOCAL CRepresentationChooserFixedRes : public IRepresentationChooser
 {
 public:
-  CRepresentationChooserAskQuality();
-  ~CRepresentationChooserAskQuality() override {}
+  CRepresentationChooserFixedRes();
+  ~CRepresentationChooserFixedRes() override {}
 
   void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
 
@@ -33,9 +33,8 @@ public:
       adaptive::AdaptiveTree::Representation* currentRep) override;
 
 private:
-  bool m_isFirstVideoAdaptationSetChosen{false};
-  int m_selectedResWidth{0};
-  int m_selectedResHeight{0};
+  std::pair<int, int> m_screenResMax; // Max resolution for non-protected video content
+  std::pair<int, int> m_screenResSecureMax; // Max resolution for protected video content
 };
 
 } // namespace CHOOSER
