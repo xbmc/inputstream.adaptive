@@ -203,7 +203,12 @@ msgctxt "#30179"
 msgid "Ask quality"
 msgstr ""
 
-#empty strings reserved for "stream selection types" from id 30180 to 30190
+#. Item list value of setting with label #30174
+msgctxt "#30180"
+msgid "Test"
+msgstr ""
+
+#empty strings reserved for "stream selection types" from id 30181 to 30190
 
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
@@ -285,4 +290,19 @@ msgstr ""
 #: src/common/RepresentationChooserAskQuality.cpp
 msgctxt "#30232"
 msgid "Video stream {codec} {quality}"
+msgstr ""
+
+#. Enum setting to set the test mode
+msgctxt "#30233"
+msgid "Test mode"
+msgstr ""
+
+#. Item list value of setting with label #30233
+msgctxt "#30234"
+msgid "Switch by segments"
+msgstr ""
+
+#. Stand for stream segments, referred to setting with label #30234
+msgctxt "#30235"
+msgid "Segments"
 msgstr ""

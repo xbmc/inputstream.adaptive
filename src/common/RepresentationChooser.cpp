@@ -13,6 +13,7 @@
 #include "RepresentationChooserDefault.h"
 #include "RepresentationChooserFixedRes.h"
 #include "RepresentationChooserManualOSD.h"
+#include "RepresentationChooserTest.h"
 
 #include <vector>
 
@@ -31,6 +32,8 @@ IRepresentationChooser* GetReprChooser(std::string_view type)
     return new CRepresentationChooserAskQuality();
   else if (type == "manual-osd")
     return new CRepresentationChooserManualOSD();
+  else if (type == "test")
+    return new CRepresentationChooserTest();
   else
     return nullptr;
 }

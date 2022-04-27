@@ -24,6 +24,7 @@ set(ADP_SOURCES
 	src/common/RepresentationChooserDefault.cpp
 	src/common/RepresentationChooserFixedRes.cpp
 	src/common/RepresentationChooserManualOSD.cpp
+	src/common/RepresentationChooserTest.cpp
 	src/common/RepresentationSelector.cpp
 	src/parser/DASHTree.cpp
 	src/parser/HLSTree.cpp
@@ -69,6 +70,7 @@ set(ADP_HEADERS
 	src/common/RepresentationChooserDefault.h
 	src/common/RepresentationChooserFixedRes.h
 	src/common/RepresentationChooserManualOSD.h
+	src/common/RepresentationChooserTest.h
 	src/common/RepresentationSelector.h
 	src/parser/DASHTree.h
 	src/parser/HLSTree.h

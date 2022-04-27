@@ -13,6 +13,12 @@
 namespace CHOOSER
 {
 
+constexpr bool BwCompare(const adaptive::AdaptiveTree::Representation* left,
+                         const adaptive::AdaptiveTree::Representation* right)
+{
+  return left->bandwidth_ < right->bandwidth_;
+};
+
 class ATTR_DLL_LOCAL CRepresentationSelector
 {
 public:
@@ -42,6 +48,10 @@ public:
    */
   adaptive::AdaptiveTree::Representation* HighestBw(
       adaptive::AdaptiveTree::AdaptationSet* adaptSet) const;
+
+
+  adaptive::AdaptiveTree::Representation* Higher(adaptive::AdaptiveTree::AdaptationSet* adaptSet,
+                                                 adaptive::AdaptiveTree::Representation* currRep) const;
 
 private:
   int m_screenWidth{0};

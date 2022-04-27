@@ -19,6 +19,7 @@ add_executable(${BINARY}
     ../common/RepresentationChooserDefault.cpp
     ../common/RepresentationChooserFixedRes.cpp
     ../common/RepresentationChooserManualOSD.cpp
+    ../common/RepresentationChooserTest.cpp
     ../common/RepresentationSelector.cpp
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
