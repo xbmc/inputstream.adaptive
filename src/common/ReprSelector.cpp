@@ -6,8 +6,9 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "RepresentationSelector.h"
+#include "ReprSelector.h"
 
+#include <algorithm>
 #include <vector>
 
 using namespace CHOOSER;
@@ -69,4 +70,16 @@ AdaptiveTree::Representation* CRepresentationSelector::HighestBw(
   }
 
   return repHigherBw;
+}
+
+AdaptiveTree::Representation* CRepresentationSelector::Higher(
+    AdaptiveTree::AdaptationSet* adaptSet, AdaptiveTree::Representation* currRep) const
+{
+  const std::vector<AdaptiveTree::Representation*>& reps{adaptSet->representations_};
+  auto repIt{std::upper_bound(reps.cbegin(), reps.cend(), currRep, BwCompare)};
+
+  if (repIt == reps.cend())
+    return currRep;
+
+  return *repIt;
 }

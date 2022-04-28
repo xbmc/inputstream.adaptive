@@ -6,13 +6,14 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "RepresentationChooser.h"
+#include "Chooser.h"
 
 #include "../utils/log.h"
-#include "RepresentationChooserAskQuality.h"
-#include "RepresentationChooserDefault.h"
-#include "RepresentationChooserFixedRes.h"
-#include "RepresentationChooserManualOSD.h"
+#include "ChooserAskQuality.h"
+#include "ChooserDefault.h"
+#include "ChooserFixedRes.h"
+#include "ChooserManualOSD.h"
+#include "ChooserTest.h"
 
 #include <vector>
 
@@ -31,6 +32,8 @@ IRepresentationChooser* GetReprChooser(std::string_view type)
     return new CRepresentationChooserAskQuality();
   else if (type == "manual-osd")
     return new CRepresentationChooserManualOSD();
+  else if (type == "test")
+    return new CRepresentationChooserTest();
   else
     return nullptr;
 }

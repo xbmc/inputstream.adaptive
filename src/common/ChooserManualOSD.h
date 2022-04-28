@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "RepresentationChooser.h"
+#include "Chooser.h"
 
 namespace CHOOSER
 {

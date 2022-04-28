@@ -14,7 +14,7 @@
 #include "../oscompat.h"
 #include "../utils/UrlUtils.h"
 #include "../utils/log.h"
-#include "RepresentationChooser.h"
+#include "Chooser.h"
 
 #include <algorithm>
 #include <cmath>

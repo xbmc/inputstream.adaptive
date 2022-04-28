@@ -6,12 +6,12 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "RepresentationChooserAskQuality.h"
+#include "ChooserAskQuality.h"
 
 #include "../utils/StringUtils.h"
 #include "../utils/Utils.h"
 #include "../utils/log.h"
-#include "RepresentationSelector.h"
+#include "ReprSelector.h"
 #include "kodi/tools/StringUtils.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD

@@ -12,7 +12,7 @@
 #include "SSD_dll.h"
 #include "common/AdaptiveStream.h"
 #include "common/AdaptiveTree.h"
-#include "common/RepresentationChooser.h"
+#include "common/Chooser.h"
 #include "samplereader/SampleReader.h"
 #include "utils/PropertiesUtils.h"
 
