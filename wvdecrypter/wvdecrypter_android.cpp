@@ -7,9 +7,9 @@
  */
 
 #include "../src/SSD_dll.h"
-#include "../src/md5.h"
 #include "../src/common/AdaptiveDecrypter.h"
 #include "../src/utils/Base64Utils.h"
+#include "../src/utils/DigestMD5Utils.h"
 #include "../src/utils/StringUtils.h"
 #include "../src/utils/Utils.h"
 #include "ClassLoader.h"
@@ -674,10 +674,10 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   insPos = blocks[0].find("{HASH}");
   if (insPos != std::string::npos)
   {
-    MD5 md5;
-    md5.update(keyRequestData.data(), keyRequestData.size());
-    md5.finalize();
-    blocks[0].replace(insPos, 6, md5.hexdigest());
+    DIGEST::MD5 md5;
+    md5.Update(keyRequestData.data(), static_cast<uint32_t>(keyRequestData.size()));
+    md5.Finalize();
+    blocks[0].replace(insPos, 6, md5.HexDigest());
   }
 
   void* file = host->CURLCreate(blocks[0].c_str());
