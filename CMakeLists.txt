@@ -36,6 +36,7 @@ set(ADP_SOURCES
 	src/samplereader/TSSampleReader.cpp
 	src/samplereader/WebmSampleReader.cpp
 	src/utils/Base64Utils.cpp
+	src/utils/DigestMD5Utils.cpp
 	src/utils/PropertiesUtils.cpp
 	src/utils/StringUtils.cpp
 	src/utils/SettingsUtils.cpp
@@ -45,7 +46,6 @@ set(ADP_SOURCES
 	src/TSReader.cpp
 	src/aes_decrypter.cpp
 	src/ADTSReader.cpp
-	src/md5.cpp
 	src/WebmReader.cpp
 	)
 
@@ -84,6 +84,7 @@ set(ADP_HEADERS
 	src/samplereader/TSSampleReader.h
 	src/samplereader/WebmSampleReader.h
 	src/utils/Base64Utils.h
+	src/utils/DigestMD5Utils.h
 	src/utils/log.h
 	src/utils/PropertiesUtils.h
 	src/utils/SettingsUtils.h
@@ -94,7 +95,6 @@ set(ADP_HEADERS
 	src/aes_decrypter.h
 	src/ADTSReader.h
 	src/Iaes_decrypter.h
-	src/md5.h
 	src/WebmReader.h
 	)
 
