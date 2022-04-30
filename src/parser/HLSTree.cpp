@@ -459,6 +459,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       segment.startPTS_ = ~0ULL;
       segment.pssh_set_ = 0;
 
+      effective_url_ = respHeaders.m_effectiveUrl;
       base_url = URL::RemoveParameters(effective_url_);
 
       while (std::getline(streamData, line))
