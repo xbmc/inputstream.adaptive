@@ -537,7 +537,11 @@ public:
    */
   void CheckHDCP();
 
-  uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
+  /*
+   * \brief Estimate the count of segments on overall period duration
+   */
+  size_t EstimateSegmentsCount(uint64_t duration, uint32_t timescale);
+
   void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale);
   uint16_t insert_psshset(StreamType type, Period* period = nullptr, AdaptationSet* adp = nullptr);
 
