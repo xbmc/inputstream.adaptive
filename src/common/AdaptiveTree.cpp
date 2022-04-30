@@ -103,10 +103,12 @@ namespace adaptive
     return false;
   }
 
-  uint32_t AdaptiveTree::estimate_segcount(uint64_t duration, uint32_t timescale)
+  size_t AdaptiveTree::EstimateSegmentsCount(uint64_t duration, uint32_t timescale)
   {
-    duration /= timescale;
-    return static_cast<uint32_t>((overallSeconds_ / duration)*1.01);
+    double lengthSecs{static_cast<double>(duration) / timescale};
+    if (lengthSecs < 1)
+      lengthSecs = 1;
+    return static_cast<size_t>(overallSeconds_ / lengthSecs);
   }
 
   void AdaptiveTree::set_download_speed(double speed)

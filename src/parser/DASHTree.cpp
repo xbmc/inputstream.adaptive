@@ -439,7 +439,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
               dash->current_representation_->duration_ = dur;
               dash->current_representation_->timescale_ = ts;
               dash->current_representation_->segments_.data.reserve(
-                  dash->estimate_segcount(dash->current_representation_->duration_,
+                  dash->EstimateSegmentsCount(dash->current_representation_->duration_,
                                           dash->current_representation_->timescale_));
             }
             else if (dash->current_adaptationset_->segment_durations_.data.size())
@@ -827,7 +827,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           {
             if (!dash->current_period_->duration_ && d)
               dash->current_period_->segment_durations_.data.reserve(
-                  dash->estimate_segcount(d, dash->current_period_->timescale_));
+                  dash->EstimateSegmentsCount(d, dash->current_period_->timescale_));
             dash->current_period_->startPTS_ = dash->pts_helper_ = t;
           }
           else if (t)
@@ -970,7 +970,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         if (dash->current_period_->timescale_)
         {
           if (dash->current_period_->duration_)
-            dash->current_period_->segment_durations_.data.reserve(dash->estimate_segcount(
+            dash->current_period_->segment_durations_.data.reserve(dash->EstimateSegmentsCount(
                 dash->current_period_->duration_, dash->current_period_->timescale_));
           dash->currentNode_ |= MPDNODE_SEGMENTLIST;
         }
