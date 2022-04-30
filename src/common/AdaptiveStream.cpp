@@ -451,8 +451,7 @@ bool AdaptiveStream::start_stream()
   if (choose_rep_)
   {
     choose_rep_ = false;
-    current_rep_ = tree_.GetRepChooser()->ChooseNextRepresentation(
-        current_adp_, segment_buffers_[valid_segment_buffers_].rep);
+    current_rep_ = tree_.GetRepChooser()->ChooseRepresentation(current_adp_);
   }
 
   if (!(current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZED))
