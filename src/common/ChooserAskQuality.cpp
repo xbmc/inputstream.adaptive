@@ -22,7 +22,24 @@
 
 using namespace adaptive;
 using namespace CHOOSER;
+using namespace kodi::tools;
 using namespace UTILS;
+
+namespace
+{
+std::string CovertFpsToString(float value)
+{
+  std::string str{StringUtils::Format("%.3f", value)};
+  std::size_t found = str.find_last_not_of("0");
+  if (found != std::string::npos)
+    str.erase(found + 1);
+
+  if (str.back() == '.')
+    str.pop_back();
+
+  return str;
+}
+} // unnamed namespace
 
 CRepresentationChooserAskQuality::CRepresentationChooserAskQuality()
 {
@@ -71,9 +88,23 @@ AdaptiveTree::Representation* CRepresentationChooserAskQuality::ChooseRepresenta
 
       std::string entryName{kodi::addon::GetLocalizedString(30232)};
       STRING::ReplaceFirst(entryName, "{codec}", GetVideoCodecDesc(rep->codecs_));
-      STRING::ReplaceFirst(entryName, "{quality}",
-                           kodi::tools::StringUtils::Format("(%ix%i, %u Kbps)", rep->width_,
-                                                            rep->height_, rep->bandwidth_ / 1000));
+
+      float fps{static_cast<float>(rep->fpsRate_)};
+      if (fps > 0 && rep->fpsScale_ > 0)
+        fps /= rep->fpsScale_;
+
+      std::string quality;
+      if (fps > 0)
+      {
+        quality = StringUtils::Format("(%ix%i, %s fps, %u Kbps)", rep->width_, rep->height_,
+                                      CovertFpsToString(fps).c_str(), rep->bandwidth_ / 1000);
+      }
+      else
+      {
+        quality = StringUtils::Format("(%ix%i, %u Kbps)", rep->width_, rep->height_,
+                                      rep->bandwidth_ / 1000);
+      }
+      STRING::ReplaceFirst(entryName, "{quality}", quality);
 
       if (rep == bestRep)
         preselIndex = static_cast<int>(i);
