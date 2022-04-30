@@ -154,12 +154,12 @@ namespace adaptive
     return false;
   }
 
-  uint32_t AdaptiveTree::estimate_segcount(uint64_t duration, uint32_t timescale)
+  size_t AdaptiveTree::EstimateSegmentsCount(uint64_t duration, uint32_t timescale)
   {
-    LOG::Log(LOGDEBUG,"estimate_segcount  duration=%llu , timescale=%u",duration , timescale);
-
-    duration /= timescale;
-    return static_cast<uint32_t>((overallSeconds_ / duration)*1.01);
+    double lengthSecs{static_cast<double>(duration) / timescale};
+    if (lengthSecs < 1)
+      lengthSecs = 1;
+    return static_cast<size_t>(overallSeconds_ / lengthSecs);
   }
 
   void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
