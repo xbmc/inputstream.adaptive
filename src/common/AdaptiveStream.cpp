@@ -451,8 +451,7 @@ bool AdaptiveStream::start_stream()
   if (choose_rep_)
   {
     choose_rep_ = false;
-    current_rep_ = tree_.GetRepChooser()->ChooseNextRepresentation(
-        current_adp_, segment_buffers_[valid_segment_buffers_].rep);
+    current_rep_ = tree_.GetRepChooser()->GetRepresentation(current_adp_);
   }
 
   if (!(current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZED))
@@ -821,7 +820,7 @@ bool AdaptiveStream::ensureSegment()
       {
         // Defer until we have some free buffer
         if (available_segment_buffers_ < max_buffer_length_) {
-          newRep = tree_.GetRepChooser()->ChooseNextRepresentation(
+          newRep = tree_.GetRepChooser()->GetNextRepresentation(
               current_adp_, segment_buffers_[available_segment_buffers_ - 1].rep);
         }
         else

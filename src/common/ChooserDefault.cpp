@@ -176,11 +176,14 @@ void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
     m_bandwidthCurrentLimited = m_bandwidthMax;
 }
 
-AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentation(
-    AdaptiveTree::AdaptationSet* adp)
+AdaptiveTree::Representation* CRepresentationChooserDefault::GetNextRepresentation(
+    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
 {
+  //! @todo: Need to implement in Kodi core a callback for resolution change event
+  // if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
+  //  RefreshResolution();
+
   CRepresentationSelector selector(m_screenWidth, m_screenHeight);
-  AdaptiveTree::Representation* newRep{nullptr};
   uint32_t bandwidth;
 
   // From bandwidth take in consideration:
@@ -190,7 +193,13 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentatio
   else
     bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.1);
 
-  int valScore{-1};
+  if (adp->type_ == AdaptiveTree::VIDEO) // To avoid fill too much the log
+  {
+    LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s (filtered to %u bit/s)",
+             m_bandwidthCurrent, bandwidth);
+  }
+
+  AdaptiveTree::Representation* nextRep{nullptr};
   int bestScore{-1};
 
   for (auto rep : adp->representations_)
@@ -204,42 +213,6 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseRepresentatio
     if (rep->bandwidth_ <= bandwidth && (bestScore == -1 || score < bestScore))
     {
       bestScore = score;
-      newRep = rep;
-    }
-  }
-
-  if (!newRep)
-    newRep = selector.Lowest(adp);
-
-  return newRep;
-}
-
-AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
-{
-  //! @todo: Need to implement in Kodi core a callback for resolution change event
-  // if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
-  //  RefreshResolution();
-
-  CRepresentationSelector selector(m_screenWidth, m_screenHeight);
-
-  LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s (filtered to %u bit/s)",
-           m_bandwidthCurrent, m_bandwidthCurrentLimited);
-
-  AdaptiveTree::Representation* nextRep{nullptr};
-  int bestScore{-1};
-
-  for (auto rep : adp->representations_)
-  {
-    if (!rep)
-      continue;
-
-    int score = std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight) +
-                static_cast<int>(std::sqrt(m_bandwidthCurrentLimited - rep->bandwidth_));
-
-    if (rep->bandwidth_ <= m_bandwidthCurrentLimited && (bestScore == -1 || score < bestScore))
-    {
-      bestScore = score;
       nextRep = rep;
     }
   }
@@ -247,12 +220,8 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::ChooseNextRepresent
   if (!nextRep)
     nextRep = selector.Lowest(adp);
 
-  if (currentRep != nextRep)
-  {
-    LOG::Log(LOGDEBUG,
-             "[Repr. chooser] Selected next representation ID %s "
-             "(repr. bandwidth changed from: %u bit/s, to: %u bit/s)",
-             nextRep->id.c_str(), currentRep->bandwidth_, nextRep->bandwidth_);
-  }
+  if (adp->type_ == AdaptiveTree::VIDEO)
+    LogDetails(currentRep, nextRep);
+
   return nextRep;
 }

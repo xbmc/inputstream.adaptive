@@ -54,17 +54,19 @@ void CRepresentationChooserAskQuality::PostInit()
 {
 }
 
-AdaptiveTree::Representation* CRepresentationChooserAskQuality::ChooseRepresentation(
-    AdaptiveTree::AdaptationSet* adp)
+AdaptiveTree::Representation* CRepresentationChooserAskQuality::GetNextRepresentation(
+    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
 {
+  if (currentRep)
+    return currentRep;
+
   if (adp->type_ != AdaptiveTree::VIDEO)
   {
     CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
     return selector.HighestBw(adp);
   }
 
-  //! @todo: m_isFirstVideoAdaptationSetChosen is a kind of workaround,
-  //! currently we dont handle in any way a codec priority and selection
+  //! @todo: currently we dont handle in any way a codec priority and selection
   //! that can happens when a manifest have multi-codec videos, therefore
   //! we sent to Kodi the video stream of each codec, but only the
   //! first one (in index order) will be choosen for the playback
@@ -72,7 +74,7 @@ AdaptiveTree::Representation* CRepresentationChooserAskQuality::ChooseRepresenta
   //! So we ask to the user to select the quality only for the first video
   //! AdaptationSet and we try to select the same quality (resolution)
   //! on all other video AdaptationSet's (codecs)
-  if (!m_isFirstVideoAdaptationSetChosen)
+  if (!m_isDialogShown)
   {
     // We find the best quality for the current resolution, to pre-select this entry
     CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
@@ -85,6 +87,8 @@ AdaptiveTree::Representation* CRepresentationChooserAskQuality::ChooseRepresenta
     for (size_t i{0}; i < adp->representations_.size(); i++)
     {
       AdaptiveTree::Representation* rep{adp->representations_[i]};
+      if (!rep)
+        continue;
 
       std::string entryName{kodi::addon::GetLocalizedString(30232)};
       STRING::ReplaceFirst(entryName, "{codec}", GetVideoCodecDesc(rep->codecs_));
@@ -122,21 +126,19 @@ AdaptiveTree::Representation* CRepresentationChooserAskQuality::ChooseRepresenta
 
     m_selectedResWidth = selRep->width_;
     m_selectedResHeight = selRep->height_;
-    m_isFirstVideoAdaptationSetChosen = true;
+    m_isDialogShown = true;
 
+    LogDetails(nullptr, selRep);
     return selRep;
   }
   else
   {
-    // The user has already chosen the quality, we try select the same resolution
-    // in any case these are choosable only manually via Kodi OSD video settings.
+    // We fall here when:
+    // - First start, but we have a multi-codec manifest (workaround)
+    //   then we have to try select the same resolution for each other video codec
+    //   these streams will be choosable for now via Kodi OSD video settings.
+    // - Switched to next period, then we try select the same resolution
     CRepresentationSelector selector{m_selectedResWidth, m_selectedResHeight};
     return selector.Highest(adp);
   }
-}
-
-AdaptiveTree::Representation* CRepresentationChooserAskQuality::ChooseNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
-{
-  return currentRep;
 }

@@ -55,47 +55,46 @@ void CRepresentationChooserTest::PostInit()
 {
 }
 
-AdaptiveTree::Representation* CRepresentationChooserTest::ChooseRepresentation(
-    AdaptiveTree::AdaptationSet* adp)
-{
-  CRepresentationSelector selector(m_screenCurrentWidth, m_screenCurrentHeight);
-
-  if (m_testMode == TestMode::SWITCH_SEGMENTS)
-    return selector.Lowest(adp);
-
-  LOG::LogF(LOGERROR, "Unhandled test mode");
-  return nullptr;
-}
-
-AdaptiveTree::Representation* CRepresentationChooserTest::ChooseNextRepresentation(
+AdaptiveTree::Representation* CRepresentationChooserTest::GetNextRepresentation(
     AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
 {
   CRepresentationSelector selector(m_screenCurrentWidth, m_screenCurrentHeight);
   AdaptiveTree::Representation* nextRep{currentRep};
 
-  if (m_testMode == TestMode::SWITCH_SEGMENTS)
+  if (!currentRep) // Startup or new period
   {
-    m_segmentsElapsed += 1;
-    if (m_segmentsElapsed > m_segmentsLimit)
+    m_segmentsElapsed = 1;
+
+    if (m_testMode == TestMode::SWITCH_SEGMENTS)
     {
-      m_segmentsElapsed = 1;
-      nextRep = selector.Higher(adp, currentRep);
-      // If there are no next representations, start again from the lowest
-      if (nextRep == currentRep)
-        nextRep = selector.Lowest(adp);
+      nextRep = selector.Lowest(adp);
+    }
+    else
+    {
+      LOG::LogF(LOGERROR, "Unhandled test mode");
+    }
+  }
+  else
+  {
+    if (m_testMode == TestMode::SWITCH_SEGMENTS)
+    {
+      if (adp->type_ != AdaptiveTree::VIDEO)
+        return currentRep;
+
+      m_segmentsElapsed += 1;
+      if (m_segmentsElapsed > m_segmentsLimit)
+      {
+        m_segmentsElapsed = 1;
+        nextRep = selector.Higher(adp, currentRep);
+        // If there are no next representations, start again from the lowest
+        if (nextRep == currentRep)
+          nextRep = selector.Lowest(adp);
+      }
     }
   }
 
-  if (currentRep != nextRep)
-  {
-    LOG::Log(LOGDEBUG,
-             "[Repr. chooser] Changed representation\n"
-             "Current ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)\n"
-             "Next ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)",
-             currentRep->id.c_str(), currentRep->bandwidth_, currentRep->width_,
-             currentRep->height_, nextRep->id.c_str(), nextRep->bandwidth_, nextRep->width_,
-             nextRep->height_);
-  }
+  if (adp->type_ == AdaptiveTree::VIDEO)
+    LogDetails(currentRep, nextRep);
 
   return nextRep;
 }

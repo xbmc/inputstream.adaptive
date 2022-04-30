@@ -64,9 +64,12 @@ void CRepresentationChooserFixedRes::PostInit()
            m_screenCurrentWidth, m_screenCurrentHeight);
 }
 
-AdaptiveTree::Representation* CRepresentationChooserFixedRes::ChooseRepresentation(
-    AdaptiveTree::AdaptationSet* adp)
+AdaptiveTree::Representation* CRepresentationChooserFixedRes::GetNextRepresentation(
+    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
 {
+  if (currentRep)
+    return currentRep;
+
   std::pair<int, int> resolution{m_isSecureSession ? m_screenResSecureMax : m_screenResMax};
 
   if (resolution.first == 0) // Max limit set to "Auto"
@@ -75,13 +78,13 @@ AdaptiveTree::Representation* CRepresentationChooserFixedRes::ChooseRepresentati
   CRepresentationSelector selector{resolution.first, resolution.second};
 
   if (adp->type_ == AdaptiveTree::VIDEO)
-    return selector.Highest(adp);
+  {
+    AdaptiveTree::Representation* selRep{selector.Highest(adp)};
+    LogDetails(nullptr, selRep);
+    return selRep;
+  }
   else
+  {
     return selector.HighestBw(adp);
-}
-
-AdaptiveTree::Representation* CRepresentationChooserFixedRes::ChooseNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
-{
-  return currentRep;
+  }
 }

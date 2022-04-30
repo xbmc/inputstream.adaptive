@@ -32,10 +32,7 @@ public:
 
   void SetDownloadSpeed(const double speed) override;
 
-  adaptive::AdaptiveTree::Representation* ChooseRepresentation(
-      adaptive::AdaptiveTree::AdaptationSet* adp) override;
-
-  adaptive::AdaptiveTree::Representation* ChooseNextRepresentation(
+  adaptive::AdaptiveTree::Representation* GetNextRepresentation(
       adaptive::AdaptiveTree::AdaptationSet* adp,
       adaptive::AdaptiveTree::Representation* currentRep) override;
 

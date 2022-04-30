@@ -643,7 +643,7 @@ bool Session::InitializeDRM(bool addDefaultKID /* = false */)
         if (m_kodiProps.m_licenseData.empty())
         {
           adaptive::AdaptiveTree::Representation* initialRepr{
-              m_reprChooser->ChooseRepresentation(sessionPsshset.adaptation_set_)};
+              m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_)};
 
           Session::STREAM stream(*adaptiveTree_, sessionPsshset.adaptation_set_, initialRepr,
                                  media_headers_, m_reprChooser, m_kodiProps.m_playTimeshiftBuffer,
@@ -911,7 +911,7 @@ bool Session::InitializePeriod(bool isSessionOpened /* = false */)
       isManualStreamSelection = streamSelectionMode == SETTINGS::StreamSelection::MANUAL;
 
     // Get the default initial stream repr. based on "adaptive repr. chooser"
-    adaptive::AdaptiveTree::Representation* defaultRepr{m_reprChooser->ChooseRepresentation(adp)};
+    adaptive::AdaptiveTree::Representation* defaultRepr{m_reprChooser->GetRepresentation(adp)};
 
     if (isManualStreamSelection)
     {
