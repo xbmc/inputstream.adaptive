@@ -261,11 +261,6 @@ std::string UTILS::DIGEST::MD5::HexDigest() const
   return std::string(buf);
 }
 
-std::ostream& UTILS::DIGEST::operator<<(std::ostream& out, MD5 md5)
-{
-  return out << md5.HexDigest();
-}
-
 // F, G, H and I are basic MD5 functions.
 MD5::uint4 UTILS::DIGEST::MD5::F(uint4 x, uint4 y, uint4 z)
 {

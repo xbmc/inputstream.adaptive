@@ -42,7 +42,7 @@ public:
   void Update(const char* buf, uint32_t length);
   MD5& Finalize();
   std::string HexDigest() const;
-  friend std::ostream& operator<<(std::ostream& out, MD5 md5);
+  friend std::ostream& operator<<(std::ostream& out, MD5& md5) { return out << md5.HexDigest(); }
 
 private:
   typedef unsigned char uint1; //  8bit
