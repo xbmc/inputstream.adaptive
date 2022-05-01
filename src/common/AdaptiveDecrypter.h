@@ -7,16 +7,10 @@
  */
 
 #include <bento4/Ap4.h>
+#include "../samplereader/SampleReader.h"
 
 #include <stdexcept>
 #include <string_view>
-
-enum class ENCRYPTION_SCHEME
-{
-  NONE,
-  CENC,
-  CBCS
-};
 
 class Adaptive_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 {
@@ -28,7 +22,7 @@ public:
     m_CryptBlocks = static_cast<uint32_t>(cryptBlocks);
     m_SkipBlocks = static_cast<uint32_t>(skipBlocks);
   };
-  virtual void SetEncryptionScheme(ENCRYPTION_SCHEME encryptionScheme){};
+  virtual void SetEncryptionScheme(CryptoMode encryptionScheme){};
 
   /*! \brief Add a Key ID to the current session
    *  \param keyId The KID

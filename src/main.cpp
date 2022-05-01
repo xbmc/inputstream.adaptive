@@ -2141,7 +2141,11 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
       memcpy(p->cryptoInfo->kid, pData, 16);
       pData += 16;
       iSize -= (pData - sr->GetSampleData());
+      ReaderCryptoInfo cryptoInfo = sr->GetReaderCryptoInfo();
       p->cryptoInfo->flags = 0;
+      p->cryptoInfo->cryptBlocks = cryptoInfo.m_cryptBlocks;
+      p->cryptoInfo->skipBlocks = cryptoInfo.m_skipBlocks;
+      p->cryptoInfo->mode = static_cast<uint16_t>(cryptoInfo.m_mode);
     }
     else
       p = AllocateDemuxPacket(iSize);

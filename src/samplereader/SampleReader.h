@@ -19,6 +19,22 @@
 #include <kodi/addon-instance/Inputstream.h>
 #endif
 
+// These values must match their respective constant values
+// defined in the Android MediaCodec class 
+enum class CryptoMode : uint16_t
+{
+  NONE = 0,
+  AES_CTR = 1,
+  AES_CBC = 2
+};
+
+struct ReaderCryptoInfo
+{
+  uint8_t m_cryptBlocks{0};
+  uint8_t m_skipBlocks{0};
+  CryptoMode m_mode{CryptoMode::NONE};
+};
+
 class ATTR_DLL_LOCAL ISampleReader
 {
 public:
@@ -46,4 +62,5 @@ public:
   virtual void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid) {};
   virtual bool RemoveStreamType(INPUTSTREAM_TYPE type) { return true; };
   virtual bool IsStarted() const = 0;
+  virtual ReaderCryptoInfo GetReaderCryptoInfo() const { return ReaderCryptoInfo(); }
 };

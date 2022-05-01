@@ -408,16 +408,20 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
       }
 
       // Inform decrypter of pattern decryption (CBCS)
-      if (m_protectedDesc->GetSchemeType() == AP4_PROTECTION_SCHEME_TYPE_CENC)
+      AP4_UI32 schemeType = m_protectedDesc->GetSchemeType();
+      if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CENC || schemeType == AP4_PROTECTION_SCHEME_TYPE_CBCS)
       {
-        m_singleSampleDecryptor->SetEncryptionScheme(ENCRYPTION_SCHEME::CENC);
-        m_singleSampleDecryptor->SetCrypto(0, 0);
-      }
-      else if (m_protectedDesc->GetSchemeType() == AP4_PROTECTION_SCHEME_TYPE_CBCS)
-      {
-        m_singleSampleDecryptor->SetEncryptionScheme(ENCRYPTION_SCHEME::CBCS);
-        m_singleSampleDecryptor->SetCrypto(sample_table->GetCryptByteBlock(),
-                                           sample_table->GetSkipByteBlock());
+        m_readerCryptoInfo.m_cryptBlocks = sample_table->GetCryptByteBlock();
+        m_readerCryptoInfo.m_skipBlocks = sample_table->GetSkipByteBlock();
+
+        if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CENC)
+          m_readerCryptoInfo.m_mode = CryptoMode::AES_CTR;
+        else
+          m_readerCryptoInfo.m_mode = CryptoMode::AES_CBC;
+        
+        m_singleSampleDecryptor->SetEncryptionScheme(m_readerCryptoInfo.m_mode);
+        m_singleSampleDecryptor->SetCrypto(m_readerCryptoInfo.m_cryptBlocks,
+                                           m_readerCryptoInfo.m_skipBlocks);
       }
     }
   }
