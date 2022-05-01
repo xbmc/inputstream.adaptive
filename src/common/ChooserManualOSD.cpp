@@ -78,16 +78,12 @@ void CRepresentationChooserManualOSD::PostInit()
            m_screenWidth, m_screenHeight);
 }
 
-AdaptiveTree::Representation* CRepresentationChooserManualOSD::ChooseRepresentation(
-    AdaptiveTree::AdaptationSet* adp)
-{
-  CRepresentationSelector selector(m_screenWidth, m_screenHeight);
-
-  return selector.Highest(adp);
-}
-
-AdaptiveTree::Representation* CRepresentationChooserManualOSD::ChooseNextRepresentation(
+AdaptiveTree::Representation* CRepresentationChooserManualOSD::GetNextRepresentation(
     AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
 {
-  return currentRep;
+  if (currentRep)
+    return currentRep;
+
+  CRepresentationSelector selector(m_screenWidth, m_screenHeight);
+  return selector.Highest(adp);
 }

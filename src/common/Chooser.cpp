@@ -64,8 +64,33 @@ IRepresentationChooser* CHOOSER::CreateRepresentationChooser(
   return reprChooser;
 }
 
-void IRepresentationChooser::SetScreenResolution(const int width, const int height)
+void CHOOSER::IRepresentationChooser::SetScreenResolution(const int width, const int height)
 {
   m_screenCurrentWidth = width;
   m_screenCurrentHeight = height;
+}
+
+void CHOOSER::IRepresentationChooser::LogDetails(adaptive::AdaptiveTree::Representation* currentRep,
+                                                 adaptive::AdaptiveTree::Representation* nextRep)
+{
+  if (!nextRep)
+    return;
+
+  if (!currentRep)
+  {
+    LOG::Log(LOGDEBUG,
+             "[Repr. chooser] Selected representation\n"
+             "ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)",
+             nextRep->id.c_str(), nextRep->bandwidth_, nextRep->width_, nextRep->height_);
+  }
+  else if (currentRep != nextRep)
+  {
+    LOG::Log(LOGDEBUG,
+             "[Repr. chooser] Changed representation\n"
+             "Current ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)\n"
+             "Next ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)",
+             currentRep->id.c_str(), currentRep->bandwidth_, currentRep->width_,
+             currentRep->height_, nextRep->id.c_str(), nextRep->bandwidth_, nextRep->width_,
+             nextRep->height_);
+  }
 }
