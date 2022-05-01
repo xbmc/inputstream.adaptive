@@ -1,3 +1,13 @@
+v20.2.0 (2022-05-01)
+- [dash] handle multiple repid tags in urls
+- improved logging, numerous code cleanups and refactorings
+- [drm] support for pre-initialising the drm session
+- add icon and fanart
+- overhaul settings
+- add several representation chooser types: adaptive, fixed, ask, manual osd, test (pls see wiki for details)
+- fix estimate segment count
+- [drm] add capability to decrypt AES-CBC streams
+
 v20.1.2 (2022-01-29)
 - [WebVTT] - Fix sending segments packages
 - [HLS] - Handle playlists with large media sequences
