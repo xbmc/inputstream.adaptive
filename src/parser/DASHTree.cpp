@@ -1714,8 +1714,6 @@ void DASHTree::RefreshLiveSegments()
 
     if (updateTree->open(manifestUrlUpd, ""))
     {
-      CheckHDCP();
-
       m_manifestHeaders.m_etag = updateTree->m_manifestHeaders.m_etag;
       m_manifestHeaders.m_lastModified = updateTree->m_manifestHeaders.m_lastModified;
       location_ = updateTree->location_;
