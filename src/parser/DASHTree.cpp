@@ -1653,6 +1653,7 @@ void DASHTree::RefreshSegments(Period* period,
 }
 
 //Can be called form update-thread!
+//! @todo: we are updating variables in non-thread safe way
 void DASHTree::RefreshLiveSegments()
 {
   if (has_timeshift_buffer_ && !update_parameter_.empty())
