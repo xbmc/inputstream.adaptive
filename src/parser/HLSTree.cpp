@@ -885,6 +885,7 @@ void HLSTree::RefreshSegments(Period* period,
 }
 
 //Called form update-thread
+//! @todo: we are updating variables in non-thread safe way
 void HLSTree::RefreshLiveSegments()
 {
   if (m_refreshPlayList)
