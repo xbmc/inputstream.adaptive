@@ -758,7 +758,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
           {
             std::string msgEncoded{BASE64::Encode(session_)};
 
-            if (blocks[2][insPos - 1] == 'B') {
+            if (blocks[2][sidPos - 1] == 'B') {
               msgEncoded = STRING::URLEncode(msgEncoded);
             }
             
