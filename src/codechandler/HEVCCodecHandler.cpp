@@ -38,7 +38,7 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
     AP4_Size size{0};
     for (unsigned int i{0}; i < sequences.ItemCount(); ++i)
     {
-      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++i)
+      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++j)
       {
         size += sequences[i].m_Nalus[j].GetDataSize() + 4;
       }
@@ -49,7 +49,7 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
 
     for (unsigned int i{0}; i < sequences.ItemCount(); ++i)
     {
-      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++i)
+      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++j)
       {
         cursor[0] = 0;
         cursor[1] = 0;
