@@ -1,13 +1,12 @@
-From d0f82b679ef48b958f0a41a7d92aecffea68aeda Mon Sep 17 00:00:00 2001
-From: Glenn Guy <glennguy83@gmail.com>
-Date: Thu, 22 Jul 2021 10:00:44 +0200
-Subject: [PATCH 01/15] Add additional methods/funtions and passing poolid
+From f32e912de0acf7121d194e32099d8a7be9003d4a Mon Sep 17 00:00:00 2001
+From: CastagnaIT <gottardo.stefano.83@gmail.com>
+Date: Tue, 10 May 2022 08:35:38 +0200
+Subject: [PATCH 01/17] Add additional methods/funtions and passing poolid
 
 Added back:
 * SSD - > ParentIsOwner functionality
 * LinearReader: GetSample, SeekSample, Reset
 * Ap4Movie -> GetPsshAtoms
-* Uuid/VppC -> GetData
 * Ap4Protection -> WVTT atom type
 ---
  Source/C++/Core/Ap4ByteStream.h         |  1 -
@@ -27,9 +26,7 @@ Added back:
  Source/C++/Core/Ap4OmaDcf.h             |  6 +-
  Source/C++/Core/Ap4Protection.h         |  3 +-
  Source/C++/Core/Ap4SampleDescription.h  |  1 +
- Source/C++/Core/Ap4UuidAtom.h           |  1 +
- Source/C++/Core/Ap4VpccAtom.h           |  3 +
- 19 files changed, 197 insertions(+), 26 deletions(-)
+ 17 files changed, 193 insertions(+), 26 deletions(-)
 
 diff --git a/Source/C++/Core/Ap4ByteStream.h b/Source/C++/Core/Ap4ByteStream.h
 index 0a59e632..93ac80f0 100644
@@ -597,36 +594,6 @@ index 27f3136c..d493f96e 100644
  const AP4_UI32 AP4_SAMPLE_FORMAT_FLAC = AP4_ATOM_TYPE('f','L','a','C');
  const AP4_UI32 AP4_SAMPLE_FORMAT_OPUS = AP4_ATOM_TYPE('O','p','u','s');
  const AP4_UI32 AP4_SAMPLE_FORMAT_VP8  = AP4_ATOM_TYPE('v','p','0','8');
-diff --git a/Source/C++/Core/Ap4UuidAtom.h b/Source/C++/Core/Ap4UuidAtom.h
-index b9771bd5..0ec3b08c 100644
---- a/Source/C++/Core/Ap4UuidAtom.h
-+++ b/Source/C++/Core/Ap4UuidAtom.h
-@@ -90,6 +90,7 @@ public:
- 
-     // methods
-     virtual AP4_Result WriteFields(AP4_ByteStream& stream);
-+    const AP4_DataBuffer &GetData() { return m_Data; };
- 
- protected:
-     // members
-diff --git a/Source/C++/Core/Ap4VpccAtom.h b/Source/C++/Core/Ap4VpccAtom.h
-index 9fb60bc3..929048af 100644
---- a/Source/C++/Core/Ap4VpccAtom.h
-+++ b/Source/C++/Core/Ap4VpccAtom.h
-@@ -79,10 +79,13 @@ public:
-     AP4_UI08              GetTransferCharacteristics() { return m_TransferCharacteristics; }
-     AP4_UI08              GetMatrixCoefficients()      { return m_MatrixCoefficients;      }
-     const AP4_DataBuffer& GetCodecInitializationData() { return m_CodecIntializationData;  }
-+    const AP4_DataBuffer& GetData() { return m_Data; }
- 
-     // helpers
-     AP4_Result GetCodecString(AP4_UI32 container_type, AP4_String& codec);
- 
-+protected:
-+  AP4_DataBuffer m_Data;
- private:
-     // methods
-     AP4_VpccAtom(AP4_UI32 size, const AP4_UI08* payload);
 -- 
-2.32.0.windows.2
+2.33.0.windows.2
 
