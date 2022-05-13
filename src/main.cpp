@@ -3982,6 +3982,9 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
       pData += 16;
       iSize -= (pData - sr->GetSampleData());
       p->cryptoInfo->flags = 0;
+      p->cryptoInfo->cryptBlocks = 0;
+      p->cryptoInfo->skipBlocks = 0;
+      p->cryptoInfo->mode = 1;
     }
     else
       p = AllocateDemuxPacket(iSize);
