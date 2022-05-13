@@ -8,8 +8,6 @@
 
 #include "HEVCCodecHandler.h"
 
-#include "../utils/log.h"
-
 HEVCCodecHandler::HEVCCodecHandler(AP4_SampleDescription* sd) : CodecHandler(sd)
 {
   if (AP4_HevcSampleDescription* hevcSampleDescription =
@@ -30,7 +28,7 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
 
     if (sequences.ItemCount() == 0)
     {
-      LOG::LogF(LOGWARNING, "No available sequences for HEVC codec extra data");
+      kodi::Log(ADDON_LOG_WARNING, "No available sequences for HEVC codec extra data");
       return false;
     }
 
@@ -38,7 +36,7 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
     AP4_Size size{0};
     for (unsigned int i{0}; i < sequences.ItemCount(); ++i)
     {
-      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++j)
+      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++i)
       {
         size += sequences[i].m_Nalus[j].GetDataSize() + 4;
       }
@@ -49,7 +47,7 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
 
     for (unsigned int i{0}; i < sequences.ItemCount(); ++i)
     {
-      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++j)
+      for (unsigned int j{0}; j < sequences[i].m_Nalus.ItemCount(); ++i)
       {
         cursor[0] = 0;
         cursor[1] = 0;
@@ -60,10 +58,11 @@ bool HEVCCodecHandler::ExtraDataToAnnexB()
         cursor += sequences[i].m_Nalus[j].GetDataSize() + 4;
       }
     }
-    LOG::LogF(LOGDEBUG, "Converted %lu bytes HEVC codec extradata", m_extraData.GetDataSize());
+    kodi::Log(ADDON_LOG_DEBUG, "Converted %lu bytes HEVC codec extradata",
+              m_extraData.GetDataSize());
     return true;
   }
-  LOG::LogF(LOGWARNING, "No HevcSampleDescription - annexb extradata not available");
+  kodi::Log(ADDON_LOG_WARNING, "No HevcSampleDescription - annexb extradata not available");
   return false;
 }
 

@@ -74,7 +74,11 @@ void timerfunc(std::shared_ptr<CdmAdapter> adp, uint64_t delay, void* context)
 {
   timer_thread_running  = true;
   uint64_t waited = 0;
-  std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+  while (!exit_thread_flag && delay > waited) 
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    waited += 100;
+  }
   if (!exit_thread_flag) 
   {
     adp->TimerExpired(context);
@@ -134,6 +138,7 @@ CdmAdapter::CdmAdapter(
 , cdm_config_(cdm_config)
 , active_buffer_(0)
 , cdm9_(0), cdm10_(0), cdm11_(0)
+, session_active_(false)
 {
   //DCHECK(!key_system_.empty());
   Initialize();
@@ -181,8 +186,8 @@ void CdmAdapter::Initialize()
 
   if (!library_)
   {
-    client_->Log(CDMERROR, "%s: Failed to load library: %s", __FUNCTION__,
-                 error.ToString().c_str());
+    std::string log_error = "CDM LoadNativeLibrary error: " + error.ToString();
+    client_->CDMLog(log_error.c_str());
     return;
   }
 
@@ -198,8 +203,9 @@ void CdmAdapter::Initialize()
     return;
   }
 
-  std::string version{get_cdm_verion_func()};
-  client_->Log(CDMDEBUG, "CDM version: %s", version.c_str());
+  std::string version = get_cdm_verion_func();
+  version = "CDM version: " + version;
+  client_->CDMLog(version.c_str());
 
 #if defined(OS_WIN)
   // Load DXVA before sandbox lockdown to give CDM access to Output Protection
@@ -326,10 +332,21 @@ void CdmAdapter::UpdateSession(uint32_t promise_id,
       response, response_size);
 }
 
+void CdmAdapter::SetSessionActive(bool isActive)
+{
+  session_active_ = isActive;
+}
+
+bool CdmAdapter::IsSessionActive()
+{
+  return session_active_;
+}
+
 void CdmAdapter::CloseSession(uint32_t promise_id,
   const char* session_id,
   uint32_t session_id_size)
 {
+  session_active_ = false;
   exit_thread_flag = true;
   while (timer_thread_running) 
   {
@@ -504,7 +521,11 @@ cdm::Buffer* CdmAdapter::Allocate(uint32_t capacity)
 void CdmAdapter::SetTimer(int64_t delay_ms, void* context)
 {
   //LICENSERENEWAL
-  std::thread(timerfunc, shared_from_this(), delay_ms, context).detach();
+  if (session_active_)
+  {
+    exit_thread_flag = false;
+    std::thread(timerfunc, shared_from_this(), delay_ms, context).detach();
+  }
 }
 
 cdm::Time CdmAdapter::GetCurrentWallTime()
@@ -531,12 +552,12 @@ void CdmAdapter::OnSessionKeysChange(const char* session_id,
 {
   for (uint32_t i(0); i < keys_info_count; ++i)
   {
-    char buffer[128];
-    char* bufferPtr{buffer};
-    for (uint32_t j{0}; j < keys_info[i].key_id_size; ++j)
-      bufferPtr += sprintf(bufferPtr, "%02X", (int)keys_info[i].key_id[j]);
-    client_->Log(CDMDEBUG, "%s: Sessionkey %s status: %d syscode: %u", __func__, buffer,
-                 keys_info[i].status, keys_info[i].system_code);
+    char fmtbuf[128], *fmtptr(fmtbuf+11);
+    strcpy(fmtbuf, "Sessionkey: ");
+    for (unsigned int j(0); j < keys_info[i].key_id_size; ++j)
+      fmtptr += sprintf(fmtptr, "%02X", (int)keys_info[i].key_id[j]);
+    sprintf(fmtptr, " status: %d syscode: %u", keys_info[i].status, keys_info[i].system_code);
+    client_->CDMLog(fmtbuf);
 
     SendClientMessage(session_id, session_id_size, CdmAdapterClient::kSessionKeysChange,
       keys_info[i].key_id, keys_info[i].key_id_size, keys_info[i].status);
@@ -611,7 +632,9 @@ void CdmAdapter::RequestStorageId(uint32_t version)
 
 void CdmAdapter::OnInitialized(bool success)
 {
-  client_->Log(CDMDEBUG, "CDM is initialized: %s", success ? "true" : "false");
+  char fmtbuf[64];
+  sprintf(fmtbuf, "cdm::OnInitialized: %s", success ? "true" : "false");
+  client_->CDMLog(fmtbuf);
 }
 
 

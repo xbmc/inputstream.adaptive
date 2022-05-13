@@ -8,41 +8,31 @@
 
 #include "AdaptiveStream.h"
 
-#ifndef INPUTSTREAM_TEST_BUILD
-#include "../WebmReader.h"
-#endif
+#include "../log.h"
 #include "../oscompat.h"
-#include "../utils/UrlUtils.h"
-#include "../utils/log.h"
-#include "Chooser.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstring>
 #include <iostream>
-
-#include <bento4/Ap4.h>
-#ifndef INPUTSTREAM_TEST_BUILD
-#include <kodi/Filesystem.h>
-#endif
+#include <cmath>
 
 using namespace adaptive;
-using namespace UTILS;
 
 const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
 
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                AdaptiveTree::AdaptationSet* adp,
-                               AdaptiveTree::Representation* initialRepr,
                                const std::map<std::string, std::string>& media_headers,
                                bool play_timeshift_buffer,
+                               size_t repId,
                                bool choose_rep)
   : thread_data_(nullptr),
     tree_(tree),
     observer_(nullptr),
     current_period_(tree_.current_period_),
     current_adp_(adp),
-    current_rep_(initialRepr),
+    current_rep_(repId ? adp->representations_[adp->representations_.size() - repId]
+                       : tree.ChooseRepresentation(adp)),
     available_segment_buffers_(0),
     valid_segment_buffers_(0),
     media_headers_(media_headers),
@@ -68,6 +58,9 @@ AdaptiveStream::~AdaptiveStream()
 {
   stop();
   clear();
+
+  for (SEGMENTBUFFER& buf : segment_buffers_)
+    delete[] buf.segment.url;
 }
 
 void AdaptiveStream::Reset()
@@ -121,7 +114,7 @@ bool AdaptiveStream::download_segment()
   if (download_url_.empty())
     return false;
 
-  return download(download_url_, download_headers_, nullptr);
+  return download(download_url_.c_str(), download_headers_, nullptr);
 }
 
 void AdaptiveStream::worker()
@@ -157,7 +150,7 @@ void AdaptiveStream::worker()
       while (!ret && state_ == RUNNING && retryCount-- && tree_.has_timeshift_buffer_)
       {
         std::this_thread::sleep_for(std::chrono::seconds(1));
-        LOG::LogF(LOGDEBUG, "Trying to reload segment ...");
+        Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
         ret = download_segment();
       }
 
@@ -186,233 +179,6 @@ int AdaptiveStream::SecondsSinceUpdate() const
           .count());
 }
 
-bool AdaptiveStream::download(const std::string& url,
-                              const std::map<std::string, std::string>& mediaHeaders,
-                              std::string* lockfreeBuffer)
-{
-  kodi::vfs::CFile file;
-
-  // open the file
-  if (!file.CURLCreate(url))
-    return false;
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
-  if (mediaHeaders.find("connection") == mediaHeaders.end())
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
-
-  for (const auto& entry : mediaHeaders)
-  {
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
-  }
-
-  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE | ADDON_READ_AUDIO_VIDEO)) {
-    LOG::Log(LOGERROR, "CURLOpen returned an error, download failed: %s", url.c_str());
-    return false;
-  }
-
-  int returnCode = -1;
-  std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
-  std::string::size_type posResponseCode = proto.find(' ');
-  if (posResponseCode != std::string::npos)
-    returnCode = atoi(proto.c_str() + (posResponseCode + 1));
-
-  if (returnCode >= 400)
-  {
-    LOG::Log(LOGERROR, "Download failed with error %d: %s", returnCode, url.c_str());
-  }
-  else
-  {
-    // read the file
-    static const size_t bufferSize{32 * 1024}; // 32 Kbyte
-    std::vector<char> bufferData(bufferSize);
-    ssize_t totalReadBytes{0};
-    bool isEOF{false};
-
-    while (!isEOF)
-    {
-      // Read the data in chunks
-      ssize_t byteRead{file.Read(bufferData.data(), bufferSize)};
-      if (byteRead == -1)
-      {
-        LOG::Log(LOGERROR, "An error occurred in the download: %s", url.c_str());
-        break;
-      }
-      else if (byteRead == 0) // EOF or undectetable error
-      {
-        isEOF = true;
-      }
-      else
-      {
-        // Store the data
-        if (write_data(bufferData.data(), byteRead, lockfreeBuffer))
-        {
-          totalReadBytes += byteRead;
-        }
-        else
-        {
-          LOG::Log(LOGDEBUG, "The download has been cancelled: %s", url.c_str());
-          break;
-        }
-      }
-    }
-
-    if (isEOF)
-    {
-      if (totalReadBytes > 0)
-      {
-        // Get body lenght (could be gzip compressed)
-        std::string contentLengthStr{
-            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
-        long contentLength{std::atol(contentLengthStr.c_str())};
-        if (contentLength == 0)
-          contentLength = static_cast<long>(totalReadBytes);
-
-        double downloadSpeed{file.GetFileDownloadSpeed()};
-
-        // Set current download speed to repr. chooser (to update average).
-        // Small files are usually subtitles and their download speed are inaccurate
-        // by causing side effects in the average bandwidth so we ignore them.
-        static const int minSize{512 * 1024}; // 512 Kbyte
-        if (contentLength > minSize)
-          tree_.GetRepChooser()->SetDownloadSpeed(downloadSpeed);
-
-        LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %i byte, speed %0.2lf byte/s)",
-                 url.c_str(), contentLength, downloadSpeed);
-
-        file.Close();
-        return true;
-      }
-      else
-      {
-        LOG::Log(LOGERROR, "A problem occurred in the download, no data received: %s", url.c_str());
-      }
-    }
-  }
-  file.Close();
-  return false;
-}
-
-bool AdaptiveStream::parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer)
-{
-#ifndef INPUTSTREAM_TEST_BUILD
-  LOG::Log(LOGDEBUG, "Build segments from SIDX atom...");
-  AP4_MemoryByteStream byteStream{reinterpret_cast<const AP4_Byte*>(buffer.data()),
-                                  static_cast<AP4_Size>(buffer.size())};
-  AdaptiveTree::AdaptationSet* adp{const_cast<AdaptiveTree::AdaptationSet*>(getAdaptationSet())};
-
-  if (rep->containerType_ == AdaptiveTree::CONTAINERTYPE_WEBM)
-  {
-    if (!rep->indexRangeMin_)
-      return false;
-
-    WebmReader reader(&byteStream);
-    std::vector<WebmReader::CUEPOINT> cuepoints;
-    reader.GetCuePoints(cuepoints);
-
-    if (!cuepoints.empty())
-    {
-      AdaptiveTree::Segment seg;
-
-      rep->timescale_ = 1000;
-      rep->SetScaling();
-
-      rep->segments_.data.reserve(cuepoints.size());
-      adp->segment_durations_.data.reserve(cuepoints.size());
-
-      for (const WebmReader::CUEPOINT& cue : cuepoints)
-      {
-        seg.startPTS_ = cue.pts;
-        seg.range_begin_ = cue.pos_start;
-        seg.range_end_ = cue.pos_end;
-        rep->segments_.data.push_back(seg);
-
-        if (adp->segment_durations_.data.size() < rep->segments_.data.size())
-          adp->segment_durations_.data.push_back(static_cast<const uint32_t>(cue.duration));
-      }
-      return true;
-    }
-  }
-  else if (rep->containerType_ == AdaptiveTree::CONTAINERTYPE_MP4)
-  {
-    if (!rep->indexRangeMin_)
-    {
-      AP4_File fileStream{byteStream, AP4_DefaultAtomFactory::Instance_, true};
-      AP4_Movie* movie{fileStream.GetMovie()};
-
-      if (movie == nullptr)
-      {
-        LOG::Log(LOGERROR, "No MOOV in stream!");
-        return false;
-      }
-
-      rep->flags_ |= AdaptiveTree::Representation::INITIALIZATION;
-      rep->initialization_.range_begin_ = 0;
-      AP4_Position pos;
-      byteStream.Tell(pos);
-      rep->initialization_.range_end_ = pos - 1;
-    }
-
-    AdaptiveTree::Segment seg;
-    seg.startPTS_ = 0;
-    AP4_Cardinal numSIDX{1};
-
-    while (numSIDX > 0)
-    {
-      AP4_Atom* atom{nullptr};
-      if (AP4_FAILED(AP4_DefaultAtomFactory::Instance_.CreateAtomFromStream(byteStream, atom)))
-      {
-        LOG::Log(LOGERROR, "Unable to create SIDX from IndexRange bytes");
-        return false;
-      }
-
-      if (atom->GetType() == AP4_ATOM_TYPE_MOOF)
-      {
-        delete atom;
-        break;
-      }
-      else if (atom->GetType() != AP4_ATOM_TYPE_SIDX)
-      {
-        delete atom;
-        continue;
-      }
-
-      AP4_SidxAtom* sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
-      const AP4_Array<AP4_SidxAtom::Reference>& refs(sidx->GetReferences());
-
-      if (refs[0].m_ReferenceType == 1)
-      {
-        numSIDX = refs.ItemCount();
-        delete atom;
-        continue;
-      }
-
-      AP4_Position pos;
-      byteStream.Tell(pos);
-      seg.range_end_ = pos + rep->indexRangeMin_ + sidx->GetFirstOffset() - 1;
-      rep->timescale_ = sidx->GetTimeScale();
-      rep->SetScaling();
-
-      for (AP4_Cardinal i{0}; i < refs.ItemCount(); i++)
-      {
-        seg.range_begin_ = seg.range_end_ + 1;
-        seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
-        rep->segments_.data.push_back(seg);
-        if (adp->segment_durations_.data.size() < rep->segments_.data.size())
-          adp->segment_durations_.data.push_back(refs[i].m_SubsegmentDuration);
-
-        seg.startPTS_ += refs[i].m_SubsegmentDuration;
-      }
-
-      delete atom;
-      numSIDX--;
-    }
-
-    return true;
-  }
-#endif
-  return false;
-}
 
 bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer)
 {
@@ -451,7 +217,9 @@ bool AdaptiveStream::start_stream()
   if (choose_rep_)
   {
     choose_rep_ = false;
-    current_rep_ = tree_.GetRepChooser()->GetRepresentation(current_adp_);
+    current_rep_ = tree_.ChooseNextRepresentation(
+      current_adp_, segment_buffers_[valid_segment_buffers_].rep, &valid_segment_buffers_,
+      &available_segment_buffers_, &assured_buffer_length_, &max_buffer_length_, rep_counter_);
   }
 
   if (!(current_rep_->flags_ & AdaptiveTree::Representation::INITIALIZED))
@@ -460,14 +228,7 @@ bool AdaptiveStream::start_stream()
       false);
   }
 
-  //! @todo: the assured_buffer_duration_ and max_buffer_duration_
-  //! isnt implemeted correctly and need to be reworked,
-  //! these properties are intended to determine the amount of buffer
-  //! customizable in seconds, but segments do not ensure that they always have
-  //! a fixed duration of 1 sec moreover these properties currently works for
-  //! the DASH manifest with "SegmentTemplate" tags defined only,
-  //! in all other type of manifest cases always fallback on hardcoded values
-  assured_buffer_length_=current_rep_->assured_buffer_duration_;
+  assured_buffer_length_=current_rep_ ->assured_buffer_duration_;
   assured_buffer_length_ = std::ceil( (assured_buffer_length_ * current_rep_->segtpl_.timescale)/ (float)current_rep_->segtpl_.duration );
 
   max_buffer_length_=current_rep_ ->max_buffer_duration_;
@@ -505,37 +266,28 @@ bool AdaptiveStream::start_stream()
     {
       if (!last_rep_)
       {
-        std::size_t pos;
+        std::int32_t pos;
         if (tree_.has_timeshift_buffer_ || tree_.available_time_ >= tree_.stream_start_)
-        {
-          pos = current_rep_->segments_.data.size() - 1;
-        }
+          pos = static_cast<int32_t>(current_rep_->segments_.data.size() - 1);
         else
         {
-          pos = static_cast<size_t>(
+          pos = static_cast<int32_t>(
               ((tree_.stream_start_ - tree_.available_time_) * current_rep_->timescale_) /
               current_rep_->duration_);
-          if (pos == 0)
+          if (!pos)
             pos = 1;
         }
         uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
                           current_rep_->get_segment(pos - 1)->startPTS_);
-        size_t segmentPos{0};
-        if (pos > (tree_.live_delay_ * current_rep_->timescale_) / duration)
-        {
-          segmentPos = pos - ((tree_.live_delay_ * current_rep_->timescale_) / duration);
-        }
-        current_rep_->current_segment_ = current_rep_->get_segment(segmentPos);
+        pos -= static_cast<uint32_t>((tree_.live_delay_ * current_rep_->timescale_) / duration);
+        current_rep_->current_segment_ = current_rep_->get_segment(pos < 0 ? 0 : pos);
       }
       else // switching streams, align new stream segment no.
       {
-        uint64_t segmentId = segment_buffers_[0].segment_number;
+        std::int64_t segmentId = segment_buffers_[0].segment_number;
         if (segmentId >= current_rep_->startNumber_ + current_rep_->segments_.size())
-        {
           segmentId = current_rep_->startNumber_ + current_rep_->segments_.size() - 1;
-        }
-        current_rep_->current_segment_ =
-            current_rep_->get_segment(static_cast<size_t>(segmentId - current_rep_->startNumber_));
+        current_rep_->current_segment_ = current_rep_->get_segment(static_cast<uint32_t>(segmentId - current_rep_->startNumber_));
       }
     }
     else
@@ -564,7 +316,7 @@ bool AdaptiveStream::start_stream()
     if (available_segment_buffers_)
       std::rotate(segment_buffers_.rend() - (available_segment_buffers_ + 1),
                   segment_buffers_.rend() - available_segment_buffers_, segment_buffers_.rend());
-    segment_buffers_[0].segment.url.clear();
+    segment_buffers_[0].segment.url = nullptr;
     ++available_segment_buffers_;
 
     segment_buffers_[0].segment.Copy(loadingSeg);
@@ -584,16 +336,9 @@ bool AdaptiveStream::start_stream()
     valid_segment_buffers_ = valid_segment_buffers + 1;
   }
 
-  if (!current_rep_->segments_.Get(0))
-  {
-    LOG::LogF(LOGERROR, "Segment at position 0 not found from representation id: %s",
-      current_rep_->id.c_str());
-    return false;
-  }
-
   currentPTSOffset_ = (next_segment->startPTS_ * current_rep_->timescale_ext_) /
     current_rep_->timescale_int_;
-  absolutePTSOffset_ = (current_rep_->segments_.Get(0)->startPTS_ * current_rep_->timescale_ext_) /
+  absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
     current_rep_->timescale_int_;
 
   if (state_ == RUNNING)
@@ -659,10 +404,9 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
     {
       if (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS)
       {
-        if (URL::IsUrlAbsolute(seg->url))
-          download_url_ = seg->url;
-        else
-          download_url_ = URL::Join(rep->url_, seg->url);
+        download_url_ = seg->url;
+        if (download_url_.find("://") == std::string::npos)
+          download_url_ = rep->url_ + download_url_;
       }
       else
         download_url_ = rep->url_;
@@ -765,15 +509,10 @@ bool AdaptiveStream::ensureSegment()
       }
     }
     if (valid_segment_buffers_)
-    {
-      if (~segment_buffers_[0].segment_number)
-      {
-        nextSegment = current_rep_->get_segment(
-            static_cast<size_t>(segment_buffers_[0].segment_number - current_rep_->startNumber_));
-      }
-      else
-        nextSegment = nullptr;
-    }
+      nextSegment = ~segment_buffers_[0].segment_number
+                        ? current_rep_->get_segment(static_cast<uint32_t>(
+                              segment_buffers_[0].segment_number - current_rep_->startNumber_))
+                        : nullptr;
     else
       nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
 
@@ -790,9 +529,8 @@ bool AdaptiveStream::ensureSegment()
       currentPTSOffset_ =
         (nextSegment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
 
-      absolutePTSOffset_ =
-          (current_rep_->segments_.Get(0)->startPTS_ * current_rep_->timescale_ext_) /
-          current_rep_->timescale_int_;
+      absolutePTSOffset_ = (current_rep_->segments_[0]->startPTS_ * current_rep_->timescale_ext_) /
+        current_rep_->timescale_int_;
 
       current_rep_->current_segment_ = nextSegment;
       ResetSegment(nextSegment);
@@ -800,9 +538,9 @@ bool AdaptiveStream::ensureSegment()
       if (observer_ && nextSegment != &current_rep_->initialization_ && ~nextSegment->startPTS_)
         observer_->OnSegmentChanged(this);
 
-      size_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
-      size_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
-      AdaptiveTree::Representation* newRep{nullptr};
+      uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
+      uint64_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
+      AdaptiveTree::Representation* newRep;
       bool lastSeg =
           (current_period_ != tree_.periods_.back() &&
            nextsegmentPosold + available_segment_buffers_ == current_rep_->segments_.size() - 1);
@@ -818,32 +556,30 @@ bool AdaptiveStream::ensureSegment()
       }
       else
       {
-        // Defer until we have some free buffer
-        if (available_segment_buffers_ < max_buffer_length_) {
-          newRep = tree_.GetRepChooser()->GetNextRepresentation(
-              current_adp_, segment_buffers_[available_segment_buffers_ - 1].rep);
-        }
-        else
-          newRep = current_rep_;
+        newRep = tree_.ChooseNextRepresentation(current_adp_,
+                                                segment_buffers_[valid_segment_buffers_].rep,
+                                                &valid_segment_buffers_,&available_segment_buffers_,
+                                                &assured_buffer_length_,
+                                                &max_buffer_length_,
+                                                rep_counter_);
       }
-
       // Make sure, new representation has segments!
       ResolveSegmentBase(newRep, false); // For DASH
-
       if (tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
         tree_.prepareRepresentation(
           current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_);
       }
 
-      size_t nextsegmentPos = nextsegno - newRep->startNumber_;
+      uint64_t nextsegmentPos = nextsegno - newRep->startNumber_;
       if (nextsegmentPos + available_segment_buffers_ >= newRep->segments_.size())
       {
         nextsegmentPos = newRep->segments_.size() - available_segment_buffers_;
       }
       for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_; ++updPos)
       {
-        const AdaptiveTree::Segment* futureSegment = newRep->get_segment(nextsegmentPos + updPos);
+        const AdaptiveTree::Segment* futureSegment =
+            newRep->get_segment(static_cast<uint32_t>(nextsegmentPos + updPos));
 
         if (futureSegment)
         {
@@ -872,7 +608,7 @@ bool AdaptiveStream::ensureSegment()
     else if (tree_.HasUpdateThread() && current_period_ == tree_.periods_.back())
     {
       current_rep_->flags_ |= AdaptiveTree::Representation::WAITFORSEGMENT;
-      LOG::LogF(LOGDEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
+      Log(LOGLEVEL_DEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
     }
@@ -980,15 +716,14 @@ uint64_t AdaptiveStream::getMaxTimeMs()
   if (current_rep_->segments_.empty())
     return 0;
 
-  uint64_t duration{0};
-  if (current_rep_->segments_.size() > 1)
-  {
-    duration = current_rep_->segments_.Get(current_rep_->segments_.size() - 1)->startPTS_ -
-               current_rep_->segments_.Get(current_rep_->segments_.size() - 2)->startPTS_;
-  }
+  uint64_t duration =
+      current_rep_->segments_.size() > 1
+          ? current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ -
+                current_rep_->segments_[current_rep_->segments_.size() - 2]->startPTS_
+          : 0;
 
   uint64_t timeExt =
-      ((current_rep_->segments_.Get(current_rep_->segments_.size() - 1)->startPTS_ + duration) *
+      ((current_rep_->segments_[current_rep_->segments_.size() - 1]->startPTS_ + duration) *
        current_rep_->timescale_ext_) /
       current_rep_->timescale_int_;
 
@@ -1019,14 +754,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
 
   if (choosen_seg == current_rep_->segments_.data.size())
   {
-    if (!current_rep_->segments_.Get(0))
-    {
-      LOG::LogF(LOGERROR, "Segment at position 0 not found from representation id: %s",
-        current_rep_->id.c_str());
-      return false;
-    }
-
-    if (sec_in_ts < current_rep_->segments_.Get(0)->startPTS_ + current_rep_->duration_)
+    if (sec_in_ts < current_rep_->segments_[0]->startPTS_ + current_rep_->duration_)
       --choosen_seg;
     else
       return false;
@@ -1114,11 +842,10 @@ bool AdaptiveStream::ResolveSegmentBase(AdaptiveTree::Representation* rep, bool 
 
     std::string sidxBuffer;
     if (prepareDownload(rep, &seg, segNum) &&
-        download(download_url_, download_headers_, &sidxBuffer) && parseIndexRange(rep, sidxBuffer))
-    {
+        download(download_url_.c_str(), download_headers_, &sidxBuffer) &&
+        parseIndexRange(rep, sidxBuffer))
       const_cast<AdaptiveTree::Representation*>(rep)->flags_ &=
           ~AdaptiveTree::Representation::SEGMENTBASE;
-    }
     else
       return false;
   }

@@ -1,8 +1,6 @@
-set(BINARY ${CMAKE_PROJECT_NAME}_test)
+set(BINARY Test${CMAKE_PROJECT_NAME})
 
 find_package( Threads )
-
-add_definitions(-DINPUTSTREAM_TEST_BUILD)
 
 add_executable(${BINARY}
     TestMain.cpp
@@ -14,20 +12,9 @@ add_executable(${BINARY}
     ../parser/PRProtectionParser.cpp
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
-    ../common/Chooser.cpp
-    ../common/ChooserAskQuality.cpp
-    ../common/ChooserDefault.cpp
-    ../common/ChooserFixedRes.cpp
-    ../common/ChooserManualOSD.cpp
-    ../common/ChooserTest.cpp
-    ../common/ReprSelector.cpp
+	../common/RepresentationChooser.cpp
+    ../helpers.cpp
     ../oscompat.cpp
-    ../utils/Base64Utils.cpp
-    ../utils/PropertiesUtils.cpp
-    ../utils/SettingsUtils.cpp
-    ../utils/StringUtils.cpp
-    ../utils/UrlUtils.cpp
-    ../utils/Utils.cpp
     )
 
 target_link_libraries(${BINARY} PRIVATE ${EXPAT_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})

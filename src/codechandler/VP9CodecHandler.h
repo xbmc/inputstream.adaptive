@@ -6,8 +6,6 @@
  *  See LICENSES/README.md for more information.
  */
 
-#pragma once
-
 #include "CodecHandler.h"
 
 class ATTR_DLL_LOCAL VP9CodecHandler : public CodecHandler
