@@ -1,28 +1,27 @@
 /*
- *  Copyright (C) 2016 peak3d (http://www.peak3d.de)
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: GPL-2.0-or-later
- *  See LICENSES/README.md for more information.
- */
+*      Copyright (C) 2016-2016 peak3d
+*      http://www.peak3d.de
+*
+*  This Program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2, or (at your option)
+*  any later version.
+*
+*  This Program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*  GNU General Public License for more details.
+*
+*  <http://www.gnu.org/licenses/>.
+*
+*/
 
 #include "AdaptiveTree.h"
-#include "Chooser.h"
-
-#include "../utils/UrlUtils.h"
-#include "../utils/log.h"
-
-#ifndef INPUTSTREAM_TEST_BUILD
-#include <kodi/Filesystem.h>
-#include <kodi/General.h>
-#endif
-
-#include <algorithm>
-#include <chrono>
-#include <stdlib.h>
 #include <string.h>
-
-using namespace UTILS;
+#include <algorithm>
+#include <stdlib.h>
+#include <chrono>
+#include "../log.h"
 
 namespace adaptive
 {
@@ -40,37 +39,34 @@ namespace adaptive
 
   void AdaptiveTree::Segment::Copy(const Segment* src)
   {
+    delete[] url, url = nullptr;
     *this = *src;
+    if (src->url)
+    {
+      size_t len = strlen(src->url) + 1;
+      url = new char[len];
+      memcpy((void*)url, src->url, len);
+    }
   }
 
-  AdaptiveTree::AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                             CHOOSER::IRepresentationChooser* reprChooser)
-    : m_kodiProps(kodiProps),
-      m_reprChooser(reprChooser),
-      m_streamHeaders(kodiProps.m_streamHeaders),
-      current_period_(nullptr),
-      next_period_(nullptr),
-      parser_(0),
-      currentNode_(0),
-      segcount_(0),
-      overallSeconds_(0),
-      stream_start_(0),
-      available_time_(0),
-      base_time_(0),
-      live_delay_(0),
-      minPresentationOffset(0),
-      has_timeshift_buffer_(false),
-      has_overall_seconds_(false),
-      updateInterval_(~0),
-      updateThread_(nullptr),
-      lastUpdated_(std::chrono::system_clock::now())
+  AdaptiveTree::AdaptiveTree()
+    : current_period_(nullptr)
+    , next_period_(nullptr)
+    , parser_(0)
+    , currentNode_(0)
+    , segcount_(0)
+    , overallSeconds_(0)
+    , stream_start_(0)
+    , available_time_(0)
+    , base_time_(0)
+    , live_delay_(0)
+    , minPresentationOffset(0)
+    , has_timeshift_buffer_(false)
+    , has_overall_seconds_(false)
+    , updateInterval_(~0)
+    , updateThread_(nullptr)
+    , lastUpdated_(std::chrono::system_clock::now())
   {
-    // Convenience way to share common addon settings we avoid
-    // calling the API many times to improve parsing performance
-    m_settings.m_bufferAssuredDuration =
-        static_cast<uint32_t>(kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION"));
-    m_settings.m_bufferMaxDuration =
-        static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
   }
 
   AdaptiveTree::~AdaptiveTree()
@@ -91,57 +87,21 @@ namespace adaptive
       delete *bp;
   }
 
-  //! @todo: CheckHDCP we will need to move this method in Session class to
-  //! avoid store the CAPS here, then call the Session method from AdaptiveTree
-  //! To be done after Session refactor
-  void AdaptiveTree::CheckHDCP()
-  {
-    //! @todo: is needed to implement an appropriate CP check to
-    //! remove HDCPOVERRIDE setting workaround
-
-    if (m_decrypterCaps.empty())
-      return;
-
-    uint32_t adpIndex{0};
-    adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
-    while ((adp = GetAdaptationSet(adpIndex++)))
-    {
-      if (adp->type_ != adaptive::AdaptiveTree::StreamType::VIDEO)
-        continue;
-
-      for (auto it = adp->representations_.begin(); it != adp->representations_.end();)
-      {
-        adaptive::AdaptiveTree::Representation* repr = *it;
-        uint16_t hdcpVersion = m_decrypterCaps[repr->pssh_set_].hdcpVersion;
-        int hdcpLimit = m_decrypterCaps[repr->pssh_set_].hdcpLimit;
-
-        if (repr->hdcpVersion_ > hdcpVersion ||
-            (hdcpLimit > 0 && repr->width_ * repr->height_ > hdcpLimit))
-        {
-          LOG::Log(LOGDEBUG, "Representation ID \"%s\" removed as not HDCP compliant",
-                   repr->id.c_str());
-          delete repr;
-          it = adp->representations_.erase(it);
-        }
-        else
-          it++;
-      }
-    }
-  }
-
   void AdaptiveTree::FreeSegments(Period* period, Representation* rep)
   {
-    for (auto& segment : rep->segments_.data) {
-      --period->psshSets_[segment.pssh_set_].use_count_;
-    }
-    if ((rep->flags_ & (Representation::INITIALIZATION | Representation::URLSEGMENTS)) ==
-        (Representation::INITIALIZATION | Representation::URLSEGMENTS))
+    for (std::vector<Segment>::iterator bs(rep->segments_.data.begin()), es(rep->segments_.data.end()); bs != es; ++bs)
     {
-      rep->initialization_.url.clear();
+      --period->psshSets_[bs->pssh_set_].use_count_;
+      if (rep->flags_ & Representation::URLSEGMENTS)
+        delete[] bs->url;
     }
+    if ((rep->flags_ & (Representation::INITIALIZATION | Representation::URLSEGMENTS))
+      == (Representation::INITIALIZATION | Representation::URLSEGMENTS))
+      delete[]rep->initialization_.url;
     rep->segments_.clear();
     rep->current_segment_ = nullptr;
   }
+
 
   bool AdaptiveTree::has_type(StreamType t)
   {
@@ -154,12 +114,12 @@ namespace adaptive
     return false;
   }
 
-  size_t AdaptiveTree::EstimateSegmentsCount(uint64_t duration, uint32_t timescale)
+  uint32_t AdaptiveTree::estimate_segcount(uint64_t duration, uint32_t timescale)
   {
-    double lengthSecs{static_cast<double>(duration) / timescale};
-    if (lengthSecs < 1)
-      lengthSecs = 1;
-    return static_cast<size_t>(overallSeconds_ / lengthSecs);
+    Log(LOGLEVEL_DEBUG,"estimate_segcount  duration=%llu , timescale=%u",duration , timescale);
+
+    duration /= timescale;
+    return static_cast<uint32_t>((overallSeconds_ / duration)*1.01);
   }
 
   void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
@@ -187,37 +147,27 @@ namespace adaptive
     else if (pos != rep->segments_.data.size() - 1)
       return;
 
-    if (!rep->segments_.Get(pos))
-    {
-      LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
-                rep->id.c_str());
-      return;
-    }
-
-    Segment segment(*(rep->segments_.Get(pos)));
+    Segment seg(*(rep->segments_[pos]));
 
     if (!timestamp)
     {
-      LOG::LogF(LOGDEBUG, "Scale fragment duration: fdur:%u, rep-scale:%u, mov-scale:%u",
-                fragmentDuration, rep->timescale_, movie_timescale);
+      Log(LOGLEVEL_DEBUG, "AdaptiveTree: scale fragment duration: fdur:%u, rep-scale:%u, mov-scale:%u", fragmentDuration, rep->timescale_, movie_timescale);
       fragmentDuration = static_cast<std::uint32_t>((static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_) / movie_timescale);
     }
     else
     {
-      LOG::LogF(LOGDEBUG, "Fragment duration from timestamp: ts:%llu, base:%llu, s-pts:%llu",
-                timestamp, base_time_, segment.startPTS_);
-      fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - segment.startPTS_);
+      Log(LOGLEVEL_DEBUG, "AdaptiveTree: fragment duration from timestamp: ts:%llu, base:%llu, s-pts:%llu", timestamp, base_time_, seg.startPTS_);
+      fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - seg.startPTS_);
     }
 
-    segment.startPTS_ += fragmentDuration;
-    segment.range_begin_ += fragmentDuration;
-    segment.range_end_ ++;
+    seg.startPTS_ += fragmentDuration;
+    seg.range_begin_ += fragmentDuration;
+    seg.range_end_ ++;
 
-    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu range_end: %llu", segment.startPTS_,
-              segment.range_end_);
+    Log(LOGLEVEL_DEBUG, "AdaptiveTree: insert live segment: pts: %llu range_end: %llu", seg.startPTS_, seg.range_end_);
 
     for (std::vector<Representation*>::iterator b(adpm->representations_.begin()), e(adpm->representations_.end()); b != e; ++b)
-      (*b)->segments_.insert(segment);
+      (*b)->segments_.insert(seg);
   }
 
   void AdaptiveTree::OnDataArrived(uint64_t segNum, uint16_t psshSet, uint8_t iv[16], const uint8_t *src, uint8_t *dst, size_t dstOffset, size_t dataSize)
@@ -367,13 +317,30 @@ namespace adaptive
 
   bool AdaptiveTree::PreparePaths(const std::string &url)
   {
-    if (!URL::IsValidUrl(url))
+    manifest_url_ = url;
+
+    size_t paramPos = url.find('?');
+    base_url_ = (paramPos == std::string::npos) ? url : url.substr(0, paramPos);
+
+    paramPos = base_url_.find_last_of('/', base_url_.length());
+    if (paramPos == std::string::npos)
     {
-      LOG::LogF(LOGERROR, "URL not valid (%s)", url.c_str());
+      Log(LOGLEVEL_ERROR, "Invalid url: / expected (%s)", url.c_str());
       return false;
     }
-    manifest_url_ = url;
-    base_url_ = URL::RemoveParameters(url);
+    base_url_.resize(paramPos + 1);
+
+    paramPos = base_url_.find("://");
+    if (paramPos != std::string::npos)
+    {
+      base_domain_ = base_url_;
+      paramPos = base_domain_.find_first_of('/', paramPos + 3);
+      if (paramPos != std::string::npos)
+        base_domain_.resize(paramPos);
+    }
+    else
+      base_domain_.clear();
+
     return true;
   }
 
@@ -383,8 +350,20 @@ namespace adaptive
 
     if (manifestUpdateParam.empty())
     {
-      update_parameter_ = URL::GetParametersFromPlaceholder(manifest_url_, "$START_NUMBER$");
-      manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
+      std::string::size_type repPos = manifest_url_.find("$START_NUMBER$");
+      if (repPos != std::string::npos)
+      {
+        while (repPos && manifest_url_[repPos] != '&' && manifest_url_[repPos] != '?')--repPos;
+        if (repPos)
+        {
+          update_parameter_ = manifest_url_.substr(repPos);
+          manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
+        }
+        else
+        {
+          Log(LOGLEVEL_ERROR, "Cannot find update parameter delimiter (%s)", manifest_url_.c_str());
+        }
+      }
     }
     else
       update_parameter_ = manifestUpdateParam;
@@ -392,10 +371,14 @@ namespace adaptive
 
   std::string AdaptiveTree::BuildDownloadUrl(const std::string& url) const
   {
-    if (URL::IsUrlAbsolute(url))
-      return url;
-
-    return URL::Join(base_url_, url);
+    if (!url.empty())
+    {
+      if (url.front() != '/' && url.find("://") == std::string::npos)
+        return base_url_ + url;
+      else if (url.front() == '/')
+        return base_domain_ + url;
+    }
+    return url;
   }
 
   void AdaptiveTree::SortTree()
@@ -459,99 +442,4 @@ namespace adaptive
       }
     }
   }
-
-  bool AdaptiveTree::download(const std::string& url,
-                              const std::map<std::string, std::string>& reqHeaders,
-                              std::stringstream& data,
-                              HTTPRespHeaders& respHeaders)
-  {
-    // open the file
-    kodi::vfs::CFile file;
-    if (!file.CURLCreate(url))
-      return false;
-
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
-
-    for (const auto& entry : reqHeaders)
-    {
-      file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
-    }
-
-    if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
-    {
-      LOG::Log(LOGERROR, "CURLOpen returned an error, download failed: %s", url.c_str());
-      return false;
-    }
-
-    respHeaders.m_effectiveUrl = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-
-    // read the file
-    static const size_t bufferSize{16 * 1024}; // 16 Kbyte
-    std::vector<char> bufferData(bufferSize);
-    bool isEOF{false};
-
-    while (!isEOF)
-    {
-      // Read the data in chunks
-      ssize_t byteRead{file.Read(bufferData.data(), bufferSize)};
-      if (byteRead == -1)
-      {
-        LOG::Log(LOGERROR, "An error occurred in the download: %s", url.c_str());
-        break;
-      }
-      else if (byteRead == 0) // EOF or undetectable error
-      {
-        isEOF = true;
-      }
-      else
-      {
-        data.write(bufferData.data(), byteRead);
-      }
-    }
-
-    if (isEOF)
-    {
-      long dataSizeBytes{static_cast<long>(data.tellp())};
-      if(dataSizeBytes > 0)
-      {
-        // Get body lenght (could be gzip compressed)
-        std::string contentLengthStr{
-            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
-        long contentLength{std::atol(contentLengthStr.c_str())};
-        if (contentLength == 0)
-          contentLength = dataSizeBytes;
-        
-        double downloadSpeed{file.GetFileDownloadSpeed()};
-        // The download speed with small file sizes are not accurate
-        // we should have at least 512Kb to have a sufficient acceptable value
-        // to calculate the bandwidth, then we make a proportion for cases
-        // with less than 512Kb to have a better value
-        static const int minSize{512 * 1024};
-        if (contentLength < minSize)
-          downloadSpeed = (downloadSpeed / contentLength) * minSize;
-
-        respHeaders.m_etag = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
-        respHeaders.m_lastModified =
-            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
-
-        // We set the download speed to calculate the initial network bandwidth
-        m_reprChooser->SetDownloadSpeed(downloadSpeed);
-
-        LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %i byte, speed %0.2lf byte/s)",
-          url.c_str(), contentLength, downloadSpeed);
-
-        file.Close();
-        return true;
-      }
-      else
-      {
-        LOG::Log(LOGERROR, "A problem occurred in the download, no data received: %s", url.c_str());
-      }
-    }
-
-    file.Close();
-    return false;
-  }
-
 } // namespace

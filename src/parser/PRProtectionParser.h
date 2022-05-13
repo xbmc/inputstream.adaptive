@@ -1,20 +1,26 @@
 /*
- *  Copyright (C) 2019 peak3d (http://www.peak3d.de)
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: GPL-2.0-or-later
- *  See LICENSES/README.md for more information.
- */
+*      Copyright (C) 2019 peak3d
+*      http://www.peak3d.de
+*
+*  This Program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2, or (at your option)
+*  any later version.
+*
+*  This Program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*  GNU General Public License for more details.
+*
+*  <http://www.gnu.org/licenses/>.
+*
+*/
 
 #pragma once
 
 #include <string>
 
-#ifdef INPUTSTREAM_TEST_BUILD
-#include "../test/KodiStubs.h"
-#else
 #include <kodi/AddonBase.h>
-#endif
 
 namespace adaptive
 {

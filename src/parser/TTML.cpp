@@ -1,21 +1,30 @@
 /*
- *  Copyright (C) 2022 Team Kodi
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: GPL-2.0-or-later
- *  See LICENSES/README.md for more information.
- */
+*      Copyright (C) 2016-2016 peak3d
+*      http://www.peak3d.de
+*
+*  This Program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2, or (at your option)
+*  any later version.
+*
+*  This Program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*  GNU General Public License for more details.
+*
+*  <http://www.gnu.org/licenses/>.
+*
+*/
 
 #include "TTML.h"
-
 #include "expat.h"
-
 #include <cstring>
 
-static void XMLCALL start(void* data, const char* el, const char** attr)
+static void XMLCALL
+start(void *data, const char *el, const char **attr)
 {
-  TTML2SRT* ttml(reinterpret_cast<TTML2SRT*>(data));
-  const char* nssep;
+  TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
+  const char *nssep;
 
   if (el && (nssep = strchr(el, ':')))
     el = nssep + 1;
@@ -38,17 +47,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             else if (strcmp((const char*)*attr, "color") == 0)
               style.color = (const char*)*(attr + 1);
             else if (strcmp((const char*)*attr, "textDecoration") == 0)
-              style.underline = strcmp((const char*)*(attr + 1), "underline") == 0     ? 1
-                                : strcmp((const char*)*(attr + 1), "noUnderline") == 0 ? 0
-                                                                                       : 0xFF;
+              style.underline = strcmp((const char*)*(attr + 1), "underline") == 0 ? 1 : strcmp((const char*)*(attr + 1), "noUnderline") == 0 ? 0 : 0xFF;
             else if (strcmp((const char*)*attr, "fontStyle") == 0)
-              style.italic = strcmp((const char*)*(attr + 1), "italic") == 0   ? 1
-                             : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0
-                                                                               : 0xFF;
+              style.italic = strcmp((const char*)*(attr + 1), "italic") == 0 ? 1 : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0 : 0xFF;
             else if (strcmp((const char*)*attr, "fontWeight") == 0)
-              style.bold = strcmp((const char*)*(attr + 1), "bold") == 0     ? 1
-                           : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0
-                                                                             : 0xFF;
+              style.bold = strcmp((const char*)*(attr + 1), "bold") == 0 ? 1 : strcmp((const char*)*(attr + 1), "normal") == 0 ? 0 : 0xFF;
             attr += 2;
           }
           ttml->InsertStyle(style);
@@ -77,12 +80,12 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
                 span_style = ttml->GetStyle((const char*)*(attr + 1));
               else if (strcmp((const char*)*attr, "color") == 0)
               {
-                const char* color = (const char*)*(attr + 1);
+                const char *color = (const char*)*(attr + 1);
                 span_style.id += "_" + std::string(color);
                 span_style.color = color;
                 ttml->InsertStyle(span_style);
               }
-              attr += 2;
+            attr += 2;
             }
             ttml->StackStyle(span_style.id.c_str());
 
@@ -117,7 +120,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
     }
     else if (strcmp(el, "body") == 0)
     {
-      const char* style(0);
+      const char *style(0);
       for (; *attr && !style; attr += 2)
       {
         if ((nssep = strchr((const char*)*attr, ':')))
@@ -148,18 +151,20 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
   }
 }
 
-static void XMLCALL text(void* data, const char* s, int len)
+static void XMLCALL
+text(void *data, const char *s, int len)
 {
-  TTML2SRT* ttml(reinterpret_cast<TTML2SRT*>(data));
+  TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
 
   if (ttml->m_node & TTML2SRT::NODE_P)
     if (len > 1 || s[len - 1] != '\n')
       ttml->m_strXMLText += std::string(s, len);
 }
 
-static void XMLCALL end(void* data, const char* el)
+static void XMLCALL
+end(void *data, const char *el)
 {
-  TTML2SRT* ttml(reinterpret_cast<TTML2SRT*>(data));
+  TTML2SRT *ttml(reinterpret_cast<TTML2SRT*>(data));
 
   if (ttml->m_node & TTML2SRT::NODE_TT)
   {
@@ -209,11 +214,11 @@ static void XMLCALL end(void* data, const char* el)
   }
 }
 
-bool TTML2SRT::Parse(const void* buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
+bool TTML2SRT::Parse(const void *buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset)
 {
   bool done(true);
   m_node = 0;
-  m_pos = 0;
+  m_pos =  0;
   m_seekTime = 0;
   m_strXMLText.clear();
   m_subTitles.clear();
@@ -248,27 +253,25 @@ bool TTML2SRT::Parse(const void* buffer, size_t buffer_size, uint64_t timescale,
   return true;
 }
 
-bool TTML2SRT::Prepare(uint64_t& pts, uint32_t& duration)
+bool TTML2SRT::Prepare(uint64_t &pts, uint32_t &duration)
 {
   if (m_seekTime)
   {
-    for (m_pos = 0; m_pos < m_subTitles.size() && m_subTitles[m_pos].end < m_seekTime; ++m_pos)
-      ;
+    for (m_pos = 0; m_pos < m_subTitles.size() && m_subTitles[m_pos].end < m_seekTime; ++m_pos);
     m_seekTime = 0;
   }
 
   if (m_pos >= m_subTitles.size())
     return false;
 
-  SUBTITLE& sub(m_subTitles[m_pos++]);
+  SUBTITLE &sub(m_subTitles[m_pos++]);
   pts = sub.start;
   duration = static_cast<uint32_t>(sub.end - sub.start);
 
   m_SRT.clear();
   for (size_t i(0); i < sub.text.size(); ++i)
   {
-    if (i)
-      m_SRT += "\r\n";
+    if (i) m_SRT += "\r\n";
     m_SRT += sub.text[i];
   }
   m_lastId = sub.id;
@@ -287,7 +290,7 @@ void TTML2SRT::Reset()
   m_pos = 0;
 }
 
-uint64_t TTML2SRT::GetTime(const char* tmchar)
+uint64_t TTML2SRT::GetTime(const char *tmchar)
 {
   uint64_t ret(0);
   if (tmchar[strlen(tmchar) - 1] == 't')
@@ -299,7 +302,7 @@ uint64_t TTML2SRT::GetTime(const char* tmchar)
   else
   {
     unsigned int th, tm, ts, tf;
-    char del, ctf[4];
+    char del, ctf [4];
     if (sscanf(tmchar, "%u:%u:%u%c%s", &th, &tm, &ts, &del, ctf) == 5)
     {
       sscanf(ctf, "%u", &tf);
@@ -320,7 +323,7 @@ uint64_t TTML2SRT::GetTime(const char* tmchar)
   return ret;
 }
 
-bool TTML2SRT::StackSubTitle(const char* s, const char* e, const char* id)
+bool TTML2SRT::StackSubTitle(const char *s, const char *e, const char *id)
 {
   if (!s || !e || !*s || !*e)
     return false;
@@ -330,7 +333,7 @@ bool TTML2SRT::StackSubTitle(const char* s, const char* e, const char* id)
     return false;
 
   m_subTitles.push_back(SUBTITLE());
-  SUBTITLE& sub(m_subTitles.back());
+  SUBTITLE &sub(m_subTitles.back());
 
   sub.start = GetTime(s);
   sub.end = GetTime(e);
@@ -356,7 +359,7 @@ void TTML2SRT::StyleText()
   if (!m_strXMLText.empty())
   {
     std::string strFmt, strFmtEnd;
-    STYLE& curStyle(m_styleStack.back());
+    STYLE &curStyle(m_styleStack.back());
     if (!curStyle.color.empty())
     {
       strFmt = "<font color=" + curStyle.color + ">";
@@ -405,8 +408,8 @@ void TTML2SRT::StackStyle(const char* styleId)
 {
   if (styleId)
   {
-    const STYLE* sp(0);
-    for (auto const& s : m_styles)
+    const STYLE *sp(0);
+    for (auto const &s : m_styles)
     {
       if (s.id == styleId)
       {

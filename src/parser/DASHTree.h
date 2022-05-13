@@ -1,14 +1,26 @@
 /*
- *  Copyright (C) 2016 peak3d (http://www.peak3d.de)
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: GPL-2.0-or-later
- *  See LICENSES/README.md for more information.
- */
+*      Copyright (C) 2016-2016 peak3d
+*      http://www.peak3d.de
+*
+*  This Program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2, or (at your option)
+*  any later version.
+*
+*  This Program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*  GNU General Public License for more details.
+*
+*  <http://www.gnu.org/licenses/>.
+*
+*/
 
 #pragma once
 
 #include "../common/AdaptiveTree.h"
+
+#include <kodi/AddonBase.h>
 
 namespace adaptive
 {
@@ -16,13 +28,10 @@ namespace adaptive
 class ATTR_DLL_LOCAL DASHTree : public AdaptiveTree
 {
 public:
-  DASHTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-           CHOOSER::IRepresentationChooser* reprChooser)
-    : AdaptiveTree(kodiProps, reprChooser){};
-  DASHTree(const DASHTree& left);
-
+  DASHTree();
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders) override;
+  virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
                                Representation* rep,
@@ -35,16 +44,12 @@ public:
   };
   virtual void SetLastUpdated(std::chrono::system_clock::time_point tm){};
   void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
-
   uint64_t pts_helper_, timeline_time_;
   uint64_t firstStartNumber_;
   std::string current_playready_wrmheader_;
   std::string mpd_url_;
 
 protected:
-  virtual bool ParseManifest(const std::string& data);
   virtual void RefreshLiveSegments() override;
-
-  virtual DASHTree* Clone() const override { return new DASHTree{*this}; }
-};
-} // namespace adaptive
+  };
+}

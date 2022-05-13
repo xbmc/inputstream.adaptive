@@ -1,15 +1,4 @@
-/*
- *  Copyright (C) 2021 Team Kodi
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: GPL-2.0-or-later
- *  See LICENSES/README.md for more information.
- */
-
 #include "TestHelper.h"
-
-#include "../utils/PropertiesUtils.h"
-
 #include <gtest/gtest.h>
 
 
@@ -18,12 +7,7 @@ class HLSTreeTest : public ::testing::Test
 protected:
   void SetUp() override
   {
-    UTILS::PROPERTIES::KodiProperties kodiProps;
-
-    m_reprChooser = new CTestRepresentationChooserDefault();
-    m_reprChooser->Initialize(kodiProps.m_chooserProps);
-
-    tree = new HLSTestTree(kodiProps, m_reprChooser, new AESDecrypter(std::string()));
+    tree = new adaptive::HLSTree(new AESDecrypter(std::string()));
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
@@ -32,8 +16,6 @@ protected:
     testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
-    delete m_reprChooser;
-    m_reprChooser = nullptr;
   }
 
   void OpenTestFileMaster(std::string testfilename, std::string url, std::string manifestHeaders)
@@ -60,9 +42,7 @@ protected:
     SetFileName(testHelper::testFile, testfilename);
     return tree->prepareRepresentation(per, adp, rep);
   }
-
   adaptive::HLSTree* tree;
-  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 
@@ -241,7 +221,8 @@ TEST_F(HLSTreeTest, ParseKeyUriRelative)
 
   std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
   EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
-  EXPECT_EQ(pssh_url, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  EXPECT_EQ(pssh_url,
+            "https://foo.bar/hls/video/stream_name/../../key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
@@ -263,7 +244,8 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
 
   std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
   EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
-  EXPECT_EQ(pssh_url, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  EXPECT_EQ(pssh_url,
+            "https://foo.bar/hls/video/stream_name/../../key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, PtsSetInMultiPeriod)

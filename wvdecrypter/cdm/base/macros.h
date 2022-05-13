@@ -1,10 +1,6 @@
-/*
- *  Copyright (C) 2014 The Chromium Authors. All rights reserved.
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: BSD-3-Clause
- *  See LICENSES/README.md for more information.
- */
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 // This file contains macros and macro-like constructs (e.g., templates) that
 // are commonly used throughout Chromium source. (It may also contain things

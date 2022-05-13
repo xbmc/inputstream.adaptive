@@ -34,10 +34,8 @@ if(CORE_SYSTEM_NAME STREQUAL android)
   add_library ( ssd_wv SHARED
 	wvdecrypter_android.cpp
 	jsmn.c
-    ../src/utils/Utils.cpp
-    ../src/utils/StringUtils.cpp
-    ../src/utils/Base64Utils.cpp
-    ../src/utils/DigestMD5Utils.cpp
+	../src/helpers.cpp
+  ../src/md5.cpp
   )
 else()
   if(WIN32)
@@ -54,10 +52,8 @@ else()
   add_library ( ssd_wv SHARED
         wvdecrypter.cpp
         jsmn.c
-        ../src/utils/Utils.cpp
-        ../src/utils/StringUtils.cpp
-        ../src/utils/Base64Utils.cpp
-        ../src/utils/DigestMD5Utils.cpp
+        ../src/helpers.cpp
+        ../src/md5.cpp
         cdm/base/native_library.cc
         cdm/base/native_library_${CDMTYPE}
         cdm/media/cdm/cdm_adapter.cc

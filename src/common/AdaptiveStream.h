@@ -1,10 +1,20 @@
 /*
- *  Copyright (C) 2016 peak3d (http://www.peak3d.de)
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: GPL-2.0-or-later
- *  See LICENSES/README.md for more information.
- */
+*      Copyright (C) 2016-2016 peak3d
+*      http://www.peak3d.de
+*
+*  This Program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2, or (at your option)
+*  any later version.
+*
+*  This Program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*  GNU General Public License for more details.
+*
+*  <http://www.gnu.org/licenses/>.
+*
+*/
 
 #pragma once
 
@@ -15,6 +25,8 @@
 #include <mutex>
 #include <string>
 #include <thread>
+
+#include <kodi/AddonBase.h>
 
 namespace adaptive
 {
@@ -32,9 +44,9 @@ namespace adaptive
   public:
     AdaptiveStream(AdaptiveTree& tree,
                    AdaptiveTree::AdaptationSet* adp,
-                   AdaptiveTree::Representation* initialRepr,
                    const std::map<std::string, std::string>& media_headers,
                    bool play_timeshift_buffer,
+                   size_t repId,
                    bool choose_rep_);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
@@ -69,12 +81,17 @@ namespace adaptive
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
     bool StreamChanged() { return stream_changed_; }
-
   protected:
-    virtual bool download(const std::string& url,
+    virtual bool download(const char* url,
                           const std::map<std::string, std::string>& mediaHeaders,
-                          std::string* lockfreeBuffer);
-    virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer);
+                          std::string* lockfreeBuffer)
+    {
+      return false;
+    };
+    virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer)
+    {
+      return false;
+    };
     bool write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer);
     virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;

@@ -1,10 +1,20 @@
 /*
- *  Copyright (C) 2017 peak3d (http://www.peak3d.de)
- *  This file is part of Kodi - https://kodi.tv
- *
- *  SPDX-License-Identifier: GPL-2.0-or-later
- *  See LICENSES/README.md for more information.
- */
+*      Copyright (C) 2017 peak3d
+*      http://www.peak3d.de
+*
+*  This Program is free software; you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation; either version 2, or (at your option)
+*  any later version.
+*
+*  This Program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+*  GNU General Public License for more details.
+*
+*  <http://www.gnu.org/licenses/>.
+*
+*/
 
 #pragma once
 
@@ -12,6 +22,8 @@
 
 #include <map>
 #include <sstream>
+
+#include <kodi/AddonBase.h>
 
 class IAESDecrypter;
 
@@ -29,12 +41,7 @@ public:
     ENCRYPTIONTYPE_WIDEVINE = 3,
     ENCRYPTIONTYPE_UNKNOWN = 4,
   };
-  HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-          CHOOSER::IRepresentationChooser* reprChooser,
-          IAESDecrypter* decrypter)
-    : AdaptiveTree(kodiProps, reprChooser), m_decrypter(decrypter){};
-  HLSTree(const HLSTree& left);
-
+  HLSTree(IAESDecrypter* decrypter) : AdaptiveTree(), m_decrypter(decrypter){};
   virtual ~HLSTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
@@ -43,7 +50,7 @@ public:
                                                AdaptationSet* adp,
                                                Representation* rep,
                                                bool update = false) override;
-
+  virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
                              uint8_t iv[16],
@@ -55,17 +62,13 @@ public:
                                AdaptationSet* adp,
                                Representation* rep,
                                StreamType type) override;
-
-  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(
-      const Representation* rep) override
-  {
+  virtual bool processManifest(std::stringstream& stream);
+  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep)
+  { 
     return rep->repLastUpdated_;
   }
   
-  virtual HLSTree* Clone() const override { return new HLSTree{*this}; }
-
 protected:
-  virtual bool ParseManifest(std::stringstream& stream);
   virtual void RefreshLiveSegments() override;
 
 private:
@@ -92,6 +95,7 @@ private:
   bool m_refreshPlayList = true;
   uint8_t m_segmentIntervalSec = 4;
   IAESDecrypter *m_decrypter;
+  std::stringstream manifest_stream;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;
 };
