@@ -1,0 +1,25 @@
+From 71bac931b9a03a8c6c2580802ba2f99bb5a1cb6e Mon Sep 17 00:00:00 2001
+From: Dimitry Ishenko <dimitry.ishenko@gmail.com>
+Date: Wed, 12 May 2021 12:23:22 -0400
+Subject: [PATCH 01/13] Check for null descriptor
+
+---
+ Source/C++/Core/Ap4Descriptor.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Source/C++/Core/Ap4Descriptor.h b/Source/C++/Core/Ap4Descriptor.h
+index 7fe0717..4919bca 100644
+--- a/Source/C++/Core/Ap4Descriptor.h
++++ b/Source/C++/Core/Ap4Descriptor.h
+@@ -89,7 +89,7 @@ class AP4_DescriptorFinder : public AP4_List<AP4_Descriptor>::Item::Finder
+  public:
+     AP4_DescriptorFinder(AP4_UI08 tag) : m_Tag(tag) {}
+     AP4_Result Test(AP4_Descriptor* descriptor) const {
+-        return descriptor->GetTag() == m_Tag ? AP4_SUCCESS : AP4_FAILURE;
++        return (descriptor && descriptor->GetTag() == m_Tag) ? AP4_SUCCESS : AP4_FAILURE;
+     }
+     
+  private:
+-- 
+2.35.1
+
