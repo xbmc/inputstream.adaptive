@@ -1297,14 +1297,89 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 bool WV_CencSingleSampleDecrypter::OpenVideoDecoder(const SSD_VIDEOINITDATA *initData)
 {
   cdm::VideoDecoderConfig_3 vconfig;
-  vconfig.codec = static_cast<cdm::VideoCodec>(initData->codec);
-  vconfig.coded_size.width = initData->width;
-  vconfig.coded_size.height = initData->height;
+
   vconfig.extra_data = const_cast<uint8_t*>(initData->extraData);
   vconfig.extra_data_size = initData->extraDataSize;
-  vconfig.format = static_cast<cdm::VideoFormat> (initData->videoFormats[0]);
-  vconfig.profile = static_cast<cdm::VideoCodecProfile>(initData->codecProfile);
-  vconfig.color_space = { 2, 2, 2, cdm::ColorRange::kInvalid };
+
+  vconfig.coded_size.width = initData->width;
+  vconfig.coded_size.height = initData->height;
+
+  switch (initData->codec)
+  {
+    case SSD::Codec::CodecH264:
+      vconfig.codec = cdm::VideoCodec::kCodecH264;
+      break;
+    case SSD::Codec::CodecVp8:
+      vconfig.codec = cdm::VideoCodec::kCodecVp8;
+      break;
+    case SSD::Codec::CodecVp9:
+      vconfig.codec = cdm::VideoCodec::kCodecVp9;
+      break;
+    default:
+      vconfig.codec = cdm::VideoCodec::kUnknownVideoCodec;
+      LogF(SSDWARNING, "Unknown codec %i", initData->codec);
+      break;
+  }
+
+  switch (initData->codecProfile)
+  {
+    case SSD::CodecProfile::H264CodecProfileBaseline:
+      vconfig.profile = cdm::VideoCodecProfile::kH264ProfileBaseline;
+      break;
+    case SSD::CodecProfile::H264CodecProfileMain:
+      vconfig.profile = cdm::VideoCodecProfile::kH264ProfileMain;
+      break;
+    case SSD::CodecProfile::H264CodecProfileExtended:
+      vconfig.profile = cdm::VideoCodecProfile::kH264ProfileExtended;
+      break;
+    case SSD::CodecProfile::H264CodecProfileHigh:
+      vconfig.profile = cdm::VideoCodecProfile::kH264ProfileHigh;
+      break;
+    case SSD::CodecProfile::H264CodecProfileHigh10:
+      vconfig.profile = cdm::VideoCodecProfile::kH264ProfileHigh10;
+      break;
+    case SSD::CodecProfile::H264CodecProfileHigh422:
+      vconfig.profile = cdm::VideoCodecProfile::kH264ProfileHigh422;
+      break;
+    case SSD::CodecProfile::H264CodecProfileHigh444Predictive:
+      vconfig.profile = cdm::VideoCodecProfile::kH264ProfileHigh444Predictive;
+      break;
+    case SSD::CodecProfile::VP9CodecProfile0:
+      vconfig.profile = cdm::VideoCodecProfile::kVP9Profile0;
+      break;
+    case SSD::CodecProfile::VP9CodecProfile1:
+      vconfig.profile = cdm::VideoCodecProfile::kVP9Profile1;
+      break;
+    case SSD::CodecProfile::VP9CodecProfile2:
+      vconfig.profile = cdm::VideoCodecProfile::kVP9Profile2;
+      break;
+    case SSD::CodecProfile::VP9CodecProfile3:
+      vconfig.profile = cdm::VideoCodecProfile::kVP9Profile3;
+      break;
+    case SSD::CodecProfile::CodecProfileNotNeeded:
+      vconfig.profile = cdm::VideoCodecProfile::kProfileNotNeeded;
+      break;
+    default:
+      LogF(SSDWARNING, "Unknown codec profile %i", initData->codecProfile);
+      vconfig.profile = cdm::VideoCodecProfile::kUnknownVideoCodecProfile;
+      break;
+  }
+
+  switch (initData->videoFormats[0])
+  {
+  case SSD::SSD_VIDEOFORMAT::VideoFormatYV12:
+    vconfig.format = cdm::VideoFormat::kYv12;
+    break;
+  case SSD::SSD_VIDEOFORMAT::VideoFormatI420:
+    vconfig.format = cdm::VideoFormat::kI420;
+    break;
+  default:
+    LogF(SSDWARNING, "Unknown video format %i", initData->videoFormats[0]);
+    vconfig.format = cdm::VideoFormat::kUnknownVideoFormat;
+    break;
+  }
+
+  vconfig.color_space = { 2, 2, 2, cdm::ColorRange::kInvalid }; // Unspecified
   vconfig.encryption_scheme = m_EncryptionScheme;
 
   cdm::Status ret = drm_.GetCdmAdapter()->InitializeVideoDecoder(vconfig);

@@ -42,7 +42,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 17;
+    static const uint32_t version = 18;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -63,11 +63,13 @@ namespace SSD
     virtual void LogVA(const SSDLogLevel level, const char* format, va_list args) = 0;
   };
 
-  /****************************************************************************************************/
-  // keep those values in track with xbmc\addons\kodi-addon-dev-kit\include\kodi\kodi_videocodec_types.h
-  /****************************************************************************************************/
+  /*
+   * Enums: SSD_VIDEOFORMAT, Codec, CodecProfile must be kept in sync with:
+   * xbmc/addons/kodi-dev-kit/include/kodi/c-api/addon-instance/inputstream/stream_codec.h
+   * xbmc/addons/kodi-dev-kit/include/kodi/c-api/addon-instance/video_codec.h
+   */
 
-  enum SSD_VIDEOFORMAT
+  enum SSD_VIDEOFORMAT // refer to VIDEOCODEC_FORMAT
   {
     UnknownVideoFormat = 0,
     VideoFormatYV12,
@@ -75,27 +77,35 @@ namespace SSD
     MaxVideoFormats
   };
 
+  enum Codec // refer to VIDEOCODEC_TYPE
+  {
+    CodecUnknown = 0,
+    CodecVp8,
+    CodecH264,
+    CodecVp9,
+  };
+
+  enum CodecProfile // refer to STREAMCODEC_PROFILE
+  {
+    CodecProfileUnknown = 0,
+    CodecProfileNotNeeded,
+    H264CodecProfileBaseline,
+    H264CodecProfileMain,
+    H264CodecProfileExtended,
+    H264CodecProfileHigh,
+    H264CodecProfileHigh10,
+    H264CodecProfileHigh422,
+    H264CodecProfileHigh444Predictive,
+    VP9CodecProfile0 = 20,
+    VP9CodecProfile1,
+    VP9CodecProfile2,
+    VP9CodecProfile3,
+  };
+
   struct SSD_VIDEOINITDATA
   {
-    enum Codec {
-      CodecUnknown = 0,
-      CodecVp8,
-      CodecH264,
-      CodecVp9
-    } codec;
-
-    enum CodecProfile
-    {
-      CodecProfileUnknown = 0,
-      CodecProfileNotNeeded,
-      H264CodecProfileBaseline,
-      H264CodecProfileMain,
-      H264CodecProfileExtended,
-      H264CodecProfileHigh,
-      H264CodecProfileHigh10,
-      H264CodecProfileHigh422,
-      H264CodecProfileHigh444Predictive
-    } codecProfile;
+    Codec codec;
+    CodecProfile codecProfile;
 
     const SSD_VIDEOFORMAT *videoFormats;
 
