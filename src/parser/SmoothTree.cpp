@@ -9,9 +9,7 @@
 #include "SmoothTree.h"
 
 #include "../oscompat.h"
-#include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
-#include "../utils/log.h"
 #include "PRProtectionParser.h"
 
 #include <algorithm>
@@ -23,17 +21,10 @@
 using namespace adaptive;
 using namespace UTILS;
 
-SmoothTree::SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                       CHOOSER::IRepresentationChooser* reprChooser)
-  : AdaptiveTree(kodiProps, reprChooser)
+SmoothTree::SmoothTree()
 {
   current_period_ = new AdaptiveTree::Period;
   periods_.push_back(current_period_);
-}
-
-adaptive::SmoothTree::SmoothTree(const SmoothTree& left)
-  : AdaptiveTree(left.m_kodiProps, left.m_reprChooser)
-{
 }
 
 /*----------------------------------------------------------------------
@@ -105,9 +96,11 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
                            dash->current_representation_->codecs_.begin(), ::tolower);
           }
           else if (strcmp((const char*)*attr, "MaxWidth") == 0)
-            dash->current_representation_->width_ = std::atoi((const char*)*(attr + 1));
+            dash->current_representation_->width_ =
+                static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
           else if (strcmp((const char*)*attr, "MaxHeight") == 0)
-            dash->current_representation_->height_ = std::atoi((const char*)*(attr + 1));
+            dash->current_representation_->height_ =
+                static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
           else if (strcmp((const char*)*attr, "SamplingRate") == 0)
             dash->current_representation_->samplingRate_ =
                 static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
@@ -167,9 +160,6 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
 
         dash->current_representation_->segtpl_.media.replace(pos, 9, bw);
         dash->current_representation_->bandwidth_ = atoi(bw);
-        dash->current_representation_->assured_buffer_duration_ =
-            dash->m_settings.m_bufferAssuredDuration;
-        dash->current_representation_->max_buffer_duration_ = dash->m_settings.m_bufferMaxDuration;
         dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
       }
       else if (strcmp(el, "c") == 0)
@@ -236,7 +226,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_adaptationset_->segment_durations_.data.reserve(
               atoi((const char*)*(attr + 1)));
         else if (strcmp((const char*)*attr, "Url") == 0)
-          dash->current_adaptationset_->base_url_ = URL::Join(dash->base_url_, *(attr + 1));
+          dash->current_adaptationset_->base_url_ = dash->base_url_ + (const char*)*(attr + 1);
         attr += 2;
       }
       dash->segcount_ = 0;
@@ -355,23 +345,23 @@ bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateP
 
 bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
 {
+  parser_ = XML_ParserCreate(NULL);
+  if (!parser_)
+    return false;
+  XML_SetUserData(parser_, (void*)this);
+  XML_SetElementHandler(parser_, start, end);
+  XML_SetCharacterDataHandler(parser_, text);
   currentNode_ = 0;
+  strXMLText_.clear();
 
   PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
+  additionalHeaders.insert(manifest_headers_.begin(), manifest_headers_.end());
+  bool ret = download(manifest_url_.c_str(), additionalHeaders);
 
-  std::stringstream data;
-  HTTPRespHeaders respHeaders;
-  if (!download(manifest_url_, additionalHeaders, data, respHeaders))
-    return false;
+  XML_ParserFree(parser_);
+  parser_ = 0;
 
-  effective_url_ = respHeaders.m_effectiveUrl;
-  m_manifestHeaders = respHeaders;
-
-  if (!PreparePaths(effective_url_))
-    return false;
-
-  if (!ParseManifest(data.str()))
+  if (!ret)
     return false;
 
   uint8_t psshset(0);
@@ -409,29 +399,12 @@ bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateP
   return true;
 }
 
-bool SmoothTree::ParseManifest(const std::string& data)
+bool SmoothTree::write_data(void* buffer, size_t buffer_size, void* opaque)
 {
-  strXMLText_.clear();
+  bool done(false);
+  XML_Status retval = XML_Parse(parser_, (const char*)buffer, buffer_size, done);
 
-  parser_ = XML_ParserCreate(nullptr);
-  if (!parser_)
+  if (retval == XML_STATUS_ERROR)
     return false;
-
-  XML_SetUserData(parser_, (void*)this);
-  XML_SetElementHandler(parser_, start, end);
-  XML_SetCharacterDataHandler(parser_, text);
-
-  int isDone{0};
-  XML_Status status{XML_Parse(parser_, data.c_str(), static_cast<int>(data.size()), isDone)};
-
-  XML_ParserFree(parser_);
-  parser_ = nullptr;
-
-  if (status == XML_STATUS_ERROR)
-  {
-    LOG::LogF(LOGERROR, "Failed to parse the manifest file");
-    return false;
-  }
-
   return true;
 }

@@ -11,7 +11,6 @@
 #include "kodi/tools/StringUtils.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <iomanip>
 #include <sstream>
 
@@ -115,7 +114,7 @@ std::string UTILS::STRING::URLDecode(std::string_view strURLData)
 
 std::string UTILS::STRING::URLEncode(std::string_view strURLData)
 {
-  std::string result;
+  std::ostringstream ossResult;
 
   for (auto c : strURLData)
   {
@@ -124,15 +123,12 @@ std::string UTILS::STRING::URLEncode(std::string_view strURLData)
     if (StringUtils::IsAsciiAlphaNum(c) || c == '-' || c == '.' || c == '_' || c == '!' ||
         c == '(' || c == ')' || c == '~')
     {
-      result.push_back(c);
+      ossResult << c;
     }
     else
     {
-      result.append("%");
-      char buf[3];
-      sprintf(buf, "%.2X", c);
-      result.append(buf);
+      ossResult << '%' << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
     }
   }
-  return result;
+  return ossResult.str();
 }

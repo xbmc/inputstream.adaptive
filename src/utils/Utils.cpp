@@ -317,15 +317,3 @@ void UTILS::ParseHeaderString(std::map<std::string, std::string>& headerMap,
     }
   }
 }
-
-std::string UTILS::GetVideoCodecDesc(std::string_view codecName)
-{
-  if (codecName.find("avc") == 0 || codecName.find("h264") == 0)
-    return "H.264";
-  else if (codecName.find("hev") == 0 || codecName.find("hvc") == 0 || codecName.find("dvh") == 0)
-    return "H.265 / HEVC";
-  else if (codecName.find("vp9") == 0 || codecName.find("vp09") == 0)
-    return "H.265 / VP9";
-  else
-    return "";
-}

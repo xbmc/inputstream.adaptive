@@ -11,7 +11,6 @@
 #include "../Iaes_decrypter.h"
 #include "../utils/Base64Utils.h"
 #include "../utils/StringUtils.h"
-#include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
 #include "../utils/log.h"
 #include "kodi/tools/StringUtils.h"
@@ -46,13 +45,13 @@ static void parseLine(const std::string& line,
   }
 }
 
-static void parseResolution(int& width, int& height, const std::string& val)
+static void parseResolution(std::uint16_t& width, std::uint16_t& height, const std::string& val)
 {
   std::string::size_type pos(val.find('x'));
   if (pos != std::string::npos)
   {
-    width = std::atoi(val.c_str());
-    height = std::atoi(val.c_str() + pos + 1);
+    width = atoi(val.c_str());
+    height = atoi(val.c_str() + pos + 1);
   }
 }
 
@@ -84,11 +83,6 @@ static std::string getAudioCodec(const std::string& codecs)
     return "aac";
 }
 
-HLSTree::HLSTree(const HLSTree& left)
-  : AdaptiveTree(left.m_kodiProps, left.m_reprChooser), m_decrypter(left.m_decrypter)
-{
-}
-
 HLSTree::~HLSTree()
 {
   delete m_decrypter;
@@ -108,8 +102,8 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   if (map["METHOD"] == "AES-128" && !map["URI"].empty())
   {
     current_pssh_ = map["URI"];
-    if (!URL::IsUrlRelative(current_pssh_) && !URL::IsUrlAbsolute(current_pssh_))
-      current_pssh_ = URL::Join(baseUrl, current_pssh_);
+    if (current_pssh_[0] != '/' && current_pssh_.find("://") == std::string::npos)
+      current_pssh_ = baseUrl + current_pssh_;
 
     current_iv_ = m_decrypter->convertIV(map["IV"]);
 
@@ -163,28 +157,13 @@ bool HLSTree::open(const std::string& url, const std::string& manifestUpdatePara
 bool HLSTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
 {
   PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-
-  std::stringstream data;
-  HTTPRespHeaders respHeaders;
-  if (!download(manifest_url_, additionalHeaders, data, respHeaders))
-    return false;
-
-  effective_url_ = respHeaders.m_effectiveUrl;
-
-  if (!PreparePaths(effective_url_))
-    return false;
-
-  if (!ParseManifest(data))
-  {
-    LOG::LogF(LOGERROR, "Failed to parse the manifest file");
-    return false;
-  }
-
-  return true;
+  additionalHeaders.insert(manifest_headers_.begin(), manifest_headers_.end());
+  if (download(manifest_url_.c_str(), additionalHeaders, &manifest_stream))
+    return processManifest(manifest_stream);
+  return false;
 }
 
-bool HLSTree::ParseManifest(std::stringstream& stream)
+bool HLSTree::processManifest(std::stringstream& stream)
 {
 #if FILEDEBUG
   FILE* f = fopen("inputstream_adaptive_master.m3u8", "w");
@@ -266,9 +245,6 @@ bool HLSTree::ParseManifest(std::stringstream& stream)
 
       if ((res = map.find("CHANNELS")) != map.end())
         rep->channelCount_ = atoi(res->second.c_str());
-
-      rep->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      rep->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
     }
     else if (line.compare(0, 18, "#EXT-X-STREAM-INF:") == 0)
     {
@@ -312,9 +288,6 @@ bool HLSTree::ParseManifest(std::stringstream& stream)
         current_representation_->fpsRate_ = static_cast<int>(std::stof(map["FRAME-RATE"]) * 1000);
         current_representation_->fpsScale_ = 1000;
       }
-
-      current_representation_->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      current_representation_->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
     }
     else if (line.compare(0, 8, "#EXTINF:") == 0)
     {
@@ -330,8 +303,6 @@ bool HLSTree::ParseManifest(std::stringstream& stream)
       current_representation_->codecs_ = getVideoCodec("");
       current_representation_->containerType_ = CONTAINERTYPE_NOTYPE;
       current_representation_->source_url_ = manifest_url_;
-      current_representation_->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      current_representation_->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
       current_adaptationset_->representations_.push_back(current_representation_);
 
       // We assume audio is included
@@ -387,8 +358,6 @@ bool HLSTree::ParseManifest(std::stringstream& stream)
       current_representation_->timescale_ = 1000000;
       current_representation_->codecs_ = m_audioCodec;
       current_representation_->flags_ = Representation::INCLUDEDSTREAM;
-      current_representation_->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      current_representation_->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
       current_adaptationset_->representations_.push_back(current_representation_);
     }
 
@@ -417,6 +386,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     uint64_t newStartNumber;
     Segment newInitialization;
     uint64_t segmentId(rep->getCurrentSegmentNumber());
+    std::stringstream stream;
     uint32_t adp_pos =
         std::find(period->adaptationSets_.begin(), period->adaptationSets_.end(), adp) -
         period->adaptationSets_.begin();
@@ -427,12 +397,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     Representation* entry_rep = rep;
     PREPARE_RESULT retVal = PREPARE_RESULT_OK;
 
-    std::stringstream streamData;
-    HTTPRespHeaders respHeaders;
-
-    if (rep->flags_ & Representation::DOWNLOADED) {
-    }
-    else if (download(rep->source_url_, m_streamHeaders, streamData, respHeaders))
+    if (rep->flags_ & Representation::DOWNLOADED)
+      ;
+    else if (download(rep->source_url_.c_str(), manifest_headers_, &stream, false))
     {
 #if FILEDEBUG
       FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");
@@ -459,10 +426,15 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       segment.startPTS_ = ~0ULL;
       segment.pssh_set_ = 0;
 
-      effective_url_ = respHeaders.m_effectiveUrl;
-      base_url = URL::RemoveParameters(effective_url_);
+      std::string::size_type paramPos = effective_url_.find('?');
+      base_url =
+          (paramPos == std::string::npos) ? effective_url_ : effective_url_.substr(0, paramPos);
 
-      while (std::getline(streamData, line))
+      paramPos = base_url.rfind('/');
+      if (paramPos != std::string::npos)
+        base_url = base_url.substr(0, paramPos + 1);
+
+      while (std::getline(stream, line))
       {
         if (!startCodeFound)
         {
@@ -526,13 +498,14 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           if (!byteRange || rep->url_.empty())
           {
             std::string url;
-            if (!URL::IsUrlRelative(line) && !URL::IsUrlAbsolute(line))
-              url = URL::Join(base_url, line);
+            if (line[0] != '/' && line.find("://") == std::string::npos)
+              url = base_url + line;
             else
               url = line;
             if (!byteRange)
             {
-              segment.url = url;
+              segment.url = new char[url.size() + 1];
+              memcpy((char*)segment.url, url.c_str(), url.size() + 1);
             }
             else
               rep->url_ = url;
@@ -601,13 +574,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         }
         else if (line.compare(0, 21, "#EXT-X-DISCONTINUITY") == 0)
         {
-          if (!newSegments.Get(0))
-          {
-            LOG::LogF(LOGERROR, "Segment at position 0 not found");
-            continue;
-          }
           period->sequence_ = m_discontSeq + discont_count;
-          period->duration_ = newSegments.size() ? pts - newSegments.Get(0)->startPTS_ : 0;
+          period->duration_ = newSegments.size() ? pts - newSegments[0]->startPTS_ : 0;
           if (!byteRange)
             rep->flags_ |= Representation::URLSEGMENTS;
           if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && newSegments.size() &&
@@ -626,7 +594,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           {
             std::swap(rep->initialization_, newInitialization);
             // EXT-X-MAP init url must persist to next period until overrided by new tag
-            newInitialization.url = map_url;
+            newInitialization.url = new char[map_url.size() + 1];
+            memcpy((char*)newInitialization.url, map_url.c_str(), map_url.size() + 1);
           }
           if (periods_.size() == ++discont_count)
           {
@@ -693,13 +662,17 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           {
             if (!map["BYTERANGE"].empty())
               continue;
+            // delete init url if persisted from previous period
+            if (hasMap)
+              delete[] newInitialization.url;
             segmentInitialization = true;
             std::string uri = map["URI"];
-            if (!URL::IsUrlRelative(uri) && !URL::IsUrlAbsolute(uri))
-              map_url = URL::Join(base_url, uri);
+            if (uri[0] != '/' && uri.find("://") == std::string::npos)
+              map_url = base_url + uri;
             else
               map_url = uri;
-            newInitialization.url = map_url;
+            newInitialization.url = new char[map_url.size() + 1];
+            memcpy((char*)newInitialization.url, map_url.c_str(), map_url.size() + 1);
             newInitialization.range_begin_ = ~0ULL;
             newInitialization.startPTS_ = ~0ULL;
             newInitialization.pssh_set_ = 0;
@@ -737,7 +710,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       if (segmentInitialization)
         std::swap(rep->initialization_, newInitialization);
 
-      rep->duration_ = rep->segments_.Get(0) ? (pts - rep->segments_.Get(0)->startPTS_) : 0;
+      rep->duration_ = rep->segments_[0] ? (pts - rep->segments_[0]->startPTS_) : 0;
 
       period->sequence_ = m_discontSeq + discont_count;
       if (discont_count || m_hasDiscontSeq)
@@ -790,6 +763,12 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
   return PREPARE_RESULT_FAILURE;
 };
 
+bool HLSTree::write_data(void* buffer, size_t buffer_size, void* opaque)
+{
+  static_cast<std::stringstream*>(opaque)->write(static_cast<const char*>(buffer), buffer_size);
+  return true;
+}
+
 void HLSTree::OnDataArrived(uint64_t segNum,
                             uint16_t psshSet,
                             uint8_t iv[16],
@@ -818,23 +797,26 @@ void HLSTree::OnDataArrived(uint64_t segNum,
       if (pssh.defaultKID_.empty())
       {
       RETRY:
+        std::stringstream stream;
         std::map<std::string, std::string> headers;
         std::vector<std::string> keyParts{StringUtils::Split(m_decrypter->getLicenseKey(), '|')};
         std::string url = pssh.pssh_.c_str();
 
-        if (keyParts.size() > 0)
+        if (keyParts.size() > 0 && !keyParts[0].empty())
         {
-          URL::AppendParameters(url, keyParts[0]);
+          if (url.find_first_of('?') == std::string::npos)
+            url += "?";
+          else
+            url += "&";
+          url += keyParts[0];
         }
         if (keyParts.size() > 1)
           ParseHeaderString(headers, keyParts[1]);
 
-        std::stringstream streamData;
-        HTTPRespHeaders respHeaders;
-
-        if (download(url, headers, streamData, respHeaders))
+        url = BuildDownloadUrl(url);
+        if (download(url.c_str(), headers, &stream, false))
         {
-          pssh.defaultKID_ = streamData.str();
+          pssh.defaultKID_ = stream.str();
         }
         else if (pssh.defaultKID_ != "0")
         {
@@ -885,7 +867,6 @@ void HLSTree::RefreshSegments(Period* period,
 }
 
 //Called form update-thread
-//! @todo: we are updating variables in non-thread safe way
 void HLSTree::RefreshLiveSegments()
 {
   if (m_refreshPlayList)
