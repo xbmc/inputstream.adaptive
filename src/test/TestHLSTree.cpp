@@ -19,11 +19,7 @@ protected:
   void SetUp() override
   {
     UTILS::PROPERTIES::KodiProperties kodiProps;
-
-    m_reprChooser = new CTestRepresentationChooserDefault();
-    m_reprChooser->Initialize(kodiProps.m_chooserProps);
-
-    tree = new HLSTestTree(kodiProps, m_reprChooser, new AESDecrypter(std::string()));
+    tree = new adaptive::HLSTree(kodiProps, new AESDecrypter(std::string()));
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
@@ -32,8 +28,6 @@ protected:
     testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
-    delete m_reprChooser;
-    m_reprChooser = nullptr;
   }
 
   void OpenTestFileMaster(std::string testfilename, std::string url, std::string manifestHeaders)
@@ -60,9 +54,7 @@ protected:
     SetFileName(testHelper::testFile, testfilename);
     return tree->prepareRepresentation(per, adp, rep);
   }
-
   adaptive::HLSTree* tree;
-  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 

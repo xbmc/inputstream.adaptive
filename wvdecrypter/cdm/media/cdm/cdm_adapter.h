@@ -66,7 +66,7 @@ public:
   void SetFrameBuffer(cdm::Buffer* frame_buffer) override { m_buffer = frame_buffer; }
   cdm::Buffer* FrameBuffer() override { return m_buffer; }
   void SetPlaneOffset(cdm::VideoPlane plane, uint32_t offset) override { m_planeOffsets[plane] = offset; }
-  void SetColorSpace(cdm::ColorSpace color_space) override { m_colorSpace = color_space; }
+  void SetColorSpace(cdm::ColorSpace color_space) { m_colorSpace = color_space; };
 
   virtual uint32_t PlaneOffset(cdm::VideoPlane plane) override { return m_planeOffsets[plane]; }
   virtual void SetStride(cdm::VideoPlane plane, uint32_t stride) override { m_stride[plane] = stride; }
@@ -120,6 +120,10 @@ class CdmAdapter : public std::enable_shared_from_this<CdmAdapter>
 		uint32_t session_id_size,
 		const uint8_t* response,
 		uint32_t response_size);
+
+	void SetSessionActive(bool isActive);
+
+  bool IsSessionActive();
 
 	void CloseSession(uint32_t promise_id,
 		const char* session_id,
@@ -258,6 +262,8 @@ private:
   cdm::ContentDecryptionModule_9 *cdm9_;
   cdm::ContentDecryptionModule_10 *cdm10_;
   cdm::ContentDecryptionModule_11 *cdm11_;
+
+  std::atomic<bool> session_active_;
 
   DISALLOW_COPY_AND_ASSIGN(CdmAdapter);
 };
