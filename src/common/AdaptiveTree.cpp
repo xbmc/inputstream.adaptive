@@ -138,6 +138,7 @@ namespace adaptive
         (Representation::INITIALIZATION | Representation::URLSEGMENTS))
     {
       rep->initialization_.url.clear();
+      --period->psshSets_[rep->initialization_.pssh_set_].use_count_;
     }
     rep->segments_.clear();
     rep->current_segment_ = nullptr;

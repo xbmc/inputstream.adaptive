@@ -706,6 +706,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
             rep->flags_ |= Representation::INITIALIZATION;
             rep->containerType_ = CONTAINERTYPE_MP4;
             hasMap = true;
+
+            if (currentEncryptionType == ENCRYPTIONTYPE_AES128)
+              newInitialization.pssh_set_ = insert_psshset(NOTYPE, period, adp);
           }
         }
       }
@@ -720,6 +723,9 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         rep->initialization_.range_begin_ = 0;
         rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
         rep->initialization_.pssh_set_ = 0;
+
+        if (currentEncryptionType == ENCRYPTIONTYPE_AES128)
+          rep->initialization_.pssh_set_ = insert_psshset(NOTYPE, period, adp);
       }
 
       FreeSegments(period, rep);
