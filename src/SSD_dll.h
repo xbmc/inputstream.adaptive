@@ -12,7 +12,7 @@
 #include <string_view>
 
 //Functionality wich is supported by the Decrypter
-class Adaptive_CencSingleSampleDecrypter;
+class AP4_CencSingleSampleDecrypter;
 class AP4_DataBuffer;
 
 namespace SSD
@@ -42,7 +42,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 18;
+    static const uint32_t version = 14;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -63,13 +63,11 @@ namespace SSD
     virtual void LogVA(const SSDLogLevel level, const char* format, va_list args) = 0;
   };
 
-  /*
-   * Enums: SSD_VIDEOFORMAT, Codec, CodecProfile must be kept in sync with:
-   * xbmc/addons/kodi-dev-kit/include/kodi/c-api/addon-instance/inputstream/stream_codec.h
-   * xbmc/addons/kodi-dev-kit/include/kodi/c-api/addon-instance/video_codec.h
-   */
+  /****************************************************************************************************/
+  // keep those values in track with xbmc\addons\kodi-addon-dev-kit\include\kodi\kodi_videocodec_types.h
+  /****************************************************************************************************/
 
-  enum SSD_VIDEOFORMAT // refer to VIDEOCODEC_FORMAT
+  enum SSD_VIDEOFORMAT
   {
     UnknownVideoFormat = 0,
     VideoFormatYV12,
@@ -77,35 +75,27 @@ namespace SSD
     MaxVideoFormats
   };
 
-  enum Codec // refer to VIDEOCODEC_TYPE
-  {
-    CodecUnknown = 0,
-    CodecVp8,
-    CodecH264,
-    CodecVp9,
-  };
-
-  enum CodecProfile // refer to STREAMCODEC_PROFILE
-  {
-    CodecProfileUnknown = 0,
-    CodecProfileNotNeeded,
-    H264CodecProfileBaseline,
-    H264CodecProfileMain,
-    H264CodecProfileExtended,
-    H264CodecProfileHigh,
-    H264CodecProfileHigh10,
-    H264CodecProfileHigh422,
-    H264CodecProfileHigh444Predictive,
-    VP9CodecProfile0 = 20,
-    VP9CodecProfile1,
-    VP9CodecProfile2,
-    VP9CodecProfile3,
-  };
-
   struct SSD_VIDEOINITDATA
   {
-    Codec codec;
-    CodecProfile codecProfile;
+    enum Codec {
+      CodecUnknown = 0,
+      CodecVp8,
+      CodecH264,
+      CodecVp9
+    } codec;
+
+    enum CodecProfile
+    {
+      CodecProfileUnknown = 0,
+      CodecProfileNotNeeded,
+      H264CodecProfileBaseline,
+      H264CodecProfileMain,
+      H264CodecProfileExtended,
+      H264CodecProfileHigh,
+      H264CodecProfileHigh10,
+      H264CodecProfileHigh422,
+      H264CodecProfileHigh444Predictive
+    } codecProfile;
 
     const SSD_VIDEOFORMAT *videoFormats;
 
@@ -198,7 +188,7 @@ namespace SSD
       manifest / representation have to check if they are allowed to be played.
       */
       uint16_t hdcpVersion; //The HDCP version streams has to be restricted 0,10,20,21,22.....
-      int hdcpLimit; // If set (> 0) streams that are greater than the multiplication of "Width x Height" cannot be played.
+      uint32_t hdcpLimit; // If set, streams wich wxh > this value cannot be played.
     };
 
     static const uint8_t CONFIG_PERSISTENTSTORAGE = 1;
@@ -206,23 +196,15 @@ namespace SSD
     // Return supported URN if type matches to capabilities, otherwise null
     virtual const char *SelectKeySytem(const char* keySystem) = 0;
     virtual bool OpenDRMSystem(const char *licenseURL, const AP4_DataBuffer &serverCertificate, const uint8_t config) = 0;
-    virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-        AP4_DataBuffer& pssh,
-        const char* optionalKeyParameter,
-        std::string_view defaultkeyid,
-        bool skipSessionMessage) = 0;
-    virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) = 0;
+    virtual AP4_CencSingleSampleDecrypter *CreateSingleSampleDecrypter(AP4_DataBuffer &pssh, const char *optionalKeyParameter, std::string_view defaultkeyid, bool skipSessionMessage) = 0;
+    virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 
-    virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                 const uint8_t* keyid,
-                                 uint32_t media,
-                                 SSD_DECRYPTER::SSD_CAPS& caps) = 0;
-    virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
+    virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) = 0;
+    virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) = 0;
     virtual bool HasCdmSession() = 0;
-    virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) = 0;
+    virtual std::string GetChallengeB64Data(AP4_CencSingleSampleDecrypter* decrypter) = 0;
 
-    virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                  const SSD_VIDEOINITDATA* initData) = 0;
+    virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) = 0;
     virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
     virtual void ResetVideo() = 0;
   };

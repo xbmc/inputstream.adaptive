@@ -27,13 +27,6 @@ bool CreateISMlicense(std::string_view key,
 void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std::string& header);
 
 /*!
- * \brief Get video codec description from a codec name
- * \param codecName The codec name
- * \return The codec description, otherwise empty if unsupported
- */
-std::string GetVideoCodecDesc(std::string_view codecName);
-
-/*!
  * \brief Make a FourCC code as unsigned integer value
  * \param c1 The first FourCC char
  * \param c2 The second FourCC char

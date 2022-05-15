@@ -10,22 +10,18 @@
 
 #include "../common/AdaptiveTree.h"
 
+#include <kodi/AddonBase.h>
+
 namespace adaptive
 {
 
 class ATTR_DLL_LOCAL SmoothTree : public AdaptiveTree
 {
 public:
-  SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-             CHOOSER::IRepresentationChooser* reprChooser);
-  SmoothTree(const SmoothTree& left);
-
+  SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps);
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
-  virtual bool open(const std::string& url,
-                    const std::string& manifestUpdateParam,
-                    std::map<std::string, std::string> additionalHeaders) override;
-
-  virtual SmoothTree* Clone() const override { return new SmoothTree{*this}; }
+  virtual bool open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders) override;
+  virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
 
   enum
   {
@@ -37,9 +33,6 @@ public:
   };
 
   uint64_t pts_helper_;
+  };
 
-protected:
-  virtual bool ParseManifest(const std::string& data);
-};
-
-} // namespace adaptive
+}

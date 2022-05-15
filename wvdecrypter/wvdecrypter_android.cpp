@@ -7,9 +7,8 @@
  */
 
 #include "../src/SSD_dll.h"
-#include "../src/common/AdaptiveDecrypter.h"
+#include "../src/md5.h"
 #include "../src/utils/Base64Utils.h"
-#include "../src/utils/DigestMD5Utils.h"
 #include "../src/utils/StringUtils.h"
 #include "../src/utils/Utils.h"
 #include "ClassLoader.h"
@@ -277,7 +276,7 @@ void WV_DRM::SaveServiceCertificate()
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter
 +---------------------------------------------------------------------*/
-class WV_CencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter
+class WV_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 {
 public:
   // methods
@@ -344,8 +343,7 @@ private:
     AP4_DataBuffer annexb_sps_pps_;
   };
   std::vector<FINFO> fragment_pool_;
-  int hdcp_limit_;
-  int resolution_limit_;
+  AP4_UI32 hdcp_limit_, resolution_limit_;
 };
 
 /*----------------------------------------------------------------------
@@ -356,7 +354,8 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
                                                            AP4_DataBuffer& pssh,
                                                            const char* optionalKeyParameter,
                                                            std::string_view defaultKeyId)
-  : media_drm_(drm),
+  : AP4_CencSingleSampleDecrypter(0),
+    media_drm_(drm),
     provisionRequested(false),
     keyUpdateRequested(false),
     hdcp_limit_(0),
@@ -511,9 +510,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_
     caps.hdcpLimit = resolution_limit_; //No restriction
     caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
   }
-  LogF(SSDDEBUG, "hdcpLimit: %i", caps.hdcpLimit);
-
-  caps.hdcpVersion = 99;
+  LogF(SSDDEBUG, "hdcpLimit: %u", caps.hdcpLimit);
 }
 
 bool WV_CencSingleSampleDecrypter::ProvisionRequest()
@@ -618,6 +615,7 @@ bool WV_CencSingleSampleDecrypter::KeyUpdateRequest(bool waitKeys, bool skipSess
       return false;
     }
   }
+  Log(SSDDEBUG, "License update successful");
 
   if (media_drm_.GetKeySystemType() != PLAYREADY)
   {
@@ -674,10 +672,10 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   insPos = blocks[0].find("{HASH}");
   if (insPos != std::string::npos)
   {
-    DIGEST::MD5 md5;
-    md5.Update(keyRequestData.data(), static_cast<uint32_t>(keyRequestData.size()));
-    md5.Finalize();
-    blocks[0].replace(insPos, 6, md5.HexDigest());
+    MD5 md5;
+    md5.update(keyRequestData.data(), keyRequestData.size());
+    md5.finalize();
+    blocks[0].replace(insPos, 6, md5.hexdigest());
   }
 
   void* file = host->CURLCreate(blocks[0].c_str());
@@ -876,7 +874,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   {
     std::string::size_type posMax = resLimit.find("max=");
     if (posMax != std::string::npos)
-      resolution_limit_ = std::atoi(resLimit.data() + (posMax + 4));
+      resolution_limit_ = atoi(resLimit.data() + (posMax + 4));
   }
 
   host->CloseFile(file);
@@ -1018,7 +1016,6 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
   if (keyRequestData.size() == 2)
    media_drm_.SaveServiceCertificate();
 
-  Log(SSDDEBUG, "License update successful");
   return true;
 
 SSMFAIL:
@@ -1281,7 +1278,7 @@ public:
     return cdmsession_->GetMediaDrm();
   }
 
-  virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+  virtual AP4_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
       AP4_DataBuffer& pssh,
       const char* optionalKeyParameter,
       std::string_view defaultkeyid,
@@ -1302,7 +1299,7 @@ public:
     return decrypter;
   }
 
-  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override
+  virtual void DestroySingleSampleDecrypter(AP4_CencSingleSampleDecrypter* decrypter) override
   {
     if (decrypter)
     {
@@ -1316,10 +1313,7 @@ public:
     }
   }
 
-  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                               const uint8_t* keyid,
-                               uint32_t media,
-                               SSD_DECRYPTER::SSD_CAPS& caps) override
+  virtual void GetCapabilities(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps) override
   {
     if (decrypter)
       static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetCapabilities(keyid,media,caps);
@@ -1327,30 +1321,30 @@ public:
       caps = { 0, 0, 0};
   }
 
-  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                             const uint8_t* keyid) override
+  virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
   {
     if (decrypter)
       return static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->HasLicenseKey(keyid);
     return false;
   }
 
-  virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override
+  virtual std::string GetChallengeB64Data(AP4_CencSingleSampleDecrypter* decrypter) override
   {
     if (!decrypter)
       return "";
 
     std::vector<char> challengeData = static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->GetChallengeData();
-    return BASE64::Encode(challengeData.data(), challengeData.size());
+    std::string encChallengeData{BASE64::Encode(challengeData.data(), challengeData.size())};
+    // Keep data URL encoded otherwise will not be sent correctly in the HTTP header
+    return STRING::URLEncode(encChallengeData);
   }
 
-  virtual bool HasCdmSession() override
+  virtual bool HasCdmSession() 
   {
     return cdmsession_ != nullptr;
   }
 
-  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                const SSD_VIDEOINITDATA* initData) override
+  virtual bool OpenVideoDecoder(AP4_CencSingleSampleDecrypter* decrypter, const SSD_VIDEOINITDATA *initData) override
   {
     return false;
   }

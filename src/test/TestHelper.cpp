@@ -26,18 +26,52 @@ void SetFileName(std::string& file, std::string name)
   file = GetEnv("DATADIR") + "/" + name;
 }
 
+bool adaptive::AdaptiveTree::download(const char* url,
+                                      const std::map<std::string, std::string>& manifestHeaders,
+                                      void* opaque,
+                                      bool isManifest)
+{
+  FILE* f = fopen(testHelper::testFile.c_str(), "rb");
+  if (!f)
+    return false;
+
+  if (!testHelper::effectiveUrl.empty())
+    effective_url_ = testHelper::effectiveUrl;
+  else
+    effective_url_ = url;
+
+  if (isManifest && !PreparePaths(effective_url_))
+  {
+    fclose(f);
+    return false;
+  }
+
+  // read the file
+  static const unsigned int CHUNKSIZE = 16384;
+  char buf[CHUNKSIZE];
+  size_t nbRead;
+
+  while ((nbRead = fread(buf, 1, CHUNKSIZE, f)) > 0 && ~nbRead && write_data(buf, nbRead, opaque))
+    ;
+
+  fclose(f);
+
+  SortTree();
+  return nbRead == 0;
+}
+
 bool TestAdaptiveStream::download_segment()
 {
   if (download_url_.empty())
     return false;
   testHelper::downloadList.push_back(download_url_);
 
-  return download(download_url_, download_headers_, nullptr);
+  return download(download_url_.c_str(), download_headers_, nullptr);
 }
 
-bool TestAdaptiveStream::download(const std::string& url,
-                                  const std::map<std::string, std::string>& mediaHeaders,
-                                  std::string* lockfreeBuffer)
+bool TestAdaptiveStream::download(const char* url,
+  const std::map<std::string, std::string>& mediaHeaders,
+  std::string* lockfreeBuffer)
 {
   size_t nbRead = ~0UL;
   std::stringstream ss("Sixteen bytes!!!");
@@ -79,69 +113,6 @@ void AESDecrypter::ivFromSequence(uint8_t* buffer, uint64_t sid){}
 
 bool AESDecrypter::RenewLicense(const std::string& pluginUrl){return false;}
 
-bool DownloadFile(const std::string& url,
-                  const std::map<std::string, std::string>& reqHeaders,
-                  std::stringstream& data,
-                  adaptive::HTTPRespHeaders& respHeaders)
+DASHTestTree::DASHTestTree(UTILS::PROPERTIES::KodiProperties kodiProps) : DASHTree(kodiProps)
 {
-  FILE* f = fopen(testHelper::testFile.c_str(), "rb");
-  if (!f)
-    return false;
-
-  if (!testHelper::effectiveUrl.empty())
-    respHeaders.m_effectiveUrl = testHelper::effectiveUrl;
-  else
-    respHeaders.m_effectiveUrl = url;
-
-  // read the file
-  static const size_t bufferSize{16 * 1024}; // 16 byte
-  std::vector<char> bufferData(bufferSize);
-  bool isEOF{false};
-
-  while (!isEOF)
-  {
-    // Read the data in chunks
-    size_t byteRead{fread(bufferData.data(), sizeof(char), bufferSize, f)};
-    if (byteRead == 0) // EOF
-    {
-      isEOF = true;
-    }
-    else
-    {
-      data.write(bufferData.data(), byteRead);
-    }
-  }
-
-  fclose(f);
-  return true;
-}
-
-bool DASHTestTree::download(const std::string& url,
-                            const std::map<std::string, std::string>& reqHeaders,
-                            std::stringstream& data,
-                            adaptive::HTTPRespHeaders& respHeaders)
-{
-  if (DownloadFile(url, reqHeaders, data, respHeaders))
-  {
-    // We set the download speed to calculate the initial network bandwidth
-    m_reprChooser->SetDownloadSpeed(500000);
-
-    return true;
-  }
-  return false;
-}
-
-bool HLSTestTree::download(const std::string& url,
-                           const std::map<std::string, std::string>& reqHeaders,
-                           std::stringstream& data,
-                           adaptive::HTTPRespHeaders& respHeaders)
-{
-  if (DownloadFile(url, reqHeaders, data, respHeaders))
-  {
-    // We set the download speed to calculate the initial network bandwidth
-    m_reprChooser->SetDownloadSpeed(500000);
-
-    return true;
-  }
-  return false;
 }

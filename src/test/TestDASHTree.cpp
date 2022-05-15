@@ -9,7 +9,6 @@
 #include "TestHelper.h"
 
 #include "../utils/PropertiesUtils.h"
-#include "../utils/UrlUtils.h"
 
 #include <gtest/gtest.h>
 
@@ -20,12 +19,7 @@ protected:
   void SetUp() override
   {
     UTILS::PROPERTIES::KodiProperties kodiProps;
-
-    m_reprChooser = new CTestRepresentationChooserDefault();
-    m_reprChooser->Initialize(kodiProps.m_chooserProps);
-
-    tree = new DASHTestTree(kodiProps, m_reprChooser);
-
+    tree = new DASHTestTree(kodiProps);
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
@@ -34,8 +28,6 @@ protected:
     testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
-    delete m_reprChooser;
-    m_reprChooser = nullptr;
   }
 
   void OpenTestFile(std::string testfilename, std::string url, std::string manifestHeaders)
@@ -52,7 +44,6 @@ protected:
   }
 
   DASHTestTree* tree;
-  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
 class DASHTreeAdaptiveStreamTest : public DASHTreeTest
@@ -61,11 +52,18 @@ protected:
   void SetUp() override
   {
     DASHTreeTest::SetUp();
+    m_chooser = new DefaultRepresentationChooser();
+    m_chooser->hdcp_override_ = true;
+    m_chooser->assured_buffer_duration_ = 5;
+    m_chooser->max_buffer_duration_ = 5;
+    tree->representation_chooser_ = m_chooser;
+
   }
 
   void TearDown() override
   {
     delete testStream;
+    delete m_chooser;
     DASHTreeTest::TearDown();
   }
 
@@ -78,8 +76,8 @@ protected:
 
   TestAdaptiveStream* NewStream(adaptive::AdaptiveTree::AdaptationSet* adp, bool playTsb=true)
   {
-    auto initialRepr{tree->GetRepChooser()->GetRepresentation(adp)};
-    return new TestAdaptiveStream(*tree, adp, initialRepr, mediaHeaders, playTsb, false);
+    tree->ChooseRepresentation(adp);
+    return new TestAdaptiveStream(*tree, adp, mediaHeaders, m_chooser, playTsb, 0, false);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,
@@ -106,13 +104,14 @@ protected:
     tree->SetLastUpdated(std::chrono::system_clock::now() - std::chrono::seconds(2));
     stream->SetLastUpdated(std::chrono::system_clock::now() - std::chrono::seconds(2));
   }
-
+  DefaultRepresentationChooser* m_chooser;
   TestAdaptiveStream* testStream = nullptr;
   TestAdaptiveStream* newStream = nullptr;
   std::vector<std::string> downloadedUrls;
   std::map<std::string, std::string> mediaHeaders;
   unsigned char buf[16];
 };
+
 
 TEST_F(DASHTreeTest, CalculateBaseURL)
 {
@@ -123,9 +122,9 @@ TEST_F(DASHTreeTest, CalculateBaseURL)
 
 TEST_F(DASHTreeTest, CalculateBaseDomain)
 {
-  std::string url{"https://foo.bar/mpd/test.mpd"};
-  std::string domainUrl{UTILS::URL::GetDomainUrl(url)};
-  EXPECT_EQ(domainUrl, "https://foo.bar");
+  OpenTestFile("mpd/segtpl.mpd", "https://foo.bar/mpd/test.mpd", "");
+
+  EXPECT_EQ(tree->base_domain_, "https://foo.bar");
 }
 
 TEST_F(DASHTreeTest, CalculateBaseUrlFromRedirect)
@@ -207,8 +206,8 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
   EXPECT_EQ(segments.size(), 13);
-  EXPECT_EQ(segments.Get(0)->range_end_, 487050);
-  EXPECT_EQ(segments.Get(12)->range_end_, 487062);
+  EXPECT_EQ(segments[0]->range_end_, 487050);
+  EXPECT_EQ(segments[12]->range_end_, 487062);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
@@ -221,8 +220,8 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
   EXPECT_EQ(segments.size(), 451);
-  EXPECT_EQ(segments.Get(0)->range_end_, 404305525);
-  EXPECT_EQ(segments.Get(450)->range_end_, 404305975);
+  EXPECT_EQ(segments[0]->range_end_, 404305525);
+  EXPECT_EQ(segments[450]->range_end_, 404305975);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
@@ -235,8 +234,8 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
   EXPECT_EQ(segments.size(), 31);
-  EXPECT_EQ(segments.Get(0)->range_end_, 603272);
-  EXPECT_EQ(segments.Get(30)->range_end_, 603302);
+  EXPECT_EQ(segments[0]->range_end_, 603272);
+  EXPECT_EQ(segments[30]->range_end_, 603302);
 }
 
 TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
@@ -453,22 +452,22 @@ TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.timescale, 120000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_.Get(0)->range_end_, 3);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_[0]->range_end_, 3);
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.media, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.timescale, 90000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segments_.Get(0)->range_end_, 5);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segments_[0]->range_end_, 5);
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.timescale, 48000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segments_.Get(0)->range_end_, 1);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segments_[0]->range_end_, 1);
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/abc_aac1init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.media, "https://foo.bar/dash/abc2_$Number%09d$.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.timescale, 68000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segments_.Get(0)->range_end_, 5);
+  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segments_[0]->range_end_, 5);
 }
 
 TEST_F(DASHTreeTest, CalculateRedirectSegTpl)

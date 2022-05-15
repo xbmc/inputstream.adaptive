@@ -8,89 +8,53 @@
 
 #pragma once
 
-#include "../SSD_dll.h"
-#include "../utils/PropertiesUtils.h"
 #include "expat.h"
 
-#include <algorithm>
+#include "../utils/PropertiesUtils.h"
+
 #include <chrono>
 #include <condition_variable>
 #include <inttypes.h>
 #include <map>
-#include <memory>
 #include <mutex>
-#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
 
-#ifdef INPUTSTREAM_TEST_BUILD
-#include "../test/KodiStubs.h"
-#else
 #include <kodi/AddonBase.h>
-#endif
-
- // Forward namespace/class
-namespace CHOOSER
-{
-class IRepresentationChooser;
-}
 
 namespace adaptive
 {
-  
 
 template<typename T>
 struct ATTR_DLL_LOCAL SPINCACHE
 {
-  /*! \brief Get the <T> value pointer from the specified position
-   *  \param pos The position of <T>
-   *  \return <T> value pointer, otherwise nullptr if not found
-   */
-  const T* Get(size_t pos) const
+  SPINCACHE() :basePos(0) {};
+
+  size_t basePos;
+
+  const T *operator[](uint32_t pos) const
   {
     if (!~pos)
-      return nullptr;
+      return 0;
     size_t realPos = basePos + pos;
     if (realPos >= data.size())
     {
       realPos -= data.size();
       if (realPos == basePos)
-        return nullptr;
+        return 0;
     }
     return &data[realPos];
-  }
+  };
 
-  /*! \brief Get the <T> value pointer from the specified position
-   *  \param pos The position of <T>
-   *  \return <T> value pointer, otherwise nullptr if not found
-   */
-  T* Get(size_t pos)
-  {
-    if (!~pos)
-      return nullptr;
-    size_t realPos = basePos + pos;
-    if (realPos >= data.size())
-    {
-      realPos -= data.size();
-      if (realPos == basePos)
-        return nullptr;
-    }
-    return &data[realPos];
-  }
-
-  /*! \brief Get index position of <T> value pointer
-   *  \param elem The <T> pointer to get the position
-   *  \return The index position
-   */
-  const size_t GetPosition(const T* elem) const
+  uint32_t pos(const T* elem) const
   {
     size_t realPos = elem - &data[0];
     if (realPos < basePos)
       realPos += data.size() - basePos;
     else
       realPos -= basePos;
-    return realPos;
+    return static_cast<std::uint32_t>(realPos);
   };
 
   void insert(const T &elem)
@@ -117,26 +81,12 @@ struct ATTR_DLL_LOCAL SPINCACHE
 
   size_t size() const { return data.size(); };
 
-  size_t basePos{0};
   std::vector<T> data;
-};
-
-struct ATTR_DLL_LOCAL HTTPRespHeaders {
-
-  std::string m_effectiveUrl;
-  std::string m_etag; // etag header
-  std::string m_lastModified; // last-modified header
 };
 
 class ATTR_DLL_LOCAL AdaptiveTree
 {
 public:
-  struct Settings
-  {
-    uint32_t m_bufferAssuredDuration{60};
-    uint32_t m_bufferMaxDuration{120};
-  };
-
   enum StreamType
   {
     NOTYPE,
@@ -180,7 +130,7 @@ public:
     void Copy(const Segment* src);
     uint64_t range_begin_ = 0; //Either byterange start or timestamp or ~0
     uint64_t range_end_ = 0; //Either byterange end or sequence_id if range_begin is ~0
-    std::string url;
+    const char *url = nullptr;
     uint64_t startPTS_ = 0;
     uint64_t m_duration = 0; // If available gives the media duration of a segment (depends on type of stream e.g. HLS)
     uint16_t pssh_set_ = 0;
@@ -201,24 +151,32 @@ public:
       containerType_(AdaptiveTree::CONTAINERTYPE_MP4), startNumber_(1), ptsOffset_(0), nextPts_(0), duration_(0), timescale_(0), current_segment_(nullptr)
     {
       initialization_.range_begin_ = initialization_.range_end_ = ~0ULL;
+      initialization_.url = nullptr;
     };
     void CopyBasicData(Representation* src);
-    ~Representation() {};
+    ~Representation() {
+      if (flags_ & Representation::URLSEGMENTS)
+      {
+        for (std::vector<Segment>::iterator bs(segments_.data.begin()), es(segments_.data.end()); bs != es; ++bs)
+          delete[] bs->url;
+        if (flags_ & Representation::INITIALIZATION)
+          delete[]initialization_.url;
+      }
+    };
     std::string url_;
     std::string id;
     std::string codecs_;
     std::string codec_private_data_;
     std::string source_url_;
     std::string base_url_;
-    uint32_t bandwidth_; // as bit/s
+    uint32_t bandwidth_;
     uint32_t samplingRate_;
-    int width_;
-    int height_;
+    uint16_t width_, height_;
     uint32_t fpsRate_, fpsScale_;
     float aspect_;
 
-    uint32_t assured_buffer_duration_{0};
-    uint32_t max_buffer_duration_{0};
+    uint32_t assured_buffer_duration_;
+    uint32_t max_buffer_duration_;
     //Flags
     static const uint16_t BYTERANGE = 0;
     static const uint16_t INDEXRANGEEXACT = 1;
@@ -256,23 +214,24 @@ public:
     std::chrono::time_point<std::chrono::system_clock> repLastUpdated_;
     const Segment *current_segment_;
     const Segment *get_initialization()const { return (flags_ & INITIALIZATION) ? &initialization_ : 0; };
-    const Segment* get_next_segment(const Segment* seg) const
+    const Segment *get_next_segment(const Segment *seg)const
     {
       if (!seg || seg == &initialization_)
-        return segments_.Get(0);
-
-      size_t nextPos{segments_.GetPosition(seg) + 1};
-      if (nextPos == segments_.data.size())
+        return segments_[0];
+      else if (segments_.pos(seg) + 1 == segments_.data.size())
         return nullptr;
-
-      return segments_.Get(nextPos);
+      else
+        return segments_[segments_.pos(seg) + 1];
     };
 
-    const Segment* get_segment(size_t pos) const { return ~pos ? segments_.Get(pos) : nullptr; };
-
-    const size_t get_segment_pos(const Segment* segment) const
+    const Segment *get_segment(uint32_t pos)const
     {
-      return segment ? segments_.data.empty() ? 0 : segments_.GetPosition(segment) : ~(size_t)0;
+      return ~pos ? segments_[pos] : nullptr;
+    };
+
+    const uint32_t get_segment_pos(const Segment *segment)const
+    {
+      return segment ? segments_.data.empty() ? 0 : segments_.pos(segment) : ~0;
     }
 
     const uint16_t get_psshset() const
@@ -280,19 +239,19 @@ public:
       return pssh_set_;
     }
 
-    const size_t getCurrentSegmentPos() const
+    uint32_t getCurrentSegmentPos() const
     {
       return get_segment_pos(current_segment_);
     };
 
-    const size_t getCurrentSegmentNumber() const
+    uint64_t getCurrentSegmentNumber() const
     {
-      return current_segment_ ? get_segment_pos(current_segment_) + startNumber_ : ~(size_t)0;
+      return current_segment_ ? static_cast<uint64_t>(get_segment_pos(current_segment_)) + startNumber_ : ~0ULL;
     };
 
-    const size_t getSegmentNumber(const Segment *segment) const
+    uint64_t getSegmentNumber(const Segment *segment) const
     {
-      return segment ? get_segment_pos(segment) + startNumber_ : ~(size_t)0;
+      return segment ? static_cast<uint64_t>(get_segment_pos(segment)) + startNumber_ : ~0ULL;
     };
 
     void SetScaling()
@@ -320,7 +279,7 @@ public:
 
   struct AdaptationSet
   {
-    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false) { language_ = "unk"; };
+    AdaptationSet() :type_(NOTYPE), timescale_(0), duration_(0), startPTS_(0), best_rep_(0), min_rep_(0), startNumber_(1), impaired_(false), original_(false), default_(false), forced_(false) { language_ = "unk"; };
     ~AdaptationSet() { for (std::vector<Representation* >::const_iterator b(representations_.begin()), e(representations_.end()); b != e; ++b) delete *b; };
     void CopyBasicData(AdaptationSet* src);
     StreamType type_;
@@ -338,15 +297,14 @@ public:
     std::string name_;
     std::vector<std::string> switching_ids_;
     std::vector<Representation*> representations_;
+    Representation* best_rep_;
+    Representation* min_rep_;
     SPINCACHE<uint32_t> segment_durations_;
     SegmentTemplate segtpl_;
 
-    const uint32_t get_segment_duration(size_t pos)
+    const uint32_t get_segment_duration(uint32_t pos)const
     {
-      uint32_t* value = segment_durations_.Get(pos);
-      if (value)
-        return *value;
-      return 0;
+      return *segment_durations_[pos];
     };
 
     static bool compare(const AdaptationSet* a, const AdaptationSet* b)
@@ -477,18 +435,32 @@ public:
     SegmentTemplate segtpl_;
   }*current_period_, *next_period_;
 
+  struct RepresentationChooser
+  {
+    virtual Representation* ChooseRepresentation(AdaptationSet* adp) = 0;
+  virtual Representation* ChooseNextRepresentation(AdaptationSet* adp , 
+                                                Representation* rep,  
+                                                size_t *available_segment_buffers_,
+                                                size_t *valid_segment_buffers_,
+                                                uint32_t *assured_buffer_length_,
+                                                uint32_t * max_buffer_length_, 
+                                                uint32_t rep_counter_) = 0;
+  } *representation_chooser_ = nullptr;
+
   std::vector<Period*> periods_;
   std::string manifest_url_;
   std::string base_url_;
   std::string effective_url_;
+  std::string base_domain_;
   std::string update_parameter_;
-  HTTPRespHeaders m_manifestHeaders;
+  std::string etag_;
+  std::string last_modified_;
 
   /* XML Parsing*/
   XML_Parser parser_;
   uint32_t currentNode_;
-  size_t segcount_;
-  uint32_t initial_sequence_ = ~0U;
+  uint32_t segcount_;
+  uint32_t initial_sequence_ = ~0UL;
   uint64_t overallSeconds_, stream_start_, available_time_, base_time_, live_delay_;
   uint64_t minPresentationOffset;
   bool has_timeshift_buffer_, has_overall_seconds_;
@@ -496,8 +468,7 @@ public:
   std::string supportedKeySystem_, location_;
 
   uint8_t adpChannelCount_, adp_pssh_set_;
-  int adpwidth_;
-  int adpheight_;
+  uint16_t adpwidth_, adpheight_;
   uint32_t adpfpsRate_, adpfpsScale_;
   float adpaspect_;
   ContainerType adpContainerType_;
@@ -509,8 +480,7 @@ public:
 
   std::string strXMLText_;
 
-  AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& properties,
-    CHOOSER::IRepresentationChooser* reprChooser);
+  AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& properties);
   virtual ~AdaptiveTree();
 
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) = 0;
@@ -531,17 +501,7 @@ public:
 
   bool has_type(StreamType t);
   void FreeSegments(Period* period, Representation* rep);
-
-  /*!
-   * \brief Check HDCP parameters to remove unplayable representations
-   */
-  void CheckHDCP();
-
-  /*
-   * \brief Estimate the count of segments on overall period duration
-   */
-  size_t EstimateSegmentsCount(uint64_t duration, uint32_t timescale);
-
+  uint32_t estimate_segcount(uint64_t duration, uint32_t timescale);
   void SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale);
   uint16_t insert_psshset(StreamType type, Period* period = nullptr, AdaptationSet* adp = nullptr);
 
@@ -560,7 +520,22 @@ public:
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 
-  CHOOSER::IRepresentationChooser* GetRepChooser() { return m_reprChooser; }
+  Representation* ChooseRepresentation(AdaptationSet* adp)
+  {
+    return representation_chooser_ ? representation_chooser_->ChooseRepresentation(adp) : nullptr;
+  };
+  Representation* ChooseNextRepresentation(AdaptationSet* adp, 
+                                      Representation* rep,  
+                                      size_t *available_segment_buffers_,
+                                      size_t *valid_segment_buffers_,
+                                      uint32_t *assured_buffer_length_,
+                                      uint32_t * max_buffer_length_, 
+                                      uint32_t rep_counter_)
+  {
+    return representation_chooser_ ? representation_chooser_->ChooseNextRepresentation(adp,rep,available_segment_buffers_,
+                                                                                      valid_segment_buffers_, assured_buffer_length_,
+                                                                                      max_buffer_length_, rep_counter_) : nullptr;
+  };
 
   int SecondsSinceRepUpdate(Representation* rep)
   {
@@ -569,26 +544,12 @@ public:
       .count());
   }
 
-  virtual AdaptiveTree* Clone() const = 0;
-
-  Settings m_settings;
-  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> m_decrypterCaps;
-
 protected:
-  /*!
-   * \brief Download a file (At each call feed also the repr. chooser
-            to calculate the initial bandwidth).
-   * \param url The url of the file to download
-   * \param reqHeaders The headers to use in the HTTP request
-   * \param data [OUT] Return the HTTP response data
-   * \param respHeaders [OUT] Return the HTTP response headers
-   * \return True if has success, otherwise false
-   */
-  virtual bool download(const std::string& url,
-                        const std::map<std::string, std::string>& reqHeaders,
-                        std::stringstream& data,
-                        HTTPRespHeaders& respHeaders);
-
+  virtual bool download(const char* url,
+                        const std::map<std::string, std::string>& manifestHeaders,
+                        void* opaque = nullptr,
+                        bool isManifest = true);
+  virtual bool write_data(void *buffer, size_t buffer_size, void *opaque) = 0;
   bool PreparePaths(const std::string &url);
   void PrepareManifestUrl(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
@@ -604,10 +565,9 @@ protected:
   std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
   std::map<std::string, std::string> m_streamHeaders;
   const UTILS::PROPERTIES::KodiProperties m_kodiProps;
-  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 
 private:
   void SegmentUpdateWorker();
 };
 
-} // namespace adaptive
+}

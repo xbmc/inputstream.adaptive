@@ -14,19 +14,11 @@ add_executable(${BINARY}
     ../parser/PRProtectionParser.cpp
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
-    ../common/Chooser.cpp
-    ../common/ChooserAskQuality.cpp
-    ../common/ChooserDefault.cpp
-    ../common/ChooserFixedRes.cpp
-    ../common/ChooserManualOSD.cpp
-    ../common/ChooserTest.cpp
-    ../common/ReprSelector.cpp
+	../common/RepresentationChooser.cpp
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
     ../utils/PropertiesUtils.cpp
-    ../utils/SettingsUtils.cpp
     ../utils/StringUtils.cpp
-    ../utils/UrlUtils.cpp
     ../utils/Utils.cpp
     )
 
