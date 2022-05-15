@@ -43,8 +43,8 @@ std::string GetVideoCodecDesc(std::string_view codecName);
  */
 constexpr uint32_t MakeFourCC(char c1, char c2, char c3, char c4)
 {
-  return ((static_cast<uint32_t>(c1) << 24) | (static_cast<uint32_t>(c2) << 16) |
-    (static_cast<uint32_t>(c3) << 8) | (static_cast<uint32_t>(c4)));
+  return ((static_cast<uint32_t>(c1)) | (static_cast<uint32_t>(c2) << 8) |
+    (static_cast<uint32_t>(c3) << 16) | (static_cast<uint32_t>(c4) << 24));
 }
 
 } // namespace UTILS
