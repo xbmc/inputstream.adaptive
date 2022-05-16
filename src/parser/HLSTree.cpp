@@ -583,14 +583,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           period->duration_ = newSegments.size() ? pts - newSegments[0]->startPTS_ : 0;
           if (!byteRange)
             rep->flags_ |= Representation::URLSEGMENTS;
-          if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange && newSegments.size() &&
-              newSegments.data[0].range_begin_ > 0)
-          {
-            rep->flags_ |= Representation::INITIALIZATION;
-            rep->initialization_.range_begin_ = 0;
-            rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
-            rep->initialization_.pssh_set_ = 0;
-          }
+
           FreeSegments(period, rep);
           rep->segments_.swap(newSegments);
           rep->startNumber_ = newStartNumber;
@@ -665,40 +658,44 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           parseLine(line, 11, map);
           if (!map["URI"].empty())
           {
-            if (!map["BYTERANGE"].empty())
-              continue;
             // delete init url if persisted from previous period
             if (hasMap)
               delete[] newInitialization.url;
-            segmentInitialization = true;
             std::string uri = map["URI"];
+
             if (uri[0] != '/' && uri.find("://") == std::string::npos)
               map_url = base_url + uri;
             else
               map_url = uri;
+
             newInitialization.url = new char[map_url.size() + 1];
             memcpy((char*)newInitialization.url, map_url.c_str(), map_url.size() + 1);
-            newInitialization.range_begin_ = ~0ULL;
             newInitialization.startPTS_ = ~0ULL;
             newInitialization.pssh_set_ = 0;
             rep->flags_ |= Representation::INITIALIZATION;
             rep->containerType_ = CONTAINERTYPE_MP4;
+            segmentInitialization = true;
             hasMap = true;
+            if (!map["BYTERANGE"].empty())
+            {
+              std::string brStr{map["BYTERANGE"]};
+              size_t sep = brStr.find('@');
+              if (sep != std::string::npos)
+              {
+                newInitialization.range_begin_ = std::stoull(brStr.substr(sep + 1));
+                newInitialization.range_end_ =
+                    newInitialization.range_begin_ + std::stoull(brStr.substr(0, sep)) - 1;
+              }
+            }
+            else
+            {
+              newInitialization.range_begin_ = ~0ULL;
+            }
           }
         }
       }
       if (!byteRange)
         rep->flags_ |= Representation::URLSEGMENTS;
-
-      // Insert Initialization Segment
-      if (rep->containerType_ == CONTAINERTYPE_MP4 && byteRange &&
-          newSegments.data[0].range_begin_ > 0)
-      {
-        rep->flags_ |= Representation::INITIALIZATION;
-        rep->initialization_.range_begin_ = 0;
-        rep->initialization_.range_end_ = newSegments.data[0].range_begin_ - 1;
-        rep->initialization_.pssh_set_ = 0;
-      }
 
       FreeSegments(period, rep);
 
