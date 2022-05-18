@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="19.0.4"
+  version="19.0.5"
   name="InputStream Adaptive"
   provider-name="peak3d">
   <requires>@ADDON_DEPENDS@</requires>
@@ -15,6 +15,11 @@
   <extension point="xbmc.addon.metadata">
     <platform>@PLATFORM@</platform>
     <news>
+v19.0.5 (2022-05-18)
+- Fix estimate segment count
+- Update codecs in decrypter interface
+- [HLS] set byteranged init segments explicity (fixes crashing on certain playlists)
+
 v19.0.4 (2022-04-24)
 - Translations updates from Weblate -be_by, fi_fi, cs_cz
 - [DRM] Keep same session from pre-init
