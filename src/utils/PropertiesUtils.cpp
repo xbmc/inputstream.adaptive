@@ -118,7 +118,7 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     }
     else if (prop.first == PROP_STREAM_SELECTION_TYPE)
     {
-      props.m_drmPreInitData = prop.second;
+      props.m_streamSelectionType = prop.second;
     }
     else if (prop.first == PROP_CHOOSER_BANDWIDTH_MAX)
     {
