@@ -1,3 +1,12 @@
+v20.2.1 (2022-05-19)
+- Fix wrongly encoded urls
+- Fix wrong parsing of license template
+- [Bento4] fix several security vulnerabilities
+- Fix wrong HEVC extradata (was causing crashing)
+- Add missing codecs in decrypter interface
+- Fix Dolby Vision metadata
+- [HLS] allow edge case for byteranged init segments
+
 v20.2.0 (2022-05-01)
 - [dash] handle multiple repid tags in urls
 - improved logging, numerous code cleanups and refactorings
