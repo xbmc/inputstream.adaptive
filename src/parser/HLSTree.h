@@ -9,11 +9,10 @@
 #pragma once
 
 #include "../common/AdaptiveTree.h"
+#include "../Iaes_decrypter.h"
 
 #include <map>
 #include <sstream>
-
-class IAESDecrypter;
 
 namespace adaptive
 {
@@ -30,9 +29,7 @@ public:
     ENCRYPTIONTYPE_UNKNOWN = 4,
   };
   HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-          CHOOSER::IRepresentationChooser* reprChooser,
-          IAESDecrypter* decrypter)
-    : AdaptiveTree(kodiProps, reprChooser), m_decrypter(decrypter){};
+          CHOOSER::IRepresentationChooser* reprChooser);
   HLSTree(const HLSTree& left);
 
   virtual ~HLSTree();
@@ -67,6 +64,7 @@ public:
 protected:
   virtual bool ParseManifest(std::stringstream& stream);
   virtual void RefreshLiveSegments() override;
+  std::unique_ptr<IAESDecrypter> m_decrypter;
 
 private:
   int processEncryption(std::string baseUrl, std::map<std::string, std::string>& map);
@@ -91,7 +89,6 @@ private:
   std::map<std::string, EXTGROUP> m_extGroups;
   bool m_refreshPlayList = true;
   uint8_t m_segmentIntervalSec = 4;
-  IAESDecrypter *m_decrypter;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;
 };

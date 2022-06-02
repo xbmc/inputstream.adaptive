@@ -9,7 +9,7 @@
 #include "../codechandler/TTMLCodecHandler.h"
 #include "../codechandler/WebVTTCodecHandler.h"
 #include "../common/AdaptiveStream.h"
-#include "../main.h" //! @todo: Relying on for STREAM objects, to be removed in a future cleanup
+#include "../Stream.h"
 #include "SampleReader.h"
 
 class ATTR_DLL_LOCAL CSubtitleSampleReader : public ISampleReader
@@ -19,7 +19,7 @@ public:
                        AP4_UI32 streamId,
                        const std::string& codecInternalName);
 
-  CSubtitleSampleReader(Session::STREAM* stream,
+  CSubtitleSampleReader(SESSION::CStream* stream,
                        AP4_UI32 streamId,
                        const std::string& codecInternalName);
 

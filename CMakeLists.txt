@@ -42,7 +42,10 @@ set(ADP_SOURCES
 	src/utils/SettingsUtils.cpp
 	src/utils/UrlUtils.cpp
 	src/utils/Utils.cpp
+	src/KodiHost.cpp
 	src/oscompat.cpp
+	src/Session.cpp
+	src/Stream.cpp
 	src/TSReader.cpp
 	src/aes_decrypter.cpp
 	src/ADTSReader.cpp
@@ -91,6 +94,9 @@ set(ADP_HEADERS
 	src/utils/StringUtils.h
 	src/utils/UrlUtils.h
 	src/utils/Utils.h
+	src/KodiHost.h
+	src/Session.h
+	src/Stream.h
 	src/TSReader.h
 	src/aes_decrypter.h
 	src/ADTSReader.h

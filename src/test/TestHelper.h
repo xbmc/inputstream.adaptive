@@ -112,9 +112,7 @@ class HLSTestTree : public adaptive::HLSTree
 {
 public:
   HLSTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
-              CHOOSER::IRepresentationChooser* reprChooser,
-              IAESDecrypter* decrypter)
-    : HLSTree(kodiProps, reprChooser, decrypter){};
+              CHOOSER::IRepresentationChooser* reprChooser);
 
   virtual HLSTestTree* Clone() const override { return new HLSTestTree{*this}; }
 
