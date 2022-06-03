@@ -8,7 +8,7 @@
 
 #include "HLSTree.h"
 
-#include "../Iaes_decrypter.h"
+#include "../aes_decrypter.h"
 #include "../utils/Base64Utils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/UrlUtils.h"
@@ -84,14 +84,19 @@ static std::string getAudioCodec(const std::string& codecs)
     return "aac";
 }
 
-HLSTree::HLSTree(const HLSTree& left)
-  : AdaptiveTree(left.m_kodiProps, left.m_reprChooser), m_decrypter(left.m_decrypter)
+HLSTree::HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                 CHOOSER::IRepresentationChooser* reprChooser)
+  : AdaptiveTree(kodiProps, reprChooser)
+{
+  m_decrypter = std::make_unique<AESDecrypter>(kodiProps.m_licenseKey);
+};
+
+HLSTree::HLSTree(const HLSTree& left) : AdaptiveTree(left.m_kodiProps, left.m_reprChooser) 
 {
 }
 
 HLSTree::~HLSTree()
 {
-  delete m_decrypter;
 }
 
 int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::string>& map)

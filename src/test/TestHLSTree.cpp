@@ -23,7 +23,7 @@ protected:
     m_reprChooser = new CTestRepresentationChooserDefault();
     m_reprChooser->Initialize(kodiProps.m_chooserProps);
 
-    tree = new HLSTestTree(kodiProps, m_reprChooser, new AESDecrypter(std::string()));
+    tree = new HLSTestTree(kodiProps, m_reprChooser);
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 

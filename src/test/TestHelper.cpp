@@ -131,6 +131,13 @@ bool DASHTestTree::download(const std::string& url,
   return false;
 }
 
+HLSTestTree::HLSTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
+  CHOOSER::IRepresentationChooser* reprChooser)
+  : HLSTree(kodiProps, reprChooser) 
+{
+  m_decrypter = std::make_unique<AESDecrypter>(AESDecrypter(std::string()));
+}
+
 bool HLSTestTree::download(const std::string& url,
                            const std::map<std::string, std::string>& reqHeaders,
                            std::stringstream& data,

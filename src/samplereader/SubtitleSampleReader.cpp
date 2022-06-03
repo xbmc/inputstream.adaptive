@@ -10,6 +10,10 @@
 
 #include "../utils/log.h"
 
+#include <kodi/Filesystem.h>
+
+using namespace SESSION;
+
 CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
                                            AP4_UI32 streamId,
                                            const std::string& codecInternalName)
@@ -42,7 +46,7 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
   m_codecHandler->Transform(0, 0, result, 1000);
 }
 
-CSubtitleSampleReader::CSubtitleSampleReader(Session::STREAM* stream,
+CSubtitleSampleReader::CSubtitleSampleReader(CStream* stream,
                                            AP4_UI32 streamId,
                                            const std::string& codecInternalName)
   : m_streamId{streamId}, m_adByteStream{stream->GetAdByteStream()}, m_adStream{&stream->m_adStream}
