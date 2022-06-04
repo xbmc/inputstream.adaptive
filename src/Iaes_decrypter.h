@@ -20,8 +20,10 @@ public:
   virtual void decrypt(const AP4_UI08* aes_key,
                        const AP4_UI08* aes_iv,
                        const AP4_UI08* src,
-                       AP4_UI08* dst,
-                       size_t dataSize) = 0;
+                       std::string& dst,
+                       size_t dstOffset,
+                       size_t& dataSize,
+                       bool lastChunk) = 0;
   virtual std::string convertIV(const std::string& input) = 0;
   virtual void ivFromSequence(uint8_t* buffer, uint64_t sid) = 0;
   virtual const std::string& getLicenseKey() const = 0;

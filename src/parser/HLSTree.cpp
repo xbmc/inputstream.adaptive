@@ -91,7 +91,7 @@ HLSTree::HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
   m_decrypter = std::make_unique<AESDecrypter>(kodiProps.m_licenseKey);
 };
 
-HLSTree::HLSTree(const HLSTree& left) : AdaptiveTree(left.m_kodiProps, left.m_reprChooser) 
+HLSTree::HLSTree(const HLSTree& left) : AdaptiveTree(left.m_kodiProps, left.m_reprChooser)
 {
 }
 
@@ -797,9 +797,10 @@ void HLSTree::OnDataArrived(uint64_t segNum,
                             uint16_t psshSet,
                             uint8_t iv[16],
                             const uint8_t* src,
-                            uint8_t* dst,
+                            std::string& dst,
                             size_t dstOffset,
-                            size_t dataSize)
+                            size_t dataSize,
+                            bool lastChunk)
 {
   if (psshSet && current_period_->encryptionState_ != ENCRYTIONSTATE_SUPPORTED)
   {
@@ -850,7 +851,7 @@ void HLSTree::OnDataArrived(uint64_t segNum,
     }
     if (pssh.defaultKID_ == "0")
     {
-      memset(dst + dstOffset, 0, dataSize);
+      dst.insert(dstOffset, dataSize, 0);
       return;
     }
     else if (!dstOffset)
@@ -863,13 +864,13 @@ void HLSTree::OnDataArrived(uint64_t segNum,
         memcpy(iv, pssh.iv.data(), pssh.iv.size() < 16 ? pssh.iv.size() : 16);
       }
     }
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, src,
-                         dst + dstOffset, dataSize);
+    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, src, dst,
+                         dstOffset, dataSize, lastChunk);
     if (dataSize >= 16)
       memcpy(iv, src + (dataSize - 16), 16);
   }
   else
-    AdaptiveTree::OnDataArrived(segNum, psshSet, iv, src, dst, dstOffset, dataSize);
+    AdaptiveTree::OnDataArrived(segNum, psshSet, iv, src, dst, dstOffset, dataSize, lastChunk);
 }
 
 //Called each time before we switch to a new segment
