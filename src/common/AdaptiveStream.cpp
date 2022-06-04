@@ -245,7 +245,7 @@ bool AdaptiveStream::download(const std::string& url,
       else
       {
         // Store the data
-        if (write_data(bufferData.data(), byteRead, lockfreeBuffer))
+        if (write_data(bufferData.data(), byteRead, lockfreeBuffer, file.AtEnd()))
         {
           totalReadBytes += byteRead;
         }
@@ -414,7 +414,10 @@ bool AdaptiveStream::parseIndexRange(AdaptiveTree::Representation* rep, const st
   return false;
 }
 
-bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer)
+bool AdaptiveStream::write_data(const void* buffer,
+                                size_t buffer_size,
+                                std::string* lockfreeBuffer,
+                                bool lastChunk)
 {
   if (lockfreeBuffer)
   {
@@ -437,7 +440,7 @@ bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size, std::str
     segment_buffer.resize(insertPos + buffer_size);
     tree_.OnDataArrived(download_segNum_, download_pssh_set_, m_iv,
                         reinterpret_cast<const uint8_t*>(buffer),
-                        reinterpret_cast<uint8_t*>(&segment_buffer[0]), insertPos, buffer_size);
+                        segment_buffer, insertPos, buffer_size, lastChunk);
   }
   thread_data_->signal_rw_.notify_one();
   return true;

@@ -75,7 +75,10 @@ namespace adaptive
                           const std::map<std::string, std::string>& mediaHeaders,
                           std::string* lockfreeBuffer);
     virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer);
-    bool write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer);
+    bool write_data(const void* buffer,
+                    size_t buffer_size,
+                    std::string* lockfreeBuffer,
+                    bool lastChunk);
     virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
     virtual bool download_segment();
