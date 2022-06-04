@@ -1075,6 +1075,19 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   return false;
 }
 
+bool AdaptiveStream::WaitingForData() const
+{
+  {
+    std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
+    if (worker_processing_ && valid_segment_buffers_ == 1 &&
+      segment_buffers_[0].buffer.size() - segment_read_pos_ == 0)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool AdaptiveStream::waitingForSegment(bool checkTime) const
 {
   if (tree_.HasUpdateThread())

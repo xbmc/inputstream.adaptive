@@ -1107,7 +1107,7 @@ ISampleReader* CSession::GetNextSample()
     {
       if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
       {
-        if (stream->m_adStream.waitingForSegment(true))
+        if (stream->m_adStream.WaitingForData() || stream->m_adStream.waitingForSegment(true))
           waiting = stream.get();
         else
           res = stream.get();

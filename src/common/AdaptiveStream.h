@@ -65,6 +65,7 @@ namespace adaptive
     size_t getSegmentPos() { return current_rep_->getCurrentSegmentPos(); };
     uint64_t GetCurrentPTSOffset() { return currentPTSOffset_; };
     uint64_t GetAbsolutePTSOffset() { return absolutePTSOffset_; };
+    bool WaitingForData() const;
     bool waitingForSegment(bool checkTime = false) const;
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
