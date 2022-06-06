@@ -349,7 +349,7 @@ bool KodiAdaptiveStream::download(const char* url,
       // read the file
       char* buf = (char*)malloc(32 * 1024);
       size_t nbReadOverall = 0;
-      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead))
+      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead, file.AtEnd()))
         nbReadOverall += nbRead;
       free(buf);
 
@@ -2232,7 +2232,7 @@ bool Session::Initialize(const std::uint8_t config, uint32_t max_user_bandwidth)
   {
     std::string challengeB64;
     std::string sessionId;
-    // Pre-initialize the DRM allow to generate the challenge and session ID data 
+    // Pre-initialize the DRM allow to generate the challenge and session ID data
     // used to make licensed manifest requests (via proxy callback)
     if (PreInitializeDRM(challengeB64, sessionId, isSessionOpened))
     {

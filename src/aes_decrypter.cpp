@@ -17,11 +17,18 @@
 */
 
 #include "aes_decrypter.h"
-#include "Ap4Protection.h"
+#include "log.h"
+#include "Ap4StreamCipher.h"
 #include <kodi/Filesystem.h>
 #include <vector>
 
-void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, const AP4_UI08 *src, AP4_UI08 *dst, size_t dataSize)
+void AESDecrypter::decrypt(const AP4_UI08* aes_key,
+                           const AP4_UI08* aes_iv,
+                           const AP4_UI08* src,
+                           std::string& dst,
+                           size_t dstOffset,
+                           size_t& dataSize,
+                           bool lastChunk)
 {
   AP4_BlockCipher* cbc_d_block_cipher;
   AP4_DefaultBlockCipherFactory::Instance.CreateCipher(
@@ -33,9 +40,16 @@ void AESDecrypter::decrypt(const AP4_UI08 *aes_key, const AP4_UI08 *aes_iv, cons
     16,
     cbc_d_block_cipher);
 
-  cbc_d_block_cipher->Process(src, dataSize, dst, aes_iv);
-
-  delete cbc_d_block_cipher;
+    AP4_CbcStreamCipher cbcStreamCipher{cbc_d_block_cipher};
+    cbcStreamCipher.SetIV(aes_iv);
+    AP4_Result result{
+        cbcStreamCipher.ProcessBuffer(src, dataSize, reinterpret_cast<AP4_UI08*>(&dst[0] + dstOffset),
+                                      reinterpret_cast<AP4_Size*>(&dataSize), lastChunk)};
+    if (!AP4_SUCCEEDED(result))
+    {
+      Log(LOGLEVEL_ERROR, "AES decryption failed: %d", result);
+    }
+    dst.resize(dstOffset + dataSize);
 }
 
 std::string AESDecrypter::convertIV(const std::string &input)

@@ -471,9 +471,10 @@ public:
                              uint16_t psshSet,
                              uint8_t iv[16],
                              const uint8_t* src,
-                             uint8_t* dst,
+                             std::string& dst,
                              size_t dstOffset,
-                             size_t dataSize);
+                             size_t dataSize,
+                             bool lastChunk);
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
                                Representation* rep,
