@@ -7,6 +7,9 @@
  */
 
 #include "cdm_adapter.h"
+
+#include "../../../Helper.h"
+
 #include <chrono>
 #include <thread>
 
@@ -181,8 +184,8 @@ void CdmAdapter::Initialize()
 
   if (!library_)
   {
-    client_->Log(CDMERROR, "%s: Failed to load library: %s", __FUNCTION__,
-                 error.ToString().c_str());
+    LOG::Log(SSD::SSDERROR, "%s: Failed to load library: %s", __FUNCTION__,
+             error.ToString().c_str());
     return;
   }
 
@@ -199,7 +202,7 @@ void CdmAdapter::Initialize()
   }
 
   std::string version{get_cdm_verion_func()};
-  client_->Log(CDMDEBUG, "CDM version: %s", version.c_str());
+  LOG::Log(SSD::SSDDEBUG, "CDM version: %s", version.c_str());
 
 #if defined(OS_WIN)
   // Load DXVA before sandbox lockdown to give CDM access to Output Protection
@@ -535,7 +538,7 @@ void CdmAdapter::OnSessionKeysChange(const char* session_id,
     char* bufferPtr{buffer};
     for (uint32_t j{0}; j < keys_info[i].key_id_size; ++j)
       bufferPtr += sprintf(bufferPtr, "%02X", (int)keys_info[i].key_id[j]);
-    client_->Log(CDMDEBUG, "%s: Sessionkey %s status: %d syscode: %u", __func__, buffer,
+    LOG::Log(SSD::SSDDEBUG, "%s: Sessionkey %s status: %d syscode: %u", __func__, buffer,
                  keys_info[i].status, keys_info[i].system_code);
 
     SendClientMessage(session_id, session_id_size, CdmAdapterClient::kSessionKeysChange,
@@ -611,7 +614,7 @@ void CdmAdapter::RequestStorageId(uint32_t version)
 
 void CdmAdapter::OnInitialized(bool success)
 {
-  client_->Log(CDMDEBUG, "CDM is initialized: %s", success ? "true" : "false");
+  LOG::Log(SSD::SSDDEBUG, "CDM is initialized: %s", success ? "true" : "false");
 }
 
 

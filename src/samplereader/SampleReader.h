@@ -9,6 +9,7 @@
 #pragma once
 
 #include "../AdaptiveByteStream.h"
+#include "../common/AdaptiveDecrypter.h"
 
 #include <bento4/Ap4.h>
 
@@ -18,15 +19,6 @@
 #include <kodi/AddonBase.h>
 #include <kodi/addon-instance/Inputstream.h>
 #endif
-
-// These values must match their respective constant values
-// defined in the Android MediaCodec class 
-enum class CryptoMode : uint16_t
-{
-  NONE = 0,
-  AES_CTR = 1,
-  AES_CBC = 2
-};
 
 struct ReaderCryptoInfo
 {

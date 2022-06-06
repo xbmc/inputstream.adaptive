@@ -460,10 +460,11 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
       pData += 16;
       iSize -= (pData - sr->GetSampleData());
       ReaderCryptoInfo cryptoInfo = sr->GetReaderCryptoInfo();
-      p->cryptoInfo->flags = 0;
+      p->cryptoInfo->numSubSamples = numSubSamples;
       p->cryptoInfo->cryptBlocks = cryptoInfo.m_cryptBlocks;
       p->cryptoInfo->skipBlocks = cryptoInfo.m_skipBlocks;
       p->cryptoInfo->mode = static_cast<uint16_t>(cryptoInfo.m_mode);
+      p->cryptoInfo->flags = 0;
     }
     else
       p = AllocateDemuxPacket(iSize);
@@ -629,7 +630,8 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
     case VIDEOCODEC_VP9:
       m_name += ".vp9";
       break;
-    default:;
+    default:
+      break;
   }
   m_name += ".decoder";
 
@@ -650,28 +652,31 @@ bool CVideoCodecAdaptive::AddData(const DEMUX_PACKET& packet)
   if (!m_session || !m_session->GetDecrypter())
     return false;
 
-  SSD::SSD_SAMPLE sample;
+  SSD::SSD_SAMPLE sample{};
   sample.data = packet.pData;
   sample.dataSize = packet.iSize;
-  sample.flags = 0;
-  sample.pts = (int64_t)packet.pts;
-  if (packet.cryptoInfo)
+  sample.pts = static_cast<int64_t>(packet.pts);
+  if (packet.cryptoInfo) // Is an encrypted demux packet
   {
-    sample.numSubSamples = packet.cryptoInfo->numSubSamples;
-    sample.clearBytes = packet.cryptoInfo->clearBytes;
-    sample.cipherBytes = packet.cryptoInfo->cipherBytes;
-    sample.iv = packet.cryptoInfo->iv;
-    sample.kid = packet.cryptoInfo->kid;
+    sample.cryptoInfo.numSubSamples = packet.cryptoInfo->numSubSamples;
+    sample.cryptoInfo.mode = packet.cryptoInfo->mode;
+    sample.cryptoInfo.cryptBlocks = packet.cryptoInfo->cryptBlocks;
+    sample.cryptoInfo.skipBlocks = packet.cryptoInfo->skipBlocks;
+    sample.cryptoInfo.clearBytes = packet.cryptoInfo->clearBytes;
+    sample.cryptoInfo.cipherBytes = packet.cryptoInfo->cipherBytes;
+    sample.cryptoInfo.iv = packet.cryptoInfo->iv;
+    sample.cryptoInfo.ivSize = 16;
+    sample.cryptoInfo.kid = packet.cryptoInfo->kid;
+    sample.cryptoInfo.kidSize = 16;
+    sample.cryptoInfo.flags = packet.cryptoInfo->flags;
   }
   else
   {
-    sample.numSubSamples = 0;
-    sample.iv = sample.kid = nullptr;
+    sample.cryptoInfo.mode = static_cast<uint16_t>(CryptoMode::NONE);
   }
 
-  return m_session->GetDecrypter()->DecodeVideo(
-             dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &sample, nullptr) !=
-         SSD::VC_ERROR;
+  return m_session->GetDecrypter()->DecryptAndDecodeVideo(
+             dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &sample) != SSD::VC_ERROR;
 }
 
 VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE& picture)
@@ -683,8 +688,8 @@ VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE& picture)
                                      VIDEOCODEC_RETVAL::VC_BUFFER, VIDEOCODEC_RETVAL::VC_PICTURE,
                                      VIDEOCODEC_RETVAL::VC_EOF};
 
-  return vrvm[m_session->GetDecrypter()->DecodeVideo(
-      dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), nullptr,
+  return vrvm[m_session->GetDecrypter()->VideoFrameDataToPicture(
+      dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this),
       reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
 }
 

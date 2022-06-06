@@ -419,7 +419,7 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
         else
           m_readerCryptoInfo.m_mode = CryptoMode::AES_CBC;
         
-        m_singleSampleDecryptor->SetEncryptionScheme(m_readerCryptoInfo.m_mode);
+        m_singleSampleDecryptor->SetEncryptionMode(m_readerCryptoInfo.m_mode);
         m_singleSampleDecryptor->SetCrypto(m_readerCryptoInfo.m_cryptBlocks,
                                            m_readerCryptoInfo.m_skipBlocks);
       }

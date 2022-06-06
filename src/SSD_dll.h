@@ -42,7 +42,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 18;
+    static const uint32_t version = 19;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -154,14 +154,40 @@ namespace SSD
 
     int64_t pts;
 
-    uint16_t numSubSamples; //number of subsamples
-    uint16_t flags; //flags for later use
+    struct CRYPTO_INFO
+    {
+      /// @brief Number of subsamples.
+      uint16_t numSubSamples;
 
-    uint16_t *clearBytes; // numSubSamples uint16_t's wich define the size of clear size of a subsample
-    uint32_t *cipherBytes; // numSubSamples uint32_t's wich define the size of cipher size of a subsample
+      /// @brief Flags for later use.
+      uint16_t flags;
 
-    uint8_t *iv;  // initialization vector
-    uint8_t *kid; // key id
+      /// @brief @ref numSubSamples uint16_t's which define the size of clear size
+      /// of a subsample.
+      uint16_t* clearBytes;
+
+      /// @brief @ref numSubSamples uint32_t's which define the size of cipher size
+      /// of a subsample.
+      uint32_t* cipherBytes;
+
+      /// @brief Initialization vector
+      uint8_t* iv;
+      uint32_t ivSize;
+
+      /// @brief Key id
+      uint8_t* kid;
+      uint32_t kidSize;
+
+      /// @brief Encryption mode
+      uint16_t mode;
+
+      /// @brief Crypt blocks - number of blocks to encrypt in sample encryption pattern
+      uint8_t cryptBlocks;
+
+      /// @brief Skip blocks - number of blocks to skip in sample encryption pattern
+      uint8_t skipBlocks;
+
+    } cryptoInfo;
   } SSD_SAMPLE;
 
   enum SSD_DECODE_RETVAL
@@ -223,7 +249,8 @@ namespace SSD
 
     virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
                                   const SSD_VIDEOINITDATA* initData) = 0;
-    virtual SSD_DECODE_RETVAL DecodeVideo(void* instance, SSD_SAMPLE *sample, SSD_PICTURE *picture) = 0;
+    virtual SSD_DECODE_RETVAL DecryptAndDecodeVideo(void* hostInstance, SSD_SAMPLE* sample) = 0;
+    virtual SSD_DECODE_RETVAL VideoFrameDataToPicture(void* hostInstance, SSD_PICTURE* picture) = 0;
     virtual void ResetVideo() = 0;
   };
 }; // namespace
