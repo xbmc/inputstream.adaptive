@@ -17,9 +17,7 @@
 
 #include <utility>
 
-// To keep in sync with other interfaces:
-// SSDLogLevel on SSD_dll.h
-// CDMLogLevel on cdm_adapter.h
+// To keep in sync with SSDLogLevel on SSD_dll.h
 enum LogLevel
 {
   LOGDEBUG,

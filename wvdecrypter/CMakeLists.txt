@@ -32,6 +32,7 @@ set(BENTOUSESTCFS 1)
 if(CORE_SYSTEM_NAME STREQUAL android)
   subdirs ( jni )
   add_library ( ssd_wv SHARED
+	Helper.cpp
 	wvdecrypter_android.cpp
 	jsmn.c
     ../src/utils/Utils.cpp
@@ -52,6 +53,7 @@ else()
   endif()
 
   add_library ( ssd_wv SHARED
+        Helper.cpp
         wvdecrypter.cpp
         jsmn.c
         ../src/utils/Utils.cpp
@@ -61,6 +63,7 @@ else()
         cdm/base/native_library.cc
         cdm/base/native_library_${CDMTYPE}
         cdm/media/cdm/cdm_adapter.cc
+        cdm/media/cdm/cdm_type_conversion.cc
   )
 endif()
 

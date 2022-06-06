@@ -6,11 +6,21 @@
  *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include <bento4/Ap4.h>
-#include "../samplereader/SampleReader.h"
 
 #include <stdexcept>
 #include <string_view>
+
+// These values must match their respective constant values
+// defined in the Android MediaCodec class
+enum class CryptoMode
+{
+  NONE = 0,
+  AES_CTR = 1,
+  AES_CBC = 2
+};
 
 class Adaptive_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 {
@@ -22,7 +32,7 @@ public:
     m_CryptBlocks = static_cast<uint32_t>(cryptBlocks);
     m_SkipBlocks = static_cast<uint32_t>(skipBlocks);
   };
-  virtual void SetEncryptionScheme(CryptoMode encryptionScheme){};
+  virtual void SetEncryptionMode(CryptoMode encryptionMode){};
 
   /*! \brief Add a Key ID to the current session
    *  \param keyId The KID
