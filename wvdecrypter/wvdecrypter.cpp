@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <list>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -260,6 +261,8 @@ private:
   std::list<media::CdmVideoFrame> videoFrames_;
   std::mutex renewal_lock_;
   cdm::EncryptionScheme m_EncryptionScheme;
+
+  std::optional<cdm::VideoDecoderConfig_3> m_currentVideoDecConfig;
 };
 
 
@@ -1381,6 +1384,19 @@ bool WV_CencSingleSampleDecrypter::OpenVideoDecoder(const SSD_VIDEOINITDATA *ini
 
   vconfig.color_space = { 2, 2, 2, cdm::ColorRange::kInvalid }; // Unspecified
   vconfig.encryption_scheme = m_EncryptionScheme;
+
+  // InputStream interface call OpenVideoDecoder also during playback when stream quality
+  // change, so we reinitialize the decoder only when the codec change
+  if (m_currentVideoDecConfig.has_value())
+  {
+    cdm::VideoDecoderConfig_3& currVidConfig = *m_currentVideoDecConfig;
+    if (currVidConfig.codec == vconfig.codec && currVidConfig.profile == vconfig.profile)
+      return true;
+
+    drm_.GetCdmAdapter()->DeinitializeDecoder(cdm::StreamType::kStreamTypeVideo);
+  }
+
+  m_currentVideoDecConfig = vconfig;
 
   cdm::Status ret = drm_.GetCdmAdapter()->InitializeVideoDecoder(vconfig);
   videoFrames_.clear();
