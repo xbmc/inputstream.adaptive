@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "../AdaptiveByteStream.h"
 #include "../common/AdaptiveDecrypter.h"
 
 #include <bento4/Ap4.h>

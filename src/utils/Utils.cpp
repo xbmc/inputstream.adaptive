@@ -320,12 +320,25 @@ void UTILS::ParseHeaderString(std::map<std::string, std::string>& headerMap,
 
 std::string UTILS::GetVideoCodecDesc(std::string_view codecName)
 {
-  if (codecName.find("avc") == 0 || codecName.find("h264") == 0)
+  if (codecName.find("avc") != std::string::npos || codecName.find("h264") != std::string::npos)
+  {
     return "H.264";
-  else if (codecName.find("hev") == 0 || codecName.find("hvc") == 0 || codecName.find("dvh") == 0)
+  }
+  else if (codecName.find("hev") != std::string::npos ||
+           codecName.find("hvc") != std::string::npos || codecName.find("dvh") != std::string::npos)
+  {
     return "H.265 / HEVC";
-  else if (codecName.find("vp9") == 0 || codecName.find("vp09") == 0)
+  }
+  else if (codecName.find("vp9") != std::string::npos ||
+           codecName.find("vp09") != std::string::npos)
+  {
     return "H.265 / VP9";
+  }
+  else if (codecName.find("av1") != std::string::npos ||
+           codecName.find("av01") != std::string::npos)
+  {
+    return "AV1";
+  }
   else
     return "";
 }

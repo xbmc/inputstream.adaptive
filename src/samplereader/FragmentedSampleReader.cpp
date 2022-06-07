@@ -8,6 +8,14 @@
 
 #include "FragmentedSampleReader.h"
 
+#include "../AdaptiveByteStream.h"
+#include "../codechandler/AV1CodecHandler.h"
+#include "../codechandler/AVCCodecHandler.h"
+#include "../codechandler/HEVCCodecHandler.h"
+#include "../codechandler/MPEGCodecHandler.h"
+#include "../codechandler/TTMLCodecHandler.h"
+#include "../codechandler/VP9CodecHandler.h"
+#include "../codechandler/WebVTTCodecHandler.h"
 #include "../utils/log.h"
 
 namespace
@@ -473,6 +481,9 @@ void CFragmentedSampleReader::UpdateSampleDescription()
       break;
     case AP4_SAMPLE_FORMAT_VP9:
       m_codecHandler = new VP9CodecHandler(desc);
+      break;
+    case AP4_SAMPLE_FORMAT_AV01:
+      m_codecHandler = new AV1CodecHandler(desc);
       break;
     default:
       m_codecHandler = new CodecHandler(desc);

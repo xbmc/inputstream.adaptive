@@ -622,8 +622,8 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   if (!m_session || !m_session->GetDecrypter())
     return false;
 
-  if (initData.GetCodecType() == VIDEOCODEC_H264 && !initData.GetExtraDataSize() &&
-      !(m_state & STATE_WAIT_EXTRADATA))
+  if ((initData.GetCodecType() == VIDEOCODEC_H264 || initData.GetCodecType() == VIDEOCODEC_AV1) &&
+      !initData.GetExtraDataSize() && !(m_state & STATE_WAIT_EXTRADATA))
   {
     LOG::Log(LOGINFO, "VideoCodec::Open: Wait ExtraData");
     m_state |= STATE_WAIT_EXTRADATA;
@@ -644,6 +644,9 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
       break;
     case VIDEOCODEC_VP9:
       m_name += ".vp9";
+      break;
+    case VIDEOCODEC_AV1:
+      m_name += ".av1";
       break;
     default:
       break;

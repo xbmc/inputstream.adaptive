@@ -70,6 +70,10 @@ static std::string getVideoCodec(const std::string& codecs)
     return "dvh1";
   else if (codecs.find("dvhe.") != std::string::npos)
     return "dvhe";
+  else if (codecs.find("av01") != std::string::npos)
+    return "av01";
+  else if (codecs.find("av1") != std::string::npos)
+    return "av1";
   else
     return "";
 }
