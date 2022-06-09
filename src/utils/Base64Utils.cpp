@@ -8,6 +8,11 @@
 
 #include "Base64Utils.h"
 
+#ifndef INPUTSTREAM_SSD_BUILD
+//! @todo: not accessible between two differents projects builds
+#include "log.h"
+#endif
+
 using namespace UTILS::BASE64;
 
 namespace
@@ -16,9 +21,30 @@ constexpr char PADDING{'='};
 constexpr std::string_view CHARACTERS{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                       "abcdefghijklmnopqrstuvwxyz"
                                       "0123456789+/"};
+// clang-format off
+constexpr unsigned char BASE64_TABLE[] = {
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255, 62, 255,255,255, 63,
+     52, 53, 54, 55,  56, 57, 58, 59,  60, 61,255,255, 255,  0,255,255, /* Note PAD->0 */
+    255,  0,  1,  2,   3,  4,  5,  6,   7,  8,  9, 10,  11, 12, 13, 14,
+     15, 16, 17, 18,  19, 20, 21, 22,  23, 24, 25,255, 255,255,255,255,
+    255, 26, 27, 28,  29, 30, 31, 32,  33, 34, 35, 36,  37, 38, 39, 40,
+     41, 42, 43, 44,  45, 46, 47, 48,  49, 50, 51,255, 255,255,255,255,
+
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+    255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
+};
+// clang-format on
 } // namespace
 
-void UTILS::BASE64::Encode(const char* input, size_t length, std::string& output)
+void UTILS::BASE64::Encode(const char* input, const size_t length, std::string& output)
 {
   if (input == nullptr || length == 0)
     return;
@@ -51,14 +77,14 @@ void UTILS::BASE64::Encode(const char* input, size_t length, std::string& output
   }
 }
 
-std::string UTILS::BASE64::Encode(const unsigned char* input, size_t length)
+std::string UTILS::BASE64::Encode(const unsigned char* input, const size_t length)
 {
   std::string output;
   Encode(reinterpret_cast<const char*>(input), length, output);
   return output;
 }
 
-std::string UTILS::BASE64::Encode(const char* input, size_t length)
+std::string UTILS::BASE64::Encode(const char* input, const size_t length)
 {
   std::string output;
   Encode(input, length, output);
@@ -74,71 +100,115 @@ std::string UTILS::BASE64::Encode(const std::string& input)
 {
   std::string output;
   Encode(input, output);
-
   return output;
 }
 
-void UTILS::BASE64::Decode(const char* input, size_t length, std::string& output)
+void UTILS::BASE64::Decode(const char* input, const size_t length, std::string& output)
 {
-  if (input == nullptr || length == 0)
+  if (!input)
     return;
 
-  long l;
   output.clear();
+  output.reserve(length - ((length + 2) / 4));
 
-  for (unsigned int index = 0; index < length; index++)
+  bool paddingStarted{false};
+  int quadPos{0};
+  unsigned char leftChar{0};
+  int pads{0};
+
+  for (size_t i{0}; i < length; i++)
   {
-    if (input[index] == '=')
+    // Check for pad sequences and ignore the invalid ones.
+    if (input[i] == PADDING)
     {
-      length = index;
-      break;
+      paddingStarted = true;
+
+      if (quadPos >= 2 && quadPos + ++pads >= 4)
+      {
+        // A pad sequence means we should not parse more input.
+        // We've already interpreted the data from the quad at this point.
+        return;
+      }
+      continue;
+    }
+
+    unsigned char thisChar{BASE64_TABLE[static_cast<unsigned char>(input[i])]};
+    // Skip not allowed characters
+    if (thisChar >= 64)
+      continue;
+
+    // Characters that are not '=', in the middle of the padding, are not allowed
+    if (paddingStarted)
+    {
+#ifndef INPUTSTREAM_SSD_BUILD
+      LOG::LogF(LOGERROR, "Invalid base64-encoded string: Incorrect padding characters");
+#endif
+      output.clear();
+      return;
+    }
+    pads = 0;
+
+    switch (quadPos)
+    {
+      case 0:
+        quadPos = 1;
+        leftChar = thisChar;
+        break;
+      case 1:
+        quadPos = 2;
+        output.push_back((leftChar << 2) | (thisChar >> 4));
+        leftChar = thisChar & 0x0f;
+        break;
+      case 2:
+        quadPos = 3;
+        output.push_back((leftChar << 4) | (thisChar >> 2));
+        leftChar = thisChar & 0x03;
+        break;
+      case 3:
+        quadPos = 0;
+        output.push_back((leftChar << 6) | (thisChar));
+        leftChar = 0;
+        break;
     }
   }
 
-  output.reserve(length - ((length + 2) / 4));
-
-  for (size_t i{0}; i < length; i += 4)
+  if (quadPos != 0)
   {
-    l = (((static_cast<unsigned long>(CHARACTERS.find(input[i]))) & 0x3F) << 18);
-    l |= (((i + 1) < length)
-              ? (((static_cast<unsigned long>(CHARACTERS.find(input[i + 1]))) & 0x3F) << 12)
-              : 0);
-    l |= (((i + 2) < length)
-              ? (((static_cast<unsigned long>(CHARACTERS.find(input[i + 2]))) & 0x3F) << 6)
-              : 0);
-    l |= (((i + 3) < length)
-              ? (((static_cast<unsigned long>(CHARACTERS.find(input[i + 3]))) & 0x3F) << 0)
-              : 0);
-
-    output.push_back(static_cast<char>(((l >> 16) & 0xFF)));
-    if (i + 2 < length)
-      output.push_back(static_cast<char>(((l >> 8) & 0xFF)));
-    if (i + 3 < length)
-      output.push_back(static_cast<char>(((l >> 0) & 0xFF)));
+    if (quadPos == 1)
+    {
+      // There is exactly one extra valid, non-padding, base64 character.
+      // This is an invalid length, as there is no possible input that
+      // could encoded into such a base64 string.
+#ifndef INPUTSTREAM_SSD_BUILD
+      LOG::LogF(LOGERROR, "Invalid base64-encoded string: number of data characters cannot be 1 "
+                          "more than a multiple of 4");
+#endif
+    }
+    else
+    {
+#ifndef INPUTSTREAM_SSD_BUILD
+      LOG::LogF(LOGERROR, "Invalid base64-encoded string: Incorrect padding");
+#endif
+    }
+    output.clear();
   }
 }
 
-std::string UTILS::BASE64::Decode(const char* input, size_t length)
+std::string UTILS::BASE64::Decode(const char* input, const size_t length)
 {
   std::string output;
   Decode(input, length, output);
-
   return output;
 }
 
 void UTILS::BASE64::Decode(std::string_view input, std::string& output)
 {
-  size_t length = input.find_first_of(PADDING);
-  if (length == std::string::npos)
-    length = input.size();
-
-  Decode(input.data(), length, output);
+  Decode(input.data(), input.size(), output);
 }
 
 std::string UTILS::BASE64::Decode(std::string_view input)
 {
   std::string output;
-  Decode(input, output);
-
+  Decode(input.data(), input.size(), output);
   return output;
 }

@@ -16,13 +16,13 @@ namespace UTILS
 namespace BASE64
 {
 
-void Encode(const char* input, size_t length, std::string& output);
-std::string Encode(const unsigned char* input, size_t length);
-std::string Encode(const char* input, size_t length);
+void Encode(const char* input, const size_t length, std::string& output);
+std::string Encode(const unsigned char* input, const size_t length);
+std::string Encode(const char* input, const size_t length);
 void Encode(const std::string& input, std::string& output);
 std::string Encode(const std::string& input);
-void Decode(const char* input, size_t length, std::string& output);
-std::string Decode(const char* input, size_t length);
+void Decode(const char* input, const size_t length, std::string& output);
+std::string Decode(const char* input, const size_t length);
 void Decode(std::string_view input, std::string& output);
 std::string Decode(std::string_view input);
 

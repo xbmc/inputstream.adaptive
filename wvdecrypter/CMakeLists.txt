@@ -28,6 +28,7 @@ else()
 endif()
 
 set(BENTOUSESTCFS 1)
+add_definitions(-DINPUTSTREAM_SSD_BUILD)
 
 if(CORE_SYSTEM_NAME STREQUAL android)
   subdirs ( jni )
