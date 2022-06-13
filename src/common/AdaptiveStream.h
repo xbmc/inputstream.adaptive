@@ -87,7 +87,7 @@ namespace adaptive
   protected:
     virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
     virtual bool parseIndexRange() { return false; };
-    bool write_data(const void *buffer, size_t buffer_size);
+    bool write_data(const void *buffer, size_t buffer_size, bool lastChunk);
     bool prepareDownload(const AdaptiveTree::Segment *seg);
     adaptive::AdaptiveTree& GetTree() { return tree_; };
     virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};

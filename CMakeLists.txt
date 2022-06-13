@@ -57,6 +57,7 @@ endif()
 include_directories(${INCLUDES}
                     ${KODI_INCLUDE_DIR}/.. # Hack way with "/..", need bigger Kodi cmake rework to match right include ways (becomes done in future)
                     lib/libbento4/Core
+                    lib/libbento4/Crypto
                     lib/webm_parser/include
 )
 

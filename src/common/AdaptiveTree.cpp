@@ -171,14 +171,15 @@ namespace adaptive
   }
 
   void AdaptiveTree::OnDataArrived(uint64_t segNum,
-                                   uint16_t psshSet,
-                                   uint8_t iv[16],
-                                   const uint8_t* src,
-                                   uint8_t* dst,
-                                   size_t dstOffset,
-                                   size_t dataSize)
+                                    uint16_t psshSet,
+                                    uint8_t iv[16],
+                                    const uint8_t* src,
+                                    std::string& dst,
+                                    size_t dstOffset,
+                                    size_t dataSize,
+                                    bool lastChunk)
   {
-    memcpy(dst + dstOffset, src, dataSize);
+    memcpy(&dst[0] + dstOffset, src, dataSize);
   }
 
   uint16_t AdaptiveTree::insert_psshset(StreamType type,

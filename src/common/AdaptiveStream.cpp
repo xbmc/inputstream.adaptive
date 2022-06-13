@@ -116,7 +116,7 @@ int AdaptiveStream::SecondsSinceUpdate() const
           .count());
 }
 
-bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size)
+bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size, bool lastChunk)
 {
   {
     std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
@@ -128,7 +128,7 @@ bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size)
     segment_buffer_.resize(insertPos + buffer_size);
     tree_.OnDataArrived(download_segNum_, download_pssh_set_, m_iv,
                         reinterpret_cast<const uint8_t*>(buffer),
-                        reinterpret_cast<uint8_t*>(&segment_buffer_[0]), insertPos, buffer_size);
+                        segment_buffer_, insertPos, buffer_size, lastChunk);
   }
   thread_data_->signal_rw_.notify_one();
   return true;

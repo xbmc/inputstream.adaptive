@@ -63,7 +63,7 @@ bool TestAdaptiveStream::download(const char* url,
 
   char buf[16];
   size_t nbReadOverall = 0;
-  while ((nbRead = ss.readsome(buf, 16)) > 0 && ~nbRead && write_data(buf, nbRead))
+  while ((nbRead = ss.readsome(buf, 16)) > 0 && ~nbRead && write_data(buf, nbRead, false))
     nbReadOverall += nbRead;
 
   if (!nbReadOverall)
@@ -77,8 +77,10 @@ bool TestAdaptiveStream::download(const char* url,
 void AESDecrypter::decrypt(const AP4_UI08* aes_key,
                            const AP4_UI08* aes_iv,
                            const AP4_UI08* src,
-                           AP4_UI08* dst,
-                           size_t dataSize){}
+                           std::string& dst,
+                           size_t dstOffset,
+                           size_t& dataSize,
+                           bool lastChunk){}
 
 std::string AESDecrypter::convertIV(const std::string& input)
 {
