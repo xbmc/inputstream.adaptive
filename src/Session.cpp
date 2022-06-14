@@ -13,7 +13,6 @@
 #include "parser/HLSTree.h"
 #include "parser/SmoothTree.h"
 #include "samplereader/ADTSSampleReader.h"
-#include "samplereader/DummySampleReader.h"
 #include "samplereader/FragmentedSampleReader.h"
 #include "samplereader/SubtitleSampleReader.h"
 #include "samplereader/TSSampleReader.h"
@@ -42,10 +41,8 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
   : m_kodiProps(kodiProps),
     m_manifestUrl(manifestUrl),
     m_mediaHeaders(mediaHeaders),
-    m_dummySampleReader(std::make_unique<CDummySampleReader>()),
     m_KodiHost(std::make_unique<CKodiHost>()),
     m_reprChooser(CHOOSER::CreateRepresentationChooser(kodiProps))
-
 {
   m_KodiHost->SetProfilePath(profilePath);
 
@@ -1090,7 +1087,7 @@ void CSession::SetVideoResolution(int width, int height)
   m_reprChooser->SetScreenResolution(width, height);
 };
 
-ISampleReader* CSession::GetNextSample()
+bool CSession::GetNextSample(ISampleReader*& sampleReader)
 {
   CStream* res{nullptr};
   CStream* waiting{nullptr};
@@ -1102,15 +1099,30 @@ ISampleReader* CSession::GetNextSample()
     if (!streamReader)
       continue;
 
-    if (stream->m_isEnabled && !streamReader->EOS() &&
-        AP4_SUCCEEDED(streamReader->Start(isStarted)))
+    if (stream->m_isEnabled)
     {
-      if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
+      // Advice is that VP does not want to wait longer than 10ms for a return from
+      // DemuxRead() - here we ask to not wait at all and if ReadSample has not yet
+      // finished we return the dummy reader instead
+      if (streamReader->IsReadSampleAsyncWorking())
       {
-        if (stream->m_adStream.waitingForSegment(true))
-          waiting = stream.get();
-        else
-          res = stream.get();
+        waiting = stream.get();
+        break;
+      }
+      else if (!streamReader->EOS() &&
+        AP4_SUCCEEDED(streamReader->Start(isStarted)))
+      {
+        if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
+        {
+          if (stream->m_adStream.waitingForSegment(true))
+          {
+            waiting = stream.get();
+          }
+          else
+          {
+            res = stream.get();
+          }
+        }
       }
     }
 
@@ -1118,21 +1130,24 @@ ISampleReader* CSession::GetNextSample()
       m_changed = true;
   }
 
-  if (res)
+  if (waiting)
+  {
+    return true;
+  }
+  else if (res)
   {
     CheckFragmentDuration(*res);
-    if (res->GetReader()->GetInformation(res->m_info))
+    ISampleReader* sr{res->GetReader()};
+    if (sr->GetInformation(res->m_info))
       m_changed = true;
-    if (res->GetReader()->PTS() != STREAM_NOPTS_VALUE)
-      m_elapsedTime = PTSToElapsed(res->GetReader()->PTS()) + GetChapterStartTime();
-    return res->GetReader();
+
+    if (sr->PTS() != STREAM_NOPTS_VALUE)
+      m_elapsedTime = PTSToElapsed(sr->PTS()) + GetChapterStartTime();
+
+    sampleReader = sr;
+    return true;
   }
-  else if (waiting)
-  {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    return m_dummySampleReader.get();
-  }
-  return nullptr;
+  return false;
 }
 
 bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
@@ -1204,6 +1219,7 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
       LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
       return false;
     }
+    timingReader->WaitReadSampleAsyncComplete();
     if (!timingReader->IsStarted())
       StartReader(m_timingStream, seekTimeCorrected, ptsDiff, preceeding, true);
 
@@ -1219,10 +1235,9 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   {
     ISampleReader* streamReader{stream->GetReader()};
     if (!streamReader)
-    {
-      LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
       continue;
-    }
+
+    streamReader->WaitReadSampleAsyncComplete();
     if (stream->m_isEnabled && (streamId == 0 || stream->m_info.GetPhysicalIndex() == streamId))
     {
       bool reset{true};
@@ -1449,8 +1464,12 @@ bool CSession::SeekChapter(int ch)
     m_adaptiveTree->next_period_ = m_adaptiveTree->periods_[ch];
     for (auto& stream : m_streams)
     {
-      if (stream->GetReader())
-        stream->GetReader()->Reset(true);
+      ISampleReader* sr{stream->GetReader()};
+      if (sr)
+      {
+        sr->WaitReadSampleAsyncComplete();
+        sr->Reset(true);
+      }
     }
     return true;
   }

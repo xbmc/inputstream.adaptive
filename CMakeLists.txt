@@ -80,7 +80,6 @@ set(ADP_HEADERS
 	src/parser/SmoothTree.h
 	src/parser/PRProtectionParser.h
 	src/samplereader/ADTSSampleReader.h
-	src/samplereader/DummySampleReader.h
 	src/samplereader/FragmentedSampleReader.h
 	src/samplereader/SampleReader.h
 	src/samplereader/SubtitleSampleReader.h

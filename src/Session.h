@@ -63,11 +63,14 @@ public:
    */
   bool InitializePeriod(bool isSessionOpened = false);
 
-  /*! \brief Get the next sample's reader, set flags if the stream has changed
-   *  \return The SampleReader for the next chronological sample
-   *         if found otherwise nullptr
+  /*! \brief Get the sample reader of the next sample stream. This also set flags
+   *         if the stream has changed, use CheckChange method to check it.
+   *  \param sampleReader [OUT] Provide the sample reader with the lowest PTS value
+   *         whose stream is enabled if found, otherwise means that we are waiting
+   *         for the data, and the sample reader will not be provided.
+   *  \return True if has success, otherwise false
    */
-  ISampleReader* GetNextSample();
+  bool GetNextSample(ISampleReader*& sampleReader);
 
   /*! \brief Create and push back a new Stream object
    *  \param adp The AdaptationSet of the stream
@@ -336,7 +339,6 @@ private:
   AP4_DataBuffer m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   SSD::SSD_DECRYPTER* m_decrypter{nullptr};
-  std::unique_ptr<ISampleReader> m_dummySampleReader;
 
   struct CCdmSession
   {

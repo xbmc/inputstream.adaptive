@@ -14,6 +14,8 @@ void CStream::Disable()
 {
   if (m_isEnabled)
   {
+    if (m_streamReader)
+      m_streamReader->WaitReadSampleAsyncComplete();
     m_adStream.stop();
     Reset();
     m_isEnabled = false;

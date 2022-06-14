@@ -17,7 +17,6 @@
 #include "parser/HLSTree.h"
 #include "parser/SmoothTree.h"
 #include "samplereader/ADTSSampleReader.h"
-#include "samplereader/DummySampleReader.h"
 #include "samplereader/FragmentedSampleReader.h"
 #include "samplereader/SubtitleSampleReader.h"
 #include "samplereader/TSSampleReader.h"
@@ -429,60 +428,71 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     m_failedSeekTime = ~0;
   }
 
-  ISampleReader* sr(m_session->GetNextSample());
+  ISampleReader* sr{nullptr};
 
-  if (m_session->CheckChange())
+  if (m_session->GetNextSample(sr))
   {
-    DEMUX_PACKET* p = AllocateDemuxPacket(0);
-    p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
-    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
-    return p;
-  }
+    DEMUX_PACKET* p{nullptr};
 
-  if (sr)
-  {
-    AP4_Size iSize(sr->GetSampleDataSize());
-    const AP4_UI08* pData(sr->GetSampleData());
-    DEMUX_PACKET* p;
-
-    if (sr->IsEncrypted() && iSize > 0 && pData)
+    if (m_session->CheckChange())
     {
-      unsigned int numSubSamples(*((unsigned int*)pData));
-      pData += sizeof(numSubSamples);
-      p = AllocateEncryptedDemuxPacket(iSize, numSubSamples);
-      memcpy(p->cryptoInfo->clearBytes, pData, numSubSamples * sizeof(uint16_t));
-      pData += (numSubSamples * sizeof(uint16_t));
-      memcpy(p->cryptoInfo->cipherBytes, pData, numSubSamples * sizeof(uint32_t));
-      pData += (numSubSamples * sizeof(uint32_t));
-      memcpy(p->cryptoInfo->iv, pData, 16);
-      pData += 16;
-      memcpy(p->cryptoInfo->kid, pData, 16);
-      pData += 16;
-      iSize -= (pData - sr->GetSampleData());
-      ReaderCryptoInfo cryptoInfo = sr->GetReaderCryptoInfo();
-      p->cryptoInfo->numSubSamples = numSubSamples;
-      p->cryptoInfo->cryptBlocks = cryptoInfo.m_cryptBlocks;
-      p->cryptoInfo->skipBlocks = cryptoInfo.m_skipBlocks;
-      p->cryptoInfo->mode = static_cast<uint16_t>(cryptoInfo.m_mode);
-      p->cryptoInfo->flags = 0;
-    }
-    else
-      p = AllocateDemuxPacket(iSize);
-
-    if (iSize > 0 && pData)
-    {
-      p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
-      p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
-      p->duration = static_cast<double>(sr->GetDuration());
-      p->iStreamId = sr->GetStreamId();
-      p->iGroupId = 0;
-      p->iSize = iSize;
-      memcpy(p->pData, pData, iSize);
+      p = AllocateDemuxPacket(0);
+      p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
+      LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
+      return p;
     }
 
-    //LOG::Log(LOGDEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
+    if (sr)
+    {
+      AP4_Size iSize(sr->GetSampleDataSize());
+      const AP4_UI08* pData(sr->GetSampleData());
+      bool srHaveData{iSize > 0 && pData};
 
-    sr->ReadSample();
+      if (sr->IsEncrypted() && srHaveData)
+      {
+        const unsigned int numSubSamples(*(reinterpret_cast<const unsigned int*>(pData)));
+        pData += sizeof(numSubSamples);
+        p = AllocateEncryptedDemuxPacket(iSize, numSubSamples);
+        std::memcpy(p->cryptoInfo->clearBytes, pData, numSubSamples * sizeof(uint16_t));
+        pData += (numSubSamples * sizeof(uint16_t));
+        std::memcpy(p->cryptoInfo->cipherBytes, pData, numSubSamples * sizeof(uint32_t));
+        pData += (numSubSamples * sizeof(uint32_t));
+        std::memcpy(p->cryptoInfo->iv, pData, 16);
+        pData += 16;
+        std::memcpy(p->cryptoInfo->kid, pData, 16);
+        pData += 16;
+        iSize -= (pData - sr->GetSampleData());
+        ReaderCryptoInfo cryptoInfo = sr->GetReaderCryptoInfo();
+        p->cryptoInfo->numSubSamples = numSubSamples;
+        p->cryptoInfo->cryptBlocks = cryptoInfo.m_cryptBlocks;
+        p->cryptoInfo->skipBlocks = cryptoInfo.m_skipBlocks;
+        p->cryptoInfo->mode = static_cast<uint16_t>(cryptoInfo.m_mode);
+        p->cryptoInfo->flags = 0;
+      }
+      else
+        p = AllocateDemuxPacket(iSize);
+
+      if (srHaveData)
+      {
+        p->dts = static_cast<double>(sr->DTS() + m_session->GetChapterStartTime());
+        p->pts = static_cast<double>(sr->PTS() + m_session->GetChapterStartTime());
+        p->duration = static_cast<double>(sr->GetDuration());
+        p->iStreamId = sr->GetStreamId();
+        p->iGroupId = 0;
+        p->iSize = iSize;
+        std::memcpy(p->pData, pData, iSize);
+      }
+
+      //LOG::Log(LOGDEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
+
+      // Start reading the next sample
+      sr->ReadSampleAsync();
+    }
+    else // We are waiting for the data, so return an empty packet
+    {
+      p = AllocateDemuxPacket(0);
+    }
+
     return p;
   }
 

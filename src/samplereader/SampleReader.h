@@ -20,6 +20,8 @@
 #include <kodi/addon-instance/Inputstream.h>
 #endif
 
+#include <future>
+
 struct ReaderCryptoInfo
 {
   uint8_t m_cryptBlocks{0};
@@ -55,4 +57,35 @@ public:
   virtual bool RemoveStreamType(INPUTSTREAM_TYPE type) { return true; };
   virtual bool IsStarted() const = 0;
   virtual ReaderCryptoInfo GetReaderCryptoInfo() const { return ReaderCryptoInfo(); }
+
+  /*!
+   * \brief Read the sample asynchronously
+   */
+  void ReadSampleAsync()
+  {
+    m_readSampleAsyncState = std::async(std::launch::async, &ISampleReader::ReadSample, this);
+  }
+
+  /*!
+   * \brief Wait for the asynchronous ReadSample to complete
+   */
+  void WaitReadSampleAsyncComplete()
+  {
+    if (m_readSampleAsyncState.valid())
+      m_readSampleAsyncState.wait();
+  }
+
+  /*!
+   * \brief Check if the async ReadSample is working
+   * \return Return true if is working, otherwise false
+   */
+  bool IsReadSampleAsyncWorking()
+  {
+    return m_readSampleAsyncState.valid() &&
+           m_readSampleAsyncState.wait_for(std::chrono::milliseconds(0)) !=
+               std::future_status::ready;
+  }
+
+private:
+  std::future<AP4_Result> m_readSampleAsyncState;
 };
