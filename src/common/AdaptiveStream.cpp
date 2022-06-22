@@ -228,6 +228,9 @@ bool AdaptiveStream::download(const std::string& url,
     std::vector<char> bufferData(bufferSize);
     ssize_t totalReadBytes{0};
     bool isEOF{false};
+    std::string transferEncodingStr{
+        file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Transfer-Encoding")};
+    bool isChunked{transferEncodingStr.find("hunked") != std::string::npos};
 
     while (!isEOF)
     {
@@ -245,7 +248,7 @@ bool AdaptiveStream::download(const std::string& url,
       else
       {
         // Store the data
-        if (write_data(bufferData.data(), byteRead, lockfreeBuffer, file.AtEnd()))
+        if (write_data(bufferData.data(), byteRead, lockfreeBuffer, (!isChunked && file.AtEnd())))
         {
           totalReadBytes += byteRead;
         }
