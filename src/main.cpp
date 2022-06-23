@@ -349,7 +349,12 @@ bool KodiAdaptiveStream::download(const char* url,
       // read the file
       char* buf = (char*)malloc(32 * 1024);
       size_t nbReadOverall = 0;
-      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead && write_data(buf, nbRead, file.AtEnd()))
+      std::string transferEncodingStr{
+          file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Transfer-Encoding")};
+      bool isChunked{transferEncodingStr.find("hunked") != std::string::npos};
+
+      while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead &&
+             write_data(buf, nbRead, (!isChunked && file.AtEnd())))
         nbReadOverall += nbRead;
       free(buf);
 
