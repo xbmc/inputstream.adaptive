@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2022-03-24 15:09+0000\n"
+"PO-Revision-Date: 2022-06-28 16:14+0000\n"
 "Last-Translator: Oskari Lavinto <olavinto@protonmail.com>\n"
 "Language-Team: Finnish <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/fi_fi/>\n"
 "Language: fi_fi\n"
@@ -13,15 +13,15 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.11.2\n"
+"X-Generator: Weblate 4.13\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream-asiakaspääte mukautuville mediavirroille"
+msgstr "InputStream-asiakas mukautuville mediavirroille"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream-asiakaspääte mukautuville mediavirroille"
+msgstr "InputStream-asiakas mukautuville mediavirroille"
 
 msgctxt "#30100"
 msgid "General"
@@ -40,7 +40,7 @@ msgstr "Enimmäiskaistanleveys (Bit/s)"
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr "Salauksen purkaimen polku"
+msgstr "Salauksen purkaimen sijainti"
 
 # Maximum Resolution
 msgctxt "#30110"
