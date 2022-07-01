@@ -8,11 +8,24 @@
 
 #include "SubtitleSampleReader.h"
 
+#include "../Session.h"
+#include "../utils/FFmpeg.h"
+#include "../utils/MemUtils.h"
 #include "../utils/log.h"
 
 #include <kodi/Filesystem.h>
 
-using namespace SESSION;
+using namespace UTILS;
+
+namespace
+{
+// This struct must match the same on:
+// xbmc/cores/VideoPlayer/DVDCodecs/Overlay/DVDOverlayCodec.h
+struct SubtitlePacketExtraData
+{
+  double m_chapterStartTime;
+};
+} // unnamed namespace
 
 CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
                                            AP4_UI32 streamId,
@@ -38,6 +51,7 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
     result.AppendData(buf, nbRead);
   file.Close();
 
+  // Single subtitle file
   if (codecInternalName == "wvtt")
     m_codecHandler = new WebVTTCodecHandler(nullptr, true);
   else
@@ -46,15 +60,21 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
   m_codecHandler->Transform(0, 0, result, 1000);
 }
 
-CSubtitleSampleReader::CSubtitleSampleReader(CStream* stream,
-                                           AP4_UI32 streamId,
-                                           const std::string& codecInternalName)
+CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
+                                             AP4_UI32 streamId,
+                                             const std::string& codecInternalName)
   : m_streamId{streamId}, m_adByteStream{stream->GetAdByteStream()}, m_adStream{&stream->m_adStream}
 {
+  // Segmented subtitle
   if (codecInternalName == "wvtt")
+  {
+    m_isSideDataRequired = true;
     m_codecHandler = new WebVTTCodecHandler(nullptr, false);
+  }
   else
+  {
     m_codecHandler = new TTMLCodecHandler(nullptr);
+  }
 }
 
 AP4_Result CSubtitleSampleReader::Start(bool& bStarted)
@@ -162,4 +182,39 @@ bool CSubtitleSampleReader::TimeSeek(uint64_t pts, bool preceeding)
       return AP4_SUCCEEDED(ReadSample());
     return false;
   }
+}
+
+void CSubtitleSampleReader::SetDemuxPacketSideData(DEMUX_PACKET* pkt,
+                                                   std::shared_ptr<SESSION::CSession> session)
+{
+  if (!m_isSideDataRequired || !pkt)
+    return;
+
+  pkt->pSideData = MEMORY::AlignedMalloc(sizeof(struct UTILS::FFMPEG::AVPacketSideData));
+  if (!pkt->pSideData)
+  {
+    LOG::Log(LOGERROR, "Cannot allocate AVPacketSideData");
+    return;
+  }
+  void* subPktDataPtr{MEMORY::AlignedMalloc(sizeof(struct SubtitlePacketExtraData))};
+  if (!subPktDataPtr)
+  {
+    MEMORY::AlignedFree(pkt->pSideData);
+    pkt->pSideData = nullptr;
+    LOG::Log(LOGERROR, "Cannot allocate SubtitlePacketExtraData");
+    return;
+  }
+
+  auto subPktData{reinterpret_cast<SubtitlePacketExtraData*>(subPktDataPtr)};
+  // HSL multi-period require to sync the cues timestamps of Segmented WebVTT
+  // with the current chapter start time (period start)
+  // so we have to provide the chapter start time to Kodi subtitle parser
+  subPktData->m_chapterStartTime = session->GetChapterStartTime();
+
+  auto avpList{static_cast<UTILS::FFMPEG::AVPacketSideData*>(pkt->pSideData)};
+  avpList[0].data = reinterpret_cast<uint8_t*>(subPktDataPtr);
+  avpList[0].type = UTILS::FFMPEG::AV_PKT_DATA_NEW_EXTRADATA;
+  avpList[0].size = sizeof(struct SubtitlePacketExtraData);
+
+  pkt->iSideDataElems = 1;
 }
