@@ -247,7 +247,7 @@ v2.3.14 (2019-02-10)
     <summary lang="en_GB">InputStream client for adaptive streams</summary>
     <summary lang="es_ES">Cliente InputStream para flujo de datos adaptativos</summary>
     <summary lang="es_MX">Cliente InputStream para transmisiones adaptativas</summary>
-    <summary lang="fi_FI">InputStream-asiakaspääte mukautuville mediavirroille</summary>
+    <summary lang="fi_FI">InputStream-asiakas mukautuville mediavirroille</summary>
     <summary lang="fr_FR">Client InputStream pour les flux adaptatifs</summary>
     <summary lang="he_IL">לקוח InputStream לתזרימים מסתגלים</summary>
     <summary lang="hr_HR">InputStream klijent za prilagodljiva strujanja</summary>
@@ -264,7 +264,7 @@ v2.3.14 (2019-02-10)
     <description lang="en_GB">InputStream client for adaptive streams</description>
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <description lang="es_MX">Cliente InputStream para transmisiones adaptativas</description>
-    <description lang="fi_FI">InputStream-asiakaspääte mukautuville mediavirroille</description>
+    <description lang="fi_FI">InputStream-asiakas mukautuville mediavirroille</description>
     <description lang="fr_FR">Client InputStream pour les flux adaptatifs</description>
     <description lang="he_IL">לקוח InputStream לתזרימים מסתגלים</description>
     <description lang="hr_HR">InputStream klijent za prilagodljiva strujanja</description>
