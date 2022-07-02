@@ -832,7 +832,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           else if (t)
           {
             //Go back to the previous timestamp to calculate the real gap.
-            dash->pts_helper_ -= dash->current_adaptationset_->segment_durations_.data.back();
+            dash->pts_helper_ -= dash->current_period_->segment_durations_.data.back();
             dash->current_period_->segment_durations_.data.back() =
                 static_cast<uint32_t>(t - dash->pts_helper_);
             dash->pts_helper_ = t;
