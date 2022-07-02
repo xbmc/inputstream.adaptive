@@ -1,3 +1,8 @@
+v20.2.3 (2022-07-02)
+- [DASH] Fix crash when SegmentList is in root of Period
+- [HLS] fix PKCS7 stripping on chunked transfers
+- Kodi now buffers correctly on slow connections
+
 v20.2.2 (2022-06-13)
 - Fix stream selection property parsing
 - [HLS] handle PKCS7 padding
