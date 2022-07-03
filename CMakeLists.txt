@@ -37,6 +37,7 @@ set(ADP_SOURCES
 	src/samplereader/WebmSampleReader.cpp
 	src/utils/Base64Utils.cpp
 	src/utils/DigestMD5Utils.cpp
+	src/utils/MemUtils.cpp
 	src/utils/PropertiesUtils.cpp
 	src/utils/StringUtils.cpp
 	src/utils/SettingsUtils.cpp
@@ -87,7 +88,9 @@ set(ADP_HEADERS
 	src/samplereader/WebmSampleReader.h
 	src/utils/Base64Utils.h
 	src/utils/DigestMD5Utils.h
+	src/utils/FFmpeg.h
 	src/utils/log.h
+	src/utils/MemUtils.h
 	src/utils/PropertiesUtils.h
 	src/utils/SettingsUtils.h
 	src/utils/StringUtils.h

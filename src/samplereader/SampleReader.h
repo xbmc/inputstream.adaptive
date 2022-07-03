@@ -22,6 +22,12 @@
 
 #include <future>
 
+// Forward namespace/class
+namespace SESSION
+{
+class CSession;
+}
+
 struct ReaderCryptoInfo
 {
   uint8_t m_cryptBlocks{0};
@@ -84,6 +90,15 @@ public:
     return m_readSampleAsyncState.valid() &&
            m_readSampleAsyncState.wait_for(std::chrono::milliseconds(0)) !=
                std::future_status::ready;
+  }
+
+  /*
+   * \brief Set the side data to the demux packet
+   * \param pkt The packet where set the side data
+   * \param session The current session
+   */
+  virtual void SetDemuxPacketSideData(DEMUX_PACKET* pkt, std::shared_ptr<SESSION::CSession> session)
+  {
   }
 
 private:
