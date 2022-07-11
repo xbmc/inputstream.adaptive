@@ -34,7 +34,6 @@ static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
     AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO,
     AP4_Track::TYPE_SUBTITLES };
 
-
 CInputStreamAdaptive::CInputStreamAdaptive(const kodi::addon::IInstanceInfo& instance)
   : CInstanceInputStream(instance)
 {
@@ -80,7 +79,8 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
     mediaHeaders = m_kodiProps.m_streamHeaders;
 
   m_session = std::make_shared<CSession>(m_kodiProps, url, mediaHeaders, props.GetProfileFolder());
-  m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight);
+  m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight, m_currentVideoMaxWidth,
+                                m_currentVideoMaxHeight);
 
   m_session->SetDrmConfig(drmConfig);
   if (!m_session->Initialize())
@@ -519,18 +519,21 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double& st
   return true;
 }
 
-// Kodi callback, called just before CInputStreamAdaptive::Open method
-void CInputStreamAdaptive::SetVideoResolution(int width, int height)
+// Kodi callback, called just before CInputStreamAdaptive::Open method,
+// and every time the resolution change while in playback (e.g. window resize)
+void CInputStreamAdaptive::SetVideoResolution(unsigned int width,
+                                              unsigned int height,
+                                              unsigned int maxWidth,
+                                              unsigned int maxHeight)
 {
-  LOG::Log(LOGINFO, "SetVideoResolution (%dx%d)", width, height);
-  m_currentVideoWidth = width;
-  m_currentVideoHeight = height;
+  m_currentVideoWidth = static_cast<int>(width);
+  m_currentVideoHeight = static_cast<int>(height);
+  m_currentVideoMaxWidth = static_cast<int>(maxWidth);
+  m_currentVideoMaxHeight = static_cast<int>(maxHeight);
 
-  //! @todo: Kodi call this method just before call Open method only,
-  //! but not when the resolution change while in playback (e.g. window resize)
-  //! needed implementation on Kodi InputStream interface.
-  // if (m_session)
-  //   m_session->SetVideoResolution(width, height);
+  // This can be called just after CInputStreamAdaptive::Open callback
+  if (m_session)
+     m_session->SetVideoResolution(width, height, maxWidth, maxHeight);
 }
 
 bool CInputStreamAdaptive::PosTime(int ms)

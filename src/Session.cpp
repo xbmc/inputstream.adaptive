@@ -1082,9 +1082,9 @@ void CSession::StartReader(
     m_changed = true;
 }
 
-void CSession::SetVideoResolution(int width, int height)
+void CSession::SetVideoResolution(int width, int height, int maxWidth, int maxHeight)
 {
-  m_reprChooser->SetScreenResolution(width, height);
+  m_reprChooser->SetScreenResolution(width, height, maxWidth, maxHeight);
 };
 
 bool CSession::GetNextSample(ISampleReader*& sampleReader)

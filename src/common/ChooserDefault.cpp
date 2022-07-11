@@ -55,9 +55,8 @@ void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::ChooserP
   m_bandwidthMax =
       static_cast<uint32_t>(kodi::addon::GetSettingInt("adaptivestream.bandwidth.max") * 1000);
 
-  m_ignoreScreenRes = kodi::addon::GetSettingBoolean("adaptivestream.ignore.screen.res");
-  m_ignoreScreenResChange =
-      kodi::addon::GetSettingBoolean("adaptivestream.ignore.screen.res.change");
+  m_ignoreScreenRes = kodi::addon::GetSettingBoolean("overrides.ignore.screen.res");
+  m_ignoreScreenResChange = kodi::addon::GetSettingBoolean("overrides.ignore.screen.res.change");
 
   // Override settings with Kodi/video add-on properties
 
@@ -179,9 +178,8 @@ void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
 AdaptiveTree::Representation* CRepresentationChooserDefault::GetNextRepresentation(
     AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
 {
-  //! @todo: Need to implement in Kodi core a callback for resolution change event
-  // if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
-  //  RefreshResolution();
+  if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
+    RefreshResolution();
 
   CRepresentationSelector selector(m_screenWidth, m_screenHeight);
   uint32_t bandwidth;
@@ -207,10 +205,17 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::GetNextRepresentati
     if (!rep)
       continue;
 
-    int score = std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight) +
-                static_cast<int>(std::sqrt(bandwidth - rep->bandwidth_));
+    int score{std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight)};
 
-    if (rep->bandwidth_ <= bandwidth && (bestScore == -1 || score < bestScore))
+    if (!m_isForceStartsMaxRes)
+    {
+      if (rep->bandwidth_ > bandwidth)
+        continue;
+
+      score += static_cast<int>(std::sqrt(bandwidth - rep->bandwidth_));
+    }
+
+    if (bestScore == -1 || score < bestScore)
     {
       bestScore = score;
       nextRep = rep;
@@ -222,6 +227,9 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::GetNextRepresentati
 
   if (adp->type_ == AdaptiveTree::VIDEO)
     LogDetails(currentRep, nextRep);
+
+  if (m_isForceStartsMaxRes)
+    m_isForceStartsMaxRes = false;
 
   return nextRep;
 }

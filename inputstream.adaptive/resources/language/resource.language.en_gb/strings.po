@@ -306,3 +306,8 @@ msgstr ""
 msgctxt "#30235"
 msgid "Segments"
 msgstr ""
+
+#. Category group title
+msgctxt "#30236"
+msgid "Override settings"
+msgstr ""
