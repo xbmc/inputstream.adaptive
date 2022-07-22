@@ -230,7 +230,12 @@ bool AdaptiveStream::download(const std::string& url,
     bool isEOF{false};
     std::string transferEncodingStr{
         file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Transfer-Encoding")};
-    bool isChunked{transferEncodingStr.find("hunked") != std::string::npos};
+    std::string contentLengthStr{
+        file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
+    // for HTTP2 connections are always 'chunked', so we use the absence of content-length
+    // to flag this (also implies chunked with HTTP1)
+    bool isChunked{contentLengthStr.empty() ||
+                   transferEncodingStr.find("hunked") != std::string::npos};
 
     while (!isEOF)
     {
@@ -248,6 +253,9 @@ bool AdaptiveStream::download(const std::string& url,
       else
       {
         // Store the data
+        // We only set lastChunk to true in the case of non-chunked transfers, the 
+        // current structure does not allow for knowing the file has finished for
+        // chunked transfers here - AtEnd() will return true while doing chunked transfers
         if (write_data(bufferData.data(), byteRead, lockfreeBuffer, (!isChunked && file.AtEnd())))
         {
           totalReadBytes += byteRead;
@@ -265,8 +273,6 @@ bool AdaptiveStream::download(const std::string& url,
       if (totalReadBytes > 0)
       {
         // Get body lenght (could be gzip compressed)
-        std::string contentLengthStr{
-            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
         long contentLength{std::atol(contentLengthStr.c_str())};
         if (contentLength == 0)
           contentLength = static_cast<long>(totalReadBytes);
