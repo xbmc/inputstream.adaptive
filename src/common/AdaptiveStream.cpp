@@ -1006,10 +1006,6 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (!current_rep_)
     return false;
 
-  if (state_ == STOPPED)
-    // For subtitles which come in one file we should return true!
-    return current_rep_->segments_.empty();
-
   if (current_rep_->flags_ & AdaptiveTree::Representation::SUBTITLESTREAM)
     return true;
 
@@ -1055,7 +1051,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (newSeg)
   {
     needReset = true;
-    if (newSeg != old_seg)
+    if ((newSeg != old_seg) || (!preceeding && state_ == STOPPED))
     {
       StopWorker(STOPPED);
       // EnsureSegment loads always the next segment, so go back 1
@@ -1063,14 +1059,16 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
           current_rep_->get_segment(current_rep_->get_segment_pos(newSeg) - 1);
       // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
       ResetActiveBuffer(false);
+      if (newSeg == old_seg && !preceeding)
+      {
+        absolute_position_ -= segment_read_pos_;
+        segment_read_pos_ = 0;
+      }
     }
-    else if (!preceeding)
+    else if (preceeding)
     {
-      absolute_position_ -= segment_read_pos_;
-      segment_read_pos_ = 0;
-    }
-    else
       needReset = false;
+    }
     return true;
   }
   else

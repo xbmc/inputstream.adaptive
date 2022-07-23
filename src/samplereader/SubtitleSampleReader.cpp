@@ -153,7 +153,10 @@ AP4_Result CSubtitleSampleReader::ReadSample()
 void CSubtitleSampleReader::Reset(bool bEOS)
 {
   if (m_adByteStream || bEOS)
+  {
+    m_eos = bEOS;
     m_codecHandler->Reset();
+  }
 }
 
 bool CSubtitleSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
