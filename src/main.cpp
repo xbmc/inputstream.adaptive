@@ -351,8 +351,16 @@ bool KodiAdaptiveStream::download(const char* url,
       size_t nbReadOverall = 0;
       std::string transferEncodingStr{
           file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Transfer-Encoding")};
-      bool isChunked{transferEncodingStr.find("hunked") != std::string::npos};
+      std::string contentLengthStr{
+          file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
+      // for HTTP2 connections are always 'chunked', so we use the absence of content-length
+      // to flag this (also implies chunked with HTTP1)
+      bool isChunked{contentLengthStr.empty() ||
+                     transferEncodingStr.find("hunked") != std::string::npos};
 
+      // We only set lastChunk to true in the case of non-chunked transfers, the 
+      // current structure does not allow for knowing the file has finished for
+      // chunked transfers here - AtEnd() will return true while doing chunked transfers
       while ((nbRead = file.Read(buf, 32 * 1024)) > 0 && ~nbRead &&
              write_data(buf, nbRead, (!isChunked && file.AtEnd())))
         nbReadOverall += nbRead;
