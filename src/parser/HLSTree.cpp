@@ -496,10 +496,13 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         {
           std::string::size_type bs = line.rfind('@');
           if (bs != std::string::npos)
-          {
-            segment.range_begin_ = atoll(line.c_str() + (bs + 1));
-            segment.range_end_ = segment.range_begin_ + atoll(line.c_str() + 17) - 1;
-          }
+            segment.range_begin_ = std::atoll(line.c_str() + (bs + 1));
+          else
+            segment.range_begin_ = newSegments.size() > 0
+                                       ? newSegments.Get(newSegments.size() - 1)->range_end_ + 1
+                                       : 0;
+
+          segment.range_end_ = segment.range_begin_ + std::atoll(line.c_str() + 17) - 1;
           byteRange = true;
         }
         else if (!line.empty() && line.compare(0, 1, "#") != 0 && ~segment.startPTS_)
