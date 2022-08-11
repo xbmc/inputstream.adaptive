@@ -619,6 +619,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           FreeSegments(period, rep);
           rep->segments_.swap(newSegments);
           rep->startNumber_ = newStartNumber;
+          rep->duration_ = period->duration_;
 
           if (segmentInitialization)
           {
