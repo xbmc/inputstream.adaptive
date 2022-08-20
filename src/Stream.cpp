@@ -27,6 +27,8 @@ void CStream::Reset()
 {
   if (m_isEnabled)
   {
+    if (m_streamReader)
+      m_streamReader->WaitReadSampleAsyncComplete();
     m_streamReader.reset();
     m_streamFile.reset();
     m_adByteStream.reset();
