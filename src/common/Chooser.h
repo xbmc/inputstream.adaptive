@@ -24,6 +24,7 @@ namespace CHOOSER
 class ATTR_DLL_LOCAL IRepresentationChooser
 {
 public:
+  IRepresentationChooser();
   virtual ~IRepresentationChooser() {}
 
   /*!
@@ -44,8 +45,13 @@ public:
    *        To be called every time the screen resolution change.
    * \param width Width resolution
    * \param height Height resolution
+   * \param maxWidth Max width resolution
+   * \param maxHeight Max height resolution
    */
-  void SetScreenResolution(const int width, const int height);
+  void SetScreenResolution(const int width,
+                           const int height,
+                           const int maxWidth,
+                           const int maxHeight);
 
   /*!
    * \brief Set the current download speed.
@@ -106,6 +112,13 @@ protected:
   int m_screenCurrentWidth{0};
   // Current screen height resolution (this value is auto-updated by Kodi)
   int m_screenCurrentHeight{0};
+  // Specifies when it is necessary to start playback with a stream having
+  // max allowed resolution to let Kodi auto-switching the screen resolution
+  // with "Adjust refresh rate" setting
+  bool m_isForceStartsMaxRes{false};
+
+private:
+  bool m_isAdjustRefreshRate{false};
 };
 
 IRepresentationChooser* CreateRepresentationChooser(

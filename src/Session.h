@@ -204,7 +204,7 @@ public:
    *  \param width The width in pixels
    *  \param height The height in pixels
    */
-  void SetVideoResolution(int width, int height);
+  void SetVideoResolution(int width, int height, int maxWidth, int maxHeight);
 
   /*! \brief Seek streams and readers to a specified time
    *  \param seekTime The seek time in seconds

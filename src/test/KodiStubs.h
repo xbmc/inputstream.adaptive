@@ -60,6 +60,14 @@ typedef enum OpenFileFlags
   ADDON_READ_REOPEN = 0x100
 } OpenFileFlags;
 
+enum AdjustRefreshRateStatus
+{
+  ADJUST_REFRESHRATE_STATUS_OFF = 0,
+  ADJUST_REFRESHRATE_STATUS_ALWAYS,
+  ADJUST_REFRESHRATE_STATUS_ON_STARTSTOP,
+  ADJUST_REFRESHRATE_STATUS_ON_START,
+};
+
 namespace kodi
 {
 namespace addon
@@ -155,6 +163,11 @@ public:
 
 namespace gui
 {
+
+inline AdjustRefreshRateStatus GetAdjustRefreshRateStatus()
+{
+  return AdjustRefreshRateStatus::ADJUST_REFRESHRATE_STATUS_OFF;
+}
 
 namespace dialogs
 {

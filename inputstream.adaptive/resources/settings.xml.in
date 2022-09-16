@@ -69,23 +69,6 @@
           </dependencies>
           <control type="spinner" format="string" />
         </setting>
-        <setting parent="adaptivestream.type" id="adaptivestream.ignore.screen.res.change" type="boolean" label="30202" help="30203">
-          <level>0</level>
-          <default>false</default>
-          <visible>false</visible><!-- Not fully implemented yet -->
-          <dependencies>
-             <dependency type="visible" setting="adaptivestream.type">default</dependency>
-          </dependencies>
-          <control type="toggle" />
-        </setting>
-        <setting parent="adaptivestream.type" id="adaptivestream.ignore.screen.res" type="boolean" label="30115" help="30116">
-          <level>0</level>
-          <default>false</default>
-          <dependencies>
-             <dependency type="visible" setting="adaptivestream.type">default</dependency>
-          </dependencies>
-          <control type="toggle" />
-        </setting>
         <setting parent="adaptivestream.type" id="adaptivestream.bandwidth.init.auto" type="boolean" label="30168" help="30169">
           <level>0</level>
           <default>true</default>
@@ -232,6 +215,24 @@
             </dependency>
           </dependencies>
           <control type="edit" format="string" />
+        </setting>
+      </group>
+      <group id="overrides" label="30236">
+        <setting id="overrides.ignore.screen.res.change" type="boolean" label="30202" help="30203">
+          <level>0</level>
+          <default>false</default>
+          <dependencies>
+            <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
+          <control type="toggle" />
+        </setting>
+        <setting id="overrides.ignore.screen.res" type="boolean" label="30115" help="30116">
+          <level>0</level>
+          <default>false</default>
+          <dependencies>
+            <dependency type="visible" setting="adaptivestream.type">default</dependency>
+          </dependencies>
+          <control type="toggle" />
         </setting>
       </group>
     </category>

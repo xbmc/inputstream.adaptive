@@ -34,7 +34,10 @@ public:
   bool OpenStream(int streamid) override;
   DEMUX_PACKET* DemuxRead() override;
   bool DemuxSeekTime(double time, bool backwards, double& startpts) override;
-  void SetVideoResolution(int width, int height) override;
+  void SetVideoResolution(unsigned int width,
+                          unsigned int height,
+                          unsigned int maxWidth,
+                          unsigned int maxHeight);
   bool PosTime(int ms) override;
   int GetTotalTime() override;
   int GetTime() override;
@@ -53,8 +56,10 @@ public:
 private:
   std::shared_ptr<SESSION::CSession> m_session{nullptr};
   UTILS::PROPERTIES::KodiProperties m_kodiProps;
-  int m_currentVideoWidth{1280};
-  int m_currentVideoHeight{720};
+  int m_currentVideoWidth{0};
+  int m_currentVideoHeight{0};
+  int m_currentVideoMaxWidth{0};
+  int m_currentVideoMaxHeight{0};
   uint32_t m_IncludedStreams[16];
   bool m_checkChapterSeek = false;
   int m_failedSeekTime = ~0;

@@ -15,6 +15,10 @@
 #include "ChooserManualOSD.h"
 #include "ChooserTest.h"
 
+#ifndef INPUTSTREAM_TEST_BUILD
+#include <kodi/gui/General.h>
+#endif
+
 #include <vector>
 
 using namespace CHOOSER;
@@ -64,10 +68,42 @@ IRepresentationChooser* CHOOSER::CreateRepresentationChooser(
   return reprChooser;
 }
 
-void CHOOSER::IRepresentationChooser::SetScreenResolution(const int width, const int height)
+CHOOSER::IRepresentationChooser::IRepresentationChooser()
 {
-  m_screenCurrentWidth = width;
-  m_screenCurrentHeight = height;
+  AdjustRefreshRateStatus adjRefreshRate{kodi::gui::GetAdjustRefreshRateStatus()};
+
+  if (adjRefreshRate == AdjustRefreshRateStatus::ADJUST_REFRESHRATE_STATUS_ON_START ||
+      adjRefreshRate == AdjustRefreshRateStatus::ADJUST_REFRESHRATE_STATUS_ON_STARTSTOP)
+    m_isAdjustRefreshRate = true;
+}
+
+void CHOOSER::IRepresentationChooser::SetScreenResolution(const int width,
+                                                          const int height,
+                                                          const int maxWidth,
+                                                          const int maxHeight)
+{
+  LOG::Log(LOGINFO,
+           "[Repr. chooser] Resolution set: %dx%d, max allowed: %dx%d, Adjust refresh rate: %i",
+           width, height, maxWidth, maxHeight, m_isAdjustRefreshRate);
+
+  // Use case: User chooses to upscale Kodi GUI from TV instead of Kodi engine.
+  // In this case "Adjust refresh rate" setting can be enabled and then
+  // the GUI resolution will be lower than the max allowed resolution.
+  // 
+  // For example we can have the GUI at 1080p and when playback starts can be
+  // auto-switched to 4k, but to allow Kodi do this we have to provide the
+  // stream resolution that match the max allowed screen resolution.
+  if (m_isAdjustRefreshRate && width < maxWidth && height < maxHeight)
+  {
+    m_screenCurrentWidth = maxWidth;
+    m_screenCurrentHeight = maxHeight;
+    m_isForceStartsMaxRes = true;
+  }
+  else
+  {
+    m_screenCurrentWidth = width;
+    m_screenCurrentHeight = height;
+  }
 }
 
 void CHOOSER::IRepresentationChooser::LogDetails(adaptive::AdaptiveTree::Representation* currentRep,
