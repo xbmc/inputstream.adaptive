@@ -9,12 +9,7 @@
 #pragma once
 
 #include "../SSD_dll.h"
-#include "../codechandler/AVCCodecHandler.h"
-#include "../codechandler/HEVCCodecHandler.h"
-#include "../codechandler/MPEGCodecHandler.h"
-#include "../codechandler/TTMLCodecHandler.h"
-#include "../codechandler/VP9CodecHandler.h"
-#include "../codechandler/WebVTTCodecHandler.h"
+#include "../codechandler/CodecHandler.h"
 #include "../common/AdaptiveDecrypter.h"
 #include "../utils/log.h"
 #include "SampleReader.h"

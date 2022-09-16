@@ -6,6 +6,7 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "../AdaptiveByteStream.h"
 #include "../TSReader.h"
 #include "SampleReader.h"
 
@@ -13,9 +14,9 @@ class ATTR_DLL_LOCAL CTSSampleReader : public ISampleReader, public TSReader
 {
 public:
   CTSSampleReader(AP4_ByteStream* input,
-                 INPUTSTREAM_TYPE type,
-                 AP4_UI32 streamId,
-                 uint32_t requiredMask);
+                  INPUTSTREAM_TYPE type,
+                  AP4_UI32 streamId,
+                  uint32_t requiredMask);
 
   bool Initialize() override { return TSReader::Initialize(); }
   void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override;

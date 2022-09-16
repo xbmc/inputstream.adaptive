@@ -877,6 +877,8 @@ void CSession::UpdateStream(CStream& stream)
           VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1))));
 #endif
   }
+  else if (rep->codecs_.find("av1") == 0 || rep->codecs_.find("av01") == 0)
+    stream.m_info.SetCodecName("av1");
   else if (rep->codecs_.find("opus") == 0)
     stream.m_info.SetCodecName("opus");
   else if (rep->codecs_.find("vorbis") == 0)
@@ -962,6 +964,16 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
       sample_descryption =
           new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->m_info.GetWidth(),
                                         stream->m_info.GetHeight(), 0, nullptr, atom);
+    }
+    else if (stream->m_info.GetCodecName() == "av1")
+    {
+      const std::string& extradata(stream->m_adStream.getRepresentation()->codec_private_data_);
+      AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
+                              static_cast<AP4_Size>(extradata.size())};
+      AP4_Av1cAtom* atom = AP4_Av1cAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
+      sample_descryption =
+          new AP4_Av1SampleDescription(AP4_SAMPLE_FORMAT_AV01, stream->m_info.GetWidth(),
+                                       stream->m_info.GetHeight(), 0, nullptr, atom);
     }
     else if (stream->m_info.GetCodecName() == "srt")
       sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES,

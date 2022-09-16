@@ -83,6 +83,7 @@ namespace SSD
     CodecVp8,
     CodecH264,
     CodecVp9,
+    CodecAv1,
   };
 
   enum CodecProfile // refer to STREAMCODEC_PROFILE
@@ -100,6 +101,9 @@ namespace SSD
     VP9CodecProfile1,
     VP9CodecProfile2,
     VP9CodecProfile3,
+    AV1CodecProfileMain,
+    AV1CodecProfileHigh,
+    AV1CodecProfileProfessional,
   };
 
   struct SSD_VIDEOINITDATA

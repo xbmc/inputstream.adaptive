@@ -59,6 +59,8 @@ cdm::VideoCodec media::ToCdmVideoCodec(const SSD::Codec codec)
       return cdm::VideoCodec::kCodecVp8;
     case SSD::Codec::CodecVp9:
       return cdm::VideoCodec::kCodecVp9;
+    case SSD::Codec::CodecAv1:
+      return cdm::VideoCodec::kCodecAv1;
     default:
       LOG::LogF(SSDWARNING, "Unknown video codec %i", codec);
       return cdm::VideoCodec::kUnknownVideoCodec;
@@ -91,6 +93,12 @@ cdm::VideoCodecProfile media::ToCdmVideoCodecProfile(const SSD::CodecProfile pro
       return cdm::VideoCodecProfile::kVP9Profile2;
     case SSD::CodecProfile::VP9CodecProfile3:
       return cdm::VideoCodecProfile::kVP9Profile3;
+    case SSD::CodecProfile::AV1CodecProfileMain:
+      return cdm::VideoCodecProfile::kAv1ProfileMain;
+    case SSD::CodecProfile::AV1CodecProfileHigh:
+      return cdm::VideoCodecProfile::kAv1ProfileHigh;
+    case SSD::CodecProfile::AV1CodecProfileProfessional:
+      return cdm::VideoCodecProfile::kAv1ProfilePro;
     case SSD::CodecProfile::CodecProfileNotNeeded:
       return cdm::VideoCodecProfile::kProfileNotNeeded;
     default:

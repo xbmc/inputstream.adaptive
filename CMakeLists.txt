@@ -9,8 +9,9 @@ find_package(Kodi REQUIRED)
 set(ADP_SOURCES
     src/AdaptiveByteStream.cpp
 	src/main.cpp
-	src/codechandler/AVCCodecHandler.cpp
 	src/codechandler/CodecHandler.cpp
+	src/codechandler/AV1CodecHandler.cpp
+	src/codechandler/AVCCodecHandler.cpp
 	src/codechandler/HEVCCodecHandler.cpp
 	src/codechandler/MPEGCodecHandler.cpp
 	src/codechandler/TTMLCodecHandler.cpp
@@ -58,8 +59,9 @@ set(ADP_HEADERS
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h
-	src/codechandler/AVCCodecHandler.h
 	src/codechandler/CodecHandler.h
+	src/codechandler/AV1CodecHandler.h
+	src/codechandler/AVCCodecHandler.h
 	src/codechandler/HEVCCodecHandler.h
 	src/codechandler/MPEGCodecHandler.h
 	src/codechandler/TTMLCodecHandler.h

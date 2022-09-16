@@ -7,6 +7,7 @@
  */
 
 #include "../ADTSReader.h"
+#include "../AdaptiveByteStream.h"
 #include "../TSReader.h"
 #include "SampleReader.h"
 
