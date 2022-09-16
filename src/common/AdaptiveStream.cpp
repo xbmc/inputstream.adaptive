@@ -1057,7 +1057,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (newSeg)
   {
     needReset = true;
-    if ((newSeg != old_seg) || (!preceeding && state_ == STOPPED))
+    if ((old_seg && newSeg != old_seg) || (!preceeding && state_ == STOPPED))
     {
       StopWorker(STOPPED);
       // EnsureSegment loads always the next segment, so go back 1
@@ -1070,6 +1070,11 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
         absolute_position_ -= segment_read_pos_;
         segment_read_pos_ = 0;
       }
+    }
+    else if (!preceeding && !old_seg)
+    {
+      absolute_position_ -= segment_read_pos_;
+      segment_read_pos_ = 0;
     }
     else if (preceeding)
     {
