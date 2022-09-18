@@ -1,1 +1,1 @@
-bento4 https://github.com/xbmc/Bento4/archive/refs/tags/1.6.0-639-Nexus.tar.gz
+bento4 https://github.com/xbmc/Bento4/archive/refs/tags/1.6.0-639-2-Nexus.tar.gz
