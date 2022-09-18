@@ -1273,8 +1273,11 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
         {
           double destTime{static_cast<double>(PTSToElapsed(streamReader->PTS())) /
                           STREAM_TIME_BASE};
-          LOG::Log(LOGINFO, "Seek time (%0.1lf) for stream: %d continues at %0.1lf (PTS: %llu)",
-                   seekTime, stream->m_info.GetPhysicalIndex(), destTime, streamReader->PTS());
+          LOG::Log(LOGINFO,
+                   "Seek time %0.1lf for stream: %u (physical index %u) continues at %0.1lf "
+                   "(PTS: %llu)",
+                   seekTime, streamReader->GetStreamId(), stream->m_info.GetPhysicalIndex(),
+                   destTime, streamReader->PTS());
           if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
           {
             seekTime = destTime;
