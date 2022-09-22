@@ -691,7 +691,7 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
     }
     else if (~segNum) //templated segment
     {
-      download_url_ = rep->segtpl_.media;
+      download_url_ = rep->segtpl_.media_url;
       ReplacePlaceholder(download_url_, "$Number", seg->range_end_);
       ReplacePlaceholder(download_url_, "$Time", seg->range_begin_);
     }
@@ -702,7 +702,7 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
   {
     if (rep->flags_ & AdaptiveTree::Representation::TEMPLATE && ~segNum)
     {
-      download_url_ = rep->segtpl_.media;
+      download_url_ = rep->segtpl_.media_url;
       ReplacePlaceholder(download_url_, "$Number", rep->startNumber_);
       ReplacePlaceholder(download_url_, "$Time", 0);
     }

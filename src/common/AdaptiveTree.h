@@ -191,6 +191,8 @@ public:
     SegmentTemplate() : timescale(0), duration(0) {};
     std::string initialization;
     std::string media;
+    // Same content of "media" property but with placeholder $RepresentationID$ and $Bandwidth$ filled
+    std::string media_url;
     unsigned int timescale, duration;
   };
 
