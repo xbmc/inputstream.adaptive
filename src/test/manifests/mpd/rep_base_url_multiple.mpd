@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd" type="static" mediaPresentationDuration="PT1430.906S" minBufferTime="PT4S" profiles="urn:mpeg:dash:profile:full:2011">
+    <Period>
+        <AdaptationSet id="1" segmentAlignment="true" maxWidth="1920" maxHeight="1080" maxFrameRate="45000/1877">
+            <SegmentTemplate timescale="1000" media="fragment-$Number$-$RepresentationID$.m4s" initialization="init-$RepresentationID$.mp4" startNumber="1">
+                <SegmentTimeline>
+                    <S d="4004"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="f1-v1-x3" mimeType="video/mp4" codecs="avc1.640028" width="1280" height="720" frameRate="45000/1877" sar="1:1" startWithSAP="1" bandwidth="3989784">
+                <BaseURL>https://prod.foobar.com/video/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/</BaseURL>
+                <BaseURL>https://ll.foo.co/video/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/</BaseURL>
+            </Representation>
+        </AdaptationSet>
+        <AdaptationSet id="2" segmentAlignment="true">
+            <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1"/>
+            <SegmentTemplate timescale="1000" media="fragment-$Number$-$RepresentationID$.m4s" initialization="init-$RepresentationID$.mp4" startNumber="1">
+                <SegmentTimeline>
+                    <S d="4017"/>
+                </SegmentTimeline>
+            </SegmentTemplate>
+            <Representation id="f1-a1-x3" mimeType="audio/mp4" codecs="mp4a.40.2" audioSamplingRate="44100" startWithSAP="1" bandwidth="128000">
+                <BaseURL>https://prod.foobar.com/audio/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/</BaseURL>
+                <BaseURL>https://ll.foo.co/audio/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/</BaseURL>
+            </Representation>
+        </AdaptationSet>
+    </Period>
+</MPD>

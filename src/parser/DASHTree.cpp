@@ -446,14 +446,16 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             if (dash->current_representation_->indexRangeMax_)
               dash->currentNode_ |= MPDNODE_SEGMENTLIST;
           }
-          else if (strcmp(el, "SegmentTemplate") == 0)
+          else if (strcmp(el, "SegmentTemplate") == 0) // Inside Representation
           {
             dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
 
             dash->current_representation_->startNumber_ = ParseSegmentTemplate(
                 attr, dash->current_representation_->base_url_,
                 dash->current_representation_->segtpl_, dash->current_adaptationset_->startNumber_);
-            ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
+            dash->current_representation_->segtpl_.media_url =
+                dash->current_representation_->segtpl_.media;
+            ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
                                 dash->current_representation_->id,
                                 dash->current_representation_->bandwidth_);
             dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
@@ -589,7 +591,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         else if (dash->currentNode_ & MPDNODE_BASEURL)
         {
         }
-        else if (strcmp(el, "SegmentTemplate") == 0)
+        else if (strcmp(el, "SegmentTemplate") == 0) // Inside Adaptation set
         {
           dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(
               attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_,
@@ -747,10 +749,15 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           }
 
           dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
+
           if (!dash->current_adaptationset_->segtpl_.media.empty())
           {
             dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
-            ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
+
+            dash->current_representation_->segtpl_.media_url =
+                dash->current_representation_->segtpl_.media;
+
+            ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
                                 dash->current_representation_->id,
                                 dash->current_representation_->bandwidth_);
 
@@ -946,7 +953,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         dash->segcount_ = 0;
         dash->currentNode_ |= MPDNODE_ADAPTIONSET;
       }
-      else if (strcmp(el, "SegmentTemplate") == 0)
+      else if (strcmp(el, "SegmentTemplate") == 0) // Inside Period
       {
         dash->current_period_->startNumber_ = ParseSegmentTemplate(
             attr, dash->current_period_->base_url_, dash->current_period_->segtpl_,
@@ -1098,6 +1105,22 @@ static void XMLCALL end(void* data, const char* el)
           {
             if (strcmp(el, "BaseURL") == 0)
             {
+              //! @TODO: Multi BaseURL tag is not supported/implemented,
+              //! currently we pick wrongly always the LAST BaseURL available.
+              //! 
+              //! Implementing this feature is very hard without a full refactor
+              //! of the parser and classes where the parserization of the XML
+              //! data must be decoupled from data processing.
+              //! 
+              //! There are two cases:
+              //! 1) BaseURL without properties
+              //!  <BaseURL>https://cdnurl1/</BaseURL>
+              //!  the player must select the first base url by default and fallback
+              //!  to the others when an address no longer available or not reachable.
+              //! 2) BaseURL with DVB properties (ETSI TS 103 285 - DVB)
+              //!  <BaseURL dvb:priority="1" dvb:weight="10" serviceLocation="A" >https://cdnurl1/</BaseURL>
+              //!  where these properties affect the behaviour of the url selection.
+
               while (dash->strXMLText_.size() &&
                      (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
                 dash->strXMLText_.erase(dash->strXMLText_.begin());
@@ -1114,12 +1137,16 @@ static void XMLCALL end(void* data, const char* el)
                     AdaptiveTree::Representation::INITIALIZATION)
                 {
                   dash->current_representation_->url_ =
-                      URL::Join(url, dash->current_representation_->url_.substr(
-                                          dash->current_adaptationset_->base_url_.size()));
+                      URL::Join(url, dash->current_representation_->segtpl_.initialization.substr(
+                                         dash->current_adaptationset_->base_url_.size()));
                 }
-                dash->current_representation_->segtpl_.media =
+                dash->current_representation_->segtpl_.media_url =
                     URL::Join(url, dash->current_representation_->segtpl_.media.substr(
                                         dash->current_adaptationset_->base_url_.size()));
+
+                ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
+                                    dash->current_representation_->id,
+                                    dash->current_representation_->bandwidth_);
               }
               else
                 dash->current_representation_->url_ = url;
@@ -1289,7 +1316,9 @@ static void XMLCALL end(void* data, const char* el)
               ReplacePlaceHolders(dash->current_representation_->url_,
                                   dash->current_representation_->id,
                                   dash->current_representation_->bandwidth_);
-              ReplacePlaceHolders(dash->current_representation_->segtpl_.media,
+              dash->current_representation_->segtpl_.media_url =
+                  dash->current_representation_->segtpl_.media;
+              ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
                                   dash->current_representation_->id,
                                   dash->current_representation_->bandwidth_);
             }

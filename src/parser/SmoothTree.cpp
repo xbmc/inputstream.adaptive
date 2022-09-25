@@ -78,15 +78,17 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
         dash->current_representation_->flags_ |= AdaptiveTree::Representation::TEMPLATE;
         dash->current_representation_->segtpl_.media = dash->current_representation_->url_;
+        dash->current_representation_->segtpl_.media_url =
+            dash->current_representation_->segtpl_.media;
 
         std::string::size_type pos(
-            dash->current_representation_->segtpl_.media.find("{start time}"));
+            dash->current_representation_->segtpl_.media_url.find("{start time}"));
         if (pos != std::string::npos)
-          dash->current_representation_->segtpl_.media.replace(pos, 12, "$Time$");
+          dash->current_representation_->segtpl_.media_url.replace(pos, 12, "$Time$");
         else
           return;
 
-        pos = dash->current_representation_->segtpl_.media.find("{bitrate}");
+        pos = dash->current_representation_->segtpl_.media_url.find("{bitrate}");
         if (pos == std::string::npos)
           return;
 
@@ -165,7 +167,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_representation_->codec_private_data_[1] = esds & 0xFF;
         }
 
-        dash->current_representation_->segtpl_.media.replace(pos, 9, bw);
+        dash->current_representation_->segtpl_.media_url.replace(pos, 9, bw);
         dash->current_representation_->bandwidth_ = atoi(bw);
         dash->current_representation_->assured_buffer_duration_ =
             dash->m_settings.m_bufferAssuredDuration;
