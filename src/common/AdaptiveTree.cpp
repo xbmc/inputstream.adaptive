@@ -91,44 +91,6 @@ namespace adaptive
       delete *bp;
   }
 
-  //! @todo: CheckHDCP we will need to move this method in Session class to
-  //! avoid store the CAPS here, then call the Session method from AdaptiveTree
-  //! To be done after Session refactor
-  void AdaptiveTree::CheckHDCP()
-  {
-    //! @todo: is needed to implement an appropriate CP check to
-    //! remove HDCPOVERRIDE setting workaround
-
-    if (m_decrypterCaps.empty())
-      return;
-
-    uint32_t adpIndex{0};
-    adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
-    while ((adp = GetAdaptationSet(adpIndex++)))
-    {
-      if (adp->type_ != adaptive::AdaptiveTree::StreamType::VIDEO)
-        continue;
-
-      for (auto it = adp->representations_.begin(); it != adp->representations_.end();)
-      {
-        adaptive::AdaptiveTree::Representation* repr = *it;
-        uint16_t hdcpVersion = m_decrypterCaps[repr->pssh_set_].hdcpVersion;
-        int hdcpLimit = m_decrypterCaps[repr->pssh_set_].hdcpLimit;
-
-        if (repr->hdcpVersion_ > hdcpVersion ||
-            (hdcpLimit > 0 && repr->width_ * repr->height_ > hdcpLimit))
-        {
-          LOG::Log(LOGDEBUG, "Representation ID \"%s\" removed as not HDCP compliant",
-                   repr->id.c_str());
-          delete repr;
-          it = adp->representations_.erase(it);
-        }
-        else
-          it++;
-      }
-    }
-  }
-
   void AdaptiveTree::FreeSegments(Period* period, Representation* rep)
   {
     for (auto& segment : rep->segments_.data) {

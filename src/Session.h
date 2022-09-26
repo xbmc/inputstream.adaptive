@@ -42,6 +42,11 @@ public:
    */
   bool Initialize();
 
+  /*
+   * \brief Check HDCP parameters to remove unplayable representations
+   */
+  void CheckHDCP();
+
   /*! \brief Pre-Initialize the DRM
    *  \param challengeB64 [OUT] Provide the challenge data as base64
    *  \param sessionId [OUT] Provide the session ID

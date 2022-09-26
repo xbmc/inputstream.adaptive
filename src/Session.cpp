@@ -264,6 +264,47 @@ bool CSession::Initialize()
   return InitializePeriod(isSessionOpened);
 }
 
+void CSession::CheckHDCP()
+{
+  //! @todo: is needed to implement an appropriate CP check to
+  //! remove HDCPOVERRIDE setting workaround
+  if (m_cdmSessions.empty())
+    return;
+
+  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> decrypterCaps;
+
+  for (const auto& cdmsession : m_cdmSessions)
+  {
+    decrypterCaps.emplace_back(cdmsession.m_decrypterCaps);
+  }
+
+  uint32_t adpIndex{0};
+  adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
+
+  while ((adp = m_adaptiveTree->GetAdaptationSet(adpIndex++)))
+  {
+    if (adp->type_ != adaptive::AdaptiveTree::StreamType::VIDEO)
+      continue;
+
+    for (auto it = adp->representations_.begin(); it != adp->representations_.end();)
+    {
+      const adaptive::AdaptiveTree::Representation* repr = *it;
+      const SSD::SSD_DECRYPTER::SSD_CAPS& ssd_caps = decrypterCaps[repr->pssh_set_];
+
+      if (repr->hdcpVersion_ > ssd_caps.hdcpVersion ||
+          (ssd_caps.hdcpLimit > 0 && repr->width_ * repr->height_ > ssd_caps.hdcpLimit))
+      {
+        LOG::Log(LOGDEBUG, "Representation ID \"%s\" removed as not HDCP compliant",
+                 repr->id.c_str());
+        delete repr;
+        it = adp->representations_.erase(it);
+      }
+      else
+        it++;
+    }
+  }
+}
+
 bool CSession::PreInitializeDRM(std::string& challengeB64,
                                 std::string& sessionId,
                                 bool& isSessionOpened)
@@ -632,15 +673,8 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     }
   }
 
-  m_adaptiveTree->m_decrypterCaps.clear();
   if (!m_settingIsHdcpOverride)
-  {
-    for (const auto& cdmsession : m_cdmSessions)
-    {
-      m_adaptiveTree->m_decrypterCaps.emplace_back(cdmsession.m_decrypterCaps);
-    }
-    m_adaptiveTree->CheckHDCP();
-  }
+    CheckHDCP();
 
   m_reprChooser->SetSecureSession(isSecureVideoSession);
   m_reprChooser->PostInit();
