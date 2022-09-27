@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "../SSD_dll.h"
 #include "../utils/PropertiesUtils.h"
 #include "expat.h"
 
@@ -541,11 +540,6 @@ public:
   bool has_type(StreamType t);
   void FreeSegments(Period* period, Representation* rep);
 
-  /*!
-   * \brief Check HDCP parameters to remove unplayable representations
-   */
-  void CheckHDCP();
-
   /*
    * \brief Estimate the count of segments on overall period duration
    */
@@ -581,7 +575,6 @@ public:
   virtual AdaptiveTree* Clone() const = 0;
 
   Settings m_settings;
-  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> m_decrypterCaps;
 
 protected:
   /*!
