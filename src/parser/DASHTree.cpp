@@ -1871,7 +1871,14 @@ void DASHTree::RefreshLiveSegments()
                         if (segment.range_begin_ == search_pts)
                           break;
                         else if (segment.range_begin_ > search_pts)
+                        {
+                          if (&repr->segments_.data.front() == &segment)
+                          {
+                            --repr->startNumber_;
+                            break;
+                          }
                           misaligned = search_pts - (&segment - 1)->range_begin_;
+                        }
                         else
                           ++repr->startNumber_;
                       }
