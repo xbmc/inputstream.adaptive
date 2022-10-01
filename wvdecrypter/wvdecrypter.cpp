@@ -234,7 +234,26 @@ private:
     AP4_DataBuffer annexb_sps_pps_;
   };
   std::vector<FINFO> fragment_pool_;
-
+  void LogDecryptError(const cdm::Status status, const AP4_UI08* key);
+  void SetCdmSubsamples(std::vector<cdm::SubsampleEntry>& subsamples, bool isCbc);
+  void RepackSubsampleData(AP4_DataBuffer& dataIn,
+                           AP4_DataBuffer& dataOut,
+                           size_t& startPos,
+                           size_t& cipherPos,
+                           const unsigned int subsamplePos,
+                           const AP4_UI16* bytesOfCleartextData,
+                           const AP4_UI32* bytesOfEncryptedData);
+  void UnpackSubsampleData(AP4_DataBuffer& data_in,
+                           size_t& startPos,
+                           const unsigned int subsamplePos,
+                           const AP4_UI16* bytes_of_cleartext_data,
+                           const AP4_UI32* bytes_of_encrypted_data);
+  void SetInput(cdm::InputBuffer_2& cdmInputBuffer,
+                const AP4_DataBuffer& inputData,
+                const unsigned int subsampleCount,
+                const uint8_t* iv,
+                const FINFO& fragInfo,
+                const std::vector<cdm::SubsampleEntry>& subsamples);
   uint32_t promise_id_;
   bool drained_;
 
@@ -1011,6 +1030,74 @@ void WV_CencSingleSampleDecrypter::RemovePool(AP4_UI32 poolid)
   fragment_pool_[poolid].key_ = nullptr;
 }
 
+void WV_CencSingleSampleDecrypter::LogDecryptError(const cdm::Status status, const AP4_UI08* key)
+{
+  char buf[36];
+  buf[32] = 0;
+  AP4_FormatHex(key, 16, buf);
+  LOG::LogF(SSDDEBUG, "Decrypt failed with error: %d and key: %s", status, buf);
+}
+
+void WV_CencSingleSampleDecrypter::SetCdmSubsamples(std::vector<cdm::SubsampleEntry>& subsamples,
+                                                    bool isCbc)
+{
+  if (isCbc)
+  {
+    subsamples.resize(1);
+    subsamples[0] = {0, decrypt_in_.GetDataSize()};
+  }
+  else
+  {
+    subsamples.push_back({0, decrypt_in_.GetDataSize()});
+  }
+}
+
+void WV_CencSingleSampleDecrypter::RepackSubsampleData(AP4_DataBuffer& dataIn,
+                                                       AP4_DataBuffer& dataOut,
+                                                       size_t& pos,
+                                                       size_t& cipherPos,
+                                                       const unsigned int subsamplePos,
+                                                       const AP4_UI16* bytesOfCleartextData,
+                                                       const AP4_UI32* bytesOfEncryptedData)
+{
+  dataOut.AppendData(dataIn.GetData() + pos, bytesOfCleartextData[subsamplePos]);
+  pos += bytesOfCleartextData[subsamplePos];
+  dataOut.AppendData(decrypt_out_.GetData() + cipherPos, bytesOfEncryptedData[subsamplePos]);
+  pos += bytesOfEncryptedData[subsamplePos];
+  cipherPos += bytesOfEncryptedData[subsamplePos];
+}
+
+void WV_CencSingleSampleDecrypter::UnpackSubsampleData(AP4_DataBuffer& dataIn,
+                                                       size_t& pos,
+                                                       const unsigned int subsamplePos,
+                                                       const AP4_UI16* bytesOfCleartextData,
+                                                       const AP4_UI32* bytesOfEncryptedData)
+{
+  pos += bytesOfCleartextData[subsamplePos];
+  decrypt_in_.AppendData(dataIn.GetData() + pos, bytesOfEncryptedData[subsamplePos]);
+  pos += bytesOfEncryptedData[subsamplePos];
+}
+
+void WV_CencSingleSampleDecrypter::SetInput(cdm::InputBuffer_2& cdmInputBuffer,
+                                            const AP4_DataBuffer& inputData,
+                                            const unsigned int subsampleCount,
+                                            const uint8_t* iv,
+                                            const FINFO& fragInfo,
+                                            const std::vector<cdm::SubsampleEntry>& subsamples)
+{
+  cdmInputBuffer.data = inputData.GetData();
+  cdmInputBuffer.data_size = inputData.GetDataSize();
+  cdmInputBuffer.num_subsamples = subsampleCount;
+  cdmInputBuffer.iv = iv;
+  cdmInputBuffer.iv_size = 16; //Always 16, see AP4_CencSingleSampleDecrypter declaration.
+  cdmInputBuffer.key_id = fragInfo.key_;
+  cdmInputBuffer.key_id_size = 16;
+  cdmInputBuffer.subsamples = subsamples.data();
+  cdmInputBuffer.encryption_scheme = media::ToCdmEncryptionScheme(m_EncryptionMode);
+  cdmInputBuffer.timestamp = 0;
+  cdmInputBuffer.pattern = {m_CryptBlocks, m_SkipBlocks};
+}
+
 /*----------------------------------------------------------------------
 |   WV_CencSingleSampleDecrypter::DecryptSampleData
 +---------------------------------------------------------------------*/
@@ -1146,8 +1233,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
     return AP4_ERROR_INVALID_PARAMETERS;
   }
 
-  // the output has the same size as the input
-  data_out.SetDataSize(data_in.GetDataSize());
+  data_out.SetDataSize(0);
 
   uint16_t clearb(0);
   uint32_t cipherb(data_in.GetDataSize());
@@ -1167,97 +1253,132 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
     bytes_of_cleartext_data = &clearb;
     bytes_of_encrypted_data = &cipherb;
   }
-
-  cdm::InputBuffer_2 cdm_in;
+  cdm::Status ret{cdm::Status::kSuccess};
   std::vector<cdm::SubsampleEntry> subsamples;
   subsamples.reserve(subsample_count);
-  bool useSingleDecrypt(false);
+  bool useSingleDecrypt{(fragInfo.decrypter_flags_ & SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT) !=
+                        0};
+  bool useCbcDecrypt{m_EncryptionMode == CryptoMode::AES_CBC};
+  
+  // Decrypting (and not decoding) with subsamples > 1 seems to be broken for
+  // a long time now, we should consider removing support for this
+  if (!useSingleDecrypt) // The decrypter supports subsamples set > 1
+  {
+    uint32_t numCipherBytes{0};
+    for (size_t i{0}; i < subsample_count; i++)
+    {
+      subsamples.push_back({bytes_of_cleartext_data[i], bytes_of_encrypted_data[i]});
+      numCipherBytes += bytes_of_encrypted_data[i];
+    }
 
+    if (numCipherBytes == 0)
+    {
+      data_out.AppendData(data_in.GetData(), data_in.GetDataSize());
+      return AP4_SUCCESS;
+    }
+
+    cdm::InputBuffer_2 cdm_in;
+    SetInput(cdm_in, data_in, subsample_count, iv, fragInfo, subsamples);
+    data_out.SetDataSize(data_in.GetDataSize());
+    CdmBuffer buf{&data_out};
+    CdmDecryptedBlock cdm_out;
+    cdm_out.SetDecryptedBuffer(&buf);
+
+    CheckLicenseRenewal();
+    ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
+    if (ret != cdm::Status::kSuccess)
+    {
+      LogDecryptError(ret, fragInfo.key_);
+    }
+    return (ret == cdm::Status::kSuccess) ? AP4_SUCCESS : AP4_ERROR_INVALID_PARAMETERS;
+  }
+
+  // We can only decrypt with subsamples set to 1
+  // This must be handled differently for CENC and CBCS
+  // CENC:
   // CDM should get 1 block of encrypted data per sample, encrypted data
   // from all subsamples should be formed into a contiguous block.
   // Even if there is only 1 subsample, we should remove cleartext data
   // from it before passing to CDM.
-  if ((fragInfo.decrypter_flags_ & SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT) != 0)
+  // CBCS:
+  // Due to the nature of this cipher subsamples must be decrypted separately
+  else
   {
-    decrypt_in_.Reserve(data_in.GetDataSize());
-    decrypt_in_.SetDataSize(0);
-    size_t absPos = 0;
+    const unsigned int iterations{useCbcDecrypt ? subsample_count : 1};
+    size_t absPos{0};
 
-    for (unsigned int i{0}; i < subsample_count; ++i)
+    for (unsigned int i{0}; i < iterations; ++i)
     {
-      absPos += bytes_of_cleartext_data[i];
-      decrypt_in_.AppendData(data_in.GetData() + absPos, bytes_of_encrypted_data[i]);
-      absPos += bytes_of_encrypted_data[i];
-    }
-    if (decrypt_in_.GetDataSize() > 0)
-    {
+      decrypt_in_.Reserve(data_in.GetDataSize());
+      decrypt_in_.SetDataSize(0);
+      size_t decryptInPos = absPos;
+      if (useCbcDecrypt)
+      {
+        UnpackSubsampleData(data_in, decryptInPos, i, bytes_of_cleartext_data,
+                            bytes_of_encrypted_data);
+      }
+      else
+      {
+        for (unsigned int subsamplePos{0}; subsamplePos < subsample_count; ++subsamplePos)
+        {
+          UnpackSubsampleData(data_in, absPos, subsamplePos, bytes_of_cleartext_data, bytes_of_encrypted_data);
+        }
+      }
+
+      if (decrypt_in_.GetDataSize() > 0) // remember to include when calling setcdmsubsamples
+      {
+        SetCdmSubsamples(subsamples, useCbcDecrypt);
+      }
+
+      else // we have nothing to decrypt in this iteration
+      {
+        if (useCbcDecrypt)
+        {
+          data_out.AppendData(data_in.GetData() + absPos, bytes_of_cleartext_data[i]);
+          absPos += bytes_of_cleartext_data[i];
+          continue;
+        }
+        else // we can exit here for CENC and just return the input buffer
+        {
+          data_out.AppendData(data_in.GetData(), data_in.GetDataSize());
+          return AP4_SUCCESS;
+        }
+      }
+
+      cdm::InputBuffer_2 cdm_in;
+      SetInput(cdm_in, decrypt_in_, 1, iv, fragInfo, subsamples);
       decrypt_out_.SetDataSize(decrypt_in_.GetDataSize());
-      subsamples.push_back({0, decrypt_in_.GetDataSize()});
-      cdm_in.data = decrypt_in_.GetData();
-      cdm_in.data_size = decrypt_in_.GetDataSize();
-      cdm_in.num_subsamples = 1;
-      useSingleDecrypt = true;
+      CdmBuffer buf{&decrypt_out_};
+      CdmDecryptedBlock cdm_out;
+      cdm_out.SetDecryptedBuffer(&buf);
+
+      CheckLicenseRenewal();
+      ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
+
+      if (ret == cdm::Status::kSuccess)
+      {
+        size_t cipherPos = 0;
+        if (useCbcDecrypt)
+        {
+          RepackSubsampleData(data_in, data_out, absPos, cipherPos, i, bytes_of_cleartext_data,
+                              bytes_of_encrypted_data);
+        }
+        else
+        {
+          size_t absPos{0};
+          for (unsigned int i{0}; i < subsample_count; ++i)
+          {
+            RepackSubsampleData(data_in, data_out, absPos, cipherPos, i, bytes_of_cleartext_data,
+                                bytes_of_encrypted_data);
+          }
+        }
+      }
+      else
+      {
+        LogDecryptError(ret, fragInfo.key_);
+      }
     }
   }
-
-  if (!useSingleDecrypt)
-  {
-    uint32_t numCipherBytes{0};
-
-    for (size_t i{0}; i < subsample_count; i++)
-    {
-      subsamples.push_back({bytes_of_cleartext_data[i], bytes_of_encrypted_data[i]});
-      numCipherBytes += subsamples[i].cipher_bytes;
-    }
-    if (numCipherBytes > 0)
-    {
-      cdm_in.data = data_in.GetData();
-      cdm_in.data_size = data_in.GetDataSize();
-      cdm_in.num_subsamples = subsample_count;
-    }
-    else
-    {
-      memcpy(data_out.UseData(), data_in.GetData(), data_in.GetDataSize());
-      return AP4_SUCCESS;
-    }
-  }
-
-  cdm_in.iv = iv;
-  cdm_in.iv_size = 16; //Always 16, see AP4_CencSingleSampleDecrypter declaration.
-  cdm_in.key_id = fragInfo.key_;
-  cdm_in.key_id_size = 16;
-  cdm_in.subsamples = subsamples.data();
-  cdm_in.encryption_scheme = media::ToCdmEncryptionScheme(m_EncryptionMode);
-  cdm_in.timestamp = 0;
-  cdm_in.pattern = { m_CryptBlocks, m_SkipBlocks };
-
-  CdmBuffer buf((useSingleDecrypt) ? &decrypt_out_ : &data_out);
-  CdmDecryptedBlock cdm_out;
-  cdm_out.SetDecryptedBuffer(&buf);
-
-  //LICENSERENEWAL: 
-  CheckLicenseRenewal();
-  cdm::Status ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
-
-  if (ret == cdm::Status::kSuccess && useSingleDecrypt)
-  {
-    size_t absPos = 0, cipherPos = 0;
-    for (unsigned int i(0); i < subsample_count; ++i)
-    {
-      memcpy(data_out.UseData() + absPos, data_in.GetData() + absPos, bytes_of_cleartext_data[i]);
-      absPos += bytes_of_cleartext_data[i];
-      memcpy(data_out.UseData() + absPos, decrypt_out_.GetData() + cipherPos, bytes_of_encrypted_data[i]);
-      absPos += bytes_of_encrypted_data[i], cipherPos += bytes_of_encrypted_data[i];
-    }
-  }
-
-  if (ret != cdm::Status::kSuccess)
-  {
-    char buf[36]; buf[32] = 0;
-    AP4_FormatHex(fragInfo.key_, 16, buf);
-    LOG::LogF(SSDDEBUG, "Decrypt failed with error: %d and key: %s", ret, buf);
-  }
-
   return (ret == cdm::Status::kSuccess) ? AP4_SUCCESS : AP4_ERROR_INVALID_PARAMETERS;
 }
 
