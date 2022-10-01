@@ -14,6 +14,7 @@
 //Functionality wich is supported by the Decrypter
 class Adaptive_CencSingleSampleDecrypter;
 class AP4_DataBuffer;
+enum class CryptoMode;
 
 namespace SSD
 {
@@ -42,7 +43,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 19;
+    static const uint32_t version = 20;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -240,7 +241,8 @@ namespace SSD
         AP4_DataBuffer& pssh,
         const char* optionalKeyParameter,
         std::string_view defaultkeyid,
-        bool skipSessionMessage) = 0;
+        bool skipSessionMessage,
+        CryptoMode cryptoMode) = 0;
     virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) = 0;
 
     virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,

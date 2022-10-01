@@ -56,6 +56,7 @@ set(ADP_SOURCES
 
 set(ADP_HEADERS
     src/AdaptiveByteStream.h
+	src/CryptoMode.h
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h

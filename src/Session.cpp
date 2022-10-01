@@ -370,7 +370,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
 
   if (m_decrypter && init_data.GetDataSize() >= 4 &&
       (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-           init_data, optionalKeyParameter, decKid, true)) != 0)
+           init_data, optionalKeyParameter, decKid, true, CryptoMode::AES_CTR)) != 0)
   {
     session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
     sessionId = session.m_cdmSessionStr;
@@ -640,7 +640,10 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       if (m_decrypter && init_data.GetDataSize() >= 4 &&
           (session.m_cencSingleSampleDecrypter ||
            (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-                init_data, optionalKeyParameter, defaultKid, false)) != 0))
+                init_data, optionalKeyParameter, defaultKid, false,
+                sessionPsshset.m_cryptoMode == CryptoMode::NONE ? CryptoMode::AES_CTR
+                                                                : sessionPsshset.m_cryptoMode)) !=
+               0))
       {
         m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defkid,
                                      sessionPsshset.media_, session.m_decrypterCaps);

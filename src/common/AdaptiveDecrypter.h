@@ -8,19 +8,12 @@
 
 #pragma once
 
-#include <bento4/Ap4.h>
+#include "../CryptoMode.h"
 
 #include <stdexcept>
 #include <string_view>
 
-// These values must match their respective constant values
-// defined in the Android MediaCodec class
-enum class CryptoMode
-{
-  NONE = 0,
-  AES_CTR = 1,
-  AES_CBC = 2
-};
+#include <bento4/Ap4.h>
 
 class Adaptive_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 {

@@ -153,7 +153,7 @@ class WV_CencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter
 {
 public:
   // methods
-  WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, std::string_view defaultKeyId, bool skipSessionMessage);
+  WV_CencSingleSampleDecrypter(WV_DRM &drm, AP4_DataBuffer &pssh, std::string_view defaultKeyId, bool skipSessionMessage, CryptoMode cryptoMode);
   virtual ~WV_CencSingleSampleDecrypter();
 
   void GetCapabilities(const uint8_t* key, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps);
@@ -394,7 +394,8 @@ void WV_DRM::OnCDMMessage(const char* session, uint32_t session_size, CDMADPMSG 
 WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
                                                            AP4_DataBuffer& pssh,
                                                            std::string_view defaultKeyId,
-                                                           bool skipSessionMessage)
+                                                           bool skipSessionMessage,
+                                                           CryptoMode cryptoMode)
   : drm_(drm),
     pssh_(pssh),
     hdcp_version_(99),
@@ -402,10 +403,10 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
     resolution_limit_(0),
     promise_id_(1),
     drained_(true),
-    m_defaultKeyId{defaultKeyId}
+    m_defaultKeyId{defaultKeyId},
+    m_EncryptionMode{cryptoMode}
 {
   SetParentIsOwner(false);
-  m_EncryptionMode = CryptoMode::AES_CTR; // cenc
 
   if (pssh.GetDataSize() > 4096)
   {
@@ -1440,10 +1441,11 @@ public:
       AP4_DataBuffer& pssh,
       const char* optionalKeyParameter,
       std::string_view defaultkeyid,
-      bool skipSessionMessage) override
+      bool skipSessionMessage,
+      CryptoMode cryptoMode) override
   {
     WV_CencSingleSampleDecrypter* decrypter =
-        new WV_CencSingleSampleDecrypter(*cdmsession_, pssh, defaultkeyid, skipSessionMessage);
+        new WV_CencSingleSampleDecrypter(*cdmsession_, pssh, defaultkeyid, skipSessionMessage, cryptoMode);
     if (!decrypter->GetSessionId())
     {
       delete decrypter;

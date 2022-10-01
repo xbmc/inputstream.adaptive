@@ -150,17 +150,23 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
       if (decPssh.size() == 50)
         current_defaultKID_ = decPssh.substr(34, 16);
     }
+    if (map["METHOD"] == "SAMPLE-AES-CTR")
+      m_cryptoMode = CryptoMode::AES_CTR;
+    else if (map["METHOD"] == "SAMPLE-AES")
+      m_cryptoMode = CryptoMode::AES_CBC;
 
     return ENCRYPTIONTYPE_WIDEVINE;
   }
 
   // KNOWN UNSUPPORTED
-  if (map["METHOD"] == "SAMPLE-AES")
+  if (map["KEYFORMAT"] == "com.apple.streamingkeydelivery")
   {
-    LOG::LogF(LOGERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-    return ENCRYPTIONTYPE_INVALID;
+    LOG::LogF(LOGDEBUG, "Ignoring keyformat %s", map["KEYFORMAT"].c_str());
+    return ENCRYPTIONTYPE_UNKNOWN;
   }
 
+  LOG::LogF(LOGDEBUG, "Unknown/unsupported method %s and keyformat %s", map["METHOD"].c_str(),
+            map["KEYFORMAT"].c_str());
   return ENCRYPTIONTYPE_UNKNOWN;
 }
 
