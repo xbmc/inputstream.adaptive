@@ -599,9 +599,8 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       CCdmSession& session{m_cdmSessions[ses]};
       std::string defaultKid{sessionPsshset.defaultKID_};
-
-      const char* defkid{sessionPsshset.defaultKID_.empty() ? nullptr
-                                                            : sessionPsshset.defaultKID_.data()};
+      const uint8_t* defkid{
+          defaultKid.empty() ? nullptr : reinterpret_cast<const uint8_t*>(defaultKid.data())};
 
       if (addDefaultKID && ses == 1 && session.m_cencSingleSampleDecrypter)
       {
@@ -622,8 +621,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         {
           for (size_t i{1}; i < ses; ++i)
           {
-            if (m_decrypter->HasLicenseKey(m_cdmSessions[i].m_cencSingleSampleDecrypter,
-                                           reinterpret_cast<const uint8_t*>(defkid)))
+            if (m_decrypter->HasLicenseKey(m_cdmSessions[i].m_cencSingleSampleDecrypter, defkid))
             {
               session.m_cencSingleSampleDecrypter = m_cdmSessions[i].m_cencSingleSampleDecrypter;
               session.m_sharedCencSsd = true;
@@ -632,7 +630,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           }
         }
       }
-      else if (!defkid && !session.m_cencSingleSampleDecrypter)
+      else if (defaultKid.empty() && !session.m_cencSingleSampleDecrypter)
       {
         LOG::Log(LOGWARNING, "Initializing stream with unknown KID!");
       }
@@ -644,8 +642,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
            (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
                 init_data, optionalKeyParameter, defaultKid, false)) != 0))
       {
-        m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter,
-                                     reinterpret_cast<const uint8_t*>(defaultKid.c_str()),
+        m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defkid,
                                      sessionPsshset.media_, session.m_decrypterCaps);
 
         if (session.m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID)
