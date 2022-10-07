@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "../CryptoMode.h"
 #include "../utils/PropertiesUtils.h"
 #include "expat.h"
 
@@ -37,7 +38,7 @@ class IRepresentationChooser;
 
 namespace adaptive
 {
-  
+
 
 template<typename T>
 struct ATTR_DLL_LOCAL SPINCACHE
@@ -445,13 +446,14 @@ public:
       static const uint32_t MEDIA_VIDEO = 1;
       static const uint32_t MEDIA_AUDIO = 2;
 
-      PSSH() :media_(0), use_count_(0) {};
+      PSSH() : media_(0), use_count_(0), m_cryptoMode(CryptoMode::NONE){};
       bool operator == (const PSSH &other) const { return !use_count_ || (media_ == other.media_ && pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ && iv == other.iv); };
       std::string pssh_;
       std::string defaultKID_;
       std::string iv;
       uint32_t media_;
       uint32_t use_count_;
+      CryptoMode m_cryptoMode;
       AdaptationSet *adaptation_set_;
     };
     std::vector<PSSH> psshSets_;
@@ -505,7 +507,10 @@ public:
   bool adp_timelined_, period_timelined_;
 
   bool current_hasRepURN_, current_hasAdpURN_;
-  std::string current_pssh_, current_defaultKID_, current_iv_;
+  std::string current_pssh_;
+  std::string current_defaultKID_;
+  std::string current_iv_;
+  CryptoMode m_cryptoMode;
   std::string license_url_;
 
   std::string strXMLText_;

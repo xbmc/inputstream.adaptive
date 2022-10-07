@@ -150,17 +150,23 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
       if (decPssh.size() == 50)
         current_defaultKID_ = decPssh.substr(34, 16);
     }
+    if (map["METHOD"] == "SAMPLE-AES-CTR")
+      m_cryptoMode = CryptoMode::AES_CTR;
+    else if (map["METHOD"] == "SAMPLE-AES")
+      m_cryptoMode = CryptoMode::AES_CBC;
 
     return ENCRYPTIONTYPE_WIDEVINE;
   }
 
   // KNOWN UNSUPPORTED
-  if (map["METHOD"] == "SAMPLE-AES")
+  if (map["KEYFORMAT"] == "com.apple.streamingkeydelivery")
   {
-    LOG::LogF(LOGERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-    return ENCRYPTIONTYPE_INVALID;
+    LOG::LogF(LOGDEBUG, "Ignoring keyformat %s", map["KEYFORMAT"].c_str());
+    return ENCRYPTIONTYPE_UNKNOWN;
   }
 
+  LOG::LogF(LOGDEBUG, "Unknown/unsupported method %s and keyformat %s", map["METHOD"].c_str(),
+            map["KEYFORMAT"].c_str());
   return ENCRYPTIONTYPE_UNKNOWN;
 }
 
@@ -496,10 +502,13 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         {
           std::string::size_type bs = line.rfind('@');
           if (bs != std::string::npos)
-          {
-            segment.range_begin_ = atoll(line.c_str() + (bs + 1));
-            segment.range_end_ = segment.range_begin_ + atoll(line.c_str() + 17) - 1;
-          }
+            segment.range_begin_ = std::atoll(line.c_str() + (bs + 1));
+          else
+            segment.range_begin_ = newSegments.size() > 0
+                                       ? newSegments.Get(newSegments.size() - 1)->range_end_ + 1
+                                       : 0;
+
+          segment.range_end_ = segment.range_begin_ + std::atoll(line.c_str() + 17) - 1;
           byteRange = true;
         }
         else if (!line.empty() && line.compare(0, 1, "#") != 0 && ~segment.startPTS_)

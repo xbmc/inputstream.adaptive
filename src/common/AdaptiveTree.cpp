@@ -63,7 +63,8 @@ namespace adaptive
       has_overall_seconds_(false),
       updateInterval_(~0),
       updateThread_(nullptr),
-      lastUpdated_(std::chrono::system_clock::now())
+      lastUpdated_(std::chrono::system_clock::now()),
+      m_cryptoMode(CryptoMode::NONE)
   {
     // Convenience way to share common addon settings we avoid
     // calling the API many times to improve parsing performance
@@ -209,6 +210,7 @@ namespace adaptive
       pssh.pssh_ = current_pssh_;
       pssh.defaultKID_ = current_defaultKID_;
       pssh.iv = current_iv_;
+      pssh.m_cryptoMode = m_cryptoMode;
       pssh.adaptation_set_ = adp;
       switch (type)
       {

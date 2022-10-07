@@ -1267,7 +1267,8 @@ public:
       AP4_DataBuffer& pssh,
       const char* optionalKeyParameter,
       std::string_view defaultkeyid,
-      bool skipSessionMessage) override
+      bool skipSessionMessage,
+      CryptoMode cryptoMode) override
   {
     WV_CencSingleSampleDecrypter *decrypter = new WV_CencSingleSampleDecrypter(*cdmsession_, pssh, optionalKeyParameter, defaultkeyid);
 
