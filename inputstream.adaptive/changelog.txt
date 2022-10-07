@@ -1,3 +1,12 @@
+v20.3.1 (2022-10-07)
+- Print stream ids in log when seeking
+- [DASH] Fix possible crash for live streams
+- [DASH] Fix issue with baseurls/template causing incorrect url calculation
+- [DRM] Fix regression with unknown keyids sending uninitialised data to decrypter
+- [HLS] Support EXT-X-Byterange tags that don't contain start byte value
+- Allow for playlists to set crypto mode
+- [DRM] Partial refactor, fix for decrypting CBC with multi subsamples
+
 v20.3.0 (2022-09-16)
 - Kodi inputstream API update to version 3.2.0
 - Implemented AV1 support
