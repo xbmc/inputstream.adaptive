@@ -4,125 +4,129 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-"Language-Team: none\n"
+"Report-Msgid-Bugs-To: translations@kodi.tv\n"
+"PO-Revision-Date: 2022-10-12 06:44+0000\n"
+"Last-Translator: Coool (github.com/Coool) <coool@mail.lv>\n"
+"Language-Team: Latvian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/lv_lv/>\n"
 "Language: lv_lv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n % 10 == 0 || n % 100 >= 11 && n % 100 <= 19) ? 0 : ((n % 10 == 1 && n % 100 != 11) ? 1 : 2);\n"
+"X-Generator: Weblate 4.14.1\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream klients adaptīvām straumēm"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream klients adaptīvām straumēm"
 
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Vispārīgie"
 
 # The minimum bandwidth which should not be deceeded.
 msgctxt "#30101"
 msgid "Min. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Min. caurlaidspēja (biti sekundē)"
 
 # The maximum bandwidth which should not be exceeded. 0=unlimited
 msgctxt "#30102"
 msgid "Max. Bandwidth (Bit/s)"
-msgstr ""
+msgstr "Maks. caurlaidspēja (biti sekundē)"
 
 # Absolute path to the folder containing the decrypters
 msgctxt "#30103"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Ceļš uz dekoderi"
 
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr ""
+msgstr "Maks. galvenā dekodera izšķirtspēja"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr ""
+msgstr "Straumes izvēle"
 
 msgctxt "#30112"
 msgid "Media"
-msgstr ""
+msgstr "Multimedija"
 
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr ""
+msgstr "Maks. drošā dekodera izšķirtspēja"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
 msgid "Override HDCP status"
-msgstr ""
+msgstr "Ignorēt HDCP statusu"
 
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore Display Resolution"
-msgstr ""
+msgstr "Ignorēt ekrāna izšķirtspēju"
 
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Eksperts"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr ""
+msgstr "Iespējot pirmsizlaides funkcijas"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr ""
+msgstr "Ja iespējams, neizmantot drošo dekoderi"
 
 msgctxt "#30150"
 msgid "Max"
-msgstr ""
+msgstr "Maks"
 
 msgctxt "#30151"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 msgctxt "#30152"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 msgctxt "#30153"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 msgctxt "#30154"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr ""
+msgstr "Automātiski izvēlēties straumes"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr ""
+msgstr "Manuāli Izvēlēties visas straumes"
 
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Visi"
 
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Audio"
 
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Video"
 
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr ""
+msgstr "Manuāli izvēlēties video straumi"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
-msgstr ""
+msgstr "Video + Subtitri"
