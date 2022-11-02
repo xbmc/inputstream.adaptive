@@ -625,14 +625,16 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
             continue;
           }
           period->sequence_ = m_discontSeq + discont_count;
-          period->duration_ = newSegments.size() ? pts - newSegments.Get(0)->startPTS_ : 0;
           if (!byteRange)
             rep->flags_ |= Representation::URLSEGMENTS;
+
+          rep->duration_ = newSegments.size() ? pts - newSegments.Get(0)->startPTS_ : 0;
+          if (adp->type_ != SUBTITLE)
+            period->duration_ = rep->duration_;
 
           FreeSegments(period, rep);
           rep->segments_.swap(newSegments);
           rep->startNumber_ = newStartNumber;
-          rep->duration_ = period->duration_;
 
           if (segmentInitialization)
           {
@@ -757,14 +759,15 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       rep->duration_ = rep->segments_.Get(0) ? (pts - rep->segments_.Get(0)->startPTS_) : 0;
 
       period->sequence_ = m_discontSeq + discont_count;
+      uint64_t overallSeconds = 0;
       if (discont_count || m_hasDiscontSeq)
       {
-        periods_[discont_count]->duration_ =
-            (rep->duration_ * periods_[discont_count]->timescale_) / rep->timescale_;
-        overallSeconds_ = 0;
+        if (adp->type_ != SUBTITLE)
+          periods_[discont_count]->duration_ =
+              (rep->duration_ * periods_[discont_count]->timescale_) / rep->timescale_;
         for (auto p : periods_)
         {
-          overallSeconds_ += p->duration_ / p->timescale_;
+          overallSeconds += p->duration_ / p->timescale_;
           if (!has_timeshift_buffer_ && !m_refreshPlayList)
             p->adaptationSets_[adp_pos]->representations_[rep_pos]->flags_ |=
                 Representation::DOWNLOADED;
@@ -772,10 +775,12 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
       }
       else
       {
-        overallSeconds_ = rep->duration_ / rep->timescale_;
+        overallSeconds = rep->duration_ / rep->timescale_;
         if (!has_timeshift_buffer_ && !m_refreshPlayList)
           rep->flags_ |= Representation::DOWNLOADED;
       }
+      if (adp->type_ != SUBTITLE)
+        overallSeconds_ = overallSeconds;
     }
 
     if (update)
