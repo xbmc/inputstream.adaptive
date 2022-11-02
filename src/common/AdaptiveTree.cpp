@@ -384,6 +384,7 @@ namespace adaptive
 
           (*(ba + 1))->representations_.insert((*(ba + 1))->representations_.end(), (*ba)->representations_.begin(), (*ba)->representations_.end());
           (*ba)->representations_.clear();
+          delete *ba;
           ba = (*bp)->adaptationSets_.erase(ba);
           ea = (*bp)->adaptationSets_.end();
         }
