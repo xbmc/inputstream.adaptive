@@ -22,6 +22,8 @@
 #include "../oscompat.h"
 #include "PRProtectionParser.h"
 
+#include "kodi/tools/StringUtils.h"
+
 #include <algorithm>
 #include <cstring>
 #include <float.h>
@@ -29,6 +31,7 @@
 #include <string>
 
 using namespace adaptive;
+using namespace kodi::tools;
 
 SmoothTree::SmoothTree()
 {
@@ -265,7 +268,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
         duration = atoll((const char*)*(attr + 1));
       else if (strcmp((const char*)*attr, "IsLive") == 0)
       {
-        dash->has_timeshift_buffer_ = strcmp((const char*)*(attr + 1), "TRUE") == 0;
+        dash->has_timeshift_buffer_ = StringUtils::CompareNoCase((const char*)*(attr + 1), "true") == 0;
         if (dash->has_timeshift_buffer_)
         {
           dash->stream_start_ = time(0);
