@@ -1057,29 +1057,31 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (newSeg)
   {
     needReset = true;
-    if ((old_seg && newSeg != old_seg) || (!preceeding && state_ == STOPPED))
+    if (newSeg != old_seg)
     {
       StopWorker(STOPPED);
       // EnsureSegment loads always the next segment, so go back 1
       current_rep_->current_segment_ =
-          current_rep_->get_segment(current_rep_->get_segment_pos(newSeg) - 1);
+        current_rep_->get_segment(current_rep_->get_segment_pos(newSeg) - 1);
       // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
       ResetActiveBuffer(false);
-      if (newSeg == old_seg && !preceeding)
-      {
-        absolute_position_ -= segment_read_pos_;
-        segment_read_pos_ = 0;
-      }
     }
-    else if (!preceeding && !old_seg)
+    else if (!preceeding)
     {
+      if (state_ == STOPPED)
+      {
+        StopWorker(STOPPED);
+        // EnsureSegment loads always the next segment, so go back 1
+        current_rep_->current_segment_ =
+          current_rep_->get_segment(current_rep_->get_segment_pos(newSeg) - 1);
+        // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
+        ResetActiveBuffer(false);
+      }
       absolute_position_ -= segment_read_pos_;
       segment_read_pos_ = 0;
     }
-    else if (preceeding)
-    {
+    else
       needReset = false;
-    }
     return true;
   }
   else
