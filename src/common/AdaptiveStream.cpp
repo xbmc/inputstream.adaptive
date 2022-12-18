@@ -1029,6 +1029,16 @@ uint64_t AdaptiveStream::getMaxTimeMs()
   return (timeExt - absolutePTSOffset_) / 1000;
 }
 
+void AdaptiveStream::ResetCurrentSegment(const AdaptiveTree::Segment* newSegment)
+{
+  StopWorker(STOPPED);
+  // EnsureSegment loads always the next segment, so go back 1
+  current_rep_->current_segment_ =
+    current_rep_->get_segment(current_rep_->get_segment_pos(newSegment) - 1);
+  // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
+  ResetActiveBuffer(false);
+}
+
 bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needReset)
 {
   if (!current_rep_)
@@ -1079,29 +1089,24 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (newSeg)
   {
     needReset = true;
-    if ((old_seg && newSeg != old_seg) || (!preceeding && state_ == STOPPED))
+    if (newSeg != old_seg)
     {
-      StopWorker(STOPPED);
-      // EnsureSegment loads always the next segment, so go back 1
-      current_rep_->current_segment_ =
-          current_rep_->get_segment(current_rep_->get_segment_pos(newSeg) - 1);
-      // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
-      ResetActiveBuffer(false);
-      if (newSeg == old_seg && !preceeding)
-      {
-        absolute_position_ -= segment_read_pos_;
-        segment_read_pos_ = 0;
-      }
+      ResetCurrentSegment(newSeg);
     }
-    else if (!preceeding && !old_seg)
+    else if (!preceeding)
     {
+      // restart stream if it has 'finished', e.g in the case of subtitles
+      // where there may be a few or only one segment for the period and 
+      // the stream is now in EOS state (all data already passed to Kodi)
+      if (state_ == STOPPED)
+      {
+        ResetCurrentSegment(newSeg);
+      }
       absolute_position_ -= segment_read_pos_;
       segment_read_pos_ = 0;
     }
-    else if (preceeding)
-    {
+    else
       needReset = false;
-    }
     return true;
   }
   else

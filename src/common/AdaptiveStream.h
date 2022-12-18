@@ -44,6 +44,13 @@ namespace adaptive
     void info(std::ostream &s);
     uint64_t getMaxTimeMs();
 
+    /*!
+    * \brief Set the current segment to the one specified, and reset
+    *   the buffer
+    * \param newSegment The new segment
+    */
+    void ResetCurrentSegment(const AdaptiveTree::Segment* newSegment);
+
     unsigned int get_type()const{ return current_adp_->type_; };
 
     bool ensureSegment();
