@@ -126,10 +126,7 @@ std::string UTILS::URL::RemoveParameters(std::string url, bool removeFilenamePar
   {
     size_t slashPos = url.find_last_of('/');
     if (slashPos != std::string::npos && slashPos != (url.find("://") + 2))
-    {
-      if (url.substr(slashPos).find(".") != std::string::npos)
-        url.resize(slashPos + 1);
-    }
+      url.resize(slashPos + 1);
   }
   return url;
 }

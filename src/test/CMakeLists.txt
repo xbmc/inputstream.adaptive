@@ -8,9 +8,11 @@ add_executable(${BINARY}
     TestMain.cpp
     TestDASHTree.cpp
     TestHLSTree.cpp
+    TestSmoothTree.cpp
     TestHelper.cpp
     ../parser/DASHTree.cpp
     ../parser/HLSTree.cpp
+    ../parser/SmoothTree.cpp
     ../parser/PRProtectionParser.cpp
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp

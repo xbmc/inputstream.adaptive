@@ -156,3 +156,18 @@ bool HLSTestTree::download(const std::string& url,
   }
   return false;
 }
+
+bool SmoothTestTree::download(const std::string& url,
+  const std::map<std::string, std::string>& reqHeaders,
+  std::stringstream& data,
+  adaptive::HTTPRespHeaders& respHeaders)
+{
+  if (DownloadFile(url, reqHeaders, data, respHeaders))
+  {
+    // We set the download speed to calculate the initial network bandwidth
+    m_reprChooser->SetDownloadSpeed(500000);
+
+    return true;
+  }
+  return false;
+}
