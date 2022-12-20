@@ -14,6 +14,7 @@
 #include "../common/ChooserDefault.h"
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
+#include "../parser/SmoothTree.h"
 #include "../utils/PropertiesUtils.h"
 
 std::string GetEnv(const std::string& var);
@@ -123,4 +124,18 @@ private:
                 const std::map<std::string, std::string>& reqHeaders,
                 std::stringstream& data,
                 adaptive::HTTPRespHeaders& respHeaders) override;
+};
+
+class SmoothTestTree : public adaptive::SmoothTree
+{
+public:
+  SmoothTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
+                 CHOOSER::IRepresentationChooser* reprChooser)
+    : SmoothTree(kodiProps, reprChooser){};
+
+private:
+  bool download(const std::string& url,
+    const std::map<std::string, std::string>& reqHeaders,
+    std::stringstream& data,
+    adaptive::HTTPRespHeaders& respHeaders) override;
 };
