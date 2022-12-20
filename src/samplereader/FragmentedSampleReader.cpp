@@ -323,11 +323,10 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
   // proper track id, let's find it now
   if (m_track->GetId() == TRACKID_UNKNOWN)
   {
-    auto fragment = std::make_unique<AP4_MovieFragment>(
-        AP4_MovieFragment(AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->Clone())));
+    AP4_MovieFragment fragment =
+        AP4_MovieFragment(AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->Clone()));
     AP4_Array<AP4_UI32> ids;
-    fragment->GetTrackIds(ids);
-
+    fragment.GetTrackIds(ids);
     if (ids.ItemCount() == 1)
       m_track->SetId(ids[0]);
     else
