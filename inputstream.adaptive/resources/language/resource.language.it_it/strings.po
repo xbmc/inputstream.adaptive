@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2022-08-19 06:14+0000\n"
+"PO-Revision-Date: 2022-12-20 09:15+0000\n"
 "Last-Translator: Massimo Pissarello <mapi68@gmail.com>\n"
 "Language-Team: Italian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/it_it/>\n"
 "Language: it_it\n"
@@ -13,15 +13,15 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.13\n"
+"X-Generator: Weblate 4.15\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr "Client InputStream per flussi adattivi"
+msgstr "Client InputStream per stream adattivi"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams"
-msgstr "Client InputStream per flussi adattivi"
+msgstr "Client InputStream per stream adattivi"
 
 msgctxt "#30100"
 msgid "General"
@@ -45,11 +45,11 @@ msgstr "Percorso decodificatore"
 # Maximum Resolution
 msgctxt "#30110"
 msgid "Max. Resolution general decoder"
-msgstr "Risoluzione massima per il decoder generico"
+msgstr "Risoluzione massima per decodificatore generale"
 
 msgctxt "#30111"
 msgid "Stream Selection"
-msgstr "Selezione flusso"
+msgstr "Selezione stream"
 
 msgctxt "#30112"
 msgid "Media"
@@ -58,7 +58,7 @@ msgstr "Media"
 # Maximum allowed resolution if decoded through secure path
 msgctxt "#30113"
 msgid "Max. Resolution secure decoder"
-msgstr "Risoluzione massima per il decoder sicuro"
+msgstr "Risoluzione massima per decodificatore sicuro"
 
 # Select streams without respecting HDCP status
 msgctxt "#30114"
@@ -76,11 +76,11 @@ msgstr "Esperto"
 
 msgctxt "#30121"
 msgid "Enable Pre-Release Features"
-msgstr "Abilita funzionalità di pre-rilascio"
+msgstr "Abilita funzionalità prima del rilascio"
 
 msgctxt "#30122"
 msgid "Don't use secure decoder if possible"
-msgstr "Se possibile, non usare un decoder sicuro"
+msgstr "Non utilizzare decoder sicuro se possibile"
 
 msgctxt "#30150"
 msgid "Max"
@@ -104,11 +104,11 @@ msgstr "1080p"
 
 msgctxt "#30155"
 msgid "Automatically select streams"
-msgstr "Seleziona automaticamente i flussi"
+msgstr "Seleziona automaticamente stream"
 
 msgctxt "#30156"
 msgid "Manually select all streams"
-msgstr "Seleziona manualmente tutti i flussi"
+msgstr "Seleziona manualmente tutti gli stream"
 
 msgctxt "#30157"
 msgid "All"
@@ -125,7 +125,7 @@ msgstr "Video"
 # Show all video streams
 msgctxt "#30160"
 msgid "Manually select video stream"
-msgstr "Seleziona manualmente i flussi video"
+msgstr "Seleziona manualmente gli stream video"
 
 msgctxt "#30161"
 msgid "Video + Subtitles"
