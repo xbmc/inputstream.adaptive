@@ -79,6 +79,7 @@ PRProtectionParser::PRProtectionParser(std::string wwrmheader)
   }
 
   std::string xmlData{ BASE64::Decode(wwrmheader) };
+  m_strPSSH = xmlData;
 
   size_t dataStartPoint = xmlData.find('<', 0);
   if (dataStartPoint == std::string::npos)
