@@ -296,10 +296,10 @@ enum AVPacketSideDataType
 typedef struct AVPacketSideData
 {
   uint8_t* data;
-#if HAVE_FFMPEG_5 // Enable when kodi will be built with FFmpeg >= v5.0
-  size_t size;
-#else
+#if HAVE_FFMPEG_4 // To enable when kodi will be built with FFmpeg v4.0
   int size;
+#else
+  size_t size;
 #endif
   enum AVPacketSideDataType type;
 } AVPacketSideData;
