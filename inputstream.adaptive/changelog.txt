@@ -1,3 +1,12 @@
+v20.3.2 (2023-01-11)
+- [HLS] fix for incomplete length sub streams
+- Fix memory leak
+- [ISM] allow case insensitive live flag
+- Fix crashing when missing track ID
+- Fix issue where manifest files without an extension would not play
+- [ISM] fix regression preventing protection being parsed correctly
+- Bump Bento4 to 1.6.0-639-5-Nexus
+
 v20.3.1 (2022-10-07)
 - Print stream ids in log when seeking
 - [DASH] Fix possible crash for live streams
