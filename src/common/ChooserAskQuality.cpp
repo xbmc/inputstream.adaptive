@@ -82,42 +82,47 @@ AdaptiveTree::Representation* CRepresentationChooserAskQuality::GetNextRepresent
 
     std::vector<std::string> entries;
     int preselIndex{-1};
+    int selIndex{0};
+    const size_t reprSize = adp->representations_.size();
 
-    // Add available qualities
-    for (size_t i{0}; i < adp->representations_.size(); i++)
+    if (reprSize > 1)
     {
-      AdaptiveTree::Representation* rep{adp->representations_[i]};
-      if (!rep)
-        continue;
-
-      std::string entryName{kodi::addon::GetLocalizedString(30232)};
-      STRING::ReplaceFirst(entryName, "{codec}", GetVideoCodecDesc(rep->codecs_));
-
-      float fps{static_cast<float>(rep->fpsRate_)};
-      if (fps > 0 && rep->fpsScale_ > 0)
-        fps /= rep->fpsScale_;
-
-      std::string quality;
-      if (fps > 0)
+      // Add available qualities
+      for (size_t i{0}; i < reprSize; i++)
       {
-        quality = StringUtils::Format("(%ix%i, %s fps, %u Kbps)", rep->width_, rep->height_,
-                                      CovertFpsToString(fps).c_str(), rep->bandwidth_ / 1000);
-      }
-      else
-      {
-        quality = StringUtils::Format("(%ix%i, %u Kbps)", rep->width_, rep->height_,
-                                      rep->bandwidth_ / 1000);
-      }
-      STRING::ReplaceFirst(entryName, "{quality}", quality);
+        const AdaptiveTree::Representation* rep{adp->representations_[i]};
+        if (!rep)
+          continue;
 
-      if (rep == bestRep)
-        preselIndex = static_cast<int>(i);
+        std::string entryName{kodi::addon::GetLocalizedString(30232)};
+        STRING::ReplaceFirst(entryName, "{codec}", GetVideoCodecDesc(rep->codecs_));
 
-      entries.emplace_back(entryName);
+        float fps{static_cast<float>(rep->fpsRate_)};
+        if (fps > 0 && rep->fpsScale_ > 0)
+          fps /= rep->fpsScale_;
+
+        std::string quality;
+        if (fps > 0)
+        {
+          quality = StringUtils::Format("(%ix%i, %s fps, %u Kbps)", rep->width_, rep->height_,
+                                        CovertFpsToString(fps).c_str(), rep->bandwidth_ / 1000);
+        }
+        else
+        {
+          quality = StringUtils::Format("(%ix%i, %u Kbps)", rep->width_, rep->height_,
+                                        rep->bandwidth_ / 1000);
+        }
+        STRING::ReplaceFirst(entryName, "{quality}", quality);
+
+        if (rep == bestRep)
+          preselIndex = static_cast<int>(i);
+
+        entries.emplace_back(entryName);
+      }
+
+      selIndex = kodi::gui::dialogs::Select::Show(kodi::addon::GetLocalizedString(30231), entries,
+                                                  preselIndex, 10000);
     }
-
-    int selIndex{kodi::gui::dialogs::Select::Show(kodi::addon::GetLocalizedString(30231), entries,
-                                                  preselIndex, 10000)};
 
     AdaptiveTree::Representation* selRep{bestRep};
 
