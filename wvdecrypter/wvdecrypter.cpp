@@ -666,14 +666,18 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   for (std::string& headerStr : headers)
   {
     std::vector<std::string> header{StringUtils::Split(headerStr, '=')};
-    StringUtils::Trim(header[0]);
-    std::string value;
-    if (header.size() > 1)
+    if (!header.empty())
     {
-      StringUtils::Trim(header[1]);
-      value = STRING::URLDecode(header[1]);
+      StringUtils::Trim(header[0]);
+      std::string value;
+      if (header.size() > 1)
+      {
+        StringUtils::Trim(header[1]);
+        value = STRING::URLDecode(header[1]);
+      }
+      GLOBAL::Host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, header[0].c_str(),
+                                  value.c_str());
     }
-    GLOBAL::Host->CURLAddOption(file, SSD_HOST::OPTION_PROTOCOL, header[0].c_str(), value.c_str());
   }
 
   //Process body
