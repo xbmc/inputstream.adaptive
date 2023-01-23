@@ -28,14 +28,15 @@ public:
     ENCRYPTIONTYPE_WIDEVINE = 3,
     ENCRYPTIONTYPE_UNKNOWN = 4,
   };
-  HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-          CHOOSER::IRepresentationChooser* reprChooser);
+  HLSTree(CHOOSER::IRepresentationChooser* reprChooser);
   HLSTree(const HLSTree& left);
+
+  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
 
   virtual ~HLSTree();
 
-  virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
-  virtual bool open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders) override;
+  virtual bool open(const std::string& url) override;
+  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) override;
   virtual PREPARE_RESULT prepareRepresentation(Period* period,
                                                AdaptationSet* adp,
                                                Representation* rep,

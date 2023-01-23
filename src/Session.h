@@ -28,7 +28,6 @@ class ATTR_DLL_LOCAL CSession : public adaptive::AdaptiveStreamObserver
 public:
   CSession(const UTILS::PROPERTIES::KodiProperties& properties,
            const std::string& manifestUrl,
-           const std::map<std::string, std::string>& mediaHeaders,
            const std::string& profilePath);
   virtual ~CSession();
 
@@ -340,7 +339,6 @@ protected:
 private:
   const UTILS::PROPERTIES::KodiProperties m_kodiProps;
   std::string m_manifestUrl;
-  std::map<std::string, std::string> m_mediaHeaders;
   AP4_DataBuffer m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   SSD::SSD_DECRYPTER* m_decrypter{nullptr};
@@ -354,7 +352,7 @@ private:
   };
   std::vector<CCdmSession> m_cdmSessions;
 
-  adaptive::AdaptiveTree* m_adaptiveTree;
+  adaptive::AdaptiveTree* m_adaptiveTree{nullptr};
   CHOOSER::IRepresentationChooser* m_reprChooser;
 
   std::vector<std::unique_ptr<CStream>> m_streams;

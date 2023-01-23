@@ -36,11 +36,9 @@ static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
 
 CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
                    const std::string& manifestUrl,
-                   const std::map<std::string, std::string>& mediaHeaders,
                    const std::string& profilePath)
   : m_kodiProps(kodiProps),
     m_manifestUrl(manifestUrl),
-    m_mediaHeaders(mediaHeaders),
     m_KodiHost(std::make_unique<CKodiHost>()),
     m_reprChooser(CHOOSER::CreateRepresentationChooser(kodiProps))
 {
@@ -49,18 +47,20 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
   switch (kodiProps.m_manifestType)
   {
     case PROPERTIES::ManifestType::MPD:
-      m_adaptiveTree = new adaptive::DASHTree(kodiProps, m_reprChooser);
+      m_adaptiveTree = new adaptive::DASHTree(m_reprChooser);
       break;
     case PROPERTIES::ManifestType::ISM:
-      m_adaptiveTree = new adaptive::SmoothTree(kodiProps, m_reprChooser);
+      m_adaptiveTree = new adaptive::SmoothTree(m_reprChooser);
       break;
     case PROPERTIES::ManifestType::HLS:
-      m_adaptiveTree = new adaptive::HLSTree(kodiProps, m_reprChooser);
+      m_adaptiveTree = new adaptive::HLSTree(m_reprChooser);
       break;
     default:
       LOG::LogF(LOGFATAL, "Manifest type not handled");
       return;
   };
+
+  m_adaptiveTree->Configure(kodiProps);
 
   m_settingNoSecureDecoder = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
   LOG::Log(LOGDEBUG, "Setting NOSECUREDECODER value: %d", m_settingNoSecureDecoder);
@@ -217,12 +217,12 @@ bool CSession::Initialize()
   // Get URN's wich are supported by this addon
   if (!m_kodiProps.m_licenseType.empty())
   {
-    SetSupportedDecrypterURN(m_adaptiveTree->supportedKeySystem_);
-    LOG::Log(LOGDEBUG, "Supported URN: %s", m_adaptiveTree->supportedKeySystem_.c_str());
+    SetSupportedDecrypterURN(m_adaptiveTree->m_supportedKeySystem);
+    LOG::Log(LOGDEBUG, "Supported URN: %s", m_adaptiveTree->m_supportedKeySystem.c_str());
   }
 
   // Preinitialize the DRM, if pre-initialisation data are provided
-  std::map<std::string, std::string> additionalHeaders = std::map<std::string, std::string>();
+  std::map<std::string, std::string> addHeaders;
   bool isSessionOpened{false};
 
   if (!m_kodiProps.m_drmPreInitData.empty())
@@ -233,8 +233,8 @@ bool CSession::Initialize()
     // used to make licensed manifest requests (via proxy callback)
     if (PreInitializeDRM(challengeB64, sessionId, isSessionOpened))
     {
-      additionalHeaders["challengeB64"] = STRING::URLEncode(challengeB64);
-      additionalHeaders["sessionId"] = sessionId;
+      addHeaders["challengeB64"] = STRING::URLEncode(challengeB64);
+      addHeaders["sessionId"] = sessionId;
     }
     else
     {
@@ -245,8 +245,10 @@ bool CSession::Initialize()
   // Open manifest file with location redirect support  bool mpdSuccess;
   std::string manifestUrl =
       m_adaptiveTree->location_.empty() ? m_manifestUrl : m_adaptiveTree->location_;
-  if (!m_adaptiveTree->open(manifestUrl, m_kodiProps.m_manifestUpdateParam, additionalHeaders) ||
-      m_adaptiveTree->empty())
+
+  m_adaptiveTree->SetManifestUpdateParam(manifestUrl, m_kodiProps.m_manifestUpdateParam);
+
+  if (!m_adaptiveTree->open(manifestUrl, addHeaders) || m_adaptiveTree->empty())
   {
     LOG::Log(LOGERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
     return false;
@@ -428,13 +430,13 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         return false;
       }
     }
-    std::string strkey(m_adaptiveTree->supportedKeySystem_.substr(9));
+    std::string strkey(m_adaptiveTree->m_supportedKeySystem.substr(9));
     size_t pos;
     while ((pos = strkey.find('-')) != std::string::npos)
       strkey.erase(pos, 1);
     if (strkey.size() != 32)
     {
-      LOG::Log(LOGERROR, "Key system mismatch (%s)!", m_adaptiveTree->supportedKeySystem_.c_str());
+      LOG::Log(LOGERROR, "Key system mismatch (%s)!", m_adaptiveTree->m_supportedKeySystem.c_str());
       return false;
     }
 
@@ -477,9 +479,8 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         {
           auto initialRepr{m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_)};
 
-          CStream stream{
-              *m_adaptiveTree, sessionPsshset.adaptation_set_,    initialRepr, m_mediaHeaders,
-              m_reprChooser,   m_kodiProps.m_playTimeshiftBuffer, false};
+          CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps,
+                         false};
 
           stream.m_isEnabled = true;
           stream.m_adStream.start_stream();
@@ -776,8 +777,7 @@ void CSession::AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
                          bool isDefaultRepr,
                          uint32_t uniqueId)
 {
-  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr, m_mediaHeaders,
-                                                m_reprChooser, m_kodiProps.m_playTimeshiftBuffer,
+  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr, m_kodiProps,
                                                 m_firstPeriodInitialized));
 
   CStream& stream{*m_streams.back()};

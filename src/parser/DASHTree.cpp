@@ -181,7 +181,7 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
       if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
         mpdFound = true;
       else
-        urnFound = stricmp(dash->supportedKeySystem_.c_str(), (const char*)*(attr + 1)) == 0;
+        urnFound = stricmp(dash->m_supportedKeySystem.c_str(), (const char*)*(attr + 1)) == 0;
     }
     else if (StringUtils::EndsWith(*attr, "default_KID"))
       defaultKID = (const char*)*(attr + 1);
@@ -526,8 +526,8 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             dash->currentNode_ |= MPDNODE_SEGMENTTIMELINE;
             dash->adp_timelined_ = true;
 
-            if (dash->update_parameter_.empty() && dash->has_timeshift_buffer_)
-              dash->update_parameter_ = "full";
+            if (dash->m_manifestUpdateParam.empty() && dash->has_timeshift_buffer_)
+              dash->m_manifestUpdateParam = "full";
           }
         }
         else if (dash->currentNode_ & MPDNODE_SEGMENTDURATIONS)
@@ -1594,33 +1594,33 @@ static void XMLCALL end(void* data, const char* el)
   }
 }
 
-adaptive::DASHTree::DASHTree(const DASHTree& left)
-  : AdaptiveTree(left.m_kodiProps, left.m_reprChooser)
+DASHTree::DASHTree(const DASHTree& left) : AdaptiveTree(left)
 {
+  base_time_ = left.base_time_;
+  
+  // Location element should be used on manifest updates
+  location_ = left.location_;
 }
 
 /*----------------------------------------------------------------------
 |   DASHTree
 +---------------------------------------------------------------------*/
-bool DASHTree::open(const std::string& url, const std::string& manifestUpdateParam)
+bool DASHTree::open(const std::string& url)
 {
-  return open(url, manifestUpdateParam, std::map<std::string, std::string>());
+  return open(url, {});
 }
 
-bool DASHTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
+bool DASHTree::open(const std::string& url, std::map<std::string, std::string> addHeaders)
 {
   currentNode_ = 0;
 
-  PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-
   std::stringstream data;
   HTTPRespHeaders respHeaders;
-  if (!download(manifest_url_, additionalHeaders, data, respHeaders))
+  if (!DownloadManifest(url, addHeaders, data, respHeaders))
     return false;
 
   effective_url_ = respHeaders.m_effectiveUrl;
-  m_manifestHeaders = respHeaders;
+  m_manifestRespHeaders = respHeaders;
 
   if (!PreparePaths(effective_url_))
     return false;
@@ -1639,6 +1639,16 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
   StartUpdateThread();
 
   return true;
+}
+
+void DASHTree::SetManifestUpdateParam(std::string& manifestUrl, std::string_view param)
+{
+  m_manifestUpdateParam = param;
+  if (m_manifestUpdateParam.empty())
+  {
+    m_manifestUpdateParam = URL::GetParametersFromPlaceholder(manifestUrl, "$START_NUMBER$");
+    manifestUrl.resize(manifestUrl.size() - m_manifestUpdateParam.size());
+  }
 }
 
 bool DASHTree::ParseManifest(const std::string& data)
@@ -1685,13 +1695,15 @@ void DASHTree::RefreshSegments(Period* period,
 //! @todo: we are updating variables in non-thread safe way
 void DASHTree::RefreshLiveSegments()
 {
-  if (has_timeshift_buffer_ && !update_parameter_.empty())
+  if (has_timeshift_buffer_ && !m_manifestUpdateParam.empty())
   {
     size_t numReplace{~(size_t)0};
     size_t nextStartNumber{~(size_t)0};
 
+    std::unique_ptr<DASHTree> updateTree{std::move(Clone())};
+
     std::string manifestUrlUpd{manifest_url_};
-    bool urlHaveStartNumber{update_parameter_.find("$START_NUMBER$") != std::string::npos};
+    bool urlHaveStartNumber{m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos};
 
     if (urlHaveStartNumber)
     {
@@ -1723,29 +1735,28 @@ void DASHTree::RefreshLiveSegments()
       LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %zu (numReplace: %zu)",
                 nextStartNumber, numReplace);
 
-      URL::AppendParameters(manifestUrlUpd, update_parameter_);
-      STRING::ReplaceFirst(manifestUrlUpd, "$START_NUMBER$", std::to_string(nextStartNumber));
+      // Add the manifest update url parameter with the predefined url parameters
+      std::string updateParam = m_manifestUpdateParam;
+
+      STRING::ReplaceFirst(updateParam, "$START_NUMBER$", std::to_string(nextStartNumber));
+
+      URL::AppendParameters(updateTree->m_manifestParams, updateParam);
     }
 
-    std::unique_ptr<DASHTree> updateTree{std::move(Clone())};
-
-    updateTree->base_time_ = base_time_;
-    updateTree->supportedKeySystem_ = supportedKeySystem_;
-    //Location element should be used on updates
-    updateTree->location_ = location_;
+    std::map<std::string, std::string> addHeaders;
 
     if (!urlHaveStartNumber)
     {
-      if (!m_manifestHeaders.m_etag.empty())
-        updateTree->m_streamHeaders["If-None-Match"] = "\"" + m_manifestHeaders.m_etag + "\"";
-      if (!m_manifestHeaders.m_lastModified.empty())
-        updateTree->m_streamHeaders["If-Modified-Since"] = m_manifestHeaders.m_lastModified;
-    }
+      if (!m_manifestRespHeaders.m_etag.empty())
+        addHeaders["If-None-Match"] = "\"" + m_manifestRespHeaders.m_etag + "\"";
 
-    if (updateTree->open(manifestUrlUpd, ""))
+      if (!m_manifestRespHeaders.m_lastModified.empty())
+        addHeaders["If-Modified-Since"] = m_manifestRespHeaders.m_lastModified;
+    }
+    //m_manifestParams
+    if (updateTree->open(manifestUrlUpd, addHeaders))
     {
-      m_manifestHeaders.m_etag = updateTree->m_manifestHeaders.m_etag;
-      m_manifestHeaders.m_lastModified = updateTree->m_manifestHeaders.m_lastModified;
+      m_manifestRespHeaders = updateTree->m_manifestRespHeaders;
       location_ = updateTree->location_;
 
       //Youtube returns last smallest number in case the requested data is not available

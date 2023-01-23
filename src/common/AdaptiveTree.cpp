@@ -43,35 +43,16 @@ namespace adaptive
     *this = *src;
   }
 
-  AdaptiveTree::AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                             CHOOSER::IRepresentationChooser* reprChooser)
-    : m_kodiProps(kodiProps),
-      m_reprChooser(reprChooser),
-      m_streamHeaders(kodiProps.m_streamHeaders),
-      current_period_(nullptr),
-      next_period_(nullptr),
-      parser_(0),
-      currentNode_(0),
-      segcount_(0),
-      overallSeconds_(0),
-      stream_start_(0),
-      available_time_(0),
-      base_time_(0),
-      live_delay_(0),
-      minPresentationOffset(0),
-      has_timeshift_buffer_(false),
-      has_overall_seconds_(false),
-      updateInterval_(~0),
-      updateThread_(nullptr),
-      lastUpdated_(std::chrono::system_clock::now()),
-      m_cryptoMode(CryptoMode::NONE)
+  AdaptiveTree::AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser)
+    : m_reprChooser(reprChooser)
   {
-    // Convenience way to share common addon settings we avoid
-    // calling the API many times to improve parsing performance
-    m_settings.m_bufferAssuredDuration =
-        static_cast<uint32_t>(kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION"));
-    m_settings.m_bufferMaxDuration =
-        static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
+  }
+
+  AdaptiveTree::AdaptiveTree(const AdaptiveTree& left) : AdaptiveTree(left.m_reprChooser)
+  {
+    m_manifestHeaders = left.m_manifestHeaders;
+    m_settings = left.m_settings;
+    m_supportedKeySystem = left.m_supportedKeySystem;
   }
 
   AdaptiveTree::~AdaptiveTree()
@@ -90,6 +71,19 @@ namespace adaptive
     std::lock_guard<std::mutex> lck(treeMutex_);
     for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
       delete *bp;
+  }
+
+  void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+  {
+    m_manifestParams = kodiProps.m_manifestParams;
+    m_manifestHeaders = kodiProps.m_manifestHeaders;
+
+    // Convenience way to share common addon settings we avoid
+    // calling the API many times to improve parsing performance
+    m_settings.m_bufferAssuredDuration =
+        static_cast<uint32_t>(kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION"));
+    m_settings.m_bufferMaxDuration =
+        static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
   }
 
   void AdaptiveTree::FreeSegments(Period* period, Representation* rep)
@@ -348,19 +342,6 @@ namespace adaptive
     return true;
   }
 
-  void AdaptiveTree::PrepareManifestUrl(const std::string &url, const std::string &manifestUpdateParam)
-  {
-    manifest_url_ = url;
-
-    if (manifestUpdateParam.empty())
-    {
-      update_parameter_ = URL::GetParametersFromPlaceholder(manifest_url_, "$START_NUMBER$");
-      manifest_url_.resize(manifest_url_.size() - update_parameter_.size());
-    }
-    else
-      update_parameter_ = manifestUpdateParam;
-  }
-
   std::string AdaptiveTree::BuildDownloadUrl(const std::string& url) const
   {
     if (URL::IsUrlAbsolute(url))
@@ -414,7 +395,7 @@ namespace adaptive
 
   void AdaptiveTree::StartUpdateThread()
   {
-    if (!updateThread_ && ~updateInterval_ && has_timeshift_buffer_ && !update_parameter_.empty())
+    if (!updateThread_ && ~updateInterval_ && has_timeshift_buffer_ && !m_manifestUpdateParam.empty())
       updateThread_ = new std::thread(&AdaptiveTree::SegmentUpdateWorker, this);
   }
 
@@ -430,6 +411,25 @@ namespace adaptive
         RefreshLiveSegments();
       }
     }
+  }
+
+  bool AdaptiveTree::DownloadManifest(std::string url,
+                                      const std::map<std::string, std::string>& addHeaders,
+                                      std::stringstream& data,
+                                      HTTPRespHeaders& respHeaders)
+  {
+    std::map<std::string, std::string> manifestHeaders = m_manifestHeaders;
+    // Merge additional headers to the predefined one
+    for (auto& headerIt : addHeaders)
+    {
+      manifestHeaders[headerIt.first] = headerIt.second;
+    }
+
+    // Append manifest parameters, only if not already provided (e.g. manifest update)
+    if (url.find('?') == std::string::npos)
+      URL::AppendParameters(url, m_manifestParams);
+
+    return download(url, manifestHeaders, data, respHeaders);
   }
 
   bool AdaptiveTree::download(const std::string& url,

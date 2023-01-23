@@ -15,7 +15,10 @@
 #include "../parser/DASHTree.h"
 #include "../parser/HLSTree.h"
 #include "../parser/SmoothTree.h"
+#include "../utils/log.h"
 #include "../utils/PropertiesUtils.h"
+
+#include <string_view>
 
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
@@ -50,20 +53,18 @@ public:
   TestAdaptiveStream(adaptive::AdaptiveTree& tree,
                      adaptive::AdaptiveTree::AdaptationSet* adp,
                      adaptive::AdaptiveTree::Representation* initialRepr,
-                     const std::map<std::string, std::string>& media_headers,
-                     bool play_timeshift_buffer,
+                     const UTILS::PROPERTIES::KodiProperties& kodiProps,
                      bool choose_rep)
-    : adaptive::AdaptiveStream(
-          tree, adp, initialRepr, media_headers, play_timeshift_buffer, choose_rep){};
+    : adaptive::AdaptiveStream(tree, adp, initialRepr, kodiProps, choose_rep)
+  {
+  }
 
   std::chrono::system_clock::time_point mock_time_stream = std::chrono::system_clock::now();
   void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
-  virtual bool download_segment() override;
+  virtual bool download_segment(const DownloadInfo& downloadInfo) override;
 
 protected:
-  virtual bool download(const std::string& url,
-                        const std::map<std::string, std::string>& mediaHeaders,
-                        std::string* lockfreeBuffer) override;
+  virtual bool download(const DownloadInfo& downloadInfo, std::string* lockfreeBuffer) override;
 };
 
 class AESDecrypter : public IAESDecrypter
@@ -91,9 +92,7 @@ private:
 class DASHTestTree : public adaptive::DASHTree
 {
 public:
-  DASHTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
-               CHOOSER::IRepresentationChooser* reprChooser)
-    : DASHTree(kodiProps, reprChooser){};
+  DASHTestTree(CHOOSER::IRepresentationChooser* reprChooser) : DASHTree(reprChooser) {}
   uint64_t GetNowTime() override { return m_mockTime; }
   void SetNowTime(uint64_t time) { m_mockTime = time; }
   void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
@@ -114,8 +113,7 @@ private:
 class HLSTestTree : public adaptive::HLSTree
 {
 public:
-  HLSTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
-              CHOOSER::IRepresentationChooser* reprChooser);
+  HLSTestTree(CHOOSER::IRepresentationChooser* reprChooser);
 
   virtual HLSTestTree* Clone() const override { return new HLSTestTree{*this}; }
 
@@ -129,9 +127,7 @@ private:
 class SmoothTestTree : public adaptive::SmoothTree
 {
 public:
-  SmoothTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
-                 CHOOSER::IRepresentationChooser* reprChooser)
-    : SmoothTree(kodiProps, reprChooser){};
+  SmoothTestTree(CHOOSER::IRepresentationChooser* reprChooser) : SmoothTree(reprChooser) {}
 
 private:
   bool download(const std::string& url,

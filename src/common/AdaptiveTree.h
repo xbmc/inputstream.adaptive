@@ -30,7 +30,7 @@
 #include <kodi/AddonBase.h>
 #endif
 
- // Forward namespace/class
+// Forward namespace/class
 namespace CHOOSER
 {
 class IRepresentationChooser;
@@ -478,25 +478,30 @@ public:
     bool need_secure_decoder_ = false;
     SPINCACHE<uint32_t> segment_durations_;
     SegmentTemplate segtpl_;
-  }*current_period_, *next_period_;
+  } *current_period_{nullptr}, *next_period_{nullptr};
 
   std::vector<Period*> periods_;
   std::string manifest_url_;
   std::string base_url_;
   std::string effective_url_;
-  std::string update_parameter_;
-  HTTPRespHeaders m_manifestHeaders;
+  std::string m_manifestUpdateParam;
 
   /* XML Parsing*/
-  XML_Parser parser_;
-  uint32_t currentNode_;
-  size_t segcount_;
+  XML_Parser parser_{nullptr};
+  uint32_t currentNode_{0};
+  size_t segcount_{0};
   uint32_t initial_sequence_ = ~0U;
-  uint64_t overallSeconds_, stream_start_, available_time_, base_time_, live_delay_;
-  uint64_t minPresentationOffset;
-  bool has_timeshift_buffer_, has_overall_seconds_;
+  uint64_t overallSeconds_{0};
+  uint64_t stream_start_{0};
+  uint64_t available_time_{0};
+  uint64_t base_time_{0};
+  uint64_t live_delay_{0};
+  uint64_t minPresentationOffset{0};
+  bool has_timeshift_buffer_{false};
+  bool has_overall_seconds_{false};
 
-  std::string supportedKeySystem_, location_;
+  std::string m_supportedKeySystem;
+  std::string location_;
 
   uint8_t adpChannelCount_, adp_pssh_set_;
   int adpwidth_;
@@ -510,17 +515,23 @@ public:
   std::string current_pssh_;
   std::string current_defaultKID_;
   std::string current_iv_;
-  CryptoMode m_cryptoMode;
+  CryptoMode m_cryptoMode{CryptoMode::NONE};
   std::string license_url_;
 
   std::string strXMLText_;
 
-  AdaptiveTree(const UTILS::PROPERTIES::KodiProperties& properties,
-    CHOOSER::IRepresentationChooser* reprChooser);
+  AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser);
+  AdaptiveTree(const AdaptiveTree& left);
   virtual ~AdaptiveTree();
 
-  virtual bool open(const std::string& url, const std::string& manifestUpdateParam) = 0;
-  virtual bool open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders) = 0;
+  /*!
+   * \brief Configure the adaptive tree.
+   * \param kodiProps The Kodi properties
+   */
+  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps);
+
+  virtual bool open(const std::string& url) = 0;
+  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) = 0;
   virtual PREPARE_RESULT prepareRepresentation(Period* period,
                                                AdaptationSet* adp,
                                                Representation* rep,
@@ -564,7 +575,11 @@ public:
   std::string BuildDownloadUrl(const std::string& url) const;
 
   std::mutex &GetTreeMutex() { return treeMutex_; };
-  bool HasUpdateThread() const { return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ && !update_parameter_.empty(); };
+  bool HasUpdateThread() const
+  {
+    return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ &&
+           !m_manifestUpdateParam.empty();
+  }
   void RefreshUpdateThread();
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 
@@ -579,9 +594,36 @@ public:
 
   virtual AdaptiveTree* Clone() const = 0;
 
+  /*!
+   * \brief Set the manifest update url parameter, used to force enabling manifest updates,
+   *        by default by set the @param argument to "full" value, but the behaviour
+   *        could change, it depends on the parser implementation.
+   * \param manifestUrl The original manifest url value may be modified,
+   *                    refer to each implementation of the parser.
+   * \param param The update parameter, by default is accepted "full" value,
+   *              refer to each implementation of the parser.
+   */
+  virtual void SetManifestUpdateParam(std::string& manifestUrl, std::string_view param)
+  {
+    m_manifestUpdateParam = param;
+  }
+
   Settings m_settings;
 
 protected:
+  /*!
+   * \brief Download manifest file.
+   * \param url The url of the file to download
+   * \param addHeaders Additional headers to add in the HTTP request
+   * \param data [OUT] Return the HTTP response data
+   * \param respHeaders [OUT] Return the HTTP response headers
+   * \return True if has success, otherwise false
+   */
+  virtual bool DownloadManifest(std::string url,
+                                const std::map<std::string, std::string>& addHeaders,
+                                std::stringstream& data,
+                                HTTPRespHeaders& respHeaders);
+
   /*!
    * \brief Download a file (At each call feed also the repr. chooser
             to calculate the initial bandwidth).
@@ -597,20 +639,19 @@ protected:
                         HTTPRespHeaders& respHeaders);
 
   bool PreparePaths(const std::string &url);
-  void PrepareManifestUrl(const std::string &url, const std::string &manifestUpdateParam);
   void SortTree();
 
   // Live segment update section
   virtual void StartUpdateThread();
   virtual void RefreshLiveSegments(){};
 
-  uint32_t updateInterval_;
+  uint32_t updateInterval_{~0U};
   std::mutex treeMutex_, updateMutex_;
   std::condition_variable updateVar_;
-  std::thread *updateThread_;
-  std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
-  std::map<std::string, std::string> m_streamHeaders;
-  const UTILS::PROPERTIES::KodiProperties m_kodiProps;
+  std::thread* updateThread_{0};
+  std::chrono::time_point<std::chrono::system_clock> lastUpdated_{std::chrono::system_clock::now()};
+  std::string m_manifestParams;
+  std::map<std::string, std::string> m_manifestHeaders;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 
 private:

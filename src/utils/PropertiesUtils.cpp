@@ -26,9 +26,15 @@ constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key"
 constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_data";
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
+
 constexpr std::string_view PROP_MANIFEST_TYPE = "inputstream.adaptive.manifest_type";
 constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter";
+constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
+constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
+
+constexpr std::string_view PROP_STREAM_PARAMS = "inputstream.adaptive.stream_params";
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
+
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
 constexpr std::string_view PROP_BANDWIDTH_MAX = "inputstream.adaptive.max_bandwidth"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
@@ -91,6 +97,18 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     else if (prop.first == PROP_MANIFEST_UPD_PARAM)
     {
       props.m_manifestUpdateParam = prop.second;
+    }
+    else if (prop.first == PROP_MANIFEST_PARAMS)
+    {
+      props.m_manifestParams = prop.second;
+    }
+    else if (prop.first == PROP_MANIFEST_HEADERS)
+    {
+      ParseHeaderString(props.m_manifestHeaders, prop.second);
+    }
+    else if (prop.first == PROP_STREAM_PARAMS)
+    {
+      props.m_streamParams = prop.second;
     }
     else if (prop.first == PROP_STREAM_HEADERS)
     {

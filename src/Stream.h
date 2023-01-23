@@ -23,14 +23,12 @@ public:
   CStream(adaptive::AdaptiveTree& tree,
           adaptive::AdaptiveTree::AdaptationSet* adp,
           adaptive::AdaptiveTree::Representation* initialRepr,
-          const std::map<std::string, std::string>& mediaHeaders,
-          CHOOSER::IRepresentationChooser* reprChooser,
-          bool playTimeshiftBuffer,
+          const UTILS::PROPERTIES::KodiProperties& kodiProps,
           bool chooseRep)
     : m_isEnabled{false},
       m_isEncrypted{false},
       m_mainId{0},
-      m_adStream{tree, adp, initialRepr, mediaHeaders, playTimeshiftBuffer, chooseRep},
+      m_adStream{tree, adp, initialRepr, kodiProps, chooseRep},
       m_hasSegmentChanged{false},
       m_isValid{true} {};
 

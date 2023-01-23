@@ -24,9 +24,9 @@ protected:
     m_reprChooser = new CTestRepresentationChooserDefault();
     m_reprChooser->Initialize(kodiProps.m_chooserProps);
 
-    tree = new DASHTestTree(kodiProps, m_reprChooser);
-
-    tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+    tree = new DASHTestTree(m_reprChooser);
+    tree->Configure(kodiProps);
+    tree->m_supportedKeySystem = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
   void TearDown() override
@@ -38,15 +38,20 @@ protected:
     m_reprChooser = nullptr;
   }
 
-  void OpenTestFile(std::string testfilename, std::string url, std::string manifestHeaders)
-  {
-    if (url.empty())
-      url = "http://foo.bar/" + testfilename;
+  void OpenTestFile(std::string filePath) { OpenTestFile(filePath, "http://foo.bar/" + filePath); }
 
-    SetFileName(testHelper::testFile, testfilename);
+  void OpenTestFile(std::string filePath, std::string url) { OpenTestFile(filePath, url, {}); }
+
+  void OpenTestFile(std::string filePath,
+                    std::string url,
+                    std::map<std::string, std::string> manifestHeaders)
+  {
+    SetFileName(testHelper::testFile, filePath);
+
+    tree->SetManifestUpdateParam(url, "");
     if (!tree->open(url, manifestHeaders))
     {
-      printf("open() failed");
+      LOG::Log(LOGERROR, "Cannot open \"%s\" DASH manifest.", url.c_str());
       exit(1);
     }
   }
@@ -76,10 +81,14 @@ protected:
     testStream = newStream;
   }
 
-  TestAdaptiveStream* NewStream(adaptive::AdaptiveTree::AdaptationSet* adp, bool playTsb=true)
+  TestAdaptiveStream* NewStream(adaptive::AdaptiveTree::AdaptationSet* adp,
+                                bool playTimeshiftBuffer = true)
   {
     auto initialRepr{tree->GetRepChooser()->GetRepresentation(adp)};
-    return new TestAdaptiveStream(*tree, adp, initialRepr, mediaHeaders, playTsb, false);
+    UTILS::PROPERTIES::KodiProperties kodiProps;
+    kodiProps.m_playTimeshiftBuffer = playTimeshiftBuffer;
+
+    return new TestAdaptiveStream(*tree, adp, initialRepr, kodiProps, false);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,
@@ -117,7 +126,7 @@ protected:
 TEST_F(DASHTreeTest, CalculateBaseURL)
 {
   // No BaseURL tags
-  OpenTestFile("mpd/segtpl.mpd", "https://foo.bar/mpd/test.mpd", "");
+  OpenTestFile("mpd/segtpl.mpd", "https://foo.bar/mpd/test.mpd");
   EXPECT_EQ(tree->base_url_, "https://foo.bar/mpd/");
 }
 
@@ -131,21 +140,21 @@ TEST_F(DASHTreeTest, CalculateBaseDomain)
 TEST_F(DASHTreeTest, CalculateBaseUrlFromRedirect)
 {
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
-  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd", "");
+  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd");
   EXPECT_EQ(tree->base_url_, "https://foo.bar/mpd/");
   EXPECT_EQ(tree->manifest_url_, "https://foo.bar/mpd/stream.mpd");
 }
 
 TEST_F(DASHTreeTest, CalculateBaseURLFromBaseURLTag)
 {
-  OpenTestFile("mpd/segtpl_baseurlinmpd.mpd", "https://bit.ly/abcd", "");
+  OpenTestFile("mpd/segtpl_baseurlinmpd.mpd", "https://bit.ly/abcd");
   EXPECT_EQ(tree->current_period_->base_url_, "https://foo.bar/mpd/");
 }
 
 TEST_F(DASHTreeTest, CalculateSegTplWithNoSlashes)
 {
   // BaseURL inside period with no trailing slash, uses segtpl, media/init doesn't start with slash
-  OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd", "https://foo.bar/initialpath/test.mpd", "");
+  OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd", "https://foo.bar/initialpath/test.mpd");
 
   adaptive::AdaptiveTree::SegmentTemplate segtpl =
       tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
@@ -157,7 +166,7 @@ TEST_F(DASHTreeTest, CalculateSegTplWithNoSlashes)
 TEST_F(DASHTreeTest, CalculateSegTplWithMediaInitSlash)
 {
   // BaseURL inside period with no trailing slash, uses segtpl, media/init starts with slash
-  OpenTestFile("mpd/segtpl_slash_baseurl_noslash.mpd", "https://foo.bar/initialpath/test.mpd", "");
+  OpenTestFile("mpd/segtpl_slash_baseurl_noslash.mpd", "https://foo.bar/initialpath/test.mpd");
 
   adaptive::AdaptiveTree::SegmentTemplate segtpl =
       tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
@@ -169,7 +178,7 @@ TEST_F(DASHTreeTest, CalculateSegTplWithMediaInitSlash)
 TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLSlash)
 {
   // BaseURL inside period with trailing slash, uses segtpl, media/init doesn't start with slash
-  OpenTestFile("mpd/segtpl_noslash_baseurl_slash.mpd", "https://foo.bar/initialpath/test.mpd", "");
+  OpenTestFile("mpd/segtpl_noslash_baseurl_slash.mpd", "https://foo.bar/initialpath/test.mpd");
 
   adaptive::AdaptiveTree::SegmentTemplate segtpl =
       tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
@@ -181,7 +190,7 @@ TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLSlash)
 TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLAndMediaInitSlash)
 {
   // BaseURL inside period with trailing slash, uses segtpl, media/init starts with slash
-  OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd", "https://foo.bar/initialpath/test.mpd", "");
+  OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd", "https://foo.bar/initialpath/test.mpd");
 
   adaptive::AdaptiveTree::SegmentTemplate segtpl =
       tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
@@ -193,7 +202,7 @@ TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLAndMediaInitSlash)
 TEST_F(DASHTreeTest, CalculateBaseURLInRepRangeBytes)
 {
   // Byteranged indexing
-  OpenTestFile("mpd/segmentbase.mpd", "https://foo.bar/test.mpd", "");
+  OpenTestFile("mpd/segmentbase.mpd", "https://foo.bar/test.mpd");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->url_,
             "https://foo.bar/video/23.98p/r0/vid10.mp4");
 }
@@ -201,7 +210,7 @@ TEST_F(DASHTreeTest, CalculateBaseURLInRepRangeBytes)
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
 {
   // SegmentTimeline, availabilityStartTime is greater than epoch
-  OpenTestFile("mpd/segtimeline_live_ast.mpd", "", "");
+  OpenTestFile("mpd/segtimeline_live_ast.mpd");
 
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
@@ -215,7 +224,7 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
 {
   tree->SetNowTime(1617223929L);
 
-  OpenTestFile("mpd/segtpl_pto.mpd", "", "");
+  OpenTestFile("mpd/segtpl_pto.mpd");
 
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
@@ -229,7 +238,7 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
 {
   tree->SetNowTime(1617229334L);
 
-  OpenTestFile("mpd/segtpl_old_publish_time.mpd", "", "");
+  OpenTestFile("mpd/segtpl_old_publish_time.mpd");
 
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
@@ -241,19 +250,19 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
 
 TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
 {
-  OpenTestFile("mpd/segtimeline_live_pd.mpd", "", "");
+  OpenTestFile("mpd/segtimeline_live_pd.mpd");
   EXPECT_EQ(tree->has_timeshift_buffer_, true);
 }
 
 TEST_F(DASHTreeTest, CalculateStaticWithPresentationDuration)
 {
-  OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd", "", "");
+  OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd");
   EXPECT_EQ(tree->has_timeshift_buffer_, false);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 {
-  OpenTestFile("mpd/fps_scale_adaptset.mpd", "", "");
+  OpenTestFile("mpd/fps_scale_adaptset.mpd");
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->fpsRate_, 24000);
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->fpsScale_, 1001);
@@ -279,7 +288,7 @@ TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 
 TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
 {
-  OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd", "");
+  OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd");
   tree->has_timeshift_buffer_ = false;
   SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[0]));
   
@@ -328,46 +337,46 @@ TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
 
 TEST_F(DASHTreeTest, updateParameterLiveSegmentTimeline)
 {
-  OpenTestFile("mpd/segtimeline_live_pd.mpd", "", "");
-  EXPECT_EQ(tree->update_parameter_, "full");
+  OpenTestFile("mpd/segtimeline_live_pd.mpd");
+  EXPECT_EQ(tree->m_manifestUpdateParam, "full");
 }
 
 TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumber)
 {
-  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux&start_seq=$START_NUMBER$", "");
-  EXPECT_EQ(tree->update_parameter_, "&start_seq=$START_NUMBER$");
+  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux&start_seq=$START_NUMBER$");
+  EXPECT_EQ(tree->m_manifestUpdateParam, "&start_seq=$START_NUMBER$");
   EXPECT_EQ(tree->manifest_url_, "https://foo.bar/dash.mpd?foo=bar&baz=qux");
 }
 
 TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumberRedirect)
 {
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123";
-  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?start_seq=$START_NUMBER$", "");
-  EXPECT_EQ(tree->update_parameter_, "?start_seq=$START_NUMBER$");
+  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?start_seq=$START_NUMBER$");
+  EXPECT_EQ(tree->m_manifestUpdateParam, "?start_seq=$START_NUMBER$");
   EXPECT_EQ(tree->manifest_url_, "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123");
 }
 
 TEST_F(DASHTreeTest, updateParameterVODSegmentTimeline)
 {
-  OpenTestFile("mpd/segtimeline_vod.mpd", "", "");
-  EXPECT_EQ(tree->update_parameter_, "");
+  OpenTestFile("mpd/segtimeline_vod.mpd");
+  EXPECT_EQ(tree->m_manifestUpdateParam, "");
 }
 
 TEST_F(DASHTreeTest, updateParameterLiveSegmentTemplate)
 {
-  OpenTestFile("mpd/segtpl_pto.mpd", "", "");
-  EXPECT_EQ(tree->update_parameter_, "");
+  OpenTestFile("mpd/segtpl_pto.mpd");
+  EXPECT_EQ(tree->m_manifestUpdateParam, "");
 }
 
 TEST_F(DASHTreeTest, updateParameterVODSegmentTemplate)
 {
-  OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd", "", "");
-  EXPECT_EQ(tree->update_parameter_, "");
+  OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd");
+  EXPECT_EQ(tree->m_manifestUpdateParam, "");
 }
 
 TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
 {
-  OpenTestFile("mpd/pssh_default_kid.mpd", "", "");
+  OpenTestFile("mpd/pssh_default_kid.mpd");
 
   EXPECT_EQ(tree->periods_[0]->psshSets_[1].pssh_, "ABCDEFGH");
   EXPECT_EQ(tree->periods_[0]->psshSets_[1].defaultKID_.length(), 16);
@@ -378,7 +387,7 @@ TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
 
 TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
 {
-  OpenTestFile("mpd/subtitles.mpd", "https://foo.bar/subtitles.mpd", "");
+  OpenTestFile("mpd/subtitles.mpd", "https://foo.bar/subtitles.mpd");
 
   // Required as gtest can not access the hidden attribute directly in EXPECT_EQ
   static const uint16_t SUBTITLESTREAM = DASHTestTree::Representation::SUBTITLESTREAM;
@@ -446,7 +455,7 @@ TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
 
 TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
 {
-  OpenTestFile("mpd/segtpl_multiple.mpd", "https://foo.bar/dash/multiple.mpd", "");
+  OpenTestFile("mpd/segtpl_multiple.mpd", "https://foo.bar/dash/multiple.mpd");
 
   EXPECT_EQ(tree->base_url_, "https://foo.bar/dash/");
 
@@ -474,7 +483,7 @@ TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
 TEST_F(DASHTreeTest, CalculateRedirectSegTpl)
 {
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
-  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd", "");
+  OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd");
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/V300/init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media_url, "https://foo.bar/mpd/V300/$Number$.m4s");
@@ -485,7 +494,7 @@ TEST_F(DASHTreeTest, CalculateRedirectSegTpl)
 
 TEST_F(DASHTreeTest, CalculateReprensentationBaseURL)
 {
-  OpenTestFile("mpd/rep_base_url.mpd", "https://bit.ly/mpd/abcd.mpd", "");
+  OpenTestFile("mpd/rep_base_url.mpd", "https://bit.ly/mpd/abcd.mpd");
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/slices/A_init.mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media_url, "https://foo.bar/mpd/slices/A$Number%08d$.m4f");
@@ -504,7 +513,7 @@ TEST_F(DASHTreeTest, CalculateReprensentationBaseURLMultiple)
 {
   OpenTestFile(
       "mpd/rep_base_url_multiple.mpd",
-      "https://pl.foobar.com/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/manifest.mpd", "");
+      "https://pl.foobar.com/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/manifest.mpd");
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://pl.foobar.com/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/init-f1-v1-x3.mp4");
   //! @TODO: Currently return the last BaseURL where instead should be the first one
@@ -517,7 +526,7 @@ TEST_F(DASHTreeTest, CalculateReprensentationBaseURLMultiple)
 
 TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
 {
-  OpenTestFile("mpd/bad_segtimeline_1.mpd", "https://foo.bar/placeholders.mpd", "");
+  OpenTestFile("mpd/bad_segtimeline_1.mpd", "https://foo.bar/placeholders.mpd");
   SetTestStream(NewStream(tree->current_period_->adaptationSets_[1]));
   testStream->start_stream();
 
@@ -538,7 +547,7 @@ TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
 
 TEST_F(DASHTreeTest, AdaptionSetSwitching)
 {
-  OpenTestFile("mpd/adaptation_set_switching.mpd", "", "");
+  OpenTestFile("mpd/adaptation_set_switching.mpd");
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_.size(), 5);
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->id, "3");
@@ -557,6 +566,6 @@ TEST_F(DASHTreeTest, AdaptionSetSwitching)
 
 TEST_F(DASHTreeTest, SuggestedPresentationDelay)
 {
-  OpenTestFile("mpd/segtpl_spd.mpd", "https://foo.bar/segtpl_spd.mpd", "");
+  OpenTestFile("mpd/segtpl_spd.mpd", "https://foo.bar/segtpl_spd.mpd");
   EXPECT_EQ(tree->live_delay_, 32);
 }
