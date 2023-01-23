@@ -26,17 +26,19 @@ using namespace adaptive;
 using namespace kodi::tools;
 using namespace UTILS;
 
-SmoothTree::SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                       CHOOSER::IRepresentationChooser* reprChooser)
-  : AdaptiveTree(kodiProps, reprChooser)
+SmoothTree::SmoothTree(CHOOSER::IRepresentationChooser* reprChooser) : AdaptiveTree(reprChooser)
 {
-  current_period_ = new AdaptiveTree::Period;
-  periods_.push_back(current_period_);
 }
 
-adaptive::SmoothTree::SmoothTree(const SmoothTree& left)
-  : AdaptiveTree(left.m_kodiProps, left.m_reprChooser)
+SmoothTree::SmoothTree(const SmoothTree& left) : AdaptiveTree(left)
 {
+}
+
+void SmoothTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+{
+  AdaptiveTree::Configure(kodiProps);
+  current_period_ = new AdaptiveTree::Period;
+  periods_.push_back(current_period_);
 }
 
 /*----------------------------------------------------------------------
@@ -353,25 +355,21 @@ static void XMLCALL end(void* data, const char* el)
 |   SmoothTree
 +---------------------------------------------------------------------*/
 
-bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateParam)
+bool SmoothTree::open(const std::string& url)
 {
-  return open(url, manifestUpdateParam, std::map<std::string, std::string>());
+  return open(url, std::map<std::string, std::string>());
 }
 
-bool SmoothTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
+bool SmoothTree::open(const std::string& url, std::map<std::string, std::string> addHeaders)
 {
   currentNode_ = 0;
 
-  PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-
   std::stringstream data;
   HTTPRespHeaders respHeaders;
-  if (!download(manifest_url_, additionalHeaders, data, respHeaders))
+  if (!DownloadManifest(url, addHeaders, data, respHeaders))
     return false;
 
   effective_url_ = respHeaders.m_effectiveUrl;
-  m_manifestHeaders = respHeaders;
 
   if (!PreparePaths(effective_url_))
     return false;

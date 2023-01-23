@@ -41,8 +41,16 @@ struct KodiProperties
   bool m_isLicenseForceSecureDecoder{false};
   std::string m_serverCertificate;
   ManifestType m_manifestType{ManifestType::UNKNOWN};
+  // Can be used to force enable manifest updates,
+  // and optionally to set a specific url parameter
   std::string m_manifestUpdateParam;
-  // HTTP headers used to download manifest and streams
+  // HTTP parameters used to download manifests
+  std::string m_manifestParams;
+  // HTTP headers used to download manifests
+  std::map<std::string, std::string> m_manifestHeaders;
+  // HTTP parameters used to download streams
+  std::string m_streamParams;
+  // HTTP headers used to download streams
   std::map<std::string, std::string> m_streamHeaders;
   std::string m_audioLanguageOrig;
   bool m_playTimeshiftBuffer{false};

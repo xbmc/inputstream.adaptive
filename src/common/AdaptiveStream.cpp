@@ -25,8 +25,10 @@
 #ifndef INPUTSTREAM_TEST_BUILD
 #include <kodi/Filesystem.h>
 #endif
+#include "kodi/tools/StringUtils.h"
 
 using namespace adaptive;
+using namespace kodi::tools;
 using namespace UTILS;
 
 const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
@@ -34,8 +36,7 @@ const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                AdaptiveTree::AdaptationSet* adp,
                                AdaptiveTree::Representation* initialRepr,
-                               const std::map<std::string, std::string>& media_headers,
-                               bool play_timeshift_buffer,
+                               const UTILS::PROPERTIES::KodiProperties& kodiProps,
                                bool choose_rep)
   : thread_data_(nullptr),
     tree_(tree),
@@ -45,14 +46,15 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     current_rep_(initialRepr),
     available_segment_buffers_(0),
     valid_segment_buffers_(0),
-    media_headers_(media_headers),
+    m_streamParams(kodiProps.m_streamParams),
+    m_streamHeaders(kodiProps.m_streamHeaders),
     segment_read_pos_(0),
     currentPTSOffset_(0),
     absolutePTSOffset_(0),
     lastUpdated_(std::chrono::system_clock::now()),
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
-    play_timeshift_buffer_(play_timeshift_buffer),
+    play_timeshift_buffer_(kodiProps.m_playTimeshiftBuffer),
     choose_rep_(choose_rep),
     rep_counter_(1),
     prev_rep_(0),
@@ -116,12 +118,12 @@ void AdaptiveStream::StopWorker(STATE state)
   state_ = RUNNING;
 }
 
-bool AdaptiveStream::download_segment()
+bool AdaptiveStream::download_segment(const DownloadInfo& downloadInfo)
 {
-  if (download_url_.empty())
+  if (downloadInfo.m_url.empty())
     return false;
 
-  return download(download_url_, download_headers_, nullptr);
+  return download(downloadInfo, nullptr);
 }
 
 void AdaptiveStream::worker()
@@ -139,13 +141,14 @@ void AdaptiveStream::worker()
     {
       worker_processing_ = true;
 
-      prepareNextDownload();
+      DownloadInfo downloadInfo;
+      prepareNextDownload(downloadInfo);
 
       // tell the main thread that we have processed prepare_download;
       thread_data_->signal_dl_.notify_one();
       lckdl.unlock();
 
-      bool ret(download_segment());
+      bool ret(download_segment(downloadInfo));
       unsigned int retryCount(10);
 
       //Some streaming software offers subtitle tracks with missing fragments, usually live tv
@@ -158,7 +161,7 @@ void AdaptiveStream::worker()
       {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         LOG::LogF(LOGDEBUG, "Trying to reload segment ...");
-        ret = download_segment();
+        ret = download_segment(downloadInfo);
       }
 
       lckdl.lock();
@@ -166,7 +169,6 @@ void AdaptiveStream::worker()
       //Signal finished download
       {
         std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-        download_url_.clear();
         if (!ret)
           state_ = STOPPED;
       }
@@ -186,27 +188,38 @@ int AdaptiveStream::SecondsSinceUpdate() const
           .count());
 }
 
-bool AdaptiveStream::download(const std::string& url,
-                              const std::map<std::string, std::string>& mediaHeaders,
+bool AdaptiveStream::download(const DownloadInfo& downloadInfo,
                               std::string* lockfreeBuffer)
 {
-  kodi::vfs::CFile file;
+  std::string url{downloadInfo.m_url};
 
-  // open the file
+  // Merge additional headers to the predefined one
+  std::map<std::string, std::string> headers = m_streamHeaders;
+  headers.insert(downloadInfo.m_addHeaders.begin(), downloadInfo.m_addHeaders.end());
+
+  // Append stream parameters, only if not already provided
+  if (url.find('?') == std::string::npos)
+    URL::AppendParameters(url, m_streamParams);
+
+  // Open the file
+  kodi::vfs::CFile file;
   if (!file.CURLCreate(url))
     return false;
+
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
-  if (mediaHeaders.find("connection") == mediaHeaders.end())
+  if (headers.find("connection") == headers.end())
     file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
+
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
 
-  for (const auto& entry : mediaHeaders)
+  for (auto& header : headers)
   {
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, header.first.c_str(), header.second.c_str());
   }
 
-  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE | ADDON_READ_AUDIO_VIDEO)) {
+  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE | ADDON_READ_AUDIO_VIDEO))
+  {
     LOG::Log(LOGERROR, "CURLOpen returned an error, download failed: %s", url.c_str());
     return false;
   }
@@ -253,10 +266,11 @@ bool AdaptiveStream::download(const std::string& url,
       else
       {
         // Store the data
-        // We only set lastChunk to true in the case of non-chunked transfers, the 
+        // We only set lastChunk to true in the case of non-chunked transfers, the
         // current structure does not allow for knowing the file has finished for
         // chunked transfers here - AtEnd() will return true while doing chunked transfers
-        if (write_data(bufferData.data(), byteRead, lockfreeBuffer, (!isChunked && file.AtEnd())))
+        if (write_data(bufferData.data(), byteRead, lockfreeBuffer, (!isChunked && file.AtEnd()),
+                       downloadInfo))
         {
           totalReadBytes += byteRead;
         }
@@ -426,7 +440,8 @@ bool AdaptiveStream::parseIndexRange(AdaptiveTree::Representation* rep, const st
 bool AdaptiveStream::write_data(const void* buffer,
                                 size_t buffer_size,
                                 std::string* lockfreeBuffer,
-                                bool lastChunk)
+                                bool lastChunk,
+                                const DownloadInfo& downloadInfo)
 {
   if (lockfreeBuffer)
   {
@@ -447,9 +462,10 @@ bool AdaptiveStream::write_data(const void* buffer,
 
     size_t insertPos(segment_buffer.size());
     segment_buffer.resize(insertPos + buffer_size);
-    tree_.OnDataArrived(download_segNum_, download_pssh_set_, m_iv,
-                        reinterpret_cast<const uint8_t*>(buffer),
-                        segment_buffer, insertPos, buffer_size, lastChunk);
+    uint8_t iv[16];
+    tree_.OnDataArrived(downloadInfo.m_segmentNumber, downloadInfo.m_psshSet, iv,
+                        reinterpret_cast<const uint8_t*>(buffer), segment_buffer, insertPos,
+                        buffer_size, lastChunk);
   }
   thread_data_->signal_rw_.notify_one();
   return true;
@@ -590,7 +606,8 @@ bool AdaptiveStream::start_stream()
     size_t valid_segment_buffers = valid_segment_buffers_;
     valid_segment_buffers_ = 0;
 
-    if (!prepareNextDownload() || !download_segment())
+    DownloadInfo downloadInfo;
+    if (!prepareNextDownload(downloadInfo) || !download_segment(downloadInfo))
       state_ = STOPPED;
 
     valid_segment_buffers_ = valid_segment_buffers + 1;
@@ -640,7 +657,7 @@ void AdaptiveStream::ReplacePlaceholder(std::string& url, const std::string plac
   url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
 }
 
-bool AdaptiveStream::prepareNextDownload()
+bool AdaptiveStream::prepareNextDownload(DownloadInfo& downloadInfo)
 {
   // We assume, that we find the next segment to load in the next valid_segment_buffers_
   if (valid_segment_buffers_ >= available_segment_buffers_)
@@ -653,17 +670,19 @@ bool AdaptiveStream::prepareNextDownload()
   segment_buffers_[valid_segment_buffers_].buffer.clear();
   ++valid_segment_buffers_;
 
-  return prepareDownload(rep, seg, segNum);
+  return prepareDownload(rep, seg, segNum, downloadInfo);
 }
 
 bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
                                      const AdaptiveTree::Segment* seg,
-                                     uint64_t segNum)
+                                     uint64_t segNum,
+                                     DownloadInfo& downloadInfo)
 {
   if (!seg)
     return false;
 
-  char rangebuf[128], *rangeHeader(0);
+  std::string rangeHeader;
+  std::string streamUrl;
 
   if (!(rep->flags_ & AdaptiveTree::Representation::SEGMENTBASE))
   {
@@ -672,64 +691,67 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
       if (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS)
       {
         if (URL::IsUrlAbsolute(seg->url))
-          download_url_ = seg->url;
+          streamUrl = seg->url;
         else
-          download_url_ = URL::Join(rep->url_, seg->url);
+          streamUrl = URL::Join(rep->url_, seg->url);
       }
       else
-        download_url_ = rep->url_;
+        streamUrl = rep->url_;
       if (~seg->range_begin_)
       {
         uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
         if (~seg->range_end_)
-          sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset,
-                  seg->range_end_ + fileOffset);
+        {
+          rangeHeader = StringUtils::Format("bytes=%u-%u", seg->range_begin_ + fileOffset,
+                                            seg->range_end_ + fileOffset);
+        }
         else
-          sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
-        rangeHeader = rangebuf;
+        {
+          rangeHeader = StringUtils::Format("bytes=%u-", seg->range_begin_ + fileOffset);
+        }
       }
     }
     else if (~segNum) //templated segment
     {
-      download_url_ = rep->segtpl_.media_url;
-      ReplacePlaceholder(download_url_, "$Number", seg->range_end_);
-      ReplacePlaceholder(download_url_, "$Time", seg->range_begin_);
+      streamUrl = rep->segtpl_.media_url;
+      ReplacePlaceholder(streamUrl, "$Number", seg->range_end_);
+      ReplacePlaceholder(streamUrl, "$Time", seg->range_begin_);
     }
     else //templated initialization segment
-      download_url_ = rep->url_;
+      streamUrl = rep->url_;
   }
   else
   {
     if (rep->flags_ & AdaptiveTree::Representation::TEMPLATE && ~segNum)
     {
-      download_url_ = rep->segtpl_.media_url;
-      ReplacePlaceholder(download_url_, "$Number", rep->startNumber_);
-      ReplacePlaceholder(download_url_, "$Time", 0);
+      streamUrl = rep->segtpl_.media_url;
+      ReplacePlaceholder(streamUrl, "$Number", rep->startNumber_);
+      ReplacePlaceholder(streamUrl, "$Time", 0);
     }
     else
-      download_url_ = rep->url_;
+      streamUrl = rep->url_;
+
     if (~seg->range_begin_)
     {
       uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
       if (~seg->range_end_)
-        sprintf(rangebuf, "bytes=%" PRIu64 "-%" PRIu64, seg->range_begin_ + fileOffset,
-                seg->range_end_ + fileOffset);
+      {
+        rangeHeader = StringUtils::Format("bytes=%u-%u", seg->range_begin_ + fileOffset,
+                                          seg->range_end_ + fileOffset);
+      }
       else
-        sprintf(rangebuf, "bytes=%" PRIu64 "-", seg->range_begin_ + fileOffset);
-      rangeHeader = rangebuf;
+      {
+        rangeHeader = StringUtils::Format("bytes=%u-", seg->range_begin_ + fileOffset);
+      }
     }
   }
 
-  download_segNum_ = segNum;
-  download_pssh_set_ = seg->pssh_set_;
-  download_headers_ = media_headers_;
-  if (rangeHeader)
-    download_headers_["Range"] = rangeHeader;
-  else
-    download_headers_.erase("Range");
+  downloadInfo.m_segmentNumber = segNum;
+  downloadInfo.m_psshSet = seg->pssh_set_;
+  if (!rangeHeader.empty())
+    downloadInfo.m_addHeaders["Range"] = rangeHeader; 
 
-  download_url_ = tree_.BuildDownloadUrl(download_url_);
-
+  downloadInfo.m_url = tree_.BuildDownloadUrl(streamUrl);
   return true;
 }
 
@@ -1128,8 +1150,10 @@ bool AdaptiveStream::ResolveSegmentBase(AdaptiveTree::Representation* rep, bool 
       return false;
 
     std::string sidxBuffer;
-    if (prepareDownload(rep, &seg, segNum) &&
-        download(download_url_, download_headers_, &sidxBuffer) && parseIndexRange(rep, sidxBuffer))
+    DownloadInfo downloadInfo;
+
+    if (prepareDownload(rep, &seg, segNum, downloadInfo) && download(downloadInfo, &sidxBuffer) &&
+        parseIndexRange(rep, sidxBuffer))
     {
       const_cast<AdaptiveTree::Representation*>(rep)->flags_ &=
           ~AdaptiveTree::Representation::SEGMENTBASE;

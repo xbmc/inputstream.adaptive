@@ -16,14 +16,13 @@ namespace adaptive
 class ATTR_DLL_LOCAL SmoothTree : public AdaptiveTree
 {
 public:
-  SmoothTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-             CHOOSER::IRepresentationChooser* reprChooser);
+  SmoothTree(CHOOSER::IRepresentationChooser* reprChooser);
   SmoothTree(const SmoothTree& left);
 
-  virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
-  virtual bool open(const std::string& url,
-                    const std::string& manifestUpdateParam,
-                    std::map<std::string, std::string> additionalHeaders) override;
+  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
+
+  virtual bool open(const std::string& url) override;
+  virtual bool open(const std::string& url, std::map<std::string, std::string> addHeaders) override;
 
   virtual SmoothTree* Clone() const override { return new SmoothTree{*this}; }
 

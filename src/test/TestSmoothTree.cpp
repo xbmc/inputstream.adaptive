@@ -24,9 +24,9 @@ protected:
     m_reprChooser = new CTestRepresentationChooserDefault();
     m_reprChooser->Initialize(kodiProps.m_chooserProps);
 
-    tree = new SmoothTestTree(kodiProps, m_reprChooser);
-
-    tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+    tree = new SmoothTestTree(m_reprChooser);
+    tree->Configure(kodiProps);
+    tree->m_supportedKeySystem = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
   void TearDown() override
@@ -38,15 +38,20 @@ protected:
     m_reprChooser = nullptr;
   }
 
-  void OpenTestFile(std::string testfilename, std::string url, std::string manifestHeaders)
-  {
-    if (url.empty())
-      url = "http://foo.bar/" + testfilename;
+  void OpenTestFile(std::string filePath) { OpenTestFile(filePath, "http://foo.bar/" + filePath); }
 
-    SetFileName(testHelper::testFile, testfilename);
+  void OpenTestFile(std::string filePath, std::string url) { OpenTestFile(filePath, url, {}); }
+
+  void OpenTestFile(std::string filePath,
+                    std::string url,
+                    std::map<std::string, std::string> manifestHeaders)
+  {
+    SetFileName(testHelper::testFile, filePath);
+
+    tree->SetManifestUpdateParam(url, "");
     if (!tree->open(url, manifestHeaders))
     {
-      printf("open() failed");
+      LOG::Log(LOGERROR, "Cannot open \"%s\" Smooth Streaming manifest.", url.c_str());
       exit(1);
     }
   }
@@ -58,13 +63,13 @@ protected:
 TEST_F(SmoothTreeTest, CalculateBaseURL)
 {
   // No BaseURL tags
-  OpenTestFile("ism/TearsOfSteel.ism", "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/TearsOfSteel.ism", "");
+  OpenTestFile("ism/TearsOfSteel.ism", "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/TearsOfSteel.ism");
   EXPECT_EQ(tree->base_url_, "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/");
 }
 
 TEST_F(SmoothTreeTest, CalculateBaseURLWithNoExtension)
 {
   // No BaseURL tags
-  OpenTestFile("ism/TearsOfSteel.ism", "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/TearsOfSteel.ism/manifest", "");
+  OpenTestFile("ism/TearsOfSteel.ism", "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/TearsOfSteel.ism/manifest");
   EXPECT_EQ(tree->base_url_, "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/TearsOfSteel.ism/");
 }

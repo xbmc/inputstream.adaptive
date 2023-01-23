@@ -23,8 +23,9 @@ protected:
     m_reprChooser = new CTestRepresentationChooserDefault();
     m_reprChooser->Initialize(kodiProps.m_chooserProps);
 
-    tree = new HLSTestTree(kodiProps, m_reprChooser);
-    tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+    tree = new HLSTestTree(m_reprChooser);
+    tree->Configure(kodiProps);
+    tree->m_supportedKeySystem = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
 
   void TearDown() override
@@ -36,20 +37,31 @@ protected:
     m_reprChooser = nullptr;
   }
 
-  void OpenTestFileMaster(std::string testfilename, std::string url, std::string manifestHeaders)
+  void OpenTestFileMaster(std::string filePath)
   {
-    if (url.empty())
-      url = "http://foo.bar/" + testfilename;
+    OpenTestFileMaster(filePath, "http://foo.bar/" + filePath);
+  }
 
-    SetFileName(testHelper::testFile, testfilename);
+  void OpenTestFileMaster(std::string filePath, std::string url)
+  {
+    OpenTestFileMaster(filePath, url, {});
+  }
+
+  void OpenTestFileMaster(std::string filePath,
+                          std::string url,
+                          std::map<std::string, std::string> manifestHeaders)
+  {
+    SetFileName(testHelper::testFile, filePath);
+
+    tree->SetManifestUpdateParam(url, "");
     if (!tree->open(url, manifestHeaders))
     {
-      printf("open() failed");
+      LOG::Log(LOGERROR, "Cannot open \"%s\" HLS manifest.", url.c_str());
       exit(1);
     }
   }
 
-  adaptive::HLSTree::PREPARE_RESULT OpenTestFileVariant(std::string testfilename,
+  adaptive::HLSTree::PREPARE_RESULT OpenTestFileVariant(std::string filePath,
                                     std::string url,
                                     adaptive::AdaptiveTree::Period* per,
                                     adaptive::AdaptiveTree::AdaptationSet* adp,
@@ -57,7 +69,8 @@ protected:
   {
     if (!url.empty())
       rep->source_url_ = url;
-    SetFileName(testHelper::testFile, testfilename);
+
+    SetFileName(testHelper::testFile, filePath);
     return tree->prepareRepresentation(per, adp, rep);
   }
 
@@ -68,7 +81,7 @@ protected:
 
 TEST_F(HLSTreeTest, CalculateSourceUrl)
 {
-  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8?param=foo", "");
+  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8?param=foo");
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/fmp4_noenc_v_stream_2.m3u8", "https://foo.bar/stream_2/out.m3u8",
       tree->current_period_, tree->current_adaptationset_, tree->current_representation_);
@@ -82,7 +95,7 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterRelativeUri)
 {
   testHelper::effectiveUrl = "https://foo.bar/master.m3u8";
 
-  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://baz.qux/master.m3u8", "");
+  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://baz.qux/master.m3u8");
 
   std::string rep_url = tree->BuildDownloadUrl(
       tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
@@ -101,7 +114,7 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterRelativeUri)
 
 TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedVariantAbsoluteUri)
 {
-  OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://baz.qux/master.m3u8", "");
+  OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://baz.qux/master.m3u8");
 
   std::string rep_url = tree->BuildDownloadUrl(
       tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
@@ -125,7 +138,7 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterAndRedirectedVariantAb
 {
   testHelper::effectiveUrl = "https://baz.qux/master.m3u8";
 
-  OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://link.to/1234", "");
+  OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://link.to/1234");
 
   std::string rep_url = tree->BuildDownloadUrl(
       tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
@@ -149,7 +162,7 @@ TEST_F(HLSTreeTest,
 {
   testHelper::effectiveUrl = "https://baz.qux/master.m3u8";
 
-  OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://bit.ly/1234", "");
+  OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://bit.ly/1234");
 
   std::string rep_url = tree->BuildDownloadUrl(
       tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
@@ -170,7 +183,7 @@ TEST_F(HLSTreeTest,
 
 TEST_F(HLSTreeTest, OpenVariant)
 {
-  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8", "");
+  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8");
 
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/fmp4_noenc_v_stream_2.m3u8", "https://foo.bar/stream_2.m3u8", tree->current_period_,
@@ -182,8 +195,7 @@ TEST_F(HLSTreeTest, OpenVariant)
 
 TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlash)
 {
-  OpenTestFileMaster("hls/1v_master.m3u8",
-                     "https://foo.bar/hls/video/stream_name/master.m3u8", "");
+  OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/hls/video/stream_name/master.m3u8");
 
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/ts_aes_keyuriwithslash_stream_0.m3u8",
@@ -200,8 +212,7 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
 {
   testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
-  OpenTestFileMaster("hls/1v_master.m3u8", "https://baz.qux/hls/video/stream_name/master.m3u8",
-                     "");
+  OpenTestFileMaster("hls/1v_master.m3u8", "https://baz.qux/hls/video/stream_name/master.m3u8");
 
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/ts_aes_keyuriwithslash_stream_0.m3u8",
@@ -216,8 +227,7 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
 
 TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
 {
-  OpenTestFileMaster("hls/1v_master.m3u8",
-                     "https://foo.bar/hls/video/stream_name/master.m3u8", "");
+  OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/hls/video/stream_name/master.m3u8");
 
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/ts_aes_keyuriabsolute_stream_0.m3u8",
@@ -231,8 +241,7 @@ TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
 
 TEST_F(HLSTreeTest, ParseKeyUriRelative)
 {
-  OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/hls/video/stream_name/master.m3u8",
-                     "");
+  OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/hls/video/stream_name/master.m3u8");
 
   adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
       "hls/ts_aes_keyurirelative_stream_0.m3u8",
@@ -248,8 +257,7 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
 {
   testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
-  OpenTestFileMaster("hls/1v_master.m3u8",
-                     "https://baz.qux/hls/video/stream_name/master.m3u8", "");
+  OpenTestFileMaster("hls/1v_master.m3u8", "https://baz.qux/hls/video/stream_name/master.m3u8");
   std::string var_download_url = tree->BuildDownloadUrl(
       tree->current_period_->adaptationSets_[0]
           ->representations_[0]
@@ -268,7 +276,7 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
 
 TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
 {
-  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8", "");
+  OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8");
   std::string var_download_url = tree->BuildDownloadUrl(
       tree->current_period_->adaptationSets_[0]->representations_[1]->source_url_);
 

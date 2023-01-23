@@ -37,7 +37,7 @@ public:
   void SetVideoResolution(unsigned int width,
                           unsigned int height,
                           unsigned int maxWidth,
-                          unsigned int maxHeight);
+                          unsigned int maxHeight) override;
   bool PosTime(int ms) override;
   int GetTotalTime() override;
   int GetTime() override;

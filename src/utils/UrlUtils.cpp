@@ -142,7 +142,7 @@ void UTILS::URL::AppendParameters(std::string& url, std::string params)
     url += "&";
 
   if (params.front() == '&' || params.front() == '?')
-    params.pop_back();
+    params.erase(params.begin());
 
   url += params;
 }

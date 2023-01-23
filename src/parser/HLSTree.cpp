@@ -88,15 +88,20 @@ static std::string getAudioCodec(const std::string& codecs)
     return "aac";
 }
 
-HLSTree::HLSTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                 CHOOSER::IRepresentationChooser* reprChooser)
-  : AdaptiveTree(kodiProps, reprChooser)
+HLSTree::HLSTree(CHOOSER::IRepresentationChooser* reprChooser)
+  : AdaptiveTree(reprChooser)
 {
-  m_decrypter = std::make_unique<AESDecrypter>(kodiProps.m_licenseKey);
 };
 
-HLSTree::HLSTree(const HLSTree& left) : AdaptiveTree(left.m_kodiProps, left.m_reprChooser)
+HLSTree::HLSTree(const HLSTree& left) : AdaptiveTree(left)
 {
+  m_decrypter = std::make_unique<AESDecrypter>(left.m_decrypter->getLicenseKey());
+}
+
+void HLSTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+{
+  AdaptiveTree::Configure(kodiProps);
+  m_decrypter = std::make_unique<AESDecrypter>(kodiProps.m_licenseKey);
 }
 
 HLSTree::~HLSTree()
@@ -170,19 +175,16 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   return ENCRYPTIONTYPE_UNKNOWN;
 }
 
-bool HLSTree::open(const std::string& url, const std::string& manifestUpdateParam)
+bool HLSTree::open(const std::string& url)
 {
-  return open(url, manifestUpdateParam, std::map<std::string, std::string>());
+  return open(url, std::map<std::string, std::string>());
 }
 
-bool HLSTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
+bool HLSTree::open(const std::string& url, std::map<std::string, std::string> addHeaders)
 {
-  PrepareManifestUrl(url, manifestUpdateParam);
-  additionalHeaders.insert(m_streamHeaders.begin(), m_streamHeaders.end());
-
   std::stringstream data;
   HTTPRespHeaders respHeaders;
-  if (!download(manifest_url_, additionalHeaders, data, respHeaders))
+  if (!DownloadManifest(url, addHeaders, data, respHeaders))
     return false;
 
   effective_url_ = respHeaders.m_effectiveUrl;
@@ -417,7 +419,7 @@ bool HLSTree::ParseManifest(std::stringstream& stream)
   }
   // Set Live as default
   has_timeshift_buffer_ = true;
-  update_parameter_ = "full";
+  m_manifestUpdateParam = "full";
   return true;
 }
 
@@ -447,7 +449,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
     if (rep->flags_ & Representation::DOWNLOADED) {
     }
-    else if (download(rep->source_url_, m_streamHeaders, streamData, respHeaders))
+    else if (DownloadManifest(rep->source_url_, {}, streamData, respHeaders))
     {
 #if FILEDEBUG
       FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");

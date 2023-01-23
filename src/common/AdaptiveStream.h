@@ -33,8 +33,7 @@ namespace adaptive
     AdaptiveStream(AdaptiveTree& tree,
                    AdaptiveTree::AdaptationSet* adp,
                    AdaptiveTree::Representation* initialRepr,
-                   const std::map<std::string, std::string>& media_headers,
-                   bool play_timeshift_buffer,
+                   const UTILS::PROPERTIES::KodiProperties& kodiProps,
                    bool choose_rep_);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
@@ -71,19 +70,30 @@ namespace adaptive
     bool StreamChanged() { return stream_changed_; }
 
   protected:
-    virtual bool download(const std::string& url,
-                          const std::map<std::string, std::string>& mediaHeaders,
+    // Info to execute the download
+    struct DownloadInfo
+    {
+      std::string m_url;
+      std::map<std::string, std::string> m_addHeaders; // Additional headers
+      uint64_t m_segmentNumber{0};
+      uint16_t m_psshSet{0};
+    };
+
+    std::string m_streamParams;
+    std::map<std::string, std::string> m_streamHeaders;
+
+    virtual bool download(const DownloadInfo& downloadInfo,
                           std::string* lockfreeBuffer);
     virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer);
     bool write_data(const void* buffer,
                     size_t buffer_size,
                     std::string* lockfreeBuffer,
-                    bool lastChunk);
+                    bool lastChunk,
+                    const DownloadInfo& downloadInfo);
     virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
-    virtual bool download_segment();
-    std::string download_url_;
-    std::map<std::string, std::string> media_headers_, download_headers_;
+    virtual bool download_segment(const DownloadInfo& downloadInfo);
+    
     struct SEGMENTBUFFER
     {
       std::string buffer;
@@ -103,14 +113,16 @@ namespace adaptive
     } state_;
 
     // Segment download section
+  
     void ResetSegment(const AdaptiveTree::Segment* segment);
     void ResetActiveBuffer(bool oneValid);
     void StopWorker(STATE state);
     void worker();
-    bool prepareNextDownload();
+    bool prepareNextDownload(DownloadInfo& downloadInfo);
     bool prepareDownload(const AdaptiveTree::Representation* rep,
                          const AdaptiveTree::Segment* seg,
-                         uint64_t segNum);
+                         uint64_t segNum,
+                         DownloadInfo& downloadInfo);
     int SecondsSinceUpdate() const;
     static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
     bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
@@ -164,10 +176,7 @@ namespace adaptive
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
 
-    uint16_t download_pssh_set_;
-    uint64_t download_segNum_;
     bool worker_processing_;
-    uint8_t m_iv[16];
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;

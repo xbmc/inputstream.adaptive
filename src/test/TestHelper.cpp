@@ -26,17 +26,16 @@ void SetFileName(std::string& file, std::string name)
   file = GetEnv("DATADIR") + "/" + name;
 }
 
-bool TestAdaptiveStream::download_segment()
+bool TestAdaptiveStream::download_segment(const DownloadInfo& downloadInfo)
 {
-  if (download_url_.empty())
+  if (downloadInfo.m_url.empty())
     return false;
-  testHelper::downloadList.push_back(download_url_);
+  testHelper::downloadList.push_back(downloadInfo.m_url);
 
-  return download(download_url_, download_headers_, nullptr);
+  return download(downloadInfo, nullptr);
 }
 
-bool TestAdaptiveStream::download(const std::string& url,
-                                  const std::map<std::string, std::string>& mediaHeaders,
+bool TestAdaptiveStream::download(const DownloadInfo& downloadInfo,
                                   std::string* lockfreeBuffer)
 {
   size_t nbRead = ~0UL;
@@ -50,7 +49,7 @@ bool TestAdaptiveStream::download(const std::string& url,
   {
     ss.read(buf, 16);
     nbRead = ss.gcount();
-    if (!nbRead || !~nbRead || !write_data(buf, nbRead, lockfreeBuffer, false))
+    if (!nbRead || !~nbRead || !write_data(buf, nbRead, lockfreeBuffer, false, downloadInfo))
       break;
     nbReadOverall += nbRead;
   }
@@ -135,9 +134,8 @@ bool DASHTestTree::download(const std::string& url,
   return false;
 }
 
-HLSTestTree::HLSTestTree(UTILS::PROPERTIES::KodiProperties kodiProps,
-  CHOOSER::IRepresentationChooser* reprChooser)
-  : HLSTree(kodiProps, reprChooser) 
+HLSTestTree::HLSTestTree(CHOOSER::IRepresentationChooser* reprChooser)
+  : HLSTree(reprChooser) 
 {
   m_decrypter = std::make_unique<AESDecrypter>(AESDecrypter(std::string()));
 }
