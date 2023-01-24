@@ -50,6 +50,7 @@ namespace adaptive
 
   AdaptiveTree::AdaptiveTree(const AdaptiveTree& left) : AdaptiveTree(left.m_reprChooser)
   {
+    m_manifestParams = left.m_manifestParams;
     m_manifestHeaders = left.m_manifestHeaders;
     m_settings = left.m_settings;
     m_supportedKeySystem = left.m_supportedKeySystem;
