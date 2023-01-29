@@ -992,18 +992,15 @@ bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
 
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
-  while (true)
+  while (worker_processing_)
   {
-    if (worker_processing_)
-    {
-      thread_data_->signal_rw_.wait(lckrw);
-      continue;
-    }
-    size = segment_buffers_[0].buffer.size();
-    return true;
+    thread_data_->signal_rw_.wait(lckrw);
   }
-
-  return false;
+  state_ = STOPPED;
+  std::lock_guard<std::mutex> lckdl(thread_data_->mutex_dl_);
+  size = segment_buffers_[0].buffer.size();
+  state_ = RUNNING;
+  return true;
 }
 
 uint64_t AdaptiveStream::getMaxTimeMs()

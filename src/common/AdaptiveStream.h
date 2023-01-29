@@ -10,6 +10,7 @@
 
 #include "AdaptiveTree.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -183,7 +184,7 @@ namespace adaptive
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
 
-    bool worker_processing_;
+    std::atomic<bool> worker_processing_;
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
