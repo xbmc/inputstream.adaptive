@@ -20,6 +20,16 @@ CTSSampleReader::CTSSampleReader(AP4_ByteStream* input,
   m_typeMap[type] = streamId;
 }
 
+bool CTSSampleReader::Initialize()
+{
+  if (TSReader::Initialize())
+  {
+    SetStartPTS(((TSReader::GetStartPts() * 100) / 9) - GetPTSDiff());
+    return true;
+  }
+  return false;
+}
+
 void CTSSampleReader::AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid)
 {
   m_typeMap[type] = sid;
