@@ -532,8 +532,20 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
                 rep->containerType_ = CONTAINERTYPE_TEXT;
               else
               {
-                rep->containerType_ = CONTAINERTYPE_INVALID;
-                continue;
+                if (adp->type_ == VIDEO)
+                {
+                  // Streams that have a media url encoded as a parameter of the url itself
+                  // cannot be detected in safe way, so we try fallback to .ts
+                  // e.g. https://cdn-prod.tv/beacon?streamId=1&rp=https%3A%2F%2Ftest.com%2F167037ac3%2Findex_4_0.ts&sessionId=abc&assetId=OD
+                  rep->containerType_ = CONTAINERTYPE_TS;
+                  LOG::LogF(LOGDEBUG, "Cannot detect container type from media url, fallback to TS");
+                }
+                else
+                {
+                  rep->containerType_ = CONTAINERTYPE_INVALID;
+                  LOG::LogF(LOGDEBUG, "Cannot detect container type from media url");
+                  continue;
+                }
               }
             }
             else
