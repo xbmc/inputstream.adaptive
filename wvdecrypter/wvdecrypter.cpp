@@ -497,13 +497,17 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
 {
   caps = { 0, hdcp_version_, hdcp_limit_ };
 
-  if (session_.empty())
+  if (session_.empty()) {
+    LOG::LogF(SSDDEBUG, "Session empty");
     return;
+  }
 
   caps.flags = SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING;
 
-  if (keys_.empty())
+  if (keys_.empty()) {
+    LOG::LogF(SSDDEBUG, "Keys empty");
     return;
+  }
 
   if (!caps.hdcpLimit)
     caps.hdcpLimit = resolution_limit_;
@@ -524,7 +528,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
       break;
     }
     */
-  if (caps.flags == SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
+  if ((caps.flags & SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING) != 0)
   {
     AP4_UI32 poolid(AddPool());
     fragment_pool_[poolid].key_ = key ? key : reinterpret_cast<const uint8_t*>(keys_.front().keyid.data());
@@ -543,6 +547,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
         clearb[0] = 0;
         if (DecryptSampleData(poolid, in, out, iv, 1, clearb, encb) != AP4_SUCCESS)
         {
+          LOG::LogF(SSDDEBUG, "Single decrypt failed, secure path only");
           if (media == SSD_DECRYPTER::SSD_CAPS::SSD_MEDIA_VIDEO)
             caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
           else
@@ -550,6 +555,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
         }
         else
         {
+          LOG::LogF(SSDDEBUG, "Single decrypt possible");
           caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT;
           caps.hdcpVersion = 99;
           caps.hdcpLimit = resolution_limit_;
@@ -557,14 +563,18 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
       }
       else
       {
+        LOG::LogF(SSDDEBUG, "Multiple decrypt possible");
         caps.hdcpVersion = 99;
         caps.hdcpLimit = resolution_limit_;
       }
     }
-    catch (...) {
+    catch (const std::exception& e) {
+      LOG::LogF(SSDDEBUG, "Decrypt error, assuming secure path: %s", e.what());
       caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
     }
     RemovePool(poolid);
+  } else {
+    LOG::LogF(SSDDEBUG, "Decoding not supported");
   }
 }
 
