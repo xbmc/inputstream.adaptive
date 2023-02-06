@@ -828,7 +828,6 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
 
 void HLSTree::OnDataArrived(uint64_t segNum,
                             uint16_t psshSet,
-                            uint8_t iv[16],
                             const uint8_t* src,
                             std::string& dst,
                             size_t dstOffset,
@@ -890,20 +889,19 @@ void HLSTree::OnDataArrived(uint64_t segNum,
     else if (!dstOffset)
     {
       if (pssh.iv.empty())
-        m_decrypter->ivFromSequence(iv, segNum);
+        m_decrypter->ivFromSequence(m_decrypterIv, segNum);
       else
       {
-        memset(iv, 0, 16);
-        memcpy(iv, pssh.iv.data(), pssh.iv.size() < 16 ? pssh.iv.size() : 16);
+        memcpy(m_decrypterIv, pssh.iv.data(), pssh.iv.size() < 16 ? pssh.iv.size() : 16);
       }
     }
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, src, dst,
-                         dstOffset, dataSize, lastChunk);
+    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), m_decrypterIv,
+                         src, dst, dstOffset, dataSize, lastChunk);
     if (dataSize >= 16)
-      memcpy(iv, src + (dataSize - 16), 16);
+      memcpy(m_decrypterIv, src + (dataSize - 16), 16);
   }
   else
-    AdaptiveTree::OnDataArrived(segNum, psshSet, iv, src, dst, dstOffset, dataSize, lastChunk);
+    AdaptiveTree::OnDataArrived(segNum, psshSet, src, dst, dstOffset, dataSize, lastChunk);
 }
 
 //Called each time before we switch to a new segment
