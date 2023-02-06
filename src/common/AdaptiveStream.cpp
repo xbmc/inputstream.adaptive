@@ -701,12 +701,12 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
         uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
         if (~seg->range_end_)
         {
-          rangeHeader = StringUtils::Format("bytes=%u-%u", seg->range_begin_ + fileOffset,
+          rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg->range_begin_ + fileOffset,
                                             seg->range_end_ + fileOffset);
         }
         else
         {
-          rangeHeader = StringUtils::Format("bytes=%u-", seg->range_begin_ + fileOffset);
+          rangeHeader = StringUtils::Format("bytes=%llu-", seg->range_begin_ + fileOffset);
         }
       }
     }
@@ -735,12 +735,12 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
       uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
       if (~seg->range_end_)
       {
-        rangeHeader = StringUtils::Format("bytes=%u-%u", seg->range_begin_ + fileOffset,
+        rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg->range_begin_ + fileOffset,
                                           seg->range_end_ + fileOffset);
       }
       else
       {
-        rangeHeader = StringUtils::Format("bytes=%u-", seg->range_begin_ + fileOffset);
+        rangeHeader = StringUtils::Format("bytes=%llu-", seg->range_begin_ + fileOffset);
       }
     }
   }
