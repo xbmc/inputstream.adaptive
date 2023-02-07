@@ -322,18 +322,24 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
                                                 AP4_Position mdat_payload_offset,
                                                 AP4_UI64 mdat_payload_size)
 {
-  // For prefixed initialization (usually ISM) we don't yet know the
-  // proper track id, let's find it now
-  if (m_track->GetId() == TRACKID_UNKNOWN)
+  AP4_MovieFragment fragment =
+      AP4_MovieFragment(AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->Clone()));
+  AP4_Array<AP4_UI32> ids;
+  fragment.GetTrackIds(ids);
+  if (ids.ItemCount() == 1)
   {
-    AP4_MovieFragment fragment =
-        AP4_MovieFragment(AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->Clone()));
-    AP4_Array<AP4_UI32> ids;
-    fragment.GetTrackIds(ids);
-    if (ids.ItemCount() == 1)
+    // For prefixed initialization (usually ISM) we don't yet know the
+    // proper track id, let's find it now
+    if (m_track->GetId() == TRACKID_UNKNOWN)
+    {
       m_track->SetId(ids[0]);
-    else
+      LOG::LogF(LOGDEBUG, "Track ID changed from UNKNOWN to %u", ids[0]);
+    }
+    else if (ids[0] != m_track->GetId())
+    {
+      LOG::LogF(LOGDEBUG, "Track ID does not match! Expected: %u Got: %u", m_track->GetId(), ids[0]);
       return AP4_ERROR_NO_SUCH_ITEM;
+    }
   }
 
   AP4_Result result;
