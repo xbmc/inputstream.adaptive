@@ -59,7 +59,6 @@ std::string AESDecrypter::convertIV(const std::string &input)
 
 void AESDecrypter::ivFromSequence(uint8_t *buffer, uint64_t sid)
 {
-  memset(buffer, 0, 16);
   AP4_BytesFromUInt64BE(buffer + 8, sid);
 }
 

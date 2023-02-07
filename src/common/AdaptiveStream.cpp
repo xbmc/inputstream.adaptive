@@ -462,8 +462,7 @@ bool AdaptiveStream::write_data(const void* buffer,
 
     size_t insertPos(segment_buffer.size());
     segment_buffer.resize(insertPos + buffer_size);
-    uint8_t iv[16];
-    tree_.OnDataArrived(downloadInfo.m_segmentNumber, downloadInfo.m_psshSet, iv,
+    tree_.OnDataArrived(downloadInfo.m_segmentNumber, downloadInfo.m_psshSet,
                         reinterpret_cast<const uint8_t*>(buffer), segment_buffer, insertPos,
                         buffer_size, lastChunk);
   }
@@ -702,12 +701,12 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
         uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
         if (~seg->range_end_)
         {
-          rangeHeader = StringUtils::Format("bytes=%u-%u", seg->range_begin_ + fileOffset,
+          rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg->range_begin_ + fileOffset,
                                             seg->range_end_ + fileOffset);
         }
         else
         {
-          rangeHeader = StringUtils::Format("bytes=%u-", seg->range_begin_ + fileOffset);
+          rangeHeader = StringUtils::Format("bytes=%llu-", seg->range_begin_ + fileOffset);
         }
       }
     }
@@ -736,12 +735,12 @@ bool AdaptiveStream::prepareDownload(const AdaptiveTree::Representation* rep,
       uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
       if (~seg->range_end_)
       {
-        rangeHeader = StringUtils::Format("bytes=%u-%u", seg->range_begin_ + fileOffset,
+        rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg->range_begin_ + fileOffset,
                                           seg->range_end_ + fileOffset);
       }
       else
       {
-        rangeHeader = StringUtils::Format("bytes=%u-", seg->range_begin_ + fileOffset);
+        rangeHeader = StringUtils::Format("bytes=%llu-", seg->range_begin_ + fileOffset);
       }
     }
   }
