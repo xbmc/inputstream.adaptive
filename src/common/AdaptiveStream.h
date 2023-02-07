@@ -10,6 +10,7 @@
 
 #include "AdaptiveTree.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -43,6 +44,13 @@ namespace adaptive
     void clear();
     void info(std::ostream &s);
     uint64_t getMaxTimeMs();
+
+    /*!
+    * \brief Set the current segment to the one specified, and reset
+    *   the buffer
+    * \param newSegment The new segment
+    */
+    void ResetCurrentSegment(const AdaptiveTree::Segment* newSegment);
 
     unsigned int get_type()const{ return current_adp_->type_; };
 
@@ -176,7 +184,7 @@ namespace adaptive
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
 
-    bool worker_processing_;
+    std::atomic<bool> worker_processing_;
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;

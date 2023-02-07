@@ -672,6 +672,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           segment.range_end_ = 0;
           segment.startPTS_ = ~0ULL;
           segment.pssh_set_ = 0;
+          pts = 0;
 
           if (currentEncryptionType == ENCRYPTIONTYPE_WIDEVINE)
           {

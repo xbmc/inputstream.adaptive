@@ -991,18 +991,15 @@ bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
 
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
-  while (true)
+  while (worker_processing_)
   {
-    if (worker_processing_)
-    {
-      thread_data_->signal_rw_.wait(lckrw);
-      continue;
-    }
-    size = segment_buffers_[0].buffer.size();
-    return true;
+    thread_data_->signal_rw_.wait(lckrw);
   }
-
-  return false;
+  state_ = STOPPED;
+  std::lock_guard<std::mutex> lckdl(thread_data_->mutex_dl_);
+  size = segment_buffers_[0].buffer.size();
+  state_ = RUNNING;
+  return true;
 }
 
 uint64_t AdaptiveStream::getMaxTimeMs()
@@ -1026,6 +1023,16 @@ uint64_t AdaptiveStream::getMaxTimeMs()
       current_rep_->timescale_int_;
 
   return (timeExt - absolutePTSOffset_) / 1000;
+}
+
+void AdaptiveStream::ResetCurrentSegment(const AdaptiveTree::Segment* newSegment)
+{
+  StopWorker(STOPPED);
+  // EnsureSegment loads always the next segment, so go back 1
+  current_rep_->current_segment_ =
+    current_rep_->get_segment(current_rep_->get_segment_pos(newSegment) - 1);
+  // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
+  ResetActiveBuffer(false);
 }
 
 bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needReset)
@@ -1078,29 +1085,24 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (newSeg)
   {
     needReset = true;
-    if ((old_seg && newSeg != old_seg) || (!preceeding && state_ == STOPPED))
+    if (newSeg != old_seg)
     {
-      StopWorker(STOPPED);
-      // EnsureSegment loads always the next segment, so go back 1
-      current_rep_->current_segment_ =
-          current_rep_->get_segment(current_rep_->get_segment_pos(newSeg) - 1);
-      // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
-      ResetActiveBuffer(false);
-      if (newSeg == old_seg && !preceeding)
-      {
-        absolute_position_ -= segment_read_pos_;
-        segment_read_pos_ = 0;
-      }
+      ResetCurrentSegment(newSeg);
     }
-    else if (!preceeding && !old_seg)
+    else if (!preceeding)
     {
+      // restart stream if it has 'finished', e.g in the case of subtitles
+      // where there may be a few or only one segment for the period and 
+      // the stream is now in EOS state (all data already passed to Kodi)
+      if (state_ == STOPPED)
+      {
+        ResetCurrentSegment(newSeg);
+      }
       absolute_position_ -= segment_read_pos_;
       segment_read_pos_ = 0;
     }
-    else if (preceeding)
-    {
+    else
       needReset = false;
-    }
     return true;
   }
   else

@@ -80,6 +80,12 @@ CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
 AP4_Result CSubtitleSampleReader::Start(bool& bStarted)
 {
   m_eos = false;
+  if (m_started)
+    return AP4_SUCCESS;
+
+  m_started = true;
+  m_pts = GetStartPTS();
+  m_ptsDiff = GetStartPTS();
   return AP4_SUCCESS;
 }
 
@@ -88,7 +94,7 @@ AP4_Result CSubtitleSampleReader::ReadSample()
   if (m_codecHandler->ReadNextSample(m_sample,
                                      m_sampleData)) // Read the sample data from a file url
   {
-    m_pts = m_sample.GetCts() * 1000;
+    m_pts = (m_sample.GetCts() * 1000) + GetStartPTS();
     return AP4_SUCCESS;
   }
   else if (m_adByteStream) // Read the sample data from a segment file stream (e.g. HLS)
@@ -125,8 +131,8 @@ AP4_Result CSubtitleSampleReader::ReadSample()
           auto currentSegment = rep->current_segment_;
           if (currentSegment)
           {
-            m_codecHandler->Transform(currentSegment->startPTS_, currentSegment->m_duration,
-                                      segData, 1000);
+            m_codecHandler->Transform(currentSegment->startPTS_ + GetStartPTS(),
+                                      currentSegment->m_duration, segData, 1000);
             if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
             {
               m_pts = m_sample.GetCts();
@@ -154,6 +160,7 @@ void CSubtitleSampleReader::Reset(bool bEOS)
 {
   if (m_adByteStream || bEOS)
   {
+    m_sampleData.SetDataSize(0);
     m_eos = bEOS;
     m_codecHandler->Reset();
   }

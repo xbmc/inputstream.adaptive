@@ -288,7 +288,7 @@ TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
   uint64_t pts =
       tree->periods_[1]->adaptationSets_[0]->representations_[1]->segments_.data[0].startPTS_;
   EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
-  EXPECT_EQ(pts, 21000000);
+  EXPECT_EQ(pts, 0);
 
   var_download_url = tree->BuildDownloadUrl(
       tree->current_period_->adaptationSets_[1]->representations_[0]->source_url_);
@@ -299,5 +299,5 @@ TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
 
   pts = tree->periods_[1]->adaptationSets_[1]->representations_[0]->segments_.data[0].startPTS_;
   EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
-  EXPECT_EQ(pts, 20993000);
+  EXPECT_EQ(pts, 0);
 }
