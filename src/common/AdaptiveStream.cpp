@@ -472,6 +472,9 @@ bool AdaptiveStream::write_data(const void* buffer,
 
 bool AdaptiveStream::start_stream()
 {
+  // lock live segment updates
+  std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
+
   if (!current_rep_)
     return false;
 
