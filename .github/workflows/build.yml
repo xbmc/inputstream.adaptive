@@ -10,13 +10,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - os: ubuntu-18.04
+        - os: ubuntu-20.04
           CC: gcc
           CXX: g++
-        - os: ubuntu-18.04
+        - os: ubuntu-20.04
           CC: clang
           CXX: clang++
-        - os: macos-10.15
+        - os: macos-11
     steps:
     - name: Checkout Kodi repo
       uses: actions/checkout@v2
