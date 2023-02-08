@@ -1,3 +1,16 @@
+v20.3.3 (2023-02-08)
+- [Repchooser] Don't give stream selector dialog when only one available
+- [DRM] handle empty headers with license request
+- fix crashing on malformed url params
+- New properties for separate stream/manifest headers/params and overhaul of behaviour, fixing some manifests that wouldn't play. Add-on devs please see integration page on our wiki.
+- [HLS] default to TS filetype when file extension missing/unable to be determined
+- [fMP4] handle changing track IDs between streams, fixes crashing on stream change
+- [WV] improved capability logging
+- Fix regression with seeking
+- [HLS][WEBVTT] Various fixes including duplicate subtitle issue, alignment for some streams, bad behaviour of filling segment buffer before starting playback
+- [Bento4] upstream updates fixing building on powerpc linux
+- [DASH] fix for live videos with segmenttimeline in representations, correct manifest parameter automatically set
+
 v20.3.2 (2023-01-11)
 - [HLS] fix for incomplete length sub streams
 - Fix memory leak
