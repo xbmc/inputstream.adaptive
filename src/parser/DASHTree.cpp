@@ -363,6 +363,9 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
             {
               dash->current_representation_->flags_ |= DASHTree::Representation::TIMELINE;
               dash->currentNode_ |= MPDNODE_SEGMENTTIMELINE;
+
+              if (dash->m_manifestUpdateParam.empty() && dash->has_timeshift_buffer_)
+                dash->m_manifestUpdateParam = "full";
             }
           }
           else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
