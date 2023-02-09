@@ -96,6 +96,7 @@ void CRepresentationChooserDefault::PostInit()
   if (!m_bandwidthInitAuto)
   {
     m_bandwidthCurrent = std::max(m_bandwidthInit, m_bandwidthMin);
+    m_bandwidthCurrentLimited = m_bandwidthCurrent;
   }
   else if (m_bandwidthCurrent == 0)
   {
