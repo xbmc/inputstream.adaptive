@@ -140,6 +140,19 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
       m_dllHelper = std::make_unique<kodi::tools::CDllHelper>();
       if (m_dllHelper->LoadDll(item.Path()))
       {
+#if defined(__linux__) && defined(__aarch64__) && !defined(ANDROID)
+        // On linux arm64, libwidevinecdm.so depends on two dynamic symbols:
+        //   __aarch64_ldadd4_acq_rel
+        //   __aarch64_swp4_acq_rel
+        // These are defined in libssd_wv.so, but to make them available in the main binary's PLT,
+        // we need RTLD_GLOBAL. LoadDll() above uses RTLD_LOCAL, so we use RTLD_NOLOAD here to
+        // switch the flags from LOCAL to GLOBAL.
+        void *hdl = dlopen(item.Path().c_str(), RTLD_NOLOAD | RTLD_GLOBAL | RTLD_LAZY);
+        if (!hdl)
+        {
+          LOG::Log(LOGERROR, "Failed to reload dll in global mode: %s", dlerror());
+        }
+#endif
         CreateDecryptorInstanceFunc startup;
         if (m_dllHelper->RegisterSymbol(startup, "CreateDecryptorInstance"))
         {
