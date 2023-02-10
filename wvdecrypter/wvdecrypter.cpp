@@ -23,9 +23,6 @@
 #include <thread>
 #include <vector>
 
-#if defined(__linux__) && defined(__aarch64__) && !defined(ANDROID)
-#include <sys/auxv.h>
-#endif
 #include <bento4/Ap4.h>
 
 #ifndef WIDEVINECDMFILENAME
@@ -1676,64 +1673,17 @@ extern "C" {
 
 // Linux arm64 version of libwidevinecdm.so depends on two
 // dynamic symbols. See https://github.com/xbmc/inputstream.adaptive/issues/1128
-// These implementations are based on libgcc.a lse.S
 #if defined(__linux__) && defined(__aarch64__) && !defined(ANDROID)
-static int have_lse_atomics;
-
-static void __attribute__((constructor (101))) init_have_lse_atomics()
-{
-  unsigned long hwcap = getauxval (AT_HWCAP);
-  have_lse_atomics = (hwcap & HWCAP_ATOMICS) != 0;
-}
-
+__attribute__((target("no-outline-atomics")))
 int32_t __aarch64_ldadd4_acq_rel(int32_t value, int32_t *ptr)
 {
-  int32_t ret;
-  if (have_lse_atomics) {
-    __asm__ __volatile__ (
-      ".inst 0x38200020 + 0x0000 + 0x80000000 + 0xc00000\r\n"
-      : "=&r" (ret)
-      :
-    );
-  } else {
-    __asm__ __volatile__ (
-      "0:\r\n"
-      "ldaxr w16, [%[ptr]]\r\n"
-      "add   w17, w16, %w[value]\r\n"
-      "stlxr w15, w17, [%[ptr]]\r\n"
-      "cbnz  w15, 0b\r\n"
-      "mov   %w[result], w16\r\n"
-      : [result]   "=&r" (ret)
-      : [ptr]      "r"   (ptr),
-        [value]    "r"   (value)
-      : "w15", "w16", "w17", "memory"
-    );
-  }
-  return ret;
+  return __atomic_fetch_add(ptr, value, __ATOMIC_ACQ_REL);
 }
 
+__attribute__((target("no-outline-atomics")))
 int32_t __aarch64_swp4_acq_rel(int32_t value, int32_t *ptr)
 {
-  int32_t ret;
-  if (have_lse_atomics) {
-    __asm__ __volatile__ (
-      ".inst 0x38208020 + 0x80000000 + 0xc00000\r\n"
-      : "=&r" (ret)
-      :
-    );
-  } else {
-    __asm__ __volatile__ (
-      "0:\r\n"
-      "ldaxr %w[result], [%[ptr]]\r\n"
-      "stlxr w15, %w[value], [%[ptr]]\r\n"
-      "cbnz  w15, 0b\r\n"
-      : [result]   "=&r" (ret)
-      : [ptr]      "r"   (ptr),
-        [value]    "r"   (value)
-      : "w15", "memory"
-    );
-  }
-  return ret;
+  return __atomic_exchange_n(ptr, value, __ATOMIC_ACQ_REL);
 }
 #endif
 
