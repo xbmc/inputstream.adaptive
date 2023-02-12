@@ -462,7 +462,8 @@ bool AdaptiveStream::write_data(const void* buffer,
 
     size_t insertPos(segment_buffer.size());
     segment_buffer.resize(insertPos + buffer_size);
-    tree_.OnDataArrived(downloadInfo.m_segmentNumber, downloadInfo.m_psshSet,
+    uint8_t iv[16];
+    tree_.OnDataArrived(downloadInfo.m_segmentNumber, downloadInfo.m_psshSet, iv,
                         reinterpret_cast<const uint8_t*>(buffer), segment_buffer, insertPos,
                         buffer_size, lastChunk);
   }
