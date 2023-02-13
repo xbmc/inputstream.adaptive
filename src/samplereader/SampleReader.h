@@ -93,15 +93,6 @@ public:
                std::future_status::ready;
   }
 
-  /*
-   * \brief Set the side data to the demux packet
-   * \param pkt The packet where set the side data
-   * \param session The current session
-   */
-  virtual void SetDemuxPacketSideData(DEMUX_PACKET* pkt, std::shared_ptr<SESSION::CSession> session)
-  {
-  }
-
 private:
   std::future<AP4_Result> m_readSampleAsyncState;
 };
