@@ -36,7 +36,6 @@ constexpr std::string_view PROP_STREAM_PARAMS = "inputstream.adaptive.stream_par
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
 
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
-constexpr std::string_view PROP_BANDWIDTH_MAX = "inputstream.adaptive.max_bandwidth"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
@@ -117,13 +116,6 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     else if (prop.first == PROP_AUDIO_LANG_ORIG)
     {
       props.m_audioLanguageOrig = prop.second;
-    }
-    else if (prop.first == PROP_BANDWIDTH_MAX) //! @todo: deprecated, to be removed on next Kodi release
-    {
-      LOG::Log(LOGWARNING, "Warning \"inputstream.adaptive.max_bandwidth\" property is deprecated "
-                           "and may not works. Please read \"Integration\" and \"Stream selection types\" "
-                           "pages on the Wiki to learn more about the new properties.");
-      props.m_chooserProps.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
