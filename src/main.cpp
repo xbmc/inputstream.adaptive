@@ -65,17 +65,6 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
   if (m_kodiProps.m_isLicensePersistentStorage)
     drmConfig |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
 
-  //! @todo: remove this old forced behaviour on Kodi v21
-  if (m_kodiProps.m_manifestHeaders.empty() && !m_kodiProps.m_streamHeaders.empty())
-  {
-    LOG::Log(
-        LOGWARNING,
-        "Set headers to the manifest by using \"inputstream.adaptive.stream_headers\" property "
-        "is a deprecated behaviour that will be removed in future.\n"
-        "To set headers to the manifest, use \"inputstream.adaptive.manifest_headers\" property.");
-    m_kodiProps.m_manifestHeaders = m_kodiProps.m_streamHeaders;
-  }
-
   m_session = std::make_shared<CSession>(m_kodiProps, url, props.GetProfileFolder());
   m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight, m_currentVideoMaxWidth,
                                 m_currentVideoMaxHeight);
