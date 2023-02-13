@@ -169,6 +169,10 @@ namespace adaptive
     AdaptiveTree::AdaptationSet* current_adp_;
     AdaptiveTree::Representation *current_rep_;
 
+    // Decrypter IV used to decrypt HLS segment
+    // We need to store here because linked to representation
+    uint8_t m_decrypterIv[16];
+
     static const size_t MAXSEGMENTBUFFER;
     // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
     size_t available_segment_buffers_;
