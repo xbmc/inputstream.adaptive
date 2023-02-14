@@ -496,9 +496,6 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
         p->iGroupId = 0;
         p->iSize = iSize;
         std::memcpy(p->pData, pData, iSize);
-        //! @todo: on Kodi 21, sending of subtitles packet side data is no longer 
-        //! needed and can be removed
-        sr->SetDemuxPacketSideData(p, m_session);
       }
 
       //LOG::Log(LOGDEBUG, "DTS: %0.4f, PTS:%0.4f, ID: %u SZ: %d", p->dts, p->pts, p->iStreamId, p->iSize);
