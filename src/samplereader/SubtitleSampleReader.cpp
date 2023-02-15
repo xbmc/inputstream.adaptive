@@ -8,7 +8,6 @@
 
 #include "SubtitleSampleReader.h"
 
-#include "../utils/FFmpeg.h"
 #include "../utils/MemUtils.h"
 #include "../utils/log.h"
 
