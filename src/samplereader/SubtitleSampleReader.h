@@ -58,5 +58,4 @@ private:
   CAdaptiveByteStream* m_adByteStream{nullptr};
   adaptive::AdaptiveStream* m_adStream{nullptr};
   const AP4_Size m_segmentChunkSize = 16384; // 16kb
-  bool m_isSideDataRequired{false};
 };

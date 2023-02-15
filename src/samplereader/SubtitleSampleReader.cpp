@@ -56,7 +56,6 @@ CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
   // Segmented subtitle
   if (codecInternalName == "wvtt")
   {
-    m_isSideDataRequired = true;
     m_codecHandler = new WebVTTCodecHandler(nullptr, false);
   }
   else
