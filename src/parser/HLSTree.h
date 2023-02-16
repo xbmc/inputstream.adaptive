@@ -44,6 +44,7 @@ public:
 
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
+                             uint8_t iv[16],
                              const uint8_t* src,
                              std::string& dst,
                              size_t dstOffset,
@@ -66,7 +67,6 @@ protected:
   virtual bool ParseManifest(std::stringstream& stream);
   virtual void RefreshLiveSegments() override;
   std::unique_ptr<IAESDecrypter> m_decrypter;
-  uint8_t m_decrypterIv[16]{};
 
 private:
   int processEncryption(std::string baseUrl, std::map<std::string, std::string>& map);
