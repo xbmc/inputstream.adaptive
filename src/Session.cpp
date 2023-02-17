@@ -943,7 +943,12 @@ void CSession::UpdateStream(CStream& stream)
   stream.m_info.SetFpsRate(rep->fpsRate_);
   stream.m_info.SetFpsScale(rep->fpsScale_);
   stream.m_info.SetSampleRate(rep->samplingRate_);
-  stream.m_info.SetChannels(rep->channelCount_);
+
+  if (stream.m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO)
+  {
+    stream.m_info.SetChannels(rep->channelCount_ > 0 ? rep->channelCount_ : 2);
+  }
+
   stream.m_info.SetBitRate(rep->bandwidth_);
 }
 
