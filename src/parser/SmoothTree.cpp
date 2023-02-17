@@ -369,6 +369,8 @@ bool SmoothTree::open(const std::string& url, std::map<std::string, std::string>
   if (!DownloadManifest(url, addHeaders, data, respHeaders))
     return false;
 
+  SaveManifest("", data, url);
+
   effective_url_ = respHeaders.m_effectiveUrl;
 
   if (!PreparePaths(effective_url_))
