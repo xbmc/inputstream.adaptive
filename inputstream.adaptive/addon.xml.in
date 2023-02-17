@@ -21,26 +21,41 @@
       <fanart>fanart.jpg</fanart>
     </assets>
     <summary lang="ca_ES">Client InputStream per a transmissions adaptatives</summary>
+    <summary lang="cs_CZ">Klient adaptivních toků protokolu InputStream</summary>
     <summary lang="da_DK">InputStream-klient til adaptive streams</summary>
     <summary lang="de_DE">InputStream-Client für adaptive Streams</summary>
     <summary lang="en_GB">InputStream client for adaptive streams</summary>
     <summary lang="es_ES">Cliente InputStream para flujo de datos adaptativos</summary>
+    <summary lang="es_MX">Cliente InputStream para transmisiones adaptativas</summary>
+    <summary lang="fi_FI">InputStream-asiakas mukautuville mediavirroille</summary>
+    <summary lang="fr_FR">Client InputStream pour les flux adaptatifs</summary>
     <summary lang="he_IL">לקוח InputStream לתזרימים מסתגלים</summary>
-    <summary lang="hr_HR">InputStream klijent za adaptivne tokove</summary>
+    <summary lang="hr_HR">InputStream klijent za prilagodljiva strujanja</summary>
     <summary lang="hu_HU">InputStream kliens az adaptív streamekhez</summary>
+    <summary lang="it_IT">Client InputStream per stream adattivi</summary>
     <summary lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</summary>
+    <summary lang="lv_LV">InputStream klients adaptīvām straumēm</summary>
+    <summary lang="nl_NL">InputStream client voor adaptive streams</summary>
     <summary lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</summary>
     <summary lang="ru_RU">InputStream клиент для адаптивных трансляций</summary>
+    <summary lang="zh_CN">用于自适应流的 InputStream 客户端</summary>
     <description lang="ca_ES">Client InputStream per a transmissions adaptatives</description>
+    <description lang="cs_CZ">Klient adaptivních toků protokolu InputStream</description>
     <description lang="da_DK">InputStream-klient til adaptive streams</description>
     <description lang="de_DE">InputStream-Client für adaptive Streams</description>
     <description lang="en_GB">InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive</description>
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
+    <description lang="es_MX">Cliente InputStream para transmisiones adaptativas</description>
+    <description lang="fi_FI">InputStream-asiakas mukautuville mediavirroille</description>
+    <description lang="fr_FR">Client InputStream pour les flux adaptatifs</description>
     <description lang="he_IL">לקוח InputStream לתזרימים מסתגלים</description>
-    <description lang="hr_HR">InputStream klijent za adaptivne tokove</description>
+    <description lang="hr_HR">InputStream klijent za prilagodljiva strujanja</description>
     <description lang="hu_HU">InputStream kliens az adaptív streamekhez</description>
+    <description lang="it_IT">Client InputStream per stream adattivi</description>
     <description lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</description>
+    <description lang="lv_LV">InputStream klients adaptīvām straumēm</description>
     <description lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</description>
     <description lang="ru_RU">InputStream клиент для адаптивных трансляций</description>
+    <description lang="zh_CN">用于自适应流的 InputStream 客户端</description>
   </extension>
 </addon>
