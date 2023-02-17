@@ -187,6 +187,8 @@ bool HLSTree::open(const std::string& url, std::map<std::string, std::string> ad
   if (!DownloadManifest(url, addHeaders, data, respHeaders))
     return false;
 
+  SaveManifest(nullptr, data, url);
+
   effective_url_ = respHeaders.m_effectiveUrl;
 
   if (!PreparePaths(effective_url_))
@@ -203,12 +205,6 @@ bool HLSTree::open(const std::string& url, std::map<std::string, std::string> ad
 
 bool HLSTree::ParseManifest(std::stringstream& stream)
 {
-#if FILEDEBUG
-  FILE* f = fopen("inputstream_adaptive_master.m3u8", "w");
-  fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
-  fclose(f);
-#endif
-
   std::string line;
   bool startCodeFound = false;
 
@@ -423,6 +419,27 @@ bool HLSTree::ParseManifest(std::stringstream& stream)
   return true;
 }
 
+void HLSTree::SaveManifest(AdaptationSet* adp, const std::stringstream& data, std::string_view info)
+{
+  if (m_pathSaveManifest.empty())
+    return;
+
+  std::string fileNameSuffix = "master";
+  if (adp)
+  {
+    if (adp->type_ == VIDEO)
+      fileNameSuffix = "child-video";
+    else if (adp->type_ == AUDIO)
+      fileNameSuffix = "child-audio";
+    else if (adp->type_ == SUBTITLE)
+      fileNameSuffix = "child-subtitle";
+    else
+      fileNameSuffix = "child";
+  }
+
+  AdaptiveTree::SaveManifest(fileNameSuffix, data, info);
+}
+
 HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
                                                        AdaptationSet* adp,
                                                        Representation* rep,
@@ -451,11 +468,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
     }
     else if (DownloadManifest(rep->source_url_, {}, streamData, respHeaders))
     {
-#if FILEDEBUG
-      FILE* f = fopen("inputstream_adaptive_sub.m3u8", "w");
-      fwrite(m_stream.str().data(), 1, m_stream.str().size(), f);
-      fclose(f);
-#endif
+      SaveManifest(adp, streamData, rep->source_url_);
+
       bool byteRange(false);
       bool segmentInitialization(false);
       bool hasMap(false);

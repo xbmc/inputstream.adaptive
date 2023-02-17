@@ -1622,6 +1622,8 @@ bool DASHTree::open(const std::string& url, std::map<std::string, std::string> a
   if (!DownloadManifest(url, addHeaders, data, respHeaders))
     return false;
 
+  SaveManifest("", data, url);
+
   effective_url_ = respHeaders.m_effectiveUrl;
   m_manifestRespHeaders = respHeaders;
 

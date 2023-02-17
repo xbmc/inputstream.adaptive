@@ -235,6 +235,13 @@
           <control type="toggle" />
         </setting>
       </group>
+      <group id="debug" label="30237">
+        <setting id="debug.save.manifest" type="boolean" label="30238" help="30239">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
+      </group>
     </category>
   </section>
 </settings>

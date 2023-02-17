@@ -34,6 +34,12 @@ void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std:
 std::string GetVideoCodecDesc(std::string_view codecName);
 
 /*!
+ * \brief Get the current timestamp
+ * \return The timestamp in milliseconds
+ */
+uint64_t GetTimestamp();
+
+/*!
  * \brief Make a FourCC code as unsigned integer value
  * \param c1 The first FourCC char
  * \param c2 The second FourCC char

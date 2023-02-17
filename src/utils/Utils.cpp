@@ -12,7 +12,9 @@
 #include "StringUtils.h"
 #include "kodi/tools/StringUtils.h"
 
+#include <chrono>
 #include <cstring>
+#include <ctime>
 #include <stdio.h>
 
 using namespace UTILS;
@@ -341,4 +343,11 @@ std::string UTILS::GetVideoCodecDesc(std::string_view codecName)
   }
   else
     return "";
+}
+
+uint64_t UTILS::GetTimestamp()
+{
+  std::chrono::seconds unix_timestamp = std::chrono::seconds(std::time(NULL));
+  using dCast = std::chrono::duration<std::uint64_t>;
+  return std::chrono::duration_cast<dCast>(std::chrono::milliseconds(unix_timestamp)).count();
 }
