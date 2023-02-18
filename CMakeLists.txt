@@ -91,7 +91,6 @@ set(ADP_HEADERS
 	src/samplereader/WebmSampleReader.h
 	src/utils/Base64Utils.h
 	src/utils/DigestMD5Utils.h
-	src/utils/FFmpeg.h
 	src/utils/log.h
 	src/utils/MemUtils.h
 	src/utils/PropertiesUtils.h
