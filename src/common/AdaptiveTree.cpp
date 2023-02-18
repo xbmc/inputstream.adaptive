@@ -180,6 +180,7 @@ namespace adaptive
 
   void AdaptiveTree::OnDataArrived(uint64_t segNum,
                                    uint16_t psshSet,
+                                   uint8_t iv[16],
                                    const uint8_t* src,
                                    std::string& dst,
                                    size_t dstOffset,

@@ -542,6 +542,7 @@ public:
   virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(const Representation* rep) { return std::chrono::system_clock::now(); }
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
+                             uint8_t iv[16],
                              const uint8_t* src,
                              std::string& dst,
                              size_t dstOffset,
