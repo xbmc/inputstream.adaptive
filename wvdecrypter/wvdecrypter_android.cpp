@@ -550,6 +550,11 @@ bool WV_CencSingleSampleDecrypter::ProvisionRequest()
 
 bool WV_CencSingleSampleDecrypter::GetKeyRequest(std::vector<char>& keyRequestData)
 {
+  if (provisionRequested)
+  {
+    ProvisionRequest();
+  }
+
   jni::CJNIMediaDrmKeyRequest keyRequest = media_drm_.GetMediaDrm()->getKeyRequest(
       session_id_, pssh_, "video/mp4", jni::CJNIMediaDrm::KEY_TYPE_STREAMING, optParams_);
 
