@@ -1,3 +1,7 @@
+v20.3.4 (2023-02-20)
+- Translations updates from Weblate
+	- en_gb
+
 v20.3.3 (2023-02-08)
 - [Repchooser] Don't give stream selector dialog when only one available
 - [DRM] handle empty headers with license request
