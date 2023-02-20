@@ -93,6 +93,11 @@ inline bool GetSettingBoolean(const std::string& settingName, bool defaultValue 
   return defaultValue;
 }
 
+inline std::string GetUserPath(const std::string& append = "")
+{
+  return "C:\\isa_stub_test\\" + append;
+}
+
 } // namespace addon
 
 namespace vfs
@@ -158,6 +163,16 @@ public:
 
   double GetFileDownloadSpeed() const { return 0.0; }
 };
+
+inline bool FileExists(const std::string& filename, bool usecache = false)
+{
+  return false;
+}
+
+inline bool RemoveDirectory(const std::string& path, bool recursive = false)
+{
+  return true;
+}
 
 } // namespace vfs
 

@@ -25,6 +25,7 @@ add_executable(${BINARY}
     ../common/ReprSelector.cpp
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
+    ../utils/FileUtils.cpp
     ../utils/PropertiesUtils.cpp
     ../utils/SettingsUtils.cpp
     ../utils/StringUtils.cpp

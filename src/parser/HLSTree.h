@@ -66,6 +66,11 @@ public:
 protected:
   virtual bool ParseManifest(std::stringstream& stream);
   virtual void RefreshLiveSegments() override;
+
+  virtual void SaveManifest(AdaptationSet* adp,
+                            const std::stringstream& data,
+                            std::string_view info);
+
   std::unique_ptr<IAESDecrypter> m_decrypter;
 
 private:

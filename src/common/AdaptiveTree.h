@@ -611,6 +611,7 @@ public:
   Settings m_settings;
 
 protected:
+
   /*!
    * \brief Download manifest file.
    * \param url The url of the file to download
@@ -638,6 +639,16 @@ protected:
                         std::stringstream& data,
                         HTTPRespHeaders& respHeaders);
 
+  /*!
+   * \brief Save manifest data to a file for debugging purpose.
+   * \param fileNameSuffix Suffix to add to the filename generated.
+   * \param data The manifest data to save.
+   * \param info Additionals info to be add before the data.
+   */
+  virtual void SaveManifest(const std::string& fileNameSuffix,
+                            const std::stringstream& data,
+                            std::string_view info);
+
   bool PreparePaths(const std::string &url);
   void SortTree();
 
@@ -653,6 +664,9 @@ protected:
   std::string m_manifestParams;
   std::map<std::string, std::string> m_manifestHeaders;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
+
+  // Provide the path where the manifests will be saved, if debug enabled
+  std::string m_pathSaveManifest;
 
 private:
   void SegmentUpdateWorker();
