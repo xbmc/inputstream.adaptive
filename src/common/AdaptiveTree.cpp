@@ -9,7 +9,9 @@
 #include "AdaptiveTree.h"
 #include "Chooser.h"
 
+#include "../utils/FileUtils.h"
 #include "../utils/UrlUtils.h"
+#include "../utils/Utils.h"
 #include "../utils/log.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
@@ -76,6 +78,13 @@ namespace adaptive
 
   void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
   {
+    if (kodi::addon::GetSettingBoolean("debug.save.manifest"))
+    {
+      m_pathSaveManifest = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), "manifests");
+      // Delete previously saved manifest files
+      FILESYS::RemoveDirectory(m_pathSaveManifest, false);
+    }
+
     m_manifestParams = kodiProps.m_manifestParams;
     m_manifestHeaders = kodiProps.m_manifestHeaders;
 
@@ -525,6 +534,34 @@ namespace adaptive
 
     file.Close();
     return false;
+  }
+
+  void AdaptiveTree::SaveManifest(const std::string& fileNameSuffix,
+                                  const std::stringstream& data,
+                                  std::string_view info)
+  {
+    if (!m_pathSaveManifest.empty())
+    {
+      // We create a filename based on current timestamp
+      // to allow files to be kept in download order useful for live streams
+      std::string filename = "manifest_" + std::to_string(UTILS::GetTimestamp());
+      if (!fileNameSuffix.empty())
+        filename += "_" + fileNameSuffix;
+
+      filename += ".txt";
+      std::string filePath = FILESYS::PathCombine(m_pathSaveManifest, filename);
+
+      // Manage duplicate files and limit them, too many means a problem to be solved
+      if (FILESYS::CheckDuplicateFilePath(filePath, 10))
+      {
+        std::string dataToSave{info};
+        dataToSave += "\n\n";
+        dataToSave += data.str();
+
+        if (FILESYS::SaveFile(filePath, dataToSave, false))
+          LOG::Log(LOGDEBUG, "Manifest saved to: %s", filePath.c_str());
+      }
+    }
   }
 
 } // namespace

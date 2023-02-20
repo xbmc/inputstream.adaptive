@@ -311,3 +311,18 @@ msgstr ""
 msgctxt "#30236"
 msgid "Override settings"
 msgstr ""
+
+#. Category group title for debug settings
+msgctxt "#30237"
+msgid "Debug logging"
+msgstr ""
+
+#. Debug setting to save stream manifests
+msgctxt "#30238"
+msgid "Save stream manifests"
+msgstr ""
+
+#. Description of setting with label #30238
+msgctxt "#30239"
+msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
+msgstr ""
