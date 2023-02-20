@@ -10,10 +10,16 @@
 
 #include "StringUtils.h"
 
+#include "kodi/tools/StringUtils.h"
+
 using namespace UTILS::URL;
+using namespace kodi::tools;
 
 namespace
 {
+constexpr std::string_view PREFIX_SINGLE_DOT{"./"};
+constexpr std::string_view PREFIX_DOUBLE_DOT{"../"};
+
 bool isUrl(std::string url,
            bool allowFragments,
            bool allowQueryParams,
@@ -71,6 +77,48 @@ bool isUrl(std::string url,
 
   return true;
 }
+
+/*
+ * \brief Remove and resolve special dot's from the end of the url.
+ *        e.g. "http://foo.bar/sub1/sub2/.././" will result "http://foo.bar/sub1/"
+ */
+std::string RemoveDotSegments(std::string url)
+{
+  // Count amount of special prefixes with double dots on the right side
+  size_t numSegsRemove{0};
+  size_t currPos{0};
+  size_t startPos{url.size() - 2};
+  while ((currPos = url.rfind("/", startPos)) != std::string::npos)
+  {
+    // Stop to ignore "/../" from the start of string, e.g. ignored --> "../../something/../" <-- handled
+    if (url.substr(currPos + 1, startPos - currPos + 1) != PREFIX_DOUBLE_DOT)
+      break;
+    startPos = currPos - 1;
+    numSegsRemove++;
+  }
+
+  // Remove special prefixes
+  UTILS::STRING::ReplaceAll(url, PREFIX_DOUBLE_DOT, "");
+  UTILS::STRING::ReplaceAll(url, PREFIX_SINGLE_DOT, "");
+
+  size_t addrsStartPos{0};
+  if (IsUrlAbsolute(url))
+    addrsStartPos = url.find("://") + 3;
+  else if (IsUrlRelativeLevel(url))
+    addrsStartPos = 3;
+
+  // Remove segments from the end (if any)
+  for (; numSegsRemove > 0; numSegsRemove--)
+  {
+    std::size_t lastSlashPos = url.find_last_of('/', url.size() - 2);
+    if ((lastSlashPos + 1) == addrsStartPos)
+      break;
+    url = url.substr(0, lastSlashPos + 1);
+  }
+
+  return url;
+}
+
 } // unnamed namespace
 
 bool UTILS::URL::IsValidUrl(const std::string& url)
@@ -85,12 +133,12 @@ bool UTILS::URL::IsUrlAbsolute(std::string_view url)
 
 bool UTILS::URL::IsUrlRelative(std::string_view url)
 {
-  return (url.compare(0, 1, "/") == 0);
+  return !IsUrlAbsolute(url);
 }
 
 bool UTILS::URL::IsUrlRelativeLevel(std::string_view url)
 {
-  return (url.compare(0, 3, "../") == 0);
+  return (url.compare(0, 3, PREFIX_DOUBLE_DOT) == 0);
 }
 
 std::string UTILS::URL::GetParametersFromPlaceholder(std::string& url, std::string_view placeholder)
@@ -165,44 +213,69 @@ std::string UTILS::URL::GetDomainUrl(std::string url)
   return url;
 }
 
-std::string UTILS::URL::Join(std::string baseUrl, std::string otherUrl)
+std::string UTILS::URL::Join(std::string baseUrl, std::string relativeUrl)
 {
   if (baseUrl.empty())
-    return otherUrl;
+    return relativeUrl;
 
-  if (baseUrl.back() == '/')
-    baseUrl.pop_back();
+  if (relativeUrl.empty())
+    return baseUrl;
 
-  if (IsUrlRelativeLevel(otherUrl))
+  if (relativeUrl == ".") // Ignore single dot
+    relativeUrl.clear();
+  else if (relativeUrl.compare(0, 2, PREFIX_SINGLE_DOT) == 0) // Ignore prefix ./
+    relativeUrl.erase(0, 2);
+
+  // Sanitize for missing backslash
+  if (relativeUrl == ".." || StringUtils::EndsWith(relativeUrl, "/.."))
+    relativeUrl += "/";
+
+  // The part of the base url after last / is not a directory so will not be taken into account
+  if (baseUrl.back() != '/')
   {
-    // Join the otherUrl to the relative level path of the baseUrl,
-    // if the baseUrl do not have directory levels available will be appended
-    static const std::string_view relativeChars{"../"};
-    size_t pos{0};
-    std::string parentBaseUrl{baseUrl};
+    size_t slashPos = baseUrl.rfind("/");
+    if (slashPos > baseUrl.find("://") + 3)
+      baseUrl.erase(slashPos + 1);
+  }
 
-    size_t addrsStartPos{1};
-    if (IsUrlAbsolute(baseUrl))
-      addrsStartPos = baseUrl.find("://") + 3;
-    else if (IsUrlRelativeLevel(baseUrl))
-      addrsStartPos = 3;
+  if (baseUrl.back() != '/')
+    baseUrl += "/";
 
-    // Loop to go back in to each base URL directory level
-    while ((pos = otherUrl.find(relativeChars, pos)) != std::string::npos)
+  bool skipRemovingSegs{true};
+
+  // Check if relative to domain
+  if (!relativeUrl.empty() && relativeUrl.front() == '/')
+  {
+    skipRemovingSegs = false;
+    relativeUrl.erase(0, 1);
+    baseUrl = GetDomainUrl(baseUrl) + "/";
+  }
+
+  if (IsUrlRelativeLevel(relativeUrl))
+  {
+    // Remove segments from the end of base url,
+    // based on the initial prefixes "../" on the relativeUrl url
+    size_t currPos{0};
+    size_t startPos{0};
+    while ((currPos = relativeUrl.find("/", startPos)) != std::string::npos)
     {
-      std::size_t lastSlashPos = parentBaseUrl.find_last_of('/');
-      if ((lastSlashPos + 1) == addrsStartPos)
+      // Stop to ignore "/../" from the end of string, e.g. handled --> "../../something/../" <-- ignored
+      if (relativeUrl.substr(startPos, currPos + 1 - startPos) != PREFIX_DOUBLE_DOT)
         break;
-      parentBaseUrl = parentBaseUrl.substr(0, lastSlashPos);
-      pos += relativeChars.size();
+      startPos = currPos + 1;
     }
-    STRING::ReplaceAll(otherUrl, relativeChars, "");
-    return parentBaseUrl + "/" + otherUrl;
+
+    if (skipRemovingSegs)
+      baseUrl = RemoveDotSegments(baseUrl + relativeUrl.substr(0, startPos));
+
+    relativeUrl.erase(0, startPos);
   }
-  if (IsUrlRelative(otherUrl))
-  {
-    // Join the otherUrl to the domain of the baseUrl
-    return GetDomainUrl(baseUrl) + otherUrl;
-  }
-  return baseUrl + "/" + otherUrl;
+
+  return RemoveDotSegments(baseUrl + relativeUrl);
+}
+
+void UTILS::URL::EnsureEndingBackslash(std::string& url)
+{
+  if (!url.empty() && url.back() != '/')
+    url += "/";
 }
