@@ -5,15 +5,15 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2021-08-01 09:42+0000\n"
-"Last-Translator: Joe Baek <aalive1@gmail.com>\n"
+"PO-Revision-Date: 2023-02-22 21:17+0000\n"
+"Last-Translator: Minho Park <parkmino@gmail.com>\n"
 "Language-Team: Korean <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/ko_kr/>\n"
 "Language: ko_kr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Weblate 4.7.2\n"
+"X-Generator: Weblate 4.15.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -23,110 +23,384 @@ msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
 msgstr "가변 스트림을 위한 InputStream 클라이언트"
 
+#. Category title
 msgctxt "#30100"
 msgid "General"
 msgstr "일반"
 
-# The minimum bandwidth which should not be deceeded.
+#. The minimum bandwidth which should not be deceeded
 msgctxt "#30101"
-msgid "Min. Bandwidth (Bit/s)"
-msgstr "최소대역폭(Bit/s)"
+msgid "Minimum bandwidth (Kbps)"
+msgstr "최소 대역폭(Kbps)"
 
-# The maximum bandwidth which should not be exceeded. 0=unlimited
+#. The maximum bandwidth which should not be exceeded
 msgctxt "#30102"
-msgid "Max. Bandwidth (Bit/s)"
-msgstr "최대대역폭(Bit/s)"
+msgid "Maximum bandwidth (Kbps)"
+msgstr "최대 대역폭(Kbps)"
 
-# Absolute path to the folder containing the decrypters
+#. Description of setting with label #30101, 30102
 msgctxt "#30103"
-msgid "Decrypter path"
-msgstr "복호화기 경로"
+msgid "Establishes the bandwidth limit not to be exceeded with the audio / video streams. Set to 0 to disable it."
+msgstr "오디오/비디오 스트림이 초과되지 않도록 대역폭 제한을 설정합니다. 사용하지 않으려면 0으로 설정하십시오."
 
-# Maximum Resolution
+# empty strings from id 30104 to 30109
+#. Maximum video resolution non-protected videos
 msgctxt "#30110"
-msgid "Max. Resolution general decoder"
-msgstr "일반 복호화기의 최대 해상도"
+msgid "Maximum resolution"
+msgstr "최대 해상도"
 
-msgctxt "#30111"
-msgid "Stream Selection"
-msgstr "스트림선택"
-
+# empty string with id 30111
+#. Type of media streams that will be handled for the playback
 msgctxt "#30112"
-msgid "Media"
-msgstr "미디어"
+msgid "Type of media streams played"
+msgstr "재생되는 미디어 스트림 유형"
 
-# Maximum allowed resolution if decoded through secure path
+#. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
-msgid "Max. Resolution secure decoder"
-msgstr "보안 복호화기의 최대 해상도"
+msgid "Maximum resolution for DRM videos"
+msgstr "DRM 비디오의 최대 해상도"
 
-# Select streams without respecting HDCP status
-msgctxt "#30114"
-msgid "Override HDCP status"
-msgstr "HDCP설정을 무시"
-
+# empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
-msgid "Ignore Display Resolution"
-msgstr "화면해상도를 무시"
+msgid "Ignore screen resolution"
+msgstr "화면 해상도 무시"
 
+#. Description of setting with label #30115
+msgctxt "#30116"
+msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
+msgstr "사용하면 비디오가 시작될 때와 재생 중에 최상의 비디오 스트림 해상도를 선택할 때 화면 해상도(또는 창 모드의 창 크기)가 더 이상 고려되지 않습니다."
+
+msgctxt "#30117"
+msgid "Manual stream selection mode"
+msgstr "수동 스트림 선택 모드"
+
+#. Description of setting with label #30117
+msgctxt "#30118"
+msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
+msgstr "재생 중 Kodi OSD 설정에서 수동 선택에 사용할 수 있는 스트림 유형을 정의합니다."
+
+#. Category title
 msgctxt "#30120"
 msgid "Expert"
 msgstr "전문가"
 
-msgctxt "#30121"
-msgid "Enable Pre-Release Features"
-msgstr "공개 전 기능 활성화"
-
+# empty string with id 30121
 msgctxt "#30122"
-msgid "Don't use secure decoder if possible"
-msgstr "가능하면 보안 복호화기 사용 않음"
+msgid "Try avoiding the use of secure decoder"
+msgstr "보안 디코더를 사용하지 않음"
 
-msgctxt "#30150"
-msgid "Max"
-msgstr "최대"
+#. Description of setting with label #30122
+msgctxt "#30123"
+msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
+msgstr "Widevine L1로 정의된 일부 Android 기기는 제대로 작동하지 않을 수 있으며, 이로 인해 재생 중에 검은색 화면이 나타날 수 있습니다. 이 경우 사용하십시오."
 
-msgctxt "#30151"
-msgid "480p"
-msgstr "480p"
-
-msgctxt "#30152"
-msgid "640p"
-msgstr "640p"
-
-msgctxt "#30153"
-msgid "720p"
-msgstr "720p"
-
-msgctxt "#30154"
-msgid "1080p"
-msgstr "1080p"
-
-msgctxt "#30155"
-msgid "Automatically select streams"
-msgstr "자동으로 스트림 선택"
-
+# empty strings from id 30124 to 30155
+#. Item list value of setting with label #30117
 msgctxt "#30156"
-msgid "Manually select all streams"
-msgstr "수동으로 모든 스트림 선택"
+msgid "Audio / Video streams"
+msgstr "오디오/비디오 스트림"
 
+#. Item list value of setting with label #30112
 msgctxt "#30157"
 msgid "All"
 msgstr "모두"
 
+#. Item list value of setting with label #30112
 msgctxt "#30158"
 msgid "Audio"
 msgstr "오디오"
 
+#. Item list value of setting with label #30112
 msgctxt "#30159"
 msgid "Video"
 msgstr "비디오"
 
-# Show all video streams
+#. Item list value of setting with label #30117
 msgctxt "#30160"
-msgid "Manually select video stream"
-msgstr "수동으로 비디오 스트림 선택"
+msgid "Video streams"
+msgstr "비디오 스트림"
 
+#. Item list value of setting with label #30112
 msgctxt "#30161"
-msgid "Video + Subtitles"
-msgstr "비디오 + 자막"
+msgid "Video / Subtitles"
+msgstr "영상/자막"
+
+#. Category group title
+msgctxt "#30162"
+msgid "Adaptive stream"
+msgstr "적응형 스트림"
+
+# empty strings from id 30163 to 30165
+#. Category group title
+msgctxt "#30166"
+msgid "DRM Widevine"
+msgstr "DRM Widevine"
+
+msgctxt "#30167"
+msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
+msgstr "경고: 테스트 기능으로, 제대로 작동하지 않거나 향후 버전에서 변경될 수 있습니다."
+
+msgctxt "#30168"
+msgid "Auto determines initial bandwidth"
+msgstr "자동으로 초기 대역폭 결정"
+
+#. Description of setting with label #30168
+msgctxt "#30169"
+msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
+msgstr "사용하면 대역폭은 첫 번째 다운로드에 의해 결정되지만 정확하지 않을 수 있습니다. 재생 시작 시 비디오 품질이 너무 낮으면 사용하지 마십시오."
+
+msgctxt "#30170"
+msgid "Initial bandwidth (Kbps)"
+msgstr "초기 대역폭(Kbps)"
+
+#. Description of setting with label #30170
+msgctxt "#30171"
+msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
+msgstr "자동으로 결정할 수 없는 경우 초기 대역폭을 정의합니다. 이 값은 최소 대역폭 설정으로 바뀔 수 있습니다."
+
+msgctxt "#30172"
+msgid "Ignore HDCP status"
+msgstr "HDCP 상태 무시"
+
+#. Description of setting with label #30172
+msgctxt "#30173"
+msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
+msgstr "일부 DRM 보호 HD/UHD 동영상은 HDCP 상태가 무시되는 경우에만 재생될 수 있습니다."
+
+#. To set the stream selection type (refer to RepresentationChooser's)
+msgctxt "#30174"
+msgid "Stream selection type"
+msgstr "스트림 선택 유형"
+
+#. Description of setting with label #30174
+msgctxt "#30175"
+msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
+msgstr "재생 중에 오디오/비디오 스트림 품질을 선택하는 방법을 설정합니다. 이 설정은 사용된 비디오 추가 기능에 의해 바뀔 수 있습니다. 자세한 내용은 위키를 참조하십시오."
+
+#. Item list value of setting with label #30174
+msgctxt "#30176"
+msgid "Adaptive (default)"
+msgstr "적응형(기본값)"
+
+#. Item list value of setting with label #30174
+msgctxt "#30177"
+msgid "Manual OSD"
+msgstr "수동 OSD"
+
+#. Item list value of setting with label #30174
+msgctxt "#30178"
+msgid "Fixed resolution"
+msgstr "고정 해상도"
+
+#. Item list value of setting with label #30174
+msgctxt "#30179"
+msgid "Ask quality"
+msgstr "품질 확인"
+
+#. Item list value of setting with label #30174
+msgctxt "#30180"
+msgid "Test"
+msgstr "시험"
+
+# empty strings reserved for "stream selection types" from id 30181 to 30190
+#. Assured buffer length duration (seconds)
+msgctxt "#30200"
+msgid "Assured buffer duration (sec)"
+msgstr "보장된 버퍼 지속 시간(초)"
+
+#. Max buffer length duration (seconds)
+msgctxt "#30201"
+msgid "Maximum buffer duration (sec)"
+msgstr "최대 버퍼 지속 시간(초)"
+
+#. Ignore screen resolution change e.g. window resize
+msgctxt "#30202"
+msgid "Ignore screen resolution change"
+msgstr "화면 해상도 변경 무시"
+
+#. Description of setting with label #30202
+msgctxt "#30203"
+msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
+msgstr "사용하면 재생 중에 최상의 비디오 스트림 해상도를 선택할 때 화면 해상도(또는 창 모드인 경우 창 크기)가 더 이상 고려되지 않습니다."
+
+#. Absolute path to the folder containing the DRM binary files
+msgctxt "#30204"
+msgid "Decrypter path"
+msgstr "암호 해독기 경로"
+
+# empty strings from id 30205 to 30209
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30210"
+msgid "Auto"
+msgstr "자동"
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30211"
+msgid "480p"
+msgstr "480p"
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30212"
+msgid "640p"
+msgstr "640p"
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30213"
+msgid "720p"
+msgstr "720p"
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30214"
+msgid "1080p"
+msgstr "1080p"
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30215"
+msgid "2K"
+msgstr "2K"
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30216"
+msgid "1440p"
+msgstr "1440p"
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30217"
+msgid "4K"
+msgstr "4K"
+
+# empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
+#. Dialog window to select the video stream
+msgctxt "#30231"
+msgid "Select video stream"
+msgstr "비디오 스트림 선택"
+
+#. Description of each list item in #30231 dialog window
+#. Do not translate placeholders: {codec} {quality}
+msgctxt "#30232"
+msgid "Video stream {codec} {quality}"
+msgstr "비디오 스트림 {코덱} {품질}"
+
+#. Enum setting to set the test mode
+msgctxt "#30233"
+msgid "Test mode"
+msgstr "시험 모드"
+
+#. Item list value of setting with label #30233
+msgctxt "#30234"
+msgid "Switch by segments"
+msgstr "세그먼트로 전환"
+
+#. Stand for stream segments, referred to setting with label #30234
+msgctxt "#30235"
+msgid "Segments"
+msgstr "세그먼트"
+
+#. Category group title
+msgctxt "#30236"
+msgid "Override settings"
+msgstr "설정 바꾸기"
+
+#. Category group title for debug settings
+msgctxt "#30237"
+msgid "Debug logging"
+msgstr "디버그 로그"
+
+#. Debug setting to save stream manifests
+msgctxt "#30238"
+msgid "Save stream manifests"
+msgstr "스트림 목록 저장"
+
+#. Description of setting with label #30238
+msgctxt "#30239"
+msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
+msgstr "재생 중에 내려받은 스트림 목록을 InputStream Adaptive의 사용자 데이터 폴더에 저장합니다."
+
+# The minimum bandwidth which should not be deceeded.
+#~ msgctxt "#30101"
+#~ msgid "Min. Bandwidth (Bit/s)"
+#~ msgstr "최소대역폭(Bit/s)"
+
+# The maximum bandwidth which should not be exceeded. 0=unlimited
+#~ msgctxt "#30102"
+#~ msgid "Max. Bandwidth (Bit/s)"
+#~ msgstr "최대대역폭(Bit/s)"
+
+# Absolute path to the folder containing the decrypters
+#~ msgctxt "#30103"
+#~ msgid "Decrypter path"
+#~ msgstr "복호화기 경로"
+
+# Maximum Resolution
+#~ msgctxt "#30110"
+#~ msgid "Max. Resolution general decoder"
+#~ msgstr "일반 복호화기의 최대 해상도"
+
+#~ msgctxt "#30111"
+#~ msgid "Stream Selection"
+#~ msgstr "스트림선택"
+
+#~ msgctxt "#30112"
+#~ msgid "Media"
+#~ msgstr "미디어"
+
+# Maximum allowed resolution if decoded through secure path
+#~ msgctxt "#30113"
+#~ msgid "Max. Resolution secure decoder"
+#~ msgstr "보안 복호화기의 최대 해상도"
+
+# Select streams without respecting HDCP status
+#~ msgctxt "#30114"
+#~ msgid "Override HDCP status"
+#~ msgstr "HDCP설정을 무시"
+
+# Do not respect display resolution when selecting streams
+#~ msgctxt "#30115"
+#~ msgid "Ignore Display Resolution"
+#~ msgstr "화면해상도를 무시"
+
+#~ msgctxt "#30121"
+#~ msgid "Enable Pre-Release Features"
+#~ msgstr "공개 전 기능 활성화"
+
+#~ msgctxt "#30122"
+#~ msgid "Don't use secure decoder if possible"
+#~ msgstr "가능하면 보안 복호화기 사용 않음"
+
+#~ msgctxt "#30150"
+#~ msgid "Max"
+#~ msgstr "최대"
+
+#~ msgctxt "#30151"
+#~ msgid "480p"
+#~ msgstr "480p"
+
+#~ msgctxt "#30152"
+#~ msgid "640p"
+#~ msgstr "640p"
+
+#~ msgctxt "#30153"
+#~ msgid "720p"
+#~ msgstr "720p"
+
+#~ msgctxt "#30154"
+#~ msgid "1080p"
+#~ msgstr "1080p"
+
+#~ msgctxt "#30155"
+#~ msgid "Automatically select streams"
+#~ msgstr "자동으로 스트림 선택"
+
+#~ msgctxt "#30156"
+#~ msgid "Manually select all streams"
+#~ msgstr "수동으로 모든 스트림 선택"
+
+# Show all video streams
+#~ msgctxt "#30160"
+#~ msgid "Manually select video stream"
+#~ msgstr "수동으로 비디오 스트림 선택"
+
+#~ msgctxt "#30161"
+#~ msgid "Video + Subtitles"
+#~ msgstr "비디오 + 자막"
