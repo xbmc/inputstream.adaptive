@@ -101,12 +101,12 @@ static uint64_t ParseSegmentTemplate(const char** attr,
   if (!tpl.timescale) // if not specified timescale defaults to seconds
     tpl.timescale = 1;
 
-  if (!URL::IsUrlAbsolute(tpl.media))
+  if (URL::IsUrlRelative(tpl.media))
   {
     tpl.media = URL::Join(baseURL, tpl.media);
   }
 
-  if (!URL::IsUrlAbsolute(tpl.initialization))
+  if (URL::IsUrlRelative(tpl.initialization))
   {
     tpl.initialization = URL::Join(baseURL, tpl.initialization);
   }
@@ -1129,7 +1129,7 @@ static void XMLCALL end(void* data, const char* el)
                 dash->strXMLText_.erase(dash->strXMLText_.begin());
 
               std::string url{dash->strXMLText_};
-              if (!URL::IsUrlAbsolute(url) && !URL::IsUrlRelative(url))
+              if (URL::IsUrlRelative(url))
                 url = URL::Join(dash->current_adaptationset_->base_url_, url);
 
               dash->current_representation_->base_url_ = url;
@@ -1358,7 +1358,9 @@ static void XMLCALL end(void* data, const char* el)
         {
           if (strcmp(el, "BaseURL") == 0)
           {
-            if (URL::IsUrlAbsolute(dash->strXMLText_) || URL::IsUrlRelative(dash->strXMLText_))
+            URL::EnsureEndingBackslash(dash->strXMLText_);
+
+            if (URL::IsUrlAbsolute(dash->strXMLText_))
                 dash->current_adaptationset_->base_url_ = dash->strXMLText_;
             else
               dash->current_adaptationset_->base_url_ =
@@ -1502,7 +1504,10 @@ static void XMLCALL end(void* data, const char* el)
           {
             dash->strXMLText_.erase(dash->strXMLText_.begin());
           }
-          if (URL::IsUrlAbsolute(dash->strXMLText_) || URL::IsUrlRelative(dash->strXMLText_))
+
+          URL::EnsureEndingBackslash(dash->strXMLText_);
+
+          if (URL::IsUrlAbsolute(dash->strXMLText_))
           {
             dash->current_period_->base_url_ = dash->strXMLText_;
           }
@@ -1540,7 +1545,7 @@ static void XMLCALL end(void* data, const char* el)
         {
           dash->strXMLText_.erase(dash->strXMLText_.begin());
         }
-        if (URL::IsUrlAbsolute(dash->strXMLText_) || URL::IsUrlRelative(dash->strXMLText_))
+        if (URL::IsUrlAbsolute(dash->strXMLText_))
         {
           dash->mpd_url_ = dash->strXMLText_;
         }

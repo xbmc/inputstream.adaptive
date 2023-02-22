@@ -122,7 +122,7 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   if (map["METHOD"] == "AES-128" && !map["URI"].empty())
   {
     current_pssh_ = map["URI"];
-    if (URL::IsUrlRelative(current_pssh_) && !URL::IsUrlAbsolute(current_pssh_))
+    if (URL::IsUrlRelative(current_pssh_))
       current_pssh_ = URL::Join(baseUrl, current_pssh_);
 
     current_iv_ = m_decrypter->convertIV(map["IV"]);
@@ -572,7 +572,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           if (!byteRange || rep->url_.empty())
           {
             std::string url;
-            if (!URL::IsUrlRelative(line) && !URL::IsUrlAbsolute(line))
+            if (URL::IsUrlRelative(line))
               url = URL::Join(base_url, line);
             else
               url = line;
@@ -736,7 +736,7 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
           {
             std::string uri = map["URI"];
 
-            if (URL::IsUrlRelative(uri) && !URL::IsUrlAbsolute(uri))
+            if (URL::IsUrlRelative(uri))
               map_url = URL::Join(base_url, uri);
             else
               map_url = uri;

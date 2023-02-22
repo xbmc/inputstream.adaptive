@@ -130,13 +130,6 @@ TEST_F(DASHTreeTest, CalculateBaseURL)
   EXPECT_EQ(tree->base_url_, "https://foo.bar/mpd/");
 }
 
-TEST_F(DASHTreeTest, CalculateBaseDomain)
-{
-  std::string url{"https://foo.bar/mpd/test.mpd"};
-  std::string domainUrl{UTILS::URL::GetDomainUrl(url)};
-  EXPECT_EQ(domainUrl, "https://foo.bar");
-}
-
 TEST_F(DASHTreeTest, CalculateBaseUrlFromRedirect)
 {
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
