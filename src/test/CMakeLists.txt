@@ -10,6 +10,7 @@ add_executable(${BINARY}
     TestHLSTree.cpp
     TestSmoothTree.cpp
     TestHelper.cpp
+    TestUtils.cpp
     ../parser/DASHTree.cpp
     ../parser/HLSTree.cpp
     ../parser/SmoothTree.cpp

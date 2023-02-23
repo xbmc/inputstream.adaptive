@@ -73,15 +73,19 @@ void AppendParameters(std::string& url, std::string params);
  */
 std::string GetDomainUrl(std::string url);
 
-/*! \brief Join two URLS. The URL values could be absolute and/or relative.
- *   NOTE: If baseUrl is not a domain URL, and otherUrl is a relative URL,
- *   the domain URL will be automatically determined from the baseUrl.
- *  \param baseUrl The base URL (without parameters)
- *  \param otherUrl The other URL to be joined.
- *   Can be partial/relative/relative to a level
- *  \return The final URL
+/*! 
+ * \brief Combine two URLs as per RFC 3986 specification.
+ * \param baseUrl The base URL, absolute or relative.
+ * \param relativeUrl The other relative URL to be combined.
+ * \return The final URL.
  */
-std::string Join(std::string baseUrl, std::string otherUrl);
+std::string Join(std::string baseUrl, std::string relativeUrl);
+
+/*!
+ * \brief Ensure that the URL address ends with backslash "/".
+ * \param url[IN][OUT] An URL.
+ */
+void EnsureEndingBackslash(std::string& url);
 
 } // namespace URL
 } // namespace UTILS
