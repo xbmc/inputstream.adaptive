@@ -23,110 +23,384 @@ msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
 msgstr ""
 
+#. Category title
 msgctxt "#30100"
 msgid "General"
 msgstr "Algemeen"
 
-# The minimum bandwidth which should not be deceeded.
+#. The minimum bandwidth which should not be deceeded
 msgctxt "#30101"
-msgid "Min. Bandwidth (Bit/s)"
-msgstr "Minimum bandbreedte (bit/s)"
+msgid "Minimum bandwidth (Kbps)"
+msgstr ""
 
-# The maximum bandwidth which should not be exceeded. 0=unlimited
+#. The maximum bandwidth which should not be exceeded
 msgctxt "#30102"
-msgid "Max. Bandwidth (Bit/s)"
-msgstr "Maximum bandbreedte (bit/s)"
+msgid "Maximum bandwidth (Kbps)"
+msgstr ""
 
-# Absolute path to the folder containing the decrypters
+#. Description of setting with label #30101, 30102
 msgctxt "#30103"
-msgid "Decrypter path"
-msgstr "Decrypter-pad"
+msgid "Establishes the bandwidth limit not to be exceeded with the audio / video streams. Set to 0 to disable it."
+msgstr ""
 
-# Maximum Resolution
+# empty strings from id 30104 to 30109
+#. Maximum video resolution non-protected videos
 msgctxt "#30110"
-msgid "Max. Resolution general decoder"
-msgstr "Maximum resolutie algemene decoder"
+msgid "Maximum resolution"
+msgstr ""
 
-msgctxt "#30111"
-msgid "Stream Selection"
-msgstr "Streamselectie"
-
+# empty string with id 30111
+#. Type of media streams that will be handled for the playback
 msgctxt "#30112"
-msgid "Media"
-msgstr "Media"
+msgid "Type of media streams played"
+msgstr ""
 
-# Maximum allowed resolution if decoded through secure path
+#. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
-msgid "Max. Resolution secure decoder"
-msgstr "Maximum resolutie beveiligde decoder"
+msgid "Maximum resolution for DRM videos"
+msgstr ""
 
-# Select streams without respecting HDCP status
-msgctxt "#30114"
-msgid "Override HDCP status"
-msgstr "Negeer HDCP-status"
-
+# empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
-msgid "Ignore Display Resolution"
-msgstr "Negeer schermresolutie"
+msgid "Ignore screen resolution"
+msgstr ""
 
+#. Description of setting with label #30115
+msgctxt "#30116"
+msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
+msgstr ""
+
+msgctxt "#30117"
+msgid "Manual stream selection mode"
+msgstr ""
+
+#. Description of setting with label #30117
+msgctxt "#30118"
+msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
+msgstr ""
+
+#. Category title
 msgctxt "#30120"
 msgid "Expert"
 msgstr "Expert"
 
-msgctxt "#30121"
-msgid "Enable Pre-Release Features"
-msgstr "Pre-release features inschakelen"
-
+# empty string with id 30121
 msgctxt "#30122"
-msgid "Don't use secure decoder if possible"
-msgstr "Beveiligde decoder niet gebruiken indien mogelijk"
+msgid "Try avoiding the use of secure decoder"
+msgstr ""
 
-msgctxt "#30150"
-msgid "Max"
-msgstr "Max"
+#. Description of setting with label #30122
+msgctxt "#30123"
+msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
+msgstr ""
 
-msgctxt "#30151"
-msgid "480p"
-msgstr "480p"
-
-msgctxt "#30152"
-msgid "640p"
-msgstr "640p"
-
-msgctxt "#30153"
-msgid "720p"
-msgstr "720p"
-
-msgctxt "#30154"
-msgid "1080p"
-msgstr "1080p"
-
-msgctxt "#30155"
-msgid "Automatically select streams"
-msgstr "Automatisch streams selecteren"
-
+# empty strings from id 30124 to 30155
+#. Item list value of setting with label #30117
 msgctxt "#30156"
-msgid "Manually select all streams"
-msgstr "Handmatig alle streams selecteren"
+msgid "Audio / Video streams"
+msgstr ""
 
+#. Item list value of setting with label #30112
 msgctxt "#30157"
 msgid "All"
 msgstr "Alles"
 
+#. Item list value of setting with label #30112
 msgctxt "#30158"
 msgid "Audio"
 msgstr "Audio"
 
+#. Item list value of setting with label #30112
 msgctxt "#30159"
 msgid "Video"
 msgstr "Video"
 
-# Show all video streams
+#. Item list value of setting with label #30117
 msgctxt "#30160"
-msgid "Manually select video stream"
-msgstr "Handmatig videostream selecteren"
+msgid "Video streams"
+msgstr ""
 
+#. Item list value of setting with label #30112
 msgctxt "#30161"
-msgid "Video + Subtitles"
-msgstr "Video + ondertiteling"
+msgid "Video / Subtitles"
+msgstr ""
+
+#. Category group title
+msgctxt "#30162"
+msgid "Adaptive stream"
+msgstr ""
+
+# empty strings from id 30163 to 30165
+#. Category group title
+msgctxt "#30166"
+msgid "DRM Widevine"
+msgstr ""
+
+msgctxt "#30167"
+msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
+msgstr ""
+
+msgctxt "#30168"
+msgid "Auto determines initial bandwidth"
+msgstr ""
+
+#. Description of setting with label #30168
+msgctxt "#30169"
+msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
+msgstr ""
+
+msgctxt "#30170"
+msgid "Initial bandwidth (Kbps)"
+msgstr ""
+
+#. Description of setting with label #30170
+msgctxt "#30171"
+msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
+msgstr ""
+
+msgctxt "#30172"
+msgid "Ignore HDCP status"
+msgstr ""
+
+#. Description of setting with label #30172
+msgctxt "#30173"
+msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
+msgstr ""
+
+#. To set the stream selection type (refer to RepresentationChooser's)
+msgctxt "#30174"
+msgid "Stream selection type"
+msgstr ""
+
+#. Description of setting with label #30174
+msgctxt "#30175"
+msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
+msgstr ""
+
+#. Item list value of setting with label #30174
+msgctxt "#30176"
+msgid "Adaptive (default)"
+msgstr ""
+
+#. Item list value of setting with label #30174
+msgctxt "#30177"
+msgid "Manual OSD"
+msgstr ""
+
+#. Item list value of setting with label #30174
+msgctxt "#30178"
+msgid "Fixed resolution"
+msgstr ""
+
+#. Item list value of setting with label #30174
+msgctxt "#30179"
+msgid "Ask quality"
+msgstr ""
+
+#. Item list value of setting with label #30174
+msgctxt "#30180"
+msgid "Test"
+msgstr ""
+
+# empty strings reserved for "stream selection types" from id 30181 to 30190
+#. Assured buffer length duration (seconds)
+msgctxt "#30200"
+msgid "Assured buffer duration (sec)"
+msgstr ""
+
+#. Max buffer length duration (seconds)
+msgctxt "#30201"
+msgid "Maximum buffer duration (sec)"
+msgstr ""
+
+#. Ignore screen resolution change e.g. window resize
+msgctxt "#30202"
+msgid "Ignore screen resolution change"
+msgstr ""
+
+#. Description of setting with label #30202
+msgctxt "#30203"
+msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
+msgstr ""
+
+#. Absolute path to the folder containing the DRM binary files
+msgctxt "#30204"
+msgid "Decrypter path"
+msgstr ""
+
+# empty strings from id 30205 to 30209
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30210"
+msgid "Auto"
+msgstr ""
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30211"
+msgid "480p"
+msgstr ""
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30212"
+msgid "640p"
+msgstr ""
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30213"
+msgid "720p"
+msgstr ""
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30214"
+msgid "1080p"
+msgstr ""
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30215"
+msgid "2K"
+msgstr ""
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30216"
+msgid "1440p"
+msgstr ""
+
+#. Item list value of setting with label #30110, #30113
+msgctxt "#30217"
+msgid "4K"
+msgstr ""
+
+# empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
+#. Dialog window to select the video stream
+msgctxt "#30231"
+msgid "Select video stream"
+msgstr ""
+
+#. Description of each list item in #30231 dialog window
+#. Do not translate placeholders: {codec} {quality}
+msgctxt "#30232"
+msgid "Video stream {codec} {quality}"
+msgstr ""
+
+#. Enum setting to set the test mode
+msgctxt "#30233"
+msgid "Test mode"
+msgstr ""
+
+#. Item list value of setting with label #30233
+msgctxt "#30234"
+msgid "Switch by segments"
+msgstr ""
+
+#. Stand for stream segments, referred to setting with label #30234
+msgctxt "#30235"
+msgid "Segments"
+msgstr ""
+
+#. Category group title
+msgctxt "#30236"
+msgid "Override settings"
+msgstr ""
+
+#. Category group title for debug settings
+msgctxt "#30237"
+msgid "Debug logging"
+msgstr ""
+
+#. Debug setting to save stream manifests
+msgctxt "#30238"
+msgid "Save stream manifests"
+msgstr ""
+
+#. Description of setting with label #30238
+msgctxt "#30239"
+msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
+msgstr ""
+
+# The minimum bandwidth which should not be deceeded.
+#~ msgctxt "#30101"
+#~ msgid "Min. Bandwidth (Bit/s)"
+#~ msgstr "Minimum bandbreedte (bit/s)"
+
+# The maximum bandwidth which should not be exceeded. 0=unlimited
+#~ msgctxt "#30102"
+#~ msgid "Max. Bandwidth (Bit/s)"
+#~ msgstr "Maximum bandbreedte (bit/s)"
+
+# Absolute path to the folder containing the decrypters
+#~ msgctxt "#30103"
+#~ msgid "Decrypter path"
+#~ msgstr "Decrypter-pad"
+
+# Maximum Resolution
+#~ msgctxt "#30110"
+#~ msgid "Max. Resolution general decoder"
+#~ msgstr "Maximum resolutie algemene decoder"
+
+#~ msgctxt "#30111"
+#~ msgid "Stream Selection"
+#~ msgstr "Streamselectie"
+
+#~ msgctxt "#30112"
+#~ msgid "Media"
+#~ msgstr "Media"
+
+# Maximum allowed resolution if decoded through secure path
+#~ msgctxt "#30113"
+#~ msgid "Max. Resolution secure decoder"
+#~ msgstr "Maximum resolutie beveiligde decoder"
+
+# Select streams without respecting HDCP status
+#~ msgctxt "#30114"
+#~ msgid "Override HDCP status"
+#~ msgstr "Negeer HDCP-status"
+
+# Do not respect display resolution when selecting streams
+#~ msgctxt "#30115"
+#~ msgid "Ignore Display Resolution"
+#~ msgstr "Negeer schermresolutie"
+
+#~ msgctxt "#30121"
+#~ msgid "Enable Pre-Release Features"
+#~ msgstr "Pre-release features inschakelen"
+
+#~ msgctxt "#30122"
+#~ msgid "Don't use secure decoder if possible"
+#~ msgstr "Beveiligde decoder niet gebruiken indien mogelijk"
+
+#~ msgctxt "#30150"
+#~ msgid "Max"
+#~ msgstr "Max"
+
+#~ msgctxt "#30151"
+#~ msgid "480p"
+#~ msgstr "480p"
+
+#~ msgctxt "#30152"
+#~ msgid "640p"
+#~ msgstr "640p"
+
+#~ msgctxt "#30153"
+#~ msgid "720p"
+#~ msgstr "720p"
+
+#~ msgctxt "#30154"
+#~ msgid "1080p"
+#~ msgstr "1080p"
+
+#~ msgctxt "#30155"
+#~ msgid "Automatically select streams"
+#~ msgstr "Automatisch streams selecteren"
+
+#~ msgctxt "#30156"
+#~ msgid "Manually select all streams"
+#~ msgstr "Handmatig alle streams selecteren"
+
+# Show all video streams
+#~ msgctxt "#30160"
+#~ msgid "Manually select video stream"
+#~ msgstr "Handmatig videostream selecteren"
+
+#~ msgctxt "#30161"
+#~ msgid "Video + Subtitles"
+#~ msgstr "Video + ondertiteling"
