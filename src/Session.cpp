@@ -43,6 +43,7 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
     m_reprChooser(CHOOSER::CreateRepresentationChooser(kodiProps))
 {
   m_KodiHost->SetProfilePath(profilePath);
+  m_KodiHost->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
 
   switch (kodiProps.m_manifestType)
   {
