@@ -549,22 +549,12 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         }
         else if (!sessionPsshset.defaultKID_.empty())
         {
-          init_data.SetData(reinterpret_cast<AP4_Byte*>(sessionPsshset.defaultKID_.data()), 16);
+          std::string licenseData = BASE64::Decode(m_kodiProps.m_licenseData);
+          // Replace KID placeholder, if any
+          STRING::ReplaceFirst(licenseData, "{KID}", sessionPsshset.defaultKID_);
 
-          std::string decLicenseData{BASE64::Decode(m_kodiProps.m_licenseData)};
-          uint8_t* decLicDataUInt{reinterpret_cast<uint8_t*>(decLicenseData.data())};
-
-          uint8_t* uuid{reinterpret_cast<uint8_t*>(strstr(decLicenseData.data(), "{KID}"))};
-          if (uuid)
-          {
-            memmove(uuid + 11, uuid, m_kodiProps.m_licenseData.size() - (uuid - decLicDataUInt));
-            memcpy(uuid, init_data.GetData(), init_data.GetDataSize());
-            init_data.SetData(decLicDataUInt, m_kodiProps.m_licenseData.size() + 11);
-          }
-          else
-          {
-            init_data.SetData(decLicDataUInt, m_kodiProps.m_licenseData.size());
-          }
+          init_data.SetData(reinterpret_cast<const AP4_Byte*>(licenseData.c_str()),
+                            static_cast<AP4_Size>(licenseData.size()));
         }
         else
           return false;
