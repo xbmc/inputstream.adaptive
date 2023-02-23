@@ -618,7 +618,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", hexKid.c_str());
 
         // use shared ssd session if we already have 1 of the same stream type
-        if (currentSessionTypes & sessionType)
+        if (true)
         {
           for (size_t i{1}; i < ses; ++i)
           {
