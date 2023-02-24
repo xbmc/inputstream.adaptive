@@ -1787,19 +1787,14 @@ void DASHTree::RefreshLiveSegments()
           if (!updAdaptationSet)
             continue;
 
-          auto& adaptationSets = periods_[index]->adaptationSets_;
-          auto itAs = std::find_if(adaptationSets.begin(), adaptationSets.end(),
-                                   [&updAdaptationSet](const AdaptationSet* item)
-                                   {
-                                     return item->id_ == updAdaptationSet->id_ &&
-                                            item->group_ == updAdaptationSet->group_ &&
-                                            item->type_ == updAdaptationSet->type_ &&
-                                            item->mimeType_ == updAdaptationSet->mimeType_ &&
-                                            item->language_ == updAdaptationSet->language_;
-                                   });
-          if (itAs != adaptationSets.end()) // Found adaptationset
+          for (auto adaptationSet : periods_[index]->adaptationSets_)
           {
-            auto adaptationSet = *itAs;
+            if (!(adaptationSet->id_ == updAdaptationSet->id_ &&
+                  adaptationSet->group_ == updAdaptationSet->group_ &&
+                  adaptationSet->type_ == updAdaptationSet->type_ &&
+                  adaptationSet->mimeType_ == updAdaptationSet->mimeType_ &&
+                  adaptationSet->language_ == updAdaptationSet->language_))
+              continue;
 
             for (auto updRepr : updAdaptationSet->representations_)
             {
