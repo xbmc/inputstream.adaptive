@@ -459,34 +459,14 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
     unsigned char key_system[16];
     AP4_ParseHex(strkey.c_str(), key_system, 16);
-    uint32_t currentSessionTypes = 0;
 
     // cdmSession 0 is reserved for unencrypted streams
     for (size_t ses{1}; ses < m_cdmSessions.size(); ++ses)
     {
       AP4_DataBuffer init_data;
       const char* optionalKeyParameter{nullptr};
-      CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
-      uint32_t sessionType = 0;
 
-      if (sessionPsshset.media_ > 0)
-      {
-        sessionType = sessionPsshset.media_;
-      }
-      else
-      {
-        switch (sessionPsshset.adaptation_set_->GetStreamType())
-        {
-          case StreamType::VIDEO:
-            sessionType = CPeriod::PSSHSet::MEDIA_VIDEO;
-            break;
-          case StreamType::AUDIO:
-            sessionType = CPeriod::PSSHSet::MEDIA_AUDIO;
-            break;
-          default:
-            break;
-        }
-      }
+      CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
 
       if (sessionPsshset.pssh_ == "FILE")
       {
@@ -625,26 +605,33 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         std::string hexKid{StringUtils::ToHexadecimal(defaultKid)};
         LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", hexKid.c_str());
 
-        // use shared ssd session if we already have 1 of the same stream type
-        if (currentSessionTypes & sessionType)
+        for (size_t i{1}; i < ses; ++i)
         {
-          for (size_t i{1}; i < ses; ++i)
+          if (m_decrypter->HasLicenseKey(m_cdmSessions[i].m_cencSingleSampleDecrypter, defkid))
           {
-            if (m_decrypter->HasLicenseKey(m_cdmSessions[i].m_cencSingleSampleDecrypter, defkid))
-            {
-              session.m_cencSingleSampleDecrypter = m_cdmSessions[i].m_cencSingleSampleDecrypter;
-              session.m_sharedCencSsd = true;
-              break;
-            }
+            session.m_cencSingleSampleDecrypter = m_cdmSessions[i].m_cencSingleSampleDecrypter;
+            session.m_sharedCencSsd = true;
+            break;
           }
         }
-      }
-      else if (defaultKid.empty() && !session.m_cencSingleSampleDecrypter)
-      {
-        LOG::Log(LOGWARNING, "Initializing stream with unknown KID!");
-      }
 
-      currentSessionTypes |= sessionType;
+      }
+      else if (defaultKid.empty())
+      {
+        for (size_t i{1}; i < ses; ++i)
+        {
+          if (sessionPsshset.pssh_ == m_adaptiveTree->m_currentPeriod->GetPSSHSets()[i].pssh_)
+          {
+            session.m_cencSingleSampleDecrypter = m_cdmSessions[i].m_cencSingleSampleDecrypter;
+            session.m_sharedCencSsd = true;
+            break;
+          }
+        }
+        if (!session.m_cencSingleSampleDecrypter)
+        {
+          LOG::Log(LOGWARNING, "Initializing stream with unknown KID!");
+        }
+      }
 
       if (m_decrypter && init_data.GetDataSize() >= 4 &&
           (session.m_cencSingleSampleDecrypter ||
