@@ -479,7 +479,7 @@ bool WV_CencSingleSampleDecrypter::HasLicenseKey(const uint8_t *keyid)
 {
   // true = one session for all streams, false = one sessions per stream
   // false fixes pixaltion issues on some devices when manifest has multiple encrypted streams
-  return false;
+  return true;
 }
 
 void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t *keyid, uint32_t media, SSD_DECRYPTER::SSD_CAPS &caps)
