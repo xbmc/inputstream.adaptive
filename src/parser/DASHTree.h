@@ -50,6 +50,7 @@ public:
 
   uint64_t pts_helper_, timeline_time_;
   uint64_t firstStartNumber_;
+  uint32_t current_sequence_;
   std::string current_playready_wrmheader_;
   std::string mpd_url_;
 

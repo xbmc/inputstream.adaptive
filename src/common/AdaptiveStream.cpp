@@ -1115,7 +1115,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
 
 bool AdaptiveStream::waitingForSegment(bool checkTime) const
 {
-  if (tree_.HasUpdateThread())
+  if (tree_.HasUpdateThread() && state_ == RUNNING)
   {
     std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
     if (current_rep_ && (current_rep_->flags_ & AdaptiveTree::Representation::WAITFORSEGMENT) != 0)

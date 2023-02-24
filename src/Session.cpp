@@ -1542,7 +1542,10 @@ bool CSession::SeekChapter(int ch)
   if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->periods_.size()) &&
       m_adaptiveTree->periods_[ch] != m_adaptiveTree->current_period_)
   {
-    m_adaptiveTree->next_period_ = m_adaptiveTree->periods_[ch];
+    auto newPd = m_adaptiveTree->periods_[ch];
+    m_adaptiveTree->next_period_ = newPd;
+    LOG::LogF(LOGDEBUG, "Switching to new Period (id=%s, start=%ld, seq=%d)", newPd->id_.c_str(),
+              newPd->start_, newPd->sequence_);
     for (auto& stream : m_streams)
     {
       ISampleReader* sr{stream->GetReader()};
