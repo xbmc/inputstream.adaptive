@@ -904,8 +904,11 @@ bool AdaptiveStream::ensureSegment()
     }
     else if (tree_.HasUpdateThread() && current_period_ == tree_.periods_.back())
     {
-      current_rep_->flags_ |= AdaptiveTree::Representation::WAITFORSEGMENT;
-      LOG::LogF(LOGDEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
+      if ((current_rep_->flags_ & AdaptiveTree::Representation::WAITFORSEGMENT) == 0)
+      {
+        current_rep_->flags_ |= AdaptiveTree::Representation::WAITFORSEGMENT;
+        LOG::LogF(LOGDEBUG, "Begin WaitForSegment stream %s", current_rep_->id.c_str());
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
     }
