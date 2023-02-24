@@ -46,7 +46,7 @@ public:
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
   bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override;
   uint32_t GetTimeScale() const override { return m_track->GetMediaTimeScale(); }
-  ReaderCryptoInfo GetReaderCryptoInfo() const override { return m_readerCryptoInfo; }
+  CryptoInfo GetReaderCryptoInfo() const override { return m_readerCryptoInfo; }
 
   static const AP4_UI32 TRACKID_UNKNOWN = -1;
 
@@ -85,5 +85,5 @@ private:
   AP4_CencSampleDecrypter* m_decrypter{nullptr};
   uint64_t m_nextDuration{0};
   uint64_t m_nextTimestamp{0};
-  ReaderCryptoInfo m_readerCryptoInfo{};
+  CryptoInfo m_readerCryptoInfo{};
 };

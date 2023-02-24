@@ -273,7 +273,12 @@ public:
   std::vector<char> GetChallengeData();
   virtual bool HasLicenseKey(const uint8_t *keyid);
 
-  virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id, const AP4_UI08 *key, const AP4_UI08 nal_length_size, AP4_DataBuffer &annexb_sps_pps, AP4_UI32 flags)override;
+  virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id,
+                                     const AP4_UI08* key,
+                                     const AP4_UI08 nal_length_size,
+                                     AP4_DataBuffer& annexb_sps_pps,
+                                     AP4_UI32 flags,
+                                     CryptoInfo cryptoInfo) override;
   virtual AP4_UI32 AddPool() override;
   virtual void RemovePool(AP4_UI32 poolid) override;
 
@@ -1024,8 +1029,12 @@ SSMFAIL:
 |   WV_CencSingleSampleDecrypter::SetKeyId
 +---------------------------------------------------------------------*/
 
-AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id, const AP4_UI08 *key,
-  const AP4_UI08 nal_length_size, AP4_DataBuffer &annexb_sps_pps, AP4_UI32 flags)
+AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id,
+                                                         const AP4_UI08* key,
+                                                         const AP4_UI08 nal_length_size,
+                                                         AP4_DataBuffer& annexb_sps_pps,
+                                                         AP4_UI32 flags,
+                                                         CryptoInfo cryptoInfo)
 {
   if (pool_id >= fragment_pool_.size())
     return AP4_ERROR_OUT_OF_RANGE;
