@@ -20,13 +20,6 @@ class Adaptive_CencSingleSampleDecrypter : public AP4_CencSingleSampleDecrypter
 public:
   Adaptive_CencSingleSampleDecrypter() : AP4_CencSingleSampleDecrypter(0){};
 
-  void SetCrypto(AP4_UI08 cryptBlocks, AP4_UI08 skipBlocks)
-  {
-    m_CryptBlocks = static_cast<uint32_t>(cryptBlocks);
-    m_SkipBlocks = static_cast<uint32_t>(skipBlocks);
-  };
-  virtual void SetEncryptionMode(CryptoMode encryptionMode){};
-
   /*! \brief Add a Key ID to the current session
    *  \param keyId The KID
    */
@@ -42,8 +35,4 @@ public:
   {
     throw std::logic_error("SetDefaultKeyId method not implemented.");
   };
-
-protected:
-  uint32_t m_CryptBlocks{0};
-  uint32_t m_SkipBlocks{0};
 };

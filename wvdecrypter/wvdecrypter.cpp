@@ -171,8 +171,12 @@ public:
   void AddSessionKey(const uint8_t *data, size_t data_size, uint32_t status);
   bool HasKeyId(const uint8_t *keyid);
 
-  virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id, const AP4_UI08 *key, const AP4_UI08 nal_length_size,
-    AP4_DataBuffer &annexb_sps_pps, AP4_UI32 flags)override;
+  virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id,
+                                     const AP4_UI08* key,
+                                     const AP4_UI08 nal_length_size,
+                                     AP4_DataBuffer& annexb_sps_pps,
+                                     AP4_UI32 flags,
+                                     CryptoInfo cryptoInfo) override;
   virtual AP4_UI32 AddPool() override;
   virtual void RemovePool(AP4_UI32 poolid) override;
 
@@ -198,7 +202,6 @@ public:
   SSD_DECODE_RETVAL VideoFrameDataToPicture(void* hostInstance, SSD_PICTURE *picture);
   void ResetVideo();
 
-  void SetEncryptionMode(CryptoMode encryptionMode) override;
   void SetDefaultKeyId(std::string_view keyId) override;
   void AddKeyId(std::string_view keyId) override;
 
@@ -230,6 +233,7 @@ private:
     AP4_UI08 nal_length_size_;
     AP4_UI16 decrypter_flags_;
     AP4_DataBuffer annexb_sps_pps_;
+    CryptoInfo m_cryptoInfo;
   };
   std::vector<FINFO> fragment_pool_;
   void LogDecryptError(const cdm::Status status, const AP4_UI08* key);
@@ -529,6 +533,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
   {
     AP4_UI32 poolid(AddPool());
     fragment_pool_[poolid].key_ = key ? key : reinterpret_cast<const uint8_t*>(keys_.front().keyid.data());
+    fragment_pool_[poolid].m_cryptoInfo.m_mode = m_EncryptionMode;
 
     AP4_DataBuffer in, out;
     AP4_UI32 encb[2] = { 1,1 };
@@ -996,7 +1001,12 @@ bool WV_CencSingleSampleDecrypter::HasKeyId(const uint8_t *keyid)
   return false;
 }
 
-AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id, const AP4_UI08 *key, const AP4_UI08 nal_length_size, AP4_DataBuffer &annexb_sps_pps, AP4_UI32 flags)
+AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id,
+                                                         const AP4_UI08* key,
+                                                         const AP4_UI08 nal_length_size,
+                                                         AP4_DataBuffer& annexb_sps_pps,
+                                                         AP4_UI32 flags,
+                                                         CryptoInfo cryptoInfo)
 {
   if (pool_id >= fragment_pool_.size())
     return AP4_ERROR_OUT_OF_RANGE;
@@ -1005,6 +1015,7 @@ AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id, const
   fragment_pool_[pool_id].nal_length_size_ = nal_length_size;
   fragment_pool_[pool_id].annexb_sps_pps_.SetData(annexb_sps_pps.GetData(), annexb_sps_pps.GetDataSize());
   fragment_pool_[pool_id].decrypter_flags_ = flags;
+  fragment_pool_[pool_id].m_cryptoInfo = cryptoInfo;
 
   return AP4_SUCCESS;
 }
@@ -1092,9 +1103,9 @@ void WV_CencSingleSampleDecrypter::SetInput(cdm::InputBuffer_2& cdmInputBuffer,
   cdmInputBuffer.key_id = fragInfo.key_;
   cdmInputBuffer.key_id_size = 16;
   cdmInputBuffer.subsamples = subsamples.data();
-  cdmInputBuffer.encryption_scheme = media::ToCdmEncryptionScheme(m_EncryptionMode);
+  cdmInputBuffer.encryption_scheme = media::ToCdmEncryptionScheme(fragInfo.m_cryptoInfo.m_mode);
   cdmInputBuffer.timestamp = 0;
-  cdmInputBuffer.pattern = {m_CryptBlocks, m_SkipBlocks};
+  cdmInputBuffer.pattern = {fragInfo.m_cryptoInfo.m_cryptBlocks, fragInfo.m_cryptoInfo.m_skipBlocks};
 }
 
 /*----------------------------------------------------------------------
@@ -1256,7 +1267,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   std::vector<cdm::SubsampleEntry> subsamples;
   subsamples.reserve(subsample_count);
 
-  bool useCbcDecrypt{fragInfo.m_cryptoMode == CryptoMode::AES_CBC};
+  bool useCbcDecrypt{fragInfo.m_cryptoInfo.m_mode == CryptoMode::AES_CBC};
   
   // We can only decrypt with subsamples set to 1
   // This must be handled differently for CENC and CBCS
@@ -1470,11 +1481,6 @@ void WV_CencSingleSampleDecrypter::ResetVideo()
 {
   drm_.GetCdmAdapter()->ResetDecoder(cdm::kStreamTypeVideo);
   drained_ = true;
-}
-
-void WV_CencSingleSampleDecrypter::SetEncryptionMode(CryptoMode encryptionMode)
-{
-  m_EncryptionMode = encryptionMode;
 }
 
 void WV_CencSingleSampleDecrypter::SetDefaultKeyId(std::string_view keyId)

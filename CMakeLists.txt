@@ -67,7 +67,6 @@ set(ADP_SOURCES
 
 set(ADP_HEADERS
 	src/AdaptiveByteStream.h
-	src/CryptoMode.h
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h
@@ -110,6 +109,7 @@ set(ADP_HEADERS
 	src/samplereader/TSSampleReader.h
 	src/samplereader/WebmSampleReader.h
 	src/utils/Base64Utils.h
+	src/utils/CryptoUtils.h
 	src/utils/DigestMD5Utils.h
 	src/utils/FileUtils.h
 	src/utils/log.h
