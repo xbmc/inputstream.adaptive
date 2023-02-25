@@ -1545,6 +1545,9 @@ static void XMLCALL end(void* data, const char* el)
         {
           dash->strXMLText_.erase(dash->strXMLText_.begin());
         }
+
+        URL::EnsureEndingBackslash(dash->strXMLText_);
+
         if (URL::IsUrlAbsolute(dash->strXMLText_))
         {
           dash->mpd_url_ = dash->strXMLText_;
