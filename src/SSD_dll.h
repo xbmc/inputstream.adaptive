@@ -43,7 +43,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 20;
+    static const uint32_t version = 21;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -62,6 +62,17 @@ namespace SSD
     virtual void ReleaseBuffer(void* instance, void *buffer) = 0;
 
     virtual void LogVA(const SSDLogLevel level, const char* format, va_list args) = 0;
+
+    /*!
+     * \brief Set whether license data must be saved for debugging.
+     * \param isDebugSaveLicense Set true to save the license data.
+     */
+    virtual void SetDebugSaveLicense(bool isDebugSaveLicense) = 0;
+
+    /*!
+     * \brief Determine if license data must to be saved for debugging purpose.
+     */
+    virtual bool IsDebugSaveLicense() = 0;
   };
 
   /*
