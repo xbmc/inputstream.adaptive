@@ -144,6 +144,19 @@ TEST_F(DASHTreeTest, CalculateBaseURLFromBaseURLTag)
   EXPECT_EQ(tree->current_period_->base_url_, "https://foo.bar/mpd/");
 }
 
+TEST_F(DASHTreeTest, CalculateBaseURLWithNoSlashOutsidePeriod)
+{
+  // BaseURL outside period with no trailing slash
+  OpenTestFile("mpd/segtpl_baseurl_noslash_outside.mpd", "https://bit.ly/abcd");
+
+  adaptive::AdaptiveTree::SegmentTemplate segtpl =
+      tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
+
+  EXPECT_EQ(tree->current_period_->base_url_, "https://foo.bar/mpd/");
+  EXPECT_EQ(segtpl.initialization, "https://foo.bar/mpd/V300/init.mp4");
+  EXPECT_EQ(segtpl.media_url, "https://foo.bar/mpd/V300/$Number$.m4s");
+}
+
 TEST_F(DASHTreeTest, CalculateSegTplWithNoSlashes)
 {
   // BaseURL inside period with no trailing slash, uses segtpl, media/init doesn't start with slash
