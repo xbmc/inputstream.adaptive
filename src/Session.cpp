@@ -697,6 +697,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
     m_adaptiveTree->current_period_ = m_adaptiveTree->next_period_;
     m_adaptiveTree->next_period_ = nullptr;
   }
+  LOG::LogF(LOGDEBUG, "Period (id=%s start=%ld)", m_adaptiveTree->current_period_->id_.c_str(), m_adaptiveTree->current_period_->start_);
 
   m_chapterStartTime = GetChapterStartTime();
 

@@ -1647,7 +1647,7 @@ bool DASHTree::open(const std::string& url, std::map<std::string, std::string> a
     return false;
   }
 
-  current_period_ = periods_[0];
+  current_period_ = has_timeshift_buffer_ ? periods_.back() : periods_.front();
   SortTree();
   StartUpdateThread();
 
