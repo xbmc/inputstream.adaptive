@@ -64,10 +64,18 @@ public:
 
   virtual void ReleaseBuffer(void* instance, void* buffer) override;
 
+  void SetDebugSaveLicense(bool isDebugSaveLicense) override
+  {
+    m_isDebugSaveLicense = isDebugSaveLicense;
+  }
+
+  bool IsDebugSaveLicense() override { return m_isDebugSaveLicense; }
+
 private:
   std::string m_strProfilePath;
   std::string m_strLibraryPath;
   std::string m_strPropertyValue;
+  bool m_isDebugSaveLicense;
 
 #if defined(ANDROID)
   kodi::platform::CInterfaceAndroidSystem m_androidSystem;

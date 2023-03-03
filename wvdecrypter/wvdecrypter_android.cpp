@@ -31,8 +31,6 @@ using namespace SSD;
 using namespace UTILS;
 using namespace kodi::tools;
 
-//#define LOCLICENSE
-
 /*******************************************************
 CDM
 ********************************************************/
@@ -354,13 +352,16 @@ WV_CencSingleSampleDecrypter::WV_CencSingleSampleDecrypter(WV_DRM& drm,
     return;
   }
 
-#ifdef LOCLICENSE
-  std::string strDbg = GLOBAL::Host->GetProfilePath();
-  strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init";
-  FILE*f = fopen(strDbg.c_str(), "wb");
-  fwrite(pssh.GetData(), 1, pssh.GetDataSize(), f);
-  fclose(f);
-#endif
+  if (GLOBAL::Host->IsDebugSaveLicense())
+  {
+    //! @todo: with ssd_wv refactor the path must be combined with
+    //!        UTILS::FILESYS::PathCombine
+    std::string debugFilePath = GLOBAL::Host->GetProfilePath();
+    debugFilePath += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init";
+
+    std::string data{reinterpret_cast<const char*>(pssh.GetData()), pssh.GetDataSize()};
+    SSD_UTILS::SaveFile(debugFilePath, data);
+  }
 
   pssh_.assign(pssh.GetData(), pssh.GetData() +  pssh.GetDataSize());
 
@@ -628,13 +629,15 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
     return false;
   }
 
-#ifdef LOCLICENSE
-  std::string strDbg = GLOBAL::Host->GetProfilePath();
-  strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge";
-  FILE*f = fopen(strDbg.c_str(), "wb");
-  fwrite(keyRequestData.data(), 1, keyRequestData.size(), f);
-  fclose(f);
-#endif
+  if (GLOBAL::Host->IsDebugSaveLicense())
+  {
+    //! @todo: with ssd_wv refactor the path must be combined with
+    //!        UTILS::FILESYS::PathCombine
+    std::string debugFilePath = GLOBAL::Host->GetProfilePath();
+    debugFilePath += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge";
+
+    SSD_UTILS::SaveFile(debugFilePath, keyRequestData.data());
+  }
 
   //Process placeholder in GET String
   std::string::size_type insPos(blocks[0].find("{SSM}"));
@@ -832,13 +835,15 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
         blocks[2] = msgEncoded;
       }
 
-#ifdef LOCLICENSE
-      std::string strDbg = GLOBAL::Host->GetProfilePath();
-      strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata";
-      FILE*f = fopen(strDbg.c_str(), "wb");
-      fwrite(blocks[2].data(), 1, blocks[2].size(), f);
-      fclose(f);
-#endif
+      if (GLOBAL::Host->IsDebugSaveLicense())
+      {
+        //! @todo: with ssd_wv refactor the path must be combined with
+        //!        UTILS::FILESYS::PathCombine
+        std::string debugFilePath = GLOBAL::Host->GetProfilePath();
+        debugFilePath += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata";
+
+        SSD_UTILS::SaveFile(debugFilePath, blocks[2]);
+      }
     }
 
     std::string encData{BASE64::Encode(blocks[2])};
@@ -893,13 +898,15 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage(const std::vector<char> &k
     }
   }
 
-#ifdef LOCLICENSE
-  strDbg = GLOBAL::Host->GetProfilePath();
-  strDbg += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response";
-  f = fopen(strDbg.c_str(), "wb");
-  fwrite(response.data(), 1, response.size(), f);
-  fclose(f);
-#endif
+  if (GLOBAL::Host->IsDebugSaveLicense())
+  {
+    //! @todo: with ssd_wv refactor the path must be combined with
+    //!        UTILS::FILESYS::PathCombine
+    std::string debugFilePath = GLOBAL::Host->GetProfilePath();
+    debugFilePath += "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response";
+
+    SSD_UTILS::SaveFile(debugFilePath, response);
+  }
 
   if (!blocks[3].empty() && (keyRequestData.size() > 2 || contentType.find("application/octet-stream") == std::string::npos))
   {

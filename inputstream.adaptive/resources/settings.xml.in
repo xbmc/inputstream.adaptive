@@ -241,6 +241,11 @@
           <default>false</default>
           <control type="toggle" />
         </setting>
+        <setting id="debug.save.license" type="boolean" label="30240" help="30241">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
       </group>
     </category>
   </section>

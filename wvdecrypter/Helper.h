@@ -23,3 +23,8 @@ void Log(SSD::SSDLogLevel level, const char* format, ...);
 #define LogF(level, format, ...) Log((level), ("%s: " format), __FUNCTION__, ##__VA_ARGS__)
 
 } // namespace LOG
+
+namespace SSD_UTILS
+{
+void SaveFile(std::string_view filePath, std::string_view data);
+}
