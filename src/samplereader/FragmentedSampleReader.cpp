@@ -442,6 +442,11 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
         m_singleSampleDecryptor->SetCrypto(m_readerCryptoInfo.m_cryptBlocks,
                                            m_readerCryptoInfo.m_skipBlocks);
       }
+      else if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CBC1 ||
+               schemeType == AP4_PROTECTION_SCHEME_TYPE_CENS)
+      {
+        LOG::LogF(LOGERROR, "Protection scheme %u not implemented.", schemeType);
+      }
     }
   }
 SUCCESS:
