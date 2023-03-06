@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2022-12-20 09:15+0000\n"
+"PO-Revision-Date: 2023-03-06 08:48+0000\n"
 "Last-Translator: Massimo Pissarello <mapi68@gmail.com>\n"
 "Language-Team: Italian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/it_it/>\n"
 "Language: it_it\n"
@@ -13,7 +13,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
+"X-Generator: Weblate 4.15.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -21,7 +21,7 @@ msgstr "Client InputStream per stream adattivi"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
-msgstr "Client InputStream per stream adattivi"
+msgstr "Client InputStream per flussi adattivi. Sono supportati protocolli di streaming comuni come MPEG-DASH, HLS e Microsoft Smooth Streaming.[CR][CR]L'add-on supporta anche flussi protetti da DRM, come Google Widevine, Microsoft PlayReady e altri.[CR][CR] ]Per la documentazione visita: https://github.com/xbmc/inputstream.adaptive"
 
 #. Category title
 msgctxt "#30100"
@@ -315,6 +315,16 @@ msgstr ""
 #. Description of setting with label #30238
 msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
+msgstr ""
+
+#. Debug setting to save license data
+msgctxt "#30240"
+msgid "Save license data"
+msgstr ""
+
+#. Description of setting with label #30240
+msgctxt "#30241"
+msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
 msgstr ""
 
 # The minimum bandwidth which should not be deceeded.

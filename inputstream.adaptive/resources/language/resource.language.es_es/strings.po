@@ -5,15 +5,15 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2022-01-22 09:13+0000\n"
-"Last-Translator: Alfonso Cachero <alfonso.cachero@gmail.com>\n"
+"PO-Revision-Date: 2023-03-06 08:48+0000\n"
+"Last-Translator: José Antonio Alvarado <jalvarado0.eses@gmail.com>\n"
 "Language-Team: Spanish (Spain) <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/es_es/>\n"
 "Language: es_es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.10.1\n"
+"X-Generator: Weblate 4.15.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -31,54 +31,54 @@ msgstr "General"
 #. The minimum bandwidth which should not be deceeded
 msgctxt "#30101"
 msgid "Minimum bandwidth (Kbps)"
-msgstr ""
+msgstr "Ancho de banda mínimo (Kbps)"
 
 #. The maximum bandwidth which should not be exceeded
 msgctxt "#30102"
 msgid "Maximum bandwidth (Kbps)"
-msgstr ""
+msgstr "Ancho de banda máximo (Kbps)"
 
 #. Description of setting with label #30101, 30102
 msgctxt "#30103"
 msgid "Establishes the bandwidth limit not to be exceeded with the audio / video streams. Set to 0 to disable it."
-msgstr ""
+msgstr "Establece el límite de ancho de banda que no debe superarse con las transmisiones de audio / vídeo. Ajustar a 0 para desactivarlo."
 
 # empty strings from id 30104 to 30109
 #. Maximum video resolution non-protected videos
 msgctxt "#30110"
 msgid "Maximum resolution"
-msgstr ""
+msgstr "Máxima resolución"
 
 # empty string with id 30111
 #. Type of media streams that will be handled for the playback
 msgctxt "#30112"
 msgid "Type of media streams played"
-msgstr ""
+msgstr "Tipo de transmisiones multimedia reproducidas"
 
 #. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
 msgid "Maximum resolution for DRM videos"
-msgstr ""
+msgstr "Máxima resolución para vídeos DRM"
 
 # empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore screen resolution"
-msgstr ""
+msgstr "Ignorar resolución de pantalla"
 
 #. Description of setting with label #30115
 msgctxt "#30116"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
-msgstr ""
+msgstr "Si se activa, la resolución de la pantalla (o el tamaño de la ventana en modo ventana) ya no se tendrá en cuenta al seleccionar la mejor resolución de transmisión de vídeo cuando se inicie el vídeo y durante la reproducción."
 
 msgctxt "#30117"
 msgid "Manual stream selection mode"
-msgstr ""
+msgstr "Modo de selección manual de la transmisión"
 
 #. Description of setting with label #30117
 msgctxt "#30118"
 msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
-msgstr ""
+msgstr "Define qué tipo de transmisiones están disponibles para la selección manual en los ajustes OSD de Kodi durante la reproducción."
 
 #. Category title
 msgctxt "#30120"
@@ -88,18 +88,18 @@ msgstr "Experto"
 # empty string with id 30121
 msgctxt "#30122"
 msgid "Try avoiding the use of secure decoder"
-msgstr ""
+msgstr "Trate de evitar el uso del decodificador seguro"
 
 #. Description of setting with label #30122
 msgctxt "#30123"
 msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
-msgstr ""
+msgstr "Algunos dispositivos Android definidos como Widevine L1, pueden no funcionar correctamente, lo que puede resultar en una pantalla negra durante la reproducción. En este caso, intente activarlo."
 
 # empty strings from id 30124 to 30155
 #. Item list value of setting with label #30117
 msgctxt "#30156"
 msgid "Audio / Video streams"
-msgstr ""
+msgstr "Transmisiones de audio y vídeo"
 
 #. Item list value of setting with label #30112
 msgctxt "#30157"
@@ -119,203 +119,213 @@ msgstr "Vídeo"
 #. Item list value of setting with label #30117
 msgctxt "#30160"
 msgid "Video streams"
-msgstr ""
+msgstr "Transmisiones de vídeo"
 
 #. Item list value of setting with label #30112
 msgctxt "#30161"
 msgid "Video / Subtitles"
-msgstr ""
+msgstr "Vídeo / Subtítulos"
 
 #. Category group title
 msgctxt "#30162"
 msgid "Adaptive stream"
-msgstr ""
+msgstr "Transmisión adaptativa"
 
 # empty strings from id 30163 to 30165
 #. Category group title
 msgctxt "#30166"
 msgid "DRM Widevine"
-msgstr ""
+msgstr "DRM Widevine"
 
 msgctxt "#30167"
 msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
-msgstr ""
+msgstr "ADVERTENCIA: Esta es una función de PRUEBA, puede no funcionar correctamente y puede cambiar en futuras versiones."
 
 msgctxt "#30168"
 msgid "Auto determines initial bandwidth"
-msgstr ""
+msgstr "Determina automáticamente el ancho de banda inicial"
 
 #. Description of setting with label #30168
 msgctxt "#30169"
 msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
-msgstr ""
+msgstr "Si se activa, el ancho de banda será determinado por la primera descarga, sin embargo puede no ser exacto. Si la calidad de vídeo al inicio de la reproducción es demasiado baja, prueba a desactivarla."
 
 msgctxt "#30170"
 msgid "Initial bandwidth (Kbps)"
-msgstr ""
+msgstr "Ancho de banda inicial (Kbps)"
 
 #. Description of setting with label #30170
 msgctxt "#30171"
 msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
-msgstr ""
+msgstr "Define el ancho de banda inicial cuando no se puede determinar automáticamente. Este valor puede ser anulado por el ajuste de ancho de banda mínimo."
 
 msgctxt "#30172"
 msgid "Ignore HDCP status"
-msgstr ""
+msgstr "Ignorar estado HDCP"
 
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
-msgstr ""
+msgstr "Algunos vídeos HD / UHD protegidos por DRM sólo pueden reproducirse si se ignora el estado HDCP."
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
 msgid "Stream selection type"
-msgstr ""
+msgstr "Tipo de selección de transmisión"
 
 #. Description of setting with label #30174
 msgctxt "#30175"
 msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
-msgstr ""
+msgstr "Establece cómo se elegirá la calidad de la transmisión de audio/vídeo durante la reproducción. Este ajuste puede ser anulado por el add-on de vídeo utilizado. Ver Wiki para más información."
 
 #. Item list value of setting with label #30174
 msgctxt "#30176"
 msgid "Adaptive (default)"
-msgstr ""
+msgstr "Adaptativo (por defecto)"
 
 #. Item list value of setting with label #30174
 msgctxt "#30177"
 msgid "Manual OSD"
-msgstr ""
+msgstr "OSD manual"
 
 #. Item list value of setting with label #30174
 msgctxt "#30178"
 msgid "Fixed resolution"
-msgstr ""
+msgstr "Resolución fija"
 
 #. Item list value of setting with label #30174
 msgctxt "#30179"
 msgid "Ask quality"
-msgstr ""
+msgstr "Pedir calidad"
 
 #. Item list value of setting with label #30174
 msgctxt "#30180"
 msgid "Test"
-msgstr ""
+msgstr "Prueba"
 
 # empty strings reserved for "stream selection types" from id 30181 to 30190
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
 msgid "Assured buffer duration (sec)"
-msgstr ""
+msgstr "Duración garantizada del búfer (seg)"
 
 #. Max buffer length duration (seconds)
 msgctxt "#30201"
 msgid "Maximum buffer duration (sec)"
-msgstr ""
+msgstr "Duración máxima del búfer (seg)"
 
 #. Ignore screen resolution change e.g. window resize
 msgctxt "#30202"
 msgid "Ignore screen resolution change"
-msgstr ""
+msgstr "Ignorar cambio de resolución de pantalla"
 
 #. Description of setting with label #30202
 msgctxt "#30203"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
-msgstr ""
+msgstr "Si se activa, la resolución de la pantalla (o el tamaño de la ventana en modo ventana) ya no se tendrá en cuenta al seleccionar la mejor resolución de flujo de vídeo durante la reproducción."
 
 #. Absolute path to the folder containing the DRM binary files
 msgctxt "#30204"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Ruta del desencriptador"
 
 # empty strings from id 30205 to 30209
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30210"
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30211"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30212"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30213"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30214"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30215"
 msgid "2K"
-msgstr ""
+msgstr "2K"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30216"
 msgid "1440p"
-msgstr ""
+msgstr "1440p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30217"
 msgid "4K"
-msgstr ""
+msgstr "4K"
 
 # empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
 #. Dialog window to select the video stream
 msgctxt "#30231"
 msgid "Select video stream"
-msgstr ""
+msgstr "Seleccionar transmisión de vídeo"
 
 #. Description of each list item in #30231 dialog window
 #. Do not translate placeholders: {codec} {quality}
 msgctxt "#30232"
 msgid "Video stream {codec} {quality}"
-msgstr ""
+msgstr "Transmisión de vídeo {codec} {quality}"
 
 #. Enum setting to set the test mode
 msgctxt "#30233"
 msgid "Test mode"
-msgstr ""
+msgstr "Modo de prueba"
 
 #. Item list value of setting with label #30233
 msgctxt "#30234"
 msgid "Switch by segments"
-msgstr ""
+msgstr "Cambiar por segmentos"
 
 #. Stand for stream segments, referred to setting with label #30234
 msgctxt "#30235"
 msgid "Segments"
-msgstr ""
+msgstr "Segmentos"
 
 #. Category group title
 msgctxt "#30236"
 msgid "Override settings"
-msgstr ""
+msgstr "Anular ajustes"
 
 #. Category group title for debug settings
 msgctxt "#30237"
 msgid "Debug logging"
-msgstr ""
+msgstr "Registro de depuración"
 
 #. Debug setting to save stream manifests
 msgctxt "#30238"
 msgid "Save stream manifests"
-msgstr ""
+msgstr "Guardar manifiestos de transmisión"
 
 #. Description of setting with label #30238
 msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
-msgstr ""
+msgstr "Guarda los manifiestos de transmisión descargados durante la reproducción en la carpeta de datos de usuario de InputStream Adaptive."
+
+#. Debug setting to save license data
+msgctxt "#30240"
+msgid "Save license data"
+msgstr "Guardar datos de la licencia"
+
+#. Description of setting with label #30240
+msgctxt "#30241"
+msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
+msgstr "Guarda los datos de la licencia, por ejemplo: datos iniciales, datos de desafío y datos de respuesta, en la carpeta \"cdm\" de la carpeta de datos de Kodi."
 
 # The minimum bandwidth which should not be deceeded.
 #~ msgctxt "#30101"

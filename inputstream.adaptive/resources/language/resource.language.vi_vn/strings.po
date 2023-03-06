@@ -317,6 +317,16 @@ msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
 msgstr ""
 
+#. Debug setting to save license data
+msgctxt "#30240"
+msgid "Save license data"
+msgstr ""
+
+#. Description of setting with label #30240
+msgctxt "#30241"
+msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
+msgstr ""
+
 #~ msgctxt "#30150"
 #~ msgid "Max"
 #~ msgstr "Tối đa"
