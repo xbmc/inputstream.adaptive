@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2023-02-22 21:17+0000\n"
+"PO-Revision-Date: 2023-03-01 05:08+0000\n"
 "Last-Translator: Kai Sommerfeld <ksooo@users.noreply.kodi.weblate.cloud>\n"
 "Language-Team: German <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/de_de/>\n"
 "Language: de_de\n"
@@ -166,7 +166,7 @@ msgstr "HDCP-Status ignorieren"
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
-msgstr "Einige DRM-geschützte HD-/UHD-Videos können nur abgespielt werden, wenn der HDCP-Status ignoriert wird."
+msgstr "Einige DRM-geschützte HD-/UHD-Videos können nur wiedergegeben werden, wenn der HDCP-Status ignoriert wird."
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
@@ -212,7 +212,7 @@ msgstr "Zugesicherte Pufferlänge (Sekunden)"
 #. Max buffer length duration (seconds)
 msgctxt "#30201"
 msgid "Maximum buffer duration (sec)"
-msgstr "maximale Pufferlänge (Sekunden)"
+msgstr "Maximale Pufferlänge (Sekunden)"
 
 #. Ignore screen resolution change e.g. window resize
 msgctxt "#30202"
@@ -316,6 +316,16 @@ msgstr "Stream-Manifeste speichern"
 msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
 msgstr "Speichert die während der Wiedergabe heruntergeladenen Stream-Manifeste im Benutzerdatenordner von Inputstream Adaptive."
+
+#. Debug setting to save license data
+msgctxt "#30240"
+msgid "Save license data"
+msgstr ""
+
+#. Description of setting with label #30240
+msgctxt "#30241"
+msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
+msgstr ""
 
 # The minimum bandwidth which should not be deceeded.
 #~ msgctxt "#30101"
