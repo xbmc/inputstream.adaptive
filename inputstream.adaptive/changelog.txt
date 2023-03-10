@@ -1,3 +1,12 @@
+v21.0.2 (2023-03-10)
+- Reimplement saving license data, controllable in settings
+- [DASH] fix representation updates for identical adaptationsets
+- [Widevine] add support for linux arm64
+- reduce logging when waiting for new segments in live manifests
+- [DASH] fix url calculation issues
+- bump gtest
+- handle PIFF protection scheme
+
 v21.0.1 (2023-02-23)
 - overhaul url utils to follow RFC 3986
 - [Debug] option to save manifests to disk for debugging purposes
