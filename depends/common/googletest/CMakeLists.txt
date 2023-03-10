@@ -18,6 +18,11 @@ endif (POLICY CMP0077)
 project(googletest-distribution)
 set(GOOGLETEST_VERSION 1.13.0)
 
+# Workaround for missing debug postfix
+# may be fixed on future versions
+# https://github.com/google/googletest/issues/3843
+set(CMAKE_DEBUG_POSTFIX "d")
+
 if (CMAKE_VERSION VERSION_LESS "3.1")
   add_definitions(-std=c++14)
 else()
