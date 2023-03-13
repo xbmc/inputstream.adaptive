@@ -425,12 +425,15 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
 
       // Inform decrypter of pattern decryption (CBCS)
       AP4_UI32 schemeType = m_protectedDesc->GetSchemeType();
-      if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CENC || schemeType == AP4_PROTECTION_SCHEME_TYPE_CBCS)
+      if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CENC ||
+          schemeType == AP4_PROTECTION_SCHEME_TYPE_PIFF ||
+          schemeType == AP4_PROTECTION_SCHEME_TYPE_CBCS)
       {
         m_readerCryptoInfo.m_cryptBlocks = sample_table->GetCryptByteBlock();
         m_readerCryptoInfo.m_skipBlocks = sample_table->GetSkipByteBlock();
 
-        if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CENC)
+        if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CENC ||
+            schemeType == AP4_PROTECTION_SCHEME_TYPE_PIFF)
           m_readerCryptoInfo.m_mode = CryptoMode::AES_CTR;
         else
           m_readerCryptoInfo.m_mode = CryptoMode::AES_CBC;
@@ -438,6 +441,11 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
         m_singleSampleDecryptor->SetEncryptionMode(m_readerCryptoInfo.m_mode);
         m_singleSampleDecryptor->SetCrypto(m_readerCryptoInfo.m_cryptBlocks,
                                            m_readerCryptoInfo.m_skipBlocks);
+      }
+      else if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CBC1 ||
+               schemeType == AP4_PROTECTION_SCHEME_TYPE_CENS)
+      {
+        LOG::LogF(LOGERROR, "Protection scheme %u not implemented.", schemeType);
       }
     }
   }
