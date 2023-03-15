@@ -1173,7 +1173,7 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
             timingStream->GetReader()->GetStartPTS() != STREAM_NOPTS_VALUE &&
             streamReader->GetStartPTS() == STREAM_NOPTS_VALUE)
         {
-          // want this to be the internal data's (not segment's) pts of 
+          // want this to be the internal data's (not segment's) pts of
           // the first segment in period
           streamReader->SetStartPTS(GetTimingStartPTS());
         }
