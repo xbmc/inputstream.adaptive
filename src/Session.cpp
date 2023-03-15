@@ -120,9 +120,10 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
   }
   m_KodiHost->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
 
-  std::array<std::string, 2> searchPaths =
+  std::array<std::string, 3> searchPaths =
   {
     kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/"),
+    kodi::vfs::TranslateSpecialProtocol("special://xbmcaltbinaddons/inputstream.adaptive/"),
     kodi::addon::GetAddonInfo("path"),
   };
 
