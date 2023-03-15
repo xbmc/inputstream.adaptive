@@ -358,6 +358,13 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       }
     }
 
+    if (!track->GetSampleDescription(0))
+    {
+      LOG::LogF(LOGERROR, "No STSD atom in stream");
+      m_session->EnableStream(stream, false);
+      return false;
+    }
+
     auto sampleDecrypter =
         m_session->GetSingleSampleDecryptor(stream->m_adStream.getRepresentation()->pssh_set_);
     auto caps = m_session->GetDecrypterCaps(stream->m_adStream.getRepresentation()->pssh_set_);
