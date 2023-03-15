@@ -23,6 +23,8 @@
 #include "utils/Utils.h"
 #include "utils/log.h"
 
+#include <array>
+
 #include <kodi/addon-instance/Inputstream.h>
 
 using namespace UTILS;
@@ -118,10 +120,11 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
   }
   m_KodiHost->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
 
-  std::vector<std::string> searchPaths{2};
-  searchPaths[0] =
-      kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/");
-  searchPaths[1] = kodi::addon::GetAddonInfo("path");
+  std::array<std::string, 2> searchPaths =
+  {
+    kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/"),
+    kodi::addon::GetAddonInfo("path"),
+  };
 
   std::vector<kodi::vfs::CDirEntry> items;
 
