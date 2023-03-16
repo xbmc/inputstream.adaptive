@@ -1002,6 +1002,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
       dash->periods_.push_back(dash->current_period_);
       dash->period_timelined_ = false;
       dash->current_period_->start_ = 0;
+      dash->current_period_->sequence_ = dash->current_sequence_++;
 
       for (; *attr;)
       {
@@ -1778,11 +1779,41 @@ void DASHTree::RefreshLiveSegments()
 
       for (size_t index{0}; index < updateTree->periods_.size(); index++)
       {
-        if (index == periods_.size()) // Exceeded periods
-          break;
         auto updPeriod = updateTree->periods_[index];
         if (!updPeriod)
           continue;
+
+        Period* period{nullptr};
+        // find matching period based on ID
+        auto itPd = std::find_if(periods_.begin(), periods_.end(),
+                                 [&updPeriod](const Period* item)
+                                 { return !item->id_.empty() && item->id_ == updPeriod->id_; });
+        if (itPd == periods_.end())
+        {
+          // not found, try matching period based on start
+          itPd = std::find_if(periods_.begin(), periods_.end(),
+                              [&updPeriod](const Period* item)
+                              { return item->start_ && item->start_ == updPeriod->start_; });
+        }
+        // found!
+        if (itPd != periods_.end())
+          period = *itPd;
+        if (!period && updPeriod->id_.empty() && updPeriod->start_ == 0)
+        {
+          // not found, fallback match based on position
+          if (index < periods_.size())
+            period = periods_[index];
+        }
+        // new period, insert it
+        if (!period)
+        {
+          LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->id_.c_str(),
+                    updPeriod->start_);
+          updateTree->periods_[index] = nullptr; // remove to prevent delete; we take ownership
+          updPeriod->sequence_ = current_sequence_++;
+          periods_.push_back(updPeriod);
+          continue;
+        }
 
         for (auto updAdaptationSet : updPeriod->adaptationSets_)
         {
@@ -1790,7 +1821,7 @@ void DASHTree::RefreshLiveSegments()
           if (!updAdaptationSet)
             continue;
 
-          for (auto adaptationSet : periods_[index]->adaptationSets_)
+          for (auto adaptationSet : period->adaptationSets_)
           {
             if (!(adaptationSet->id_ == updAdaptationSet->id_ &&
                   adaptationSet->group_ == updAdaptationSet->group_ &&
