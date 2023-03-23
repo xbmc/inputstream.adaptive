@@ -43,7 +43,7 @@ namespace SSD
     {
       PROPERTY_HEADER
   };
-    static const uint32_t version = 21;
+    static const uint32_t version = 22;
 #if defined(ANDROID)
     virtual void* GetJNIEnv() = 0;
     virtual int GetSDKVersion() = 0;
@@ -86,6 +86,15 @@ namespace SSD
     UnknownVideoFormat = 0,
     VideoFormatYV12,
     VideoFormatI420,
+    VideoFormatYUV420P9,
+    VideoFormatYUV420P10,
+    VideoFormatYUV420P12,
+    VideoFormatYUV422P9,
+    VideoFormatYUV422P10,
+    VideoFormatYUV422P12,
+    VideoFormatYUV444P9,
+    VideoFormatYUV444P10,
+    VideoFormatYUV444P12,
     MaxVideoFormats
   };
 

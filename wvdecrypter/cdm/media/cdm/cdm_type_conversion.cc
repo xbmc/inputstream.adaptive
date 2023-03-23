@@ -115,6 +115,24 @@ cdm::VideoFormat media::ToCdmVideoFormat(const SSD::SSD_VIDEOFORMAT format)
       return cdm::VideoFormat::kYv12;
     case SSD::SSD_VIDEOFORMAT::VideoFormatI420:
       return cdm::VideoFormat::kI420;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV420P9:
+      return cdm::VideoFormat::kYUV420P9;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV420P10:
+      return cdm::VideoFormat::kYUV420P10;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV420P12:
+      return cdm::VideoFormat::kYUV420P12;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV422P9:
+      return cdm::VideoFormat::kYUV422P9;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV422P10:
+      return cdm::VideoFormat::kYUV420P10;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV422P12:
+      return cdm::VideoFormat::kYUV422P12;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV444P9:
+      return cdm::VideoFormat::kYUV444P9;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV444P10:
+      return cdm::VideoFormat::kYUV444P10;
+    case SSD::SSD_VIDEOFORMAT::VideoFormatYUV444P12:
+      return cdm::VideoFormat::kYUV444P12;
     default:
       LOG::LogF(SSDWARNING, "Unknown video format %i", format);
       return cdm::VideoFormat::kUnknownVideoFormat;
@@ -129,6 +147,24 @@ SSD::SSD_VIDEOFORMAT media::ToSSDVideoFormat(const cdm::VideoFormat format)
       return SSD::SSD_VIDEOFORMAT::VideoFormatYV12;
     case cdm::VideoFormat::kI420:
       return SSD::SSD_VIDEOFORMAT::VideoFormatI420;
+    case cdm::VideoFormat::kYUV420P9:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV420P9;
+    case cdm::VideoFormat::kYUV420P10:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV420P10;
+    case cdm::VideoFormat::kYUV420P12:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV420P12;
+    case cdm::VideoFormat::kYUV422P9:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV422P9;
+    case cdm::VideoFormat::kYUV422P10:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV422P10;
+    case cdm::VideoFormat::kYUV422P12:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV422P12;
+    case cdm::VideoFormat::kYUV444P9:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV444P9;
+    case cdm::VideoFormat::kYUV444P10:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV444P10;
+    case cdm::VideoFormat::kYUV444P12:
+      return SSD::SSD_VIDEOFORMAT::VideoFormatYUV444P12;
     default:
       LOG::LogF(SSDWARNING, "Unknown video format %i", format);
       return SSD::SSD_VIDEOFORMAT::UnknownVideoFormat;
