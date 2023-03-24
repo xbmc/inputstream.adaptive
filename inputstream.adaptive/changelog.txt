@@ -1,3 +1,9 @@
+v21.0.3 (2023-03-24)
+- [DASH] better period matching for live refreshes
+- [AdaptiveStream] rework/update of download retries, allowing for VOD retry attempts
+- [SSD] add xbmcaltbinaddons to search path
+- [SSD][Widevine] Add new video formats
+
 v21.0.2 (2023-03-10)
 - Reimplement saving license data, controllable in settings
 - [DASH] fix representation updates for identical adaptationsets
