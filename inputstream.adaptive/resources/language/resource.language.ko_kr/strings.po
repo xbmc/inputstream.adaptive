@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2023-02-22 21:17+0000\n"
+"PO-Revision-Date: 2023-03-24 11:16+0000\n"
 "Last-Translator: Minho Park <parkmino@gmail.com>\n"
 "Language-Team: Korean <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/ko_kr/>\n"
 "Language: ko_kr\n"
@@ -320,12 +320,12 @@ msgstr "재생 중에 내려받은 스트림 목록을 InputStream Adaptive의 �
 #. Debug setting to save license data
 msgctxt "#30240"
 msgid "Save license data"
-msgstr ""
+msgstr "라이선스 데이터 저장"
 
 #. Description of setting with label #30240
 msgctxt "#30241"
 msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
-msgstr ""
+msgstr "예를 들어 초기 데이터, 챌린지 데이터 및 응답 데이터와 같은 라이선스 데이터를 Kodi 데이터 폴더의 \"cdm\" 폴더에 저장합니다."
 
 # The minimum bandwidth which should not be deceeded.
 #~ msgctxt "#30101"
