@@ -1,3 +1,7 @@
+v20.3.6 (2023-03-27)
+- Translations updates from Weblate
+	- de_de, fr_fr, ko_kr
+
 v20.3.5 (2023-03-10)
 - [Widevine] Reimplement saving license data, controllable in settings
 - [DASH] fix representation updates for identical adaptationsets
