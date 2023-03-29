@@ -28,6 +28,7 @@
 #include "kodi/tools/StringUtils.h"
 
 using namespace adaptive;
+using namespace std::chrono_literals;
 using namespace kodi::tools;
 using namespace UTILS;
 
@@ -148,20 +149,35 @@ void AdaptiveStream::worker()
       thread_data_->signal_dl_.notify_one();
       lckdl.unlock();
 
-      bool ret(download_segment(downloadInfo));
-      unsigned int retryCount(10);
+      bool isLive = tree_.has_timeshift_buffer_;
 
-      //Some streaming software offers subtitle tracks with missing fragments, usually live tv
-      //When a programme is broadcasted that has subtitles, subtitles fragments are offered
-      //TODO: Ensure we continue with the next segment after one retry on errors
-      if (current_adp_->type_ == AdaptiveTree::SUBTITLE)
-        retryCount = 1;
+      //! @todo: for live content we should calculate max attempts and sleep timing
+      //! based on segment duration / playlist updates timing
+      size_t maxAttempts = isLive ? 10 : 6;
+      std::chrono::milliseconds msSleep = isLive ? 1000ms : 500ms;
 
-      while (!ret && state_ == RUNNING && retryCount-- && tree_.has_timeshift_buffer_)
+      //! @todo: Some streaming software offers subtitle tracks with missing fragments, usually live tv
+      //! When a programme is broadcasted that has subtitles, subtitles fragments are offered,
+      //! Ensure we continue with the next segment after one retry on errors
+      if (current_adp_->type_ == AdaptiveTree::SUBTITLE && isLive)
+        maxAttempts = 2;
+
+      size_t downloadAttempts = 1;
+      bool isSegmentDownloaded = false;
+
+      // Download errors may occur e.g. due to unstable connection, server overloading, ...
+      // then we try downloading the segment more times before aborting playback
+      while (state_ == RUNNING)
       {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        LOG::LogF(LOGDEBUG, "Trying to reload segment ...");
-        ret = download_segment(downloadInfo);
+        isSegmentDownloaded = download_segment(downloadInfo);
+        if (isSegmentDownloaded || downloadAttempts == maxAttempts)
+          break;
+
+        //! @todo: forcing thread sleep block the thread also while the state_ / thread_stop_ change values
+        //! we have to interrupt the sleep when it happens
+        std::this_thread::sleep_for(msSleep);
+        downloadAttempts++;
+        LOG::Log(LOGWARNING, "Segment download failed, attempt %zu...", downloadAttempts);
       }
 
       lckdl.lock();
@@ -169,7 +185,7 @@ void AdaptiveStream::worker()
       //Signal finished download
       {
         std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-        if (!ret)
+        if (!isSegmentDownloaded)
           state_ = STOPPED;
       }
       worker_processing_ = false;
