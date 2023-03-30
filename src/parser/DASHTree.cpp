@@ -1027,7 +1027,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
     const char *mpt(0), *tsbd(0);
 
     dash->firstStartNumber_ = 0;
-
+    dash->current_sequence_ = 0;
     dash->overallSeconds_ = 0;
     dash->stream_start_ = dash->GetNowTime();
     dash->mpd_url_ = dash->base_url_;
@@ -2001,6 +2001,7 @@ void DASHTree::RefreshLiveSegments()
                     LOG::LogF(LOGDEBUG,
                               "Full update with start number (repr. id: %s current start:%u)",
                               updRepr->id.c_str(), repr->startNumber_);
+                    overallSeconds_ = updateTree->overallSeconds_;
                   }
                 }
               }
