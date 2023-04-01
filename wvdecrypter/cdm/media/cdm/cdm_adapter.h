@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
+#include <future>
 
 #include "../../base/native_library.h"
 #include "../../base/compiler_specific.h"
@@ -80,7 +81,8 @@ class CdmAdapter : public std::enable_shared_from_this<CdmAdapter>
   , public cdm::Host_11
 {
  public:
-	CdmAdapter(const std::string& key_system,
+   void timerfunc(CdmAdapter* adp, int64_t delay, void* context);
+   CdmAdapter(const std::string& key_system,
     const std::string& cdm_path,
     const std::string& base_path,
     const CdmConfig& cdm_config,
@@ -235,7 +237,12 @@ private:
   std::string cdm_path_;
   std::string cdm_base_path_;
   CdmAdapterClient *client_;
-  std::mutex client_mutex_, decrypt_mutex_;
+  std::mutex client_mutex_;
+  std::mutex decrypt_mutex_;
+  std::mutex m_closeSessionMutex;
+  std::atomic<bool> m_isClosingSession;
+  std::condition_variable m_sessionClosingCond;
+  std::vector<std::future<void>> m_asyncTimerTasks;
 
   std::string key_system_;
   CdmConfig cdm_config_;
