@@ -1,3 +1,9 @@
+v21.0.4 (2023-04-04)
+- [DASH] Fix live period sequence numbers
+- [DASH] Fix live duration updates on some manifests
+- [MP4] Fix for crash when missing STSD atom
+- [DRM] rework CDM timer handling, fixes crashing after playback stop on non-Android devices
+
 v21.0.3 (2023-03-24)
 - [DASH] better period matching for live refreshes
 - [AdaptiveStream] rework/update of download retries, allowing for VOD retry attempts
