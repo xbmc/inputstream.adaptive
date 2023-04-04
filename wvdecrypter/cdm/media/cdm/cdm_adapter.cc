@@ -70,21 +70,6 @@ void* GetCdmHost(int host_interface_version, void* user_data)
 
 }  // namespace
 
-std::atomic<bool> exit_thread_flag;
-std::atomic<bool> timer_thread_running;
-
-void timerfunc(std::shared_ptr<CdmAdapter> adp, uint64_t delay, void* context)
-{
-  timer_thread_running  = true;
-  uint64_t waited = 0;
-  std::this_thread::sleep_for(std::chrono::milliseconds(delay));
-  if (!exit_thread_flag) 
-  {
-    adp->TimerExpired(context);
-  }
-  timer_thread_running = false;
-}
-
 cdm::AudioDecoderConfig_1 ToAudioDecoderConfig_1(
   const cdm::AudioDecoderConfig_2& config) {
   return{ config.codec,
@@ -144,11 +129,6 @@ CdmAdapter::CdmAdapter(
 
 CdmAdapter::~CdmAdapter()
 {
-  exit_thread_flag = true;
-  while (timer_thread_running) 
-  {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
   if (cdm9_)
     cdm9_->Destroy(), cdm9_ = nullptr;
   else if (cdm10_)
@@ -165,8 +145,7 @@ CdmAdapter::~CdmAdapter()
 
 void CdmAdapter::Initialize()
 {
-  exit_thread_flag = false;
-  timer_thread_running = false;
+  m_isClosingSession = false;
   if (cdm9_ || cdm10_ || cdm11_)
   {
     if (cdm9_)
@@ -333,17 +312,19 @@ void CdmAdapter::CloseSession(uint32_t promise_id,
   const char* session_id,
   uint32_t session_id_size)
 {
-  exit_thread_flag = true;
-  while (timer_thread_running) 
   {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::lock_guard<std::mutex> lock(m_closeSessionMutex);
+    m_isClosingSession = true;
   }
+  m_sessionClosingCond.notify_all();
   if (cdm9_)
     cdm9_->CloseSession(promise_id, session_id, session_id_size);
   else if (cdm10_)
     cdm10_->CloseSession(promise_id, session_id, session_id_size);
   else if (cdm11_)
     cdm11_->CloseSession(promise_id, session_id, session_id_size);
+  // remove any shared_ptr references left
+  m_asyncTimerTasks.clear();
 }
 
 void CdmAdapter::RemoveSession(uint32_t promise_id,
@@ -504,10 +485,38 @@ cdm::Buffer* CdmAdapter::Allocate(uint32_t capacity)
   return client_->AllocateBuffer(capacity);
 }
 
+void CdmAdapter::timerfunc(CdmAdapter* adp, int64_t delay, void* context)
+{
+  {
+    std::unique_lock<std::mutex> lock(m_closeSessionMutex);
+    const bool isClosing = m_sessionClosingCond.wait_for(
+      lock, std::chrono::milliseconds(delay), [this] { return m_isClosingSession.load(); });
+    if (isClosing)
+      return;
+  }
+  adp->TimerExpired(context);
+}
+
 void CdmAdapter::SetTimer(int64_t delay_ms, void* context)
 {
   //LICENSERENEWAL
-  std::thread(timerfunc, shared_from_this(), delay_ms, context).detach();
+  // Clean up async tasks which have finished
+  {
+    std::lock_guard<std::mutex> lock(m_closeSessionMutex);
+    for (auto itFuture = m_asyncTimerTasks.begin(); itFuture != m_asyncTimerTasks.end();)
+    {
+      if (!itFuture->valid() ||
+        itFuture->wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
+      {
+        itFuture = m_asyncTimerTasks.erase(itFuture);
+      }
+      else
+        itFuture++;
+    }
+  }
+  std::future<void> future = std::async(std::launch::async, &CdmAdapter::timerfunc,
+                                        shared_from_this(), this, delay_ms, context);
+  m_asyncTimerTasks.push_back(std::move(future));
 }
 
 cdm::Time CdmAdapter::GetCurrentWallTime()
