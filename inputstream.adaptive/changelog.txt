@@ -1,3 +1,6 @@
+v21.1.0 (2023-04-04)
+- Minor version bump - missed at time of v21.0.3
+
 v21.0.4 (2023-04-04)
 - [DASH] Fix live period sequence numbers
 - [DASH] Fix live duration updates on some manifests
