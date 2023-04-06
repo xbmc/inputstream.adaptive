@@ -40,8 +40,16 @@ namespace adaptive
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     void Reset();
     bool start_stream();
-    void stop();
+    /*!
+     * \brief Disable current representation, wait the current download is finished and stop downloads.
+     */
+    void Stop();
     void clear();
+    /*!
+     * \brief Delete download worker thread and his data,
+     *        downloads must be already stopped with Stop() before call this method.
+     */
+    void DisposeWorker();
     void info(std::ostream &s);
     uint64_t getMaxTimeMs();
 
@@ -124,7 +132,15 @@ namespace adaptive
   
     void ResetSegment(const AdaptiveTree::Segment* segment);
     void ResetActiveBuffer(bool oneValid);
-    void StopWorker(STATE state);
+    /*!
+     * \brief Wait for download in progress is completed, then stop the worker
+     * \return True if success, otherwise false if meantime the worker status is changed
+     */
+    bool StopWorker(STATE state);
+    /*!
+     * \brief Wait until the worker become ready to manage next downloads
+     */
+    void WaitWorker();
     void worker();
     bool prepareNextDownload(DownloadInfo& downloadInfo);
     bool prepareDownload(const AdaptiveTree::Representation* rep,
@@ -147,8 +163,16 @@ namespace adaptive
         download_thread_ = std::thread(&AdaptiveStream::worker, parent);
       }
 
+      // \brief Stop the thread loop, make sure that dont enter in wait state again.
+      void Stop()
+      {
+        thread_stop_ = true;
+        signal_dl_.notify_one(); // Unlock possible condition variable signal_dl_ in "wait" state
+      }
+
       ~THREADDATA()
       {
+        Stop();
         thread_stop_ = true;
         signal_dl_.notify_one();
         if (download_thread_.joinable())
