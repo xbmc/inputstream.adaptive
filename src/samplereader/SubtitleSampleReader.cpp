@@ -135,7 +135,7 @@ AP4_Result CSubtitleSampleReader::ReadSample()
       }
       else
       {
-        LOG::LogF(LOGERROR, "Failed to get subtitle segment buffer size");
+        LOG::LogF(LOGWARNING, "Failed to get subtitle segment buffer size");
       }
     }
   }

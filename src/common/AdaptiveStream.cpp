@@ -69,7 +69,8 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
 
 AdaptiveStream::~AdaptiveStream()
 {
-  stop();
+  Stop();
+  DisposeWorker();
   clear();
 }
 
@@ -102,8 +103,7 @@ void AdaptiveStream::ResetActiveBuffer(bool oneValid)
   segment_read_pos_ = 0;
 }
 
-// Make sure worker is in CV wait state.
-void AdaptiveStream::StopWorker(STATE state)
+bool AdaptiveStream::StopWorker(STATE state)
 {
   // stop downloading chunks
   state_ = state;
@@ -111,11 +111,29 @@ void AdaptiveStream::StopWorker(STATE state)
   // make sure download section in worker thread is done.
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
   while (worker_processing_)
+  {
+    // While we are waiting the state of worker may be changed
     thread_data_->signal_rw_.wait(lckrw);
-  // Now the worker thread should keep the lock until it starts waiting
-  // to get CV signaled - make sure we are at this point.
+  }
+
+  // Now if the state set is PAUSED/STOPPED the worker thread should keep the lock to mutex_dl_
+  // and wait for a signal to condition varibale "signal_dl_.wait",
+  // if state will be not changed to RUNNING next downloads will be not performed.
+
+  // Check if the worker state is changed by other situations
+  // e.g. stop playback or download cancelled
+  // that invalidated our status
+  return state_ == state;
+}
+
+void adaptive::AdaptiveStream::WaitWorker()
+{
+  // If the worker is in PAUSE/STOP state
+  // we wait here until condition variable "signal_dl_.wait" is executed,
+  // after that the worker will be waiting for a signal to unlock "signal_dl_.wait" (blocking thread)
   std::lock_guard<std::mutex> lckdl(thread_data_->mutex_dl_);
-  // Make sure that worker continues at next notify
+  // Make sure that worker continue the loop (avoid signal_dl_.wait block again the thread)
+  // and allow new downloads
   state_ = RUNNING;
 }
 
@@ -136,14 +154,20 @@ void AdaptiveStream::worker()
   {
     while (!thread_data_->thread_stop_ &&
            (state_ != RUNNING || valid_segment_buffers_ >= available_segment_buffers_))
+    {
       thread_data_->signal_dl_.wait(lckdl);
+    }
 
     if (!thread_data_->thread_stop_)
     {
       worker_processing_ = true;
 
       DownloadInfo downloadInfo;
-      prepareNextDownload(downloadInfo);
+      if (!prepareNextDownload(downloadInfo))
+      {
+        worker_processing_ = false;
+        continue;
+      }
 
       // tell the main thread that we have processed prepare_download;
       thread_data_->signal_dl_.notify_one();
@@ -167,10 +191,10 @@ void AdaptiveStream::worker()
 
       // Download errors may occur e.g. due to unstable connection, server overloading, ...
       // then we try downloading the segment more times before aborting playback
-      while (state_ == RUNNING)
+      while (state_ != STOPPED)
       {
         isSegmentDownloaded = download_segment(downloadInfo);
-        if (isSegmentDownloaded || downloadAttempts == maxAttempts)
+        if (isSegmentDownloaded || downloadAttempts == maxAttempts || state_ == STOPPED)
           break;
 
         //! @todo: forcing thread sleep block the thread also while the state_ / thread_stop_ change values
@@ -182,17 +206,23 @@ void AdaptiveStream::worker()
 
       lckdl.lock();
 
-      //Signal finished download
       {
         std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
         if (!isSegmentDownloaded)
+        {
+          // Download cancelled or cannot download the file
           state_ = STOPPED;
+        }
       }
-      worker_processing_ = false;
 
-      thread_data_->signal_rw_.notify_one();
+      // Signal finished download
+      worker_processing_ = false;
+      thread_data_->signal_rw_.notify_all();
     }
   } while (!thread_data_->thread_stop_);
+
+  worker_processing_ = false;
+  lckdl.unlock();
 }
 
 int AdaptiveStream::SecondsSinceUpdate() const
@@ -482,7 +512,7 @@ bool AdaptiveStream::write_data(const void* buffer,
                         reinterpret_cast<const uint8_t*>(buffer), segment_buffer, insertPos,
                         buffer_size, lastChunk);
   }
-  thread_data_->signal_rw_.notify_one();
+  thread_data_->signal_rw_.notify_all();
   return true;
 }
 
@@ -603,6 +633,7 @@ bool AdaptiveStream::start_stream()
   if (loadingSeg)
   {
     StopWorker(PAUSED);
+    WaitWorker();
 
     if (available_segment_buffers_)
       std::rotate(segment_buffers_.rend() - (available_segment_buffers_ + 1),
@@ -680,6 +711,7 @@ bool AdaptiveStream::prepareNextDownload(DownloadInfo& downloadInfo)
 
   const AdaptiveTree::Representation* rep = segment_buffers_[valid_segment_buffers_].rep;
   const AdaptiveTree::Segment* seg = &segment_buffers_[valid_segment_buffers_].segment;
+
   // segNum == ~0U is initialization segment!
   uint64_t segNum = segment_buffers_[valid_segment_buffers_].segment_number;
   segment_buffers_[valid_segment_buffers_].buffer.clear();
@@ -1008,16 +1040,11 @@ bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
   if (state_ == STOPPED)
     return false;
 
-  std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
-
-  while (worker_processing_)
-  {
-    thread_data_->signal_rw_.wait(lckrw);
-  }
-  state_ = STOPPED;
-  std::lock_guard<std::mutex> lckdl(thread_data_->mutex_dl_);
+  if (!StopWorker(PAUSED))
+    return false;
+  
   size = segment_buffers_[0].buffer.size();
-  state_ = RUNNING;
+  WaitWorker();
   return true;
 }
 
@@ -1047,6 +1074,7 @@ uint64_t AdaptiveStream::getMaxTimeMs()
 void AdaptiveStream::ResetCurrentSegment(const AdaptiveTree::Segment* newSegment)
 {
   StopWorker(STOPPED);
+  WaitWorker();
   // EnsureSegment loads always the next segment, so go back 1
   current_rep_->current_segment_ =
     current_rep_->get_segment(current_rep_->get_segment_pos(newSegment) - 1);
@@ -1192,7 +1220,7 @@ void AdaptiveStream::info(std::ostream& s)
     << " bandwidth: " << current_rep_->bandwidth_ << std::endl;
 }
 
-void AdaptiveStream::stop()
+void AdaptiveStream::Stop()
 {
   if (current_rep_) 
   {
@@ -1202,14 +1230,33 @@ void AdaptiveStream::stop()
 
   if (thread_data_)
   {
+    thread_data_->Stop();
     StopWorker(STOPPED);
-    delete thread_data_;
-    thread_data_ = nullptr;
   }
-};
+}
 
 void AdaptiveStream::clear()
 {
   current_adp_ = 0;
   current_rep_ = 0;
+}
+
+void adaptive::AdaptiveStream::DisposeWorker()
+{
+  if (thread_data_)
+  {
+    if (worker_processing_)
+    {
+      LOG::LogF(LOGERROR,
+                "Cannot delete worker thread, download is in progress.");
+      return;
+    }
+    if (!thread_data_->thread_stop_)
+    {
+      LOG::LogF(LOGERROR, "Cannot delete worker thread, loop is still running.");
+      return;
+    }
+    delete thread_data_;
+    thread_data_ = nullptr;
+  }
 }
