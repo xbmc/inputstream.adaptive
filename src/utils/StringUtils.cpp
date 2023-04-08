@@ -214,6 +214,11 @@ std::set<std::string> UTILS::STRING::Split(std::string_view input,
   return result;
 }
 
+bool UTILS::STRING::Compare(std::string_view str1, std::string_view str2)
+{
+  return str1.compare(str2) == 0;
+}
+
 bool UTILS::STRING::CompareNoCase(std::string_view str1, std::string_view str2)
 {
   if (str1.size() != str2.size())

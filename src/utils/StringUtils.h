@@ -133,6 +133,14 @@ bool StartsWith(std::string_view str, std::string_view startStr);
 std::set<std::string> Split(std::string_view input, const char delimiter, int maxStrings = 0);
 
 /*!
+ * \brief Compares two strings in case sensitive way
+ * \param str1 String to be compared
+ * \param str2 String to be compared
+ * \return True if strings are equal.
+ */
+bool Compare(std::string_view str1, std::string_view str2);
+
+/*!
  * \brief Compares two strings in case insensitive way
  * \param str1 String to be compared
  * \param str2 String to be compared
