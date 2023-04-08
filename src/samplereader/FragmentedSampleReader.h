@@ -11,6 +11,7 @@
 #include "../SSD_dll.h"
 #include "../codechandler/CodecHandler.h"
 #include "../common/AdaptiveDecrypter.h"
+#include "../common/AdaptiveCencSampleDecrypter.h"
 #include "../utils/log.h"
 #include "SampleReader.h"
 
@@ -82,7 +83,7 @@ private:
   const AP4_UI08* m_defaultKey{nullptr};
   AP4_ProtectedSampleDescription* m_protectedDesc{nullptr};
   Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor;
-  AP4_CencSampleDecrypter* m_decrypter{nullptr};
+  CAdaptiveCencSampleDecrypter* m_decrypter{nullptr};
   uint64_t m_nextDuration{0};
   uint64_t m_nextTimestamp{0};
   CryptoInfo m_readerCryptoInfo{};

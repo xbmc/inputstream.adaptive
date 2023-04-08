@@ -21,5 +21,5 @@ struct CryptoInfo
 {
   uint8_t m_cryptBlocks{0};
   uint8_t m_skipBlocks{0};
-  CryptoMode m_mode{CryptoMode::NONE};
+  CryptoMode m_mode{ CryptoMode::NONE };
 };

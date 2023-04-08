@@ -416,12 +416,14 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
         // we assume unencrypted fragment here
         goto SUCCESS;
 
+      AP4_CencSampleDecrypter* decrypter = nullptr;
       if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0,
                                                               reset_iv, m_singleSampleDecryptor,
-                                                              m_decrypter)))
+                                                              decrypter)))
       {
         return result;
       }
+      m_decrypter = new CAdaptiveCencSampleDecrypter(m_singleSampleDecryptor, sample_table);
 
       // Inform decrypter of pattern decryption (CBCS)
       AP4_UI32 schemeType = m_protectedDesc->GetSchemeType();
