@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2022 Team Kodi
+ *  Copyright (C) 2023 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -8,9 +8,11 @@
 
 #pragma once
 
+#include <cinttypes>
 #include <deque>
-#include <inttypes.h>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #ifdef INPUTSTREAM_TEST_BUILD
@@ -19,72 +21,78 @@
 #include <kodi/AddonBase.h>
 #endif
 
+// Forward
+namespace pugi
+{
+class xml_node;
+}
+
 class ATTR_DLL_LOCAL TTML2SRT
 {
 public:
-  TTML2SRT() : m_node(0), m_pos(0), m_tickRate(0), m_frameRate(0), m_timescale(0), m_ptsOffset(0)
-  {
-    m_styleStack.push_back(STYLE());
-  };
+  TTML2SRT() {}
 
-  bool Parse(const void* buffer, size_t buffer_size, uint64_t timescale, uint64_t ptsOffset);
+  bool Parse(const void* buffer, size_t bufferSize, uint64_t timescale, uint64_t ptsOffset);
 
-  bool Prepare(uint64_t& pts, uint32_t& duration);
   bool TimeSeek(uint64_t seekPos);
+
   void Reset();
 
-  const void* GetData() const { return m_SRT.data(); };
-  size_t GetDataSize() const { return m_SRT.size(); };
-
-  bool StackSubTitle(const char* s, const char* e, const char* id);
-  void StackText();
-  void StyleText();
-
-  void StackStyle(const char* styleId);
-  void UnstackStyle();
-
-  struct STYLE
-  {
-    STYLE() : italic(0xFF), bold(0xFF), underline(0xFF){};
-    std::string id;
-    std::string color;
-
-    uint8_t italic;
-    uint8_t bold;
-    uint8_t underline;
-    uint8_t dummy;
-  };
-  void InsertStyle(const STYLE& style) { m_styles.push_back(style); };
-  TTML2SRT::STYLE GetStyle(const char* styleId);
-
-  struct SUBTITLE
-  {
-    std::string id;
-    uint64_t start, end;
-    std::vector<std::string> text;
-  };
-
-  // helper
-  std::string m_strXMLText, m_strSubtitle;
-
-  static const uint32_t NODE_TT = 1 << 0;
-  static const uint32_t NODE_HEAD = 1 << 1;
-  static const uint32_t NODE_STYLING = 1 << 2;
-  static const uint32_t NODE_BODY = 1 << 10;
-  static const uint32_t NODE_DIV = 1 << 11;
-  static const uint32_t NODE_P = 1 << 12;
-  static const uint32_t NODE_SPAN = 1 << 13;
-
-  uint32_t m_node, m_pos;
-  uint64_t m_tickRate, m_frameRate;
+  bool Prepare(uint64_t& pts, uint32_t& duration);
+  const char* GetPreparedData() const { return m_preparedSubText.c_str(); }
+  size_t GetPreparedDataSize() const { return m_preparedSubText.size(); }
 
 private:
-  uint64_t GetTime(const char* tm);
+  bool ParseData(const void* buffer, size_t bufferSize);
+  void ParseTagHead(pugi::xml_node nodeHead);
+  void ParseTagBody(pugi::xml_node nodeTT);
 
-  std::deque<SUBTITLE> m_subTitles;
-  std::vector<STYLE> m_styles, m_styleStack;
+  struct Style
+  {
+    std::string id;
+    std::string color;
+    std::optional<bool> isFontItalic;
+    std::optional<bool> isFontBold;
+    std::optional<bool> isFontUnderline;
+  };
 
-  std::string m_SRT, m_lastId;
-  uint64_t m_timescale, m_ptsOffset;
-  uint64_t m_seekTime;
+  void AppendStyledText(std::string_view textPart, std::string& subText);
+
+  Style ParseStyle(pugi::xml_node node);
+
+  void InsertStyle(const Style& style) { m_styles.emplace_back(style); }
+
+  void StackStyle(const Style& style);
+  void StackStyle(std::string_view styleId);
+  void UnstackStyle();
+
+  void StackSubtitle(std::string_view id,
+                     std::string_view beginTime,
+                     std::string_view endTime,
+                     std::string_view text);
+
+  uint64_t GetTime(std::string_view timeExpr);
+
+  struct SubtitleData
+  {
+    std::string id;
+    uint64_t start{0};
+    uint64_t end{0};
+    std::string text;
+  };
+
+  size_t m_currSubPos{0};
+  std::deque<SubtitleData> m_subtitlesList;
+
+  std::vector<Style> m_styles;
+  std::vector<Style> m_styleStack;
+
+  std::string m_preparedSubText;
+  std::string m_lastId;
+
+  uint64_t m_timescale{0};
+  uint64_t m_ptsOffset{0};
+  uint64_t m_seekTime{0};
+  uint64_t m_tickRate{0};
+  uint64_t m_frameRate{0};
 };
