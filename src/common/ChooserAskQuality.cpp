@@ -20,9 +20,9 @@
 
 #include <vector>
 
-using namespace adaptive;
-using namespace CHOOSER;
 using namespace kodi::tools;
+using namespace CHOOSER;
+using namespace PLAYLIST;
 using namespace UTILS;
 
 namespace
@@ -54,13 +54,13 @@ void CRepresentationChooserAskQuality::PostInit()
 {
 }
 
-AdaptiveTree::Representation* CRepresentationChooserAskQuality::GetNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
+PLAYLIST::CRepresentation* CRepresentationChooserAskQuality::GetNextRepresentation(
+    PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
 {
   if (currentRep)
     return currentRep;
 
-  if (adp->type_ != AdaptiveTree::VIDEO)
+  if (adp->GetStreamType() != StreamType::VIDEO)
   {
     CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
     return selector.HighestBw(adp);
@@ -78,59 +78,57 @@ AdaptiveTree::Representation* CRepresentationChooserAskQuality::GetNextRepresent
   {
     // We find the best quality for the current resolution, to pre-select this entry
     CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
-    AdaptiveTree::Representation* bestRep{selector.Highest(adp)};
+    CRepresentation* bestRep{selector.Highest(adp)};
 
     std::vector<std::string> entries;
     int preselIndex{-1};
     int selIndex{0};
-    const size_t reprSize = adp->representations_.size();
+    const size_t reprSize = adp->GetRepresentations().size();
 
     if (reprSize > 1)
     {
       // Add available qualities
-      for (size_t i{0}; i < reprSize; i++)
+      for (auto itRep = adp->GetRepresentations().begin(); itRep  !=  adp->GetRepresentations().end(); itRep++)
       {
-        const AdaptiveTree::Representation* rep{adp->representations_[i]};
-        if (!rep)
-          continue;
+        CRepresentation* repr = (*itRep).get();
 
         std::string entryName{kodi::addon::GetLocalizedString(30232)};
-        STRING::ReplaceFirst(entryName, "{codec}", GetVideoCodecDesc(rep->codecs_));
+        STRING::ReplaceFirst(entryName, "{codec}", GetVideoCodecDesc(repr->GetFirstCodec()));
 
-        float fps{static_cast<float>(rep->fpsRate_)};
-        if (fps > 0 && rep->fpsScale_ > 0)
-          fps /= rep->fpsScale_;
+        float fps{static_cast<float>(repr->GetFrameRate())};
+        if (fps > 0 && repr->GetFrameRateScale() > 0)
+          fps /= repr->GetFrameRateScale();
 
         std::string quality;
         if (fps > 0)
         {
-          quality = StringUtils::Format("(%ix%i, %s fps, %u Kbps)", rep->width_, rep->height_,
-                                        CovertFpsToString(fps).c_str(), rep->bandwidth_ / 1000);
+          quality = StringUtils::Format("(%ix%i, %s fps, %u Kbps)", repr->GetWidth(), repr->GetHeight(),
+                                        CovertFpsToString(fps).c_str(), repr->GetBandwidth() / 1000);
         }
         else
         {
-          quality = StringUtils::Format("(%ix%i, %u Kbps)", rep->width_, rep->height_,
-                                        rep->bandwidth_ / 1000);
+          quality = StringUtils::Format("(%ix%i, %u Kbps)", repr->GetWidth(), repr->GetHeight(),
+                                        repr->GetBandwidth() / 1000);
         }
         STRING::ReplaceFirst(entryName, "{quality}", quality);
 
-        if (rep == bestRep)
-          preselIndex = static_cast<int>(i);
+        if (repr == bestRep)
+          preselIndex = static_cast<int>(std::distance(adp->GetRepresentations().begin(), itRep));
 
-        entries.emplace_back(entryName);
+        entries.emplace_back(entryName);        
       }
-
+      
       selIndex = kodi::gui::dialogs::Select::Show(kodi::addon::GetLocalizedString(30231), entries,
                                                   preselIndex, 10000);
     }
 
-    AdaptiveTree::Representation* selRep{bestRep};
+    CRepresentation* selRep{bestRep};
 
     if (selIndex >= 0) // If was <0 has been cancelled by the user
-      selRep = adp->representations_[selIndex];
+      selRep = adp->GetRepresentations()[selIndex].get();
 
-    m_selectedResWidth = selRep->width_;
-    m_selectedResHeight = selRep->height_;
+    m_selectedResWidth = selRep->GetWidth();
+    m_selectedResHeight = selRep->GetHeight();
     m_isDialogShown = true;
 
     LogDetails(nullptr, selRep);

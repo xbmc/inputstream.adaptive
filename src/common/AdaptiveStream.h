@@ -19,7 +19,9 @@
 
 namespace adaptive
 {
-  class AdaptiveStream;
+// forward
+class AdaptiveStream;
+
 
   class ATTR_DLL_LOCAL AdaptiveStreamObserver
   {
@@ -32,8 +34,8 @@ namespace adaptive
   {
   public:
     AdaptiveStream(AdaptiveTree& tree,
-                   AdaptiveTree::AdaptationSet* adp,
-                   AdaptiveTree::Representation* initialRepr,
+                   PLAYLIST::CAdaptationSet* adpSet,
+                   PLAYLIST::CRepresentation* initialRepr,
                    const UTILS::PROPERTIES::KodiProperties& kodiProps,
                    bool choose_rep_);
     virtual ~AdaptiveStream();
@@ -50,7 +52,6 @@ namespace adaptive
      *        downloads must be already stopped with Stop() before call this method.
      */
     void DisposeWorker();
-    void info(std::ostream &s);
     uint64_t getMaxTimeMs();
 
     /*!
@@ -58,9 +59,11 @@ namespace adaptive
     *   the buffer
     * \param newSegment The new segment
     */
-    void ResetCurrentSegment(const AdaptiveTree::Segment* newSegment);
+    void ResetCurrentSegment(const PLAYLIST::CSegment* newSegment);
 
-    unsigned int get_type()const{ return current_adp_->type_; };
+    // Return the AP4_Track::Type based on current adaptation stream type
+    int GetTrackType() const;
+    PLAYLIST::StreamType GetStreamType() const;
 
     bool ensureSegment();
     uint32_t read(void* buffer, uint32_t  bytesToRead);
@@ -74,9 +77,9 @@ namespace adaptive
     */
     bool retrieveCurrentSegmentBufferSize(size_t& size);
     bool seek_time(double seek_seconds, bool preceeding, bool &needReset);
-    AdaptiveTree::Period* getPeriod() { return current_period_; };
-    AdaptiveTree::AdaptationSet* getAdaptationSet() { return current_adp_; };
-    AdaptiveTree::Representation* getRepresentation() { return current_rep_; };
+    PLAYLIST::CPeriod* getPeriod() { return current_period_; };
+    PLAYLIST::CAdaptationSet* getAdaptationSet() { return current_adp_; };
+    PLAYLIST::CRepresentation* getRepresentation() { return current_rep_; };
     size_t getSegmentPos() { return current_rep_->getCurrentSegmentPos(); };
     uint64_t GetCurrentPTSOffset() { return currentPTSOffset_; };
     uint64_t GetAbsolutePTSOffset() { return absolutePTSOffset_; };
@@ -100,7 +103,7 @@ namespace adaptive
 
     virtual bool download(const DownloadInfo& downloadInfo,
                           std::string* lockfreeBuffer);
-    virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer);
+    virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep, const std::string& buffer);
     bool write_data(const void* buffer,
                     size_t buffer_size,
                     std::string* lockfreeBuffer,
@@ -113,9 +116,9 @@ namespace adaptive
     struct SEGMENTBUFFER
     {
       std::string buffer;
-      AdaptiveTree::Segment segment;
+      PLAYLIST::CSegment segment;
       uint64_t segment_number;
-      AdaptiveTree::Representation* rep;
+      PLAYLIST::CRepresentation* rep;
     };
     std::vector<SEGMENTBUFFER> segment_buffers_;
 
@@ -130,7 +133,7 @@ namespace adaptive
 
     // Segment download section
   
-    void ResetSegment(const AdaptiveTree::Segment* segment);
+    void ResetSegment(const PLAYLIST::CSegment* segment);
     void ResetActiveBuffer(bool oneValid);
     /*!
      * \brief Wait for download in progress is completed, then stop the worker
@@ -143,13 +146,13 @@ namespace adaptive
     void WaitWorker();
     void worker();
     bool prepareNextDownload(DownloadInfo& downloadInfo);
-    bool prepareDownload(const AdaptiveTree::Representation* rep,
-                         const AdaptiveTree::Segment* seg,
+    bool prepareDownload(const PLAYLIST::CRepresentation* rep,
+                         const PLAYLIST::CSegment* seg,
                          uint64_t segNum,
                          DownloadInfo& downloadInfo);
     int SecondsSinceUpdate() const;
     static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
-    bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
+    bool ResolveSegmentBase(PLAYLIST::CRepresentation* rep, bool stopWorker);
 
     struct THREADDATA
     {
@@ -173,8 +176,6 @@ namespace adaptive
       ~THREADDATA()
       {
         Stop();
-        thread_stop_ = true;
-        signal_dl_.notify_one();
         if (download_thread_.joinable())
           download_thread_.join();
       };
@@ -189,9 +190,9 @@ namespace adaptive
     AdaptiveTree &tree_;
     AdaptiveStreamObserver *observer_;
     // Active configuration
-    AdaptiveTree::Period* current_period_;
-    AdaptiveTree::AdaptationSet* current_adp_;
-    AdaptiveTree::Representation *current_rep_;
+    PLAYLIST::CPeriod* current_period_;
+    PLAYLIST::CAdaptationSet* current_adp_;
+    PLAYLIST::CRepresentation* current_rep_;
 
     // Decrypter IV used to decrypt HLS segment
     // We need to store here because linked to representation
@@ -205,8 +206,8 @@ namespace adaptive
     uint32_t max_buffer_length_; 
     size_t valid_segment_buffers_;
     uint32_t rep_counter_;
-    AdaptiveTree::Representation *prev_rep_; // used for rep_counter_
-    AdaptiveTree::Representation* last_rep_; // used to align new live rep with old
+    PLAYLIST::CRepresentation* prev_rep_; // used for rep_counter_
+    PLAYLIST::CRepresentation* last_rep_; // used to align new live rep with old
 
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016 peak3d (http://www.peak3d.de)
+ *  Copyright (C) 2023 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -12,1621 +12,92 @@
 #include "../utils/StringUtils.h"
 #include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
+#include "../utils/XMLUtils.h"
 #include "../utils/log.h"
 #include "PRProtectionParser.h"
 #include "kodi/tools/StringUtils.h"
+#include "pugixml.hpp"
 
-#include <cstring>
-#include <float.h>
+#include <algorithm> // max
+#include <cstdio> // sscanf
+#include <numeric> // accumulate
 #include <string>
 #include <thread>
-#include <time.h>
 
-using namespace adaptive;
-using namespace UTILS;
+using namespace pugi;
 using namespace kodi::tools;
+using namespace PLAYLIST;
+using namespace UTILS;
 
-enum
+namespace
 {
-  MPDNODE_MPD = 1 << 0,
-  MPDNODE_LOCATION = 1 << 1,
-  MPDNODE_PERIOD = 1 << 2,
-  MPDNODE_ADAPTIONSET = 1 << 3,
-  MPDNODE_CONTENTPROTECTION = 1 << 4,
-  MPDNODE_REPRESENTATION = 1 << 5,
-  MPDNODE_BASEURL = 1 << 6,
-  MPDNODE_SEGMENTLIST = 1 << 7,
-  MPDNODE_INITIALIZATION = 1 << 8,
-  MPDNODE_SEGMENTURL = 1 << 9,
-  MPDNODE_SEGMENTDURATIONS = 1 << 10,
-  MPDNODE_S = 1 << 11,
-  MPDNODE_PSSH = 1 << 12,
-  MPDNODE_SEGMENTTEMPLATE = 1 << 13,
-  MPDNODE_SEGMENTTIMELINE = 1 << 14,
-  MPDNODE_ROLE = 1 << 15,
-  MPDNODE_PLAYREADYWRMHEADER = 1 << 16
-};
-
-static const char* CONTENTPROTECTION_TAG = "ContentProtection";
-
-static uint8_t GetChannels(const char** attr)
+std::string ReplacePlaceHolders(std::string str, const std::string_view id, uint32_t bandwidth)
 {
-  const char *schemeIdUri(0), *value(0);
-
-  for (; *attr;)
-  {
-    if (strcmp((const char*)*attr, "schemeIdUri") == 0)
-      schemeIdUri = (const char*)*(attr + 1);
-    else if (strcmp((const char*)*attr, "value") == 0)
-      value = (const char*)*(attr + 1);
-    attr += 2;
-  }
-  if (schemeIdUri && value)
-  {
-    if (strcmp(schemeIdUri, "urn:mpeg:dash:23003:3:audio_channel_configuration:2011") == 0 ||
-             strcmp(schemeIdUri, "urn:mpeg:mpegB:cicp:ChannelConfiguration") == 0)
-      return atoi(value);
-    else if (strcmp(schemeIdUri, "urn:dolby:dash:audio_channel_configuration:2011") == 0 ||
-             strcmp(schemeIdUri, "tag:dolby.com,2014:dash:audio_channel_configuration:2011") == 0)
-    {
-      if (strcmp(value, "F801") == 0)
-        return 6;
-      else if (strcmp(value, "FE01") == 0)
-        return 8;
-    }
-  }
-  return 0;
+  STRING::ReplaceAll(str, "$RepresentationID$", id);
+  STRING::ReplaceAll(str, "$Bandwidth$", std::to_string(bandwidth));
+  return str;
 }
 
-static uint64_t ParseSegmentTemplate(const char** attr,
-                                         std::string baseURL,
-                                         DASHTree::SegmentTemplate& tpl,
-                                         uint64_t startNumber)
+StreamType DetectStreamType(std::string_view contentType, std::string_view mimeType)
 {
-  for (; *attr;)
-  {
-    if (strcmp((const char*)*attr, "timescale") == 0)
-      tpl.timescale = atoi((const char*)*(attr + 1));
-    else if (strcmp((const char*)*attr, "duration") == 0)
-      tpl.duration = atoi((const char*)*(attr + 1));
-    else if (strcmp((const char*)*attr, "media") == 0)
-      tpl.media = (const char*)*(attr + 1);
-    else if (strcmp((const char*)*attr, "startNumber") == 0)
-      startNumber = atoi((const char*)*(attr + 1));
-    else if (strcmp((const char*)*attr, "initialization") == 0)
-      tpl.initialization = (const char*)*(attr + 1);
-    attr += 2;
-  }
+  StreamType streamType = StreamType::NOTYPE;
 
-  if (!tpl.timescale) // if not specified timescale defaults to seconds
-    tpl.timescale = 1;
-
-  if (URL::IsUrlRelative(tpl.media))
+  if (contentType == "video")
+    streamType = StreamType::VIDEO;
+  else if (contentType == "audio")
+    streamType = StreamType::AUDIO;
+  else if (contentType == "text")
+    streamType = StreamType::SUBTITLE;
+  else
   {
-    tpl.media = URL::Join(baseURL, tpl.media);
+    if (STRING::StartsWith(mimeType, "video"))
+      streamType = StreamType::VIDEO;
+    else if (STRING::StartsWith(mimeType, "audio"))
+      streamType = StreamType::AUDIO;
+    else if (STRING::StartsWith(mimeType, "application") || STRING::StartsWith(mimeType, "text"))
+      streamType = StreamType::SUBTITLE;
   }
-
-  if (URL::IsUrlRelative(tpl.initialization))
-  {
-    tpl.initialization = URL::Join(baseURL, tpl.initialization);
-  }
-  return startNumber;
+  return streamType;
 }
 
-static time_t getTime(const char* timeStr)
+PLAYLIST::ContainerType DetectContainerType(std::string_view mimeType)
 {
-  int year, mon, day, hour, minu, sec;
-  if (sscanf(timeStr, "%d-%d-%dT%d:%d:%d", &year, &mon, &day, &hour, &minu, &sec) == 6)
-  {
-    struct tm tmd;
+  if (STRING::Contains(mimeType, "/webm"))
+    return ContainerType::WEBM;
+  if (STRING::Contains(mimeType, "/x-matroska"))
+    return ContainerType::MATROSKA;
 
-    memset(&tmd, 0, sizeof(tmd));
-    tmd.tm_year = year - 1900;
-    tmd.tm_mon = mon - 1;
-    tmd.tm_mday = day;
-    tmd.tm_hour = hour;
-    tmd.tm_min = minu;
-    tmd.tm_sec = sec;
-    return _mkgmtime(&tmd);
-  }
-  return ~0;
+  return ContainerType::MP4;
 }
 
-static void AddDuration(const char* dur, uint64_t& retVal, uint32_t scale)
+std::string DetectCodecFromMimeType(std::string_view mimeType)
 {
-  if (dur && dur[0] == 'P')
-  {
-    ++dur;
-    const char* next = strchr(dur, 'D');
-    if (next)
-    {
-      retVal += static_cast<uint64_t>(atof(dur) * 86400 * scale);
-      dur = next + 1;
-    }
+  if (mimeType == "text/vtt")
+    return "wvtt";
+  if (mimeType == "application/ttml+xml")
+    return "ttml";
 
-    dur = strchr(dur, 'T');
-    if (dur)
-      ++dur;
-    else
-      return;
-
-    next = strchr(dur, 'H');
-    if (next)
-    {
-      retVal += static_cast<uint64_t>(atof(dur) * 3600 * scale);
-      dur = next + 1;
-    }
-    next = strchr(dur, 'M');
-    if (next)
-    {
-      retVal += static_cast<uint64_t>(atof(dur) * 60 * scale);
-      dur = next + 1;
-    }
-    next = strchr(dur, 'S');
-    if (next)
-      retVal += static_cast<uint64_t>(atof(dur) * scale);
-  }
+  return "";
 }
 
-bool ParseContentProtection(const char** attr, DASHTree* dash)
+} // unnamed namespace
+
+
+adaptive::CDashTree::CDashTree(const CDashTree& left) : AdaptiveTree(left)
 {
-  dash->strXMLText_.clear();
-  dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_ENCRYPTED;
-  bool urnFound(false), mpdFound(false);
-  const char* defaultKID(0);
-  for (; *attr;)
-  {
-    if (strcmp((const char*)*attr, "schemeIdUri") == 0)
-    {
-      if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:mp4protection:2011") == 0)
-        mpdFound = true;
-      else
-        urnFound = stricmp(dash->m_supportedKeySystem.c_str(), (const char*)*(attr + 1)) == 0;
-    }
-    else if (StringUtils::EndsWith(*attr, "default_KID"))
-      defaultKID = (const char*)*(attr + 1);
-    attr += 2;
-  }
-  if (urnFound)
-  {
-    dash->currentNode_ |= MPDNODE_CONTENTPROTECTION;
-    dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
-  }
-  if ((urnFound || mpdFound) && defaultKID && strlen(defaultKID) == 36)
-  {
-    dash->current_defaultKID_.resize(16);
-    for (unsigned int i(0); i < 16; ++i)
-    {
-      if (i == 4 || i == 6 || i == 8 || i == 10)
-        ++defaultKID;
-      dash->current_defaultKID_[i] = STRING::ToHexNibble(*defaultKID) << 4;
-      ++defaultKID;
-      dash->current_defaultKID_[i] |= STRING::ToHexNibble(*defaultKID);
-      ++defaultKID;
-    }
-  }
-  // Return if we have URN or not
-  return urnFound || !mpdFound;
-}
-
-/*----------------------------------------------------------------------
-|   expat start
-+---------------------------------------------------------------------*/
-
-static void ReplacePlaceHolders(std::string& rep, const std::string& id, uint32_t bandwidth)
-{
-  STRING::ReplaceAll(rep, "$RepresentationID$", id);
-  STRING::ReplaceAll(rep, "$Bandwidth$", std::to_string(bandwidth));
-}
-
-static void XMLCALL start(void* data, const char* el, const char** attr)
-{
-  DASHTree* dash(reinterpret_cast<DASHTree*>(data));
-
-  if (dash->currentNode_ & MPDNODE_MPD)
-  {
-    if (dash->currentNode_ & MPDNODE_LOCATION)
-    {
-    }
-    if (dash->currentNode_ & MPDNODE_PERIOD)
-    {
-      if (dash->currentNode_ & MPDNODE_ADAPTIONSET)
-      {
-        if (dash->currentNode_ & MPDNODE_REPRESENTATION)
-        {
-          if (dash->currentNode_ & MPDNODE_BASEURL)
-          {
-          }
-          else if (dash->currentNode_ & MPDNODE_SEGMENTLIST)
-          {
-            DASHTree::Segment seg;
-            seg.pssh_set_ = 0;
-            seg.range_begin_ = ~0ULL;
-            if (strcmp(el, "SegmentURL") == 0)
-            {
-              for (; *attr;)
-              {
-                if (strcmp((const char*)*attr, "mediaRange") == 0)
-                {
-                  seg.SetRange((const char*)*(attr + 1));
-                  break;
-                }
-                else if (strcmp((const char*)*attr, "media") == 0)
-                {
-                  dash->current_representation_->flags_ |= DASHTree::Representation::URLSEGMENTS;
-                  size_t sz(strlen((const char*)*(attr + 1)) + 1);
-                  seg.url = std::string{*(attr + 1), sz};
-
-                  if (dash->current_representation_->segments_.data.empty())
-                    seg.range_end_ = dash->current_representation_->startNumber_;
-                }
-                attr += 2;
-              }
-
-              if (dash->current_representation_->segments_.data.empty())
-                seg.startPTS_ = dash->base_time_ + dash->current_representation_->ptsOffset_;
-              else
-                seg.startPTS_ = dash->current_representation_->nextPts_ +
-                                dash->current_representation_->duration_;
-
-              dash->current_representation_->nextPts_ = seg.startPTS_;
-              dash->current_representation_->segments_.data.push_back(seg);
-            }
-            else if (strcmp(el, "Initialization") == 0)
-            {
-              for (; *attr;)
-              {
-                if (strcmp((const char*)*attr, "range") == 0)
-                {
-                  seg.SetRange((const char*)*(attr + 1));
-                  break;
-                }
-                else if (strcmp((const char*)*attr, "sourceURL") == 0)
-                {
-                  seg.range_begin_ = ~0ULL;
-                  size_t sz(strlen((const char*)*(attr + 1)) + 1);
-                  seg.url = std::string{*(attr + 1), sz};
-                  dash->current_representation_->flags_ |= DASHTree::Representation::URLSEGMENTS;
-                }
-                attr += 2;
-              }
-              dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
-              dash->current_representation_->initialization_ = seg;
-            }
-            else
-              return;
-          }
-          else if (dash->currentNode_ & MPDNODE_SEGMENTTEMPLATE)
-          {
-            if (dash->currentNode_ & MPDNODE_SEGMENTTIMELINE)
-            {
-              // <S t="3600" d="900000" r="2398"/>
-              unsigned int d(0), r(1);
-
-              for (; *attr;)
-              {
-                if (strcmp((const char*)*attr, "t") == 0)
-                  dash->timeline_time_ = atoll((const char*)*(attr + 1));
-                else if (strcmp((const char*)*attr, "d") == 0)
-                  d = atoi((const char*)*(attr + 1));
-                if (strcmp((const char*)*attr, "r") == 0)
-                  r = atoi((const char*)*(attr + 1)) + 1;
-                attr += 2;
-              }
-              if (d && r)
-              {
-                DASHTree::Segment s;
-                if (dash->current_representation_->segments_.data.empty())
-                {
-                  uint64_t overallSeconds =
-                      dash->current_period_->duration_
-                          ? dash->current_period_->duration_ / dash->current_period_->timescale_
-                          : dash->overallSeconds_;
-                  if (dash->current_representation_->segtpl_.duration &&
-                      dash->current_representation_->segtpl_.timescale)
-                    dash->current_representation_->segments_.data.reserve(
-                        (unsigned int)((double)overallSeconds /
-                                       (((double)dash->current_representation_->segtpl_.duration) /
-                                        dash->current_representation_->segtpl_.timescale)) +
-                        1);
-
-                  if (dash->current_representation_->flags_ &
-                      DASHTree::Representation::INITIALIZATION)
-                  {
-                    s.range_begin_ = 0ULL, s.range_end_ = 0;
-                    dash->current_representation_->initialization_ = s;
-                  }
-                  s.range_end_ = dash->current_representation_->startNumber_;
-                }
-                else
-                  s.range_end_ =
-                      dash->current_representation_->segments_.data.back().range_end_ + 1;
-                s.range_begin_ = s.startPTS_ = dash->timeline_time_;
-                s.startPTS_ -= dash->base_time_ * dash->current_representation_->segtpl_.timescale;
-
-                for (; r; --r)
-                {
-                  dash->current_representation_->segments_.data.push_back(s);
-                  ++s.range_end_;
-                  s.range_begin_ = (dash->timeline_time_ += d);
-                  s.startPTS_ += d;
-                }
-                dash->current_representation_->nextPts_ = s.startPTS_;
-              }
-              else //Failure
-              {
-                dash->currentNode_ &= ~MPDNODE_SEGMENTTIMELINE;
-                dash->current_representation_->timescale_ = 0;
-              }
-            }
-            else if (strcmp(el, "SegmentTimeline") == 0)
-            {
-              dash->current_representation_->flags_ |= DASHTree::Representation::TIMELINE;
-              dash->currentNode_ |= MPDNODE_SEGMENTTIMELINE;
-
-              if (dash->m_manifestUpdateParam.empty() && dash->has_timeshift_buffer_)
-                dash->m_manifestUpdateParam = "full";
-            }
-          }
-          else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
-          {
-            if (StringUtils::EndsWith(el, "pssh"))
-              dash->currentNode_ |= MPDNODE_PSSH;
-            else if (strcmp(el, "widevine:license") == 0)
-            {
-              for (; *attr;)
-              {
-                if (strcmp((const char*)*attr, "robustness_level") == 0)
-                  dash->current_period_->need_secure_decoder_ =
-                      strncmp((const char*)*(attr + 1), "HW", 2) == 0;
-                attr += 2;
-              }
-            }
-          }
-          else if (strcmp(el, "AudioChannelConfiguration") == 0)
-          {
-            dash->current_representation_->channelCount_ = GetChannels(attr);
-          }
-          else if (strcmp(el, "BaseURL") == 0) //Inside Representation
-          {
-            dash->strXMLText_.clear();
-            dash->currentNode_ |= MPDNODE_BASEURL;
-          }
-          else if (strcmp(el, "SegmentList") == 0)
-          {
-            uint32_t dur(0), ts(1), pto(0), sn(0);
-            for (; *attr;)
-            {
-              if (strcmp((const char*)*attr, "duration") == 0)
-                dur = atoi((const char*)*(attr + 1));
-              else if (strcmp((const char*)*attr, "timescale") == 0)
-                ts = atoi((const char*)*(attr + 1));
-              else if (strcmp((const char*)*attr, "presentationTimeOffset") == 0)
-                pto = atoi((const char*)*(attr + 1));
-              else if (strcmp((const char*)*attr, "startNumber") == 0)
-                sn = atoi((const char*)*(attr + 1));
-              attr += 2;
-            }
-            if (sn)
-            {
-              dash->current_representation_->startNumber_ = sn;
-              pto += sn * dur;
-            }
-            if (pto)
-              dash->current_representation_->ptsOffset_ = pto;
-            if (ts && dur)
-            {
-              dash->current_representation_->duration_ = dur;
-              dash->current_representation_->timescale_ = ts;
-              dash->current_representation_->segments_.data.reserve(
-                  dash->EstimateSegmentsCount(dash->current_representation_->duration_,
-                                          dash->current_representation_->timescale_));
-            }
-            else if (dash->current_adaptationset_->segment_durations_.data.size())
-            {
-              dash->current_representation_->segments_.data.reserve(
-                  dash->current_adaptationset_->segment_durations_.data.size());
-            }
-            else
-              return;
-            dash->currentNode_ |= MPDNODE_SEGMENTLIST;
-          }
-          else if (strcmp(el, "SegmentBase") == 0)
-          {
-            //<SegmentBase indexRangeExact = "true" indexRange = "867-1618">
-            for (; *attr;)
-            {
-              if (strcmp((const char*)*attr, "indexRange") == 0)
-                sscanf((const char*)*(attr + 1), "%u-%u",
-                       &dash->current_representation_->indexRangeMin_,
-                       &dash->current_representation_->indexRangeMax_);
-              else if (strcmp((const char*)*attr, "indexRangeExact") == 0 &&
-                       strcmp((const char*)*(attr + 1), "true") == 0)
-                dash->current_representation_->flags_ |= DASHTree::Representation::INDEXRANGEEXACT;
-              attr += 2;
-            }
-            dash->current_representation_->flags_ |= DASHTree::Representation::SEGMENTBASE;
-            if (dash->current_representation_->indexRangeMax_)
-              dash->currentNode_ |= MPDNODE_SEGMENTLIST;
-          }
-          else if (strcmp(el, "SegmentTemplate") == 0) // Inside Representation
-          {
-            dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
-
-            dash->current_representation_->startNumber_ = ParseSegmentTemplate(
-                attr, dash->current_representation_->base_url_,
-                dash->current_representation_->segtpl_, dash->current_adaptationset_->startNumber_);
-            dash->current_representation_->segtpl_.media_url =
-                dash->current_representation_->segtpl_.media;
-            ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
-                                dash->current_representation_->id,
-                                dash->current_representation_->bandwidth_);
-            dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
-            if (!dash->current_representation_->segtpl_.initialization.empty())
-            {
-              ReplacePlaceHolders(dash->current_representation_->segtpl_.initialization,
-                                  dash->current_representation_->id,
-                                  dash->current_representation_->bandwidth_);
-              dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
-              dash->current_representation_->url_ =
-                  dash->current_representation_->segtpl_.initialization;
-              dash->current_representation_->timescale_ =
-                  dash->current_representation_->segtpl_.timescale;
-            }
-            dash->timeline_time_ = 0;
-            dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
-          }
-          else if (strcmp(el, CONTENTPROTECTION_TAG) == 0)
-          {
-            if (!dash->current_representation_->pssh_set_ ||
-                dash->current_representation_->pssh_set_ == 0xFF)
-            {
-              //Mark protected but invalid
-              dash->current_representation_->pssh_set_ = 0xFF;
-              if (ParseContentProtection(attr, dash))
-                dash->current_hasRepURN_ = true;
-            }
-          }
-        }
-        else if (dash->currentNode_ & (MPDNODE_SEGMENTTEMPLATE | MPDNODE_SEGMENTLIST))
-        {
-          if (dash->currentNode_ & MPDNODE_SEGMENTTIMELINE)
-          {
-            // <S t="3600" d="900000" r="2398"/>
-            unsigned int d(0), r(1);
-            uint64_t t(0);
-            for (; *attr;)
-            {
-              if (strcmp((const char*)*attr, "t") == 0)
-                t = atoll((const char*)*(attr + 1));
-              else if (strcmp((const char*)*attr, "d") == 0)
-                d = atoi((const char*)*(attr + 1));
-              if (strcmp((const char*)*attr, "r") == 0)
-                r = atoi((const char*)*(attr + 1)) + 1;
-              attr += 2;
-            }
-            if (dash->current_adaptationset_->segment_durations_.data.empty())
-              dash->current_adaptationset_->startPTS_ = dash->pts_helper_ = t;
-            else if (t)
-            {
-              //Go back to the previous timestamp to calculate the real gap.
-              dash->pts_helper_ -= dash->current_adaptationset_->segment_durations_.data.back();
-              dash->current_adaptationset_->segment_durations_.data.back() =
-                  static_cast<uint32_t>(t - dash->pts_helper_);
-              dash->pts_helper_ = t;
-            }
-            if (d && r)
-            {
-              for (; r; --r)
-              {
-                dash->current_adaptationset_->segment_durations_.data.push_back(d);
-                dash->pts_helper_ += d;
-              }
-            }
-          }
-          else if (strcmp(el, "SegmentTimeline") == 0)
-          {
-            dash->currentNode_ |= MPDNODE_SEGMENTTIMELINE;
-            dash->adp_timelined_ = true;
-
-            if (dash->m_manifestUpdateParam.empty() && dash->has_timeshift_buffer_)
-              dash->m_manifestUpdateParam = "full";
-          }
-        }
-        else if (dash->currentNode_ & MPDNODE_SEGMENTDURATIONS)
-        {
-          if (strcmp(el, "S") == 0 && *(const char*)*attr == 'd')
-            dash->current_adaptationset_->segment_durations_.data.push_back(
-                atoi((const char*)*(attr + 1)));
-        }
-        else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
-        {
-          if (StringUtils::EndsWith(el, "pssh"))
-            dash->currentNode_ |= MPDNODE_PSSH;
-          else if (strcmp(el, "widevine:license") == 0)
-          {
-            for (; *attr;)
-            {
-              if (strcmp((const char*)*attr, "robustness_level") == 0)
-                dash->current_period_->need_secure_decoder_ =
-                    strncmp((const char*)*(attr + 1), "HW", 2) == 0;
-              attr += 2;
-            }
-          }
-        }
-        else if (strcmp(el, "ContentComponent") == 0)
-        {
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "contentType") == 0)
-            {
-              dash->current_adaptationset_->type_ =
-                  stricmp((const char*)*(attr + 1), "video") == 0
-                      ? DASHTree::VIDEO
-                      : stricmp((const char*)*(attr + 1), "audio") == 0
-                            ? DASHTree::AUDIO
-                            : stricmp((const char*)*(attr + 1), "text") == 0 ? DASHTree::SUBTITLE
-                                                                             : DASHTree::NOTYPE;
-              break;
-            }
-            attr += 2;
-          }
-        }
-        else if (strcmp(el, "SupplementalProperty") == 0)
-        {
-          const char *schemeIdUri(0), *value(0);
-
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "schemeIdUri") == 0)
-              schemeIdUri = (const char*)*(attr + 1);
-            else if (strcmp((const char*)*attr, "value") == 0)
-              value = (const char*)*(attr + 1);
-            attr += 2;
-          }
-
-          if (schemeIdUri && value)
-          {
-            if (strcmp(schemeIdUri, "urn:mpeg:dash:adaptation-set-switching:2016") == 0)
-              dash->current_adaptationset_->switching_ids_ = StringUtils::Split(value, ',');
-          }
-        }
-        else if (dash->currentNode_ & MPDNODE_BASEURL)
-        {
-        }
-        else if (strcmp(el, "SegmentTemplate") == 0) // Inside Adaptation set
-        {
-          dash->current_adaptationset_->startNumber_ = ParseSegmentTemplate(
-              attr, dash->current_adaptationset_->base_url_, dash->current_adaptationset_->segtpl_,
-              dash->current_adaptationset_->startNumber_);
-          dash->current_adaptationset_->timescale_ =
-              dash->current_adaptationset_->segtpl_.timescale;
-          dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
-        }
-        else if (strcmp(el, "SegmentList") == 0)
-        {
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "duration") == 0)
-              dash->current_adaptationset_->duration_ = atoi((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "timescale") == 0)
-              dash->current_adaptationset_->timescale_ = atoi((const char*)*(attr + 1));
-            attr += 2;
-          }
-          dash->currentNode_ |= MPDNODE_SEGMENTLIST;
-        }
-        else if (strcmp(el, "Role") == 0)
-        {
-          bool schemeOk = false;
-          const char* value = nullptr;
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "schemeIdUri") == 0)
-            {
-              if (strcmp((const char*)*(attr + 1), "urn:mpeg:dash:role:2011") == 0)
-                schemeOk = true;
-            }
-            else if (strcmp((const char*)*attr, "value") == 0)
-              value = (const char*)*(attr + 1);
-            attr += 2;
-          }
-          if (schemeOk && value)
-          {
-            if (strcmp(value, "subtitle") == 0)
-              dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-            //Legacy compatibility
-            if (strcmp(value, "forced") == 0)
-              dash->current_adaptationset_->forced_ = true;
-            if (strcmp(value, "main") == 0)
-              dash->current_adaptationset_->default_ = true;
-          }
-        }
-        else if (strcmp(el, "Representation") == 0)
-        {
-          dash->current_representation_ = new AdaptiveTree::Representation();
-          dash->current_representation_->channelCount_ = dash->adpChannelCount_;
-          dash->current_representation_->codecs_ = dash->current_adaptationset_->codecs_;
-          dash->current_representation_->url_ = dash->current_adaptationset_->base_url_;
-          dash->current_representation_->timescale_ = dash->current_adaptationset_->timescale_;
-          dash->current_representation_->duration_ = dash->current_adaptationset_->duration_;
-          dash->current_representation_->startNumber_ = dash->current_adaptationset_->startNumber_;
-          dash->current_representation_->width_ = dash->adpwidth_;
-          dash->current_representation_->height_ = dash->adpheight_;
-          dash->current_representation_->fpsRate_ = dash->adpfpsRate_;
-          dash->current_representation_->fpsScale_ = dash->adpfpsScale_;
-          dash->current_representation_->aspect_ = dash->adpaspect_;
-          dash->current_representation_->containerType_ = dash->adpContainerType_;
-          dash->current_representation_->base_url_ = dash->current_adaptationset_->base_url_;
-          dash->current_representation_->assured_buffer_duration_ =
-              dash->m_settings.m_bufferAssuredDuration;
-          dash->current_representation_->max_buffer_duration_ =
-              dash->m_settings.m_bufferMaxDuration;
-
-          dash->current_adaptationset_->representations_.push_back(dash->current_representation_);
-
-          dash->current_pssh_.clear();
-          dash->current_hasRepURN_ = false;
-
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "bandwidth") == 0)
-              dash->current_representation_->bandwidth_ = atoi((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "codecs") == 0)
-              dash->current_representation_->codecs_ = (const char*)*(attr + 1);
-            else if (strcmp((const char*)*attr, "width") == 0)
-              dash->current_representation_->width_ = std::atoi((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "height") == 0)
-              dash->current_representation_->height_ = std::atoi((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "audioSamplingRate") == 0)
-              dash->current_representation_->samplingRate_ =
-                  static_cast<uint32_t>(atoi((const char*)*(attr + 1)));
-            else if (strcmp((const char*)*attr, "frameRate") == 0)
-            {
-              dash->current_representation_->fpsScale_ = 1;
-              sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32,
-                     &dash->current_representation_->fpsRate_,
-                     &dash->current_representation_->fpsScale_);
-            }
-            else if (strcmp((const char*)*attr, "id") == 0)
-              dash->current_representation_->id = (const char*)*(attr + 1);
-            else if (strcmp((const char*)*attr, "codecPrivateData") == 0)
-              dash->current_representation_->codec_private_data_ =
-                  AnnexbToAvc((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "hdcp") == 0)
-              dash->current_representation_->hdcpVersion_ =
-                  static_cast<uint16_t>(atof((const char*)*(attr + 1)) * 10);
-            else if (dash->current_adaptationset_->mimeType_.empty() &&
-                     strcmp((const char*)*attr, "mimeType") == 0)
-            {
-              dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
-              if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)
-              {
-                if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "video", 5) == 0)
-                  dash->current_adaptationset_->type_ = DASHTree::VIDEO;
-                else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
-                  dash->current_adaptationset_->type_ = DASHTree::AUDIO;
-                else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application",
-                                 11) == 0 ||
-                         strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
-                  dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-              }
-              if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/webm"))
-                dash->current_representation_->containerType_ = AdaptiveTree::CONTAINERTYPE_WEBM;
-              else if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/x-matroska"))
-                dash->current_representation_->containerType_ =
-                    AdaptiveTree::CONTAINERTYPE_MATROSKA;
-            }
-            attr += 2;
-          }
-
-          if (dash->current_representation_->codecs_.empty())
-          {
-            if (dash->current_adaptationset_->mimeType_ == "text/vtt")
-              dash->current_representation_->codecs_ = "wvtt";
-            else if (dash->current_adaptationset_->mimeType_ == "application/ttml+xml")
-              dash->current_representation_->codecs_ = "ttml";
-          }
-
-          if (dash->current_adaptationset_->type_ != DASHTree::SUBTITLE)
-          {
-            if (dash->current_representation_->codecs_ == "wvtt")
-            {
-              dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-              dash->current_adaptationset_->mimeType_ = "text/vtt";
-            }
-            else if (dash->current_representation_->codecs_ == "ttml")
-            {
-              dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-              dash->current_adaptationset_->mimeType_ = "application/ttml+xml";
-            }
-          }
-
-          if (dash->current_adaptationset_->type_ == DASHTree::SUBTITLE &&
-              (dash->current_adaptationset_->mimeType_ == "application/ttml+xml" ||
-               dash->current_adaptationset_->mimeType_ == "text/vtt"))
-          {
-            if (dash->current_adaptationset_->segment_durations_.empty())
-              dash->current_representation_->flags_ |= DASHTree::Representation::SUBTITLESTREAM;
-            else
-              dash->current_representation_->containerType_ = AdaptiveTree::CONTAINERTYPE_TEXT;
-          }
-
-          dash->current_representation_->segtpl_ = dash->current_adaptationset_->segtpl_;
-
-          if (!dash->current_adaptationset_->segtpl_.media.empty())
-          {
-            dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
-
-            dash->current_representation_->segtpl_.media_url =
-                dash->current_representation_->segtpl_.media;
-
-            ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
-                                dash->current_representation_->id,
-                                dash->current_representation_->bandwidth_);
-
-            if (!dash->current_representation_->segtpl_.initialization.empty())
-            {
-              dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
-              ReplacePlaceHolders(dash->current_representation_->segtpl_.initialization,
-                                  dash->current_representation_->id,
-                                  dash->current_representation_->bandwidth_);
-              dash->current_representation_->url_ =
-                  dash->current_representation_->segtpl_.initialization;
-            }
-          }
-          dash->currentNode_ |= MPDNODE_REPRESENTATION;
-        }
-        else if (strcmp(el, "SegmentDurations") == 0)
-        {
-          dash->current_adaptationset_->segment_durations_.data.reserve(dash->segcount_);
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "timescale") == 0)
-            {
-              dash->current_adaptationset_->timescale_ = atoi((const char*)*(attr + 1));
-              break;
-            }
-            attr += 2;
-          }
-          dash->currentNode_ |= MPDNODE_SEGMENTDURATIONS;
-        }
-        else if (strcmp(el, CONTENTPROTECTION_TAG) == 0)
-        {
-          if (!dash->adp_pssh_set_ || dash->adp_pssh_set_ == 0xFF)
-          {
-            //Mark protected but invalid
-            dash->adp_pssh_set_ = 0xFF;
-            if (ParseContentProtection(attr, dash))
-              dash->current_hasAdpURN_ = true;
-          }
-        }
-        else if (strcmp(el, "AudioChannelConfiguration") == 0)
-        {
-          dash->adpChannelCount_ = GetChannels(attr);
-        }
-        else if (strcmp(el, "BaseURL") == 0) //Inside AdaptationSet
-        {
-          dash->strXMLText_.clear();
-          dash->currentNode_ |= MPDNODE_BASEURL;
-        }
-        else if (strcmp(el, "mspr:pro") == 0)
-        {
-          dash->strXMLText_.clear();
-          dash->currentNode_ |= MPDNODE_PLAYREADYWRMHEADER;
-        }
-      }
-      else if (dash->currentNode_ & (MPDNODE_SEGMENTLIST | MPDNODE_SEGMENTTEMPLATE))
-      {
-        if (dash->currentNode_ & MPDNODE_SEGMENTTIMELINE)
-        {
-          // <S t="3600" d="900000" r="2398"/>
-          unsigned int d(0), r(1);
-          uint64_t t(0);
-          for (; *attr;)
-          {
-            if (strcmp((const char*)*attr, "t") == 0)
-              t = atoll((const char*)*(attr + 1));
-            else if (strcmp((const char*)*attr, "d") == 0)
-              d = atoi((const char*)*(attr + 1));
-            if (strcmp((const char*)*attr, "r") == 0)
-              r = atoi((const char*)*(attr + 1)) + 1;
-            attr += 2;
-          }
-          if (dash->current_period_->segment_durations_.data.empty())
-          {
-            if (!dash->current_period_->duration_ && d)
-              dash->current_period_->segment_durations_.data.reserve(
-                  dash->EstimateSegmentsCount(d, dash->current_period_->timescale_));
-            dash->current_period_->startPTS_ = dash->pts_helper_ = t;
-          }
-          else if (t)
-          {
-            //Go back to the previous timestamp to calculate the real gap.
-            dash->pts_helper_ -= dash->current_period_->segment_durations_.data.back();
-            dash->current_period_->segment_durations_.data.back() =
-                static_cast<uint32_t>(t - dash->pts_helper_);
-            dash->pts_helper_ = t;
-          }
-          if (d && r)
-          {
-            for (; r; --r)
-            {
-              dash->current_period_->segment_durations_.data.push_back(d);
-              dash->pts_helper_ += d;
-            }
-          }
-        }
-        else if (strcmp(el, "SegmentTimeline") == 0)
-        {
-          dash->currentNode_ |= MPDNODE_SEGMENTTIMELINE;
-          dash->period_timelined_ = true;
-        }
-      }
-      else if (strcmp(el, "AdaptationSet") == 0)
-      {
-        //<AdaptationSet contentType="video" group="2" lang="en" mimeType="video/mp4" par="16:9" segmentAlignment="true" startWithSAP="1" subsegmentAlignment="true" subsegmentStartsWithSAP="1">
-        dash->current_adaptationset_ = new DASHTree::AdaptationSet();
-        dash->current_period_->adaptationSets_.push_back(dash->current_adaptationset_);
-        dash->current_adaptationset_->base_url_ = dash->current_period_->base_url_;
-        dash->current_pssh_.clear();
-        dash->adpChannelCount_ = 0;
-        dash->adpwidth_ = 0;
-        dash->adpheight_ = 0;
-        dash->adpfpsRate_ = 0;
-        dash->adpfpsScale_ = 1;
-        dash->adpaspect_ = 0.0f;
-        dash->adp_pssh_set_ = 0;
-        dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_MP4;
-        dash->current_hasAdpURN_ = false;
-        dash->adp_timelined_ = dash->period_timelined_;
-        dash->current_adaptationset_->timescale_ = dash->current_period_->timescale_;
-        dash->current_adaptationset_->duration_ = dash->current_period_->duration_;
-        dash->current_adaptationset_->segment_durations_ =
-            dash->current_period_->segment_durations_;
-        dash->current_adaptationset_->segtpl_ = dash->current_period_->segtpl_;
-        dash->current_adaptationset_->startNumber_ = dash->current_period_->startNumber_;
-        dash->current_playready_wrmheader_.clear();
-
-        for (; *attr;)
-        {
-          if (strcmp((const char*)*attr, "contentType") == 0)
-            dash->current_adaptationset_->type_ =
-                stricmp((const char*)*(attr + 1), "video") == 0
-                    ? DASHTree::VIDEO
-                    : stricmp((const char*)*(attr + 1), "audio") == 0
-                          ? DASHTree::AUDIO
-                          : stricmp((const char*)*(attr + 1), "text") == 0 ? DASHTree::SUBTITLE
-                                                                           : DASHTree::NOTYPE;
-          else if (strcmp((const char*)*attr, "id") == 0)
-            dash->current_adaptationset_->id_ = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "group") == 0)
-            dash->current_adaptationset_->group_ = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "lang") == 0)
-            dash->current_adaptationset_->language_ = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "mimeType") == 0)
-            dash->current_adaptationset_->mimeType_ = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "name") == 0)
-            dash->current_adaptationset_->name_ = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "codecs") == 0)
-            dash->current_adaptationset_->codecs_ = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "width") == 0)
-            dash->adpwidth_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
-          else if (strcmp((const char*)*attr, "height") == 0)
-            dash->adpheight_ = static_cast<uint16_t>(atoi((const char*)*(attr + 1)));
-          else if (strcmp((const char*)*attr, "frameRate") == 0)
-            sscanf((const char*)*(attr + 1), "%" SCNu32 "/%" SCNu32,
-                    &dash->adpfpsRate_,
-                    &dash->adpfpsScale_);
-          else if (strcmp((const char*)*attr, "par") == 0)
-          {
-            int w, h;
-            if (sscanf((const char*)*(attr + 1), "%d:%d", &w, &h) == 2)
-              dash->adpaspect_ = (float)w / h;
-          }
-          else if (strcmp((const char*)*attr, "audioTrackId") == 0)
-            dash->current_adaptationset_->audio_track_id_ = (const char*)*(attr + 1);
-          else if (strcmp((const char*)*attr, "impaired") == 0)
-            dash->current_adaptationset_->impaired_ = strcmp((const char*)*(attr + 1), "true") == 0;
-          else if (strcmp((const char*)*attr, "forced") == 0)
-            dash->current_adaptationset_->forced_ = strcmp((const char*)*(attr + 1), "true") == 0;
-          else if (strcmp((const char*)*attr, "original") == 0)
-            dash->current_adaptationset_->original_ = strcmp((const char*)*(attr + 1), "true") == 0;
-          else if (strcmp((const char*)*attr, "default") == 0)
-            dash->current_adaptationset_->default_ = strcmp((const char*)*(attr + 1), "true") == 0;
-          attr += 2;
-        }
-
-        if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE)
-        {
-          if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "video", 5) == 0)
-            dash->current_adaptationset_->type_ = DASHTree::VIDEO;
-          else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "audio", 5) == 0)
-            dash->current_adaptationset_->type_ = DASHTree::AUDIO;
-          else if (strncmp(dash->current_adaptationset_->mimeType_.c_str(), "application", 11) ==
-                       0 ||
-                   strncmp(dash->current_adaptationset_->mimeType_.c_str(), "text", 4) == 0)
-            dash->current_adaptationset_->type_ = DASHTree::SUBTITLE;
-        }
-
-        if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/webm"))
-          dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_WEBM;
-        else if (strstr(dash->current_adaptationset_->mimeType_.c_str(), "/x-matroska"))
-          dash->adpContainerType_ = AdaptiveTree::CONTAINERTYPE_MATROSKA;
-
-        dash->segcount_ = 0;
-        dash->currentNode_ |= MPDNODE_ADAPTIONSET;
-      }
-      else if (strcmp(el, "SegmentTemplate") == 0) // Inside Period
-      {
-        dash->current_period_->startNumber_ = ParseSegmentTemplate(
-            attr, dash->current_period_->base_url_, dash->current_period_->segtpl_,
-            dash->current_period_->startNumber_);
-        dash->current_period_->timescale_ = dash->current_period_->segtpl_.timescale;
-        dash->currentNode_ |= MPDNODE_SEGMENTTEMPLATE;
-      }
-      else if (strcmp(el, "SegmentList") == 0)
-      {
-        for (; *attr;)
-        {
-          if (strcmp((const char*)*attr, "duration") == 0)
-            dash->current_period_->duration_ = atoi((const char*)*(attr + 1));
-          else if (strcmp((const char*)*attr, "timescale") == 0)
-            dash->current_period_->timescale_ = atoi((const char*)*(attr + 1));
-          else if (strcmp((const char*)*attr, "startNumber") == 0)
-            dash->current_period_->startNumber_ = atoi((const char*)*(attr + 1));
-          attr += 2;
-        }
-        if (dash->current_period_->timescale_)
-        {
-          if (dash->current_period_->duration_)
-            dash->current_period_->segment_durations_.data.reserve(dash->EstimateSegmentsCount(
-                dash->current_period_->duration_, dash->current_period_->timescale_));
-          dash->currentNode_ |= MPDNODE_SEGMENTLIST;
-        }
-      }
-      else if (strcmp(el, "BaseURL") == 0) // Inside Period
-      {
-        dash->strXMLText_.clear();
-        dash->currentNode_ |= MPDNODE_BASEURL;
-      }
-    }
-    else if (strcmp(el, "BaseURL") == 0) // Out of Period
-    {
-      dash->strXMLText_.clear();
-      dash->currentNode_ |= MPDNODE_BASEURL;
-    }
-    else if (strcmp(el, "Period") == 0)
-    {
-      dash->current_period_ = new DASHTree::Period();
-      dash->current_period_->base_url_ = dash->mpd_url_;
-      dash->periods_.push_back(dash->current_period_);
-      dash->period_timelined_ = false;
-      dash->current_period_->start_ = 0;
-      dash->current_period_->sequence_ = dash->current_sequence_++;
-
-      for (; *attr;)
-      {
-        if (strcmp((const char*)*attr, "start") == 0)
-          AddDuration((const char*)*(attr + 1), dash->current_period_->start_, 1000);
-        else if (strcmp((const char*)*attr, "id") == 0)
-          dash->current_period_->id_ = (const char*)*(attr + 1);
-        else if (strcmp((const char*)*attr, "duration") == 0)
-          AddDuration((const char*)*(attr + 1), dash->current_period_->duration_, 1000);
-        attr += 2;
-      }
-      dash->currentNode_ |= MPDNODE_PERIOD;
-    }
-    else if (strcmp(el, "Location") == 0)
-    {
-      dash->strXMLText_.clear();
-      dash->currentNode_ |= MPDNODE_LOCATION;
-    }
-  }
-  else if (strcmp(el, "MPD") == 0)
-  {
-    const char *mpt(0), *tsbd(0);
-
-    dash->firstStartNumber_ = 0;
-    dash->current_sequence_ = 0;
-    dash->overallSeconds_ = 0;
-    dash->stream_start_ = dash->GetNowTime();
-    dash->mpd_url_ = dash->base_url_;
-
-    for (; *attr;)
-    {
-      if (strcmp((const char*)*attr, "mediaPresentationDuration") == 0)
-      {
-        mpt = (const char*)*(attr + 1);
-      }
-      else if (strcmp((const char*)*attr, "type") == 0 &&
-               strcmp((const char*)*(attr + 1), "dynamic") == 0)
-      {
-        dash->has_timeshift_buffer_ = true;
-      }
-      else if (strcmp((const char*)*attr, "timeShiftBufferDepth") == 0)
-      {
-        tsbd = (const char*)*(attr + 1);
-        dash->has_timeshift_buffer_ = true;
-      }
-      else if (strcmp((const char*)*attr, "availabilityStartTime") == 0)
-        dash->available_time_ = getTime((const char*)*(attr + 1));
-      else if (strcmp((const char*)*attr, "suggestedPresentationDelay") == 0)
-        AddDuration((const char*)*(attr + 1), dash->live_delay_, 1);
-      else if (strcmp((const char*)*attr, "minimumUpdatePeriod") == 0)
-      {
-        uint64_t dur(0);
-        AddDuration((const char*)*(attr + 1), dur, 1500);
-        // 0S minimumUpdatePeriod = refresh after every segment
-        // We already do that so lets set our minimum updateInterval to 30s
-        if (dur == 0)
-          dur = 30000;
-        dash->SetUpdateInterval(static_cast<uint32_t>(dur));
-      }
-      attr += 2;
-    }
-
-    if (!mpt)
-      mpt = tsbd;
-
-    AddDuration(mpt, dash->overallSeconds_, 1);
-    dash->has_overall_seconds_ = dash->overallSeconds_ > 0;
-
-    uint64_t overallsecs(dash->overallSeconds_ ? dash->overallSeconds_ + 60 : 86400);
-    dash->minPresentationOffset = ~0ULL;
-
-    dash->currentNode_ |= MPDNODE_MPD;
-  }
-}
-
-/*----------------------------------------------------------------------
-|   expat text
-+---------------------------------------------------------------------*/
-static void XMLCALL text(void* data, const char* s, int len)
-{
-  DASHTree* dash(reinterpret_cast<DASHTree*>(data));
-  if (dash->currentNode_ &
-      (MPDNODE_BASEURL | MPDNODE_PSSH | MPDNODE_PLAYREADYWRMHEADER | MPDNODE_LOCATION))
-    dash->strXMLText_ += std::string(s, len);
-}
-
-/*----------------------------------------------------------------------
-|   expat end
-+---------------------------------------------------------------------*/
-
-static void XMLCALL end(void* data, const char* el)
-{
-  DASHTree* dash(reinterpret_cast<DASHTree*>(data));
-
-  if (dash->currentNode_ & MPDNODE_MPD)
-  {
-    if (dash->currentNode_ & MPDNODE_PERIOD)
-    {
-      if (dash->currentNode_ & MPDNODE_ADAPTIONSET)
-      {
-        if (dash->currentNode_ & MPDNODE_REPRESENTATION)
-        {
-          if (dash->currentNode_ & MPDNODE_BASEURL) // Inside Representation
-          {
-            if (strcmp(el, "BaseURL") == 0)
-            {
-              //! @TODO: Multi BaseURL tag is not supported/implemented,
-              //! currently we pick wrongly always the LAST BaseURL available.
-              //! 
-              //! Implementing this feature is very hard without a full refactor
-              //! of the parser and classes where the parserization of the XML
-              //! data must be decoupled from data processing.
-              //! 
-              //! There are two cases:
-              //! 1) BaseURL without properties
-              //!  <BaseURL>https://cdnurl1/</BaseURL>
-              //!  the player must select the first base url by default and fallback
-              //!  to the others when an address no longer available or not reachable.
-              //! 2) BaseURL with DVB properties (ETSI TS 103 285 - DVB)
-              //!  <BaseURL dvb:priority="1" dvb:weight="10" serviceLocation="A" >https://cdnurl1/</BaseURL>
-              //!  where these properties affect the behaviour of the url selection.
-
-              while (dash->strXMLText_.size() &&
-                     (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
-                dash->strXMLText_.erase(dash->strXMLText_.begin());
-
-              std::string url{dash->strXMLText_};
-              if (URL::IsUrlRelative(url))
-                url = URL::Join(dash->current_adaptationset_->base_url_, url);
-
-              dash->current_representation_->base_url_ = url;
-
-              if (dash->current_representation_->flags_ & AdaptiveTree::Representation::TEMPLATE)
-              {
-                if (dash->current_representation_->flags_ &
-                    AdaptiveTree::Representation::INITIALIZATION)
-                {
-                  dash->current_representation_->url_ =
-                      URL::Join(url, dash->current_representation_->segtpl_.initialization.substr(
-                                         dash->current_adaptationset_->base_url_.size()));
-                }
-                dash->current_representation_->segtpl_.media_url =
-                    URL::Join(url, dash->current_representation_->segtpl_.media.substr(
-                                        dash->current_adaptationset_->base_url_.size()));
-
-                ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
-                                    dash->current_representation_->id,
-                                    dash->current_representation_->bandwidth_);
-              }
-              else
-                dash->current_representation_->url_ = url;
-              dash->currentNode_ &= ~MPDNODE_BASEURL;
-            }
-          }
-          else if (dash->currentNode_ & MPDNODE_SEGMENTLIST)
-          {
-            if (strcmp(el, "SegmentList") == 0 || strcmp(el, "SegmentBase") == 0)
-            {
-              dash->currentNode_ &= ~MPDNODE_SEGMENTLIST;
-              if (dash->segcount_ == 0)
-                dash->segcount_ = dash->current_representation_->segments_.data.size();
-              if (!dash->current_period_->duration_ && dash->current_representation_->timescale_)
-              {
-                dash->current_period_->timescale_ = dash->current_representation_->timescale_;
-                dash->current_period_->duration_ =
-                    dash->current_representation_->duration_ *
-                    dash->current_representation_->segments_.data.size();
-              }
-            }
-          }
-          else if (dash->currentNode_ & MPDNODE_SEGMENTTEMPLATE)
-          {
-            if (dash->currentNode_ & MPDNODE_SEGMENTTIMELINE)
-            {
-              if (strcmp(el, "SegmentTimeline") == 0)
-                dash->currentNode_ &= ~MPDNODE_SEGMENTTIMELINE;
-            }
-            else if (strcmp(el, "SegmentTemplate") == 0)
-            {
-              dash->currentNode_ &= ~MPDNODE_SEGMENTTEMPLATE;
-            }
-          }
-          else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
-          {
-            if (dash->currentNode_ & MPDNODE_PSSH)
-            {
-              if (StringUtils::EndsWith(el, "pssh"))
-              {
-                dash->current_pssh_ = dash->strXMLText_;
-                dash->currentNode_ &= ~MPDNODE_PSSH;
-              }
-            }
-            else if (strcmp(el, "ContentProtection") == 0)
-            {
-              if (dash->current_pssh_.empty())
-                dash->current_pssh_ = "FILE";
-              dash->current_representation_->pssh_set_ =
-                  static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
-              dash->currentNode_ &= ~MPDNODE_CONTENTPROTECTION;
-            }
-          }
-          else if (strcmp(el, "Representation") == 0)
-          {
-            dash->currentNode_ &= ~MPDNODE_REPRESENTATION;
-
-            if (dash->current_representation_->pssh_set_ == 0xFF)
-            {
-              // Some manifests dont have Protection per URN included.
-              // We treet manifests valid if no single URN was given
-              if (!dash->current_hasRepURN_)
-              {
-                dash->current_pssh_ = "FILE";
-                dash->current_representation_->pssh_set_ =
-                    static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
-                dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
-              }
-              else
-              {
-                delete dash->current_representation_;
-                dash->current_adaptationset_->representations_.pop_back();
-                return;
-              }
-            }
-
-            if (dash->current_representation_->segments_.data.empty())
-            {
-              DASHTree::SegmentTemplate& tpl(dash->current_representation_->segtpl_);
-
-              uint64_t overallSeconds =
-                  dash->current_period_->duration_
-                      ? dash->current_period_->duration_ / dash->current_period_->timescale_
-                      : dash->overallSeconds_;
-              if (!tpl.media.empty() && overallSeconds > 0 && tpl.timescale > 0 &&
-                  (tpl.duration > 0 ||
-                   dash->current_adaptationset_->segment_durations_.data.size()))
-              {
-                size_t countSegs{dash->current_adaptationset_->segment_durations_.data.size()};
-                if (countSegs == 0)
-                {
-                  countSegs =
-                      static_cast<size_t>(static_cast<double>(overallSeconds) /
-                                          (static_cast<double>(tpl.duration) / tpl.timescale)) +
-                      1;
-                }
-
-                if (countSegs < 65536)
-                {
-                  DASHTree::Segment seg;
-
-                  dash->current_representation_->flags_ |= DASHTree::Representation::TEMPLATE;
-
-                  dash->current_representation_->segments_.data.reserve(countSegs);
-                  if (!tpl.initialization.empty())
-                  {
-                    seg.range_end_ = ~0ULL;
-                    dash->current_representation_->initialization_ = seg;
-                    dash->current_representation_->flags_ |=
-                        DASHTree::Representation::INITIALIZATION;
-                  }
-
-                  std::vector<uint32_t>::const_iterator sdb(
-                      dash->current_adaptationset_->segment_durations_.data.begin()),
-                      sde(dash->current_adaptationset_->segment_durations_.data.end());
-                  bool timeBased = sdb != sde && tpl.media.find("$Time") != std::string::npos;
-                  if (dash->adp_timelined_)
-                    dash->current_representation_->flags_ |= AdaptiveTree::Representation::TIMELINE;
-
-                  seg.range_end_ = dash->current_representation_->startNumber_;
-                  if (dash->current_adaptationset_->startPTS_ >
-                      dash->base_time_ * dash->current_adaptationset_->timescale_)
-                    seg.startPTS_ = dash->current_adaptationset_->startPTS_ -
-                                    dash->base_time_ * dash->current_adaptationset_->timescale_;
-                  else
-                    seg.startPTS_ = 0;
-                  seg.range_begin_ = dash->current_adaptationset_->startPTS_;
-
-                  if (!timeBased && dash->has_timeshift_buffer_ &&
-                      tpl.duration)
-                  {
-                    uint64_t sample_time = dash->current_period_->start_ /  1000;
-
-                    seg.range_end_ += (static_cast<int64_t>(dash->stream_start_ - dash->available_time_ -
-                                                            overallSeconds - sample_time)) *
-                                          tpl.timescale / tpl.duration +
-                                      1;
-                  }
-                  else if (!tpl.duration)
-                    tpl.duration = static_cast<unsigned int>(
-                        (overallSeconds * tpl.timescale) /
-                        dash->current_adaptationset_->segment_durations_.data.size());
-
-                  for (; countSegs; --countSegs)
-                  {
-                    dash->current_representation_->segments_.data.push_back(seg);
-                    uint32_t duration((sdb != sde) ? *(sdb++) : tpl.duration);
-                    seg.startPTS_ += duration, seg.range_begin_ += duration;
-                    ++seg.range_end_;
-                  }
-                  dash->current_representation_->nextPts_ = seg.startPTS_;
-                  return;
-                }
-              }
-              else if (!(dash->current_representation_->flags_ &
-                         (DASHTree::Representation::SEGMENTBASE |
-                          DASHTree::Representation::SUBTITLESTREAM)))
-              {
-                //Let us try to extract the fragments out of SIDX atom
-                dash->current_representation_->flags_ |= DASHTree::Representation::SEGMENTBASE;
-                dash->current_representation_->indexRangeMin_ = 0;
-                dash->current_representation_->indexRangeMax_ = 1024 * 200;
-              }
-            }
-            else
-            {
-              ReplacePlaceHolders(dash->current_representation_->url_,
-                                  dash->current_representation_->id,
-                                  dash->current_representation_->bandwidth_);
-              dash->current_representation_->segtpl_.media_url =
-                  dash->current_representation_->segtpl_.media;
-              ReplacePlaceHolders(dash->current_representation_->segtpl_.media_url,
-                                  dash->current_representation_->id,
-                                  dash->current_representation_->bandwidth_);
-            }
-
-            if ((dash->current_representation_->flags_ & DASHTree::Representation::SEGMENTBASE) &&
-              dash->current_representation_->indexRangeMin_ == 0 && dash->current_representation_->indexRangeMax_ > 0
-              && !(dash->current_representation_->flags_ & DASHTree::Representation::INITIALIZATION))
-            {
-              // AdaptiveStream::ParseIndexRange will fix the initialization max to its real value.
-              dash->current_representation_->flags_ |= DASHTree::Representation::INITIALIZATION;
-              dash->current_representation_->initialization_.range_begin_ = 0;
-              dash->current_representation_->initialization_.range_end_ =
-                  dash->current_representation_->indexRangeMax_;
-            }
-
-
-            if ((dash->current_representation_->flags_ &
-                 AdaptiveTree::Representation::INITIALIZATION) == 0 &&
-                !dash->current_representation_->segments_.empty())
-              // we assume that we have a MOOV atom included in each segment (max 100k = youtube)
-              dash->current_representation_->flags_ |=
-                  AdaptiveTree::Representation::INITIALIZATION_PREFIXED;
-
-            if (dash->current_representation_->startNumber_ > dash->firstStartNumber_)
-              dash->firstStartNumber_ = dash->current_representation_->startNumber_;
-          }
-        }
-        else if (dash->currentNode_ & MPDNODE_SEGMENTDURATIONS)
-        {
-          if (strcmp(el, "SegmentDurations") == 0)
-            dash->currentNode_ &= ~MPDNODE_SEGMENTDURATIONS;
-        }
-        else if (dash->currentNode_ & MPDNODE_BASEURL) // Inside AdaptationSet
-        {
-          if (strcmp(el, "BaseURL") == 0)
-          {
-            URL::EnsureEndingBackslash(dash->strXMLText_);
-
-            if (URL::IsUrlAbsolute(dash->strXMLText_))
-                dash->current_adaptationset_->base_url_ = dash->strXMLText_;
-            else
-              dash->current_adaptationset_->base_url_ =
-                  URL::Join(dash->current_period_->base_url_, dash->strXMLText_);
-            dash->currentNode_ &= ~MPDNODE_BASEURL;
-          }
-        }
-        else if (dash->currentNode_ & (MPDNODE_SEGMENTLIST | MPDNODE_SEGMENTTEMPLATE))
-        {
-          if (dash->currentNode_ & MPDNODE_SEGMENTTIMELINE)
-          {
-            if (strcmp(el, "SegmentTimeline") == 0)
-            {
-              if (!dash->current_period_->duration_ &&
-                  dash->current_adaptationset_->segtpl_.timescale)
-              {
-                dash->current_period_->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
-                uint64_t sum(0);
-                for (auto dur : dash->current_adaptationset_->segment_durations_.data)
-                  sum += dur;
-                dash->current_period_->duration_ = sum;
-              }
-              dash->currentNode_ &= ~MPDNODE_SEGMENTTIMELINE;
-            }
-          }
-          else if (strcmp(el, "SegmentTemplate") == 0)
-          {
-            dash->currentNode_ &= ~MPDNODE_SEGMENTTEMPLATE;
-          }
-          else if (strcmp(el, "SegmentList") == 0)
-          {
-            dash->currentNode_ &= ~MPDNODE_SEGMENTLIST;
-          }
-        }
-        else if (dash->currentNode_ & MPDNODE_CONTENTPROTECTION)
-        {
-          if (dash->currentNode_ & MPDNODE_PSSH)
-          {
-            if (StringUtils::EndsWith(el, "pssh"))
-            {
-              dash->current_pssh_ = dash->strXMLText_;
-              dash->currentNode_ &= ~MPDNODE_PSSH;
-            }
-          }
-          else if (strcmp(el, "ContentProtection") == 0)
-          {
-            if (dash->current_pssh_.empty())
-              dash->current_pssh_ = "FILE";
-            dash->adp_pssh_set_ =
-                static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
-            dash->currentNode_ &= ~MPDNODE_CONTENTPROTECTION;
-          }
-        }
-        else if (dash->currentNode_ & MPDNODE_PLAYREADYWRMHEADER)
-        {
-          dash->current_playready_wrmheader_ = dash->strXMLText_;
-          dash->currentNode_ &= ~MPDNODE_PLAYREADYWRMHEADER;
-        }
-        else if (strcmp(el, "AdaptationSet") == 0)
-        {
-          dash->currentNode_ &= ~MPDNODE_ADAPTIONSET;
-          if (dash->current_adaptationset_->type_ == DASHTree::NOTYPE ||
-              (dash->adp_pssh_set_ == 0xFF && dash->current_hasRepURN_) ||
-              dash->current_adaptationset_->representations_.empty())
-          {
-            delete dash->current_adaptationset_;
-            dash->current_period_->adaptationSets_.pop_back();
-          }
-          else
-          {
-            if (dash->adp_pssh_set_)
-            {
-              if (dash->adp_pssh_set_ == 0xFF)
-              {
-                dash->current_pssh_ = "FILE";
-                if (dash->current_defaultKID_.empty() &&
-                    !dash->current_playready_wrmheader_.empty())
-                  dash->current_defaultKID_ =
-                      PRProtectionParser(dash->current_playready_wrmheader_).getKID();
-                dash->adp_pssh_set_ =
-                    static_cast<uint8_t>(dash->insert_psshset(dash->current_adaptationset_->type_));
-                dash->current_period_->encryptionState_ |= DASHTree::ENCRYTIONSTATE_SUPPORTED;
-              }
-
-              for (std::vector<DASHTree::Representation*>::iterator
-                       b(dash->current_adaptationset_->representations_.begin()),
-                   e(dash->current_adaptationset_->representations_.end());
-                   b != e; ++b)
-                if (!(*b)->pssh_set_)
-                  (*b)->pssh_set_ = dash->adp_pssh_set_;
-            }
-
-            if (dash->current_adaptationset_->segment_durations_.data.empty() &&
-                !dash->current_adaptationset_->segtpl_.media.empty())
-            {
-              for (std::vector<DASHTree::Representation*>::iterator
-                       b(dash->current_adaptationset_->representations_.begin()),
-                   e(dash->current_adaptationset_->representations_.end());
-                   b != e; ++b)
-              {
-                if (!(*b)->duration_ || !(*b)->timescale_)
-                {
-                  (*b)->duration_ = dash->current_adaptationset_->segtpl_.duration;
-                  (*b)->timescale_ = dash->current_adaptationset_->segtpl_.timescale;
-                }
-              }
-            }
-            else if (!dash->current_adaptationset_->segment_durations_.data.empty())
-            //If representation are not timelined, we have to adjust startPTS_ in rep::segments
-            {
-              for (std::vector<DASHTree::Representation*>::iterator
-                       b(dash->current_adaptationset_->representations_.begin()),
-                   e(dash->current_adaptationset_->representations_.end());
-                   b != e; ++b)
-              {
-                if ((*b)->flags_ & DASHTree::Representation::TIMELINE)
-                  continue;
-                std::vector<uint32_t>::const_iterator sdb(
-                    dash->current_adaptationset_->segment_durations_.data.begin()),
-                    sde(dash->current_adaptationset_->segment_durations_.data.end());
-                uint64_t spts(0);
-                for (std::vector<DASHTree::Segment>::iterator sb((*b)->segments_.data.begin()),
-                     se((*b)->segments_.data.end());
-                     sb != se && sdb != sde; ++sb, ++sdb)
-                {
-                  sb->startPTS_ = spts;
-                  spts += *sdb;
-                }
-                (*b)->nextPts_ = spts;
-              }
-            }
-          }
-        }
-      }
-      else if (dash->currentNode_ & MPDNODE_BASEURL) // Inside Period
-      {
-        if (strcmp(el, "BaseURL") == 0)
-        {
-          while (dash->strXMLText_.size() &&
-                 (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
-          {
-            dash->strXMLText_.erase(dash->strXMLText_.begin());
-          }
-
-          URL::EnsureEndingBackslash(dash->strXMLText_);
-
-          if (URL::IsUrlAbsolute(dash->strXMLText_))
-          {
-            dash->current_period_->base_url_ = dash->strXMLText_;
-          }
-          else
-          {
-            dash->current_period_->base_url_ =
-                URL::Join(dash->current_period_->base_url_, dash->strXMLText_);
-          }
-          dash->currentNode_ &= ~MPDNODE_BASEURL;
-        }
-      }
-      else if (dash->currentNode_ & (MPDNODE_SEGMENTLIST | MPDNODE_SEGMENTTEMPLATE))
-      {
-        if (dash->currentNode_ & MPDNODE_SEGMENTTIMELINE)
-        {
-          if (strcmp(el, "SegmentTimeline") == 0)
-            dash->currentNode_ &= ~MPDNODE_SEGMENTTIMELINE;
-        }
-        else if (strcmp(el, "SegmentList") == 0)
-          dash->currentNode_ &= ~MPDNODE_SEGMENTLIST;
-        else if (strcmp(el, "SegmentTemplate") == 0)
-          dash->currentNode_ &= ~MPDNODE_SEGMENTTEMPLATE;
-      }
-      else if (strcmp(el, "Period") == 0)
-      {
-        dash->currentNode_ &= ~MPDNODE_PERIOD;
-      }
-    }
-    else if (dash->currentNode_ & MPDNODE_BASEURL) // Outside Period
-    {
-      if (strcmp(el, "BaseURL") == 0)
-      {
-        while (dash->strXMLText_.size() &&
-               (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
-        {
-          dash->strXMLText_.erase(dash->strXMLText_.begin());
-        }
-
-        URL::EnsureEndingBackslash(dash->strXMLText_);
-
-        if (URL::IsUrlAbsolute(dash->strXMLText_))
-        {
-          dash->mpd_url_ = dash->strXMLText_;
-        }
-        else
-        {
-          dash->mpd_url_ = URL::Join(dash->mpd_url_, dash->strXMLText_);
-        }
-        dash->currentNode_ &= ~MPDNODE_BASEURL;
-      }
-    }
-    else if (dash->currentNode_ & MPDNODE_LOCATION)
-    {
-      if (strcmp(el, "Location") == 0)
-      {
-        while (dash->strXMLText_.size() &&
-               (dash->strXMLText_[0] == '\n' || dash->strXMLText_[0] == '\r'))
-          dash->strXMLText_.erase(dash->strXMLText_.begin());
-        if (dash->strXMLText_.compare(0, 7, "http://") == 0 ||
-            dash->strXMLText_.compare(0, 8, "https://") == 0)
-          dash->location_ = dash->strXMLText_;
-        dash->currentNode_ &= ~MPDNODE_LOCATION;
-      }
-    }
-    else if (strcmp(el, "MPD") == 0)
-    {
-      //cleanup periods
-      for (std::vector<AdaptiveTree::Period*>::iterator b(dash->periods_.begin());
-           b != dash->periods_.end();)
-      {
-        if (dash->has_overall_seconds_ && !(*b)->duration_)
-        {
-          if (b + 1 == dash->periods_.end())
-            (*b)->duration_ =
-                ((dash->overallSeconds_ * 1000 - (*b)->start_) * (*b)->timescale_) / 1000;
-          else
-            (*b)->duration_ = (((*(b + 1))->start_ - (*b)->start_) * (*b)->timescale_) / 1000;
-        }
-        if ((*b)->adaptationSets_.empty())
-        {
-          if (dash->has_overall_seconds_)
-            dash->overallSeconds_ -= (*b)->duration_ / (*b)->timescale_;
-          delete *b;
-          b = dash->periods_.erase(b);
-        }
-        else
-        {
-          if (!dash->has_overall_seconds_)
-            dash->overallSeconds_ += (*b)->duration_ / (*b)->timescale_;
-          ++b;
-        }
-      }
-      dash->currentNode_ &= ~MPDNODE_MPD;
-    }
-  }
-}
-
-DASHTree::DASHTree(const DASHTree& left) : AdaptiveTree(left)
-{
-  base_time_ = left.base_time_;
-  
   // Location element should be used on manifest updates
   location_ = left.location_;
 }
 
-/*----------------------------------------------------------------------
-|   DASHTree
-+---------------------------------------------------------------------*/
-bool DASHTree::open(const std::string& url)
+bool adaptive::CDashTree::open(const std::string& url)
 {
   return open(url, {});
 }
 
-bool DASHTree::open(const std::string& url, std::map<std::string, std::string> addHeaders)
+bool adaptive::CDashTree::open(const std::string& url,
+                               std::map<std::string, std::string> addHeaders)
 {
-  currentNode_ = 0;
-
-  std::stringstream data;
+  std::string data;
   HTTPRespHeaders respHeaders;
   if (!DownloadManifest(url, addHeaders, data, respHeaders))
     return false;
@@ -1639,23 +110,1406 @@ bool DASHTree::open(const std::string& url, std::map<std::string, std::string> a
   if (!PreparePaths(effective_url_))
     return false;
 
-  if (!ParseManifest(data.str()))
+  if (!ParseManifest(data))
     return false;
 
-  if (periods_.empty())
+  if (m_periods.empty())
   {
     LOG::Log(LOGWARNING, "No periods in the manifest");
     return false;
   }
 
-  current_period_ = periods_[0];
+  m_currentPeriod = m_periods[0].get();
+
   SortTree();
   StartUpdateThread();
 
   return true;
 }
 
-void DASHTree::SetManifestUpdateParam(std::string& manifestUrl, std::string_view param)
+bool adaptive::CDashTree::ParseManifest(std::string& data)
+{
+  xml_document doc;
+  xml_parse_result parseRes = doc.load_buffer(data.c_str(), data.size());
+  if (parseRes.status != status_ok)
+  {
+    LOG::LogF(LOGERROR, "Failed to parse the manifest file, error code: %i", parseRes.status);
+    return false;
+  }
+
+  m_segmentsLowerStartNumber = 0;
+  m_periodCurrentSeq = 0;
+
+  stream_start_ = GetTimestamp();
+
+  xml_node nodeMPD = doc.child("MPD");
+  if (!nodeMPD)
+  {
+    LOG::LogF(LOGERROR, "Failed to get manifest <MPD> tag element.");
+    return false;
+  }
+
+  // Parse <MPD> tag attributes
+  ParseTagMPDAttribs(nodeMPD);
+
+  // Parse <MPD> <Location> tag
+  std::string_view locationText = nodeMPD.child("Location").child_value();
+  if (!locationText.empty() && URL::IsValidUrl(locationText.data()))
+    location_ = locationText;
+
+  // Parse <MPD> <BaseURL> tag (just first, multi BaseURL not supported yet)
+  std::string mpdUrl = base_url_;
+  std::string baseUrl = nodeMPD.child("BaseURL").child_value();
+  if (!baseUrl.empty())
+  {
+    URL::EnsureEndingBackslash(baseUrl);
+
+    if (URL::IsUrlAbsolute(baseUrl))
+      mpdUrl = baseUrl;
+    else
+      mpdUrl = URL::Join(mpdUrl, baseUrl);
+  }
+
+  // Parse <MPD> <Period> tags
+  for (xml_node node : nodeMPD.children("Period"))
+  {
+    ParseTagPeriod(node, mpdUrl);
+  }
+
+  // Cleanup periods
+  bool hasTotalTimeSecs = m_totalTimeSecs > 0;
+
+  for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
+  {
+    auto& period = *itPeriod;
+    if (hasTotalTimeSecs && period->GetDuration() == 0)
+    {
+      auto nextPeriod = itPeriod + 1;
+      if (nextPeriod == m_periods.end())
+      {
+        period->SetDuration(
+            ((m_totalTimeSecs * 1000 - period->GetStart()) * period->GetTimescale()) / 1000);
+      }
+      else
+      {
+        period->SetDuration(
+            (((*nextPeriod)->GetStart() - period->GetStart()) * period->GetTimescale()) / 1000);
+      }
+    }
+    if (period->GetAdaptationSets().empty())
+    {
+      if (hasTotalTimeSecs)
+        m_totalTimeSecs -= period->GetDuration() / period->GetTimescale();
+
+      itPeriod = m_periods.erase(itPeriod);
+    }
+    else
+    {
+      if (!hasTotalTimeSecs)
+        m_totalTimeSecs += period->GetDuration() / period->GetTimescale();
+
+      itPeriod++;
+    }
+  }
+
+  return true;
+}
+
+void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
+{
+  double mediaPresDuration =
+      XML::ParseDuration(XML::GetAttrib(nodeMPD, "mediaPresentationDuration"));
+
+  has_timeshift_buffer_ = XML::GetAttrib(nodeMPD, "type") == "dynamic";
+
+  double timeShiftBufferDepth{0};
+  std::string timeShiftBufferDepthStr;
+  if (XML::QueryAttrib(nodeMPD, "timeShiftBufferDepth", timeShiftBufferDepthStr))
+  {
+    timeShiftBufferDepth = XML::ParseDuration(timeShiftBufferDepthStr);
+    has_timeshift_buffer_ = true;
+  }
+
+  std::string availabilityStartTimeStr;
+  if (XML::QueryAttrib(nodeMPD, "availabilityStartTime", availabilityStartTimeStr))
+    available_time_ = XML::ParseDate(availabilityStartTimeStr);
+
+  std::string suggestedPresentationDelayStr;
+  if (XML::QueryAttrib(nodeMPD, "suggestedPresentationDelay", suggestedPresentationDelayStr))
+    live_delay_ = static_cast<uint64_t>(XML::ParseDuration(suggestedPresentationDelayStr));
+
+  std::string minimumUpdatePeriodStr;
+  if (XML::QueryAttrib(nodeMPD, "minimumUpdatePeriod", minimumUpdatePeriodStr))
+  {
+    double duration = XML::ParseDuration(minimumUpdatePeriodStr) * 1500;
+    // 0S minimumUpdatePeriod = refresh after every segment
+    // We already do that so lets set our minimum updateInterval to 30s
+    if (duration == 0)
+      duration = 30000;
+
+    updateInterval_ = static_cast<uint32_t>(duration);
+  }
+
+  if (mediaPresDuration == 0)
+    m_totalTimeSecs = static_cast<uint64_t>(timeShiftBufferDepth);
+  else
+    m_totalTimeSecs = static_cast<uint64_t>(mediaPresDuration);
+}
+
+void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, std::string_view mpdUrl)
+{
+  std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
+
+  period->SetSequence(m_periodCurrentSeq++);
+
+  // Parse <Period> attributes
+  period->SetId(XML::GetAttrib(nodePeriod, "id"));
+  period->SetStart(
+      static_cast<uint64_t>(XML::ParseDuration(XML::GetAttrib(nodePeriod, "start")) * 1000));
+  period->SetDuration(
+      static_cast<uint64_t>(XML::ParseDuration(XML::GetAttrib(nodePeriod, "duration")) * 1000));
+
+  // Parse <BaseURL> tag (just first, multi BaseURL not supported yet)
+  std::string baseUrl = nodePeriod.child("BaseURL").child_value();
+  if (baseUrl.empty())
+  {
+    period->SetBaseUrl(mpdUrl);
+  }
+  else
+  {
+    URL::EnsureEndingBackslash(baseUrl);
+
+    if (URL::IsUrlAbsolute(baseUrl))
+      period->SetBaseUrl(baseUrl);
+    else
+      period->SetBaseUrl(URL::Join(mpdUrl.data(), baseUrl));
+  }
+
+  // Parse <SegmentTemplate> tag
+  xml_node nodeSegTpl = nodePeriod.child("SegmentTemplate");
+  if (nodeSegTpl)
+  {
+    CSegmentTemplate segTemplate;
+
+    ParseSegmentTemplate(nodeSegTpl, &segTemplate);
+
+    // Parse <SegmentTimeline> child
+    xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
+    if (nodeSegTL)
+    {
+      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, period->SegmentTimelineDuration(),
+                                                  segTemplate.GetTimescale());
+
+      period->SetStartPTS(startPts);
+
+      if (period->GetDuration() == 0 && segTemplate.GetTimescale() > 0)
+      {
+        // Calculate total duration of segments
+        auto& segTLData = period->SegmentTimelineDuration().GetData();
+        uint32_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0);
+        period->SetDuration(sum);
+        period->SetTimescale(segTemplate.GetTimescale());
+      }
+    }
+
+    period->SetSegmentTemplate(segTemplate);
+  }
+
+  // Parse <SegmentList> tag
+  xml_node nodeSeglist = nodePeriod.child("SegmentList");
+  if (nodeSeglist)
+  {
+    CSegmentList segList;
+
+    uint64_t startNumber;
+    if (XML::QueryAttrib(nodeSeglist, "startNumber", startNumber))
+      segList.SetStartNumber(startNumber);
+
+    uint64_t duration;
+    if (XML::QueryAttrib(nodeSeglist, "duration", duration))
+    {
+      segList.SetDuration(duration);
+      period->SetDuration(duration);
+    }
+
+    uint32_t timescale;
+    if (XML::QueryAttrib(nodeSeglist, "timescale", timescale))
+    {
+      segList.SetTimescale(timescale);
+      period->SetTimescale(timescale);
+    }
+
+    period->SetSegmentList(segList);
+  }
+
+  // Parse <AdaptationSet> tags
+  for (xml_node node : nodePeriod.children("AdaptationSet"))
+  {
+    ParseTagAdaptationSet(node, period.get());
+  }
+
+  m_periods.push_back(std::move(period));
+}
+
+void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST::CPeriod* period)
+{
+  std::unique_ptr<CAdaptationSet> adpSet = CAdaptationSet::MakeUniquePtr(period);
+
+  adpSet->SegmentTimelineDuration() = period->SegmentTimelineDuration();
+
+  adpSet->SetId(XML::GetAttrib(nodeAdp, "id"));
+
+  std::string_view contentType;
+
+  // Parse <ContentComponent> child tag
+  xml_node nodeContComp = nodeAdp.child("ContentComponent");
+  if (nodeContComp)
+  {
+    if (adpSet->GetId().empty())
+      adpSet->SetId(XML::GetAttrib(nodeContComp, "id"));
+
+    contentType = XML::GetAttrib(nodeContComp, "contentType");
+  }
+
+  // Parse <Role> child tag
+  xml_node nodeRole = nodeAdp.child("Role");
+  if (nodeRole)
+  {
+    std::string_view schemeIdUri = XML::GetAttrib(nodeRole, "schemeIdUri");
+    std::string_view value = XML::GetAttrib(nodeRole, "value");
+
+    if (schemeIdUri == "urn:mpeg:dash:role:2011")
+    {
+      if (value == "subtitle")
+        contentType = "text";
+      else if (value == "forced") // ISA custom attribute
+        adpSet->SetIsForced(true);
+      else if (value == "main")
+        adpSet->SetIsDefault(true);
+    }
+  }
+
+  // Parse <Accessibility> child tag
+  xml_node nodeAcc = nodeAdp.child("Accessibility");
+  if (nodeAcc)
+  {
+    std::string_view schemeIdUri = XML::GetAttrib(nodeAcc, "schemeIdUri");
+    std::string_view value = XML::GetAttrib(nodeAcc, "value");
+
+    if (schemeIdUri == "urn:mpeg:dash:role:2011")
+    {
+      if (value == "caption")
+        adpSet->SetIsImpaired(true);
+    }
+  }
+
+  if (contentType.empty())
+    contentType = XML::GetAttrib(nodeAdp, "contentType");
+
+  adpSet->SetMimeType(XML::GetAttrib(nodeAdp, "mimeType"));
+
+  adpSet->SetStreamType(DetectStreamType(contentType, adpSet->GetMimeType()));
+  adpSet->SetContainerType(DetectContainerType(adpSet->GetMimeType()));
+
+  if (adpSet->GetContainerType() == ContainerType::NOTYPE)
+  {
+    LOG::LogF(LOGWARNING, "Skipped AdaptationSet with id: \"%s\", container type not specified.",
+              adpSet->GetId().data());
+    return;
+  }
+
+  adpSet->SetGroup(XML::GetAttrib(nodeAdp, "group"));
+  adpSet->SetLanguage(XML::GetAttrib(nodeAdp, "lang"));
+  adpSet->SetName(XML::GetAttrib(nodeAdp, "name"));
+  adpSet->SetResWidth(XML::GetAttribInt(nodeAdp, "width"));
+  adpSet->SetResHeight(XML::GetAttribInt(nodeAdp, "height"));
+
+  uint32_t frameRate{0};
+  uint32_t frameRateScale{1}; // Default 1 when attribute value has framerate without scale
+  std::sscanf(XML::GetAttrib(nodeAdp, "frameRate").data(), "%" SCNu32 "/%" SCNu32, &frameRate,
+              &frameRateScale);
+  adpSet->SetFrameRate(frameRate);
+  adpSet->SetFrameRateScale(frameRateScale);
+
+  int parW{0};
+  int parH{0};
+  if (std::sscanf(XML::GetAttrib(nodeAdp, "par").data(), "%d:%d", &parW, &parH) == 2)
+    adpSet->SetAspectRatio(static_cast<float>(parW) / parH);
+
+  adpSet->AddCodecs(XML::GetAttrib(nodeAdp, "codecs"));
+
+  adpSet->SetAudioTrackId(XML::GetAttrib(nodeAdp, "audioTrackId")); // ISA custom attribute
+
+  // Following stream properties, can be used to override existing values
+  std::string isImpaired;
+  if (XML::QueryAttrib(nodeAdp, "impaired", isImpaired)) // ISA custom attribute
+    adpSet->SetIsImpaired(isImpaired == "true");
+
+  std::string isForced;
+  if (XML::QueryAttrib(nodeAdp, "forced", isForced)) // ISA custom attribute
+    adpSet->SetIsForced(isForced == "true");
+
+  std::string isOriginal;
+  if (XML::QueryAttrib(nodeAdp, "original", isOriginal)) // ISA custom attribute
+    adpSet->SetIsOriginal(isOriginal == "true");
+
+  std::string isDefault;
+  if (XML::QueryAttrib(nodeAdp, "default", isDefault)) // ISA custom attribute
+    adpSet->SetIsOriginal(isDefault == "true");
+
+  // Parse <AudioChannelConfiguration> child tag
+  xml_node nodeAudioCh = nodeAdp.child("AudioChannelConfiguration");
+  if (nodeAudioCh)
+    adpSet->SetAudioChannels(ParseAudioChannelConfig(nodeAudioCh));
+
+  // Parse <SupplementalProperty> child tag
+  xml_node nodeSupplProp = nodeAdp.child("SupplementalProperty");
+  if (nodeSupplProp)
+  {
+    std::string_view schemeIdUri = XML::GetAttrib(nodeSupplProp, "schemeIdUri");
+    std::string_view value = XML::GetAttrib(nodeSupplProp, "value");
+
+    if (schemeIdUri == "urn:mpeg:dash:adaptation-set-switching:2016")
+      adpSet->AddSwitchingIds(value);
+  }
+
+  // Parse <BaseURL> tag (just first, multi BaseURL not supported yet)
+  std::string baseUrlText = nodeAdp.child("BaseURL").child_value();
+  if (baseUrlText.empty())
+  {
+    adpSet->SetBaseUrl(period->GetBaseUrl());
+  }
+  else
+  {
+    URL::EnsureEndingBackslash(baseUrlText);
+
+    if (URL::IsUrlAbsolute(baseUrlText))
+      adpSet->SetBaseUrl(baseUrlText);
+    else
+      adpSet->SetBaseUrl(URL::Join(period->GetBaseUrl(), baseUrlText));
+  }
+
+  // Parse <SegmentDurations> tag
+  // No dash spec, looks like a custom Amazon video service implementation
+  xml_node nodeSegDur = nodeAdp.child("SegmentDurations");
+  if (nodeSegDur)
+  {
+    period->SetTimescale(XML::GetAttribUint32(nodeSegDur, "timescale", 1000));
+
+    // Parse <S> tags - e.g. <S d="90000"/>
+    // add all duration values as timeline segments
+    for (xml_node node : nodeSegDur.children("S"))
+    {
+      adpSet->SegmentTimelineDuration().GetData().emplace_back(XML::GetAttribUint32(node, "d"));
+    }
+  }
+
+  // Parse <SegmentTemplate> tag
+  xml_node nodeSegTpl = nodeAdp.child("SegmentTemplate");
+  if (nodeSegTpl)
+  {
+    CSegmentTemplate segTemplate;
+    if (period->HasSegmentTemplate())
+      segTemplate = *period->GetSegmentTemplate();
+
+    ParseSegmentTemplate(nodeSegTpl, &segTemplate);
+
+    // Parse <SegmentTemplate> <SegmentTimeline> child
+    xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
+    if (nodeSegTL)
+    {
+      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration(),
+                                                  segTemplate.GetTimescale());
+
+      adpSet->SetStartPTS(startPts);
+
+      if (m_manifestUpdateParam.empty() && has_timeshift_buffer_)
+        m_manifestUpdateParam = "full";
+
+      if (period->GetDuration() == 0 && segTemplate.GetTimescale() > 0)
+      {
+        // Calculate total duration of segments
+        auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
+        uint32_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0);
+        period->SetDuration(sum);
+        period->SetTimescale(segTemplate.GetTimescale());
+      }
+    }
+    adpSet->SetSegmentTemplate(segTemplate);
+  }
+  else if (period->HasSegmentTemplate())
+    adpSet->SetSegmentTemplate(*period->GetSegmentTemplate());
+
+  // Parse <SegmentList> tag
+  xml_node nodeSeglist = nodeAdp.child("SegmentList");
+  if (nodeSeglist)
+  {
+    CSegmentList segList;
+    if (adpSet->HasSegmentList())
+      segList = *adpSet->GetSegmentList();
+
+    uint64_t duration;
+    if (XML::QueryAttrib(nodeSeglist, "duration", duration))
+    {
+      segList.SetDuration(duration);
+      period->SetDuration(duration);
+    }
+
+    uint32_t timescale;
+    if (XML::QueryAttrib(nodeSeglist, "timescale", timescale))
+    {
+      segList.SetTimescale(timescale);
+      period->SetTimescale(timescale);
+    }
+
+    uint64_t presTimeOffset;
+    if (XML::QueryAttrib(nodeSeglist, "presentationTimeOffset", presTimeOffset))
+      segList.SetPresTimeOffset(presTimeOffset);
+
+    uint64_t startNumber;
+    if (XML::QueryAttrib(nodeSeglist, "startNumber", startNumber))
+      segList.SetStartNumber(startNumber);
+
+    adpSet->SetSegmentList(segList);
+
+    // Parse <SegmentList> <SegmentTimeline> child
+    xml_node nodeSegTL = nodeSeglist.child("SegmentTimeline");
+    if (nodeSegTL)
+    {
+      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration(),
+                                                  segList.GetTimescale());
+
+      adpSet->SetStartPTS(startPts);
+    }
+  }
+
+  // Parse <Representation> child tags
+  bool hasReprURN{false}; // True if representations has URNs
+  for (xml_node node : nodeAdp.children("Representation"))
+  {
+    ParseTagRepresentation(node, adpSet.get(), period, hasReprURN);
+  }
+
+  if (adpSet->GetRepresentations().empty())
+  {
+    LOG::LogF(LOGWARNING, "Skipped AdaptationSet with id: \"%s\", has no representations.",
+              adpSet->GetId().data());
+    return;
+  }
+
+  // Parse <ContentProtection> child tags
+  if (nodeAdp.child("ContentProtection"))
+  {
+    period->SetEncryptionState(EncryptionState::ENCRYPTED);
+    uint16_t currentPsshSetPos{PSSHSET_POS_DEFAULT};
+    std::string currentPssh{PSSH_FROM_FILE};
+    std::string currentDefaultKID;
+    bool isSecureDecoderNeeded{false};
+
+    if (ParseTagContentProtection(nodeAdp, currentPssh, currentDefaultKID, isSecureDecoderNeeded))
+    {
+      period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
+      currentPsshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet.get(), currentPssh,
+                                        currentDefaultKID);
+    }
+    if (currentPsshSetPos == PSSHSET_POS_INVALID)
+    {
+      LOG::LogF(LOGWARNING, "The PSSHSet in the adaptation set id \"%s\" is not valid.",
+                adpSet->GetId().data());
+    }
+    period->SetSecureDecodeNeeded(isSecureDecoderNeeded);
+
+    if (hasReprURN && currentPsshSetPos == PSSHSET_POS_INVALID)
+    {
+      LOG::LogF(LOGWARNING, "Skipped adaptation set with id: \"%s\", pssh not valid.",
+                adpSet->GetId().data());
+      return;
+    }
+
+    if (currentPsshSetPos != PSSHSET_POS_DEFAULT)
+    {
+      // Set PSSHSet of AdaptationSet to all representations
+      for (auto& rep : adpSet->GetRepresentations())
+      {
+        rep->m_psshSetPos = currentPsshSetPos;
+      }
+    }
+  }
+
+  if (adpSet->SegmentTimelineDuration().IsEmpty() && adpSet->HasSegmentTemplate() &&
+      !adpSet->GetSegmentTemplate()->GetMedia().empty())
+  {
+    for (auto& rep : adpSet->GetRepresentations())
+    {
+      if (rep->GetDuration() == 0 || rep->GetTimescale() == 0)
+      {
+        rep->SetDuration(adpSet->GetSegmentTemplate()->GetDuration());
+        rep->SetTimescale(adpSet->GetSegmentTemplate()->GetTimescale());
+      }
+    }
+  }
+  else if (!adpSet->SegmentTimelineDuration().IsEmpty())
+  {
+    // If representations are not timelined, we have to adjust startPTS in representation segments
+    for (auto& rep : adpSet->GetRepresentations())
+    {
+      if (rep->HasSegmentTimeline())
+        continue;
+
+      uint64_t startPts{0};
+      for (size_t i{0}; i < adpSet->SegmentTimelineDuration().GetSize(); i++)
+      {
+        auto adpSeg = adpSet->SegmentTimelineDuration().Get(i);
+        auto repSeg = rep->SegmentTimeline().Get(i);
+        if (repSeg && adpSeg)
+        {
+          repSeg->startPTS_ = startPts;
+          startPts += *adpSeg;
+        }
+      }
+      rep->nextPts_ = startPts;
+    }
+  }
+
+  period->AddAdaptationSet(adpSet);
+}
+
+
+void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
+                                                 PLAYLIST::CAdaptationSet* adpSet,
+                                                 PLAYLIST::CPeriod* period,
+                                                 bool& hasReprURN)
+{
+  std::unique_ptr<CRepresentation> repr = CRepresentation::MakeUniquePtr(adpSet);
+
+  repr->SetStartNumber(adpSet->GetStartNumber());
+  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
+
+  repr->SetId(XML::GetAttrib(nodeRepr, "id"));
+
+  repr->SetBandwidth(XML::GetAttribUint32(nodeRepr, "bandwidth"));
+
+  repr->SetResWidth(XML::GetAttribInt(nodeRepr, "width"));
+  repr->SetResHeight(XML::GetAttribInt(nodeRepr, "height"));
+
+  std::string frameRateStr;
+  if (XML::QueryAttrib(nodeRepr, "frameRate", frameRateStr))
+  {
+    uint32_t frameRate{0};
+    uint32_t frameRateScale{1}; // Default 1 when attribute value has framerate without scale
+    std::sscanf(frameRateStr.c_str(), "%" SCNu32 "/%" SCNu32, &frameRate, &frameRateScale);
+    repr->SetFrameRate(frameRate);
+    repr->SetFrameRateScale(frameRateScale);
+  }
+
+  std::string mimeType;
+  if (XML::QueryAttrib(nodeRepr, "mimeType", mimeType))
+  {
+    repr->SetMimeType(mimeType);
+    repr->SetContainerType(DetectContainerType(mimeType));
+  }
+
+  std::string codecs;
+  if (XML::QueryAttrib(nodeRepr, "codecs", codecs))
+    repr->AddCodecs(codecs);
+  else
+    repr->AddCodecs(adpSet->GetCodecs());
+
+  if (repr->GetCodecs().empty())
+    repr->AddCodecs(DetectCodecFromMimeType(repr->GetMimeType()));
+
+  if (repr->GetCodecs().empty())
+  {
+    LOG::LogF(LOGWARNING,
+              "Cannot get codecs for representation with id: \"%s\". Representation skipped.",
+              repr->GetId().data());
+    return;
+  }
+
+  // Sanitize AdaptationSet properties
+  //! @todo: sanitize need to be reworked and moved outside representation parser
+  if (adpSet->GetStreamType() != StreamType::SUBTITLE)
+  {
+    if (adpSet->GetStreamType() == StreamType::NOTYPE)
+      adpSet->SetStreamType(DetectStreamType("", repr->GetMimeType()));
+
+    // Force set stream type and mime type to parent AdaptationSet
+    if (repr->ContainsCodec("wvtt"))
+    {
+      adpSet->SetStreamType(StreamType::SUBTITLE);
+      adpSet->SetMimeType("text/vtt");
+    }
+    else if (repr->ContainsCodec("ttml"))
+    {
+      adpSet->SetStreamType(StreamType::SUBTITLE);
+      adpSet->SetMimeType("application/ttml+xml");
+    }
+  }
+  if (adpSet->GetStreamType() == StreamType::SUBTITLE &&
+      (adpSet->GetMimeType() == "application/ttml+xml" || adpSet->GetMimeType() == "text/vtt"))
+  {
+    if (adpSet->SegmentTimelineDuration().IsEmpty())
+      repr->SetIsSubtitleStream(true);
+    else
+      repr->SetContainerType(ContainerType::TEXT);
+  }
+
+  // ISA custom attribute
+  // No dash spec, looks like a custom Amazon video service implementation
+  repr->SetCodecPrivateData(XML::GetAttrib(nodeRepr, "codecPrivateData"));
+
+  // ISA custom attribute
+  repr->SetSampleRate(XML::GetAttribUint32(nodeRepr, "audioSamplingRate"));
+
+  // ISA custom attribute
+  uint32_t hdcp;
+  if (XML::QueryAttrib(nodeRepr, "hdcp", hdcp))
+    repr->SetHdcpVersion(static_cast<uint16_t>(hdcp));
+
+  // Parse <BaseURL> tag
+  std::string_view baseUrl = nodeRepr.child("BaseURL").child_value();
+  //! @TODO: Multi BaseURL tag is not supported/implemented yet.
+  //! There are two cases:
+  //! 1) BaseURL without properties
+  //!  <BaseURL>https://cdnurl1/</BaseURL>
+  //!  the player must select the first base url by default and fallback
+  //!  to the others when an address no longer available or not reachable.
+  //! 2) BaseURL with DVB properties (ETSI TS 103 285 - DVB)
+  //!  <BaseURL dvb:priority="1" dvb:weight="10" serviceLocation="A" >https://cdnurl1/</BaseURL>
+  //!  where these properties affect the behaviour of the url selection.
+  if (baseUrl.empty())
+  {
+    repr->SetBaseUrl(adpSet->GetBaseUrl());
+  }
+  else
+  {
+    if (URL::IsUrlAbsolute(baseUrl))
+      repr->SetBaseUrl(baseUrl);
+    else
+      repr->SetBaseUrl(URL::Join(adpSet->GetBaseUrl().data(), baseUrl.data()));
+  }
+
+  // Parse <SegmentBase> tag
+  xml_node nodeSegBase = nodeRepr.child("SegmentBase");
+  if (nodeSegBase)
+  {
+    uint64_t rangeStart{0};
+    uint64_t rangeEnd{0};
+
+    if (ParseRangeRFC(XML::GetAttrib(nodeSegBase, "indexRange"), rangeStart, rangeEnd))
+    {
+      repr->m_segBaseIndexRangeMin = rangeStart;
+      repr->m_segBaseIndexRangeMax = rangeEnd;
+    }
+    else
+      LOG::LogF(LOGERROR, "Cannot get \"indexRange\" attribute from <SegmentBase> tag");
+
+    repr->SetHasSegmentBase(true);
+
+    if (XML::GetAttrib(nodeSegBase, "indexRangeExact") == "true")
+      repr->SetHasSegBaseRangeExact(true);
+
+    uint32_t timescale;
+    if (XML::QueryAttrib(nodeSegBase, "timescale", timescale))
+      repr->SetTimescale(timescale);
+
+    // Parse <SegmentBase> <Initialization> child tag
+    xml_node nodeInit = nodeSegBase.child("Initialization");
+    if (nodeInit)
+    {
+      CSegment seg;
+      uint64_t rangeStart{0};
+      uint64_t rangeEnd{0};
+
+      seg.startPTS_ = 0;
+
+      std::string range;
+      if (XML::QueryAttrib(nodeInit, "range", range))
+      {
+        if (ParseRangeRFC(range, rangeStart, rangeEnd))
+        {
+          seg.range_begin_ = rangeStart;
+          seg.range_end_ = rangeEnd;
+        }
+        else
+          LOG::LogF(LOGERROR, "Failed to parse \"range\" attribute in the <Initialization> tag");
+      }
+
+      repr->initialization_ = seg;
+      repr->SetHasInitialization(true);
+    }
+  }
+
+  // Parse <SegmentTemplate> tag
+  xml_node nodeSegTpl = nodeRepr.child("SegmentTemplate");
+  if (nodeSegTpl)
+  {
+    CSegmentTemplate segTemplate;
+    if (adpSet->HasSegmentTemplate())
+      segTemplate = *adpSet->GetSegmentTemplate();
+
+    ParseSegmentTemplate(nodeSegTpl, &segTemplate);
+
+    if (!segTemplate.GetInitialization().empty())
+      repr->SetHasInitialization(true);
+
+    // Parse <SegmentTemplate> <SegmentTimeline> child
+    xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
+    if (nodeSegTL)
+    {
+      uint64_t totalTimeSecs{0};
+      if (repr->GetDuration() > 0 && repr->GetTimescale() > 0)
+        totalTimeSecs = repr->GetDuration() / repr->GetTimescale();
+
+      uint64_t startPts =
+          ParseTagSegmentTimeline(nodeSegTL, repr->SegmentTimeline(), segTemplate.GetTimescale(),
+                                  totalTimeSecs, &segTemplate);
+
+      if (m_manifestUpdateParam.empty() && has_timeshift_buffer_)
+        m_manifestUpdateParam = "full";
+
+      repr->nextPts_ = startPts;
+
+      if (!repr->SegmentTimeline().IsEmpty())
+      {
+        repr->SetHasInitialization(true);
+        repr->initialization_ = CSegment();
+      }
+    }
+    repr->SetTimescale(segTemplate.GetTimescale());
+    repr->SetSegmentTemplate(segTemplate);
+
+    if (segTemplate.GetStartNumber() > 0)
+      repr->SetStartNumber(segTemplate.GetStartNumber());
+  }
+  else if (adpSet->HasSegmentTemplate())
+  {
+    CSegmentTemplate segTemplate = *adpSet->GetSegmentTemplate();
+    repr->SetTimescale(segTemplate.GetTimescale());
+    repr->SetSegmentTemplate(segTemplate);
+
+    if (segTemplate.GetStartNumber() > 0)
+      repr->SetStartNumber(segTemplate.GetStartNumber());
+
+    if (!repr->GetSegmentTemplate()->GetInitialization().empty())
+      repr->SetHasInitialization(true);
+  }
+
+  // Parse <SegmentList> tag
+  xml_node nodeSeglist = nodeRepr.child("SegmentList");
+  if (nodeSeglist)
+  {
+    CSegmentList segList;
+    if (repr->HasSegmentList())
+      segList = *repr->GetSegmentList();
+
+    uint64_t duration;
+    if (XML::QueryAttrib(nodeSeglist, "duration", duration))
+      segList.SetDuration(duration);
+
+    uint32_t timescale;
+    if (XML::QueryAttrib(nodeSeglist, "duration", timescale))
+      segList.SetTimescale(timescale);
+
+    uint64_t pto;
+    if (XML::QueryAttrib(nodeSeglist, "presentationTimeOffset", pto))
+      segList.SetPresTimeOffset(pto);
+
+    uint64_t startNumber;
+    if (XML::QueryAttrib(nodeSeglist, "startNumber", startNumber))
+      segList.SetStartNumber(startNumber);
+
+    if (segList.GetStartNumber() > 0)
+      repr->SetStartNumber(segList.GetStartNumber());
+
+    if (segList.GetStartNumber() > 0)
+    {
+      repr->SetStartNumber(segList.GetStartNumber());
+
+      segList.SetPresTimeOffset(segList.GetPresTimeOffset() +
+                                repr->GetStartNumber() * repr->GetDuration());
+    }
+
+    repr->SetSegmentList(segList);
+
+    // Parse <SegmentList> <Initialization> child tag
+    xml_node nodeInit = nodeSeglist.child("Initialization");
+    if (nodeInit)
+    {
+      CSegment seg;
+      uint64_t rangeStart{0};
+      uint64_t rangeEnd{0};
+
+      seg.startPTS_ = 0;
+
+      std::string range;
+      if (XML::QueryAttrib(nodeInit, "range", range))
+      {
+        if (ParseRangeRFC(range, rangeStart, rangeEnd))
+        {
+          seg.range_begin_ = rangeStart;
+          seg.range_end_ = rangeEnd;
+        }
+        else
+          LOG::LogF(LOGERROR, "Failed to parse \"range\" attribute in the <Initialization> tag");
+      }
+
+      std::string sourceURL;
+      if (XML::QueryAttrib(nodeInit, "sourceURL", sourceURL))
+      {
+        seg.url = sourceURL;
+        repr->SetHasSegmentsUrl(true);
+      }
+
+      repr->initialization_ = seg;
+      repr->SetHasInitialization(true);
+    }
+
+    if (segList.GetTimescale() > 0 && segList.GetDuration() > 0)
+    {
+      // Reserve memory to speedup
+      repr->SegmentTimeline().GetData().reserve(
+          EstimateSegmentsCount(segList.GetDuration(), segList.GetTimescale()));
+    }
+
+    // Parse <SegmentList> <SegmentURL> child tags
+    size_t index{0};
+    uint64_t previousStartPts{0};
+    for (xml_node node : nodeSeglist.children("SegmentURL"))
+    {
+      CSegment seg;
+
+      std::string media;
+      if (XML::QueryAttrib(node, "media", media))
+      {
+        seg.url = media;
+        repr->SetHasSegmentsUrl(true);
+      }
+
+      bool isTimelineEmpty = repr->SegmentTimeline().IsEmpty();
+
+      uint64_t rangeStart{0};
+      uint64_t rangeEnd{0};
+      if (ParseRangeRFC(XML::GetAttrib(node, "mediaRange"), rangeStart, rangeEnd))
+      {
+        seg.range_begin_ = rangeStart;
+        seg.range_end_ = rangeEnd;
+      }
+      else
+      {
+        if (isTimelineEmpty)
+          seg.range_end_ = repr->GetStartNumber();
+      }
+
+      uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(index);
+      uint64_t duration = tlDuration ? *tlDuration : segList.GetDuration();
+      if (isTimelineEmpty)
+        seg.startPTS_ = segList.GetPresTimeOffset();
+      else
+      {
+        seg.startPTS_ = repr->nextPts_ + duration;
+        index++;
+      }
+
+      repr->SegmentTimeline().GetData().push_back(seg);
+      repr->nextPts_ = seg.startPTS_;
+    }
+
+    if (period->GetDuration() == 0 && segList.GetTimescale() > 0)
+    {
+      // Calculate total duration of segments
+      auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
+      uint32_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0);
+
+      if (segList.GetDuration() == 0)
+        segList.SetDuration(sum);
+
+      period->SetDuration(sum);
+      period->SetTimescale(segList.GetTimescale());
+    }
+
+    if (segList.GetDuration() > 0)
+      repr->SetDuration(segList.GetDuration());
+
+    if (segList.GetTimescale() > 0)
+      repr->SetTimescale(segList.GetTimescale());
+  }
+
+  // Parse <ContentProtection> tags
+  if (nodeRepr.child("ContentProtection"))
+  {
+    period->SetEncryptionState(EncryptionState::ENCRYPTED);
+    uint16_t currentPsshSetPos{PSSHSET_POS_DEFAULT};
+    std::string currentDefaultKID;
+    std::string currentPssh{PSSH_FROM_FILE};
+    bool isSecureDecoderNeeded{false};
+
+    if (ParseTagContentProtection(nodeRepr, currentPssh, currentDefaultKID, isSecureDecoderNeeded))
+    {
+      period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
+      currentPsshSetPos =
+          InsertPsshSet(adpSet->GetStreamType(), period, adpSet, currentPssh, currentDefaultKID);
+
+      repr->m_psshSetPos = currentPsshSetPos;
+      hasReprURN = true;
+    }
+    if (currentPsshSetPos == PSSHSET_POS_INVALID)
+    {
+      LOG::LogF(LOGWARNING, "Representation id \"%s\" skipped, invalid PSSHSet.",
+                repr->GetId().data());
+      return;
+    }
+    if (isSecureDecoderNeeded)
+    {
+      LOG::LogF(LOGERROR, "The <ContentProtection><widevine:license> tag must be child of "
+                          "the <AdaptationSet> tag.");
+    }
+  }
+
+  // Parse <AudioChannelConfiguration> tag
+  xml_node nodeAudioCh = nodeRepr.child("AudioChannelConfiguration");
+  if (nodeAudioCh)
+    adpSet->SetAudioChannels(ParseAudioChannelConfig(nodeAudioCh));
+  else if (adpSet->GetStreamType() == StreamType::AUDIO && repr->GetAudioChannels() == 0)
+    repr->SetAudioChannels(2); // Fallback to 2 channels when no value is set
+
+  // Generate timeline segments
+  if (!repr->HasSegmentTimeline() && repr->HasSegmentTemplate())
+  {
+    auto& segTemplate = repr->GetSegmentTemplate();
+
+    uint64_t reprTotalTimeSecs = m_totalTimeSecs;
+    if (period->GetDuration() > 0)
+      reprTotalTimeSecs = period->GetDuration() / period->GetTimescale();
+
+    if (!segTemplate->GetMedia().empty() && reprTotalTimeSecs > 0 &&
+        segTemplate->GetTimescale() > 0 &&
+        (segTemplate->GetDuration() > 0 || adpSet->HasSegmentTimelineDuration()))
+    {
+      size_t segmentsCount = adpSet->SegmentTimelineDuration().GetSize();
+      if (segmentsCount == 0)
+      {
+        double lengthSecs =
+            static_cast<double>(segTemplate->GetDuration()) / segTemplate->GetTimescale();
+        segmentsCount =
+            static_cast<size_t>(static_cast<double>(reprTotalTimeSecs) / lengthSecs + 1);
+      }
+
+      if (segmentsCount < 65536) // SIDX atom is limited to 65535 references (fragments)
+      {
+        if (!segTemplate->GetInitialization().empty())
+        {
+          CSegment seg;
+          seg.startPTS_ = 0;
+          repr->initialization_ = seg;
+          repr->SetHasInitialization(true);
+        }
+
+        CSegment segTl;
+        segTl.range_begin_ = adpSet->GetStartPTS();
+        segTl.range_end_ = repr->GetStartNumber();
+        segTl.startPTS_ = adpSet->GetStartPTS();
+
+        if (has_timeshift_buffer_ && !segTemplate->HasVariableTime() &&
+            segTemplate->GetDuration() > 0)
+        {
+          uint64_t sampleTime = period->GetStart() / 1000;
+          segTl.range_end_ +=
+              static_cast<uint64_t>(static_cast<int64_t>(stream_start_ - available_time_ -
+                                                         reprTotalTimeSecs - sampleTime) *
+                                        segTemplate->GetTimescale() / segTemplate->GetDuration() +
+                                    1);
+        }
+        else if (segTemplate->GetDuration() == 0 && adpSet->HasSegmentTimelineDuration())
+        {
+          uint32_t duration =
+              static_cast<uint32_t>((reprTotalTimeSecs * segTemplate->GetTimescale()) /
+                                    adpSet->SegmentTimelineDuration().GetSize());
+          segTemplate->SetDuration(duration);
+        }
+
+        uint32_t segTplDuration = segTemplate->GetDuration();
+        // Reserve memory to speedup
+        repr->SegmentTimeline().GetData().reserve(segmentsCount);
+
+        for (size_t pos{0}; pos < segmentsCount; pos++)
+        {
+          repr->SegmentTimeline().GetData().push_back(segTl);
+
+          uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(pos);
+          uint32_t duration = tlDuration ? *tlDuration : segTplDuration;
+          segTl.range_begin_ += duration;
+          segTl.range_end_ += 1;
+          segTl.startPTS_ += duration;
+        }
+
+        repr->nextPts_ = segTl.startPTS_;
+      }
+      else
+      {
+        LOG::LogF(LOGWARNING,
+                  "Cannot generate segments timeline, the segment count exceeds SIDX atom limit.");
+      }
+    }
+    else if (!repr->HasSegmentBase() && !repr->IsSubtitleStream())
+    {
+      //Let us try to extract the fragments out of SIDX atom
+      repr->SetHasSegmentBase(true);
+
+      repr->m_segBaseIndexRangeMin = 0;
+      //! @todo: Explain the reason of these specific values
+      static const uint64_t indexRangeMax = 1024 * 200;
+      repr->m_segBaseIndexRangeMax = indexRangeMax;
+    }
+  }
+
+  if (repr->HasSegmentBase() && repr->m_segBaseIndexRangeMin == 0 &&
+      repr->m_segBaseIndexRangeMax > 0 && !repr->HasInitialization())
+  {
+    // AdaptiveStream::ParseIndexRange will fix the initialization max to its real value.
+    CSegment seg;
+    seg.range_end_ = repr->m_segBaseIndexRangeMax;
+    repr->initialization_ = seg;
+    repr->SetHasInitialization(true);
+  }
+
+  if (repr->HasInitialization() && !repr->SegmentTimeline().IsEmpty())
+  {
+    // we assume that we have a MOOV atom included in each segment (max 100k = youtube)
+    repr->SetHasInitPrefixed(true);
+  }
+
+  // Sanitize period
+  if (period->GetTimescale() == 0)
+    period->SetTimescale(repr->GetTimescale());
+  if (period->GetDuration() == 0)
+    period->SetDuration(repr->GetDuration());
+
+  // Create the url
+  std::string url;
+
+  if (repr->HasSegmentTemplate())
+  {
+    if (repr->HasInitialization())
+    {
+      url = ReplacePlaceHolders(repr->GetSegmentTemplate()->GetInitialization().data(),
+                                repr->GetId(), repr->GetBandwidth());
+
+      if (URL::IsUrlRelative(url))
+        url = URL::Join(repr->GetBaseUrl().data(), url);
+
+      repr->GetSegmentTemplate()->SetInitialization(url);
+    }
+    else
+      url = repr->GetBaseUrl();
+
+    std::string mediaUrl = repr->GetSegmentTemplate()->GetMedia().data();
+    mediaUrl = ReplacePlaceHolders(mediaUrl, repr->GetId(), repr->GetBandwidth());
+
+    if (URL::IsUrlRelative(mediaUrl))
+      mediaUrl = URL::Join(repr->GetBaseUrl().data(), mediaUrl);
+
+    repr->GetSegmentTemplate()->SetMediaUrl(mediaUrl);
+  }
+  else
+    url = repr->GetBaseUrl();
+
+  repr->SetUrl(url);
+
+  // YouTube fix
+  if (repr->GetStartNumber() > m_firstStartNumber)
+    m_firstStartNumber = repr->GetStartNumber();
+
+  adpSet->AddRepresentation(repr);
+}
+
+uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
+                                                      CSpinCache<uint32_t>& SCTimeline,
+                                                      uint32_t timescale /* = 1000 */)
+{
+  uint64_t startPts{0};
+  uint64_t nextPts{0};
+
+  // Parse <S> tags - e.g. <S t="3600" d="900000" r="2398"/>
+  for (xml_node node : nodeSegTL.children("S"))
+  {
+    uint64_t time = XML::GetAttribUint64(node, "t");
+    uint32_t duration = XML::GetAttribUint32(node, "d");
+    uint32_t repeat = XML::GetAttribUint32(node, "r");
+    repeat += 1;
+
+    if (SCTimeline.IsEmpty())
+    {
+      if (duration > 0)
+      {
+        // Reserve memory to speedup
+        SCTimeline.GetData().reserve(EstimateSegmentsCount(duration, timescale));
+      }
+      startPts = time;
+      nextPts = time;
+    }
+    else if (time > 0)
+    {
+      //Go back to the previous timestamp to calculate the real gap.
+      nextPts -= SCTimeline.GetData().back();
+      SCTimeline.GetData().back() = static_cast<uint32_t>(time - nextPts);
+      nextPts = time;
+    }
+    if (duration > 0)
+    {
+      for (; repeat > 0; --repeat)
+      {
+        SCTimeline.GetData().emplace_back(duration);
+        nextPts += duration;
+      }
+    }
+  }
+
+  return startPts;
+}
+
+uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
+                                                      CSpinCache<CSegment>& SCTimeline,
+                                                      uint32_t timescale /* = 1000 */,
+                                                      uint64_t totalTimeSecs /* = 0 */,
+                                                      CSegmentTemplate* segTemplate /* = nullptr */)
+{
+  uint64_t startPts{0};
+  uint64_t startNumber{0};
+  if (segTemplate)
+    startNumber = segTemplate->GetStartNumber();
+
+  // Parse <S> tags - e.g. <S t="3600" d="900000" r="2398"/>
+  uint64_t nextPts{0};
+  for (xml_node node : nodeSegTL.children("S"))
+  {
+    XML::QueryAttrib(node, "t", nextPts);
+    uint32_t duration = XML::GetAttribUint32(node, "d");
+    uint32_t repeat = XML::GetAttribUint32(node, "r");
+    repeat += 1;
+
+    CSegment seg;
+
+    if (duration > 0 && repeat > 0)
+    {
+      if (SCTimeline.IsEmpty())
+      {
+        // Reserve memory to speedup operations
+        if (segTemplate && segTemplate->GetDuration() > 0 && segTemplate->GetTimescale() > 0)
+        {
+          SCTimeline.GetData().reserve(EstimateSegmentsCount(
+              segTemplate->GetDuration(), segTemplate->GetTimescale(), totalTimeSecs));
+        }
+        else
+          SCTimeline.GetData().reserve(EstimateSegmentsCount(duration, timescale, totalTimeSecs));
+
+        seg.range_end_ = startNumber;
+      }
+      else
+        seg.range_end_ = SCTimeline.GetData().back().range_end_ + 1;
+
+      seg.range_begin_ = nextPts;
+      seg.startPTS_ = nextPts;
+
+      for (; repeat > 0; --repeat)
+      {
+        SCTimeline.GetData().push_back(seg);
+        startPts = seg.startPTS_;
+
+        nextPts += duration;
+        seg.range_begin_ = nextPts;
+        seg.range_end_ += 1;
+        seg.startPTS_ += duration;
+      }
+    }
+    else
+    {
+      LOG::LogF(LOGDEBUG, "Missing duration / time on <S> child of <SegmentTimeline> tag.");
+    }
+  }
+
+  return startPts;
+}
+
+void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemplate* segTpl)
+{
+  uint32_t timescale;
+  if (XML::QueryAttrib(node, "timescale", timescale))
+    segTpl->SetTimescale(timescale);
+
+  if (segTpl->GetTimescale() == 0)
+    segTpl->SetTimescale(1); // if not specified defaults to seconds
+
+  uint32_t duration;
+  if (XML::QueryAttrib(node, "duration", duration))
+    segTpl->SetDuration(duration);
+
+  std::string media;
+  if (XML::QueryAttrib(node, "media", media))
+    segTpl->SetMedia(media);
+
+  uint32_t startNumber;
+  if (XML::QueryAttrib(node, "startNumber", startNumber))
+    segTpl->SetStartNumber(startNumber);
+
+  std::string initialization;
+  if (XML::QueryAttrib(node, "initialization", initialization))
+    segTpl->SetInitialization(initialization);
+}
+
+bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
+                                                    std::string& currentPssh,
+                                                    std::string& currentDefaultKID,
+                                                    bool& isSecureDecoderNeeded)
+{
+  // Parse <ContentProtection> tags to find "default_KID" attribute
+  // We try read "default_KID" attribute on every ContentProtection type
+  const char* defaultKID{nullptr};
+
+  for (xml_node nodeCP : nodeParent.children("ContentProtection"))
+  {
+    if (defaultKID)
+      break;
+
+    std::string_view schemeIdUri = XML::GetAttrib(nodeCP, "schemeIdUri");
+
+    if (schemeIdUri == "urn:mpeg:dash:mp4protection:2011" ||
+        STRING::CompareNoCase(schemeIdUri, m_supportedKeySystem))
+    {
+      // Parse first attribute that end with "... default_KID"
+      // e.g. cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"
+      xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
+      if (attrKID)
+        defaultKID = attrKID.value();
+    }
+  }
+
+  // Parse <ContentProtection> tags
+  bool isUrnProtectionFound{false};
+  bool isUrnSchemeFound{false};
+  std::string commonPssh;
+  std::string playReadyPro;
+
+  for (xml_node nodeCP : nodeParent.children("ContentProtection"))
+  {
+    std::string_view schemeIdUri = XML::GetAttrib(nodeCP, "schemeIdUri");
+
+    if (schemeIdUri == "urn:mpeg:dash:mp4protection:2011")
+      isUrnProtectionFound = true;
+
+    // Find Content protection compatible with current systemid
+    if (!STRING::CompareNoCase(schemeIdUri, m_supportedKeySystem))
+      continue;
+
+    isUrnSchemeFound = true;
+
+    // Parse child tags
+    for (xml_node node : nodeCP.children())
+    {
+      std::string childName = node.name();
+
+      if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:pssh> or <pssh> ...
+      {
+        commonPssh = node.child_value();
+      }
+      else if (childName == "mspr:pro")
+      {
+        playReadyPro = node.child_value();
+      }
+      else if (childName == "widevine:license")
+      {
+        // <widevine:license robustness_level="HW_SECURE_CODECS_REQUIRED"> Custom ISA tag
+        // to force secure decoder, accepted in the <AdaptationSet> only
+
+        //! @TODO: Since this param is set to Period, we could think to deprecate
+        //! this support and add a custom tag in the Period itself
+        std::string_view robustnessLevel = XML::GetAttrib(nodeCP, "robustness_level");
+        if (robustnessLevel == "HW")
+        {
+          LOG::LogF(LOGWARNING, "The value \"HW\" of attribute \"robustness_level\" in "
+                                "<widevine:license> tag is now deprecated. "
+                                "You must change it to \"HW_SECURE_CODECS_REQUIRED\".");
+          robustnessLevel = "HW_SECURE_CODECS_REQUIRED";
+        }
+        isSecureDecoderNeeded = robustnessLevel == "HW_SECURE_CODECS_REQUIRED";
+      }
+    }
+  }
+
+  if (commonPssh.empty() && !playReadyPro.empty())
+  {
+    currentPssh = PSSH_FROM_FILE;
+
+    PRProtectionParser parser;
+    if (parser.ParseHeader(playReadyPro))
+      currentDefaultKID = parser.GetKID();
+  }
+  else
+  {
+    currentPssh = commonPssh;
+
+    if ((isUrnSchemeFound || isUrnProtectionFound) && defaultKID && std::strlen(defaultKID) == 36)
+    {
+      currentDefaultKID.resize(16);
+      for (size_t i{0}; i < 16; i++)
+      {
+        if (i == 4 || i == 6 || i == 8 || i == 10)
+          defaultKID++;
+        currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
+        defaultKID++;
+        currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
+        defaultKID++;
+      }
+    }
+  }
+
+  return isUrnSchemeFound;
+}
+
+uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
+{
+  std::string_view schemeIdUri = XML::GetAttrib(node, "schemeIdUri");
+  std::string_view value = XML::GetAttrib(node, "value");
+  uint32_t channels{0};
+
+  if (schemeIdUri == "urn:mpeg:dash:23003:3:audio_channel_configuration:2011" ||
+      schemeIdUri == "urn:mpeg:mpegB:cicp:ChannelConfiguration")
+  {
+    channels = STRING::ToUint32(value);
+  }
+  else if (schemeIdUri == "urn:dolby:dash:audio_channel_configuration:2011" ||
+           schemeIdUri == "tag:dolby.com,2014:dash:audio_channel_configuration:2011")
+  {
+    if (value == "F801")
+      channels = 6;
+    else if (value == "FE01")
+      channels = 8;
+  }
+  if (channels == 0)
+  {
+    LOG::LogF(LOGWARNING, "Cannot parse channel configuration \"%s\", fallback to 2 channels.",
+              schemeIdUri.data());
+    channels = 2;
+  }
+  return channels;
+}
+
+size_t adaptive::CDashTree::EstimateSegmentsCount(uint64_t duration,
+                                                  uint32_t timescale,
+                                                  uint64_t totalTimeSecs /* = 0 */)
+{
+  double lengthSecs{static_cast<double>(duration) / timescale};
+  if (lengthSecs < 1)
+    lengthSecs = 1;
+
+  if (totalTimeSecs == 0)
+    totalTimeSecs = std::max(m_totalTimeSecs, static_cast<uint64_t>(1));
+
+  return static_cast<size_t>(totalTimeSecs / lengthSecs);
+}
+
+void adaptive::CDashTree::SetManifestUpdateParam(std::string& manifestUrl, std::string_view param)
 {
   m_manifestUpdateParam = param;
   if (m_manifestUpdateParam.empty())
@@ -1665,88 +1519,56 @@ void DASHTree::SetManifestUpdateParam(std::string& manifestUrl, std::string_view
   }
 }
 
-bool DASHTree::ParseManifest(const std::string& data)
+void adaptive::CDashTree::RefreshSegments(PLAYLIST::CPeriod* period,
+                                          PLAYLIST::CAdaptationSet* adp,
+                                          PLAYLIST::CRepresentation* rep,
+                                          PLAYLIST::StreamType type)
 {
-  strXMLText_.clear();
-
-  parser_ = XML_ParserCreate(nullptr);
-  if (!parser_)
-    return false;
-
-  XML_SetUserData(parser_, (void*)this);
-  XML_SetElementHandler(parser_, start, end);
-  XML_SetCharacterDataHandler(parser_, text);
-  int isDone{0};
-  XML_Status status{XML_Parse(parser_, data.c_str(), static_cast<int>(data.size()), isDone)};
-
-  XML_ParserFree(parser_);
-  parser_ = nullptr;
-
-  if (status == XML_STATUS_ERROR)
+  if (type == StreamType::VIDEO || type == StreamType::AUDIO)
   {
-    LOG::LogF(LOGERROR, "Failed to parse the manifest file");
-    return false;
-  }
-
-  return true;
-}
-
-//Called each time before we switch to a new segment
-void DASHTree::RefreshSegments(Period* period,
-                               AdaptationSet* adp,
-                               Representation* rep,
-                               StreamType type)
-{
-  if ((type == VIDEO || type == AUDIO))
-  {
-    lastUpdated_ = GetTimePointNowTime();
+    lastUpdated_ = std::chrono::system_clock::now();
     RefreshUpdateThread();
     RefreshLiveSegments();
   }
 }
 
-//Can be called form update-thread!
-//! @todo: we are updating variables in non-thread safe way
-void DASHTree::RefreshLiveSegments()
+// Can be called form update-thread!
+//! @todo: check updated variables that are not thread safe
+void adaptive::CDashTree::RefreshLiveSegments()
 {
   if (has_timeshift_buffer_ && !m_manifestUpdateParam.empty())
   {
-    size_t numReplace{~(size_t)0};
-    size_t nextStartNumber{~(size_t)0};
+    size_t numReplace = SEGMENT_NO_POS;
+    uint64_t nextStartNumber = SEGMENT_NO_NUMBER;
 
-    std::unique_ptr<DASHTree> updateTree{std::move(Clone())};
+    std::unique_ptr<CDashTree> updateTree{std::move(Clone())};
 
-    std::string manifestUrlUpd{manifest_url_};
-    bool urlHaveStartNumber{m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos};
+    std::string manifestUrlUpd = manifest_url_;
+    bool urlHaveStartNumber = m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos;
 
     if (urlHaveStartNumber)
     {
-      for (auto period : periods_)
+      for (auto& period : m_periods)
       {
-        if (!period)
-          continue;
-        for (auto adaptSet : period->adaptationSets_)
+        for (auto& adpSet : period->GetAdaptationSets())
         {
-          if (!adaptSet)
-            continue;
-          for (auto repr : adaptSet->representations_)
+          for (auto& repr : adpSet->GetRepresentations())
           {
-            if (!repr)
-              continue;
+            if (repr->GetStartNumber() + repr->SegmentTimeline().GetSize() < nextStartNumber)
+              nextStartNumber = repr->GetStartNumber() + repr->SegmentTimeline().GetSize();
 
-            if (repr->startNumber_ + repr->segments_.size() < nextStartNumber)
-              nextStartNumber = repr->startNumber_ + repr->segments_.size();
+            size_t posReplaceable = repr->getCurrentSegmentPos();
+            if (posReplaceable == SEGMENT_NO_POS)
+              posReplaceable = repr->SegmentTimeline().GetSize();
+            else
+              posReplaceable += 1;
 
-            size_t replaceable = repr->getCurrentSegmentPos() + 1;
-            if (replaceable == 0) // (~0ULL + 1) == 0
-              replaceable = repr->segments_.size();
-
-            if (replaceable < numReplace)
-              numReplace = replaceable;
+            if (posReplaceable < numReplace)
+              numReplace = posReplaceable;
           }
         }
       }
-      LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %zu (numReplace: %zu)",
+      LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %llu (numReplace: %zu)",
                 nextStartNumber, numReplace);
 
       // Add the manifest update url parameter with the predefined url parameters
@@ -1767,241 +1589,254 @@ void DASHTree::RefreshLiveSegments()
       if (!m_manifestRespHeaders.m_lastModified.empty())
         addHeaders["If-Modified-Since"] = m_manifestRespHeaders.m_lastModified;
     }
-    //m_manifestParams
+
     if (updateTree->open(manifestUrlUpd, addHeaders))
     {
       m_manifestRespHeaders = updateTree->m_manifestRespHeaders;
       location_ = updateTree->location_;
 
-      //Youtube returns last smallest number in case the requested data is not available
-      if (urlHaveStartNumber && updateTree->firstStartNumber_ < nextStartNumber)
+      // Youtube returns last smallest number in case the requested data is not available
+      if (urlHaveStartNumber && updateTree->m_firstStartNumber < nextStartNumber)
         return;
 
-      for (size_t index{0}; index < updateTree->periods_.size(); index++)
+      for (size_t index{0}; index < updateTree->m_periods.size(); index++)
       {
-        auto updPeriod = updateTree->periods_[index];
-        if (!updPeriod)
-          continue;
+        auto& updPeriod = updateTree->m_periods[index];
 
-        Period* period{nullptr};
         // find matching period based on ID
-        auto itPd = std::find_if(periods_.begin(), periods_.end(),
-                                 [&updPeriod](const Period* item)
-                                 { return !item->id_.empty() && item->id_ == updPeriod->id_; });
-        if (itPd == periods_.end())
+        auto itPeriod =
+            std::find_if(m_periods.begin(), m_periods.end(),
+                         [&updPeriod](const std::unique_ptr<CPeriod>& item)
+                         { return !item->GetId().empty() && item->GetId() == updPeriod->GetId(); });
+        // if not found, try matching period based on start
+        if (itPeriod == m_periods.end())
         {
-          // not found, try matching period based on start
-          itPd = std::find_if(periods_.begin(), periods_.end(),
-                              [&updPeriod](const Period* item)
-                              { return item->start_ && item->start_ == updPeriod->start_; });
+          itPeriod =
+              std::find_if(m_periods.begin(), m_periods.end(),
+                           [&updPeriod](const std::unique_ptr<CPeriod>& item) {
+                             return item->GetStart() && item->GetStart() == updPeriod->GetStart();
+                           });
         }
-        // found!
-        if (itPd != periods_.end())
-          period = *itPd;
-        if (!period && updPeriod->id_.empty() && updPeriod->start_ == 0)
+
+        CPeriod* period{nullptr};
+
+        if (itPeriod != m_periods.end())
+          period = (*itPeriod).get();
+
+        if (!period && updPeriod->GetId().empty() && updPeriod->GetStart() == 0)
         {
           // not found, fallback match based on position
-          if (index < periods_.size())
-            period = periods_[index];
+          if (index < m_periods.size())
+            period = m_periods[index].get();
         }
+
         // new period, insert it
         if (!period)
         {
-          LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->id_.c_str(),
-                    updPeriod->start_);
-          updateTree->periods_[index] = nullptr; // remove to prevent delete; we take ownership
-          updPeriod->sequence_ = current_sequence_++;
-          periods_.push_back(updPeriod);
+          LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->GetId().data(),
+                    updPeriod->GetStart());
+
+          updPeriod->SetSequence(m_periodCurrentSeq++);
+          m_periods.push_back(std::move(updPeriod));
           continue;
         }
 
-        for (auto updAdaptationSet : updPeriod->adaptationSets_)
+        for (auto& updAdpSet : updPeriod->GetAdaptationSets())
         {
           // Locate adaptationset
-          if (!updAdaptationSet)
+          if (!updAdpSet)
             continue;
 
-          for (auto adaptationSet : period->adaptationSets_)
+          for (auto& adpSet : period->GetAdaptationSets())
           {
-            if (!(adaptationSet->id_ == updAdaptationSet->id_ &&
-                  adaptationSet->group_ == updAdaptationSet->group_ &&
-                  adaptationSet->type_ == updAdaptationSet->type_ &&
-                  adaptationSet->mimeType_ == updAdaptationSet->mimeType_ &&
-                  adaptationSet->language_ == updAdaptationSet->language_))
+            if (!(adpSet->GetId() == updAdpSet->GetId() &&
+                  adpSet->GetGroup() == updAdpSet->GetGroup() &&
+                  adpSet->GetStreamType() == updAdpSet->GetStreamType() &&
+                  adpSet->GetMimeType() == updAdpSet->GetMimeType() &&
+                  adpSet->GetLanguage() == updAdpSet->GetLanguage()))
               continue;
 
-            for (auto updRepr : updAdaptationSet->representations_)
+            for (auto& updRepr : updAdpSet->GetRepresentations())
             {
               // Locate representation
-              auto itR = std::find_if(
-                  adaptationSet->representations_.begin(), adaptationSet->representations_.end(),
-                  [&updRepr](const Representation* item) { return item->id == updRepr->id; });
+              auto itRepr = std::find_if(adpSet->GetRepresentations().begin(),
+                                         adpSet->GetRepresentations().end(),
+                                         [&updRepr](const std::unique_ptr<CRepresentation>& item)
+                                         { return item->GetId() == updRepr->GetId(); });
 
-              if (!updRepr->segments_.Get(0))
+              if (!updRepr->SegmentTimeline().Get(0))
               {
                 LOG::LogF(LOGERROR,
                           "Segment at position 0 not found from (update) representation id: %s",
-                          updRepr->id.c_str());
+                          updRepr->GetId().data());
                 return;
               }
 
-              if (itR != adaptationSet->representations_.end()) // Found representation
+              // Found representation
+              if (itRepr != adpSet->GetRepresentations().end())
               {
-                auto repr = *itR;
+                auto repr = (*itRepr).get();
 
-                if (!repr->segments_.empty())
+                if (!repr->SegmentTimeline().IsEmpty())
                 {
                   if (urlHaveStartNumber) // Partitial update
                   {
+                    auto& updReprSegTL = updRepr->SegmentTimeline();
+
                     // Insert new segments
-                    uint64_t ptsOffset = repr->nextPts_ - updRepr->segments_.Get(0)->startPTS_;
+                    uint64_t ptsOffset = repr->nextPts_ - updReprSegTL.Get(0)->startPTS_;
                     size_t currentPos = repr->getCurrentSegmentPos();
                     size_t repFreeSegments{numReplace};
 
-                    auto updSegmentIt(updRepr->segments_.data.begin());
-                    for (; updSegmentIt != updRepr->segments_.data.end() && repFreeSegments != 0;
+                    auto updSegmentIt(updReprSegTL.GetData().begin());
+                    for (; updSegmentIt != updReprSegTL.GetData().end() && repFreeSegments != 0;
                          updSegmentIt++)
                     {
                       LOG::LogF(LOGDEBUG, "Insert representation (id: %s url: %s)",
-                                updRepr->id.c_str(), updSegmentIt->url.c_str());
-                      if (repr->flags_ & Representation::URLSEGMENTS)
+                                updRepr->GetId().data(), updSegmentIt->url.c_str());
+                      if (repr->HasSegmentsUrl())
                       {
-                        Segment* segment{repr->segments_.Get(0)};
+                        CSegment* segment = repr->SegmentTimeline().Get(0);
                         if (!segment)
                         {
                           LOG::LogF(LOGERROR,
                                     "Segment at position 0 not found from representation id: %s",
-                                    repr->id.c_str());
+                                    repr->GetId().data());
                           return;
                         }
                         segment->url.clear();
                       }
                       updSegmentIt->startPTS_ += ptsOffset;
-                      repr->segments_.insert(*updSegmentIt);
-                      if (repr->flags_ & Representation::URLSEGMENTS)
+                      repr->SegmentTimeline().Insert(*updSegmentIt);
+
+                      if (repr->HasSegmentsUrl())
                         updSegmentIt->url.clear();
-                      repr->startNumber_++;
+
+                      repr->SetStartNumber(repr->GetStartNumber() + 1);
                       repFreeSegments--;
                     }
 
-                    //We have renewed the current segment
+                    // We have renewed the current segment
                     if (!repFreeSegments && numReplace == currentPos + 1)
                       repr->current_segment_ = nullptr;
 
-                    if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
+                    if ((repr->IsWaitForSegment()) &&
                         repr->get_next_segment(repr->current_segment_))
                     {
-                      repr->flags_ &= ~Representation::WAITFORSEGMENT;
-                      LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", repr->id.c_str());
+                      repr->SetIsWaitForSegment(false);
+                      LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", repr->GetId().data());
                     }
 
-                    if (updSegmentIt == updRepr->segments_.data.end())
+                    if (updSegmentIt == updReprSegTL.GetData().end())
                       repr->nextPts_ += updRepr->nextPts_;
                     else
                       repr->nextPts_ += updSegmentIt->startPTS_;
                   }
-                  else if (updRepr->startNumber_ <= 1) // Full update, be careful with startnumbers!
+                  else if (updRepr->GetStartNumber() <= 1)
                   {
-                    //TODO: check if first element or size differs
-                    uint64_t segmentId(repr->getCurrentSegmentNumber());
-                    if (repr->flags_ & DASHTree::Representation::TIMELINE)
+                    // Full update, be careful with start numbers!
+
+                    //! @todo: check if first element or size differs
+                    uint64_t segmentId = repr->getCurrentSegmentNumber();
+
+                    if (repr->HasSegmentTimeline())
                     {
-                      uint64_t search_pts = updRepr->segments_.Get(0)->range_begin_;
+                      uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->range_begin_;
                       uint64_t misaligned = 0;
-                      for (const auto& segment : repr->segments_.data)
+                      for (const auto& segment : repr->SegmentTimeline().GetData())
                       {
                         if (misaligned)
                         {
                           uint64_t ptsDiff = segment.range_begin_ - (&segment - 1)->range_begin_;
                           // our misalignment is small ( < 2%), let's decrement the start number
                           if (misaligned < (ptsDiff * 2 / 100))
-                            --repr->startNumber_;
+                            repr->SetStartNumber(repr->GetStartNumber() - 1);
                           break;
                         }
                         if (segment.range_begin_ == search_pts)
                           break;
                         else if (segment.range_begin_ > search_pts)
                         {
-                          if (&repr->segments_.data.front() == &segment)
+                          if (&repr->SegmentTimeline().GetData().front() == &segment)
                           {
-                            --repr->startNumber_;
+                            repr->SetStartNumber(repr->GetStartNumber() - 1);
                             break;
                           }
                           misaligned = search_pts - (&segment - 1)->range_begin_;
                         }
                         else
-                          ++repr->startNumber_;
+                          repr->SetStartNumber(repr->GetStartNumber() + 1);
                       }
                     }
-                    else if (updRepr->segments_.Get(0)->startPTS_ ==
-                             repr->segments_.Get(0)->startPTS_)
+                    else if (updRepr->SegmentTimeline().Get(0)->startPTS_ ==
+                             repr->SegmentTimeline().Get(0)->startPTS_)
                     {
-                      uint64_t search_re = updRepr->segments_.Get(0)->range_end_;
-                      for (const auto& segment : repr->segments_.data)
+                      uint64_t search_re = updRepr->SegmentTimeline().Get(0)->range_end_;
+                      for (const auto& segment : repr->SegmentTimeline().GetData())
                       {
                         if (segment.range_end_ >= search_re)
                           break;
-                        ++repr->startNumber_;
+                        repr->SetStartNumber(repr->GetStartNumber() + 1);
                       }
                     }
                     else
                     {
-                      uint64_t search_pts = updRepr->segments_.Get(0)->startPTS_;
-                      for (const auto& segment : repr->segments_.data)
+                      uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->startPTS_;
+                      for (const auto& segment : repr->SegmentTimeline().GetData())
                       {
                         if (segment.startPTS_ >= search_pts)
                           break;
-                        ++repr->startNumber_;
+                        repr->SetStartNumber(repr->GetStartNumber() + 1);
                       }
                     }
 
-                    updRepr->segments_.swap(repr->segments_);
-                    if (!~segmentId || segmentId < repr->startNumber_)
+                    updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
+                    if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
                       repr->current_segment_ = nullptr;
                     else
                     {
-                      if (segmentId >= repr->startNumber_ + repr->segments_.size())
-                        segmentId = repr->startNumber_ + repr->segments_.size() - 1;
-                      repr->current_segment_ =
-                          repr->get_segment(static_cast<size_t>(segmentId - repr->startNumber_));
+                      if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
+                        segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
+                      repr->current_segment_ = repr->get_segment(
+                          static_cast<size_t>(segmentId - repr->GetStartNumber()));
                     }
 
-                    if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
-                        repr->get_next_segment(repr->current_segment_))
-                      repr->flags_ &= ~Representation::WAITFORSEGMENT;
+                    if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
+                      repr->SetIsWaitForSegment(false);
 
-                    LOG::LogF(
-                        LOGDEBUG,
-                        "Full update without start number (repr. id: %s current start: %u)",
-                        updRepr->id.c_str(), repr->startNumber_);
-                    overallSeconds_ = updateTree->overallSeconds_;
+                    LOG::LogF(LOGDEBUG,
+                              "Full update without start number (repr. id: %s current start: %u)",
+                              updRepr->GetId().data(), repr->GetStartNumber());
+                    m_totalTimeSecs = updateTree->m_totalTimeSecs;
                   }
-                  else if (updRepr->startNumber_ > repr->startNumber_ ||
-                           (updRepr->startNumber_ == repr->startNumber_ &&
-                            updRepr->segments_.size() > repr->segments_.size()))
+                  else if (updRepr->GetStartNumber() > repr->GetStartNumber() ||
+                           (updRepr->GetStartNumber() == repr->GetStartNumber() &&
+                            updRepr->SegmentTimeline().GetSize() >
+                                repr->SegmentTimeline().GetSize()))
                   {
-                    size_t segmentId(repr->getCurrentSegmentNumber());
-                    updRepr->segments_.swap(repr->segments_);
-                    repr->startNumber_ = updRepr->startNumber_;
-                    if (!~segmentId || segmentId < repr->startNumber_)
+                    uint64_t segmentId = repr->getCurrentSegmentNumber();
+
+                    updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
+                    repr->SetStartNumber(updRepr->GetStartNumber());
+
+                    if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
                       repr->current_segment_ = nullptr;
                     else
                     {
-                      if (segmentId >= repr->startNumber_ + repr->segments_.size())
-                        segmentId = repr->startNumber_ + repr->segments_.size() - 1;
-                      repr->current_segment_ =
-                          repr->get_segment(static_cast<size_t>(segmentId - repr->startNumber_));
+                      if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
+                        segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
+                      repr->current_segment_ = repr->get_segment(
+                          static_cast<size_t>(segmentId - repr->GetStartNumber()));
                     }
 
-                    if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
-                        repr->get_next_segment(repr->current_segment_))
+                    if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
                     {
-                      repr->flags_ &= ~Representation::WAITFORSEGMENT;
+                      repr->SetIsWaitForSegment(false);
                     }
                     LOG::LogF(LOGDEBUG,
                               "Full update with start number (repr. id: %s current start:%u)",
-                              updRepr->id.c_str(), repr->startNumber_);
-                    overallSeconds_ = updateTree->overallSeconds_;
+                              updRepr->GetId().data(), repr->GetStartNumber());
+                    m_totalTimeSecs = updateTree->m_totalTimeSecs;
                   }
                 }
               }
@@ -2011,4 +1846,9 @@ void DASHTree::RefreshLiveSegments()
       }
     }
   }
+}
+
+uint64_t adaptive::CDashTree::GetTimestamp()
+{
+  return UTILS::GetTimestamp();
 }

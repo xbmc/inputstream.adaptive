@@ -9,6 +9,7 @@
 #include "Session.h"
 
 #include "aes_decrypter.h"
+#include "common/Chooser.h"
 #include "parser/DASHTree.h"
 #include "parser/HLSTree.h"
 #include "parser/SmoothTree.h"
@@ -27,14 +28,10 @@
 
 #include <kodi/addon-instance/Inputstream.h>
 
-using namespace UTILS;
 using namespace kodi::tools;
+using namespace PLAYLIST;
 using namespace SESSION;
-
-static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
-    AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO,
-    AP4_Track::TYPE_SUBTITLES};
-
+using namespace UTILS;
 
 CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
                    const std::string& manifestUrl,
@@ -50,13 +47,13 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
   switch (kodiProps.m_manifestType)
   {
     case PROPERTIES::ManifestType::MPD:
-      m_adaptiveTree = new adaptive::DASHTree(m_reprChooser);
+      m_adaptiveTree = new adaptive::CDashTree(m_reprChooser);
       break;
     case PROPERTIES::ManifestType::ISM:
-      m_adaptiveTree = new adaptive::SmoothTree(m_reprChooser);
+      m_adaptiveTree = new adaptive::CSmoothTree(m_reprChooser);
       break;
     case PROPERTIES::ManifestType::HLS:
-      m_adaptiveTree = new adaptive::HLSTree(m_reprChooser);
+      m_adaptiveTree = new adaptive::CHLSTree(m_reprChooser);
       break;
     default:
       LOG::LogF(LOGFATAL, "Manifest type not handled");
@@ -74,14 +71,14 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
   switch (kodi::addon::GetSettingInt("MEDIATYPE"))
   {
     case 1:
-      m_mediaTypeMask = static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::AUDIO;
+      m_mediaTypeMask = static_cast<uint8_t>(1U) << static_cast<int>(StreamType::AUDIO);
       break;
     case 2:
-      m_mediaTypeMask = static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO;
+      m_mediaTypeMask = static_cast<uint8_t>(1U) << static_cast<int>(StreamType::VIDEO);
       break;
     case 3:
-      m_mediaTypeMask = (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::VIDEO) |
-                        (static_cast<uint8_t>(1U) << adaptive::AdaptiveTree::SUBTITLE);
+      m_mediaTypeMask = (static_cast<uint8_t>(1U) << static_cast<int>(StreamType::VIDEO)) |
+                        (static_cast<uint8_t>(1U) << static_cast<int>(StreamType::SUBTITLE));
       break;
     default:
       m_mediaTypeMask = static_cast<uint8_t>(~0);
@@ -266,7 +263,7 @@ bool CSession::Initialize()
 
   m_adaptiveTree->SetManifestUpdateParam(manifestUrl, m_kodiProps.m_manifestUpdateParam);
 
-  if (!m_adaptiveTree->open(manifestUrl, addHeaders) || m_adaptiveTree->empty())
+  if (!m_adaptiveTree->open(manifestUrl, addHeaders))
   {
     LOG::Log(LOGERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
     return false;
@@ -274,7 +271,7 @@ bool CSession::Initialize()
   LOG::Log(
       LOGINFO,
       "Successfully parsed manifest file (Periods: %ld, Streams in first period: %ld, Type: %s)",
-      m_adaptiveTree->periods_.size(), m_adaptiveTree->current_period_->adaptationSets_.size(),
+      m_adaptiveTree->m_periods.size(), m_adaptiveTree->m_currentPeriod->GetAdaptationSets().size(),
       m_adaptiveTree->has_timeshift_buffer_ ? "live" : "VOD");
 
   // Always need at least 16s delay from live
@@ -299,28 +296,29 @@ void CSession::CheckHDCP()
   }
 
   uint32_t adpIndex{0};
-  adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
+  CAdaptationSet* adp{nullptr};
 
   while ((adp = m_adaptiveTree->GetAdaptationSet(adpIndex++)))
   {
-    if (adp->type_ != adaptive::AdaptiveTree::StreamType::VIDEO)
+    if (adp->GetStreamType() != StreamType::VIDEO)
       continue;
 
-    for (auto it = adp->representations_.begin(); it != adp->representations_.end();)
+    for (auto itRepr = adp->GetRepresentations().begin();
+         itRepr != adp->GetRepresentations().end();)
     {
-      const adaptive::AdaptiveTree::Representation* repr = *it;
-      const SSD::SSD_DECRYPTER::SSD_CAPS& ssd_caps = decrypterCaps[repr->pssh_set_];
+      CRepresentation* repr = (*itRepr).get();
 
-      if (repr->hdcpVersion_ > ssd_caps.hdcpVersion ||
-          (ssd_caps.hdcpLimit > 0 && repr->width_ * repr->height_ > ssd_caps.hdcpLimit))
+      const SSD::SSD_DECRYPTER::SSD_CAPS& ssd_caps = decrypterCaps[repr->m_psshSetPos];
+
+      if (repr->GetHdcpVersion() > ssd_caps.hdcpVersion ||
+          (ssd_caps.hdcpLimit > 0 && repr->GetWidth() * repr->GetHeight() > ssd_caps.hdcpLimit))
       {
         LOG::Log(LOGDEBUG, "Representation ID \"%s\" removed as not HDCP compliant",
-                 repr->id.c_str());
-        delete repr;
-        it = adp->representations_.erase(it);
+                 repr->GetId().data());
+        itRepr = adp->GetRepresentations().erase(itRepr);
       }
       else
-        it++;
+        itRepr++;
     }
   }
 }
@@ -415,11 +413,12 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
 bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 {
   bool isSecureVideoSession{false};
-  m_cdmSessions.resize(m_adaptiveTree->current_period_->psshSets_.size());
+  m_cdmSessions.resize(m_adaptiveTree->m_currentPeriod->GetPSSHSets().size());
   memset(&m_cdmSessions.front(), 0, sizeof(CCdmSession));
 
   // Try to initialize an SingleSampleDecryptor
-  if (m_adaptiveTree->current_period_->encryptionState_)
+  if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() !=
+      EncryptionState::UNENCRYPTED)
   {
     std::string licenseKey{m_kodiProps.m_licenseKey};
 
@@ -467,7 +466,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     {
       AP4_DataBuffer init_data;
       const char* optionalKeyParameter{nullptr};
-      auto sessionPsshset{m_adaptiveTree->current_period_->psshSets_[ses]};
+      CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
       uint32_t sessionType = 0;
 
       if (sessionPsshset.media_ > 0)
@@ -476,13 +475,13 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       }
       else
       {
-        switch (sessionPsshset.adaptation_set_->type_)
+        switch (sessionPsshset.adaptation_set_->GetStreamType())
         {
-          case adaptive::AdaptiveTree::VIDEO:
-            sessionType = adaptive::AdaptiveTree::Period::PSSH::MEDIA_VIDEO;
+          case StreamType::VIDEO:
+            sessionType = CPeriod::PSSHSet::MEDIA_VIDEO;
             break;
-          case adaptive::AdaptiveTree::AUDIO:
-            sessionType = adaptive::AdaptiveTree::Period::PSSH::MEDIA_AUDIO;
+          case StreamType::AUDIO:
+            sessionType = CPeriod::PSSHSet::MEDIA_AUDIO;
             break;
           default:
             break;
@@ -525,7 +524,8 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
                 {
                   sessionPsshset.defaultKID_ = std::string((const char*)pssh[i].GetKid(0), 16);
                 }
-                else if (AP4_Track* track = movie->GetTrack(TIDC[stream.m_adStream.get_type()]))
+                else if (AP4_Track* track = movie->GetTrack(
+                             static_cast<AP4_Track::Type>(stream.m_adStream.GetTrackType())))
                 {
                   AP4_ProtectedSampleDescription* m_protectedDesc =
                       static_cast<AP4_ProtectedSampleDescription*>(track->GetSampleDescription(0));
@@ -659,7 +659,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
         if (session.m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID)
         {
-          m_adaptiveTree->current_period_->RemovePSSHSet(static_cast<std::uint16_t>(ses));
+          m_adaptiveTree->m_currentPeriod->RemovePSSHSet(static_cast<std::uint16_t>(ses));
         }
         else if (session.m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
@@ -667,7 +667,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           isSecureVideoSession = true;
 
           if (m_settingNoSecureDecoder && !m_kodiProps.m_isLicenseForceSecureDecoder &&
-              !m_adaptiveTree->current_period_->need_secure_decoder_)
+              !m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded())
             session.m_decrypterCaps.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
         }
       }
@@ -694,20 +694,19 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 {
   bool psshChanged{true};
-  if (m_adaptiveTree->next_period_)
+  if (m_adaptiveTree->m_nextPeriod)
   {
     psshChanged =
-        !(m_adaptiveTree->current_period_->psshSets_ == m_adaptiveTree->next_period_->psshSets_);
-    m_adaptiveTree->current_period_ = m_adaptiveTree->next_period_;
-    m_adaptiveTree->next_period_ = nullptr;
+        !(m_adaptiveTree->m_currentPeriod->GetPSSHSets() == m_adaptiveTree->m_nextPeriod->GetPSSHSets());
+    m_adaptiveTree->m_currentPeriod = m_adaptiveTree->m_nextPeriod;
+    m_adaptiveTree->m_nextPeriod = nullptr;
   }
 
   m_chapterStartTime = GetChapterStartTime();
 
-  if (m_adaptiveTree->current_period_->encryptionState_ ==
-      adaptive::AdaptiveTree::ENCRYTIONSTATE_ENCRYPTED)
+  if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() == EncryptionState::ENCRYPTED)
   {
-    LOG::Log(LOGERROR, "Unable to handle decryption. Unsupported!");
+    LOG::LogF(LOGERROR, "Unhandled encrypted stream.");
     return false;
   }
 
@@ -733,16 +732,16 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
   }
 
   uint32_t adpIndex{0};
-  adaptive::AdaptiveTree::AdaptationSet* adp{nullptr};
+  CAdaptationSet* adp{nullptr};
   SETTINGS::StreamSelection streamSelectionMode{m_reprChooser->GetStreamSelectionMode()};
 
   while ((adp = m_adaptiveTree->GetAdaptationSet(adpIndex++)))
   {
-    if (adp->representations_.empty())
+    if (adp->GetRepresentations().empty())
       continue;
 
     bool isManualStreamSelection;
-    if (adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO)
+    if (adp->GetStreamType() == StreamType::VIDEO)
       isManualStreamSelection = streamSelectionMode != SETTINGS::StreamSelection::AUTO;
     else
       isManualStreamSelection = streamSelectionMode == SETTINGS::StreamSelection::MANUAL;
@@ -753,13 +752,13 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
     if (isManualStreamSelection)
     {
       // Add all stream representations
-      for (size_t i{0}; i < adp->representations_.size(); i++)
+      for (size_t i{0}; i < adp->GetRepresentations().size(); i++)
       {
-        size_t reprIndex{adp->representations_.size() - i};
+        size_t reprIndex{adp->GetRepresentations().size() - i};
         uint32_t uniqueId{adpIndex};
         uniqueId |= reprIndex << 16;
 
-        adaptive::AdaptiveTree::Representation* currentRepr{adp->representations_[i]};
+        CRepresentation* currentRepr = adp->GetRepresentations()[i].get();
         bool isDefaultRepr{currentRepr == defaultRepr};
 
         AddStream(adp, currentRepr, isDefaultRepr, uniqueId);
@@ -768,7 +767,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
     else
     {
       // Add the default stream representation only
-      size_t reprIndex{adp->representations_.size()};
+      size_t reprIndex{adp->GetRepresentations().size()};
       uint32_t uniqueId{adpIndex};
       uniqueId |= reprIndex << 16;
 
@@ -780,8 +779,8 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
   return true;
 }
 
-void CSession::AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
-                         adaptive::AdaptiveTree::Representation* initialRepr,
+void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
+                         PLAYLIST::CRepresentation* initialRepr,
                          bool isDefaultRepr,
                          uint32_t uniqueId)
 {
@@ -791,40 +790,39 @@ void CSession::AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
   CStream& stream{*m_streams.back()};
 
   uint32_t flags{INPUTSTREAM_FLAG_NONE};
-  size_t copySize{adp->name_.size() > 255 ? 255 : adp->name_.size()};
-  stream.m_info.SetName(adp->name_);
+  stream.m_info.SetName(adp->GetName());
 
-  switch (adp->type_)
+  switch (adp->GetStreamType())
   {
-    case adaptive::AdaptiveTree::VIDEO:
+    case StreamType::VIDEO:
     {
       stream.m_info.SetStreamType(INPUTSTREAM_TYPE_VIDEO);
       if (isDefaultRepr)
         flags |= INPUTSTREAM_FLAG_DEFAULT;
       break;
     }
-    case adaptive::AdaptiveTree::AUDIO:
+    case StreamType::AUDIO:
     {
       stream.m_info.SetStreamType(INPUTSTREAM_TYPE_AUDIO);
-      if (adp->impaired_)
+      if (adp->IsImpaired())
         flags |= INPUTSTREAM_FLAG_VISUAL_IMPAIRED;
-      if (adp->default_)
+      if (adp->IsDefault())
         flags |= INPUTSTREAM_FLAG_DEFAULT;
-      if (adp->original_ || (!m_kodiProps.m_audioLanguageOrig.empty() &&
-                             adp->language_ == m_kodiProps.m_audioLanguageOrig))
+      if (adp->IsOriginal() || (!m_kodiProps.m_audioLanguageOrig.empty() &&
+                                adp->GetLanguage() == m_kodiProps.m_audioLanguageOrig))
       {
         flags |= INPUTSTREAM_FLAG_ORIGINAL;
       }
       break;
     }
-    case adaptive::AdaptiveTree::SUBTITLE:
+    case StreamType::SUBTITLE:
     {
       stream.m_info.SetStreamType(INPUTSTREAM_TYPE_SUBTITLE);
-      if (adp->impaired_)
+      if (adp->IsImpaired())
         flags |= INPUTSTREAM_FLAG_HEARING_IMPAIRED;
-      if (adp->forced_)
+      if (adp->IsForced())
         flags |= INPUTSTREAM_FLAG_FORCED;
-      if (adp->default_)
+      if (adp->IsDefault())
         flags |= INPUTSTREAM_FLAG_DEFAULT;
       break;
     }
@@ -834,7 +832,7 @@ void CSession::AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
 
   stream.m_info.SetFlags(flags);
   stream.m_info.SetPhysicalIndex(uniqueId);
-  stream.m_info.SetLanguage(adp->language_);
+  stream.m_info.SetLanguage(adp->GetLanguage());
   stream.m_info.ClearExtraData();
   stream.m_info.SetFeatures(0);
 
@@ -845,140 +843,170 @@ void CSession::AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
 
 void CSession::UpdateStream(CStream& stream)
 {
-  const adaptive::AdaptiveTree::Representation* rep{stream.m_adStream.getRepresentation()};
-  const SSD::SSD_DECRYPTER::SSD_CAPS& caps{GetDecrypterCaps(rep->pssh_set_)};
+  const StreamType streamType = stream.m_adStream.getAdaptationSet()->GetStreamType();
+  CRepresentation* rep{stream.m_adStream.getRepresentation()};
 
-  stream.m_info.SetWidth(static_cast<uint32_t>(rep->width_));
-  stream.m_info.SetHeight(static_cast<uint32_t>(rep->height_));
-  stream.m_info.SetAspect(rep->aspect_);
+  if (rep->GetContainerType() == ContainerType::INVALID)
+  {
+    LOG::LogF(LOGERROR, "Container type not valid on stream representation ID: %s",
+              rep->GetId().data());
+    stream.m_isValid = false;
+    return;
+  }
 
-  if (stream.m_info.GetAspect() == 0.0f && stream.m_info.GetHeight())
-    stream.m_info.SetAspect((float)stream.m_info.GetWidth() / stream.m_info.GetHeight());
-  stream.m_isEncrypted = rep->get_psshset() > 0;
-
+  stream.m_isEncrypted = rep->GetPsshSetPos() != PSSHSET_POS_DEFAULT;
   stream.m_info.SetExtraData(nullptr, 0);
-  if (rep->codec_private_data_.size())
+
+  if (!rep->GetCodecPrivateData().empty())
   {
     std::string annexb;
-    const std::string* res(&annexb);
+    const std::string* extraData(&annexb);
+
+    const SSD::SSD_DECRYPTER::SSD_CAPS& caps{GetDecrypterCaps(rep->m_psshSetPos)};
 
     if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) &&
         stream.m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
     {
       LOG::Log(LOGDEBUG, "UpdateStream: Convert avc -> annexb");
-      annexb = AvcToAnnexb(rep->codec_private_data_);
+      annexb = AvcToAnnexb(rep->GetCodecPrivateData());
     }
     else
     {
-      res = &rep->codec_private_data_;
+      extraData = &rep->GetCodecPrivateData();
     }
-    stream.m_info.SetExtraData(reinterpret_cast<const uint8_t*>(res->data()), res->size());
+    stream.m_info.SetExtraData(reinterpret_cast<const uint8_t*>(extraData->c_str()),
+                               extraData->size());
   }
 
-  // we currently use only the first track!
-  size_t pos{rep->codecs_.find(",")};
-  if (pos == std::string::npos)
-    pos = rep->codecs_.size();
-
-  stream.m_info.SetCodecInternalName(rep->codecs_);
+  stream.m_info.SetCodecInternalName(rep->GetFirstCodec()); //! @todo: to be verified
   stream.m_info.SetCodecFourCC(0);
+  stream.m_info.SetBitRate(rep->GetBandwidth());
 
-#if INPUTSTREAM_VERSION_LEVEL > 0
-  stream.m_info.SetColorSpace(INPUTSTREAM_COLORSPACE_UNSPECIFIED);
-  stream.m_info.SetColorRange(INPUTSTREAM_COLORRANGE_UNKNOWN);
-  stream.m_info.SetColorPrimaries(INPUTSTREAM_COLORPRIMARY_UNSPECIFIED);
-  stream.m_info.SetColorTransferCharacteristic(INPUTSTREAM_COLORTRC_UNSPECIFIED);
-#else
-  stream.m_info.SetColorSpace(INPUTSTREAM_COLORSPACE_UNKNOWN);
-  stream.m_info.SetColorRange(INPUTSTREAM_COLORRANGE_UNKNOWN);
-#endif
-  if (rep->codecs_.find("mp4a") == 0 || rep->codecs_.find("aac") == 0)
-    stream.m_info.SetCodecName("aac");
-  else if (rep->codecs_.find("dts") == 0)
-    stream.m_info.SetCodecName("dca");
-  else if (rep->codecs_.find("ac-3") == 0)
-    stream.m_info.SetCodecName("ac3");
-  else if (rep->codecs_.find("ec-3") == 0)
-    stream.m_info.SetCodecName("eac3");
-  else if (rep->codecs_.find("avc") == 0 || rep->codecs_.find("h264") == 0)
-    stream.m_info.SetCodecName("h264");
-  else if (rep->codecs_.find("hev") == 0)
-    stream.m_info.SetCodecName("hevc");
-  else if (rep->codecs_.find("hvc") == 0 || rep->codecs_.find("dvh") == 0)
-  {
-    stream.m_info.SetCodecFourCC(
-        MakeFourCC(rep->codecs_[0], rep->codecs_[1], rep->codecs_[2], rep->codecs_[3]));
-    stream.m_info.SetCodecName("hevc");
-  }
-  else if (rep->codecs_.find("vp9") == 0 || rep->codecs_.find("vp09") == 0)
-  {
-    stream.m_info.SetCodecName("vp9");
-#if INPUTSTREAM_VERSION_LEVEL > 0
-    if ((pos = rep->codecs_.find(".")) != std::string::npos)
-      stream.m_info.SetCodecProfile(static_cast<STREAMCODEC_PROFILE>(
-          VP9CodecProfile0 + atoi(rep->codecs_.c_str() + (pos + 1))));
-#endif
-  }
-  else if (rep->codecs_.find("av1") == 0 || rep->codecs_.find("av01") == 0)
-    stream.m_info.SetCodecName("av1");
-  else if (rep->codecs_.find("opus") == 0)
-    stream.m_info.SetCodecName("opus");
-  else if (rep->codecs_.find("vorbis") == 0)
-    stream.m_info.SetCodecName("vorbis");
-  else if (rep->codecs_.find("stpp") == 0 || rep->codecs_.find("ttml") == 0)
-    stream.m_info.SetCodecName("srt");
-  else if (rep->codecs_.find("wvtt") == 0)
-    stream.m_info.SetCodecName("webvtt");
-  else
-  {
-    LOG::Log(LOGWARNING, "Unsupported codec %s in stream ID: %s", rep->codecs_.c_str(),
-             rep->id.c_str());
-    stream.m_isValid = false;
-  }
+  std::string codecStr;
 
-  // We support currently only mp4 / ts / adts
-  if (rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_NOTYPE &&
-      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_MP4 &&
-      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TS &&
-      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_ADTS &&
-      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_WEBM &&
-      rep->containerType_ != adaptive::AdaptiveTree::CONTAINERTYPE_TEXT)
+  if (streamType == StreamType::VIDEO)
   {
-    LOG::Log(LOGWARNING, "Unsupported container in stream ID: %s", rep->id.c_str());
-    stream.m_isValid = false;
-  }
+    stream.m_info.SetWidth(static_cast<uint32_t>(rep->GetWidth()));
+    stream.m_info.SetHeight(static_cast<uint32_t>(rep->GetHeight()));
+    stream.m_info.SetAspect(rep->GetAspectRatio());
 
-  stream.m_info.SetFpsRate(rep->fpsRate_);
-  stream.m_info.SetFpsScale(rep->fpsScale_);
-  stream.m_info.SetSampleRate(rep->samplingRate_);
-  stream.m_info.SetChannels(rep->channelCount_);
-  stream.m_info.SetBitRate(rep->bandwidth_);
+    if (stream.m_info.GetAspect() == 0.0f && stream.m_info.GetHeight())
+      stream.m_info.SetAspect(static_cast<float>(stream.m_info.GetWidth()) /
+                              stream.m_info.GetHeight());
+
+    stream.m_info.SetFpsRate(rep->GetFrameRate());
+    stream.m_info.SetFpsScale(rep->GetFrameRateScale());
+
+    stream.m_info.SetColorSpace(INPUTSTREAM_COLORSPACE_UNSPECIFIED);
+    stream.m_info.SetColorRange(INPUTSTREAM_COLORRANGE_UNKNOWN);
+    stream.m_info.SetColorPrimaries(INPUTSTREAM_COLORPRIMARY_UNSPECIFIED);
+    stream.m_info.SetColorTransferCharacteristic(INPUTSTREAM_COLORTRC_UNSPECIFIED);
+
+    if (rep->ContainsCodec("avc") || rep->ContainsCodec("h264"))
+      stream.m_info.SetCodecName("h264");
+    else if (rep->ContainsCodec("hev"))
+      stream.m_info.SetCodecName("hevc");
+    else if (rep->ContainsCodec("hvc", codecStr) || rep->ContainsCodec("dvh", codecStr))
+    {
+      stream.m_info.SetCodecFourCC(MakeFourCC(codecStr[0], codecStr[1], codecStr[2], codecStr[3]));
+      stream.m_info.SetCodecName("hevc");
+    }
+    else if (rep->ContainsCodec("vp9", codecStr) || rep->ContainsCodec("vp09", codecStr))
+    {
+      stream.m_info.SetCodecName("vp9");
+      if (STRING::Contains(codecStr, "."))
+      {
+        int codecProfileNum = STRING::ToInt32(codecStr.substr(codecStr.find('.') + 1));
+        switch (codecProfileNum)
+        {
+          case 0:
+            stream.m_info.SetCodecProfile(VP9CodecProfile0);
+            break;
+          case 1:
+            stream.m_info.SetCodecProfile(VP9CodecProfile1);
+            break;
+          case 2:
+            stream.m_info.SetCodecProfile(VP9CodecProfile2);
+            break;
+          case 3:
+            stream.m_info.SetCodecProfile(VP9CodecProfile3);
+            break;
+          default:
+            LOG::LogF(LOGWARNING, "Unhandled video codec profile \"%i\" for codec string: %s",
+                      codecProfileNum, codecStr.c_str());
+            break;
+        }
+      }
+    }
+    else if (rep->ContainsCodec("av1") || rep->ContainsCodec("av01"))
+      stream.m_info.SetCodecName("av1");
+    else
+    {
+      stream.m_isValid = false;
+      LOG::LogF(LOGERROR, "Unhandled video codec");
+    }
+  }
+  else if (streamType == StreamType::AUDIO)
+  {
+    stream.m_info.SetSampleRate(rep->GetSampleRate());
+    stream.m_info.SetChannels(rep->GetAudioChannels());
+
+    if (rep->ContainsCodec("mp4a") || rep->ContainsCodec("aac"))
+      stream.m_info.SetCodecName("aac");
+    else if (rep->ContainsCodec("dts"))
+      stream.m_info.SetCodecName("dca");
+    else if (rep->ContainsCodec("ac-3"))
+      stream.m_info.SetCodecName("ac3");
+    else if (rep->ContainsCodec("ec-3"))
+      stream.m_info.SetCodecName("eac3");
+    else if (rep->ContainsCodec("opus"))
+      stream.m_info.SetCodecName("opus");
+    else if (rep->ContainsCodec("vorbis"))
+      stream.m_info.SetCodecName("vorbis");
+    else
+    {
+      stream.m_isValid = false;
+      LOG::LogF(LOGERROR, "Unhandled audio codec");
+    }
+  }
+  else if (streamType == StreamType::SUBTITLE)
+  {
+    if (rep->ContainsCodec("stpp") || rep->ContainsCodec("ttml"))
+      stream.m_info.SetCodecName("srt");
+    else if (rep->ContainsCodec("wvtt"))
+      stream.m_info.SetCodecName("webvtt");
+    else
+    {
+      stream.m_isValid = false;
+      LOG::LogF(LOGERROR, "Unhandled subtitle codec");
+    }
+  }
 }
 
 AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
 {
   needRefetch = false;
+  CRepresentation* repr = stream->m_adStream.getRepresentation();
+
   switch (m_adaptiveTree->prepareRepresentation(stream->m_adStream.getPeriod(),
-                                                stream->m_adStream.getAdaptationSet(),
-                                                stream->m_adStream.getRepresentation()))
+                                                stream->m_adStream.getAdaptationSet(), repr))
   {
-    case adaptive::AdaptiveTree::PREPARE_RESULT_FAILURE:
+    case PrepareRepStatus::FAILURE:
       return nullptr;
-    case adaptive::AdaptiveTree::PREPARE_RESULT_DRMCHANGED:
+    case PrepareRepStatus::DRMCHANGED:
       if (!InitializeDRM())
         return nullptr;
-    case adaptive::AdaptiveTree::PREPARE_RESULT_DRMUNCHANGED:
-      stream->m_isEncrypted = stream->m_adStream.getRepresentation()->pssh_set_ > 0;
+      [[fallthrough]];
+    case PrepareRepStatus::DRMUNCHANGED:
+      stream->m_isEncrypted = repr->m_psshSetPos != PSSHSET_POS_DEFAULT;
       needRefetch = true;
       break;
-    default:;
+    default:
+      break;
   }
 
-  if (stream->m_adStream.getRepresentation()->containerType_ ==
-          adaptive::AdaptiveTree::CONTAINERTYPE_MP4 &&
-      (stream->m_adStream.getRepresentation()->flags_ &
-       adaptive::AdaptiveTree::Representation::INITIALIZATION_PREFIXED) == 0 &&
-      stream->m_adStream.getRepresentation()->get_initialization() == nullptr)
+  if (repr->GetContainerType() == ContainerType::MP4 && !repr->HasInitPrefixed() &&
+      !repr->HasInitialization())
   {
     //We'll create a Movie out of the things we got from manifest file
     //note: movie will be deleted in destructor of stream->input_file_
@@ -987,9 +1015,10 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
     AP4_SyntheticSampleTable* sample_table{new AP4_SyntheticSampleTable()};
 
     AP4_SampleDescription* sample_descryption;
+    const std::string& extradata = repr->GetCodecPrivateData();
+
     if (stream->m_info.GetCodecName() == "h264")
     {
-      const std::string& extradata{stream->m_adStream.getRepresentation()->codec_private_data_};
       AP4_MemoryByteStream ms{reinterpret_cast<const uint8_t*>(extradata.data()),
                               static_cast<const AP4_Size>(extradata.size())};
       AP4_AvccAtom* atom{AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
@@ -999,7 +1028,6 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
     }
     else if (stream->m_info.GetCodecName() == "hevc")
     {
-      const std::string& extradata{(stream->m_adStream.getRepresentation()->codec_private_data_)};
       AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
                               static_cast<const AP4_Size>(extradata.size())};
       AP4_HvccAtom* atom{AP4_HvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
@@ -1009,7 +1037,6 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
     }
     else if (stream->m_info.GetCodecName() == "av1")
     {
-      const std::string& extradata(stream->m_adStream.getRepresentation()->codec_private_data_);
       AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
                               static_cast<AP4_Size>(extradata.size())};
       AP4_Av1cAtom* atom = AP4_Av1cAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
@@ -1023,21 +1050,19 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
     else
       sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
 
-    if (stream->m_adStream.getRepresentation()->get_psshset() > 0)
+    if (repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT)
     {
       AP4_ContainerAtom schi{AP4_ATOM_TYPE_SCHI};
       schi.AddChild(
           new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8,
-                           GetDefaultKeyId(stream->m_adStream.getRepresentation()->get_psshset())));
+                           GetDefaultKeyId(repr->GetPsshSetPos())));
       sample_descryption = new AP4_ProtectedSampleDescription(
           0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
     }
     sample_table->AddSampleDescription(sample_descryption);
-
-    movie->AddTrack(new AP4_Track(TIDC[stream->m_adStream.get_type()], sample_table,
-                                  CFragmentedSampleReader::TRACKID_UNKNOWN,
-                                  stream->m_adStream.getRepresentation()->timescale_, 0,
-                                  stream->m_adStream.getRepresentation()->timescale_, 0, "", 0, 0));
+    movie->AddTrack(new AP4_Track(static_cast<AP4_Track::Type>(stream->m_adStream.GetTrackType()),
+                                  sample_table, CFragmentedSampleReader::TRACKID_UNKNOWN,
+                                  repr->GetTimescale(), 0, repr->GetTimescale(), 0, "", 0, 0));
     //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
     AP4_MoovAtom* moov{new AP4_MoovAtom()};
     moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
@@ -1232,23 +1257,25 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 
   // Check if we leave our current period
   double chapterTime{0};
-  std::vector<adaptive::AdaptiveTree::Period*>::const_iterator pi;
-  for (pi = m_adaptiveTree->periods_.cbegin(); pi != m_adaptiveTree->periods_.cend(); ++pi)
+  auto pi = m_adaptiveTree->m_periods.cbegin();
+
+  for (; pi != m_adaptiveTree->m_periods.cend(); pi++)
   {
-    chapterTime += double((*pi)->duration_) / (*pi)->timescale_;
+    chapterTime += double((*pi)->GetDuration()) / (*pi)->GetTimescale();
     if (chapterTime > seekTime)
       break;
   }
 
-  if (pi == m_adaptiveTree->periods_.end())
+  if (pi == m_adaptiveTree->m_periods.cend())
     --pi;
-  chapterTime -= double((*pi)->duration_) / (*pi)->timescale_;
 
-  if ((*pi) != m_adaptiveTree->current_period_)
+  chapterTime -= double((*pi)->GetDuration()) / (*pi)->GetTimescale();
+
+  if ((*pi).get() != m_adaptiveTree->m_currentPeriod)
   {
     LOG::Log(LOGDEBUG, "SeekTime: seeking into new chapter: %d",
-             static_cast<int>((pi - m_adaptiveTree->periods_.begin()) + 1));
-    SeekChapter((pi - m_adaptiveTree->periods_.begin()) + 1);
+             static_cast<int>((pi - m_adaptiveTree->m_periods.begin()) + 1));
+    SeekChapter(static_cast<int>(pi - m_adaptiveTree->m_periods.begin()) + 1);
     m_chapterSeekTime = seekTime;
     return true;
   }
@@ -1399,9 +1426,9 @@ void CSession::CheckFragmentDuration(CStream& stream)
   if (stream.m_hasSegmentChanged && streamReader->GetNextFragmentInfo(nextTs, nextDur))
   {
     m_adaptiveTree->SetFragmentDuration(
-        stream.m_adStream.getAdaptationSet(), stream.m_adStream.getRepresentation(),
-        stream.m_adStream.getSegmentPos(), nextTs, static_cast<uint32_t>(nextDur),
-        streamReader->GetTimeScale());
+        stream.m_adStream.getPeriod(), stream.m_adStream.getAdaptationSet(),
+        stream.m_adStream.getRepresentation(), stream.m_adStream.getSegmentPos(), nextTs,
+        static_cast<uint32_t>(nextDur), streamReader->GetTimeScale());
   }
   stream.m_hasSegmentChanged = false;
 }
@@ -1409,9 +1436,9 @@ void CSession::CheckFragmentDuration(CStream& stream)
 const AP4_UI08* CSession::GetDefaultKeyId(const uint16_t index) const
 {
   static const AP4_UI08 default_key[16]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  if (m_adaptiveTree->current_period_->psshSets_[index].defaultKID_.size() == 16)
+  if (m_adaptiveTree->m_currentPeriod->GetPSSHSets()[index].defaultKID_.size() == 16)
     return reinterpret_cast<const AP4_UI08*>(
-        m_adaptiveTree->current_period_->psshSets_[index].defaultKID_.data());
+        m_adaptiveTree->m_currentPeriod->GetPSSHSets()[index].defaultKID_.data());
 
   return default_key;
 }
@@ -1429,12 +1456,13 @@ Adaptive_CencSingleSampleDecrypter* CSession::GetSingleSampleDecrypter(std::stri
 
 uint32_t CSession::GetIncludedStreamMask() const
 {
+  //! @todo: this conversion must be reworked can easily be broken and cause hidden problems
   const INPUTSTREAM_TYPE adp2ips[] = {INPUTSTREAM_TYPE_NONE, INPUTSTREAM_TYPE_VIDEO,
                                       INPUTSTREAM_TYPE_AUDIO, INPUTSTREAM_TYPE_SUBTITLE};
   uint32_t res{0};
   for (unsigned int i(0); i < 4; ++i)
   {
-    if (m_adaptiveTree->current_period_->included_types_ & (1U << i))
+    if (m_adaptiveTree->m_currentPeriod->m_includedStreamType & (1U << i))
       res |= (1U << adp2ips[i]);
   }
   return res;
@@ -1458,28 +1486,34 @@ int CSession::GetChapter() const
 {
   if (m_adaptiveTree)
   {
-    std::vector<adaptive::AdaptiveTree::Period*>::const_iterator res =
-        std::find(m_adaptiveTree->periods_.cbegin(), m_adaptiveTree->periods_.cend(),
-                  m_adaptiveTree->current_period_);
-    if (res != m_adaptiveTree->periods_.cend())
-      return (res - m_adaptiveTree->periods_.cbegin()) + 1;
+    for (auto itPeriod = m_adaptiveTree->m_periods.cbegin();
+         itPeriod != m_adaptiveTree->m_periods.cend(); itPeriod++)
+    {
+      if ((*itPeriod).get() == m_adaptiveTree->m_currentPeriod)
+      {
+        return static_cast<int>(std::distance(m_adaptiveTree->m_periods.cbegin(), itPeriod)) + 1;
+      }
+    }
   }
   return -1;
 }
 
 int CSession::GetChapterCount() const
 {
-  if (m_adaptiveTree)
-    return m_adaptiveTree->periods_.size() > 1 ? m_adaptiveTree->periods_.size() : 0;
+  if (m_adaptiveTree && m_adaptiveTree->m_periods.size() > 1)
+      return static_cast<int>(m_adaptiveTree->m_periods.size());
 
   return 0;
 }
 
-const char* CSession::GetChapterName(int ch) const
+std::string CSession::GetChapterName(int ch) const
 {
-  --ch;
-  if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->periods_.size()))
-    return m_adaptiveTree->periods_[ch]->id_.c_str();
+  if (m_adaptiveTree)
+  {
+    --ch;
+    if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->m_periods.size()))
+      return m_adaptiveTree->m_periods[ch]->GetId().data();
+  }
 
   return "[Unknown]";
 }
@@ -1491,8 +1525,8 @@ int64_t CSession::GetChapterPos(int ch) const
 
   for (; ch; --ch)
   {
-    sum += (m_adaptiveTree->periods_[ch - 1]->duration_ * STREAM_TIME_BASE) /
-           m_adaptiveTree->periods_[ch - 1]->timescale_;
+    sum += (m_adaptiveTree->m_periods[ch - 1]->GetDuration() * STREAM_TIME_BASE) /
+           m_adaptiveTree->m_periods[ch - 1]->GetTimescale();
   }
 
   return sum / STREAM_TIME_BASE;
@@ -1511,12 +1545,12 @@ uint64_t CSession::GetTimingStartPTS() const
 uint64_t CSession::GetChapterStartTime() const
 {
   uint64_t start_time = 0;
-  for (adaptive::AdaptiveTree::Period* p : m_adaptiveTree->periods_)
+  for (std::unique_ptr<CPeriod>& p : m_adaptiveTree->m_periods)
   {
-    if (p == m_adaptiveTree->current_period_)
+    if (p.get() == m_adaptiveTree->m_currentPeriod)
       break;
     else
-      start_time += (p->duration_ * STREAM_TIME_BASE) / p->timescale_;
+      start_time += (p->GetDuration() * STREAM_TIME_BASE) / p->GetTimescale();
   }
   return start_time;
 }
@@ -1527,9 +1561,12 @@ int CSession::GetPeriodId() const
   {
     if (IsLive())
     {
-      return m_adaptiveTree->current_period_->sequence_ == m_adaptiveTree->initial_sequence_
-                 ? 1
-                 : m_adaptiveTree->current_period_->sequence_ + 1;
+      if (m_adaptiveTree->initial_sequence_.has_value() &&
+          m_adaptiveTree->m_currentPeriod->GetSequence() == *m_adaptiveTree->initial_sequence_)
+      {
+        return 1;
+      }
+      return m_adaptiveTree->m_currentPeriod->GetSequence() + 1;
     }
     else
       return GetChapter();
@@ -1539,17 +1576,18 @@ int CSession::GetPeriodId() const
 
 bool CSession::SeekChapter(int ch)
 {
-  if (m_adaptiveTree->next_period_)
+  if (m_adaptiveTree->m_nextPeriod)
     return true;
 
   --ch;
-  if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->periods_.size()) &&
-      m_adaptiveTree->periods_[ch] != m_adaptiveTree->current_period_)
+  if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->m_periods.size()) &&
+      m_adaptiveTree->m_periods[ch].get() != m_adaptiveTree->m_currentPeriod)
   {
-    auto newPd = m_adaptiveTree->periods_[ch];
-    m_adaptiveTree->next_period_ = newPd;
-    LOG::LogF(LOGDEBUG, "Switching to new Period (id=%s, start=%ld, seq=%d)", newPd->id_.c_str(),
-              newPd->start_, newPd->sequence_);
+    CPeriod* nextPeriod = m_adaptiveTree->m_periods[ch].get();
+    m_adaptiveTree->m_nextPeriod = nextPeriod;
+    LOG::LogF(LOGDEBUG, "Switching to new Period (id=%s, start=%ld, seq=%d)",
+              nextPeriod->GetId().data(), nextPeriod->GetStart(), nextPeriod->GetSequence());
+
     for (auto& stream : m_streams)
     {
       ISampleReader* sr{stream->GetReader()};

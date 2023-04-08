@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2017 peak3d (http://www.peak3d.de)
+ *  Copyright (C) 2023 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,38 +9,33 @@
 #pragma once
 
 #include "../common/AdaptiveTree.h"
+#include "../common/AdaptiveUtils.h"
 #include "../Iaes_decrypter.h"
 
 #include <map>
-#include <sstream>
 
 namespace adaptive
 {
 
-class ATTR_DLL_LOCAL HLSTree : public AdaptiveTree
+class ATTR_DLL_LOCAL CHLSTree : public AdaptiveTree
 {
 public:
-  enum
-  {
-    ENCRYPTIONTYPE_INVALID = 0,
-    ENCRYPTIONTYPE_CLEAR = 1,
-    ENCRYPTIONTYPE_AES128 = 2,
-    ENCRYPTIONTYPE_WIDEVINE = 3,
-    ENCRYPTIONTYPE_UNKNOWN = 4,
-  };
-  HLSTree(CHOOSER::IRepresentationChooser* reprChooser);
-  HLSTree(const HLSTree& left);
+  CHLSTree(CHOOSER::IRepresentationChooser* reprChooser) : AdaptiveTree(reprChooser) {}
+  virtual ~CHLSTree() {}
+
+  CHLSTree(const CHLSTree& left);
+
+  virtual CHLSTree* Clone() const override { return new CHLSTree{*this}; }
 
   virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
 
-  virtual ~HLSTree();
-
   virtual bool open(const std::string& url) override;
   virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) override;
-  virtual PREPARE_RESULT prepareRepresentation(Period* period,
-                                               AdaptationSet* adp,
-                                               Representation* rep,
-                                               bool update = false) override;
+
+  virtual PLAYLIST::PrepareRepStatus prepareRepresentation(PLAYLIST::CPeriod* period,
+                                                            PLAYLIST::CAdaptationSet* adp,
+                                                            PLAYLIST::CRepresentation* rep,
+                                                            bool update = false) override;
 
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
@@ -50,50 +45,47 @@ public:
                              size_t dstOffset,
                              size_t dataSize,
                              bool lastChunk) override;
-  virtual void RefreshSegments(Period* period,
-                               AdaptationSet* adp,
-                               Representation* rep,
-                               StreamType type) override;
 
-  virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(
-      const Representation* rep) override
-  {
-    return rep->repLastUpdated_;
-  }
-  
-  virtual HLSTree* Clone() const override { return new HLSTree{*this}; }
+  virtual void RefreshSegments(PLAYLIST::CPeriod* period,
+                               PLAYLIST::CAdaptationSet* adp,
+                               PLAYLIST::CRepresentation* rep,
+                               PLAYLIST::StreamType type) override;
 
 protected:
-  virtual bool ParseManifest(std::stringstream& stream);
   virtual void RefreshLiveSegments() override;
 
-  virtual void SaveManifest(AdaptationSet* adp,
-                            const std::stringstream& data,
+  virtual bool ParseManifest(const std::string& stream);
+
+  PLAYLIST::EncryptionType ProcessEncryption(std::string_view baseUrl,
+                                             std::map<std::string, std::string>& attribs);
+
+  virtual void SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
+                            std::string_view data,
                             std::string_view info);
 
   std::unique_ptr<IAESDecrypter> m_decrypter;
 
 private:
-  int processEncryption(std::string baseUrl, std::map<std::string, std::string>& map);
-  std::string m_audioCodec;
-
-  struct EXTGROUP
+  struct ExtGroup
   {
-    std::string m_codec;
-    std::vector<AdaptationSet*> m_sets;
+    std::string m_codecs;
+    std::vector<std::unique_ptr<PLAYLIST::CAdaptationSet>> m_adpSets;
 
-    void setCodec(const std::string& codec)
+    // Apply codecs to the first representation of each adaptation set
+    void SetCodecs(std::string_view codecs)
     {
-      if (m_codec.empty())
+      if (m_codecs.empty())
       {
-        m_codec = codec;
-        for (auto& set : m_sets)
-          set->representations_[0]->codecs_ = codec;
+        m_codecs = codecs;
+        for (auto& adpSet : m_adpSets)
+        {
+          adpSet->GetRepresentations()[0]->AddCodecs(codecs);
+        }
       }
     };
   };
 
-  std::map<std::string, EXTGROUP> m_extGroups;
+  std::map<std::string, ExtGroup> m_extGroups;
   bool m_refreshPlayList = true;
   uint8_t m_segmentIntervalSec = 4;
   bool m_hasDiscontSeq = false;

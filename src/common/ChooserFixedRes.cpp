@@ -12,8 +12,8 @@
 #include "../utils/log.h"
 #include "ReprSelector.h"
 
-using namespace adaptive;
 using namespace CHOOSER;
+using namespace PLAYLIST;
 using namespace UTILS;
 
 CRepresentationChooserFixedRes::CRepresentationChooserFixedRes()
@@ -64,8 +64,8 @@ void CRepresentationChooserFixedRes::PostInit()
            m_screenCurrentWidth, m_screenCurrentHeight);
 }
 
-AdaptiveTree::Representation* CRepresentationChooserFixedRes::GetNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
+PLAYLIST::CRepresentation* CRepresentationChooserFixedRes::GetNextRepresentation(
+    PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
 {
   if (currentRep)
     return currentRep;
@@ -77,9 +77,9 @@ AdaptiveTree::Representation* CRepresentationChooserFixedRes::GetNextRepresentat
 
   CRepresentationSelector selector{resolution.first, resolution.second};
 
-  if (adp->type_ == AdaptiveTree::VIDEO)
+  if (adp->GetStreamType() == StreamType::VIDEO)
   {
-    AdaptiveTree::Representation* selRep{selector.Highest(adp)};
+    CRepresentation* selRep{selector.Highest(adp)};
     LogDetails(nullptr, selRep);
     return selRep;
   }

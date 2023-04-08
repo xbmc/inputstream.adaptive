@@ -81,7 +81,7 @@ protected:
     testStream = newStream;
   }
 
-  TestAdaptiveStream* NewStream(adaptive::AdaptiveTree::AdaptationSet* adp,
+  TestAdaptiveStream* NewStream(PLAYLIST::CAdaptationSet* adp,
                                 bool playTimeshiftBuffer = true)
   {
     auto initialRepr{tree->GetRepChooser()->GetRepresentation(adp)};
@@ -141,7 +141,7 @@ TEST_F(DASHTreeTest, CalculateBaseUrlFromRedirect)
 TEST_F(DASHTreeTest, CalculateBaseURLFromBaseURLTag)
 {
   OpenTestFile("mpd/segtpl_baseurlinmpd.mpd", "https://bit.ly/abcd");
-  EXPECT_EQ(tree->current_period_->base_url_, "https://foo.bar/mpd/");
+  EXPECT_EQ(tree->m_currentPeriod->GetBaseUrl(), "https://foo.bar/mpd/");
 }
 
 TEST_F(DASHTreeTest, CalculateBaseURLWithNoSlashOutsidePeriod)
@@ -149,12 +149,11 @@ TEST_F(DASHTreeTest, CalculateBaseURLWithNoSlashOutsidePeriod)
   // BaseURL outside period with no trailing slash
   OpenTestFile("mpd/segtpl_baseurl_noslash_outside.mpd", "https://bit.ly/abcd");
 
-  adaptive::AdaptiveTree::SegmentTemplate segtpl =
-      tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
+  auto& segtpl = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSegmentTemplate();
 
-  EXPECT_EQ(tree->current_period_->base_url_, "https://foo.bar/mpd/");
-  EXPECT_EQ(segtpl.initialization, "https://foo.bar/mpd/V300/init.mp4");
-  EXPECT_EQ(segtpl.media_url, "https://foo.bar/mpd/V300/$Number$.m4s");
+  EXPECT_EQ(tree->m_currentPeriod->GetBaseUrl(), "https://foo.bar/mpd/");
+  EXPECT_EQ(STR(segtpl->GetInitialization()), "https://foo.bar/mpd/V300/init.mp4");
+  EXPECT_EQ(STR(segtpl->GetMediaUrl()), "https://foo.bar/mpd/V300/$Number$.m4s");
 }
 
 TEST_F(DASHTreeTest, CalculateSegTplWithNoSlashes)
@@ -162,11 +161,10 @@ TEST_F(DASHTreeTest, CalculateSegTplWithNoSlashes)
   // BaseURL inside period with no trailing slash, uses segtpl, media/init doesn't start with slash
   OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd", "https://foo.bar/initialpath/test.mpd");
 
-  adaptive::AdaptiveTree::SegmentTemplate segtpl =
-      tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
+  auto& segtpl = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSegmentTemplate();
 
-  EXPECT_EQ(segtpl.initialization, "https://foo.bar/guid.ism/dash/media-video=66000.dash");
-  EXPECT_EQ(segtpl.media_url, "https://foo.bar/guid.ism/dash/media-video=66000-$Number$.m4s");
+  EXPECT_EQ(STR(segtpl->GetInitialization()), "https://foo.bar/guid.ism/dash/media-video=66000.dash");
+  EXPECT_EQ(STR(segtpl->GetMediaUrl()), "https://foo.bar/guid.ism/dash/media-video=66000-$Number$.m4s");
 }
 
 TEST_F(DASHTreeTest, CalculateSegTplWithMediaInitSlash)
@@ -174,11 +172,10 @@ TEST_F(DASHTreeTest, CalculateSegTplWithMediaInitSlash)
   // BaseURL inside period with no trailing slash, uses segtpl, media/init starts with slash
   OpenTestFile("mpd/segtpl_slash_baseurl_noslash.mpd", "https://foo.bar/initialpath/test.mpd");
 
-  adaptive::AdaptiveTree::SegmentTemplate segtpl =
-      tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
+  auto& segtpl = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSegmentTemplate();
 
-  EXPECT_EQ(segtpl.initialization, "https://foo.bar/media-video=66000.dash");
-  EXPECT_EQ(segtpl.media_url, "https://foo.bar/media-video=66000-$Number$.m4s");
+  EXPECT_EQ(STR(segtpl->GetInitialization()), "https://foo.bar/media-video=66000.dash");
+  EXPECT_EQ(STR(segtpl->GetMediaUrl()), "https://foo.bar/media-video=66000-$Number$.m4s");
 }
 
 TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLSlash)
@@ -186,11 +183,10 @@ TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLSlash)
   // BaseURL inside period with trailing slash, uses segtpl, media/init doesn't start with slash
   OpenTestFile("mpd/segtpl_noslash_baseurl_slash.mpd", "https://foo.bar/initialpath/test.mpd");
 
-  adaptive::AdaptiveTree::SegmentTemplate segtpl =
-      tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
+  auto& segtpl = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSegmentTemplate();
 
-  EXPECT_EQ(segtpl.initialization, "https://foo.bar/guid.ism/dash/media-video=66000.dash");
-  EXPECT_EQ(segtpl.media_url, "https://foo.bar/guid.ism/dash/media-video=66000-$Number$.m4s");
+  EXPECT_EQ(STR(segtpl->GetInitialization()), "https://foo.bar/guid.ism/dash/media-video=66000.dash");
+  EXPECT_EQ(STR(segtpl->GetMediaUrl()), "https://foo.bar/guid.ism/dash/media-video=66000-$Number$.m4s");
 }
 
 TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLAndMediaInitSlash)
@@ -198,18 +194,17 @@ TEST_F(DASHTreeTest, CalculateSegTplWithBaseURLAndMediaInitSlash)
   // BaseURL inside period with trailing slash, uses segtpl, media/init starts with slash
   OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd", "https://foo.bar/initialpath/test.mpd");
 
-  adaptive::AdaptiveTree::SegmentTemplate segtpl =
-      tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_;
+  auto& segtpl = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSegmentTemplate();
 
-  EXPECT_EQ(segtpl.initialization, "https://foo.bar/media-video=66000.dash");
-  EXPECT_EQ(segtpl.media_url, "https://foo.bar/media-video=66000-$Number$.m4s");
+  EXPECT_EQ(STR(segtpl->GetInitialization()), "https://foo.bar/media-video=66000.dash");
+  EXPECT_EQ(STR(segtpl->GetMediaUrl()), "https://foo.bar/media-video=66000-$Number$.m4s");
 }
 
 TEST_F(DASHTreeTest, CalculateBaseURLInRepRangeBytes)
 {
   // Byteranged indexing
   OpenTestFile("mpd/segmentbase.mpd", "https://foo.bar/test.mpd");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->url_,
+  EXPECT_EQ(tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->GetUrl(),
             "https://foo.bar/video/23.98p/r0/vid10.mp4");
 }
 
@@ -218,10 +213,10 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
   // SegmentTimeline, availabilityStartTime is greater than epoch
   OpenTestFile("mpd/segtimeline_live_ast.mpd");
 
-  adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
-      tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
+  auto& segments =
+      tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
-  EXPECT_EQ(segments.size(), 13);
+  EXPECT_EQ(segments.GetSize(), 13);
   EXPECT_EQ(segments.Get(0)->range_end_, 487050);
   EXPECT_EQ(segments.Get(12)->range_end_, 487062);
 }
@@ -232,10 +227,9 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
 
   OpenTestFile("mpd/segtpl_pto.mpd");
 
-  adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
-      tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
+  auto& segments = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
-  EXPECT_EQ(segments.size(), 451);
+  EXPECT_EQ(segments.GetSize(), 451);
   EXPECT_EQ(segments.Get(0)->range_end_, 404305525);
   EXPECT_EQ(segments.Get(450)->range_end_, 404305975);
 }
@@ -246,10 +240,9 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
 
   OpenTestFile("mpd/segtpl_old_publish_time.mpd");
 
-  adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
-      tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
+  auto& segments = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
-  EXPECT_EQ(segments.size(), 31);
+  EXPECT_EQ(segments.GetSize(), 31);
   EXPECT_EQ(segments.Get(0)->range_end_, 603272);
   EXPECT_EQ(segments.Get(30)->range_end_, 603302);
 }
@@ -270,71 +263,73 @@ TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 {
   OpenTestFile("mpd/fps_scale_adaptset.mpd");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->fpsRate_, 24000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->fpsScale_, 1001);
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->fpsRate_, 30);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->fpsScale_, 1);
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetFrameRate(), 24000);
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetFrameRateScale(), 1001);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->fpsRate_, 25);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->fpsScale_, 1);
+  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->GetFrameRate(), 30);
+  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->GetFrameRateScale(), 1);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->representations_[0]->fpsRate_, 25000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->representations_[0]->fpsScale_, 1000);
+  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->GetFrameRate(), 25);
+  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->GetFrameRateScale(), 1);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->representations_[0]->fpsRate_, 25);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->representations_[0]->fpsScale_, 1);
+  EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->GetFrameRate(), 25000);
+  EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->GetFrameRateScale(), 1000);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->representations_[0]->fpsRate_, 30);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->representations_[0]->fpsScale_, 1);
+  EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->GetFrameRate(), 25);
+  EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->GetFrameRateScale(), 1);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->fpsRate_, 25000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->fpsScale_, 1000);
+  EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->GetFrameRate(), 30);
+  EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->GetFrameRateScale(), 1);
+
+  EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->GetFrameRate(), 25000);
+  EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->GetFrameRateScale(), 1000);
 }
 
 TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
 {
   OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd");
   tree->has_timeshift_buffer_ = false;
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[0]));
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
   
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[0], "https://foo.bar/videosd-400x224/init.mp4");
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/videosd-400x224/segment_487053.m4s");
   
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[1]));
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[1].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/videosd-400x224/segment_00487050.m4s");
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/videosd-400x224/segment_00487053.m4s");
  
   
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[2]));
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[2].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/videosd-400x224/segment_263007000000.m4s");
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/videosd-400x224/segment_263008620000.m4s");
 
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[3]));
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[3].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/videosd-400x224/segment_00263007000000");
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/videosd-400x224/segment_00263008620000");
 
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[4]));
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[4].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/videosd-400x224/segment_487050.m4s?t=263007000000");
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/videosd-400x224/segment_487053.m4s?t=263008620000");
 
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[5]));
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[5].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/videosd-400x224/segment_00487050.m4s?t=00263007000000");
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/videosd-400x224/segment_00487053.m4s?t=00263008620000");
 
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[6]));
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[6].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[0], "https://foo.bar/videosd-400x224/init.mp4");
@@ -384,75 +379,74 @@ TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
 {
   OpenTestFile("mpd/pssh_default_kid.mpd");
 
-  EXPECT_EQ(tree->periods_[0]->psshSets_[1].pssh_, "ABCDEFGH");
-  EXPECT_EQ(tree->periods_[0]->psshSets_[1].defaultKID_.length(), 16);
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].pssh_, "ABCDEFGH");
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].defaultKID_.length(), 16);
 
-  EXPECT_EQ(tree->periods_[0]->psshSets_[2].pssh_, "HGFEDCBA");
-  EXPECT_EQ(tree->periods_[0]->psshSets_[2].defaultKID_.length(), 16);
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].pssh_, "HGFEDCBA");
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].defaultKID_.length(), 16);
 }
 
 TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
 {
   OpenTestFile("mpd/subtitles.mpd", "https://foo.bar/subtitles.mpd");
 
-  // Required as gtest can not access the hidden attribute directly in EXPECT_EQ
-  static const uint16_t SUBTITLESTREAM = DASHTestTree::Representation::SUBTITLESTREAM;
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->codecs_, "ttml");
+  EXPECT_EQ(adpSets[1]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->codecs_, "ttml");
+  EXPECT_EQ(adpSets[2]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->representations_[0]->codecs_, "ttml");
+  EXPECT_EQ(adpSets[3]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->representations_[0]->codecs_, "ttml");
+  EXPECT_EQ(adpSets[4]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[5]->representations_[0]->codecs_, "wvtt");
+  EXPECT_EQ(adpSets[5]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[6]->representations_[0]->codecs_, "wvtt");
+  EXPECT_EQ(adpSets[6]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[7]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[7]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[7]->representations_[0]->codecs_, "wvtt");
+  EXPECT_EQ(adpSets[7]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[7]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[7]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[8]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[8]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[8]->representations_[0]->codecs_, "wvtt");
+  EXPECT_EQ(adpSets[8]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[8]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[8]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[9]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[9]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[9]->representations_[0]->codecs_, "my_codec");
+  EXPECT_EQ(adpSets[9]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[9]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[9]->GetRepresentations()[0]->ContainsCodec("my_codec"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[10]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[10]->representations_[0]->flags_, SUBTITLESTREAM);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[10]->representations_[0]->codecs_, "ttml");
+  EXPECT_EQ(adpSets[10]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(adpSets[10]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[10]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->mimeType_, "application/mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->representations_[0]->codecs_, "stpp");
+  EXPECT_EQ(adpSets[11]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(STR(adpSets[11]->GetRepresentations()[0]->GetMimeType()), "application/mp4");
+  EXPECT_EQ(adpSets[11]->GetRepresentations()[0]->ContainsCodec("stpp"), true);
 
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[11]));
+  SetTestStream(NewStream(adpSets[11].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[0], "https://foo.bar/11/init.mp4");
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/11/0004.m4s");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->type_, DASHTestTree::SUBTITLE);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->mimeType_, "application/mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->representations_[0]->codecs_, "stpp.ttml.im1t");
+  EXPECT_EQ(adpSets[12]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
+  EXPECT_EQ(STR(adpSets[12]->GetMimeType()), "application/mp4");
+  EXPECT_EQ(adpSets[12]->GetRepresentations()[0]->ContainsCodec("stpp.ttml.im1t"), true);
 
-  SetTestStream(NewStream(tree->periods_[0]->adaptationSets_[12]));
+  SetTestStream(NewStream(adpSets[12].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[0], "https://foo.bar/tears-of-steel-multiple-subtitles-12.dash");
@@ -465,25 +459,27 @@ TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
 
   EXPECT_EQ(tree->base_url_, "https://foo.bar/dash/");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media_url, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252_$Number%09d$.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.timescale, 120000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_.Get(0)->range_end_, 3);
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.media_url, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080_$Number%09d$.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.timescale, 90000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segments_.Get(0)->range_end_, 5);
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252init.mp4");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_1_448x252_$Number%09d$.mp4");
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetTimescale(), 120000);
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->SegmentTimeline().Get(0)->range_end_, 3);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media_url, "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1_$Number%09d$.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.timescale, 48000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segments_.Get(0)->range_end_, 1);
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[1]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080init.mp4");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[1]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_2_1920x1080_$Number%09d$.mp4");
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[1]->GetSegmentTemplate()->GetTimescale(), 90000);
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[1]->SegmentTimeline().Get(0)->range_end_, 5);
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.initialization, "https://foo.bar/dash/abc_aac1init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.media_url, "https://foo.bar/dash/abc2_$Number%09d$.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segtpl_.timescale, 68000);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->segments_.Get(0)->range_end_, 5);
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1init.mp4");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/dash/3c1055cb-a842-4449-b393-7f31693b4a8f_aac1_$Number%09d$.mp4");
+  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetTimescale(), 48000);
+  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->SegmentTimeline().Get(0)->range_end_, 1);
+
+  EXPECT_EQ(STR(adpSets[2]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/dash/abc_aac1init.mp4");
+  EXPECT_EQ(STR(adpSets[2]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/dash/abc2_$Number%09d$.mp4");
+  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->GetSegmentTemplate()->GetTimescale(), 68000);
+  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->SegmentTimeline().Get(0)->range_end_, 5);
 }
 
 TEST_F(DASHTreeTest, CalculateRedirectSegTpl)
@@ -491,28 +487,32 @@ TEST_F(DASHTreeTest, CalculateRedirectSegTpl)
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
   OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/V300/init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media_url, "https://foo.bar/mpd/V300/$Number$.m4s");
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/A48/init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media_url, "https://foo.bar/A48/$Number$.m4s");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/mpd/V300/init.mp4");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/mpd/V300/$Number$.m4s");
+
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/A48/init.mp4");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/A48/$Number$.m4s");
 }
 
 TEST_F(DASHTreeTest, CalculateReprensentationBaseURL)
 {
   OpenTestFile("mpd/rep_base_url.mpd", "https://bit.ly/mpd/abcd.mpd");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/slices/A_init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media_url, "https://foo.bar/mpd/slices/A$Number%08d$.m4f");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.initialization, "https://bit.ly/mpd/B_init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->segtpl_.media_url, "https://bit.ly/mpd/B$Number%08d$.m4f");
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://foo.bar/mpd/slices/A_init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media_url, "https://foo.bar/mpd/slices/A$Number%08d$.m4f");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[1]->segtpl_.initialization, "https://foo.bar/mpd/slices2/B_init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[1]->segtpl_.media_url, "https://foo.bar/mpd/slices2/B$Number%08d$.m4f");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[2]->segtpl_.initialization, "https://foo.bar/mpd/slices2/C_init.mp4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[2]->segtpl_.media_url, "https://foo.bar/mpd/slices2/C$Number%08d$.m4f");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/mpd/slices/A_init.mp4");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/mpd/slices/A$Number%08d$.m4f");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[1]->GetSegmentTemplate()->GetInitialization()), "https://bit.ly/mpd/B_init.mp4");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[1]->GetSegmentTemplate()->GetMediaUrl()), "https://bit.ly/mpd/B$Number%08d$.m4f");
+
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/mpd/slices/A_init.mp4");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/mpd/slices/A$Number%08d$.m4f");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[1]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/mpd/slices2/B_init.mp4");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[1]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/mpd/slices2/B$Number%08d$.m4f");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[2]->GetSegmentTemplate()->GetInitialization()), "https://foo.bar/mpd/slices2/C_init.mp4");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[2]->GetSegmentTemplate()->GetMediaUrl()), "https://foo.bar/mpd/slices2/C$Number%08d$.m4f");
 }
 
 TEST_F(DASHTreeTest, CalculateReprensentationBaseURLMultiple)
@@ -521,53 +521,55 @@ TEST_F(DASHTreeTest, CalculateReprensentationBaseURLMultiple)
       "mpd/rep_base_url_multiple.mpd",
       "https://pl.foobar.com/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/manifest.mpd");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.initialization, "https://pl.foobar.com/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/init-f1-v1-x3.mp4");
-  //! @TODO: Currently return the last BaseURL where instead should be the first one
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->segtpl_.media_url, "https://ll.foo.co/video/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/fragment-$Number$-f1-v1-x3.m4s");
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.initialization, "https://pl.foobar.com/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/init-f1-a1-x3.mp4");
-  //! @TODO: Currently return the last BaseURL where instead should be the first one
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->segtpl_.media_url, "https://ll.foo.co/audio/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/fragment-$Number$-f1-a1-x3.m4s");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://prod.foobar.com/video/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/init-f1-v1-x3.mp4");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://prod.foobar.com/video/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/fragment-$Number$-f1-v1-x3.m4s");
+
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://prod.foobar.com/audio/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/init-f1-a1-x3.mp4");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://prod.foobar.com/audio/assets/p/c30668ab1d7d10166938f06b9643a254.urlset/fragment-$Number$-f1-a1-x3.m4s");
 }
 
 TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
 {
   OpenTestFile("mpd/bad_segtimeline_1.mpd", "https://foo.bar/placeholders.mpd");
-  SetTestStream(NewStream(tree->current_period_->adaptationSets_[1]));
+  SetTestStream(NewStream(tree->m_currentPeriod->GetAdaptationSets()[1].get()));
   testStream->start_stream();
 
   ReadSegments(testStream, 16, 1);
 
   SetFileName(testHelper::testFile, "mpd/bad_segtimeline_2.mpd");
   ReadSegments(testStream, 16, 1);
-  EXPECT_EQ(tree->current_period_->adaptationSets_[1]->representations_[0]->startNumber_, 3);
+  EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 3);
 
   SetFileName(testHelper::testFile, "mpd/bad_segtimeline_3.mpd");
   ReadSegments(testStream, 16, 1);
-  EXPECT_EQ(tree->current_period_->adaptationSets_[1]->representations_[0]->startNumber_, 4);
+  EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 4);
 
   SetFileName(testHelper::testFile, "mpd/bad_segtimeline_4.mpd");
   ReadSegments(testStream, 16, 1);
-  EXPECT_EQ(tree->current_period_->adaptationSets_[1]->representations_[0]->startNumber_, 5);
+  EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 5);
 }
 
 TEST_F(DASHTreeTest, AdaptionSetSwitching)
 {
   OpenTestFile("mpd/adaptation_set_switching.mpd");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_.size(), 5);
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[0]->id, "3");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[1]->id, "1");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[0]->representations_[2]->id, "2");
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[0]->id, "4");
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[1]->representations_[1]->id, "5");
+  EXPECT_EQ(adpSets.size(), 5);
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetId()), "3");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[1]->GetId()), "1");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[2]->GetId()), "2");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[2]->representations_[0]->id, "6");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetId()), "4");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[1]->GetId()), "5");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[3]->representations_[0]->id, "7");
+  EXPECT_EQ(STR(adpSets[2]->GetRepresentations()[0]->GetId()), "6");
 
-  EXPECT_EQ(tree->periods_[0]->adaptationSets_[4]->representations_[0]->id, "8");
+  EXPECT_EQ(STR(adpSets[3]->GetRepresentations()[0]->GetId()), "7");
+
+  EXPECT_EQ(STR(adpSets[4]->GetRepresentations()[0]->GetId()), "8");
 }
 
 TEST_F(DASHTreeTest, SuggestedPresentationDelay)

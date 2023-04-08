@@ -20,6 +20,10 @@
 
 #include <string_view>
 
+// \brief Current version of gtest dont support compare std::string_view values
+//        this shortens the conversion needed
+using STR = std::string;
+
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 
@@ -51,8 +55,8 @@ class TestAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
   TestAdaptiveStream(adaptive::AdaptiveTree& tree,
-                     adaptive::AdaptiveTree::AdaptationSet* adp,
-                     adaptive::AdaptiveTree::Representation* initialRepr,
+                     PLAYLIST::CAdaptationSet* adp,
+                     PLAYLIST::CRepresentation* initialRepr,
                      const UTILS::PROPERTIES::KodiProperties& kodiProps,
                      bool choose_rep)
     : adaptive::AdaptiveStream(tree, adp, initialRepr, kodiProps, choose_rep)
@@ -89,28 +93,28 @@ private:
   std::string m_licenseKey;
 };
 
-class DASHTestTree : public adaptive::DASHTree
+class DASHTestTree : public adaptive::CDashTree
 {
 public:
-  DASHTestTree(CHOOSER::IRepresentationChooser* reprChooser) : DASHTree(reprChooser) {}
-  uint64_t GetNowTime() override { return m_mockTime; }
+  DASHTestTree(CHOOSER::IRepresentationChooser* reprChooser) : CDashTree(reprChooser) {}
+  uint64_t GetTimestamp() override { return m_mockTime; }
   void SetNowTime(uint64_t time) { m_mockTime = time; }
-  void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
+  void SetLastUpdated(std::chrono::system_clock::time_point tm) { lastUpdated_ = tm; };
   std::chrono::system_clock::time_point GetNowTimeChrono() { return m_mock_time_chrono; };
 
 private:
   bool download(const std::string& url,
                 const std::map<std::string, std::string>& reqHeaders,
-                std::stringstream& data,
+                std::string& data,
                 adaptive::HTTPRespHeaders& respHeaders) override;
 
-  virtual DASHTree* Clone() const override { return new DASHTestTree{*this}; }
+  virtual CDashTree* Clone() const override { return new DASHTestTree{*this}; }
 
   uint64_t m_mockTime = 10000000L;
   std::chrono::system_clock::time_point m_mock_time_chrono = std::chrono::system_clock::now();
 };
 
-class HLSTestTree : public adaptive::HLSTree
+class HLSTestTree : public adaptive::CHLSTree
 {
 public:
   HLSTestTree(CHOOSER::IRepresentationChooser* reprChooser);
@@ -120,18 +124,18 @@ public:
 private:
   bool download(const std::string& url,
                 const std::map<std::string, std::string>& reqHeaders,
-                std::stringstream& data,
+                std::string& data,
                 adaptive::HTTPRespHeaders& respHeaders) override;
 };
 
-class SmoothTestTree : public adaptive::SmoothTree
+class SmoothTestTree : public adaptive::CSmoothTree
 {
 public:
-  SmoothTestTree(CHOOSER::IRepresentationChooser* reprChooser) : SmoothTree(reprChooser) {}
+  SmoothTestTree(CHOOSER::IRepresentationChooser* reprChooser) : CSmoothTree(reprChooser) {}
 
 private:
   bool download(const std::string& url,
     const std::map<std::string, std::string>& reqHeaders,
-    std::stringstream& data,
+    std::string& data,
     adaptive::HTTPRespHeaders& respHeaders) override;
 };

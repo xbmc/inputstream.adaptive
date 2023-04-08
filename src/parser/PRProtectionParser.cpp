@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019 peak3d (http://www.peak3d.de)
+ *  Copyright (C) 2023 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -9,100 +9,92 @@
 #include "PRProtectionParser.h"
 
 #include "../utils/Base64Utils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/Utils.h"
+#include "../utils/XMLUtils.h"
 #include "../utils/log.h"
-#include "expat.h"
+#include "pugixml.hpp"
 
-#include <string.h>
-
+using namespace pugi;
 using namespace UTILS;
 
-namespace adaptive
+bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
 {
+  m_KID.clear();
+  m_licenseURL.clear();
+  m_PSSH.clear();
 
-/*----------------------------------------------------------------------
-|   expat protection start
-+---------------------------------------------------------------------*/
-static void XMLCALL
-  protection_start(void *data, const char *el, const char **attr)
-{
-  PRProtectionParser *parser(reinterpret_cast<PRProtectionParser*>(data));
-  parser->m_strXMLText.clear();
-}
+  if (prHeader.empty())
+    return false;
 
-/*----------------------------------------------------------------------
-|   expat protection text
-+---------------------------------------------------------------------*/
-static void XMLCALL
-  protection_text(void *data, const char *s, int len)
-{
-  PRProtectionParser *parser(reinterpret_cast<PRProtectionParser*>(data));
-  parser->m_strXMLText += std::string(s, len);
-}
+  std::string xmlData = BASE64::Decode(prHeader);
 
-/*----------------------------------------------------------------------
-|   expat protection end
-+---------------------------------------------------------------------*/
-static void XMLCALL
-  protection_end(void *data, const char *el)
-{
-  PRProtectionParser *parser(reinterpret_cast<PRProtectionParser*>(data));
-  if (strcmp(el, "KID") == 0)
+  m_PSSH = xmlData;
+
+  xml_document doc;
+  xml_parse_result parseRes = doc.load_buffer(xmlData.c_str(), xmlData.size());
+  if (parseRes.status != status_ok)
   {
-    std::string decKid{BASE64::Decode(parser->m_strXMLText)};
+    LOG::LogF(LOGERROR, "Failed to parse the Playready header, error code: %i", parseRes.status);
+    return false;
+  }
 
-    if (decKid.size() == 16)
+  xml_node nodeWRM = doc.child("WRMHEADER");
+  if (!nodeWRM)
+  {
+    LOG::LogF(LOGERROR, "<WRMHEADER> node not found.");
+    return false;
+  }
+
+  std::string_view ver = XML::GetAttrib(nodeWRM, "version");
+  LOG::Log(LOGDEBUG, "Parsing Playready header version %s", ver.data());
+
+  xml_node nodeDATA = nodeWRM.child("DATA");
+  if (!nodeDATA)
+  {
+    LOG::LogF(LOGERROR, "<DATA> node not found.");
+    return false;
+  }
+
+  std::string kidBase64;
+
+  if (STRING::StartsWith(ver, "4.0"))
+  {
+    // Version 4.0 have KID within DATA tag
+    xml_node nodeKID = nodeDATA.child("KID");
+    kidBase64 = nodeKID.child_value();
+  }
+  else
+  {
+    // Versions > 4.0 can contains one or more optionals KID's within DATA/PROTECTINFO/KIDS tag
+    xml_node nodePROTECTINFO = nodeDATA.child("PROTECTINFO");
+    if (nodePROTECTINFO)
     {
-      std::string kidUUID{ConvertKIDtoWVKID(decKid)};
-      parser->setKID(kidUUID);
+      xml_node nodeKIDS = nodePROTECTINFO.child("KIDS");
+      if (nodeKIDS)
+      {
+        LOG::Log(LOGDEBUG, "Playready header contains %zu KID's.",
+                 XML::CountChilds(nodeKIDS, "KID"));
+        // We get the first KID
+        xml_node nodeKID = nodeKIDS.child("KID");
+        kidBase64 = nodeKID.child_value();
+      }
     }
   }
-  else if (strcmp(el, "LA_URL") == 0)
+
+  if (!kidBase64.empty())
   {
-    parser->setLicenseURL(parser->m_strXMLText);
+    std::string kid = BASE64::Decode(kidBase64);
+    if (kid.size() == 16)
+    {
+      m_KID = ConvertKIDtoWVKID(kid);
+    }
+    else
+      LOG::LogF(LOGWARNING, "KID size %zu instead of 16, KID ignored.", kid.size());
   }
+
+  xml_node nodeLAURL = nodeDATA.child("LA_URL");
+  m_licenseURL = nodeLAURL.child_value();
+
+  return true;
 }
-
-PRProtectionParser::PRProtectionParser(std::string wwrmheader)
-{
-  if (wwrmheader.empty())
-    return;
-
-  //(p)repair the content
-  std::string::size_type pos = 0;
-  while ((pos = wwrmheader.find('\n', 0)) != std::string::npos)
-    wwrmheader.erase(pos, 1);
-
-  while (wwrmheader.size() & 3)
-  {
-    wwrmheader += "=";
-  }
-
-  std::string xmlData{ BASE64::Decode(wwrmheader) };
-  m_strPSSH = xmlData;
-
-  size_t dataStartPoint = xmlData.find('<', 0);
-  if (dataStartPoint == std::string::npos)
-    return;
-
-  xmlData = xmlData.substr(dataStartPoint);
-
-  XML_Parser xmlParser = XML_ParserCreate("UTF-16");
-  if (!xmlParser)
-    return;
-
-  XML_SetUserData(xmlParser, (void*)this);
-  XML_SetElementHandler(xmlParser, protection_start, protection_end);
-  XML_SetCharacterDataHandler(xmlParser, protection_text);
-
-  int done(0);
-  if (XML_Parse(xmlParser, xmlData.c_str(), static_cast<int>(xmlData.size()), done) !=
-      XML_STATUS_OK)
-  {
-    LOG::LogF(LOGWARNING, "Failed to parse protection data");
-  }
-
-  XML_ParserFree(xmlParser);
-}
-
-} // namespace adaptive

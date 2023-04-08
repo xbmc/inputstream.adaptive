@@ -59,22 +59,25 @@ protected:
       LOG::Log(LOGERROR, "Cannot open \"%s\" HLS manifest.", url.c_str());
       exit(1);
     }
+
+    tree->m_currentAdpSet = tree->m_periods[0]->GetAdaptationSets()[0].get();
+    tree->m_currentRepr = tree->m_currentAdpSet->GetRepresentations()[0].get();
   }
 
-  adaptive::HLSTree::PREPARE_RESULT OpenTestFileVariant(std::string filePath,
-                                    std::string url,
-                                    adaptive::AdaptiveTree::Period* per,
-                                    adaptive::AdaptiveTree::AdaptationSet* adp,
-                                    adaptive::AdaptiveTree::Representation* rep)
+  PLAYLIST::PrepareRepStatus OpenTestFileVariant(std::string filePath,
+                                                 std::string url,
+                                                 PLAYLIST::CPeriod* per,
+                                                 PLAYLIST::CAdaptationSet* adp,
+                                                 PLAYLIST::CRepresentation* rep)
   {
     if (!url.empty())
-      rep->source_url_ = url;
+      rep->SetSourceUrl(url);
 
     SetFileName(testHelper::testFile, filePath);
     return tree->prepareRepresentation(per, adp, rep);
   }
 
-  adaptive::HLSTree* tree;
+  adaptive::CHLSTree* tree;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 };
 
@@ -82,12 +85,13 @@ protected:
 TEST_F(HLSTreeTest, CalculateSourceUrl)
 {
   OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8?param=foo");
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
+
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
       "hls/fmp4_noenc_v_stream_2.m3u8", "https://foo.bar/stream_2/out.m3u8",
-      tree->current_period_, tree->current_adaptationset_, tree->current_representation_);
+      tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   std::string rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
   EXPECT_EQ(rep_url, "https://foo.bar/stream_2/out.m3u8");
 }
 
@@ -98,17 +102,17 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterRelativeUri)
   OpenTestFileMaster("hls/1a2v_master.m3u8", "https://baz.qux/master.m3u8");
 
   std::string rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
 
   EXPECT_EQ(rep_url, "https://foo.bar/stream_2/out.m3u8");
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
-      "hls/fmp4_noenc_v_stream_2.m3u8", "https://foo.bar/stream_2/out.m3u8", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
+      "hls/fmp4_noenc_v_stream_2.m3u8", "https://foo.bar/stream_2/out.m3u8", tree->m_currentPeriod,
+      tree->m_currentAdpSet, tree->m_currentRepr);
 
   rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(rep_url, "https://foo.bar/stream_2/out.m3u8");
 }
 
@@ -117,20 +121,20 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedVariantAbsoluteUri)
   OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://baz.qux/master.m3u8");
 
   std::string rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
 
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 
   testHelper::effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
       "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd",
-      tree->current_period_, tree->current_adaptationset_, tree->current_representation_);
+      tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
 
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 }
 
@@ -141,19 +145,19 @@ TEST_F(HLSTreeTest, CalculateSourceUrlFromRedirectedMasterAndRedirectedVariantAb
   OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://link.to/1234");
 
   std::string rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
 
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 
   testHelper::effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
-      "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
+      "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd", tree->m_currentPeriod,
+      tree->m_currentAdpSet, tree->m_currentRepr);
 
   rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 }
 
@@ -165,19 +169,18 @@ TEST_F(HLSTreeTest,
   OpenTestFileMaster("hls/redirect_absolute_1v_master.m3u8", "https://bit.ly/1234");
 
   std::string rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
 
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 
   testHelper::effectiveUrl = "https://foo.bar/stream_2/out.m3u8";
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
-      "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
+      "hls/fmp4_noenc_v_stream_2.m3u8", "https://bit.ly/abcd", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   rep_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[0]->source_url_);
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl());
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(rep_url, "https://bit.ly/abcd");
 }
 
@@ -185,11 +188,10 @@ TEST_F(HLSTreeTest, OpenVariant)
 {
   OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8");
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
-      "hls/fmp4_noenc_v_stream_2.m3u8", "https://foo.bar/stream_2.m3u8", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
+      "hls/fmp4_noenc_v_stream_2.m3u8", "https://foo.bar/stream_2.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(tree->base_url_, "https://foo.bar/");
 }
 
@@ -197,13 +199,12 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlash)
 {
   OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/hls/video/stream_name/master.m3u8");
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
       "hls/ts_aes_keyuriwithslash_stream_0.m3u8",
-      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
-  std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  std::string pssh_url = tree->BuildDownloadUrl(tree->m_currentPeriod->GetPSSHSets()[1].pssh_);
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(pssh_url,
             "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
@@ -214,13 +215,13 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
 
   OpenTestFileMaster("hls/1v_master.m3u8", "https://baz.qux/hls/video/stream_name/master.m3u8");
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
       "hls/ts_aes_keyuriwithslash_stream_0.m3u8",
-      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod,
+      tree->m_currentAdpSet, tree->m_currentRepr);
 
-  std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  std::string pssh_url = tree->BuildDownloadUrl(tree->m_currentPeriod->GetPSSHSets()[1].pssh_);
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(pssh_url,
             "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
@@ -229,13 +230,12 @@ TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
 {
   OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/hls/video/stream_name/master.m3u8");
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
       "hls/ts_aes_keyuriabsolute_stream_0.m3u8",
-      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
-  EXPECT_EQ(tree->current_period_->psshSets_[1].pssh_,
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
+  EXPECT_EQ(tree->m_currentPeriod->GetPSSHSets()[1].pssh_,
             "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
@@ -243,13 +243,12 @@ TEST_F(HLSTreeTest, ParseKeyUriRelative)
 {
   OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/hls/video/stream_name/master.m3u8");
 
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
       "hls/ts_aes_keyurirelative_stream_0.m3u8",
-      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->current_period_,
-      tree->current_adaptationset_, tree->current_representation_);
+      "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
-  std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  std::string pssh_url = tree->BuildDownloadUrl(tree->m_currentPeriod->GetPSSHSets()[1].pssh_);
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(pssh_url, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
@@ -259,18 +258,16 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
 
   OpenTestFileMaster("hls/1v_master.m3u8", "https://baz.qux/hls/video/stream_name/master.m3u8");
   std::string var_download_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]
-          ->representations_[0]
-          ->source_url_); // https://baz.qux/hls/video/stream_name/ts_aes_uriwithslash_chunklist.m3u8
-  adaptive::HLSTree::PREPARE_RESULT res = OpenTestFileVariant(
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl()); // https://baz.qux/hls/video/stream_name/ts_aes_uriwithslash_chunklist.m3u8
+
+  PLAYLIST::PrepareRepStatus res = OpenTestFileVariant(
       "hls/ts_aes_keyurirelative_stream_0.m3u8",
       var_download_url,
-      tree->current_period_,
-      tree->current_adaptationset_,
-      tree->current_representation_);
+      tree->m_currentPeriod,
+      tree->m_currentAdpSet, tree->m_currentRepr);
 
-  std::string pssh_url = tree->BuildDownloadUrl(tree->current_period_->psshSets_[1].pssh_);
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  std::string pssh_url = tree->BuildDownloadUrl(tree->m_currentPeriod->GetPSSHSets()[1].pssh_);
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(pssh_url, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
@@ -278,26 +275,30 @@ TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
 {
   OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8");
   std::string var_download_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[0]->representations_[1]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[1]->GetSourceUrl());
 
-  adaptive::HLSTree::PREPARE_RESULT res =
+  auto& periodFirst = tree->m_periods[0];
+
+  PLAYLIST::PrepareRepStatus res =
       OpenTestFileVariant("hls/disco_fmp4_noenc_v_stream_1.m3u8", var_download_url,
-                          tree->periods_[0], tree->periods_[0]->adaptationSets_[0],
-                          tree->periods_[0]->adaptationSets_[0]->representations_[1]);
+                          periodFirst.get(), periodFirst->GetAdaptationSets()[0].get(),
+                          periodFirst->GetAdaptationSets()[0]->GetRepresentations()[1].get());
 
-  uint64_t pts =
-      tree->periods_[1]->adaptationSets_[0]->representations_[1]->segments_.data[0].startPTS_;
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  auto& periodSecond = tree->m_periods[1];
+
+  uint64_t pts = periodSecond->GetAdaptationSets()[0]->GetRepresentations()[1]->SegmentTimeline().GetData()[0].startPTS_;
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(pts, 0);
 
   var_download_url = tree->BuildDownloadUrl(
-      tree->current_period_->adaptationSets_[1]->representations_[0]->source_url_);
+      tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetSourceUrl());
 
   res = OpenTestFileVariant("hls/disco_fmp4_noenc_a_stream_0.m3u8", var_download_url,
-                            tree->periods_[1], tree->periods_[1]->adaptationSets_[1],
-                            tree->periods_[1]->adaptationSets_[1]->representations_[0]);
+                            periodSecond.get(), periodSecond->GetAdaptationSets()[1].get(),
+                            periodSecond->GetAdaptationSets()[1]->GetRepresentations()[0].get());
 
-  pts = tree->periods_[1]->adaptationSets_[1]->representations_[0]->segments_.data[0].startPTS_;
-  EXPECT_EQ(res, adaptive::HLSTree::PREPARE_RESULT_OK);
+  pts = periodSecond->GetAdaptationSets()[1]->GetRepresentations()[0]->SegmentTimeline().GetData()[0].startPTS_;
+
+  EXPECT_EQ(res, PLAYLIST::PrepareRepStatus::OK);
   EXPECT_EQ(pts, 0);
 }

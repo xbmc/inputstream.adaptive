@@ -10,6 +10,7 @@
 #include "Chooser.h"
 
 #include "../utils/FileUtils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
 #include "../utils/log.h"
@@ -24,27 +25,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+using namespace PLAYLIST;
 using namespace UTILS;
 
 namespace adaptive
 {
-  void AdaptiveTree::Segment::SetRange(const char *range)
-  {
-    const char *delim(strchr(range, '-'));
-    if (delim)
-    {
-      range_begin_ = strtoull(range, 0, 10);
-      range_end_ = strtoull(delim + 1, 0, 10);
-    }
-    else
-      range_begin_ = range_end_ = 0;
-  }
-
-  void AdaptiveTree::Segment::Copy(const Segment* src)
-  {
-    *this = *src;
-  }
-
   AdaptiveTree::AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser)
     : m_reprChooser(reprChooser)
   {
@@ -70,10 +55,6 @@ namespace adaptive
       updateThread_->join();
       delete updateThread_;
     }
-
-    std::lock_guard<std::mutex> lck(treeMutex_);
-    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
-      delete *bp;
   }
 
   void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
@@ -96,95 +77,85 @@ namespace adaptive
         static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
   }
 
-  void AdaptiveTree::FreeSegments(Period* period, Representation* rep)
+  void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
   {
-    for (auto& segment : rep->segments_.data) {
-      --period->psshSets_[segment.pssh_set_].use_count_;
-    }
-    if ((rep->flags_ & (Representation::INITIALIZATION | Representation::URLSEGMENTS)) ==
-        (Representation::INITIALIZATION | Representation::URLSEGMENTS))
+    for (auto& segment : repr->SegmentTimeline().GetData())
     {
-      rep->initialization_.url.clear();
+      period->DecrasePSSHSetUsageCount(segment.pssh_set_);
     }
-    rep->segments_.clear();
-    rep->current_segment_ = nullptr;
+
+    if (repr->HasInitialization() && repr->HasSegmentsUrl())
+      repr->initialization_.url.clear();
+
+    repr->SegmentTimeline().Clear();
+    repr->current_segment_ = nullptr;
   }
 
-  bool AdaptiveTree::has_type(StreamType t)
+  void AdaptiveTree::SetFragmentDuration(PLAYLIST::CPeriod* period,
+                                         PLAYLIST::CAdaptationSet* adpSet,
+                                         PLAYLIST::CRepresentation* repr,
+                                         size_t pos,
+                                         uint64_t timestamp,
+                                         uint32_t fragmentDuration,
+                                         uint32_t movie_timescale)
   {
-    if (periods_.empty())
-      return false;
-
-    for (std::vector<AdaptationSet*>::const_iterator b(periods_[0]->adaptationSets_.begin()), e(periods_[0]->adaptationSets_.end()); b != e; ++b)
-      if ((*b)->type_ == t)
-        return true;
-    return false;
-  }
-
-  size_t AdaptiveTree::EstimateSegmentsCount(uint64_t duration, uint32_t timescale)
-  {
-    double lengthSecs{static_cast<double>(duration) / timescale};
-    if (lengthSecs < 1)
-      lengthSecs = 1;
-    return static_cast<size_t>(overallSeconds_ / lengthSecs);
-  }
-
-  void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
-  {
-    if (!has_timeshift_buffer_ || HasUpdateThread() ||
-      (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS) != 0)
+    if (!has_timeshift_buffer_ || HasUpdateThread() || repr->HasSegmentsUrl())
       return;
 
-    //Get a modifiable adaptationset
-    AdaptationSet *adpm(const_cast<AdaptationSet *>(adp));
-
     // Check if its the last frame we watch
-    if (adp->segment_durations_.data.size())
+    if (!adpSet->SegmentTimelineDuration().IsEmpty())
     {
-      if (pos == adp->segment_durations_.data.size() - 1)
+      if (pos == adpSet->SegmentTimelineDuration().GetSize() - 1)
       {
-        adpm->segment_durations_.insert(static_cast<std::uint64_t>(fragmentDuration)*adp->timescale_ / movie_timescale);
+        adpSet->SegmentTimelineDuration().Insert(
+            static_cast<std::uint32_t>(static_cast<std::uint64_t>(fragmentDuration) *
+                                       period->GetTimescale() / movie_timescale));
       }
       else
       {
-        ++const_cast<Representation*>(rep)->expired_segments_;
+        repr->expired_segments_++;
         return;
       }
     }
-    else if (pos != rep->segments_.data.size() - 1)
+    else if (pos != repr->SegmentTimeline().GetSize() - 1)
       return;
 
-    if (!rep->segments_.Get(pos))
+    CSegment* segment = repr->SegmentTimeline().Get(pos);
+
+    if (!segment)
     {
       LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
-                rep->id.c_str());
+                repr->GetId().data());
       return;
     }
 
-    Segment segment(*(rep->segments_.Get(pos)));
+    CSegment segCopy = *segment;
 
     if (!timestamp)
     {
       LOG::LogF(LOGDEBUG, "Scale fragment duration: fdur:%u, rep-scale:%u, mov-scale:%u",
-                fragmentDuration, rep->timescale_, movie_timescale);
-      fragmentDuration = static_cast<std::uint32_t>((static_cast<std::uint64_t>(fragmentDuration)*rep->timescale_) / movie_timescale);
+                fragmentDuration, repr->GetTimescale(), movie_timescale);
+      fragmentDuration = static_cast<std::uint32_t>(
+          (static_cast<std::uint64_t>(fragmentDuration) * repr->GetTimescale()) / movie_timescale);
     }
     else
     {
       LOG::LogF(LOGDEBUG, "Fragment duration from timestamp: ts:%llu, base:%llu, s-pts:%llu",
-                timestamp, base_time_, segment.startPTS_);
-      fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - segment.startPTS_);
+                timestamp, base_time_, segCopy.startPTS_);
+      fragmentDuration = static_cast<uint32_t>(timestamp - base_time_ - segCopy.startPTS_);
     }
 
-    segment.startPTS_ += fragmentDuration;
-    segment.range_begin_ += fragmentDuration;
-    segment.range_end_ ++;
+    segCopy.startPTS_ += fragmentDuration;
+    segCopy.range_begin_ += fragmentDuration;
+    segCopy.range_end_++;
 
-    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu range_end: %llu", segment.startPTS_,
-              segment.range_end_);
+    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu range_end: %llu", segCopy.startPTS_,
+              segCopy.range_end_);
 
-    for (std::vector<Representation*>::iterator b(adpm->representations_.begin()), e(adpm->representations_.end()); b != e; ++b)
-      (*b)->segments_.insert(segment);
+    for (auto& repr : adpSet->GetRepresentations())
+    {
+      repr->SegmentTimeline().Insert(segCopy);
+    }
   }
 
   void AdaptiveTree::OnDataArrived(uint64_t segNum,
@@ -199,145 +170,35 @@ namespace adaptive
     memcpy(&dst[0] + dstOffset, src, dataSize);
   }
 
-  uint16_t AdaptiveTree::insert_psshset(StreamType type,
-                                        AdaptiveTree::Period* period,
-                                        AdaptiveTree::AdaptationSet* adp)
+  uint16_t AdaptiveTree::InsertPsshSet(PLAYLIST::StreamType streamType,
+                                       PLAYLIST::CPeriod* period,
+                                       PLAYLIST::CAdaptationSet* adp,
+                                       std::string_view pssh,
+                                       std::string_view defaultKID,
+                                       std::string_view iv /* = "" */)
   {
-    if (!period)
-      period = current_period_;
-    if (!adp)
-      adp = current_adaptationset_;
-
-    if (!current_pssh_.empty())
+    if (!pssh.empty())
     {
-      Period::PSSH pssh;
-      pssh.pssh_ = current_pssh_;
-      pssh.defaultKID_ = current_defaultKID_;
-      pssh.iv = current_iv_;
-      pssh.m_cryptoMode = m_cryptoMode;
-      pssh.adaptation_set_ = adp;
-      switch (type)
-      {
-      case VIDEO: pssh.media_ = Period::PSSH::MEDIA_VIDEO; break;
-      case AUDIO: pssh.media_ = Period::PSSH::MEDIA_AUDIO; break;
-      case STREAM_TYPE_COUNT: pssh.media_ = Period::PSSH::MEDIA_VIDEO | Period::PSSH::MEDIA_AUDIO; break;
-      default: pssh.media_ = 0; break;
-      }
-      return period->InsertPSSHSet(&pssh);
+      CPeriod::PSSHSet psshSet;
+      psshSet.pssh_ = pssh;
+      psshSet.defaultKID_ = defaultKID;
+      psshSet.iv = iv;
+      psshSet.m_cryptoMode = m_cryptoMode;
+      psshSet.adaptation_set_ = adp;
+
+      if (streamType == StreamType::VIDEO)
+        psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO;
+      else if (streamType == StreamType::VIDEO_AUDIO)
+        psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO | CPeriod::PSSHSet::MEDIA_AUDIO;
+      else if (streamType == StreamType::AUDIO)
+        psshSet.media_ = CPeriod::PSSHSet::MEDIA_AUDIO;
+      else
+        psshSet.media_ = CPeriod::PSSHSet::MEDIA_UNSPECIFIED;
+
+      return period->InsertPSSHSet(&psshSet);
     }
     else
       return period->InsertPSSHSet(nullptr);
-  }
-
-  void AdaptiveTree::Representation::CopyBasicData(Representation* src)
-  {
-    url_ = src->url_;
-    id = src->id;
-    codecs_ = src->codecs_;
-    codec_private_data_ = src->codec_private_data_;
-    source_url_ = src->source_url_;
-    bandwidth_ = src->bandwidth_;
-    samplingRate_ = src->samplingRate_;
-    width_ = src->width_;
-    height_ = src->height_;
-    fpsRate_ = src->fpsRate_;
-    fpsScale_ = src->fpsScale_;
-    aspect_ = src->aspect_;
-    flags_ = src->flags_;
-    hdcpVersion_ = src->hdcpVersion_;
-    channelCount_ = src->channelCount_;
-    nalLengthSize_ = src->nalLengthSize_;
-    containerType_ = src->containerType_;
-    timescale_ = src->timescale_;
-    timescale_ext_ = src->timescale_ext_;
-    timescale_int_ = src->timescale_int_;
-  }
-
-  void AdaptiveTree::AdaptationSet::CopyBasicData(AdaptiveTree::AdaptationSet* src)
-  {
-    representations_.resize(src->representations_.size());
-    auto itRep = src->representations_.begin();
-    for (Representation*& rep : representations_)
-    {
-      rep = new Representation();
-      rep->CopyBasicData(*itRep++);
-    }
-
-    type_ = src->type_;
-    timescale_ = src->timescale_;
-    duration_ = src->duration_;
-    startPTS_ = src->startPTS_;
-    startNumber_ = src->startNumber_;
-    impaired_ = src->impaired_;
-    original_ = src->original_;
-    default_ = src->default_;
-    forced_ = src->forced_;
-    language_ = src->language_;
-    mimeType_ = src->mimeType_;
-    base_url_ = src->base_url_;
-    id_ = src->id_;
-    group_ = src->group_;
-    codecs_ = src->codecs_;
-    audio_track_id_ = src->audio_track_id_;
-    name_ = src->name_;
-  }
-
-  // Create a HLS master playlist copy (no representations)
-  void AdaptiveTree::Period::CopyBasicData(AdaptiveTree::Period* period)
-  {
-    adaptationSets_.resize(period->adaptationSets_.size());
-    auto itAdp = period->adaptationSets_.begin();
-    for (AdaptationSet*& adp : adaptationSets_)
-    {
-      adp = new AdaptationSet();
-      adp->CopyBasicData(*itAdp++);
-    }
-
-    base_url_ = period->base_url_;
-    id_ = period->id_;
-    timescale_ = period->timescale_;
-    startNumber_ = period->startNumber_;
-
-    start_ = period->start_;
-    startPTS_ = period->startPTS_;
-    duration_ = period->duration_;
-    encryptionState_ = period->encryptionState_;
-    included_types_ = period->included_types_;
-    need_secure_decoder_ = period->need_secure_decoder_;
-  }
-
-  uint16_t AdaptiveTree::Period::InsertPSSHSet(PSSH* pssh)
-  {
-    if (pssh)
-    {
-      std::vector<Period::PSSH>::iterator pos(std::find(psshSets_.begin() + 1, psshSets_.end(), *pssh));
-      if (pos == psshSets_.end())
-        pos = psshSets_.insert(psshSets_.end(), *pssh);
-      else if (!pos->use_count_)
-        *pos = *pssh;
-
-      ++psshSets_[pos - psshSets_.begin()].use_count_;
-      return static_cast<uint16_t>(pos - psshSets_.begin());
-    }
-    else
-    {
-      ++psshSets_[0].use_count_;
-      return 0;
-    }
-  }
-
-  void AdaptiveTree::Period::RemovePSSHSet(uint16_t pssh_set)
-  {
-    for (std::vector<AdaptationSet*>::const_iterator ba(adaptationSets_.begin()), ea(adaptationSets_.end()); ba != ea; ++ba)
-      for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er;)
-        if ((*br)->pssh_set_ == pssh_set)
-        {
-          delete *br;
-          br = (*ba)->representations_.erase(br);
-          er = (*ba)->representations_.end();
-        }
-        else
-          ++br;
   }
 
   bool AdaptiveTree::PreparePaths(const std::string &url)
@@ -362,34 +223,58 @@ namespace adaptive
 
   void AdaptiveTree::SortTree()
   {
-    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
+    for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end(); itPeriod++)
     {
-      // Merge VIDEO & AUDIO adaption sets
-      for (std::vector<AdaptationSet*>::iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea;)
-      {
-        if (((*ba)->type_ == AUDIO || (*ba)->type_ == VIDEO) && ba + 1 != ea && AdaptationSet::mergeable(*ba, *(ba + 1)))
-        {
-          for (size_t i(1); i < (*bp)->psshSets_.size(); ++i)
-            if ((*bp)->psshSets_[i].adaptation_set_ == *ba)
-              (*bp)->psshSets_[i].adaptation_set_ = *(ba + 1);
+      CPeriod* period = (*itPeriod).get();
+      auto& periodAdpSets = period->GetAdaptationSets();
 
-          (*(ba + 1))->representations_.insert((*(ba + 1))->representations_.end(), (*ba)->representations_.begin(), (*ba)->representations_.end());
-          (*ba)->representations_.clear();
-          delete *ba;
-          ba = (*bp)->adaptationSets_.erase(ba);
-          ea = (*bp)->adaptationSets_.end();
+      // Merge VIDEO & AUDIO adaptation sets
+      for (auto itAdpSet = periodAdpSets.begin(); itAdpSet != periodAdpSets.end();)
+      {
+        auto adpSet = (*itAdpSet).get();
+        auto itNextAdpSet = itAdpSet + 1;
+
+        if (itNextAdpSet != periodAdpSets.end() &&
+            (adpSet->GetStreamType() == StreamType::AUDIO ||
+             adpSet->GetStreamType() == StreamType::VIDEO))
+        {
+          auto nextAdpSet = (*itNextAdpSet).get();
+
+          if (adpSet->IsMergeable(nextAdpSet))
+          {
+            std::vector<CPeriod::PSSHSet>& psshSets = period->GetPSSHSets();
+            for (size_t index = 1; index < psshSets.size(); index++)
+            {
+              if (psshSets[index].adaptation_set_ == adpSet)
+              {
+                psshSets[index].adaptation_set_ = nextAdpSet;
+              }
+            }
+            // Move representations unique_ptr from adpSet repr vector to nextAdpSet repr vector
+            std::move(adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
+                      std::inserter(nextAdpSet->GetRepresentations(),
+                      nextAdpSet->GetRepresentations().end()));
+
+            itAdpSet = periodAdpSets.erase(itAdpSet);
+            continue;
+          }
         }
-        else
-          ++ba;
+        itAdpSet++;
       }
 
-      std::stable_sort((*bp)->adaptationSets_.begin(), (*bp)->adaptationSets_.end(), AdaptationSet::compare);
+      std::stable_sort(periodAdpSets.begin(), periodAdpSets.end(),
+                       CAdaptationSet::Compare);
 
-      for (std::vector<AdaptationSet*>::const_iterator ba((*bp)->adaptationSets_.begin()), ea((*bp)->adaptationSets_.end()); ba != ea; ++ba)
+      for (auto& adpSet : periodAdpSets)
       {
-        std::sort((*ba)->representations_.begin(), (*ba)->representations_.end(), Representation::compare);
-        for (std::vector<Representation*>::iterator br((*ba)->representations_.begin()), er((*ba)->representations_.end()); br != er; ++br)
-          (*br)->SetScaling();
+        std::sort(adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
+                  CRepresentation::CompareBandwidth);
+
+        //! @todo: move set scaling out of SortTree
+        for (auto& repr : adpSet->GetRepresentations())
+        {
+          repr->SetScaling();
+        }
       }
     }
   }
@@ -425,7 +310,7 @@ namespace adaptive
 
   bool AdaptiveTree::DownloadManifest(std::string url,
                                       const std::map<std::string, std::string>& addHeaders,
-                                      std::stringstream& data,
+                                      std::string& data,
                                       HTTPRespHeaders& respHeaders)
   {
     std::map<std::string, std::string> manifestHeaders = m_manifestHeaders;
@@ -444,7 +329,7 @@ namespace adaptive
 
   bool AdaptiveTree::download(const std::string& url,
                               const std::map<std::string, std::string>& reqHeaders,
-                              std::stringstream& data,
+                              std::string& data,
                               HTTPRespHeaders& respHeaders)
   {
     // open the file
@@ -468,11 +353,18 @@ namespace adaptive
 
     respHeaders.m_effectiveUrl = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
 
-    // read the file
+    // Get body lenght (could be gzip compressed)
+    std::string contentLengthStr =
+        file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length");
+    size_t fileSize = static_cast<size_t>(STRING::ToUint64(contentLengthStr));
+
     static const size_t bufferSize{16 * 1024}; // 16 Kbyte
     std::vector<char> bufferData(bufferSize);
     bool isEOF{false};
 
+    data.reserve(fileSize == 0 ? bufferSize : fileSize);
+
+    // read the file
     while (!isEOF)
     {
       // Read the data in chunks
@@ -488,21 +380,16 @@ namespace adaptive
       }
       else
       {
-        data.write(bufferData.data(), byteRead);
+        data.append(bufferData.data(), byteRead);
       }
     }
 
     if (isEOF)
     {
-      long dataSizeBytes{static_cast<long>(data.tellp())};
-      if(dataSizeBytes > 0)
+      if (data.size() > 0)
       {
-        // Get body lenght (could be gzip compressed)
-        std::string contentLengthStr{
-            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
-        long contentLength{std::atol(contentLengthStr.c_str())};
-        if (contentLength == 0)
-          contentLength = dataSizeBytes;
+        if (fileSize == 0)
+          fileSize = data.size();
         
         double downloadSpeed{file.GetFileDownloadSpeed()};
         // The download speed with small file sizes are not accurate
@@ -510,8 +397,8 @@ namespace adaptive
         // to calculate the bandwidth, then we make a proportion for cases
         // with less than 512Kb to have a better value
         static const int minSize{512 * 1024};
-        if (contentLength < minSize)
-          downloadSpeed = (downloadSpeed / contentLength) * minSize;
+        if (fileSize < minSize)
+          downloadSpeed = (downloadSpeed / fileSize) * minSize;
 
         respHeaders.m_etag = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
         respHeaders.m_lastModified =
@@ -520,8 +407,8 @@ namespace adaptive
         // We set the download speed to calculate the initial network bandwidth
         m_reprChooser->SetDownloadSpeed(downloadSpeed);
 
-        LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %i byte, speed %0.2lf byte/s)",
-          url.c_str(), contentLength, downloadSpeed);
+        LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
+                 url.c_str(), fileSize, downloadSpeed);
 
         file.Close();
         return true;
@@ -537,7 +424,7 @@ namespace adaptive
   }
 
   void AdaptiveTree::SaveManifest(const std::string& fileNameSuffix,
-                                  const std::stringstream& data,
+                                  std::string_view data,
                                   std::string_view info)
   {
     if (!m_pathSaveManifest.empty())
@@ -554,9 +441,12 @@ namespace adaptive
       // Manage duplicate files and limit them, too many means a problem to be solved
       if (FILESYS::CheckDuplicateFilePath(filePath, 10))
       {
-        std::string dataToSave{info};
-        dataToSave += "\n\n";
-        dataToSave += data.str();
+        std::string dataToSave = data.data();
+        if (!info.empty())
+        {
+          dataToSave.insert(0, "\n\n");
+          dataToSave.insert(0, info);
+        }
 
         if (FILESYS::SaveFile(filePath, dataToSave, false))
           LOG::Log(LOGDEBUG, "Manifest saved to: %s", filePath.c_str());

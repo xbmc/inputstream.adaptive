@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2016 peak3d (http://www.peak3d.de)
+ *  Copyright (C) 2023 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -10,35 +10,36 @@
 
 #include "../common/AdaptiveTree.h"
 
+namespace tinyxml2 // Forward
+{
+class XMLElement;
+}
+namespace pugi
+{
+class xml_node;
+}
+
 namespace adaptive
 {
 
-class ATTR_DLL_LOCAL SmoothTree : public AdaptiveTree
+class ATTR_DLL_LOCAL CSmoothTree : public AdaptiveTree
 {
 public:
-  SmoothTree(CHOOSER::IRepresentationChooser* reprChooser);
-  SmoothTree(const SmoothTree& left);
-
-  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
+  CSmoothTree(CHOOSER::IRepresentationChooser* reprChooser);
+  CSmoothTree(const CSmoothTree& left);
 
   virtual bool open(const std::string& url) override;
   virtual bool open(const std::string& url, std::map<std::string, std::string> addHeaders) override;
 
-  virtual SmoothTree* Clone() const override { return new SmoothTree{*this}; }
-
-  enum
-  {
-    SSMNODE_SSM = 1 << 0,
-    SSMNODE_PROTECTION = 1 << 1,
-    SSMNODE_STREAMINDEX = 1 << 2,
-    SSMNODE_PROTECTIONHEADER = 1 << 3,
-    SSMNODE_PROTECTIONTEXT = 1 << 4
-  };
-
-  uint64_t pts_helper_;
+  virtual CSmoothTree* Clone() const override { return new CSmoothTree{*this}; }
 
 protected:
-  virtual bool ParseManifest(const std::string& data);
+  virtual bool ParseManifest(std::string& data);
+
+  void ParseTagStreamIndex(pugi::xml_node nodeSI, PLAYLIST::CPeriod* period);
+  void ParseTagQualityLevel(pugi::xml_node nodeQI,
+                            PLAYLIST::CAdaptationSet* adpSet,
+                            uint32_t timescale);
 };
 
 } // namespace adaptive

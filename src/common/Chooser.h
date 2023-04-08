@@ -82,8 +82,8 @@ public:
    * \param adp The adaptation set where choose the representation
    * \return The representation
    */
-  adaptive::AdaptiveTree::Representation* GetRepresentation(
-      adaptive::AdaptiveTree::AdaptationSet* adp)
+  PLAYLIST::CRepresentation* GetRepresentation(
+      PLAYLIST::CAdaptationSet* adp)
   {
     return GetNextRepresentation(adp, nullptr);
   }
@@ -95,16 +95,16 @@ public:
    *        or nullptr for first start or changed to new period
    * \return The next representation
    */
-  virtual adaptive::AdaptiveTree::Representation* GetNextRepresentation(
-      adaptive::AdaptiveTree::AdaptationSet* adp,
-      adaptive::AdaptiveTree::Representation* currentRep) = 0;
+  virtual PLAYLIST::CRepresentation* GetNextRepresentation(
+      PLAYLIST::CAdaptationSet* adp,
+      PLAYLIST::CRepresentation* currentRep) = 0;
 
 protected:
   /*!
    * \brief Prints details of the selected or changed representation in the log
    */
-  void LogDetails(adaptive::AdaptiveTree::Representation* currentRep,
-                  adaptive::AdaptiveTree::Representation* nextRep);
+  void LogDetails(PLAYLIST::CRepresentation* currentRep,
+                  PLAYLIST::CRepresentation* nextRep);
 
   bool m_isSecureSession{false};
 

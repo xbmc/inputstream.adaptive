@@ -8,16 +8,17 @@
 
 #pragma once
 
-#include "AdaptiveTree.h"
+#include "AdaptationSet.h"
+#include "Representation.h"
+
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "../test/KodiStubs.h"
+#else
+#include <kodi/AddonBase.h>
+#endif
 
 namespace CHOOSER
 {
-
-constexpr bool BwCompare(const adaptive::AdaptiveTree::Representation* left,
-                         const adaptive::AdaptiveTree::Representation* right)
-{
-  return left->bandwidth_ < right->bandwidth_;
-};
 
 class ATTR_DLL_LOCAL CRepresentationSelector
 {
@@ -30,28 +31,25 @@ public:
    * \param adaptSet The adaption set
    * \return The lowest representation, otherwise nullptr if no available
    */
-  adaptive::AdaptiveTree::Representation* Lowest(
-      adaptive::AdaptiveTree::AdaptationSet* adaptSet) const;
+  PLAYLIST::CRepresentation* Lowest(PLAYLIST::CAdaptationSet* adaptSet) const;
 
   /*!
    * \brief Select the highest representation quality closer to the screen resolution
    * \param adaptSet The adaption set
    * \return The highest representation, otherwise nullptr if no available
    */
-  adaptive::AdaptiveTree::Representation* Highest(
-      adaptive::AdaptiveTree::AdaptationSet* adaptSet) const;
+  PLAYLIST::CRepresentation* Highest(PLAYLIST::CAdaptationSet* adaptSet) const;
 
   /*!
    * \brief Select the representation with the higher bandwidth
    * \param adaptSet The adaption set
    * \return The representation with higher bandwidth, otherwise nullptr if no available
    */
-  adaptive::AdaptiveTree::Representation* HighestBw(
-      adaptive::AdaptiveTree::AdaptationSet* adaptSet) const;
+  PLAYLIST::CRepresentation* HighestBw(PLAYLIST::CAdaptationSet* adaptSet) const;
 
 
-  adaptive::AdaptiveTree::Representation* Higher(adaptive::AdaptiveTree::AdaptationSet* adaptSet,
-                                                 adaptive::AdaptiveTree::Representation* currRep) const;
+  PLAYLIST::CRepresentation* Higher(PLAYLIST::CAdaptationSet* adaptSet,
+                                    PLAYLIST::CRepresentation* currRep) const;
 
 private:
   int m_screenWidth{0};

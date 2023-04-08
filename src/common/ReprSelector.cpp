@@ -12,7 +12,7 @@
 #include <vector>
 
 using namespace CHOOSER;
-using namespace adaptive;
+using namespace PLAYLIST;
 
 CRepresentationSelector::CRepresentationSelector(const int& resWidth, const int& resHeight)
 {
@@ -20,29 +20,26 @@ CRepresentationSelector::CRepresentationSelector(const int& resWidth, const int&
   m_screenHeight = resHeight;
 }
 
-AdaptiveTree::Representation* CRepresentationSelector::Lowest(
-    AdaptiveTree::AdaptationSet* adaptSet) const
+PLAYLIST::CRepresentation* CRepresentationSelector::Lowest(PLAYLIST::CAdaptationSet* adaptSet) const
 {
-  const std::vector<AdaptiveTree::Representation*>& reps = adaptSet->representations_;
-  return reps.empty() ? nullptr : *reps.begin();
+  auto& reps = adaptSet->GetRepresentations();
+  return reps.empty() ? nullptr : reps[0].get();
 }
 
-AdaptiveTree::Representation* CRepresentationSelector::Highest(AdaptiveTree::AdaptationSet* adaptSet) const
+PLAYLIST::CRepresentation* CRepresentationSelector::Highest(
+    PLAYLIST::CAdaptationSet* adaptSet) const
 {
-  AdaptiveTree::Representation* highestRep{nullptr};
+  CRepresentation* highestRep{nullptr};
 
-  for (auto rep : adaptSet->representations_)
+  for (auto& rep : adaptSet->GetRepresentations())
   {
-    if (!rep)
-      continue;
-
-    if (rep->width_ <= m_screenWidth && rep->height_ <= m_screenHeight)
+    if (rep->GetWidth() <= m_screenWidth && rep->GetHeight() <= m_screenHeight)
     {
-      if (!highestRep ||
-          (highestRep->width_ <= rep->width_ && highestRep->height_ <= rep->height_ &&
-           highestRep->bandwidth_ < rep->bandwidth_))
+      if (!highestRep || (highestRep->GetWidth() <= rep->GetWidth() &&
+                          highestRep->GetHeight() <= rep->GetHeight() &&
+                          highestRep->GetBandwidth() < rep->GetBandwidth()))
       {
-        highestRep = rep;
+        highestRep = rep.get();
       }
     }
   }
@@ -53,32 +50,30 @@ AdaptiveTree::Representation* CRepresentationSelector::Highest(AdaptiveTree::Ada
   return highestRep;
 }
 
-AdaptiveTree::Representation* CRepresentationSelector::HighestBw(
-    AdaptiveTree::AdaptationSet* adaptSet) const
+PLAYLIST::CRepresentation* CRepresentationSelector::HighestBw(
+    PLAYLIST::CAdaptationSet* adaptSet) const
 {
-  AdaptiveTree::Representation* repHigherBw{nullptr};
+  CRepresentation* repHigherBw{nullptr};
 
-  for (auto rep : adaptSet->representations_)
+  for (auto& rep : adaptSet->GetRepresentations())
   {
-    if (!rep)
-      continue;
-
-    if (!repHigherBw || rep->bandwidth_ > repHigherBw->bandwidth_)
+    if (!repHigherBw || rep->GetBandwidth() > repHigherBw->GetBandwidth())
     {
-      repHigherBw = rep;
+      repHigherBw = rep.get();
     }
   }
 
   return repHigherBw;
 }
 
-AdaptiveTree::Representation* CRepresentationSelector::Higher(
-    AdaptiveTree::AdaptationSet* adaptSet, AdaptiveTree::Representation* currRep) const
+PLAYLIST::CRepresentation* CRepresentationSelector::Higher(PLAYLIST::CAdaptationSet* adaptSet,
+                                                           PLAYLIST::CRepresentation* currRep) const
 {
-  const std::vector<AdaptiveTree::Representation*>& reps{adaptSet->representations_};
-  auto repIt{std::upper_bound(reps.cbegin(), reps.cend(), currRep, BwCompare)};
+  auto reps = adaptSet->GetRepresentationsPtr();
+  auto repIt{
+      std::upper_bound(reps.begin(), reps.end(), currRep, CRepresentation::CompareBandwidthPtr)};
 
-  if (repIt == reps.cend())
+  if (repIt == reps.end())
     return currRep;
 
   return *repIt;
