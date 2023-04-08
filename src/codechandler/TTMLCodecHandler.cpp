@@ -15,8 +15,8 @@ bool TTMLCodecHandler::ReadNextSample(AP4_Sample& sample, AP4_DataBuffer& buf)
 
   if (m_ttml.Prepare(pts, dur))
   {
-    buf.SetData(static_cast<const AP4_Byte*>(m_ttml.GetData()),
-                static_cast<const AP4_Size>(m_ttml.GetDataSize()));
+    buf.SetData(reinterpret_cast<const AP4_Byte*>(m_ttml.GetPreparedData()),
+                static_cast<const AP4_Size>(m_ttml.GetPreparedDataSize()));
     sample.SetDts(pts);
     sample.SetCtsDelta(0);
     sample.SetDuration(dur);
