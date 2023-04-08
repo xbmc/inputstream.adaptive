@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019 peak3d (http://www.peak3d.de)
+ *  Copyright (C) 2023 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
@@ -18,24 +18,28 @@
 
 namespace adaptive
 {
-
+// \brief DRM PlayReady header protection parser
 class ATTR_DLL_LOCAL PRProtectionParser
 {
 public:
-  PRProtectionParser(std::string wrmheader);
-  std::string getKID() const { return m_strKID; };
-  std::string getLicenseURL() const { return m_strLicenseURL; };
-  std::string getPSSH() const { return m_strPSSH; };
+  PRProtectionParser() {}
+  ~PRProtectionParser() {}
 
-  void setKID(const std::string kid) { m_strKID = kid; };
-  void setLicenseURL(const std::string licenseURL) { m_strLicenseURL = licenseURL; };
+  /*!
+   * \brief Parse PlayReady header data.
+   * \param prHeader The PlayReady header data as base64 string
+   * \return True if parsed with success, otherwise false
+   */
+  bool ParseHeader(std::string_view prHeader);
 
-  std::string m_strXMLText;
+  std::string_view GetKID() const { return m_KID; }
+  std::string_view GetLicenseURL() const { return m_licenseURL; }
+  std::string_view GetPSSH() const { return m_PSSH; }
 
 private:
-  std::string m_strKID;
-  std::string m_strLicenseURL;
-  std::string m_strPSSH;
-  };
+  std::string m_KID;
+  std::string m_licenseURL;
+  std::string m_PSSH;
+};
 
-  } // namespace adaptive
+} // namespace adaptive

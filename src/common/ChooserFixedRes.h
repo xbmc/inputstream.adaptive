@@ -25,9 +25,8 @@ public:
 
   void PostInit() override;
 
-  adaptive::AdaptiveTree::Representation* GetNextRepresentation(
-      adaptive::AdaptiveTree::AdaptationSet* adp,
-      adaptive::AdaptiveTree::Representation* currentRep) override;
+  PLAYLIST::CRepresentation* GetNextRepresentation(PLAYLIST::CAdaptationSet* adp,
+                                                   PLAYLIST::CRepresentation* currentRep) override;
 
 private:
   std::pair<int, int> m_screenResMax; // Max resolution for non-protected video content

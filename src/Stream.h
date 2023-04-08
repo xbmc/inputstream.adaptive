@@ -21,8 +21,8 @@ class ATTR_DLL_LOCAL CStream
 {
 public:
   CStream(adaptive::AdaptiveTree& tree,
-          adaptive::AdaptiveTree::AdaptationSet* adp,
-          adaptive::AdaptiveTree::Representation* initialRepr,
+          PLAYLIST::CAdaptationSet* adp,
+          PLAYLIST::CRepresentation* initialRepr,
           const UTILS::PROPERTIES::KodiProperties& kodiProps,
           bool chooseRep)
     : m_isEnabled{false},

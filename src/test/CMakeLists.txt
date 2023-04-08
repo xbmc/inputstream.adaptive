@@ -15,15 +15,24 @@ add_executable(${BINARY}
     ../parser/HLSTree.cpp
     ../parser/SmoothTree.cpp
     ../parser/PRProtectionParser.cpp
+    ../common/AdaptationSet.cpp
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
+    ../common/AdaptiveUtils.cpp
     ../common/Chooser.cpp
     ../common/ChooserAskQuality.cpp
     ../common/ChooserDefault.cpp
     ../common/ChooserFixedRes.cpp
     ../common/ChooserManualOSD.cpp
     ../common/ChooserTest.cpp
+    ../common/CommonAttribs.cpp
+    ../common/CommonSegAttribs.cpp
+    ../common/Period.cpp
+    ../common/Representation.cpp
     ../common/ReprSelector.cpp
+    ../common/Segment.cpp
+    ../common/SegmentList.cpp
+    ../common/SegTemplate.cpp
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
     ../utils/FileUtils.cpp
@@ -32,6 +41,7 @@ add_executable(${BINARY}
     ../utils/StringUtils.cpp
     ../utils/UrlUtils.cpp
     ../utils/Utils.cpp
+    ../utils/XMLUtils.cpp
     )
 
 target_link_libraries(${BINARY} PRIVATE ${EXPAT_LIBRARIES} ${PUGIXML_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})

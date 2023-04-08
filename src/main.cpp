@@ -9,13 +9,9 @@
 #include "main.h"
 
 #include "ADTSReader.h"
-#include "Session.h"
 #include "Stream.h"
 #include "TSReader.h"
 #include "WebmReader.h"
-#include "parser/DASHTree.h"
-#include "parser/HLSTree.h"
-#include "parser/SmoothTree.h"
 #include "samplereader/ADTSSampleReader.h"
 #include "samplereader/FragmentedSampleReader.h"
 #include "samplereader/SubtitleSampleReader.h"
@@ -23,16 +19,12 @@
 #include "samplereader/WebmSampleReader.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
-#include "utils/PropertiesUtils.h"
 
 #include <stdarg.h> // va_list, va_start, va_arg, va_end
 
-using namespace UTILS;
+using namespace PLAYLIST;
 using namespace SESSION;
-
-static const AP4_Track::Type TIDC[adaptive::AdaptiveTree::STREAM_TYPE_COUNT] = {
-    AP4_Track::TYPE_UNKNOWN, AP4_Track::TYPE_VIDEO, AP4_Track::TYPE_AUDIO,
-    AP4_Track::TYPE_SUBTITLES };
+using namespace UTILS;
 
 CInputStreamAdaptive::CInputStreamAdaptive(const kodi::addon::IInstanceInfo& instance)
   : CInstanceInputStream(instance)
@@ -91,7 +83,7 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
 
   if (m_session)
   {
-    adaptive::AdaptiveTree::Period* period;
+    CPeriod* period;
     int period_id = m_session->GetPeriodId();
     iids.m_streamCount = 0;
     unsigned int id;
@@ -106,26 +98,27 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
         continue;
       }
 
-      uint8_t cdmId(static_cast<uint8_t>(stream->m_adStream.getRepresentation()->pssh_set_));
-      if (stream->m_isValid &&
-          (m_session->GetMediaTypeMask() & static_cast<uint8_t>(1) << stream->m_adStream.get_type()))
+      uint8_t cdmId(static_cast<uint8_t>(stream->m_adStream.getRepresentation()->m_psshSetPos));
+      if (stream->m_isValid && (m_session->GetMediaTypeMask() &
+                                static_cast<uint8_t>(1) << static_cast<int>(stream->m_adStream.GetStreamType())))
       {
         if (m_session->GetMediaTypeMask() != 0xFF)
         {
-          const adaptive::AdaptiveTree::Representation* rep(stream->m_adStream.getRepresentation());
-          if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+          const CRepresentation* rep = stream->m_adStream.getRepresentation();
+          if (rep->IsIncludedStream())
             continue;
         }
         if (m_session->IsLive())
         {
           period = stream->m_adStream.getPeriod();
-          if (period->sequence_ == m_session->GetInitialSequence())
+          if (m_session->HasInitialSequence() &&
+              period->GetSequence() == m_session->GetInitialSequence())
           {
             id = i + 1000;
           }
           else
           {
-            id = i + (period->sequence_ + 1) * 1000;
+            id = i + (period->GetSequence() + 1) * 1000;
           }
         }
         else
@@ -160,7 +153,7 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
 
   if (stream)
   {
-    uint8_t cdmId(static_cast<uint8_t>(stream->m_adStream.getRepresentation()->pssh_set_));
+    uint8_t cdmId(static_cast<uint8_t>(stream->m_adStream.getRepresentation()->m_psshSetPos));
     if (stream->m_isEncrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
       kodi::addon::StreamCryptoSession cryptoSession;
@@ -199,8 +192,10 @@ void CInputStreamAdaptive::UnlinkIncludedStreams(CStream* stream)
     if (mainStream->GetReader())
       mainStream->GetReader()->RemoveStreamType(stream->m_info.GetStreamType());
   }
-  const adaptive::AdaptiveTree::Representation* rep(stream->m_adStream.getRepresentation());
-  if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+
+  const CRepresentation* rep = stream->m_adStream.getRepresentation();
+
+  if (rep->IsIncludedStream())
     m_IncludedStreams[stream->m_info.GetStreamType()] = 0;
 }
 
@@ -249,11 +244,11 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   bool needRefetch = false; //Make sure that Kodi fetches changes
   stream->m_isEnabled = true;
 
-  const adaptive::AdaptiveTree::Representation* rep(stream->m_adStream.getRepresentation());
+  const CRepresentation* rep = stream->m_adStream.getRepresentation();
 
   // If we select a dummy (=inside video) stream, open the video part
   // Dummy streams will be never enabled, they will only enable / activate audio track.
-  if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
+  if (rep->IsIncludedStream())
   {
     CStream* mainStream;
     stream->m_mainId = 0;
@@ -281,10 +276,10 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     return false;
   }
 
-  if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
+  if (rep->IsSubtitleStream())
   {
     stream->SetReader(std::make_unique<CSubtitleSampleReader>(
-        rep->url_, streamid, stream->m_info.GetCodecInternalName()));
+        rep->GetUrl(), streamid, stream->m_info.GetCodecInternalName()));
     return stream->GetReader()->GetInformation(stream->m_info);
   }
 
@@ -295,13 +290,15 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   //  stream->m_adStream.restart_stream();
   stream->m_adStream.start_stream();
 
-  if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TEXT)
+  ContainerType reprContainerType = rep->GetContainerType();
+
+  if (reprContainerType == ContainerType::TEXT)
   {
     stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
     stream->SetReader(std::make_unique<CSubtitleSampleReader>(stream, streamid,
                                                              stream->m_info.GetCodecInternalName()));
   }
-  else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TS)
+  else if (reprContainerType == ContainerType::TS)
   {
     stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
 
@@ -316,12 +313,12 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     }
     m_session->OnSegmentChanged(&stream->m_adStream);
   }
-  else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
+  else if (reprContainerType == ContainerType::ADTS)
   {
     stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
     stream->SetReader(std::make_unique<CADTSSampleReader>(stream->GetAdByteStream(), streamid));
   }
-  else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_WEBM)
+  else if (reprContainerType == ContainerType::WEBM)
   {
     stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
     stream->SetReader(std::make_unique<CWebmSampleReader>(stream->GetAdByteStream(), streamid));
@@ -331,7 +328,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       return false;
     }
   }
-  else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_MP4)
+  else if (reprContainerType == ContainerType::MP4)
   {
     stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
     stream->SetStreamFile(std::make_unique<AP4_File>(
@@ -345,10 +342,11 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       return false;
     }
 
-    AP4_Track* track = movie->GetTrack(TIDC[stream->m_adStream.get_type()]);
+    AP4_Track* track =
+        movie->GetTrack(static_cast<AP4_Track::Type>(stream->m_adStream.GetTrackType()));
     if (!track)
     {
-      if (stream->m_adStream.get_type() == adaptive::AdaptiveTree::SUBTITLE)
+      if (stream->m_adStream.GetTrackType() == AP4_Track::TYPE_SUBTITLES)
         track = movie->GetTrack(AP4_Track::TYPE_TEXT);
       if (!track)
       {
@@ -366,20 +364,25 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     }
 
     auto sampleDecrypter =
-        m_session->GetSingleSampleDecryptor(stream->m_adStream.getRepresentation()->pssh_set_);
-    auto caps = m_session->GetDecrypterCaps(stream->m_adStream.getRepresentation()->pssh_set_);
+        m_session->GetSingleSampleDecryptor(stream->m_adStream.getRepresentation()->m_psshSetPos);
+    auto caps = m_session->GetDecrypterCaps(stream->m_adStream.getRepresentation()->m_psshSetPos);
 
     stream->SetReader(std::make_unique<CFragmentedSampleReader>(
         stream->GetAdByteStream(), movie, track, streamid, sampleDecrypter, caps));
   }
   else
   {
+    LOG::LogF(LOGWARNING, "Unhandled stream container for representation ID: %s", rep->GetId().data());
     m_session->EnableStream(stream, false);
     return false;
   }
 
   if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
   {
+    //! @todo: the code in the loop below must be verified
+    //! the INPUTSTREAM_TYPE cast go out-of-range
+    //! on AddStreamType we add are adding right sid? if so explain it
+    //! and explain why the loop has 16 values
     for (uint16_t i(0); i < 16; ++i)
     {
       if (m_IncludedStreams[i])
@@ -576,7 +579,17 @@ int CInputStreamAdaptive::GetChapterCount()
 
 const char* CInputStreamAdaptive::GetChapterName(int ch)
 {
-  return m_session ? m_session->GetChapterName(ch) : 0;
+  if (!m_session)
+    return nullptr;
+
+  //! @todo: m_chapterName is a workaround fix for compiler
+  //! "warning: returning address of local temporary object"
+  //! we have to store the chapter name locally because the pointer returned is used after
+  //! that Kodi make the GetChapterName callback, so it go out of scope. A way to fix this
+  //! is pass the char pointer by using "strdup", but is needed that when kodi make
+  //! GetChapterName callback also "free" the value after his use.
+  m_chapterName = m_session->GetChapterName(ch);
+  return m_chapterName.c_str();
 }
 
 int64_t CInputStreamAdaptive::GetChapterPos(int ch)

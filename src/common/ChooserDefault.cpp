@@ -17,8 +17,8 @@
 #include <numeric>
 #include <string_view>
 
-using namespace adaptive;
 using namespace CHOOSER;
+using namespace PLAYLIST;
 using namespace UTILS;
 
 namespace
@@ -176,8 +176,8 @@ void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
     m_bandwidthCurrentLimited = m_bandwidthMax;
 }
 
-AdaptiveTree::Representation* CRepresentationChooserDefault::GetNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
+PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
+    PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
 {
   if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
     RefreshResolution();
@@ -187,46 +187,43 @@ AdaptiveTree::Representation* CRepresentationChooserDefault::GetNextRepresentati
 
   // From bandwidth take in consideration:
   // 90% of bandwidth for video - 10 % for other
-  if (adp->type_ == AdaptiveTree::VIDEO)
+  if (adp->GetStreamType() == StreamType::VIDEO)
     bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.9);
   else
     bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.1);
 
-  if (adp->type_ == AdaptiveTree::VIDEO) // To avoid fill too much the log
+  if (adp->GetStreamType() == StreamType::VIDEO) // To avoid fill too much the log
   {
     LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s (filtered to %u bit/s)",
              m_bandwidthCurrent, bandwidth);
   }
 
-  AdaptiveTree::Representation* nextRep{nullptr};
+  CRepresentation* nextRep{nullptr};
   int bestScore{-1};
 
-  for (auto rep : adp->representations_)
+  for (auto& rep : adp->GetRepresentations())
   {
-    if (!rep)
-      continue;
-
-    int score{std::abs(rep->width_ * rep->height_ - m_screenWidth * m_screenHeight)};
+    int score{std::abs(rep->GetWidth() * rep->GetHeight() - m_screenWidth * m_screenHeight)};
 
     if (!m_isForceStartsMaxRes)
     {
-      if (rep->bandwidth_ > bandwidth)
+      if (rep->GetBandwidth() > bandwidth)
         continue;
 
-      score += static_cast<int>(std::sqrt(bandwidth - rep->bandwidth_));
+      score += static_cast<int>(std::sqrt(bandwidth - rep->GetBandwidth()));
     }
 
     if (bestScore == -1 || score < bestScore)
     {
       bestScore = score;
-      nextRep = rep;
+      nextRep = rep.get();
     }
   }
 
   if (!nextRep)
     nextRep = selector.Lowest(adp);
 
-  if (adp->type_ == AdaptiveTree::VIDEO)
+  if (adp->GetStreamType() == StreamType::VIDEO)
     LogDetails(currentRep, nextRep);
 
   if (m_isForceStartsMaxRes)

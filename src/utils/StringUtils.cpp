@@ -11,12 +11,33 @@
 #include "kodi/tools/StringUtils.h"
 
 #include <algorithm>
+#include <charconv> // from_chars
 #include <cstdio>
+#include <cstring> // strstr
 #include <iomanip>
 #include <sstream>
+#include <iterator>
 
 using namespace UTILS::STRING;
 using namespace kodi::tools;
+
+namespace
+{
+/*!
+ * \brief Converts a string to a number of a specified type, by using istringstream.
+ * \param str The string to convert
+ * \param fallback [OPT] The number to return when the conversion fails
+ * \return The converted number, otherwise fallback if conversion fails
+ */
+template<typename T>
+T NumberFromSS(std::string_view str, T fallback) noexcept
+{
+  std::istringstream iss{str.data()};
+  T result{fallback};
+  iss >> result;
+  return result;
+}
+} // namespace
 
 bool UTILS::STRING::ReplaceFirst(std::string& inputStr,
                                  std::string_view oldStr,
@@ -135,4 +156,91 @@ std::string UTILS::STRING::URLEncode(std::string_view strURLData)
     }
   }
   return result;
+}
+
+uint32_t UTILS::STRING::ToUint32(std::string_view str, uint32_t fallback /* = 0 */)
+{
+  return NumberFromSS(str, fallback);
+}
+
+uint64_t UTILS::STRING::ToUint64(std::string_view str, uint64_t fallback /* = 0 */)
+{
+  return NumberFromSS(str, fallback);
+}
+
+double UTILS::STRING::ToDouble(std::string_view str, double fallback)
+{
+  return NumberFromSS(str, fallback);
+}
+
+float UTILS::STRING::ToFloat(std::string_view str, float fallback)
+{
+  return NumberFromSS(str, fallback);
+}
+
+int UTILS::STRING::ToInt32(std::string_view str, int fallback /* = 0 */)
+{
+  int result = fallback;
+  std::from_chars(str.data(), str.data() + str.size(), result);
+  return result;
+}
+
+bool UTILS::STRING::Contains(std::string_view str,
+                             std::string_view keyword,
+                             bool isCaseInsensitive /* = true */)
+{
+  if (isCaseInsensitive)
+  {
+    auto itStr = std::search(str.begin(), str.end(), keyword.begin(), keyword.end(),
+                             [](unsigned char ch1, unsigned char ch2)
+                             { return std::toupper(ch1) == std::toupper(ch2); });
+    return (itStr != str.end());
+  }
+
+  return std::strstr(str.data(), keyword.data()) != nullptr;
+}
+
+bool UTILS::STRING::StartsWith(std::string_view str, std::string_view startStr)
+{
+  return str.substr(0, startStr.size()) == startStr;
+}
+
+std::set<std::string> UTILS::STRING::Split(std::string_view input,
+                                             const char delimiter,
+                                           int maxStrings /* = 0 */)
+{
+  std::set<std::string> result;
+  StringUtils::SplitTo(std::inserter(result, result.end()), input.data(), delimiter, maxStrings);
+  return result;
+}
+
+bool UTILS::STRING::CompareNoCase(std::string_view str1, std::string_view str2)
+{
+  if (str1.size() != str2.size())
+    return false;
+  return std::equal(str1.cbegin(), str1.cend(), str2.cbegin(),
+                    [](std::string::value_type l, std::string::value_type r)
+                    { return std::tolower(l) == std::tolower(r); });
+}
+
+bool UTILS::STRING::GetLine(std::stringstream& ss, std::string& line)
+{
+  do
+  {
+    if (!std::getline(ss, line))
+      return false;
+
+    // Trim return chars and spaces at the end of string
+    size_t charPos = line.size();
+    while (charPos &&
+           (line[charPos - 1] == '\r' || line[charPos - 1] == '\n' || line[charPos - 1] == ' '))
+    {
+      charPos--;
+    }
+    line.resize(charPos);
+
+    // Skip possible empty lines
+  } while (line.empty());
+
+  return true;
 }

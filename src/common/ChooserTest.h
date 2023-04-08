@@ -30,9 +30,8 @@ namespace CHOOSER
       return m_streamSelectionMode;
     }
 
-    adaptive::AdaptiveTree::Representation* GetNextRepresentation(
-      adaptive::AdaptiveTree::AdaptationSet* adp,
-      adaptive::AdaptiveTree::Representation* currentRep) override;
+    PLAYLIST::CRepresentation* GetNextRepresentation(
+        PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep) override;
 
   protected:
     enum class TestMode

@@ -63,6 +63,7 @@ private:
   uint32_t m_IncludedStreams[16];
   bool m_checkChapterSeek = false;
   int m_failedSeekTime = ~0;
+  std::string m_chapterName;
 
   void UnlinkIncludedStreams(SESSION::CStream* stream);
 };

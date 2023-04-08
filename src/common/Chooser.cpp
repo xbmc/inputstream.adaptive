@@ -22,6 +22,7 @@
 #include <vector>
 
 using namespace CHOOSER;
+using namespace PLAYLIST;
 
 namespace
 {
@@ -106,8 +107,8 @@ void CHOOSER::IRepresentationChooser::SetScreenResolution(const int width,
   }
 }
 
-void CHOOSER::IRepresentationChooser::LogDetails(adaptive::AdaptiveTree::Representation* currentRep,
-                                                 adaptive::AdaptiveTree::Representation* nextRep)
+void CHOOSER::IRepresentationChooser::LogDetails(PLAYLIST::CRepresentation* currentRep,
+                                                 PLAYLIST::CRepresentation* nextRep)
 {
   if (!nextRep)
     return;
@@ -117,7 +118,8 @@ void CHOOSER::IRepresentationChooser::LogDetails(adaptive::AdaptiveTree::Represe
     LOG::Log(LOGDEBUG,
              "[Repr. chooser] Selected representation\n"
              "ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)",
-             nextRep->id.c_str(), nextRep->bandwidth_, nextRep->width_, nextRep->height_);
+             nextRep->GetId().data(), nextRep->GetBandwidth(), nextRep->GetWidth(),
+             nextRep->GetHeight());
   }
   else if (currentRep != nextRep)
   {
@@ -125,8 +127,8 @@ void CHOOSER::IRepresentationChooser::LogDetails(adaptive::AdaptiveTree::Represe
              "[Repr. chooser] Changed representation\n"
              "Current ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)\n"
              "Next ID %s (Bandwidth: %u bit/s, Resolution: %ix%i)",
-             currentRep->id.c_str(), currentRep->bandwidth_, currentRep->width_,
-             currentRep->height_, nextRep->id.c_str(), nextRep->bandwidth_, nextRep->width_,
-             nextRep->height_);
+             currentRep->GetId().data(), currentRep->GetBandwidth(), currentRep->GetWidth(),
+             currentRep->GetHeight(), nextRep->GetId().data(), nextRep->GetBandwidth(),
+             nextRep->GetWidth(), nextRep->GetHeight());
   }
 }

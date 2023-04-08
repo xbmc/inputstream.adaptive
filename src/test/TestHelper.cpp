@@ -84,7 +84,7 @@ bool AESDecrypter::RenewLicense(const std::string& pluginUrl){return false;}
 
 bool DownloadFile(const std::string& url,
                   const std::map<std::string, std::string>& reqHeaders,
-                  std::stringstream& data,
+                  std::string& data,
                   adaptive::HTTPRespHeaders& respHeaders)
 {
   FILE* f = fopen(testHelper::testFile.c_str(), "rb");
@@ -111,7 +111,7 @@ bool DownloadFile(const std::string& url,
     }
     else
     {
-      data.write(bufferData.data(), byteRead);
+      data.append(bufferData.data(), byteRead);
     }
   }
 
@@ -121,7 +121,7 @@ bool DownloadFile(const std::string& url,
 
 bool DASHTestTree::download(const std::string& url,
                             const std::map<std::string, std::string>& reqHeaders,
-                            std::stringstream& data,
+                            std::string& data,
                             adaptive::HTTPRespHeaders& respHeaders)
 {
   if (DownloadFile(url, reqHeaders, data, respHeaders))
@@ -135,14 +135,14 @@ bool DASHTestTree::download(const std::string& url,
 }
 
 HLSTestTree::HLSTestTree(CHOOSER::IRepresentationChooser* reprChooser)
-  : HLSTree(reprChooser) 
+  : CHLSTree(reprChooser) 
 {
   m_decrypter = std::make_unique<AESDecrypter>(AESDecrypter(std::string()));
 }
 
 bool HLSTestTree::download(const std::string& url,
                            const std::map<std::string, std::string>& reqHeaders,
-                           std::stringstream& data,
+                           std::string& data,
                            adaptive::HTTPRespHeaders& respHeaders)
 {
   if (DownloadFile(url, reqHeaders, data, respHeaders))
@@ -156,9 +156,9 @@ bool HLSTestTree::download(const std::string& url,
 }
 
 bool SmoothTestTree::download(const std::string& url,
-  const std::map<std::string, std::string>& reqHeaders,
-  std::stringstream& data,
-  adaptive::HTTPRespHeaders& respHeaders)
+                              const std::map<std::string, std::string>& reqHeaders,
+                              std::string& data,
+                              adaptive::HTTPRespHeaders& respHeaders)
 {
   if (DownloadFile(url, reqHeaders, data, respHeaders))
   {

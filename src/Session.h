@@ -11,9 +11,6 @@
 #include "KodiHost.h"
 #include "Stream.h"
 #include "common/AdaptiveStream.h"
-#include "common/AdaptiveTree.h"
-#include "common/Chooser.h"
-#include "samplereader/SampleReader.h"
 #include "utils/PropertiesUtils.h"
 
 #include <bento4/Ap4.h>
@@ -82,8 +79,8 @@ public:
    *  \param isDefaultRepr Whether this Representation is the default
    *  \param uniqueId A unique identifier for the Representation
    */
-  void AddStream(adaptive::AdaptiveTree::AdaptationSet* adp,
-                 adaptive::AdaptiveTree::Representation* repr,
+  void AddStream(PLAYLIST::CAdaptationSet* adp,
+                 PLAYLIST::CRepresentation* repr,
                  bool isDefaultRepr,
                  uint32_t uniqueId);
 
@@ -164,7 +161,7 @@ public:
   /*! \brief Get the total time in ms of the stream
    *  \return The total time in ms of the stream
    */
-  uint64_t GetTotalTimeMs() const { return m_adaptiveTree->overallSeconds_ * 1000; };
+  uint64_t GetTotalTimeMs() const { return m_adaptiveTree->m_totalTimeSecs * 1000; };
 
   /*! \brief Get the elapsed time in ms of the stream including all chapters
    *  \return The elapsed time in ms of the stream including all chapters
@@ -248,11 +245,22 @@ public:
    */
   STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
 
+  /*! \brief Check if there is an initial discontinuity sequence number
+   *  \return True if there is an initial discontinuity sequence number
+   */
+  bool HasInitialSequence() const
+  {
+    return m_adaptiveTree->initial_sequence_.has_value();
+  }
+
   /*! \brief Get the initial discontinuity sequence number
    *  \return The sequence number of the first discontinuity sequence
    *          encountered when playback started
    */
-  uint32_t GetInitialSequence() const { return m_adaptiveTree->initial_sequence_; }
+  uint32_t GetInitialSequence() const
+  {
+    return m_adaptiveTree->initial_sequence_.has_value() ? *m_adaptiveTree->initial_sequence_ : 0;
+  }
 
   /*! \brief Get the chapter number currently being played
    *  \return 1 indexed vlaue of the current period
@@ -268,7 +276,7 @@ public:
    *  \param ch The index of chapter/period
    *  \return The id of the period
    */
-  const char* GetChapterName(int ch) const;
+  std::string GetChapterName(int ch) const;
 
   /*! \brief Get the chapter position in milliseconds
    *  \param ch The index (1 indexed) of chapter/period

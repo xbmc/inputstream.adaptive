@@ -12,8 +12,8 @@
 #include "../utils/log.h"
 #include "ReprSelector.h"
 
-using namespace adaptive;
 using namespace CHOOSER;
+using namespace PLAYLIST;
 using namespace UTILS;
 
 CRepresentationChooserTest::CRepresentationChooserTest()
@@ -55,11 +55,11 @@ void CRepresentationChooserTest::PostInit()
 {
 }
 
-AdaptiveTree::Representation* CRepresentationChooserTest::GetNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
+PLAYLIST::CRepresentation* CRepresentationChooserTest::GetNextRepresentation(
+    PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
 {
   CRepresentationSelector selector(m_screenCurrentWidth, m_screenCurrentHeight);
-  AdaptiveTree::Representation* nextRep{currentRep};
+  CRepresentation* nextRep{currentRep};
 
   if (!currentRep) // Startup or new period
   {
@@ -78,7 +78,7 @@ AdaptiveTree::Representation* CRepresentationChooserTest::GetNextRepresentation(
   {
     if (m_testMode == TestMode::SWITCH_SEGMENTS)
     {
-      if (adp->type_ != AdaptiveTree::VIDEO)
+      if (adp->GetStreamType() != StreamType::VIDEO)
         return currentRep;
 
       m_segmentsElapsed += 1;
@@ -93,7 +93,7 @@ AdaptiveTree::Representation* CRepresentationChooserTest::GetNextRepresentation(
     }
   }
 
-  if (adp->type_ == AdaptiveTree::VIDEO)
+  if (adp->GetStreamType() == StreamType::VIDEO)
     LogDetails(currentRep, nextRep);
 
   return nextRep;

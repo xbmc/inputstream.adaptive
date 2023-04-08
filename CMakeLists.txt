@@ -7,7 +7,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 find_package(Kodi REQUIRED)
 
 set(ADP_SOURCES
-    src/AdaptiveByteStream.cpp
+	src/AdaptiveByteStream.cpp
 	src/main.cpp
 	src/codechandler/CodecHandler.cpp
 	src/codechandler/AV1CodecHandler.cpp
@@ -18,15 +18,24 @@ set(ADP_SOURCES
 	src/codechandler/VP9CodecHandler.cpp
 	src/codechandler/WebVTTCodecHandler.cpp
 	src/codechandler/ttml/TTML.cpp
+	src/common/AdaptationSet.cpp
 	src/common/AdaptiveStream.cpp
 	src/common/AdaptiveTree.cpp
+	src/common/AdaptiveUtils.cpp
 	src/common/Chooser.cpp
 	src/common/ChooserAskQuality.cpp
 	src/common/ChooserDefault.cpp
 	src/common/ChooserFixedRes.cpp
 	src/common/ChooserManualOSD.cpp
 	src/common/ChooserTest.cpp
+	src/common/CommonAttribs.cpp
+	src/common/CommonSegAttribs.cpp
+	src/common/Period.cpp
+	src/common/Representation.cpp
 	src/common/ReprSelector.cpp
+	src/common/Segment.cpp
+	src/common/SegmentList.cpp
+	src/common/SegTemplate.cpp
 	src/parser/DASHTree.cpp
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
@@ -45,6 +54,7 @@ set(ADP_SOURCES
 	src/utils/SettingsUtils.cpp
 	src/utils/UrlUtils.cpp
 	src/utils/Utils.cpp
+	src/utils/XMLUtils.cpp
 	src/KodiHost.cpp
 	src/oscompat.cpp
 	src/Session.cpp
@@ -56,7 +66,7 @@ set(ADP_SOURCES
 	)
 
 set(ADP_HEADERS
-    src/AdaptiveByteStream.h
+	src/AdaptiveByteStream.h
 	src/CryptoMode.h
 	src/main.h
 	src/oscompat.h
@@ -70,16 +80,25 @@ set(ADP_HEADERS
 	src/codechandler/VP9CodecHandler.h
 	src/codechandler/WebVTTCodecHandler.h
 	src/codechandler/ttml/TTML.h
-    src/common/AdaptiveDecrypter.h
+	src/common/AdaptationSet.h
+	src/common/AdaptiveDecrypter.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
+	src/common/AdaptiveUtils.h
 	src/common/Chooser.h
 	src/common/ChooserAskQuality.h
 	src/common/ChooserDefault.h
 	src/common/ChooserFixedRes.h
 	src/common/ChooserManualOSD.h
 	src/common/ChooserTest.h
+	src/common/CommonAttribs.h
+	src/common/CommonSegAttribs.h
+	src/common/Period.h
+	src/common/Representation.h
 	src/common/ReprSelector.h
+	src/common/Segment.h
+	src/common/SegmentList.h
+	src/common/SegTemplate.h
 	src/parser/DASHTree.h
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h
@@ -100,6 +119,7 @@ set(ADP_HEADERS
 	src/utils/StringUtils.h
 	src/utils/UrlUtils.h
 	src/utils/Utils.h
+	src/utils/XMLUtils.h
 	src/KodiHost.h
 	src/Session.h
 	src/Stream.h
@@ -138,7 +158,6 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 include_directories(${EXPAT_INCLUDE_DIRS}
                     ${PUGIXML_INCLUDE_DIRS})
-
 list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
 
 if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
@@ -164,6 +183,7 @@ set(DECRYPTERPATH "special://home/cdm")
 list(APPEND DEPLIBS ${BENTO4_LIBRARIES})
 list(APPEND DEPLIBS mpegts)
 list(APPEND DEPLIBS webm_parser)
+list(APPEND DEPLIBS ${PUGIXML_LIBRARIES})
 
 build_addon(inputstream.adaptive ADP DEPLIBS)
 

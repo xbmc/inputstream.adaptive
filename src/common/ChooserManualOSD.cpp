@@ -12,8 +12,8 @@
 #include "../utils/log.h"
 #include "ReprSelector.h"
 
-using namespace adaptive;
 using namespace CHOOSER;
+using namespace PLAYLIST;
 using namespace UTILS;
 
 CRepresentationChooserManualOSD::CRepresentationChooserManualOSD()
@@ -78,8 +78,8 @@ void CRepresentationChooserManualOSD::PostInit()
            m_screenWidth, m_screenHeight);
 }
 
-AdaptiveTree::Representation* CRepresentationChooserManualOSD::GetNextRepresentation(
-    AdaptiveTree::AdaptationSet* adp, AdaptiveTree::Representation* currentRep)
+PLAYLIST::CRepresentation* CRepresentationChooserManualOSD::GetNextRepresentation(
+    PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
 {
   if (currentRep)
     return currentRep;
