@@ -66,6 +66,11 @@ CFragmentedSampleReader::CFragmentedSampleReader(AP4_ByteStream* input,
 
   m_timeBaseExt = STREAM_TIME_BASE;
   m_timeBaseInt = m_track->GetMediaTimeScale();
+  if (m_timeBaseInt == 0)
+  {
+    LOG::LogF(LOGWARNING, "Unable to get track media timescale value.");
+    m_timeBaseInt = 1;
+  }
 
   // remove unneeded trailing zeroes
   while (m_timeBaseExt > 1)
