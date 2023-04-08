@@ -19,6 +19,7 @@ set(ADP_SOURCES
 	src/codechandler/WebVTTCodecHandler.cpp
 	src/codechandler/ttml/TTML.cpp
 	src/common/AdaptationSet.cpp
+	src/common/AdaptiveCencSampleDecrypter.cpp
 	src/common/AdaptiveStream.cpp
 	src/common/AdaptiveTree.cpp
 	src/common/AdaptiveUtils.cpp
@@ -80,6 +81,7 @@ set(ADP_HEADERS
 	src/codechandler/WebVTTCodecHandler.h
 	src/codechandler/ttml/TTML.h
 	src/common/AdaptationSet.h
+	src/common/AdaptiveCencSampleDecrypter.h
 	src/common/AdaptiveDecrypter.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
