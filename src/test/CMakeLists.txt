@@ -44,7 +44,7 @@ add_executable(${BINARY}
     ../utils/XMLUtils.cpp
     )
 
-target_link_libraries(${BINARY} PRIVATE ${EXPAT_LIBRARIES} ${PUGIXML_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(${BINARY} PRIVATE ${PUGIXML_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})
 
 set(TEST_DATA_DIR "${CMAKE_SOURCE_DIR}/src/test/manifests")
 add_test(NAME manifest_tests COMMAND ${BINARY} "${TEST_DATA_DIR}")

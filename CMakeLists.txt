@@ -143,7 +143,6 @@ include_directories(${INCLUDES}
 
 set(CMAKE_FIND_FRAMEWORK LAST)
 
-find_package(EXPAT REQUIRED)
 find_package(Bento4 REQUIRED)
 find_package(Pugixml REQUIRED)
 
@@ -156,9 +155,7 @@ endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
 
-include_directories(${EXPAT_INCLUDE_DIRS}
-                    ${PUGIXML_INCLUDE_DIRS})
-list(APPEND DEPLIBS ${EXPAT_LIBRARIES})
+include_directories(${PUGIXML_INCLUDE_DIRS})
 
 if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
   set(BENTOUSESTCFS 1)
