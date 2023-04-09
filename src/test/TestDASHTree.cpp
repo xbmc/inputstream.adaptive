@@ -393,43 +393,43 @@ TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
   auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
   EXPECT_EQ(adpSets[1]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
   EXPECT_EQ(adpSets[2]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
   EXPECT_EQ(adpSets[3]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
   EXPECT_EQ(adpSets[4]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
   EXPECT_EQ(adpSets[5]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
   EXPECT_EQ(adpSets[6]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
   EXPECT_EQ(adpSets[7]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[7]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[7]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[7]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
   EXPECT_EQ(adpSets[8]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[8]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[8]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[8]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
 
   EXPECT_EQ(adpSets[9]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[9]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[9]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[9]->GetRepresentations()[0]->ContainsCodec("my_codec"), true);
 
   EXPECT_EQ(adpSets[10]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
-  EXPECT_EQ(adpSets[10]->GetRepresentations()[0]->IsSubtitleStream(), true);
+  EXPECT_EQ(adpSets[10]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
   EXPECT_EQ(adpSets[10]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
 
   EXPECT_EQ(adpSets[11]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);

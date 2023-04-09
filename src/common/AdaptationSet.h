@@ -124,7 +124,6 @@ protected:
   uint64_t m_startPts{0};
   uint64_t m_duration{0};
 
-  std::string m_mimeType;
   std::set<std::string> m_codecs;
   StreamType m_streamType{StreamType::NOTYPE};
 

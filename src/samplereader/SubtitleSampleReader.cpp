@@ -8,7 +8,7 @@
 
 #include "SubtitleSampleReader.h"
 
-#include "../utils/MemUtils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/log.h"
 
 #include <kodi/Filesystem.h>
@@ -16,8 +16,8 @@
 using namespace UTILS;
 
 CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
-                                           AP4_UI32 streamId,
-                                           const std::string& codecInternalName)
+                                             AP4_UI32 streamId,
+                                             std::string_view codecInternalName)
   : m_streamId{streamId}
 {
   // open the file
@@ -40,28 +40,28 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
   file.Close();
 
   // Single subtitle file
-  if (codecInternalName == "wvtt")
+  if (STRING::Contains(codecInternalName, "wvtt"))
     m_codecHandler = new WebVTTCodecHandler(nullptr, true);
-  else
+  else if (STRING::Contains(codecInternalName, "ttml"))
     m_codecHandler = new TTMLCodecHandler(nullptr);
+  else
+    LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
 
   m_codecHandler->Transform(0, 0, result, 1000);
 }
 
 CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
                                              AP4_UI32 streamId,
-                                             const std::string& codecInternalName)
+                                             std::string_view codecInternalName)
   : m_streamId{streamId}, m_adByteStream{stream->GetAdByteStream()}, m_adStream{&stream->m_adStream}
 {
   // Segmented subtitle
-  if (codecInternalName == "wvtt")
-  {
+  if (STRING::Contains(codecInternalName, "wvtt"))
     m_codecHandler = new WebVTTCodecHandler(nullptr, false);
-  }
-  else
-  {
+  else if (STRING::Contains(codecInternalName, "ttml"))
     m_codecHandler = new TTMLCodecHandler(nullptr);
-  }
+  else
+    LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
 }
 
 AP4_Result CSubtitleSampleReader::Start(bool& bStarted)
