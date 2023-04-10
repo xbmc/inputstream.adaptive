@@ -22,9 +22,9 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
 {
   // Single subtitle file
   if (STRING::Contains(codecInternalName, "wvtt"))
-    m_codecHandler = new WebVTTCodecHandler(nullptr, true);
+    m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, true);
   else if (STRING::Contains(codecInternalName, "ttml"))
-    m_codecHandler = new TTMLCodecHandler(nullptr);
+    m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
   else
   {
     LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
@@ -81,9 +81,9 @@ CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
 {
   // Segmented subtitle
   if (STRING::Contains(codecInternalName, "wvtt"))
-    m_codecHandler = new WebVTTCodecHandler(nullptr, false);
+    m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
   else if (STRING::Contains(codecInternalName, "ttml"))
-    m_codecHandler = new TTMLCodecHandler(nullptr);
+    m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
   else
     LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
 }
@@ -198,7 +198,7 @@ bool CSubtitleSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
 
 bool CSubtitleSampleReader::TimeSeek(uint64_t pts, bool preceeding)
 {
-  if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler))
+  if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler.get()))
   {
     m_pts = pts;
     return true;
