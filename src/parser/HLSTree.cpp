@@ -101,6 +101,34 @@ ContainerType DetectContainerTypeFromExt(std::string_view extension)
     return ContainerType::INVALID;
 }
 
+// \brief Workaround to get audio codec from CODECS attribute list
+std::string GetAudioCodec(std::string_view codecs)
+{
+  //! @todo: this way to get the audio codec is inappropriate and can lead to bad playback
+  //! this because CODECS attribute its optionals and not guarantee to provide full codec list
+  //! the codec format should be provided by MP4 demuxer
+
+  // The codec search must follow exactly the following order, this is currently the best workaround
+  // to make multi-channel audio formats work, but since CODECS attribute is unreliable
+  // this workaround can still cause playback problems
+  if (codecs.find("ec-3") != std::string::npos)
+    return "ec-3";
+  else if (codecs.find("ac-3") != std::string::npos)
+    return "ac-3";
+  else
+    return "aac";
+}
+// \brief Workaround to get audio codec from representation codecs list
+std::string GetAudioCodec(const PLAYLIST::CRepresentation* repr)
+{
+  if (repr->ContainsCodec("ec-3"))
+    return "ec-3";
+  else if (repr->ContainsCodec("ac-3"))
+    return "ac-3";
+  else
+    return "aac";
+}
+
 } // unnamed namespace
 
 adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
@@ -890,7 +918,7 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
       if (STRING::KeyExists(attribs, "AUDIO"))
       {
         // Set codecs to the representations of audio group
-        m_extGroups[attribs["AUDIO"]].SetCodecs(attribs["CODECS"]);
+        m_extGroups[attribs["AUDIO"]].SetCodecs(GetAudioCodec(attribs["CODECS"]));
       }
       else
       {
@@ -1000,21 +1028,16 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
     auto repr = CRepresentation::MakeUniquePtr(newAdpSet.get());
     repr->SetTimescale(1000000);
 
-    // Try to get the codecs from first representation,
-    // if not found fallback to aac
-    std::set<std::string> codecs{"aac"};
+    // Try to get the codecs from first representation
+    std::string codec = "aac";
     auto& adpSets = period->GetAdaptationSets();
     if (!adpSets.empty())
     {
       auto& reprs = adpSets[0]->GetRepresentations();
       if (!reprs.empty())
-      {
-        const auto& reprCodecs = reprs[0]->GetCodecs();
-        if (reprCodecs.size() > 1)
-          codecs = reprCodecs;
-      }
+        codec = GetAudioCodec(reprs[0].get());
     }
-    repr->AddCodecs(codecs);
+    repr->AddCodecs(codec);
     repr->SetAudioChannels(2);
     repr->SetIsIncludedStream(true);
 
