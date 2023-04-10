@@ -20,6 +20,17 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
                                              std::string_view codecInternalName)
   : m_streamId{streamId}
 {
+  // Single subtitle file
+  if (STRING::Contains(codecInternalName, "wvtt"))
+    m_codecHandler = new WebVTTCodecHandler(nullptr, true);
+  else if (STRING::Contains(codecInternalName, "ttml"))
+    m_codecHandler = new TTMLCodecHandler(nullptr);
+  else
+  {
+    LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
+    return;
+  }
+
   // open the file
   kodi::vfs::CFile file;
   if (!file.CURLCreate(url))
@@ -29,25 +40,38 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
   file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE);
 
-  AP4_DataBuffer result;
+  AP4_DataBuffer fileData;
+  static const size_t bufferSize{16 * 1024}; // 16 Kbyte
+  bool isEOF{false};
 
-  // read the file
-  static const unsigned int CHUNKSIZE = 16384;
-  AP4_Byte buf[CHUNKSIZE];
-  size_t nbRead;
-  while ((nbRead = file.Read(buf, CHUNKSIZE)) > 0 && ~nbRead)
-    result.AppendData(buf, nbRead);
+  while (!isEOF)
+  {
+    // Read the data in chunks
+    std::vector<AP4_Byte> bufferData(bufferSize);
+    ssize_t byteRead = file.Read(bufferData.data(), bufferSize);
+
+    if (byteRead == -1)
+    {
+      LOG::Log(LOGERROR, "An error occurred in the download: %s", url.c_str());
+      break;
+    }
+    else if (byteRead == 0) // EOF or undectetable error
+    {
+      isEOF = true;
+    }
+    else
+    {
+      // Store the data
+      fileData.AppendData(bufferData.data(), byteRead);
+    }
+  }
+
   file.Close();
 
-  // Single subtitle file
-  if (STRING::Contains(codecInternalName, "wvtt"))
-    m_codecHandler = new WebVTTCodecHandler(nullptr, true);
-  else if (STRING::Contains(codecInternalName, "ttml"))
-    m_codecHandler = new TTMLCodecHandler(nullptr);
-  else
-    LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
-
-  m_codecHandler->Transform(0, 0, result, 1000);
+  if (isEOF && fileData.GetDataSize() > 0)
+  {
+    m_codecHandler->Transform(0, 0, fileData, 1000);
+  }
 }
 
 CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
