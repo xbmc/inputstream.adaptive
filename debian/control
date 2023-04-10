@@ -2,8 +2,7 @@ Source: kodi-inputstream-adaptive
 Priority: extra
 Maintainer: Team Kodi <dummy@kodi.tv>
 Build-Depends: debhelper (>= 9.0.0), cmake, libgtest-dev,
-               kodi-addon-dev, pkg-config, libexpat1-dev,
-               libpugixml-dev
+               kodi-addon-dev, pkg-config, libpugixml-dev
 Standards-Version: 3.9.8
 Section: libs
 Homepage: https://kodi.tv
