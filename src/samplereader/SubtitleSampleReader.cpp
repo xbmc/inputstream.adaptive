@@ -90,6 +90,12 @@ CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
 
 AP4_Result CSubtitleSampleReader::Start(bool& bStarted)
 {
+  if (!m_codecHandler)
+  {
+    m_eos = true;
+    return AP4_FAILURE;
+  }
+
   m_eos = false;
   if (m_started)
     return AP4_SUCCESS;
