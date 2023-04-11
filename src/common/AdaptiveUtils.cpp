@@ -11,6 +11,23 @@
 #include <cstdio> // sscanf
 #include <inttypes.h>
 
+std::string_view PLAYLIST::StreamTypeToString(const StreamType streamType)
+{
+  switch (streamType)
+  {
+    case StreamType::VIDEO:
+      return "video";
+    case StreamType::AUDIO:
+      return "audio";
+    case StreamType::SUBTITLE:
+      return "subtitle";
+    case StreamType::VIDEO_AUDIO:
+      return "video-audio";
+    default:
+      return "unknown";
+  }
+}
+
 bool PLAYLIST::ParseRangeRFC(std::string_view range, uint64_t& start, uint64_t& end)
 {
   //! @todo: must be reworked as https://httpwg.org/specs/rfc7233.html
