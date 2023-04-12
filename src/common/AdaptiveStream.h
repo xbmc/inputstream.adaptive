@@ -219,5 +219,9 @@ class AdaptiveStream;
     bool play_timeshift_buffer_;
     bool stream_changed_ = false;
     bool choose_rep_;
+
+    // Class ID for debug log purpose, allow the LOG prints of each AdaptiveStream to be distinguished
+    uint32_t clsId;
+    static uint32_t globalClsId; // Incremental value for each new class created
   };
 };

@@ -1124,21 +1124,8 @@ void adaptive::CHLSTree::SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
   std::string fileNameSuffix = "master";
   if (adpSet)
   {
-    switch (adpSet->GetStreamType())
-    {
-      case StreamType::VIDEO:
-        fileNameSuffix = "child-video";
-        break;
-      case StreamType::AUDIO:
-        fileNameSuffix = "child-audio";
-        break;
-      case StreamType::SUBTITLE:
-        fileNameSuffix = "child-subtitle";
-        break;
-      default:
-        fileNameSuffix = "child";
-        break;
-    }
+    fileNameSuffix += "child-";
+    fileNameSuffix += StreamTypeToString(adpSet->GetStreamType());
   }
 
   AdaptiveTree::SaveManifest(fileNameSuffix, data, info);
