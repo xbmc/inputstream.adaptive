@@ -12,7 +12,7 @@
 #include "CommonSegAttribs.h"
 #include "SegTemplate.h"
 #include "SegmentList.h"
-#include "../CryptoMode.h"
+#include "../utils/CryptoUtils.h"
 
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "../test/KodiStubs.h"

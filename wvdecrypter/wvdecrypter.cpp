@@ -171,8 +171,12 @@ public:
   void AddSessionKey(const uint8_t *data, size_t data_size, uint32_t status);
   bool HasKeyId(const uint8_t *keyid);
 
-  virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id, const AP4_UI08 *key, const AP4_UI08 nal_length_size,
-    AP4_DataBuffer &annexb_sps_pps, AP4_UI32 flags)override;
+  virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id,
+                                     const AP4_UI08* key,
+                                     const AP4_UI08 nal_length_size,
+                                     AP4_DataBuffer& annexb_sps_pps,
+                                     AP4_UI32 flags,
+                                     CryptoInfo cryptoInfo) override;
   virtual AP4_UI32 AddPool() override;
   virtual void RemovePool(AP4_UI32 poolid) override;
 
@@ -198,7 +202,6 @@ public:
   SSD_DECODE_RETVAL VideoFrameDataToPicture(void* hostInstance, SSD_PICTURE *picture);
   void ResetVideo();
 
-  void SetEncryptionMode(CryptoMode encryptionMode) override;
   void SetDefaultKeyId(std::string_view keyId) override;
   void AddKeyId(std::string_view keyId) override;
 
@@ -230,6 +233,7 @@ private:
     AP4_UI08 nal_length_size_;
     AP4_UI16 decrypter_flags_;
     AP4_DataBuffer annexb_sps_pps_;
+    CryptoInfo m_cryptoInfo;
   };
   std::vector<FINFO> fragment_pool_;
   void LogDecryptError(const cdm::Status status, const AP4_UI08* key);
@@ -529,6 +533,7 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
   {
     AP4_UI32 poolid(AddPool());
     fragment_pool_[poolid].key_ = key ? key : reinterpret_cast<const uint8_t*>(keys_.front().keyid.data());
+    fragment_pool_[poolid].m_cryptoInfo.m_mode = m_EncryptionMode;
 
     AP4_DataBuffer in, out;
     AP4_UI32 encb[2] = { 1,1 };
@@ -538,29 +543,20 @@ void WV_CencSingleSampleDecrypter::GetCapabilities(const uint8_t* key, uint32_t 
     in.SetBuffer(vf,12);
     in.SetDataSize(12);
     try {
-      if (DecryptSampleData(poolid, in, out, iv, 2, clearb, encb) != AP4_SUCCESS)
+      encb[0] = 12;
+      clearb[0] = 0;
+      if (DecryptSampleData(poolid, in, out, iv, 1, clearb, encb) != AP4_SUCCESS)
       {
-        encb[0] = 12;
-        clearb[0] = 0;
-        if (DecryptSampleData(poolid, in, out, iv, 1, clearb, encb) != AP4_SUCCESS)
-        {
-          LOG::LogF(SSDDEBUG, "Single decrypt failed, secure path only");
-          if (media == SSD_DECRYPTER::SSD_CAPS::SSD_MEDIA_VIDEO)
-            caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
-          else
-            caps.flags = SSD_DECRYPTER::SSD_CAPS::SSD_INVALID;
-        }
+        LOG::LogF(SSDDEBUG, "Single decrypt failed, secure path only");
+        if (media == SSD_DECRYPTER::SSD_CAPS::SSD_MEDIA_VIDEO)
+          caps.flags |= (SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH | SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED);
         else
-        {
-          LOG::LogF(SSDDEBUG, "Single decrypt possible");
-          caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT;
-          caps.hdcpVersion = 99;
-          caps.hdcpLimit = resolution_limit_;
-        }
+          caps.flags = SSD_DECRYPTER::SSD_CAPS::SSD_INVALID;
       }
       else
       {
-        LOG::LogF(SSDDEBUG, "Multiple decrypt possible");
+        LOG::LogF(SSDDEBUG, "Single decrypt possible");
+        caps.flags |= SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT;
         caps.hdcpVersion = 99;
         caps.hdcpLimit = resolution_limit_;
       }
@@ -1005,7 +1001,12 @@ bool WV_CencSingleSampleDecrypter::HasKeyId(const uint8_t *keyid)
   return false;
 }
 
-AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id, const AP4_UI08 *key, const AP4_UI08 nal_length_size, AP4_DataBuffer &annexb_sps_pps, AP4_UI32 flags)
+AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id,
+                                                         const AP4_UI08* key,
+                                                         const AP4_UI08 nal_length_size,
+                                                         AP4_DataBuffer& annexb_sps_pps,
+                                                         AP4_UI32 flags,
+                                                         CryptoInfo cryptoInfo)
 {
   if (pool_id >= fragment_pool_.size())
     return AP4_ERROR_OUT_OF_RANGE;
@@ -1014,6 +1015,7 @@ AP4_Result WV_CencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 pool_id, const
   fragment_pool_[pool_id].nal_length_size_ = nal_length_size;
   fragment_pool_[pool_id].annexb_sps_pps_.SetData(annexb_sps_pps.GetData(), annexb_sps_pps.GetDataSize());
   fragment_pool_[pool_id].decrypter_flags_ = flags;
+  fragment_pool_[pool_id].m_cryptoInfo = cryptoInfo;
 
   return AP4_SUCCESS;
 }
@@ -1101,9 +1103,9 @@ void WV_CencSingleSampleDecrypter::SetInput(cdm::InputBuffer_2& cdmInputBuffer,
   cdmInputBuffer.key_id = fragInfo.key_;
   cdmInputBuffer.key_id_size = 16;
   cdmInputBuffer.subsamples = subsamples.data();
-  cdmInputBuffer.encryption_scheme = media::ToCdmEncryptionScheme(m_EncryptionMode);
+  cdmInputBuffer.encryption_scheme = media::ToCdmEncryptionScheme(fragInfo.m_cryptoInfo.m_mode);
   cdmInputBuffer.timestamp = 0;
-  cdmInputBuffer.pattern = {m_CryptBlocks, m_SkipBlocks};
+  cdmInputBuffer.pattern = {fragInfo.m_cryptoInfo.m_cryptBlocks, fragInfo.m_cryptoInfo.m_skipBlocks};
 }
 
 /*----------------------------------------------------------------------
@@ -1264,43 +1266,9 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   cdm::Status ret{cdm::Status::kSuccess};
   std::vector<cdm::SubsampleEntry> subsamples;
   subsamples.reserve(subsample_count);
-  bool useSingleDecrypt{(fragInfo.decrypter_flags_ & SSD_DECRYPTER::SSD_CAPS::SSD_SINGLE_DECRYPT) !=
-                        0};
-  bool useCbcDecrypt{m_EncryptionMode == CryptoMode::AES_CBC};
+
+  bool useCbcDecrypt{fragInfo.m_cryptoInfo.m_mode == CryptoMode::AES_CBC};
   
-  // Decrypting (and not decoding) with subsamples > 1 seems to be broken for
-  // a long time now, we should consider removing support for this
-  if (!useSingleDecrypt) // The decrypter supports subsamples set > 1
-  {
-    uint32_t numCipherBytes{0};
-    for (size_t i{0}; i < subsample_count; i++)
-    {
-      subsamples.push_back({bytes_of_cleartext_data[i], bytes_of_encrypted_data[i]});
-      numCipherBytes += bytes_of_encrypted_data[i];
-    }
-
-    if (numCipherBytes == 0)
-    {
-      data_out.AppendData(data_in.GetData(), data_in.GetDataSize());
-      return AP4_SUCCESS;
-    }
-
-    cdm::InputBuffer_2 cdm_in;
-    SetInput(cdm_in, data_in, subsample_count, iv, fragInfo, subsamples);
-    data_out.SetDataSize(data_in.GetDataSize());
-    CdmBuffer buf{&data_out};
-    CdmDecryptedBlock cdm_out;
-    cdm_out.SetDecryptedBuffer(&buf);
-
-    CheckLicenseRenewal();
-    ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
-    if (ret != cdm::Status::kSuccess)
-    {
-      LogDecryptError(ret, fragInfo.key_);
-    }
-    return (ret == cdm::Status::kSuccess) ? AP4_SUCCESS : AP4_ERROR_INVALID_PARAMETERS;
-  }
-
   // We can only decrypt with subsamples set to 1
   // This must be handled differently for CENC and CBCS
   // CENC:
@@ -1310,81 +1278,79 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
   // from it before passing to CDM.
   // CBCS:
   // Due to the nature of this cipher subsamples must be decrypted separately
-  else
-  {
-    const unsigned int iterations{useCbcDecrypt ? subsample_count : 1};
-    size_t absPos{0};
 
-    for (unsigned int i{0}; i < iterations; ++i)
+  const unsigned int iterations{useCbcDecrypt ? subsample_count : 1};
+  size_t absPos{0};
+
+  for (unsigned int i{0}; i < iterations; ++i)
+  {
+    decrypt_in_.Reserve(data_in.GetDataSize());
+    decrypt_in_.SetDataSize(0);
+    size_t decryptInPos = absPos;
+    if (useCbcDecrypt)
     {
-      decrypt_in_.Reserve(data_in.GetDataSize());
-      decrypt_in_.SetDataSize(0);
-      size_t decryptInPos = absPos;
+      UnpackSubsampleData(data_in, decryptInPos, i, bytes_of_cleartext_data,
+                          bytes_of_encrypted_data);
+    }
+    else
+    {
+      for (unsigned int subsamplePos{0}; subsamplePos < subsample_count; ++subsamplePos)
+      {
+        UnpackSubsampleData(data_in, absPos, subsamplePos, bytes_of_cleartext_data, bytes_of_encrypted_data);
+      }
+    }
+
+    if (decrypt_in_.GetDataSize() > 0) // remember to include when calling setcdmsubsamples
+    {
+      SetCdmSubsamples(subsamples, useCbcDecrypt);
+    }
+
+    else // we have nothing to decrypt in this iteration
+    {
       if (useCbcDecrypt)
       {
-        UnpackSubsampleData(data_in, decryptInPos, i, bytes_of_cleartext_data,
+        data_out.AppendData(data_in.GetData() + absPos, bytes_of_cleartext_data[i]);
+        absPos += bytes_of_cleartext_data[i];
+        continue;
+      }
+      else // we can exit here for CENC and just return the input buffer
+      {
+        data_out.AppendData(data_in.GetData(), data_in.GetDataSize());
+        return AP4_SUCCESS;
+      }
+    }
+
+    cdm::InputBuffer_2 cdm_in;
+    SetInput(cdm_in, decrypt_in_, 1, iv, fragInfo, subsamples);
+    decrypt_out_.SetDataSize(decrypt_in_.GetDataSize());
+    CdmBuffer buf{&decrypt_out_};
+    CdmDecryptedBlock cdm_out;
+    cdm_out.SetDecryptedBuffer(&buf);
+
+    CheckLicenseRenewal();
+    ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
+
+    if (ret == cdm::Status::kSuccess)
+    {
+      size_t cipherPos = 0;
+      if (useCbcDecrypt)
+      {
+        RepackSubsampleData(data_in, data_out, absPos, cipherPos, i, bytes_of_cleartext_data,
                             bytes_of_encrypted_data);
       }
       else
       {
-        for (unsigned int subsamplePos{0}; subsamplePos < subsample_count; ++subsamplePos)
-        {
-          UnpackSubsampleData(data_in, absPos, subsamplePos, bytes_of_cleartext_data, bytes_of_encrypted_data);
-        }
-      }
-
-      if (decrypt_in_.GetDataSize() > 0) // remember to include when calling setcdmsubsamples
-      {
-        SetCdmSubsamples(subsamples, useCbcDecrypt);
-      }
-
-      else // we have nothing to decrypt in this iteration
-      {
-        if (useCbcDecrypt)
-        {
-          data_out.AppendData(data_in.GetData() + absPos, bytes_of_cleartext_data[i]);
-          absPos += bytes_of_cleartext_data[i];
-          continue;
-        }
-        else // we can exit here for CENC and just return the input buffer
-        {
-          data_out.AppendData(data_in.GetData(), data_in.GetDataSize());
-          return AP4_SUCCESS;
-        }
-      }
-
-      cdm::InputBuffer_2 cdm_in;
-      SetInput(cdm_in, decrypt_in_, 1, iv, fragInfo, subsamples);
-      decrypt_out_.SetDataSize(decrypt_in_.GetDataSize());
-      CdmBuffer buf{&decrypt_out_};
-      CdmDecryptedBlock cdm_out;
-      cdm_out.SetDecryptedBuffer(&buf);
-
-      CheckLicenseRenewal();
-      ret = drm_.GetCdmAdapter()->Decrypt(cdm_in, &cdm_out);
-
-      if (ret == cdm::Status::kSuccess)
-      {
-        size_t cipherPos = 0;
-        if (useCbcDecrypt)
+        size_t absPos{0};
+        for (unsigned int i{0}; i < subsample_count; ++i)
         {
           RepackSubsampleData(data_in, data_out, absPos, cipherPos, i, bytes_of_cleartext_data,
                               bytes_of_encrypted_data);
         }
-        else
-        {
-          size_t absPos{0};
-          for (unsigned int i{0}; i < subsample_count; ++i)
-          {
-            RepackSubsampleData(data_in, data_out, absPos, cipherPos, i, bytes_of_cleartext_data,
-                                bytes_of_encrypted_data);
-          }
-        }
       }
-      else
-      {
-        LogDecryptError(ret, fragInfo.key_);
-      }
+    }
+    else
+    {
+      LogDecryptError(ret, fragInfo.key_);
     }
   }
   return (ret == cdm::Status::kSuccess) ? AP4_SUCCESS : AP4_ERROR_INVALID_PARAMETERS;
@@ -1515,11 +1481,6 @@ void WV_CencSingleSampleDecrypter::ResetVideo()
 {
   drm_.GetCdmAdapter()->ResetDecoder(cdm::kStreamTypeVideo);
   drained_ = true;
-}
-
-void WV_CencSingleSampleDecrypter::SetEncryptionMode(CryptoMode encryptionMode)
-{
-  m_EncryptionMode = encryptionMode;
 }
 
 void WV_CencSingleSampleDecrypter::SetDefaultKeyId(std::string_view keyId)
