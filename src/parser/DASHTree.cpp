@@ -359,7 +359,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
   adpSet->SetId(XML::GetAttrib(nodeAdp, "id"));
 
-  std::string_view contentType;
+  std::string contentType;
 
   // Parse <ContentComponent> child tag
   xml_node nodeContComp = nodeAdp.child("ContentComponent");
@@ -732,27 +732,28 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   if (adpSet->GetStreamType() != StreamType::SUBTITLE)
   {
     if (adpSet->GetStreamType() == StreamType::NOTYPE)
-      adpSet->SetStreamType(DetectStreamType("", repr->GetMimeType()));
+    {
+      StreamType streamType = DetectStreamType("", repr->GetMimeType());
 
-    // Force set stream type and mime type to parent AdaptationSet
-    if (repr->ContainsCodec("wvtt"))
-    {
-      adpSet->SetStreamType(StreamType::SUBTITLE);
-      adpSet->SetMimeType("text/vtt");
-    }
-    else if (repr->ContainsCodec("ttml"))
-    {
-      adpSet->SetStreamType(StreamType::SUBTITLE);
-      adpSet->SetMimeType("application/ttml+xml");
+      if (streamType == StreamType::NOTYPE &&
+          (repr->ContainsCodec("wvtt") || (repr->ContainsCodec("ttml"))))
+        streamType = StreamType::SUBTITLE;
+
+      adpSet->SetStreamType(streamType);
     }
   }
-  if (adpSet->GetStreamType() == StreamType::SUBTITLE &&
-      (adpSet->GetMimeType() == "application/ttml+xml" || adpSet->GetMimeType() == "text/vtt"))
+
+  // Set properties for subtitles types
+  if (repr->GetMimeType() != "application/mp4") // Handle text type only, not ISOBMFF format
   {
-    if (adpSet->SegmentTimelineDuration().IsEmpty())
-      repr->SetIsSubtitleStream(true);
-    else
-      repr->SetContainerType(ContainerType::TEXT);
+    if (repr->GetMimeType() == "application/ttml+xml" || repr->GetMimeType() == "text/vtt" ||
+        repr->ContainsCodec("wvtt") || repr->ContainsCodec("ttml"))
+    {
+      if (adpSet->SegmentTimelineDuration().IsEmpty())
+        repr->SetIsSubtitleFileStream(true); // Treat as single subtitle file
+      else
+        repr->SetContainerType(ContainerType::TEXT); // Segmented subtitles
+    }
   }
 
   // ISA custom attribute
@@ -1152,7 +1153,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
                   "Cannot generate segments timeline, the segment count exceeds SIDX atom limit.");
       }
     }
-    else if (!repr->HasSegmentBase() && !repr->IsSubtitleStream())
+    else if (!repr->HasSegmentBase() && !repr->IsSubtitleFileStream())
     {
       //Let us try to extract the fragments out of SIDX atom
       repr->SetHasSegmentBase(true);

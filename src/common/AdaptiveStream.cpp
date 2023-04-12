@@ -1086,7 +1086,7 @@ bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
 
 uint64_t AdaptiveStream::getMaxTimeMs()
 {
-  if (current_rep_->IsSubtitleStream())
+  if (current_rep_->IsSubtitleFileStream())
     return 0;
 
   if (current_rep_->SegmentTimeline().IsEmpty())
@@ -1160,7 +1160,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (!current_rep_)
     return false;
 
-  if (current_rep_->IsSubtitleStream())
+  if (current_rep_->IsSubtitleFileStream())
     return true;
 
   std::unique_lock<std::mutex> lckTree(tree_.GetTreeMutex());

@@ -276,7 +276,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     return false;
   }
 
-  if (rep->IsSubtitleStream())
+  if (rep->IsSubtitleFileStream())
   {
     stream->SetReader(std::make_unique<CSubtitleSampleReader>(
         rep->GetUrl(), streamid, stream->m_info.GetCodecInternalName()));
@@ -295,8 +295,8 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (reprContainerType == ContainerType::TEXT)
   {
     stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
-    stream->SetReader(std::make_unique<CSubtitleSampleReader>(stream, streamid,
-                                                             stream->m_info.GetCodecInternalName()));
+    stream->SetReader(std::make_unique<CSubtitleSampleReader>(
+        stream, streamid, stream->m_info.GetCodecInternalName()));
   }
   else if (reprContainerType == ContainerType::TS)
   {

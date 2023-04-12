@@ -12,16 +12,19 @@
 #include "../Stream.h"
 #include "SampleReader.h"
 
+#include <memory>
+#include <string_view>
+
 class ATTR_DLL_LOCAL CSubtitleSampleReader : public ISampleReader
 {
 public:
   CSubtitleSampleReader(const std::string& url,
-                       AP4_UI32 streamId,
-                       const std::string& codecInternalName);
+                        AP4_UI32 streamId,
+                        std::string_view codecInternalName);
 
   CSubtitleSampleReader(SESSION::CStream* stream,
-                       AP4_UI32 streamId,
-                       const std::string& codecInternalName);
+                        AP4_UI32 streamId,
+                        std::string_view codecInternalName);
 
   bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
@@ -52,7 +55,7 @@ private:
   AP4_UI32 m_streamId;
   bool m_eos{false};
   bool m_started{false};
-  CodecHandler* m_codecHandler;
+  std::unique_ptr<CodecHandler> m_codecHandler;
   AP4_Sample m_sample;
   AP4_DataBuffer m_sampleData;
   CAdaptiveByteStream* m_adByteStream{nullptr};

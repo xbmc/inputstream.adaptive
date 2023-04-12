@@ -100,9 +100,16 @@ public:
   uint64_t GetDuration() const { return m_duration; }
   void SetDuration(uint64_t duration) { m_duration = duration; }
 
-  //! @todo: to investigate to know the reason why we need to have/use IsSubtitleStream for DASH
-  bool IsSubtitleStream() const { return m_isSubtitleStream; }
-  void SetIsSubtitleStream(bool isSubtitleStream) { m_isSubtitleStream = isSubtitleStream; }
+  /*!
+   * \brief Determines when the representation contains subtitles as single file
+   *        for the entire duration of the video.
+   * \return True if subtitles are as single file, otherwise false
+   */
+  bool IsSubtitleFileStream() const { return m_isSubtitleFileStream; }
+  void SetIsSubtitleFileStream(bool isSubtitleFileStream)
+  {
+    m_isSubtitleFileStream = isSubtitleFileStream;
+  }
 
   //! @todo: the use of HasInitialization/SetHasInitialization need to be improved maybe std::optional use
   bool HasInitialization() const { return m_hasInitialization; }
@@ -279,7 +286,7 @@ protected:
   uint64_t m_duration{0};
   uint32_t m_timescale{0};
 
-  bool m_isSubtitleStream{false};
+  bool m_isSubtitleFileStream{false};
   bool m_hasInitialization{false};
   bool m_hasInitPrefixed{false};
 

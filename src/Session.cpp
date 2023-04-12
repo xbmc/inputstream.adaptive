@@ -865,10 +865,10 @@ void CSession::UpdateStream(CStream& stream)
                                extraData->size());
   }
 
-  stream.m_info.SetCodecInternalName(rep->GetFirstCodec()); //! @todo: to be verified
   stream.m_info.SetCodecFourCC(0);
   stream.m_info.SetBitRate(rep->GetBandwidth());
 
+  // Original codec name
   std::string codecStr;
 
   if (streamType == StreamType::VIDEO)
@@ -889,9 +889,9 @@ void CSession::UpdateStream(CStream& stream)
     stream.m_info.SetColorPrimaries(INPUTSTREAM_COLORPRIMARY_UNSPECIFIED);
     stream.m_info.SetColorTransferCharacteristic(INPUTSTREAM_COLORTRC_UNSPECIFIED);
 
-    if (rep->ContainsCodec("avc") || rep->ContainsCodec("h264"))
+    if (rep->ContainsCodec("avc", codecStr) || rep->ContainsCodec("h264", codecStr))
       stream.m_info.SetCodecName("h264");
-    else if (rep->ContainsCodec("hev"))
+    else if (rep->ContainsCodec("hev", codecStr))
       stream.m_info.SetCodecName("hevc");
     else if (rep->ContainsCodec("hvc", codecStr) || rep->ContainsCodec("dvh", codecStr))
     {
@@ -925,7 +925,7 @@ void CSession::UpdateStream(CStream& stream)
         }
       }
     }
-    else if (rep->ContainsCodec("av1") || rep->ContainsCodec("av01"))
+    else if (rep->ContainsCodec("av1", codecStr) || rep->ContainsCodec("av01", codecStr))
       stream.m_info.SetCodecName("av1");
     else
     {
@@ -938,17 +938,17 @@ void CSession::UpdateStream(CStream& stream)
     stream.m_info.SetSampleRate(rep->GetSampleRate());
     stream.m_info.SetChannels(rep->GetAudioChannels());
 
-    if (rep->ContainsCodec("mp4a") || rep->ContainsCodec("aac"))
+    if (rep->ContainsCodec("mp4a", codecStr) || rep->ContainsCodec("aac", codecStr))
       stream.m_info.SetCodecName("aac");
-    else if (rep->ContainsCodec("dts"))
+    else if (rep->ContainsCodec("dts", codecStr))
       stream.m_info.SetCodecName("dca");
-    else if (rep->ContainsCodec("ac-3"))
+    else if (rep->ContainsCodec("ac-3", codecStr))
       stream.m_info.SetCodecName("ac3");
-    else if (rep->ContainsCodec("ec-3"))
+    else if (rep->ContainsCodec("ec-3", codecStr))
       stream.m_info.SetCodecName("eac3");
-    else if (rep->ContainsCodec("opus"))
+    else if (rep->ContainsCodec("opus", codecStr))
       stream.m_info.SetCodecName("opus");
-    else if (rep->ContainsCodec("vorbis"))
+    else if (rep->ContainsCodec("vorbis", codecStr))
       stream.m_info.SetCodecName("vorbis");
     else
     {
@@ -958,9 +958,9 @@ void CSession::UpdateStream(CStream& stream)
   }
   else if (streamType == StreamType::SUBTITLE)
   {
-    if (rep->ContainsCodec("stpp") || rep->ContainsCodec("ttml"))
+    if (rep->ContainsCodec("stpp", codecStr) || rep->ContainsCodec("ttml", codecStr))
       stream.m_info.SetCodecName("srt");
-    else if (rep->ContainsCodec("wvtt"))
+    else if (rep->ContainsCodec("wvtt", codecStr))
       stream.m_info.SetCodecName("webvtt");
     else
     {
@@ -968,6 +968,8 @@ void CSession::UpdateStream(CStream& stream)
       LOG::LogF(LOGERROR, "Unhandled subtitle codec");
     }
   }
+
+  stream.m_info.SetCodecInternalName(codecStr);
 }
 
 AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
