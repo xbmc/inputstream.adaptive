@@ -206,13 +206,11 @@ void AdaptiveStream::worker()
 
       lckdl.lock();
 
+      if (!isSegmentDownloaded)
       {
         std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-        if (!isSegmentDownloaded)
-        {
-          // Download cancelled or cannot download the file
-          state_ = STOPPED;
-        }
+        // Download cancelled or cannot download the file
+        state_ = STOPPED;
       }
 
       // Signal finished download
