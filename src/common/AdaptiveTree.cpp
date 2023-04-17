@@ -20,6 +20,7 @@
 #endif
 
 #include <algorithm>
+// #include <cassert>
 #include <chrono>
 #include <stdlib.h>
 #include <string.h>
@@ -46,7 +47,7 @@ namespace adaptive
   }
 
   AdaptiveTree::AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser)
-    : m_reprChooser(reprChooser)
+  : m_reprChooser(reprChooser)
   {
   }
 
@@ -56,24 +57,6 @@ namespace adaptive
     m_manifestHeaders = left.m_manifestHeaders;
     m_settings = left.m_settings;
     m_supportedKeySystem = left.m_supportedKeySystem;
-  }
-
-  AdaptiveTree::~AdaptiveTree()
-  {
-    has_timeshift_buffer_ = false;
-    if (updateThread_)
-    {
-      {
-        std::lock_guard<std::mutex> lck(updateMutex_);
-        updateVar_.notify_one();
-      }
-      updateThread_->join();
-      delete updateThread_;
-    }
-
-    std::lock_guard<std::mutex> lck(treeMutex_);
-    for (std::vector<Period*>::const_iterator bp(periods_.begin()), ep(periods_.end()); bp != ep; ++bp)
-      delete *bp;
   }
 
   void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
@@ -131,7 +114,7 @@ namespace adaptive
 
   void AdaptiveTree::SetFragmentDuration(const AdaptationSet* adp, const Representation* rep, size_t pos, uint64_t timestamp, uint32_t fragmentDuration, uint32_t movie_timescale)
   {
-    if (!has_timeshift_buffer_ || HasUpdateThread() ||
+    if (!has_timeshift_buffer_ || HasManifestUpdates() ||
       (rep->flags_ & AdaptiveTree::Representation::URLSEGMENTS) != 0)
       return;
 
@@ -394,33 +377,10 @@ namespace adaptive
     }
   }
 
-  void AdaptiveTree::RefreshUpdateThread()
-  {
-    if (HasUpdateThread())
-    {
-      std::lock_guard<std::mutex> lck(updateMutex_);
-      updateVar_.notify_one();
-    }
-  }
-
   void AdaptiveTree::StartUpdateThread()
   {
-    if (!updateThread_ && ~updateInterval_ && has_timeshift_buffer_ && !m_manifestUpdateParam.empty())
-      updateThread_ = new std::thread(&AdaptiveTree::SegmentUpdateWorker, this);
-  }
-
-  void AdaptiveTree::SegmentUpdateWorker()
-  {
-    std::unique_lock<std::mutex> updLck(updateMutex_);
-    while (~updateInterval_ && has_timeshift_buffer_)
-    {
-      if (updateVar_.wait_for(updLck, std::chrono::milliseconds(updateInterval_)) == std::cv_status::timeout)
-      {
-        std::lock_guard<std::mutex> lck(treeMutex_);
-        lastUpdated_ = std::chrono::system_clock::now();
-        RefreshLiveSegments();
-      }
-    }
+    if (HasManifestUpdates())
+      m_updThread.Initialize(this);
   }
 
   bool AdaptiveTree::DownloadManifest(std::string url,
@@ -564,4 +524,66 @@ namespace adaptive
     }
   }
 
-} // namespace
+  AdaptiveTree::TreeUpdateThread::~TreeUpdateThread()
+  {
+    // assert(m_waitQueue == 0); // Debug only, missing resume
+    m_threadStop = true;
+
+    if (m_updateThread)
+    {
+      m_cvUpdInterval.notify_all(); // Unlock possible waiting
+
+      if (m_updateThread->joinable())
+        m_updateThread->join();
+
+      delete m_updateThread;
+      m_updateThread = nullptr;
+    }
+  }
+
+  void AdaptiveTree::TreeUpdateThread::Initialize(AdaptiveTree* tree)
+  {
+    if (!m_updateThread)
+    {
+      m_tree = tree;
+      m_updateThread = new std::thread(&TreeUpdateThread::Worker, this);
+    }
+  }
+
+  void AdaptiveTree::TreeUpdateThread::Worker()
+  {
+    std::unique_lock<std::mutex> updLck(m_updMutex);
+
+    while (~m_tree->m_updateInterval && !m_threadStop)
+    {
+      if (m_cvUpdInterval.wait_for(updLck, std::chrono::milliseconds(m_tree->m_updateInterval)) ==
+          std::cv_status::timeout)
+      {
+        updLck.unlock();
+        // If paused, wait until last "Resume" will be called
+        std::unique_lock<std::mutex> lckWait(m_waitMutex);
+        m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
+
+        updLck.lock();
+        m_tree->RefreshLiveSegments();
+      }
+    }
+  }
+
+  void AdaptiveTree::TreeUpdateThread::Pause()
+  {
+    // If an update is already in progress the wait until its finished
+    std::lock_guard<std::mutex> updLck{m_updMutex};
+    m_waitQueue++;
+  }
+
+  void AdaptiveTree::TreeUpdateThread::Resume()
+  {
+    // assert(m_waitQueue != 0); // Debug only, resume without any pause
+    m_waitQueue--;
+    // If there are no more pauses, unblock the update thread
+    if (m_waitQueue == 0)
+      m_cvWait.notify_all();
+  }
+
+  } // namespace adaptive

@@ -1699,8 +1699,7 @@ void DASHTree::RefreshSegments(Period* period,
 {
   if ((type == VIDEO || type == AUDIO))
   {
-    lastUpdated_ = GetTimePointNowTime();
-    RefreshUpdateThread();
+    m_updThread.ResetStartTime();
     RefreshLiveSegments();
   }
 }
@@ -1709,300 +1708,304 @@ void DASHTree::RefreshSegments(Period* period,
 //! @todo: we are updating variables in non-thread safe way
 void DASHTree::RefreshLiveSegments()
 {
-  if (has_timeshift_buffer_ && !m_manifestUpdateParam.empty())
+  lastUpdated_ = std::chrono::system_clock::now();
+
+  if (m_manifestUpdateParam.empty())
   {
-    size_t numReplace{~(size_t)0};
-    size_t nextStartNumber{~(size_t)0};
+    LOG::LogF(LOGERROR, "Cannot refresh live segments, manifest update param is not set");
+    return;
+  }
 
-    std::unique_ptr<DASHTree> updateTree{std::move(Clone())};
+  size_t numReplace{~(size_t)0};
+  size_t nextStartNumber{~(size_t)0};
 
-    std::string manifestUrlUpd{manifest_url_};
-    bool urlHaveStartNumber{m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos};
+  std::unique_ptr<DASHTree> updateTree{std::move(Clone())};
 
-    if (urlHaveStartNumber)
+  std::string manifestUrlUpd{manifest_url_};
+  bool urlHaveStartNumber{m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos};
+
+  if (urlHaveStartNumber)
+  {
+    for (auto period : periods_)
     {
-      for (auto period : periods_)
+      if (!period)
+        continue;
+      for (auto adaptSet : period->adaptationSets_)
       {
-        if (!period)
+        if (!adaptSet)
           continue;
-        for (auto adaptSet : period->adaptationSets_)
+        for (auto repr : adaptSet->representations_)
         {
-          if (!adaptSet)
+          if (!repr)
             continue;
-          for (auto repr : adaptSet->representations_)
-          {
-            if (!repr)
-              continue;
 
-            if (repr->startNumber_ + repr->segments_.size() < nextStartNumber)
-              nextStartNumber = repr->startNumber_ + repr->segments_.size();
+          if (repr->startNumber_ + repr->segments_.size() < nextStartNumber)
+            nextStartNumber = repr->startNumber_ + repr->segments_.size();
 
-            size_t replaceable = repr->getCurrentSegmentPos() + 1;
-            if (replaceable == 0) // (~0ULL + 1) == 0
-              replaceable = repr->segments_.size();
+          size_t replaceable = repr->getCurrentSegmentPos() + 1;
+          if (replaceable == 0) // (~0ULL + 1) == 0
+            replaceable = repr->segments_.size();
 
-            if (replaceable < numReplace)
-              numReplace = replaceable;
-          }
+          if (replaceable < numReplace)
+            numReplace = replaceable;
         }
       }
-      LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %zu (numReplace: %zu)",
-                nextStartNumber, numReplace);
-
-      // Add the manifest update url parameter with the predefined url parameters
-      std::string updateParam = m_manifestUpdateParam;
-
-      STRING::ReplaceFirst(updateParam, "$START_NUMBER$", std::to_string(nextStartNumber));
-
-      URL::AppendParameters(updateTree->m_manifestParams, updateParam);
     }
+    LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %zu (numReplace: %zu)",
+              nextStartNumber, numReplace);
 
-    std::map<std::string, std::string> addHeaders;
+    // Add the manifest update url parameter with the predefined url parameters
+    std::string updateParam = m_manifestUpdateParam;
 
-    if (!urlHaveStartNumber)
+    STRING::ReplaceFirst(updateParam, "$START_NUMBER$", std::to_string(nextStartNumber));
+
+    URL::AppendParameters(updateTree->m_manifestParams, updateParam);
+  }
+
+  std::map<std::string, std::string> addHeaders;
+
+  if (!urlHaveStartNumber)
+  {
+    if (!m_manifestRespHeaders.m_etag.empty())
+      addHeaders["If-None-Match"] = "\"" + m_manifestRespHeaders.m_etag + "\"";
+
+    if (!m_manifestRespHeaders.m_lastModified.empty())
+      addHeaders["If-Modified-Since"] = m_manifestRespHeaders.m_lastModified;
+  }
+  //m_manifestParams
+  if (updateTree->open(manifestUrlUpd, addHeaders))
+  {
+    m_manifestRespHeaders = updateTree->m_manifestRespHeaders;
+    location_ = updateTree->location_;
+
+    //Youtube returns last smallest number in case the requested data is not available
+    if (urlHaveStartNumber && updateTree->firstStartNumber_ < nextStartNumber)
+      return;
+
+    for (size_t index{0}; index < updateTree->periods_.size(); index++)
     {
-      if (!m_manifestRespHeaders.m_etag.empty())
-        addHeaders["If-None-Match"] = "\"" + m_manifestRespHeaders.m_etag + "\"";
+      auto updPeriod = updateTree->periods_[index];
+      if (!updPeriod)
+        continue;
 
-      if (!m_manifestRespHeaders.m_lastModified.empty())
-        addHeaders["If-Modified-Since"] = m_manifestRespHeaders.m_lastModified;
-    }
-    //m_manifestParams
-    if (updateTree->open(manifestUrlUpd, addHeaders))
-    {
-      m_manifestRespHeaders = updateTree->m_manifestRespHeaders;
-      location_ = updateTree->location_;
-
-      //Youtube returns last smallest number in case the requested data is not available
-      if (urlHaveStartNumber && updateTree->firstStartNumber_ < nextStartNumber)
-        return;
-
-      for (size_t index{0}; index < updateTree->periods_.size(); index++)
+      Period* period{nullptr};
+      // find matching period based on ID
+      auto itPd = std::find_if(periods_.begin(), periods_.end(),
+                               [&updPeriod](const Period* item)
+                               { return !item->id_.empty() && item->id_ == updPeriod->id_; });
+      if (itPd == periods_.end())
       {
-        auto updPeriod = updateTree->periods_[index];
-        if (!updPeriod)
+        // not found, try matching period based on start
+        itPd = std::find_if(periods_.begin(), periods_.end(),
+                            [&updPeriod](const Period* item)
+                            { return item->start_ && item->start_ == updPeriod->start_; });
+      }
+      // found!
+      if (itPd != periods_.end())
+        period = *itPd;
+      if (!period && updPeriod->id_.empty() && updPeriod->start_ == 0)
+      {
+        // not found, fallback match based on position
+        if (index < periods_.size())
+          period = periods_[index];
+      }
+      // new period, insert it
+      if (!period)
+      {
+        LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->id_.c_str(),
+                  updPeriod->start_);
+        updateTree->periods_[index] = nullptr; // remove to prevent delete; we take ownership
+        updPeriod->sequence_ = current_sequence_++;
+        periods_.push_back(updPeriod);
+        continue;
+      }
+
+      for (auto updAdaptationSet : updPeriod->adaptationSets_)
+      {
+        // Locate adaptationset
+        if (!updAdaptationSet)
           continue;
 
-        Period* period{nullptr};
-        // find matching period based on ID
-        auto itPd = std::find_if(periods_.begin(), periods_.end(),
-                                 [&updPeriod](const Period* item)
-                                 { return !item->id_.empty() && item->id_ == updPeriod->id_; });
-        if (itPd == periods_.end())
+        for (auto adaptationSet : period->adaptationSets_)
         {
-          // not found, try matching period based on start
-          itPd = std::find_if(periods_.begin(), periods_.end(),
-                              [&updPeriod](const Period* item)
-                              { return item->start_ && item->start_ == updPeriod->start_; });
-        }
-        // found!
-        if (itPd != periods_.end())
-          period = *itPd;
-        if (!period && updPeriod->id_.empty() && updPeriod->start_ == 0)
-        {
-          // not found, fallback match based on position
-          if (index < periods_.size())
-            period = periods_[index];
-        }
-        // new period, insert it
-        if (!period)
-        {
-          LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->id_.c_str(),
-                    updPeriod->start_);
-          updateTree->periods_[index] = nullptr; // remove to prevent delete; we take ownership
-          updPeriod->sequence_ = current_sequence_++;
-          periods_.push_back(updPeriod);
-          continue;
-        }
-
-        for (auto updAdaptationSet : updPeriod->adaptationSets_)
-        {
-          // Locate adaptationset
-          if (!updAdaptationSet)
+          if (!(adaptationSet->id_ == updAdaptationSet->id_ &&
+                adaptationSet->group_ == updAdaptationSet->group_ &&
+                adaptationSet->type_ == updAdaptationSet->type_ &&
+                adaptationSet->mimeType_ == updAdaptationSet->mimeType_ &&
+                adaptationSet->language_ == updAdaptationSet->language_))
             continue;
 
-          for (auto adaptationSet : period->adaptationSets_)
+          for (auto updRepr : updAdaptationSet->representations_)
           {
-            if (!(adaptationSet->id_ == updAdaptationSet->id_ &&
-                  adaptationSet->group_ == updAdaptationSet->group_ &&
-                  adaptationSet->type_ == updAdaptationSet->type_ &&
-                  adaptationSet->mimeType_ == updAdaptationSet->mimeType_ &&
-                  adaptationSet->language_ == updAdaptationSet->language_))
-              continue;
+            // Locate representation
+            auto itR = std::find_if(
+                adaptationSet->representations_.begin(), adaptationSet->representations_.end(),
+                [&updRepr](const Representation* item) { return item->id == updRepr->id; });
 
-            for (auto updRepr : updAdaptationSet->representations_)
+            if (!updRepr->segments_.Get(0))
             {
-              // Locate representation
-              auto itR = std::find_if(
-                  adaptationSet->representations_.begin(), adaptationSet->representations_.end(),
-                  [&updRepr](const Representation* item) { return item->id == updRepr->id; });
+              LOG::LogF(LOGERROR,
+                        "Segment at position 0 not found from (update) representation id: %s",
+                        updRepr->id.c_str());
+              return;
+            }
 
-              if (!updRepr->segments_.Get(0))
+            if (itR != adaptationSet->representations_.end()) // Found representation
+            {
+              auto repr = *itR;
+
+              if (!repr->segments_.empty())
               {
-                LOG::LogF(LOGERROR,
-                          "Segment at position 0 not found from (update) representation id: %s",
-                          updRepr->id.c_str());
-                return;
-              }
-
-              if (itR != adaptationSet->representations_.end()) // Found representation
-              {
-                auto repr = *itR;
-
-                if (!repr->segments_.empty())
+                if (urlHaveStartNumber) // Partitial update
                 {
-                  if (urlHaveStartNumber) // Partitial update
+                  // Insert new segments
+                  uint64_t ptsOffset = repr->nextPts_ - updRepr->segments_.Get(0)->startPTS_;
+                  size_t currentPos = repr->getCurrentSegmentPos();
+                  size_t repFreeSegments{numReplace};
+
+                  auto updSegmentIt(updRepr->segments_.data.begin());
+                  for (; updSegmentIt != updRepr->segments_.data.end() && repFreeSegments != 0;
+                       updSegmentIt++)
                   {
-                    // Insert new segments
-                    uint64_t ptsOffset = repr->nextPts_ - updRepr->segments_.Get(0)->startPTS_;
-                    size_t currentPos = repr->getCurrentSegmentPos();
-                    size_t repFreeSegments{numReplace};
-
-                    auto updSegmentIt(updRepr->segments_.data.begin());
-                    for (; updSegmentIt != updRepr->segments_.data.end() && repFreeSegments != 0;
-                         updSegmentIt++)
+                    LOG::LogF(LOGDEBUG, "Insert representation (id: %s url: %s)",
+                              updRepr->id.c_str(), updSegmentIt->url.c_str());
+                    if (repr->flags_ & Representation::URLSEGMENTS)
                     {
-                      LOG::LogF(LOGDEBUG, "Insert representation (id: %s url: %s)",
-                                updRepr->id.c_str(), updSegmentIt->url.c_str());
-                      if (repr->flags_ & Representation::URLSEGMENTS)
+                      Segment* segment{repr->segments_.Get(0)};
+                      if (!segment)
                       {
-                        Segment* segment{repr->segments_.Get(0)};
-                        if (!segment)
-                        {
-                          LOG::LogF(LOGERROR,
-                                    "Segment at position 0 not found from representation id: %s",
-                                    repr->id.c_str());
-                          return;
-                        }
-                        segment->url.clear();
+                        LOG::LogF(LOGERROR,
+                                  "Segment at position 0 not found from representation id: %s",
+                                  repr->id.c_str());
+                        return;
                       }
-                      updSegmentIt->startPTS_ += ptsOffset;
-                      repr->segments_.insert(*updSegmentIt);
-                      if (repr->flags_ & Representation::URLSEGMENTS)
-                        updSegmentIt->url.clear();
-                      repr->startNumber_++;
-                      repFreeSegments--;
+                      segment->url.clear();
                     }
-
-                    //We have renewed the current segment
-                    if (!repFreeSegments && numReplace == currentPos + 1)
-                      repr->current_segment_ = nullptr;
-
-                    if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
-                        repr->get_next_segment(repr->current_segment_))
-                    {
-                      repr->flags_ &= ~Representation::WAITFORSEGMENT;
-                      LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", repr->id.c_str());
-                    }
-
-                    if (updSegmentIt == updRepr->segments_.data.end())
-                      repr->nextPts_ += updRepr->nextPts_;
-                    else
-                      repr->nextPts_ += updSegmentIt->startPTS_;
+                    updSegmentIt->startPTS_ += ptsOffset;
+                    repr->segments_.insert(*updSegmentIt);
+                    if (repr->flags_ & Representation::URLSEGMENTS)
+                      updSegmentIt->url.clear();
+                    repr->startNumber_++;
+                    repFreeSegments--;
                   }
-                  else if (updRepr->startNumber_ <= 1) // Full update, be careful with startnumbers!
+
+                  //We have renewed the current segment
+                  if (!repFreeSegments && numReplace == currentPos + 1)
+                    repr->current_segment_ = nullptr;
+
+                  if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
+                      repr->get_next_segment(repr->current_segment_))
                   {
-                    //TODO: check if first element or size differs
-                    uint64_t segmentId(repr->getCurrentSegmentNumber());
-                    if (repr->flags_ & DASHTree::Representation::TIMELINE)
+                    repr->flags_ &= ~Representation::WAITFORSEGMENT;
+                    LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", repr->id.c_str());
+                  }
+
+                  if (updSegmentIt == updRepr->segments_.data.end())
+                    repr->nextPts_ += updRepr->nextPts_;
+                  else
+                    repr->nextPts_ += updSegmentIt->startPTS_;
+                }
+                else if (updRepr->startNumber_ <= 1) // Full update, be careful with startnumbers!
+                {
+                  //TODO: check if first element or size differs
+                  uint64_t segmentId(repr->getCurrentSegmentNumber());
+                  if (repr->flags_ & DASHTree::Representation::TIMELINE)
+                  {
+                    uint64_t search_pts = updRepr->segments_.Get(0)->range_begin_;
+                    uint64_t misaligned = 0;
+                    for (const auto& segment : repr->segments_.data)
                     {
-                      uint64_t search_pts = updRepr->segments_.Get(0)->range_begin_;
-                      uint64_t misaligned = 0;
-                      for (const auto& segment : repr->segments_.data)
+                      if (misaligned)
                       {
-                        if (misaligned)
-                        {
-                          uint64_t ptsDiff = segment.range_begin_ - (&segment - 1)->range_begin_;
-                          // our misalignment is small ( < 2%), let's decrement the start number
-                          if (misaligned < (ptsDiff * 2 / 100))
-                            --repr->startNumber_;
-                          break;
-                        }
-                        if (segment.range_begin_ == search_pts)
-                          break;
-                        else if (segment.range_begin_ > search_pts)
-                        {
-                          if (&repr->segments_.data.front() == &segment)
-                          {
-                            --repr->startNumber_;
-                            break;
-                          }
-                          misaligned = search_pts - (&segment - 1)->range_begin_;
-                        }
-                        else
-                          ++repr->startNumber_;
+                        uint64_t ptsDiff = segment.range_begin_ - (&segment - 1)->range_begin_;
+                        // our misalignment is small ( < 2%), let's decrement the start number
+                        if (misaligned < (ptsDiff * 2 / 100))
+                          --repr->startNumber_;
+                        break;
                       }
-                    }
-                    else if (updRepr->segments_.Get(0)->startPTS_ ==
-                             repr->segments_.Get(0)->startPTS_)
-                    {
-                      uint64_t search_re = updRepr->segments_.Get(0)->range_end_;
-                      for (const auto& segment : repr->segments_.data)
+                      if (segment.range_begin_ == search_pts)
+                        break;
+                      else if (segment.range_begin_ > search_pts)
                       {
-                        if (segment.range_end_ >= search_re)
+                        if (&repr->segments_.data.front() == &segment)
+                        {
+                          --repr->startNumber_;
                           break;
+                        }
+                        misaligned = search_pts - (&segment - 1)->range_begin_;
+                      }
+                      else
                         ++repr->startNumber_;
-                      }
                     }
-                    else
-                    {
-                      uint64_t search_pts = updRepr->segments_.Get(0)->startPTS_;
-                      for (const auto& segment : repr->segments_.data)
-                      {
-                        if (segment.startPTS_ >= search_pts)
-                          break;
-                        ++repr->startNumber_;
-                      }
-                    }
-
-                    updRepr->segments_.swap(repr->segments_);
-                    if (!~segmentId || segmentId < repr->startNumber_)
-                      repr->current_segment_ = nullptr;
-                    else
-                    {
-                      if (segmentId >= repr->startNumber_ + repr->segments_.size())
-                        segmentId = repr->startNumber_ + repr->segments_.size() - 1;
-                      repr->current_segment_ =
-                          repr->get_segment(static_cast<size_t>(segmentId - repr->startNumber_));
-                    }
-
-                    if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
-                        repr->get_next_segment(repr->current_segment_))
-                      repr->flags_ &= ~Representation::WAITFORSEGMENT;
-
-                    LOG::LogF(
-                        LOGDEBUG,
-                        "Full update without start number (repr. id: %s current start: %u)",
-                        updRepr->id.c_str(), repr->startNumber_);
-                    overallSeconds_ = updateTree->overallSeconds_;
                   }
-                  else if (updRepr->startNumber_ > repr->startNumber_ ||
-                           (updRepr->startNumber_ == repr->startNumber_ &&
-                            updRepr->segments_.size() > repr->segments_.size()))
+                  else if (updRepr->segments_.Get(0)->startPTS_ ==
+                           repr->segments_.Get(0)->startPTS_)
                   {
-                    size_t segmentId(repr->getCurrentSegmentNumber());
-                    updRepr->segments_.swap(repr->segments_);
-                    repr->startNumber_ = updRepr->startNumber_;
-                    if (!~segmentId || segmentId < repr->startNumber_)
-                      repr->current_segment_ = nullptr;
-                    else
+                    uint64_t search_re = updRepr->segments_.Get(0)->range_end_;
+                    for (const auto& segment : repr->segments_.data)
                     {
-                      if (segmentId >= repr->startNumber_ + repr->segments_.size())
-                        segmentId = repr->startNumber_ + repr->segments_.size() - 1;
-                      repr->current_segment_ =
-                          repr->get_segment(static_cast<size_t>(segmentId - repr->startNumber_));
+                      if (segment.range_end_ >= search_re)
+                        break;
+                      ++repr->startNumber_;
                     }
-
-                    if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
-                        repr->get_next_segment(repr->current_segment_))
-                    {
-                      repr->flags_ &= ~Representation::WAITFORSEGMENT;
-                    }
-                    LOG::LogF(LOGDEBUG,
-                              "Full update with start number (repr. id: %s current start:%u)",
-                              updRepr->id.c_str(), repr->startNumber_);
-                    overallSeconds_ = updateTree->overallSeconds_;
                   }
+                  else
+                  {
+                    uint64_t search_pts = updRepr->segments_.Get(0)->startPTS_;
+                    for (const auto& segment : repr->segments_.data)
+                    {
+                      if (segment.startPTS_ >= search_pts)
+                        break;
+                      ++repr->startNumber_;
+                    }
+                  }
+
+                  updRepr->segments_.swap(repr->segments_);
+                  if (!~segmentId || segmentId < repr->startNumber_)
+                    repr->current_segment_ = nullptr;
+                  else
+                  {
+                    if (segmentId >= repr->startNumber_ + repr->segments_.size())
+                      segmentId = repr->startNumber_ + repr->segments_.size() - 1;
+                    repr->current_segment_ =
+                        repr->get_segment(static_cast<size_t>(segmentId - repr->startNumber_));
+                  }
+
+                  if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
+                      repr->get_next_segment(repr->current_segment_))
+                    repr->flags_ &= ~Representation::WAITFORSEGMENT;
+
+                  LOG::LogF(LOGDEBUG,
+                            "Full update without start number (repr. id: %s current start: %u)",
+                            updRepr->id.c_str(), repr->startNumber_);
+                  overallSeconds_ = updateTree->overallSeconds_;
+                }
+                else if (updRepr->startNumber_ > repr->startNumber_ ||
+                         (updRepr->startNumber_ == repr->startNumber_ &&
+                          updRepr->segments_.size() > repr->segments_.size()))
+                {
+                  size_t segmentId(repr->getCurrentSegmentNumber());
+                  updRepr->segments_.swap(repr->segments_);
+                  repr->startNumber_ = updRepr->startNumber_;
+                  if (!~segmentId || segmentId < repr->startNumber_)
+                    repr->current_segment_ = nullptr;
+                  else
+                  {
+                    if (segmentId >= repr->startNumber_ + repr->segments_.size())
+                      segmentId = repr->startNumber_ + repr->segments_.size() - 1;
+                    repr->current_segment_ =
+                        repr->get_segment(static_cast<size_t>(segmentId - repr->startNumber_));
+                  }
+
+                  if ((repr->flags_ & Representation::WAITFORSEGMENT) &&
+                      repr->get_next_segment(repr->current_segment_))
+                  {
+                    repr->flags_ &= ~Representation::WAITFORSEGMENT;
+                  }
+                  LOG::LogF(LOGDEBUG,
+                            "Full update with start number (repr. id: %s current start:%u)",
+                            updRepr->id.c_str(), repr->startNumber_);
+                  overallSeconds_ = updateTree->overallSeconds_;
                 }
               }
             }

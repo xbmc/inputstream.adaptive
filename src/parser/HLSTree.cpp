@@ -608,8 +608,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         else if (line.compare(0, 22, "#EXT-X-TARGETDURATION:") == 0)
         {
           uint32_t newInterval = atoi(line.c_str() + 22) * 1500;
-          if (newInterval < updateInterval_)
-            updateInterval_ = newInterval;
+          if (newInterval < m_updateInterval)
+            m_updateInterval = newInterval;
         }
         else if (line.compare(0, 30, "#EXT-X-DISCONTINUITY-SEQUENCE:") == 0)
         {
@@ -852,7 +852,7 @@ void HLSTree::OnDataArrived(uint64_t segNum,
 {
   if (psshSet && current_period_->encryptionState_ != ENCRYTIONSTATE_SUPPORTED)
   {
-    std::lock_guard<std::mutex> lck(treeMutex_);
+    std::lock_guard<TreeUpdateThread> lckUpdTree(GetTreeUpdMutex());
 
     Period::PSSH& pssh(current_period_->psshSets_[psshSet]);
     //Encrypted media, decrypt it
@@ -931,7 +931,8 @@ void HLSTree::RefreshSegments(Period* period,
   {
     if (rep->flags_ & Representation::INCLUDEDSTREAM)
       return;
-    RefreshUpdateThread();
+    
+    m_updThread.ResetStartTime();
     prepareRepresentation(period, adp, rep, true);
   }
 }
@@ -940,6 +941,8 @@ void HLSTree::RefreshSegments(Period* period,
 //! @todo: we are updating variables in non-thread safe way
 void HLSTree::RefreshLiveSegments()
 {
+  lastUpdated_ = std::chrono::system_clock::now();
+
   if (m_refreshPlayList)
   {
     std::vector<std::tuple<AdaptationSet*, Representation*>> refresh_list;

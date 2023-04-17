@@ -815,9 +815,9 @@ bool AdaptiveStream::ensureSegment()
     // wait until worker is ready for new segment
     std::unique_lock<std::mutex> lck(thread_data_->mutex_dl_);
     // lock live segment updates
-    std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
+    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
 
-    if (tree_.HasUpdateThread() && SecondsSinceUpdate() > 1)
+    if (tree_.HasManifestUpdates() && SecondsSinceUpdate() > 1)
     {
       tree_.RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->type_);
       lastUpdated_ = std::chrono::system_clock::now();
@@ -950,7 +950,7 @@ bool AdaptiveStream::ensureSegment()
         return false;
       }
     }
-    else if (tree_.HasUpdateThread() && current_period_ == tree_.periods_.back())
+    else if (tree_.HasManifestUpdates() && current_period_ == tree_.periods_.back())
     {
       if ((current_rep_->flags_ & AdaptiveTree::Representation::WAITFORSEGMENT) == 0)
       {
@@ -1090,7 +1090,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (current_rep_->flags_ & AdaptiveTree::Representation::SUBTITLESTREAM)
     return true;
 
-  std::unique_lock<std::mutex> lckTree(tree_.GetTreeMutex());
+  std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
 
   uint32_t choosen_seg(~0);
 
@@ -1159,9 +1159,10 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
 
 bool AdaptiveStream::waitingForSegment(bool checkTime) const
 {
-  if (tree_.HasUpdateThread() && state_ == RUNNING)
+  if (tree_.HasManifestUpdates() && state_ == RUNNING)
   {
-    std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
+    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
+
     if (current_rep_ && (current_rep_->flags_ & AdaptiveTree::Representation::WAITFORSEGMENT) != 0)
       return !checkTime ||
              (current_adp_->type_ != AdaptiveTree::VIDEO &&
