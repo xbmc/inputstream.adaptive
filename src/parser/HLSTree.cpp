@@ -335,8 +335,8 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         // Set update interval for manifest LIVE update
         // to maximum segment duration * 1500 secs (25 minuts)
         uint32_t newIntervalSecs = STRING::ToUint32(tagValue) * 1500;
-        if (newIntervalSecs < updateInterval_)
-          updateInterval_ = newIntervalSecs;
+        if (newIntervalSecs < m_updateInterval)
+          m_updateInterval = newIntervalSecs;
       }
       else if (tagName == "#EXTINF")
       {
@@ -665,7 +665,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
 {
   if (psshSet && m_currentPeriod->GetEncryptionState() != EncryptionState::ENCRYPTED_SUPPORTED)
   {
-    std::lock_guard<std::mutex> lck(treeMutex_);
+    std::lock_guard<TreeUpdateThread> lckUpdTree(GetTreeUpdMutex());
 
     std::vector<CPeriod::PSSHSet>& psshSets = m_currentPeriod->GetPSSHSets();
 
@@ -755,7 +755,8 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
   {
     if (rep->IsIncludedStream())
       return;
-    RefreshUpdateThread();
+
+    m_updThread.ResetStartTime();
     prepareRepresentation(period, adp, rep, true);
   }
 }
@@ -764,6 +765,8 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
 //! @todo: check updated variables that are not thread safe
 void adaptive::CHLSTree::RefreshLiveSegments()
 {
+  lastUpdated_ = std::chrono::system_clock::now();
+
   if (!m_refreshPlayList)
     return;
 

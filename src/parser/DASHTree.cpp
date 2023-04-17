@@ -247,7 +247,7 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
     if (duration == 0)
       duration = 30000;
 
-    updateInterval_ = static_cast<uint32_t>(duration);
+    m_updateInterval = static_cast<uint32_t>(duration);
   }
 
   if (mediaPresDuration == 0)
@@ -1527,8 +1527,7 @@ void adaptive::CDashTree::RefreshSegments(PLAYLIST::CPeriod* period,
 {
   if (type == StreamType::VIDEO || type == StreamType::AUDIO)
   {
-    lastUpdated_ = std::chrono::system_clock::now();
-    RefreshUpdateThread();
+    m_updThread.ResetStartTime();
     RefreshLiveSegments();
   }
 }
@@ -1537,308 +1536,310 @@ void adaptive::CDashTree::RefreshSegments(PLAYLIST::CPeriod* period,
 //! @todo: check updated variables that are not thread safe
 void adaptive::CDashTree::RefreshLiveSegments()
 {
-  if (has_timeshift_buffer_ && !m_manifestUpdateParam.empty())
+  lastUpdated_ = std::chrono::system_clock::now();
+
+  if (m_manifestUpdateParam.empty())
   {
-    size_t numReplace = SEGMENT_NO_POS;
-    uint64_t nextStartNumber = SEGMENT_NO_NUMBER;
+    LOG::LogF(LOGERROR, "Cannot refresh live segments, manifest update param is not set");
+    return;
+  }
 
-    std::unique_ptr<CDashTree> updateTree{std::move(Clone())};
+  size_t numReplace = SEGMENT_NO_POS;
+  uint64_t nextStartNumber = SEGMENT_NO_NUMBER;
 
-    std::string manifestUrlUpd = manifest_url_;
-    bool urlHaveStartNumber = m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos;
+  std::unique_ptr<CDashTree> updateTree{std::move(Clone())};
 
-    if (urlHaveStartNumber)
+  std::string manifestUrlUpd = manifest_url_;
+  bool urlHaveStartNumber = m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos;
+
+  if (urlHaveStartNumber)
+  {
+    for (auto& period : m_periods)
     {
-      for (auto& period : m_periods)
+      for (auto& adpSet : period->GetAdaptationSets())
       {
-        for (auto& adpSet : period->GetAdaptationSets())
+        for (auto& repr : adpSet->GetRepresentations())
         {
-          for (auto& repr : adpSet->GetRepresentations())
-          {
-            if (repr->GetStartNumber() + repr->SegmentTimeline().GetSize() < nextStartNumber)
-              nextStartNumber = repr->GetStartNumber() + repr->SegmentTimeline().GetSize();
+          if (repr->GetStartNumber() + repr->SegmentTimeline().GetSize() < nextStartNumber)
+            nextStartNumber = repr->GetStartNumber() + repr->SegmentTimeline().GetSize();
 
-            size_t posReplaceable = repr->getCurrentSegmentPos();
-            if (posReplaceable == SEGMENT_NO_POS)
-              posReplaceable = repr->SegmentTimeline().GetSize();
-            else
-              posReplaceable += 1;
+          size_t posReplaceable = repr->getCurrentSegmentPos();
+          if (posReplaceable == SEGMENT_NO_POS)
+            posReplaceable = repr->SegmentTimeline().GetSize();
+          else
+            posReplaceable += 1;
 
-            if (posReplaceable < numReplace)
-              numReplace = posReplaceable;
-          }
+          if (posReplaceable < numReplace)
+            numReplace = posReplaceable;
         }
       }
-      LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %llu (numReplace: %zu)",
-                nextStartNumber, numReplace);
-
-      // Add the manifest update url parameter with the predefined url parameters
-      std::string updateParam = m_manifestUpdateParam;
-
-      STRING::ReplaceFirst(updateParam, "$START_NUMBER$", std::to_string(nextStartNumber));
-
-      URL::AppendParameters(updateTree->m_manifestParams, updateParam);
     }
+    LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %llu (numReplace: %zu)",
+              nextStartNumber, numReplace);
 
-    std::map<std::string, std::string> addHeaders;
+    // Add the manifest update url parameter with the predefined url parameters
+    std::string updateParam = m_manifestUpdateParam;
 
-    if (!urlHaveStartNumber)
+    STRING::ReplaceFirst(updateParam, "$START_NUMBER$", std::to_string(nextStartNumber));
+
+    URL::AppendParameters(updateTree->m_manifestParams, updateParam);
+  }
+
+  std::map<std::string, std::string> addHeaders;
+
+  if (!urlHaveStartNumber)
+  {
+    if (!m_manifestRespHeaders.m_etag.empty())
+      addHeaders["If-None-Match"] = "\"" + m_manifestRespHeaders.m_etag + "\"";
+
+    if (!m_manifestRespHeaders.m_lastModified.empty())
+      addHeaders["If-Modified-Since"] = m_manifestRespHeaders.m_lastModified;
+  }
+
+  if (updateTree->open(manifestUrlUpd, addHeaders))
+  {
+    m_manifestRespHeaders = updateTree->m_manifestRespHeaders;
+    location_ = updateTree->location_;
+
+    // Youtube returns last smallest number in case the requested data is not available
+    if (urlHaveStartNumber && updateTree->m_firstStartNumber < nextStartNumber)
+      return;
+
+    for (size_t index{0}; index < updateTree->m_periods.size(); index++)
     {
-      if (!m_manifestRespHeaders.m_etag.empty())
-        addHeaders["If-None-Match"] = "\"" + m_manifestRespHeaders.m_etag + "\"";
+      auto& updPeriod = updateTree->m_periods[index];
 
-      if (!m_manifestRespHeaders.m_lastModified.empty())
-        addHeaders["If-Modified-Since"] = m_manifestRespHeaders.m_lastModified;
-    }
-
-    if (updateTree->open(manifestUrlUpd, addHeaders))
-    {
-      m_manifestRespHeaders = updateTree->m_manifestRespHeaders;
-      location_ = updateTree->location_;
-
-      // Youtube returns last smallest number in case the requested data is not available
-      if (urlHaveStartNumber && updateTree->m_firstStartNumber < nextStartNumber)
-        return;
-
-      for (size_t index{0}; index < updateTree->m_periods.size(); index++)
+      // find matching period based on ID
+      auto itPeriod =
+          std::find_if(m_periods.begin(), m_periods.end(),
+                       [&updPeriod](const std::unique_ptr<CPeriod>& item)
+                       { return !item->GetId().empty() && item->GetId() == updPeriod->GetId(); });
+      // if not found, try matching period based on start
+      if (itPeriod == m_periods.end())
       {
-        auto& updPeriod = updateTree->m_periods[index];
-
-        // find matching period based on ID
-        auto itPeriod =
+        itPeriod =
             std::find_if(m_periods.begin(), m_periods.end(),
                          [&updPeriod](const std::unique_ptr<CPeriod>& item)
-                         { return !item->GetId().empty() && item->GetId() == updPeriod->GetId(); });
-        // if not found, try matching period based on start
-        if (itPeriod == m_periods.end())
-        {
-          itPeriod =
-              std::find_if(m_periods.begin(), m_periods.end(),
-                           [&updPeriod](const std::unique_ptr<CPeriod>& item) {
-                             return item->GetStart() && item->GetStart() == updPeriod->GetStart();
-                           });
-        }
+                         { return item->GetStart() && item->GetStart() == updPeriod->GetStart(); });
+      }
 
-        CPeriod* period{nullptr};
+      CPeriod* period{nullptr};
 
-        if (itPeriod != m_periods.end())
-          period = (*itPeriod).get();
+      if (itPeriod != m_periods.end())
+        period = (*itPeriod).get();
 
-        if (!period && updPeriod->GetId().empty() && updPeriod->GetStart() == 0)
-        {
-          // not found, fallback match based on position
-          if (index < m_periods.size())
-            period = m_periods[index].get();
-        }
+      if (!period && updPeriod->GetId().empty() && updPeriod->GetStart() == 0)
+      {
+        // not found, fallback match based on position
+        if (index < m_periods.size())
+          period = m_periods[index].get();
+      }
 
-        // new period, insert it
-        if (!period)
-        {
-          LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->GetId().data(),
-                    updPeriod->GetStart());
+      // new period, insert it
+      if (!period)
+      {
+        LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->GetId().data(),
+                  updPeriod->GetStart());
 
-          updPeriod->SetSequence(m_periodCurrentSeq++);
-          m_periods.push_back(std::move(updPeriod));
+        updPeriod->SetSequence(m_periodCurrentSeq++);
+        m_periods.push_back(std::move(updPeriod));
+        continue;
+      }
+
+      for (auto& updAdpSet : updPeriod->GetAdaptationSets())
+      {
+        // Locate adaptationset
+        if (!updAdpSet)
           continue;
-        }
 
-        for (auto& updAdpSet : updPeriod->GetAdaptationSets())
+        for (auto& adpSet : period->GetAdaptationSets())
         {
-          // Locate adaptationset
-          if (!updAdpSet)
+          if (!(adpSet->GetId() == updAdpSet->GetId() &&
+                adpSet->GetGroup() == updAdpSet->GetGroup() &&
+                adpSet->GetStreamType() == updAdpSet->GetStreamType() &&
+                adpSet->GetMimeType() == updAdpSet->GetMimeType() &&
+                adpSet->GetLanguage() == updAdpSet->GetLanguage()))
             continue;
 
-          for (auto& adpSet : period->GetAdaptationSets())
+          for (auto& updRepr : updAdpSet->GetRepresentations())
           {
-            if (!(adpSet->GetId() == updAdpSet->GetId() &&
-                  adpSet->GetGroup() == updAdpSet->GetGroup() &&
-                  adpSet->GetStreamType() == updAdpSet->GetStreamType() &&
-                  adpSet->GetMimeType() == updAdpSet->GetMimeType() &&
-                  adpSet->GetLanguage() == updAdpSet->GetLanguage()))
-              continue;
+            // Locate representation
+            auto itRepr = std::find_if(adpSet->GetRepresentations().begin(),
+                                       adpSet->GetRepresentations().end(),
+                                       [&updRepr](const std::unique_ptr<CRepresentation>& item)
+                                       { return item->GetId() == updRepr->GetId(); });
 
-            for (auto& updRepr : updAdpSet->GetRepresentations())
+            if (!updRepr->SegmentTimeline().Get(0))
             {
-              // Locate representation
-              auto itRepr = std::find_if(adpSet->GetRepresentations().begin(),
-                                         adpSet->GetRepresentations().end(),
-                                         [&updRepr](const std::unique_ptr<CRepresentation>& item)
-                                         { return item->GetId() == updRepr->GetId(); });
+              LOG::LogF(LOGERROR,
+                        "Segment at position 0 not found from (update) representation id: %s",
+                        updRepr->GetId().data());
+              return;
+            }
 
-              if (!updRepr->SegmentTimeline().Get(0))
+            // Found representation
+            if (itRepr != adpSet->GetRepresentations().end())
+            {
+              auto repr = (*itRepr).get();
+
+              if (!repr->SegmentTimeline().IsEmpty())
               {
-                LOG::LogF(LOGERROR,
-                          "Segment at position 0 not found from (update) representation id: %s",
-                          updRepr->GetId().data());
-                return;
-              }
-
-              // Found representation
-              if (itRepr != adpSet->GetRepresentations().end())
-              {
-                auto repr = (*itRepr).get();
-
-                if (!repr->SegmentTimeline().IsEmpty())
+                if (urlHaveStartNumber) // Partitial update
                 {
-                  if (urlHaveStartNumber) // Partitial update
+                  auto& updReprSegTL = updRepr->SegmentTimeline();
+
+                  // Insert new segments
+                  uint64_t ptsOffset = repr->nextPts_ - updReprSegTL.Get(0)->startPTS_;
+                  size_t currentPos = repr->getCurrentSegmentPos();
+                  size_t repFreeSegments{numReplace};
+
+                  auto updSegmentIt(updReprSegTL.GetData().begin());
+                  for (; updSegmentIt != updReprSegTL.GetData().end() && repFreeSegments != 0;
+                       updSegmentIt++)
                   {
-                    auto& updReprSegTL = updRepr->SegmentTimeline();
-
-                    // Insert new segments
-                    uint64_t ptsOffset = repr->nextPts_ - updReprSegTL.Get(0)->startPTS_;
-                    size_t currentPos = repr->getCurrentSegmentPos();
-                    size_t repFreeSegments{numReplace};
-
-                    auto updSegmentIt(updReprSegTL.GetData().begin());
-                    for (; updSegmentIt != updReprSegTL.GetData().end() && repFreeSegments != 0;
-                         updSegmentIt++)
+                    LOG::LogF(LOGDEBUG, "Insert representation (id: %s url: %s)",
+                              updRepr->GetId().data(), updSegmentIt->url.c_str());
+                    if (repr->HasSegmentsUrl())
                     {
-                      LOG::LogF(LOGDEBUG, "Insert representation (id: %s url: %s)",
-                                updRepr->GetId().data(), updSegmentIt->url.c_str());
-                      if (repr->HasSegmentsUrl())
+                      CSegment* segment = repr->SegmentTimeline().Get(0);
+                      if (!segment)
                       {
-                        CSegment* segment = repr->SegmentTimeline().Get(0);
-                        if (!segment)
-                        {
-                          LOG::LogF(LOGERROR,
-                                    "Segment at position 0 not found from representation id: %s",
-                                    repr->GetId().data());
-                          return;
-                        }
-                        segment->url.clear();
+                        LOG::LogF(LOGERROR,
+                                  "Segment at position 0 not found from representation id: %s",
+                                  repr->GetId().data());
+                        return;
                       }
-                      updSegmentIt->startPTS_ += ptsOffset;
-                      repr->SegmentTimeline().Insert(*updSegmentIt);
+                      segment->url.clear();
+                    }
+                    updSegmentIt->startPTS_ += ptsOffset;
+                    repr->SegmentTimeline().Insert(*updSegmentIt);
 
-                      if (repr->HasSegmentsUrl())
-                        updSegmentIt->url.clear();
+                    if (repr->HasSegmentsUrl())
+                      updSegmentIt->url.clear();
 
+                    repr->SetStartNumber(repr->GetStartNumber() + 1);
+                    repFreeSegments--;
+                  }
+
+                  // We have renewed the current segment
+                  if (!repFreeSegments && numReplace == currentPos + 1)
+                    repr->current_segment_ = nullptr;
+
+                  if ((repr->IsWaitForSegment()) && repr->get_next_segment(repr->current_segment_))
+                  {
+                    repr->SetIsWaitForSegment(false);
+                    LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", repr->GetId().data());
+                  }
+
+                  if (updSegmentIt == updReprSegTL.GetData().end())
+                    repr->nextPts_ += updRepr->nextPts_;
+                  else
+                    repr->nextPts_ += updSegmentIt->startPTS_;
+                }
+                else if (updRepr->GetStartNumber() <= 1)
+                {
+                  // Full update, be careful with start numbers!
+
+                  //! @todo: check if first element or size differs
+                  uint64_t segmentId = repr->getCurrentSegmentNumber();
+
+                  if (repr->HasSegmentTimeline())
+                  {
+                    uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->range_begin_;
+                    uint64_t misaligned = 0;
+                    for (const auto& segment : repr->SegmentTimeline().GetData())
+                    {
+                      if (misaligned)
+                      {
+                        uint64_t ptsDiff = segment.range_begin_ - (&segment - 1)->range_begin_;
+                        // our misalignment is small ( < 2%), let's decrement the start number
+                        if (misaligned < (ptsDiff * 2 / 100))
+                          repr->SetStartNumber(repr->GetStartNumber() - 1);
+                        break;
+                      }
+                      if (segment.range_begin_ == search_pts)
+                        break;
+                      else if (segment.range_begin_ > search_pts)
+                      {
+                        if (&repr->SegmentTimeline().GetData().front() == &segment)
+                        {
+                          repr->SetStartNumber(repr->GetStartNumber() - 1);
+                          break;
+                        }
+                        misaligned = search_pts - (&segment - 1)->range_begin_;
+                      }
+                      else
+                        repr->SetStartNumber(repr->GetStartNumber() + 1);
+                    }
+                  }
+                  else if (updRepr->SegmentTimeline().Get(0)->startPTS_ ==
+                           repr->SegmentTimeline().Get(0)->startPTS_)
+                  {
+                    uint64_t search_re = updRepr->SegmentTimeline().Get(0)->range_end_;
+                    for (const auto& segment : repr->SegmentTimeline().GetData())
+                    {
+                      if (segment.range_end_ >= search_re)
+                        break;
                       repr->SetStartNumber(repr->GetStartNumber() + 1);
-                      repFreeSegments--;
                     }
-
-                    // We have renewed the current segment
-                    if (!repFreeSegments && numReplace == currentPos + 1)
-                      repr->current_segment_ = nullptr;
-
-                    if ((repr->IsWaitForSegment()) &&
-                        repr->get_next_segment(repr->current_segment_))
-                    {
-                      repr->SetIsWaitForSegment(false);
-                      LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", repr->GetId().data());
-                    }
-
-                    if (updSegmentIt == updReprSegTL.GetData().end())
-                      repr->nextPts_ += updRepr->nextPts_;
-                    else
-                      repr->nextPts_ += updSegmentIt->startPTS_;
                   }
-                  else if (updRepr->GetStartNumber() <= 1)
+                  else
                   {
-                    // Full update, be careful with start numbers!
-
-                    //! @todo: check if first element or size differs
-                    uint64_t segmentId = repr->getCurrentSegmentNumber();
-
-                    if (repr->HasSegmentTimeline())
+                    uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->startPTS_;
+                    for (const auto& segment : repr->SegmentTimeline().GetData())
                     {
-                      uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->range_begin_;
-                      uint64_t misaligned = 0;
-                      for (const auto& segment : repr->SegmentTimeline().GetData())
-                      {
-                        if (misaligned)
-                        {
-                          uint64_t ptsDiff = segment.range_begin_ - (&segment - 1)->range_begin_;
-                          // our misalignment is small ( < 2%), let's decrement the start number
-                          if (misaligned < (ptsDiff * 2 / 100))
-                            repr->SetStartNumber(repr->GetStartNumber() - 1);
-                          break;
-                        }
-                        if (segment.range_begin_ == search_pts)
-                          break;
-                        else if (segment.range_begin_ > search_pts)
-                        {
-                          if (&repr->SegmentTimeline().GetData().front() == &segment)
-                          {
-                            repr->SetStartNumber(repr->GetStartNumber() - 1);
-                            break;
-                          }
-                          misaligned = search_pts - (&segment - 1)->range_begin_;
-                        }
-                        else
-                          repr->SetStartNumber(repr->GetStartNumber() + 1);
-                      }
+                      if (segment.startPTS_ >= search_pts)
+                        break;
+                      repr->SetStartNumber(repr->GetStartNumber() + 1);
                     }
-                    else if (updRepr->SegmentTimeline().Get(0)->startPTS_ ==
-                             repr->SegmentTimeline().Get(0)->startPTS_)
-                    {
-                      uint64_t search_re = updRepr->SegmentTimeline().Get(0)->range_end_;
-                      for (const auto& segment : repr->SegmentTimeline().GetData())
-                      {
-                        if (segment.range_end_ >= search_re)
-                          break;
-                        repr->SetStartNumber(repr->GetStartNumber() + 1);
-                      }
-                    }
-                    else
-                    {
-                      uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->startPTS_;
-                      for (const auto& segment : repr->SegmentTimeline().GetData())
-                      {
-                        if (segment.startPTS_ >= search_pts)
-                          break;
-                        repr->SetStartNumber(repr->GetStartNumber() + 1);
-                      }
-                    }
-
-                    updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
-                    if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
-                      repr->current_segment_ = nullptr;
-                    else
-                    {
-                      if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
-                        segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
-                      repr->current_segment_ = repr->get_segment(
-                          static_cast<size_t>(segmentId - repr->GetStartNumber()));
-                    }
-
-                    if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
-                      repr->SetIsWaitForSegment(false);
-
-                    LOG::LogF(LOGDEBUG,
-                              "Full update without start number (repr. id: %s current start: %u)",
-                              updRepr->GetId().data(), repr->GetStartNumber());
-                    m_totalTimeSecs = updateTree->m_totalTimeSecs;
                   }
-                  else if (updRepr->GetStartNumber() > repr->GetStartNumber() ||
-                           (updRepr->GetStartNumber() == repr->GetStartNumber() &&
-                            updRepr->SegmentTimeline().GetSize() >
-                                repr->SegmentTimeline().GetSize()))
+
+                  updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
+                  if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
+                    repr->current_segment_ = nullptr;
+                  else
                   {
-                    uint64_t segmentId = repr->getCurrentSegmentNumber();
-
-                    updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
-                    repr->SetStartNumber(updRepr->GetStartNumber());
-
-                    if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
-                      repr->current_segment_ = nullptr;
-                    else
-                    {
-                      if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
-                        segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
-                      repr->current_segment_ = repr->get_segment(
-                          static_cast<size_t>(segmentId - repr->GetStartNumber()));
-                    }
-
-                    if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
-                    {
-                      repr->SetIsWaitForSegment(false);
-                    }
-                    LOG::LogF(LOGDEBUG,
-                              "Full update with start number (repr. id: %s current start:%u)",
-                              updRepr->GetId().data(), repr->GetStartNumber());
-                    m_totalTimeSecs = updateTree->m_totalTimeSecs;
+                    if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
+                      segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
+                    repr->current_segment_ =
+                        repr->get_segment(static_cast<size_t>(segmentId - repr->GetStartNumber()));
                   }
+
+                  if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
+                    repr->SetIsWaitForSegment(false);
+
+                  LOG::LogF(LOGDEBUG,
+                            "Full update without start number (repr. id: %s current start: %u)",
+                            updRepr->GetId().data(), repr->GetStartNumber());
+                  m_totalTimeSecs = updateTree->m_totalTimeSecs;
+                }
+                else if (updRepr->GetStartNumber() > repr->GetStartNumber() ||
+                         (updRepr->GetStartNumber() == repr->GetStartNumber() &&
+                          updRepr->SegmentTimeline().GetSize() > repr->SegmentTimeline().GetSize()))
+                {
+                  uint64_t segmentId = repr->getCurrentSegmentNumber();
+
+                  updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
+                  repr->SetStartNumber(updRepr->GetStartNumber());
+
+                  if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
+                    repr->current_segment_ = nullptr;
+                  else
+                  {
+                    if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
+                      segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
+                    repr->current_segment_ =
+                        repr->get_segment(static_cast<size_t>(segmentId - repr->GetStartNumber()));
+                  }
+
+                  if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
+                  {
+                    repr->SetIsWaitForSegment(false);
+                  }
+                  LOG::LogF(LOGDEBUG,
+                            "Full update with start number (repr. id: %s current start:%u)",
+                            updRepr->GetId().data(), repr->GetStartNumber());
+                  m_totalTimeSecs = updateTree->m_totalTimeSecs;
                 }
               }
             }
