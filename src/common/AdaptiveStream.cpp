@@ -841,9 +841,9 @@ bool AdaptiveStream::ensureSegment()
     // wait until worker is ready for new segment
     std::unique_lock<std::mutex> lck(thread_data_->mutex_dl_);
     // lock live segment updates
-    std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
+    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
 
-    if (tree_.HasUpdateThread() && SecondsSinceUpdate() > 1)
+    if (tree_.HasManifestUpdates() && SecondsSinceUpdate() > 1)
     {
       tree_.RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->GetStreamType());
       lastUpdated_ = std::chrono::system_clock::now();
@@ -986,7 +986,7 @@ bool AdaptiveStream::ensureSegment()
         return false;
       }
     }
-    else if (tree_.HasUpdateThread() && current_period_ == tree_.m_periods.back().get())
+    else if (tree_.HasManifestUpdates() && current_period_ == tree_.m_periods.back().get())
     {
       if (!current_rep_->IsWaitForSegment())
       {
@@ -1163,7 +1163,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (current_rep_->IsSubtitleFileStream())
     return true;
 
-  std::unique_lock<std::mutex> lckTree(tree_.GetTreeMutex());
+  std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
 
   uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->GetTimescale());
 
@@ -1238,9 +1238,10 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
 
 bool AdaptiveStream::waitingForSegment(bool checkTime) const
 {
-  if (tree_.HasUpdateThread() && state_ == RUNNING)
+  if (tree_.HasManifestUpdates() && state_ == RUNNING)
   {
-    std::lock_guard<std::mutex> lckTree(tree_.GetTreeMutex());
+    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
+
     if (current_rep_ && current_rep_->IsWaitForSegment())
     {
       return !checkTime ||

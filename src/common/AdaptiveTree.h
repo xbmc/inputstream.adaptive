@@ -14,6 +14,7 @@
 #include "Period.h"
 #include "Representation.h"
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <map>
@@ -85,7 +86,7 @@ public:
 
   AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser);
   AdaptiveTree(const AdaptiveTree& left);
-  virtual ~AdaptiveTree();
+  virtual ~AdaptiveTree() = default;
 
   /*!
    * \brief Configure the adaptive tree.
@@ -150,13 +151,12 @@ public:
 
   std::string BuildDownloadUrl(const std::string& url) const;
 
-  std::mutex &GetTreeMutex() { return treeMutex_; };
-  bool HasUpdateThread() const
+  bool HasManifestUpdates() const
   {
-    return updateThread_ != 0 && has_timeshift_buffer_ && updateInterval_ &&
+    return ~m_updateInterval && m_updateInterval > 0 && has_timeshift_buffer_ &&
            !m_manifestUpdateParam.empty();
   }
-  void RefreshUpdateThread();
+
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
 
   CHOOSER::IRepresentationChooser* GetRepChooser() { return m_reprChooser; }
@@ -185,6 +185,54 @@ public:
   }
 
   Settings m_settings;
+
+  class TreeUpdateThread
+  {
+  public:
+    TreeUpdateThread() = default;
+    ~TreeUpdateThread();
+
+    void Initialize(AdaptiveTree* tree);
+
+    // \brief Reset start time (make exit the condition variable m_cvUpdInterval and re-start the timeout)
+    void ResetStartTime() { m_cvUpdInterval.notify_all(); }
+
+    // \brief As "std::mutex" lock, but put in pause the manifest updates (support std::lock_guard).
+    //        If an update is in progress, block the code until the update is finished.
+    void lock() { Pause(); }
+
+    // \brief As "std::mutex" unlock, but resume the manifest updates (support std::lock_guard).
+    void unlock() { Resume(); }
+
+  private:
+    void Worker();
+    void Pause();
+    void Resume();
+
+    std::thread* m_updateThread{nullptr};
+    AdaptiveTree* m_tree{nullptr};
+
+    // Reentrant mode to pause updates, which will be resumed as soon as the queue is removed,
+    // each time Pause() is called will add a wait queue
+    // each time Resume() is called remove a wait queue
+    // when there are no more wait queue, the updates will be resumed.
+    std::atomic<uint32_t> m_waitQueue{0};
+
+    std::mutex m_updMutex;
+    std::condition_variable m_cvUpdInterval;
+    std::mutex m_waitMutex;
+    std::condition_variable m_cvWait;
+    bool m_threadStop{false};
+  };
+
+  /*!
+   * \brief Get the tree manifest update thread to be used like an "std::mutex"
+   *        to put in pause/resume tree manifest updates betweeen other operations.
+   *        NOTE: this is a custom mutex that act as reentrant way,
+   *        then can be used at same time by different threads, the code that call the mutex lock
+   *        will be blocked only when the manifest updates are already in progress.
+   */
+  TreeUpdateThread& GetTreeUpdMutex() { return m_updThread; };
 
 protected:
 
@@ -230,22 +278,17 @@ protected:
 
   // Live segment update section
   virtual void StartUpdateThread();
-  virtual void RefreshLiveSegments(){};
+  virtual void RefreshLiveSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
+  std::atomic<uint32_t> m_updateInterval{~0U};
+  TreeUpdateThread m_updThread;
+  std::atomic<std::chrono::time_point<std::chrono::system_clock>> lastUpdated_{std::chrono::system_clock::now()};
 
-  uint32_t updateInterval_{~0U};
-  std::mutex treeMutex_, updateMutex_;
-  std::condition_variable updateVar_;
-  std::thread* updateThread_{0};
-  std::chrono::time_point<std::chrono::system_clock> lastUpdated_{std::chrono::system_clock::now()};
   std::string m_manifestParams;
   std::map<std::string, std::string> m_manifestHeaders;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 
   // Provide the path where the manifests will be saved, if debug enabled
   std::string m_pathSaveManifest;
-
-private:
-  void SegmentUpdateWorker();
 };
 
 } // namespace adaptive
