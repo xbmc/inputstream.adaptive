@@ -423,24 +423,19 @@ namespace adaptive
     // assert(m_waitQueue == 0); // Debug only, missing resume
     m_threadStop = true;
 
-    if (m_updateThread)
+    if (m_thread.joinable())
     {
       m_cvUpdInterval.notify_all(); // Unlock possible waiting
-
-      if (m_updateThread->joinable())
-        m_updateThread->join();
-
-      delete m_updateThread;
-      m_updateThread = nullptr;
+      m_thread.join();
     }
   }
 
   void AdaptiveTree::TreeUpdateThread::Initialize(AdaptiveTree* tree)
   {
-    if (!m_updateThread)
+    if (!m_thread.joinable())
     {
       m_tree = tree;
-      m_updateThread = new std::thread(&TreeUpdateThread::Worker, this);
+      m_thread = std::thread(&TreeUpdateThread::Worker, this);
     }
   }
 

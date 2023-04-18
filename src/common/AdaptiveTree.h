@@ -209,7 +209,7 @@ public:
     void Pause();
     void Resume();
 
-    std::thread* m_updateThread{nullptr};
+    std::thread m_thread;
     AdaptiveTree* m_tree{nullptr};
 
     // Reentrant mode to pause updates, which will be resumed as soon as the queue is removed,
