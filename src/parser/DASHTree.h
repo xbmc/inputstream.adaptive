@@ -32,7 +32,7 @@ public:
     return std::chrono::system_clock::now();
   };
   virtual void SetLastUpdated(std::chrono::system_clock::time_point tm){};
-  void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
+  void SetUpdateInterval(uint32_t interval) { m_updateInterval = interval; };
 
   /*!
    * \brief Set the manifest update url parameter, used to force enabling manifest updates.
