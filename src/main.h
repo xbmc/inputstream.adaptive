@@ -60,7 +60,7 @@ private:
   int m_currentVideoHeight{0};
   int m_currentVideoMaxWidth{0};
   int m_currentVideoMaxHeight{0};
-  uint32_t m_IncludedStreams[16];
+  std::map<INPUTSTREAM_TYPE, unsigned int> m_IncludedStreams;
   bool m_checkChapterSeek = false;
   int m_failedSeekTime = ~0;
   std::string m_chapterName;
