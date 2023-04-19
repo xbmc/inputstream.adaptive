@@ -26,40 +26,35 @@ void SetFileName(std::string& file, std::string name)
   file = GetEnv("DATADIR") + "/" + name;
 }
 
-bool TestAdaptiveStream::download_segment(const DownloadInfo& downloadInfo)
+bool TestAdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
 {
   if (downloadInfo.m_url.empty())
     return false;
+
   testHelper::downloadList.push_back(downloadInfo.m_url);
 
-  return download(downloadInfo, nullptr);
+  {
+    std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
+
+    if (state_ == STOPPED)
+      return false;
+
+    std::string& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
+    std::string sampleData = "Sixteen bytes!!!";
+
+    tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
+                        downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
+                        reinterpret_cast<const uint8_t*>(sampleData.data()), segmentBuffer, 0,
+                        sampleData.size(), false);
+  }
+  thread_data_->signal_rw_.notify_all();
+  return true;
 }
 
-bool TestAdaptiveStream::download(const DownloadInfo& downloadInfo,
-                                  std::string* lockfreeBuffer)
+bool TestAdaptiveStream::Download(const DownloadInfo& downloadInfo, std::string& data)
 {
-  size_t nbRead = ~0UL;
-  std::stringstream ss("Sixteen bytes!!!");
-
-  char buf[16];
-  size_t nbReadOverall = 0;
-  ss.clear();
-  ss.seekg(0);
-  while (true)
-  {
-    ss.read(buf, 16);
-    nbRead = ss.gcount();
-    if (!nbRead || !~nbRead || !write_data(buf, nbRead, lockfreeBuffer, false, downloadInfo))
-      break;
-    nbReadOverall += nbRead;
-  }
-
-  if (!nbReadOverall)
-  {
-    return false;
-  }
-
-  return nbRead == 0;
+  data = "Sixteen bytes!!!";
+  return true;
 }
 
 void AESDecrypter::decrypt(const AP4_UI08* aes_key,
