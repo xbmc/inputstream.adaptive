@@ -47,6 +47,7 @@ set(ADP_SOURCES
 	src/samplereader/TSSampleReader.cpp
 	src/samplereader/WebmSampleReader.cpp
 	src/utils/Base64Utils.cpp
+	src/utils/CurlUtils.cpp
 	src/utils/DigestMD5Utils.cpp
 	src/utils/FileUtils.cpp
 	src/utils/MemUtils.cpp
@@ -112,6 +113,7 @@ set(ADP_HEADERS
 	src/samplereader/WebmSampleReader.h
 	src/utils/Base64Utils.h
 	src/utils/CryptoUtils.h
+	src/utils/CurlUtils.h
 	src/utils/DigestMD5Utils.h
 	src/utils/FileUtils.h
 	src/utils/log.h
