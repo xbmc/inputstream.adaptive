@@ -32,7 +32,7 @@
     <summary lang="he_IL">לקוח InputStream לתזרימים מסתגלים</summary>
     <summary lang="hr_HR">InputStream klijent za prilagodljiva strujanja</summary>
     <summary lang="hu_HU">InputStream kliens az adaptív streamekhez</summary>
-    <summary lang="it_IT">Client InputStream per stream adattivi</summary>
+    <summary lang="it_IT">Client InputStream per flussi adattivi</summary>
     <summary lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</summary>
     <summary lang="lv_LV">InputStream klients adaptīvām straumēm</summary>
     <summary lang="nl_NL">InputStream client voor adaptive streams</summary>
