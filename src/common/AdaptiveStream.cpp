@@ -12,6 +12,7 @@
 #include "../WebmReader.h"
 #endif
 #include "../oscompat.h"
+#include "../utils/CurlUtils.h"
 #include "../utils/UrlUtils.h"
 #include "../utils/log.h"
 #include "Chooser.h"
@@ -22,9 +23,6 @@
 #include <iostream>
 
 #include <bento4/Ap4.h>
-#ifndef INPUTSTREAM_TEST_BUILD
-#include <kodi/Filesystem.h>
-#endif
 #include "kodi/tools/StringUtils.h"
 
 using namespace adaptive;
@@ -32,8 +30,6 @@ using namespace std::chrono_literals;
 using namespace kodi::tools;
 using namespace PLAYLIST;
 using namespace UTILS;
-
-const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
 
 uint32_t AdaptiveStream::globalClsId = 0;
 
@@ -66,7 +62,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     assured_buffer_length_(5),
     max_buffer_length_(10)
 {
-  segment_buffers_.resize(MAXSEGMENTBUFFER + 1);
   current_rep_->current_segment_ = nullptr;
 
   // Set the class id for debug purpose
@@ -81,6 +76,7 @@ AdaptiveStream::~AdaptiveStream()
   Stop();
   DisposeWorker();
   clear();
+  DeallocateSegmentBuffers();
 }
 
 void AdaptiveStream::Reset()
@@ -88,6 +84,244 @@ void AdaptiveStream::Reset()
   segment_read_pos_ = 0;
   currentPTSOffset_ = 0;
   absolutePTSOffset_ = 0;
+}
+
+void adaptive::AdaptiveStream::AllocateSegmentBuffers(size_t size)
+{
+  size++;
+
+  while (size-- > 0)
+  {
+    segment_buffers_.emplace_back(new SEGMENTBUFFER());
+  }
+}
+
+void adaptive::AdaptiveStream::DeallocateSegmentBuffers()
+{
+  for (auto itSegBuf = segment_buffers_.begin(); itSegBuf != segment_buffers_.end();)
+  {
+    delete *itSegBuf;
+    itSegBuf = segment_buffers_.erase(itSegBuf);
+  }
+}
+
+bool adaptive::AdaptiveStream::Download(const DownloadInfo& downloadInfo, std::string& data)
+{
+  return DownloadImpl(downloadInfo, &data);
+}
+
+bool adaptive::AdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
+{
+  if (!downloadInfo.m_segmentBuffer)
+  {
+    LOG::LogF(LOGERROR, "[AS-%u] Download failed, no segment buffer", clsId);
+    return false;
+  }
+  return DownloadImpl(downloadInfo, nullptr);
+}
+
+bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
+                                            std::string* downloadData)
+{
+  if (downloadInfo.m_url.empty())
+    return false;
+
+  std::string url = downloadInfo.m_url;
+
+  // Merge additional headers to the predefined one
+  std::map<std::string, std::string> headers = m_streamHeaders;
+  headers.insert(downloadInfo.m_addHeaders.begin(), downloadInfo.m_addHeaders.end());
+
+  // Append stream parameters, only if not already provided
+  if (url.find('?') == std::string::npos)
+    URL::AppendParameters(url, m_streamParams);
+
+  CURL::CUrl curl{url};
+  curl.AddHeaders(headers);
+
+  int statusCode = curl.Open(true);
+
+  if (statusCode == -1)
+    LOG::Log(LOGERROR, "[AS-%u] Download failed, internal error: %s", clsId, url.c_str());
+  else if (statusCode >= 400)
+    LOG::Log(LOGERROR, "[AS-%u] Download failed, HTTP error %d: %s", clsId, statusCode,
+             url.c_str());
+  else // Start the download
+  {
+    CURL::ReadStatus downloadStatus = CURL::ReadStatus::CHUNK_READ;
+    bool isChunked = curl.IsChunked();
+    static const size_t bufferSize{32 * 1024}; // 32 Kbyte
+
+    while (downloadStatus == CURL::ReadStatus::CHUNK_READ)
+    {
+      std::vector<char> bufferData(bufferSize);
+      size_t bytesRead{0};
+
+      downloadStatus = curl.ReadChunk(bufferData.data(), bufferSize, bytesRead);
+
+      if (downloadStatus == CURL::ReadStatus::CHUNK_READ)
+      {
+        if (downloadData) // Write the data in to the string
+        {
+          downloadData->append(bufferData.data(), bytesRead);
+        }
+        else // Write the data to the segment buffer
+        {
+          // We only set lastChunk to true in the case of non-chunked transfers, the
+          // current structure does not allow for knowing the file has finished for
+          // chunked transfers here - IsEOF() will return true while doing chunked transfers
+          bool isLastChunk = !isChunked && curl.IsEOF();
+          {
+            std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
+
+            // The status can be changed after waiting for the lock_guard e.g. video seek/stop
+            if (state_ == STOPPED)
+              break;
+
+            std::string& segment_buffer = downloadInfo.m_segmentBuffer->buffer;
+            size_t insertPos(segment_buffer.size());
+            segment_buffer.resize(insertPos + bytesRead);
+
+            tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
+                                downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
+                                reinterpret_cast<const uint8_t*>(bufferData.data()), segment_buffer,
+                                insertPos, bytesRead, isLastChunk);
+          }
+          thread_data_->signal_rw_.notify_all();
+        }
+      }
+    }
+
+    if (downloadStatus == CURL::ReadStatus::ERROR)
+    {
+      LOG::Log(LOGERROR, "[AS-%u] Download failed, cannot read chunk: %s", clsId, url.c_str());
+    }
+    else if (downloadStatus == CURL::ReadStatus::CHUNK_READ)
+    {
+      // Chunk reading operations have been stopped
+      LOG::Log(LOGDEBUG, "[AS-%u] Download cancelled: %s", clsId, url.c_str());
+    }
+    else if (downloadStatus == CURL::ReadStatus::IS_EOF)
+    {
+      if (curl.GetTotalByteRead() == 0)
+      {
+        LOG::Log(LOGERROR, "[AS-%u] Download failed, no data: %s", clsId, url.c_str());
+        return false;
+      }
+
+      size_t totalBytesRead = curl.GetTotalByteRead();
+      double downloadSpeed = curl.GetDownloadSpeed();
+
+      // Set current download speed to repr. chooser (to update average).
+      // Small files are usually subtitles and their download speed are inaccurate
+      // by causing side effects in the average bandwidth so we ignore them.
+      static const size_t minSize{512 * 1024}; // 512 Kbyte
+      if (totalBytesRead > minSize)
+        tree_.GetRepChooser()->SetDownloadSpeed(downloadSpeed);
+
+      LOG::Log(LOGDEBUG, "[AS-%u] Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
+               clsId, url.c_str(), totalBytesRead, downloadSpeed);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool AdaptiveStream::PrepareNextDownload(DownloadInfo& downloadInfo)
+{
+  // We assume, that we find the next segment to load in the next valid_segment_buffers_
+  if (valid_segment_buffers_ >= available_segment_buffers_)
+    return false;
+
+  SEGMENTBUFFER* segBuffer = segment_buffers_[valid_segment_buffers_];
+  ++valid_segment_buffers_;
+
+  // Clear existing data
+  segBuffer->buffer.clear();
+  downloadInfo.m_segmentBuffer = segBuffer;
+
+  return PrepareDownload(segBuffer->rep, segBuffer->segment, segBuffer->segment_number,
+                         downloadInfo);
+}
+
+bool AdaptiveStream::PrepareDownload(const PLAYLIST::CRepresentation* rep,
+                                     const PLAYLIST::CSegment& seg,
+                                     const uint64_t segNum,
+                                     DownloadInfo& downloadInfo)
+{
+  if (!rep)
+    return false;
+
+  std::string rangeHeader;
+  std::string streamUrl;
+
+  if (!rep->HasSegmentBase())
+  {
+    if (!rep->HasSegmentTemplate())
+    {
+      if (rep->HasSegmentsUrl())
+      {
+        if (URL::IsUrlAbsolute(seg.url))
+          streamUrl = seg.url;
+        else
+          streamUrl = URL::Join(rep->GetUrl(), seg.url);
+      }
+      else
+        streamUrl = rep->GetUrl();
+      if (seg.range_begin_ != CSegment::NO_RANGE_VALUE)
+      {
+        uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
+        if (seg.range_end_ != CSegment::NO_RANGE_VALUE)
+        {
+          rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg.range_begin_ + fileOffset,
+                                            seg.range_end_ + fileOffset);
+        }
+        else
+        {
+          rangeHeader = StringUtils::Format("bytes=%llu-", seg.range_begin_ + fileOffset);
+        }
+      }
+    }
+    else if (~segNum) //templated segment
+    {
+      streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
+      ReplacePlaceholder(streamUrl, "$Number", seg.range_end_);
+      ReplacePlaceholder(streamUrl, "$Time", seg.range_begin_);
+    }
+    else //templated initialization segment
+      streamUrl = rep->GetUrl();
+  }
+  else
+  {
+    if (rep->HasSegmentTemplate() && ~segNum)
+    {
+      streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
+      ReplacePlaceholder(streamUrl, "$Number", rep->GetStartNumber());
+      ReplacePlaceholder(streamUrl, "$Time", 0);
+    }
+    else
+      streamUrl = rep->GetUrl();
+
+    if (seg.range_begin_ != CSegment::NO_RANGE_VALUE)
+    {
+      uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
+      if (seg.range_end_ != CSegment::NO_RANGE_VALUE)
+      {
+        rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg.range_begin_ + fileOffset,
+                                          seg.range_end_ + fileOffset);
+      }
+      else
+      {
+        rangeHeader = StringUtils::Format("bytes=%llu-", seg.range_begin_ + fileOffset);
+      }
+    }
+  }
+
+  if (!rangeHeader.empty())
+    downloadInfo.m_addHeaders["Range"] = rangeHeader;
+
+  downloadInfo.m_url = tree_.BuildDownloadUrl(streamUrl);
+  return true;
 }
 
 void AdaptiveStream::ResetSegment(const PLAYLIST::CSegment* segment)
@@ -110,7 +344,7 @@ void AdaptiveStream::ResetActiveBuffer(bool oneValid)
   valid_segment_buffers_ = oneValid ? 1 : 0;
   available_segment_buffers_ = valid_segment_buffers_;
   absolute_position_ = 0;
-  segment_buffers_[0].buffer.clear();
+  segment_buffers_[0]->buffer.clear();
   segment_read_pos_ = 0;
 }
 
@@ -148,14 +382,6 @@ void adaptive::AdaptiveStream::WaitWorker()
   state_ = RUNNING;
 }
 
-bool AdaptiveStream::download_segment(const DownloadInfo& downloadInfo)
-{
-  if (downloadInfo.m_url.empty())
-    return false;
-
-  return download(downloadInfo, nullptr);
-}
-
 void AdaptiveStream::worker()
 {
   std::unique_lock<std::mutex> lckdl(thread_data_->mutex_dl_);
@@ -174,7 +400,7 @@ void AdaptiveStream::worker()
       worker_processing_ = true;
 
       DownloadInfo downloadInfo;
-      if (!prepareNextDownload(downloadInfo))
+      if (!PrepareNextDownload(downloadInfo))
       {
         worker_processing_ = false;
         continue;
@@ -204,7 +430,7 @@ void AdaptiveStream::worker()
       // then we try downloading the segment more times before aborting playback
       while (state_ != STOPPED)
       {
-        isSegmentDownloaded = download_segment(downloadInfo);
+        isSegmentDownloaded = DownloadSegment(downloadInfo);
         if (isSegmentDownloaded || downloadAttempts == maxAttempts || state_ == STOPPED)
           break;
 
@@ -217,13 +443,11 @@ void AdaptiveStream::worker()
 
       lckdl.lock();
 
+      if (!isSegmentDownloaded)
       {
         std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-        if (!isSegmentDownloaded)
-        {
-          // Download cancelled or cannot download the file
-          state_ = STOPPED;
-        }
+        // Download cancelled or cannot download the file
+        state_ = STOPPED;
       }
 
       // Signal finished download
@@ -243,134 +467,6 @@ int AdaptiveStream::SecondsSinceUpdate() const
   return static_cast<int>(
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint)
           .count());
-}
-
-bool AdaptiveStream::download(const DownloadInfo& downloadInfo,
-                              std::string* lockfreeBuffer)
-{
-  std::string url{downloadInfo.m_url};
-
-  // Merge additional headers to the predefined one
-  std::map<std::string, std::string> headers = m_streamHeaders;
-  headers.insert(downloadInfo.m_addHeaders.begin(), downloadInfo.m_addHeaders.end());
-
-  // Append stream parameters, only if not already provided
-  if (url.find('?') == std::string::npos)
-    URL::AppendParameters(url, m_streamParams);
-
-  // Open the file
-  kodi::vfs::CFile file;
-  if (!file.CURLCreate(url))
-    return false;
-
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
-  if (headers.find("connection") == headers.end())
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, "connection", "keep-alive");
-
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
-
-  for (auto& header : headers)
-  {
-    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, header.first.c_str(), header.second.c_str());
-  }
-
-  if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE | ADDON_READ_AUDIO_VIDEO))
-  {
-    LOG::Log(LOGERROR, "[AS-%u] CURLOpen returned an error, download failed: %s", clsId, url.c_str());
-    return false;
-  }
-
-  int returnCode = -1;
-  std::string proto = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
-  std::string::size_type posResponseCode = proto.find(' ');
-  if (posResponseCode != std::string::npos)
-    returnCode = atoi(proto.c_str() + (posResponseCode + 1));
-
-  if (returnCode >= 400)
-  {
-    LOG::Log(LOGERROR, "[AS-%u] Download failed with error %d: %s", clsId, returnCode, url.c_str());
-  }
-  else
-  {
-    // read the file
-    static const size_t bufferSize{32 * 1024}; // 32 Kbyte
-    std::vector<char> bufferData(bufferSize);
-    ssize_t totalReadBytes{0};
-    bool isEOF{false};
-    std::string transferEncodingStr{
-        file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Transfer-Encoding")};
-    std::string contentLengthStr{
-        file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length")};
-    // for HTTP2 connections are always 'chunked', so we use the absence of content-length
-    // to flag this (also implies chunked with HTTP1)
-    bool isChunked{contentLengthStr.empty() ||
-                   transferEncodingStr.find("hunked") != std::string::npos};
-
-    while (!isEOF)
-    {
-      // Read the data in chunks
-      ssize_t byteRead{file.Read(bufferData.data(), bufferSize)};
-      if (byteRead == -1)
-      {
-        LOG::Log(LOGERROR, "[AS-%u] An error occurred in the download: %s", clsId, url.c_str());
-        break;
-      }
-      else if (byteRead == 0) // EOF or undectetable error
-      {
-        isEOF = true;
-      }
-      else
-      {
-        // Store the data
-        // We only set lastChunk to true in the case of non-chunked transfers, the
-        // current structure does not allow for knowing the file has finished for
-        // chunked transfers here - AtEnd() will return true while doing chunked transfers
-        if (write_data(bufferData.data(), byteRead, lockfreeBuffer, (!isChunked && file.AtEnd()),
-                       downloadInfo))
-        {
-          totalReadBytes += byteRead;
-        }
-        else
-        {
-          LOG::Log(LOGDEBUG, "[AS-%u] The download has been cancelled: %s", clsId, url.c_str());
-          break;
-        }
-      }
-    }
-
-    if (isEOF)
-    {
-      if (totalReadBytes > 0)
-      {
-        // Get body lenght (could be gzip compressed)
-        long contentLength{std::atol(contentLengthStr.c_str())};
-        if (contentLength == 0)
-          contentLength = static_cast<long>(totalReadBytes);
-
-        double downloadSpeed{file.GetFileDownloadSpeed()};
-
-        // Set current download speed to repr. chooser (to update average).
-        // Small files are usually subtitles and their download speed are inaccurate
-        // by causing side effects in the average bandwidth so we ignore them.
-        static const int minSize{512 * 1024}; // 512 Kbyte
-        if (contentLength > minSize)
-          tree_.GetRepChooser()->SetDownloadSpeed(downloadSpeed);
-
-        LOG::Log(LOGDEBUG, "[AS-%u] Download finished: %s (downloaded %i byte, speed %0.2lf byte/s)",
-                 clsId, url.c_str(), contentLength, downloadSpeed);
-
-        file.Close();
-        return true;
-      }
-      else
-      {
-        LOG::Log(LOGERROR, "[AS-%u] A problem occurred in the download, no data received: %s", clsId, url.c_str());
-      }
-    }
-  }
-  file.Close();
-  return false;
 }
 
 bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep, const std::string& buffer)
@@ -505,39 +601,6 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep, const std::
   return false;
 }
 
-bool AdaptiveStream::write_data(const void* buffer,
-                                size_t buffer_size,
-                                std::string* lockfreeBuffer,
-                                bool lastChunk,
-                                const DownloadInfo& downloadInfo)
-{
-  if (lockfreeBuffer)
-  {
-    size_t insertPos(lockfreeBuffer->size());
-    lockfreeBuffer->resize(insertPos + buffer_size);
-    memcpy(&(*lockfreeBuffer)[insertPos], buffer, buffer_size);
-    return true;
-  }
-
-  {
-    std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-
-    if (state_ == STOPPED)
-      return false;
-
-    // we write always into the last active segment
-    std::string& segment_buffer = segment_buffers_[valid_segment_buffers_ - 1].buffer;
-
-    size_t insertPos(segment_buffer.size());
-    segment_buffer.resize(insertPos + buffer_size);
-    tree_.OnDataArrived(downloadInfo.m_segmentNumber, downloadInfo.m_psshSet, m_decrypterIv,
-                        reinterpret_cast<const uint8_t*>(buffer), segment_buffer, insertPos,
-                        buffer_size, lastChunk);
-  }
-  thread_data_->signal_rw_.notify_all();
-  return true;
-}
-
 bool AdaptiveStream::start_stream()
 {
   if (!current_rep_)
@@ -574,8 +637,8 @@ bool AdaptiveStream::start_stream()
   assured_buffer_length_  = assured_buffer_length_ <4 ? 4:assured_buffer_length_;//for incorrect settings input
   if(max_buffer_length_<=assured_buffer_length_)//for incorrect settings input
     max_buffer_length_=assured_buffer_length_+4u;
-  
-  segment_buffers_.resize(max_buffer_length_+ 1);//TTHR
+
+  AllocateSegmentBuffers(max_buffer_length_);
 
   if (!thread_data_)
   {
@@ -628,7 +691,7 @@ bool AdaptiveStream::start_stream()
       }
       else // switching streams, align new stream segment no.
       {
-        uint64_t segmentId = segment_buffers_[0].segment_number;
+        uint64_t segmentId = segment_buffers_[0]->segment_number;
         if (segmentId >= current_rep_->GetStartNumber() + current_rep_->SegmentTimeline().GetSize())
         {
           segmentId =
@@ -665,13 +728,13 @@ bool AdaptiveStream::start_stream()
     if (available_segment_buffers_)
       std::rotate(segment_buffers_.rend() - (available_segment_buffers_ + 1),
                   segment_buffers_.rend() - available_segment_buffers_, segment_buffers_.rend());
-    segment_buffers_[0].segment.url.clear();
     ++available_segment_buffers_;
 
-    segment_buffers_[0].segment.Copy(loadingSeg);
-    segment_buffers_[0].rep = current_rep_;
-    segment_buffers_[0].segment_number = SEGMENT_NO_NUMBER;
-    segment_buffers_[0].buffer.clear();
+    segment_buffers_[0]->segment.url.clear();
+    segment_buffers_[0]->segment.Copy(loadingSeg);
+    segment_buffers_[0]->rep = current_rep_;
+    segment_buffers_[0]->segment_number = SEGMENT_NO_NUMBER;
+    segment_buffers_[0]->buffer.clear();
     segment_read_pos_ = 0;
 
     // Force writing the data into segment_buffers_[0]
@@ -680,7 +743,7 @@ bool AdaptiveStream::start_stream()
     valid_segment_buffers_ = 0;
 
     DownloadInfo downloadInfo;
-    if (!prepareNextDownload(downloadInfo) || !download_segment(downloadInfo))
+    if (!PrepareNextDownload(downloadInfo) || !DownloadSegment(downloadInfo))
       state_ = STOPPED;
 
     valid_segment_buffers_ = valid_segment_buffers + 1;
@@ -730,104 +793,6 @@ void AdaptiveStream::ReplacePlaceholder(std::string& url, const std::string plac
   url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
 }
 
-bool AdaptiveStream::prepareNextDownload(DownloadInfo& downloadInfo)
-{
-  // We assume, that we find the next segment to load in the next valid_segment_buffers_
-  if (valid_segment_buffers_ >= available_segment_buffers_)
-    return false;
-
-  const CRepresentation* rep = segment_buffers_[valid_segment_buffers_].rep;
-  const CSegment* seg = &segment_buffers_[valid_segment_buffers_].segment;
-  // segNum == ~0U is initialization segment!
-  uint64_t segNum = segment_buffers_[valid_segment_buffers_].segment_number;
-  segment_buffers_[valid_segment_buffers_].buffer.clear();
-  ++valid_segment_buffers_;
-
-  return prepareDownload(rep, seg, segNum, downloadInfo);
-}
-
-bool AdaptiveStream::prepareDownload(const PLAYLIST::CRepresentation* rep,
-                                     const PLAYLIST::CSegment* seg,
-                                     uint64_t segNum,
-                                     DownloadInfo& downloadInfo)
-{
-  if (!seg)
-    return false;
-
-  std::string rangeHeader;
-  std::string streamUrl;
-
-  if (!rep->HasSegmentBase())
-  {
-    if (!rep->HasSegmentTemplate())
-    {
-      if (rep->HasSegmentsUrl())
-      {
-        if (URL::IsUrlAbsolute(seg->url))
-          streamUrl = seg->url;
-        else
-          streamUrl = URL::Join(rep->GetUrl(), seg->url);
-      }
-      else
-        streamUrl = rep->GetUrl();
-      if (seg->range_begin_ != CSegment::NO_RANGE_VALUE)
-      {
-        uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
-        if (seg->range_end_ != CSegment::NO_RANGE_VALUE)
-        {
-          rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg->range_begin_ + fileOffset,
-                                            seg->range_end_ + fileOffset);
-        }
-        else
-        {
-          rangeHeader = StringUtils::Format("bytes=%llu-", seg->range_begin_ + fileOffset);
-        }
-      }
-    }
-    else if (~segNum) //templated segment
-    {
-      streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
-      ReplacePlaceholder(streamUrl, "$Number", seg->range_end_);
-      ReplacePlaceholder(streamUrl, "$Time", seg->range_begin_);
-    }
-    else //templated initialization segment
-      streamUrl = rep->GetUrl();
-  }
-  else
-  {
-    if (rep->HasSegmentTemplate() && ~segNum)
-    {
-      streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
-      ReplacePlaceholder(streamUrl, "$Number", rep->GetStartNumber());
-      ReplacePlaceholder(streamUrl, "$Time", 0);
-    }
-    else
-      streamUrl = rep->GetUrl();
-
-    if (seg->range_begin_ != CSegment::NO_RANGE_VALUE)
-    {
-      uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
-      if (seg->range_end_ != CSegment::NO_RANGE_VALUE)
-      {
-        rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg->range_begin_ + fileOffset,
-                                          seg->range_end_ + fileOffset);
-      }
-      else
-      {
-        rangeHeader = StringUtils::Format("bytes=%llu-", seg->range_begin_ + fileOffset);
-      }
-    }
-  }
-
-  downloadInfo.m_segmentNumber = segNum;
-  downloadInfo.m_psshSet = seg->pssh_set_;
-  if (!rangeHeader.empty())
-    downloadInfo.m_addHeaders["Range"] = rangeHeader; 
-
-  downloadInfo.m_url = tree_.BuildDownloadUrl(streamUrl);
-  return true;
-}
-
 bool AdaptiveStream::ensureSegment()
 {
   if (state_ != RUNNING)
@@ -836,7 +801,7 @@ bool AdaptiveStream::ensureSegment()
   // We an only switch to the next segment, if the current (== segment_buffers_[0]) is finished.
   // This is the case if we have more than 1 valid segments, or worker is not processing anymore.
   if ((!worker_processing_ || valid_segment_buffers_ > 1) &&
-      segment_read_pos_ >= segment_buffers_[0].buffer.size())
+      segment_read_pos_ >= segment_buffers_[0]->buffer.size())
   {
     // wait until worker is ready for new segment
     std::unique_lock<std::mutex> lck(thread_data_->mutex_dl_);
@@ -863,20 +828,20 @@ bool AdaptiveStream::ensureSegment()
       --valid_segment_buffers_;
       --available_segment_buffers_;
 
-      if (segment_buffers_[0].rep != current_rep_)
+      if (segment_buffers_[0]->rep != current_rep_)
       {
         current_rep_->SetIsEnabled(false);
-        current_rep_ = segment_buffers_[0].rep;
+        current_rep_ = segment_buffers_[0]->rep;
         current_rep_->SetIsEnabled(true);
         stream_changed_ = true;
       }
     }
     if (valid_segment_buffers_)
     {
-      if (segment_buffers_[0].segment_number != SEGMENT_NO_NUMBER)
+      if (segment_buffers_[0]->segment_number != SEGMENT_NO_NUMBER)
       {
-        nextSegment = current_rep_->get_segment(
-            static_cast<size_t>(segment_buffers_[0].segment_number - current_rep_->GetStartNumber()));
+        nextSegment = current_rep_->get_segment(static_cast<size_t>(
+            segment_buffers_[0]->segment_number - current_rep_->GetStartNumber()));
       }
     }
     else
@@ -922,7 +887,7 @@ bool AdaptiveStream::ensureSegment()
         }
       }
       
-      if (segment_buffers_[0].segment_number == SEGMENT_NO_NUMBER ||
+      if (segment_buffers_[0]->segment_number == SEGMENT_NO_NUMBER ||
           valid_segment_buffers_ == 0 ||
           current_adp_->GetStreamType() != StreamType::VIDEO)
       {
@@ -930,14 +895,14 @@ bool AdaptiveStream::ensureSegment()
       }
       else if (lastSeg) // Don't change reps on last segment of period, use the rep of preceeding seg
       {
-        newRep = segment_buffers_[valid_segment_buffers_ - 1].rep;
+        newRep = segment_buffers_[valid_segment_buffers_ - 1]->rep;
       }
       else
       {
         // Defer until we have some free buffer
         if (available_segment_buffers_ < max_buffer_length_) {
           newRep = tree_.GetRepChooser()->GetNextRepresentation(
-              current_adp_, segment_buffers_[available_segment_buffers_ - 1].rep);
+              current_adp_, segment_buffers_[available_segment_buffers_ - 1]->rep);
         }
         else
           newRep = current_rep_;
@@ -963,10 +928,10 @@ bool AdaptiveStream::ensureSegment()
 
         if (futureSegment)
         {
-          segment_buffers_[updPos].segment.Copy(futureSegment);
-          segment_buffers_[updPos].segment_number =
+          segment_buffers_[updPos]->segment.Copy(futureSegment);
+          segment_buffers_[updPos]->segment_number =
               newRep->GetStartNumber() + nextsegmentPos + updPos;
-          segment_buffers_[updPos].rep = newRep;
+          segment_buffers_[updPos]->rep = newRep;
           ++available_segment_buffers_;
         }
         else
@@ -1018,7 +983,7 @@ NEXTSEGMENT:
   {
     while (true)
     {
-      uint32_t avail = segment_buffers_[0].buffer.size() - segment_read_pos_;
+      uint32_t avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
       if (avail < bytesToRead && worker_processing_)
       {
         thread_data_->signal_rw_.wait(lckrw);
@@ -1033,7 +998,7 @@ NEXTSEGMENT:
 
       if (avail == bytesToRead)
       {
-        memcpy(buffer, segment_buffers_[0].buffer.data() + (segment_read_pos_ - avail), avail);
+        memcpy(buffer, segment_buffers_[0]->buffer.data() + (segment_read_pos_ - avail), avail);
         return avail;
       }
       // If we call read after the last chunk was read but before worker finishes download, we end up here.
@@ -1057,12 +1022,12 @@ bool AdaptiveStream::seek(uint64_t const pos)
   {
     segment_read_pos_ = static_cast<uint32_t>(pos - (absolute_position_ - segment_read_pos_));
 
-    while (segment_read_pos_ > segment_buffers_[0].buffer.size() && worker_processing_)
+    while (segment_read_pos_ > segment_buffers_[0]->buffer.size() && worker_processing_)
       thread_data_->signal_rw_.wait(lckrw);
 
-    if (segment_read_pos_ > segment_buffers_[0].buffer.size())
+    if (segment_read_pos_ > segment_buffers_[0]->buffer.size())
     {
-      segment_read_pos_ = static_cast<uint32_t>(segment_buffers_[0].buffer.size());
+      segment_read_pos_ = static_cast<uint32_t>(segment_buffers_[0]->buffer.size());
       return false;
     }
     absolute_position_ = pos;
@@ -1079,7 +1044,7 @@ bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
   if (!StopWorker(PAUSED))
     return false;
 
-  size = segment_buffers_[0].buffer.size();
+  size = segment_buffers_[0]->buffer.size();
   WaitWorker();
   return true;
 }
@@ -1281,7 +1246,7 @@ bool AdaptiveStream::ResolveSegmentBase(PLAYLIST::CRepresentation* rep, bool sto
     std::string sidxBuffer;
     DownloadInfo downloadInfo;
 
-    if (prepareDownload(rep, &seg, segNum, downloadInfo) && download(downloadInfo, &sidxBuffer) &&
+    if (PrepareDownload(rep, seg, segNum, downloadInfo) && Download(downloadInfo, sidxBuffer) &&
         parseIndexRange(rep, sidxBuffer))
     {
       rep->SetHasSegmentBase(false);

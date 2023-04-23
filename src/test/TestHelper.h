@@ -64,11 +64,14 @@ public:
   }
 
   std::chrono::system_clock::time_point mock_time_stream = std::chrono::system_clock::now();
-  void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
-  virtual bool download_segment(const DownloadInfo& downloadInfo) override;
+  void SetLastUpdated(const std::chrono::system_clock::time_point tm) override
+  {
+    lastUpdated_ = tm;
+  }
+  virtual bool DownloadSegment(const DownloadInfo& downloadInfo) override;
 
 protected:
-  virtual bool download(const DownloadInfo& downloadInfo, std::string* lockfreeBuffer) override;
+  virtual bool Download(const DownloadInfo& downloadInfo, std::string& data) override;
 };
 
 class AESDecrypter : public IAESDecrypter
@@ -99,7 +102,7 @@ public:
   DASHTestTree(CHOOSER::IRepresentationChooser* reprChooser) : CDashTree(reprChooser) {}
   uint64_t GetTimestamp() override { return m_mockTime; }
   void SetNowTime(uint64_t time) { m_mockTime = time; }
-  void SetLastUpdated(std::chrono::system_clock::time_point tm) { lastUpdated_ = tm; };
+  void SetLastUpdated(const std::chrono::system_clock::time_point tm) { lastUpdated_ = tm; }
   std::chrono::system_clock::time_point GetNowTimeChrono() { return m_mock_time_chrono; };
 
 private:

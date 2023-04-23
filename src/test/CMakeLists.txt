@@ -35,6 +35,7 @@ add_executable(${BINARY}
     ../common/SegTemplate.cpp
     ../oscompat.cpp
     ../utils/Base64Utils.cpp
+    ../utils/CurlUtils.cpp
     ../utils/FileUtils.cpp
     ../utils/PropertiesUtils.cpp
     ../utils/SettingsUtils.cpp

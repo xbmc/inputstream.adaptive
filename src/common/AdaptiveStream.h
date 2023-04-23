@@ -89,41 +89,11 @@ class AdaptiveStream;
     bool StreamChanged() { return stream_changed_; }
 
   protected:
-    // Info to execute the download
-    struct DownloadInfo
-    {
-      std::string m_url;
-      std::map<std::string, std::string> m_addHeaders; // Additional headers
-      uint64_t m_segmentNumber{0};
-      uint16_t m_psshSet{0};
-    };
-
-    std::string m_streamParams;
-    std::map<std::string, std::string> m_streamHeaders;
-
-    virtual bool download(const DownloadInfo& downloadInfo,
-                          std::string* lockfreeBuffer);
     virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep, const std::string& buffer);
-    bool write_data(const void* buffer,
-                    size_t buffer_size,
-                    std::string* lockfreeBuffer,
-                    bool lastChunk,
-                    const DownloadInfo& downloadInfo);
-    virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};
+
+    virtual void SetLastUpdated(const std::chrono::system_clock::time_point tm) {}
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
-    virtual bool download_segment(const DownloadInfo& downloadInfo);
-    
-    struct SEGMENTBUFFER
-    {
-      std::string buffer;
-      PLAYLIST::CSegment segment;
-      uint64_t segment_number;
-      PLAYLIST::CRepresentation* rep;
-    };
-    std::vector<SEGMENTBUFFER> segment_buffers_;
 
-
-  private:
     enum STATE
     {
       RUNNING,
@@ -132,7 +102,63 @@ class AdaptiveStream;
     } state_;
 
     // Segment download section
-  
+
+    struct SEGMENTBUFFER
+    {
+      std::string buffer;
+      PLAYLIST::CSegment segment;
+      uint64_t segment_number{0}; // SEGMENT_NO_NUMBER is initialization segment!
+      PLAYLIST::CRepresentation* rep{nullptr};
+    };
+    std::vector<SEGMENTBUFFER*> segment_buffers_;
+
+    void AllocateSegmentBuffers(size_t size);
+    void DeallocateSegmentBuffers();
+
+    // Info to execute the download
+    struct DownloadInfo
+    {
+      std::string m_url;
+      std::map<std::string, std::string> m_addHeaders; // Additional headers
+      SEGMENTBUFFER* m_segmentBuffer{nullptr}; // Optional, the segment buffer where to store the data
+    };
+
+    std::string m_streamParams;
+    std::map<std::string, std::string> m_streamHeaders;
+
+   /*!
+    * \brief Download a file, the representation chooser will be updated with current download speed.
+    * \param downloadInfo The info about the file to download
+    * \param data[OUT] The downloaded data
+    * \return Return true if success, otherwise false
+    */
+    virtual bool Download(const DownloadInfo& downloadInfo, std::string& data);
+
+   /*!
+    * \brief Download a segment file in chunks, the data could be also decrypted by the manifest parser,
+    *        the download is done in chunks that will fill the segment buffer during the download,
+    *        while at same time can be read by the demux reader, when the download is finished
+    *        the representation chooser will be updated with current download speed.
+    * \param downloadInfo The info about the file to download, its mandatory provide the segment buffer
+    * \return Return true if success, otherwise false
+    */
+    virtual bool DownloadSegment(const DownloadInfo& downloadInfo);
+
+   /*!
+    * \brief Implementation to download a file.
+    * \param downloadInfo The info about the file to download
+    * \param data[OUT] If set, data will be stored on this variable, otherwise if nullptr the data
+    *                  will be stored to the segment buffer and could be decrypted by the manifest parser.
+    * \return Return true if success, otherwise false
+    */
+    bool DownloadImpl(const DownloadInfo& downloadInfo, std::string* data);
+
+    bool PrepareNextDownload(DownloadInfo& downloadInfo);
+    bool PrepareDownload(const PLAYLIST::CRepresentation* rep,
+                         const PLAYLIST::CSegment& seg,
+                         const uint64_t segNum,
+                         DownloadInfo& downloadInfo);
+
     void ResetSegment(const PLAYLIST::CSegment* segment);
     void ResetActiveBuffer(bool oneValid);
     /*!
@@ -145,11 +171,7 @@ class AdaptiveStream;
      */
     void WaitWorker();
     void worker();
-    bool prepareNextDownload(DownloadInfo& downloadInfo);
-    bool prepareDownload(const PLAYLIST::CRepresentation* rep,
-                         const PLAYLIST::CSegment* seg,
-                         uint64_t segNum,
-                         DownloadInfo& downloadInfo);
+
     int SecondsSinceUpdate() const;
     static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
     bool ResolveSegmentBase(PLAYLIST::CRepresentation* rep, bool stopWorker);
@@ -198,7 +220,6 @@ class AdaptiveStream;
     // We need to store here because linked to representation
     uint8_t m_decrypterIv[16];
 
-    static const size_t MAXSEGMENTBUFFER;
     // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
     size_t available_segment_buffers_;
     // number of segment_buffers which are downloaded / downloading
