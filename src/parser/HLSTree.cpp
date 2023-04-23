@@ -708,7 +708,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
         std::string data;
         HTTPRespHeaders respHeaders;
 
-        if (download(url, headers, data, respHeaders))
+        if (Download(url, headers, data, respHeaders))
         {
           pssh.defaultKID_ = data;
         }

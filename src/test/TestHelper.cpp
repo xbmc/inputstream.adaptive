@@ -77,7 +77,7 @@ void AESDecrypter::ivFromSequence(uint8_t* buffer, uint64_t sid){}
 
 bool AESDecrypter::RenewLicense(const std::string& pluginUrl){return false;}
 
-bool DownloadFile(const std::string& url,
+bool DownloadFile(std::string_view url,
                   const std::map<std::string, std::string>& reqHeaders,
                   std::string& data,
                   adaptive::HTTPRespHeaders& respHeaders)
@@ -114,12 +114,24 @@ bool DownloadFile(const std::string& url,
   return true;
 }
 
-bool DASHTestTree::download(const std::string& url,
-                            const std::map<std::string, std::string>& reqHeaders,
+bool DASHTestTree::Download(std::string_view url,
+                            const std::map<std::string, std::string>& addHeaders,
                             std::string& data,
                             adaptive::HTTPRespHeaders& respHeaders)
 {
-  if (DownloadFile(url, reqHeaders, data, respHeaders))
+  if (DownloadFile(url, addHeaders, data, respHeaders))
+  {
+    return true;
+  }
+  return false;
+}
+
+bool DASHTestTree::DownloadManifest(std::string url,
+                                    const std::map<std::string, std::string>& addHeaders,
+                                    std::string& data,
+                                    adaptive::HTTPRespHeaders& respHeaders)
+{
+  if (DownloadFile(url, addHeaders, data, respHeaders))
   {
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
@@ -135,12 +147,24 @@ HLSTestTree::HLSTestTree(CHOOSER::IRepresentationChooser* reprChooser)
   m_decrypter = std::make_unique<AESDecrypter>(AESDecrypter(std::string()));
 }
 
-bool HLSTestTree::download(const std::string& url,
-                           const std::map<std::string, std::string>& reqHeaders,
+bool HLSTestTree::Download(std::string_view url,
+                           const std::map<std::string, std::string>& addHeaders,
                            std::string& data,
                            adaptive::HTTPRespHeaders& respHeaders)
 {
-  if (DownloadFile(url, reqHeaders, data, respHeaders))
+  if (DownloadFile(url, addHeaders, data, respHeaders))
+  {
+    return true;
+  }
+  return false;
+}
+
+bool HLSTestTree::DownloadManifest(std::string url,
+                                   const std::map<std::string, std::string>& addHeaders,
+                                   std::string& data,
+                                   adaptive::HTTPRespHeaders& respHeaders)
+{
+  if (DownloadFile(url, addHeaders, data, respHeaders))
   {
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
@@ -150,12 +174,24 @@ bool HLSTestTree::download(const std::string& url,
   return false;
 }
 
-bool SmoothTestTree::download(const std::string& url,
-                              const std::map<std::string, std::string>& reqHeaders,
+bool SmoothTestTree::Download(std::string_view url,
+                              const std::map<std::string, std::string>& addHeaders,
                               std::string& data,
                               adaptive::HTTPRespHeaders& respHeaders)
 {
-  if (DownloadFile(url, reqHeaders, data, respHeaders))
+  if (DownloadFile(url, addHeaders, data, respHeaders))
+  {
+    return true;
+  }
+  return false;
+}
+
+bool SmoothTestTree::DownloadManifest(std::string url,
+                                      const std::map<std::string, std::string>& addHeaders,
+                                      std::string& data,
+                                      adaptive::HTTPRespHeaders& respHeaders)
+{
+  if (DownloadFile(url, addHeaders, data, respHeaders))
   {
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);

@@ -235,9 +235,21 @@ public:
   TreeUpdateThread& GetTreeUpdMutex() { return m_updThread; };
 
 protected:
+  /*!
+   * \brief Download a file.
+   * \param url The url of the file to download
+   * \param addHeaders Additional headers to add in the HTTP request
+   * \param data [OUT] Return the HTTP response data
+   * \param respHeaders [OUT] Return the HTTP response headers
+   * \return True if has success, otherwise false
+   */
+  virtual bool Download(std::string_view url,
+                        const std::map<std::string, std::string>& addHeaders,
+                        std::string& data,
+                        HTTPRespHeaders& respHeaders);
 
   /*!
-   * \brief Download manifest file.
+   * \brief Download manifest file by adding custom user defined manifest headers and parameters.
    * \param url The url of the file to download
    * \param addHeaders Additional headers to add in the HTTP request
    * \param data [OUT] Return the HTTP response data
@@ -250,18 +262,18 @@ protected:
                                 HTTPRespHeaders& respHeaders);
 
   /*!
-   * \brief Download a file (At each call feed also the repr. chooser
-            to calculate the initial bandwidth).
+   * \brief Implementation to download a file.
+   *        This also update the representation "chooser" to calculate the initial network bandwidth.
    * \param url The url of the file to download
    * \param reqHeaders The headers to use in the HTTP request
    * \param data [OUT] Return the HTTP response data
    * \param respHeaders [OUT] Return the HTTP response headers
    * \return True if has success, otherwise false
    */
-  virtual bool download(const std::string& url,
-                        const std::map<std::string, std::string>& reqHeaders,
-                        std::string& data,
-                        HTTPRespHeaders& respHeaders);
+  bool DownloadImpl(std::string_view url,
+                    const std::map<std::string, std::string>& reqHeaders,
+                    std::string& data,
+                    HTTPRespHeaders& respHeaders);
 
   /*!
    * \brief Save manifest data to a file for debugging purpose.

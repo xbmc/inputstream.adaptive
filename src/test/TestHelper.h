@@ -27,7 +27,7 @@ using STR = std::string;
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 
-static bool DownloadFile(const std::string& url,
+static bool DownloadFile(std::string_view url,
                          const std::map<std::string, std::string>& reqHeaders,
                          std::stringstream& data,
                          adaptive::HTTPRespHeaders& respHeaders);
@@ -106,10 +106,15 @@ public:
   std::chrono::system_clock::time_point GetNowTimeChrono() { return m_mock_time_chrono; };
 
 private:
-  bool download(const std::string& url,
-                const std::map<std::string, std::string>& reqHeaders,
+  bool Download(std::string_view url,
+                const std::map<std::string, std::string>& addHeaders,
                 std::string& data,
                 adaptive::HTTPRespHeaders& respHeaders) override;
+
+  bool DownloadManifest(std::string url,
+                        const std::map<std::string, std::string>& addHeaders,
+                        std::string& data,
+                        adaptive::HTTPRespHeaders& respHeaders) override;
 
   virtual CDashTree* Clone() const override { return new DASHTestTree{*this}; }
 
@@ -125,10 +130,15 @@ public:
   virtual HLSTestTree* Clone() const override { return new HLSTestTree{*this}; }
 
 private:
-  bool download(const std::string& url,
-                const std::map<std::string, std::string>& reqHeaders,
+  bool Download(std::string_view url,
+                const std::map<std::string, std::string>& addHeaders,
                 std::string& data,
                 adaptive::HTTPRespHeaders& respHeaders) override;
+
+  bool DownloadManifest(std::string url,
+                        const std::map<std::string, std::string>& addHeaders,
+                        std::string& data,
+                        adaptive::HTTPRespHeaders& respHeaders) override;
 };
 
 class SmoothTestTree : public adaptive::CSmoothTree
@@ -137,8 +147,13 @@ public:
   SmoothTestTree(CHOOSER::IRepresentationChooser* reprChooser) : CSmoothTree(reprChooser) {}
 
 private:
-  bool download(const std::string& url,
-    const std::map<std::string, std::string>& reqHeaders,
-    std::string& data,
-    adaptive::HTTPRespHeaders& respHeaders) override;
+  bool Download(std::string_view url,
+                const std::map<std::string, std::string>& addHeaders,
+                std::string& data,
+                adaptive::HTTPRespHeaders& respHeaders) override;
+
+  bool DownloadManifest(std::string url,
+                        const std::map<std::string, std::string>& addHeaders,
+                        std::string& data,
+                        adaptive::HTTPRespHeaders& respHeaders) override;
 };
