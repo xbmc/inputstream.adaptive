@@ -9,6 +9,7 @@
 #include "PRProtectionParser.h"
 
 #include "../utils/Base64Utils.h"
+#include "../utils/CharArrayParser.h"
 #include "../utils/StringUtils.h"
 #include "../utils/Utils.h"
 #include "../utils/XMLUtils.h"
@@ -17,6 +18,11 @@
 
 using namespace pugi;
 using namespace UTILS;
+
+namespace
+{
+constexpr uint16_t PLAYREADY_WRM_TAG = 0x0001;
+} // unnamed namespace
 
 bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
 {
@@ -27,10 +33,59 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
   if (prHeader.empty())
     return false;
 
-  std::string xmlData = BASE64::Decode(prHeader);
+  std::string headerData = BASE64::Decode(prHeader);
+  m_PSSH = headerData;
 
-  m_PSSH = xmlData;
+  // Parse header object data
+  CCharArrayParser charParser;
+  charParser.Reset(headerData.c_str(), static_cast<int>(headerData.size()));
 
+  if (!charParser.SkipChars(4))
+  {
+    LOG::LogF(LOGERROR, "Failed parse PlayReady object, no \"length\" field");
+    return false;
+  }
+
+  if (charParser.CharsLeft() < 2)
+  {
+    LOG::LogF(LOGERROR, "Failed parse PlayReady object, no number of object records");
+    return false;
+  }
+  uint16_t numRecords = charParser.ReadLENextUnsignedShort();
+
+  std::string xmlData;
+
+  for (uint16_t i = 0; i < numRecords; i++)
+  {
+    if (charParser.CharsLeft() < 2)
+    {
+      LOG::LogF(LOGERROR, "Failed parse PlayReady object record %u, cannot read record type", i);
+      return false;
+    }
+    uint16_t recordType = charParser.ReadLENextUnsignedShort();
+
+    if (charParser.CharsLeft() < 2)
+    {
+      LOG::LogF(LOGERROR, "Failed parse PlayReady object record %u, cannot read record size", i);
+      return false;
+    }
+    uint16_t recordSize = charParser.ReadLENextUnsignedShort();
+
+    if (charParser.CharsLeft() < recordSize)
+    {
+      LOG::LogF(LOGERROR, "Failed parse PlayReady object record %u, cannot read WRM header", i);
+      return false;
+    }
+    if ((recordType & PLAYREADY_WRM_TAG) == PLAYREADY_WRM_TAG)
+    {
+      xmlData = charParser.ReadNextString(recordSize);
+      break;
+    }
+    else
+      charParser.SkipChars(recordSize);
+  }
+
+  // Parse XML header data
   xml_document doc;
   xml_parse_result parseRes = doc.load_buffer(xmlData.c_str(), xmlData.size());
   if (parseRes.status != status_ok)

@@ -10,10 +10,6 @@
 
 #include "../common/AdaptiveTree.h"
 
-namespace tinyxml2 // Forward
-{
-class XMLElement;
-}
 namespace pugi
 {
 class xml_node;
@@ -21,6 +17,8 @@ class xml_node;
 
 namespace adaptive
 {
+// Forward
+class PRProtectionParser;
 
 class ATTR_DLL_LOCAL CSmoothTree : public AdaptiveTree
 {
@@ -36,10 +34,13 @@ public:
 protected:
   virtual bool ParseManifest(std::string& data);
 
-  void ParseTagStreamIndex(pugi::xml_node nodeSI, PLAYLIST::CPeriod* period);
+  void ParseTagStreamIndex(pugi::xml_node nodeSI,
+                           PLAYLIST::CPeriod* period,
+                           const PRProtectionParser& protParser);
   void ParseTagQualityLevel(pugi::xml_node nodeQI,
                             PLAYLIST::CAdaptationSet* adpSet,
-                            uint32_t timescale);
+                            const uint32_t timescale,
+                            const uint16_t psshSetPos);
 };
 
 } // namespace adaptive
