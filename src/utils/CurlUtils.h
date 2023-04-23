@@ -32,6 +32,8 @@ enum class ReadStatus
   ERROR,
 };
 
+constexpr size_t BUFFER_SIZE_32 = 32 * 1024; // 32 Kbyte
+
 class ATTR_DLL_LOCAL CUrl
 {
 public:
@@ -58,6 +60,14 @@ public:
   * \return The header value, or empty if none
   */
   std::string GetResponseHeader(std::string_view name);
+
+ /*!
+  * \brief Download a file.
+  * \param data[OUT] Where to write the downloaded data
+  * \param chunkBufferSize[OPT] The buffer size for read chunks, default 32 kbyte
+  * \return The read status
+  */
+  ReadStatus Read(std::string& data, size_t chunkBufferSize = BUFFER_SIZE_32);
 
  /*!
   * \brief Download / read a chunk.

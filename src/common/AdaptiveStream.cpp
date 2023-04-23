@@ -150,14 +150,13 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
   {
     CURL::ReadStatus downloadStatus = CURL::ReadStatus::CHUNK_READ;
     bool isChunked = curl.IsChunked();
-    static const size_t bufferSize{32 * 1024}; // 32 Kbyte
 
     while (downloadStatus == CURL::ReadStatus::CHUNK_READ)
     {
-      std::vector<char> bufferData(bufferSize);
+      std::vector<char> bufferData(CURL::BUFFER_SIZE_32);
       size_t bytesRead{0};
 
-      downloadStatus = curl.ReadChunk(bufferData.data(), bufferSize, bytesRead);
+      downloadStatus = curl.ReadChunk(bufferData.data(), CURL::BUFFER_SIZE_32, bytesRead);
 
       if (downloadStatus == CURL::ReadStatus::CHUNK_READ)
       {

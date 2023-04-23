@@ -8,10 +8,9 @@
 
 #include "SubtitleSampleReader.h"
 
+#include "../utils/CurlUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/log.h"
-
-#include <kodi/Filesystem.h>
 
 using namespace UTILS;
 
@@ -31,46 +30,32 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
     return;
   }
 
-  // open the file
-  kodi::vfs::CFile file;
-  if (!file.CURLCreate(url))
-    return;
-
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-  file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
-  file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE);
-
-  AP4_DataBuffer fileData;
-  static const size_t bufferSize{16 * 1024}; // 16 Kbyte
-  bool isEOF{false};
-
-  while (!isEOF)
+  // Download the file
+  CURL::CUrl curl(url);
+  int statusCode = curl.Open(true);
+  if (statusCode == -1)
   {
-    // Read the data in chunks
-    std::vector<AP4_Byte> bufferData(bufferSize);
-    ssize_t byteRead = file.Read(bufferData.data(), bufferSize);
-
-    if (byteRead == -1)
-    {
-      LOG::Log(LOGERROR, "An error occurred in the download: %s", url.c_str());
-      break;
-    }
-    else if (byteRead == 0) // EOF or undectetable error
-    {
-      isEOF = true;
-    }
-    else
-    {
-      // Store the data
-      fileData.AppendData(bufferData.data(), byteRead);
-    }
+    LOG::Log(LOGERROR, "Download failed, internal error: %s", url.c_str());
+    return;
+  }
+  else if (statusCode >= 400)
+  {
+    LOG::Log(LOGERROR, "Download failed, HTTP error %d: %s", statusCode, url.c_str());
+    return;
   }
 
-  file.Close();
+  std::string data;
 
-  if (isEOF && fileData.GetDataSize() > 0)
+  if (curl.Read(data) != CURL::ReadStatus::IS_EOF)
   {
-    m_codecHandler->Transform(0, 0, fileData, 1000);
+    LOG::Log(LOGERROR, "Download failed: %s", statusCode, url.c_str());
+    return;
+  }
+
+  if (!data.empty())
+  {
+    AP4_DataBuffer buffer{data.c_str(), static_cast<AP4_Size>(data.size())};
+    m_codecHandler->Transform(0, 0, buffer, 1000);
   }
 }
 
