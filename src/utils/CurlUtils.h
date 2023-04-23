@@ -62,6 +62,12 @@ public:
   std::string GetResponseHeader(std::string_view name);
 
  /*!
+  * \brief Get the last used url (after following redirects).
+  * \return The url
+  */
+  std::string GetEffectiveUrl();
+
+ /*!
   * \brief Download a file.
   * \param data[OUT] Where to write the downloaded data
   * \param chunkBufferSize[OPT] The buffer size for read chunks, default 32 kbyte

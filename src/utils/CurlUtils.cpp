@@ -67,6 +67,11 @@ std::string UTILS::CURL::CUrl::GetResponseHeader(std::string_view name)
   return m_file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, name.data());
 }
 
+std::string UTILS::CURL::CUrl::GetEffectiveUrl()
+{
+  return m_file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+}
+
 ReadStatus UTILS::CURL::CUrl::Read(std::string& data, size_t chunkBufferSize /* = BUFFER_SIZE_32 */)
 {
   while (true)

@@ -9,6 +9,7 @@
 #include "AdaptiveTree.h"
 #include "Chooser.h"
 
+#include "../utils/CurlUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/UrlUtils.h"
@@ -16,7 +17,6 @@
 #include "../utils/log.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
-#include <kodi/Filesystem.h>
 #include <kodi/General.h>
 #endif
 
@@ -272,6 +272,14 @@ namespace adaptive
       m_updThread.Initialize(this);
   }
 
+  bool AdaptiveTree::Download(std::string_view url,
+                              const std::map<std::string, std::string>& addHeaders,
+                              std::string& data,
+                              HTTPRespHeaders& respHeaders)
+  {
+    return DownloadImpl(url, addHeaders, data, respHeaders);
+  }
+
   bool AdaptiveTree::DownloadManifest(std::string url,
                                       const std::map<std::string, std::string>& addHeaders,
                                       std::string& data,
@@ -288,102 +296,65 @@ namespace adaptive
     if (url.find('?') == std::string::npos)
       URL::AppendParameters(url, m_manifestParams);
 
-    return download(url, manifestHeaders, data, respHeaders);
+    return DownloadImpl(url, manifestHeaders, data, respHeaders);
   }
 
-  bool AdaptiveTree::download(const std::string& url,
-                              const std::map<std::string, std::string>& reqHeaders,
-                              std::string& data,
-                              HTTPRespHeaders& respHeaders)
+  //! @todo: Download implementation method always update the representation chooser speed
+  //!        this also when we download manifest updates during playback or when HLS parser
+  //!        use AdaptiveTree::Download to download KID data, updating chooser speed here
+  //!        should be done only the first time and after let the AdaptiveStream this task
+  bool AdaptiveTree::DownloadImpl(std::string_view url,
+                                  const std::map<std::string, std::string>& reqHeaders,
+                                  std::string& data,
+                                  HTTPRespHeaders& respHeaders)
   {
-    // open the file
-    kodi::vfs::CFile file;
-    if (!file.CURLCreate(url))
+    if (url.empty())
       return false;
 
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
-    file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");
+    CURL::CUrl curl{url};
+    curl.AddHeaders(reqHeaders);
 
-    for (const auto& entry : reqHeaders)
+    int statusCode = curl.Open();
+
+    if (statusCode == -1)
+      LOG::Log(LOGERROR, "Download failed, internal error: %s", url.data());
+    else if (statusCode >= 400)
+      LOG::Log(LOGERROR, "Download failed, HTTP error %d: %s", statusCode, url.data());
+    else // Start the download
     {
-      file.CURLAddOption(ADDON_CURL_OPTION_HEADER, entry.first.c_str(), entry.second.c_str());
+      respHeaders.m_effectiveUrl = curl.GetEffectiveUrl();
+
+      if (curl.Read(data) != CURL::ReadStatus::IS_EOF)
+      {
+        LOG::Log(LOGERROR, "Download failed: %s", statusCode, url.data());
+        return false;
+      }
+
+      if (data.empty())
+      {
+        LOG::Log(LOGERROR, "Download failed, no data: %s", url.data());
+        return false;
+      }
+
+      respHeaders.m_etag = curl.GetResponseHeader("etag");
+      respHeaders.m_lastModified = curl.GetResponseHeader("last-modified");
+
+      double downloadSpeed = curl.GetDownloadSpeed();
+      // The download speed with small file sizes is not accurate, we should download at least 512Kb
+      // to have a sufficient acceptable value to calculate the bandwidth,
+      // then to have a better speed value we apply following proportion hack.
+      // This does not happen when you play with webbrowser because can obtain the connection speed.
+      static const size_t minSize{512 * 1024};
+      if (curl.GetTotalByteRead() < minSize)
+        downloadSpeed = (downloadSpeed / curl.GetTotalByteRead()) * minSize;
+
+      // We set the download speed to calculate the initial network bandwidth
+      m_reprChooser->SetDownloadSpeed(downloadSpeed);
+
+      LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
+               url.data(), curl.GetTotalByteRead(), downloadSpeed);
+      return true;
     }
-
-    if (!file.CURLOpen(ADDON_READ_CHUNKED | ADDON_READ_NO_CACHE))
-    {
-      LOG::Log(LOGERROR, "CURLOpen returned an error, download failed: %s", url.c_str());
-      return false;
-    }
-
-    respHeaders.m_effectiveUrl = file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
-
-    // Get body lenght (could be gzip compressed)
-    std::string contentLengthStr =
-        file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Content-Length");
-    size_t fileSize = static_cast<size_t>(STRING::ToUint64(contentLengthStr));
-
-    static const size_t bufferSize{16 * 1024}; // 16 Kbyte
-    std::vector<char> bufferData(bufferSize);
-    bool isEOF{false};
-
-    data.reserve(fileSize == 0 ? bufferSize : fileSize);
-
-    // read the file
-    while (!isEOF)
-    {
-      // Read the data in chunks
-      ssize_t byteRead{file.Read(bufferData.data(), bufferSize)};
-      if (byteRead == -1)
-      {
-        LOG::Log(LOGERROR, "An error occurred in the download: %s", url.c_str());
-        break;
-      }
-      else if (byteRead == 0) // EOF or undetectable error
-      {
-        isEOF = true;
-      }
-      else
-      {
-        data.append(bufferData.data(), byteRead);
-      }
-    }
-
-    if (isEOF)
-    {
-      if (data.size() > 0)
-      {
-        if (fileSize == 0)
-          fileSize = data.size();
-        
-        double downloadSpeed{file.GetFileDownloadSpeed()};
-        // The download speed with small file sizes are not accurate
-        // we should have at least 512Kb to have a sufficient acceptable value
-        // to calculate the bandwidth, then we make a proportion for cases
-        // with less than 512Kb to have a better value
-        static const int minSize{512 * 1024};
-        if (fileSize < minSize)
-          downloadSpeed = (downloadSpeed / fileSize) * minSize;
-
-        respHeaders.m_etag = file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "etag");
-        respHeaders.m_lastModified =
-            file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "last-modified");
-
-        // We set the download speed to calculate the initial network bandwidth
-        m_reprChooser->SetDownloadSpeed(downloadSpeed);
-
-        LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
-                 url.c_str(), fileSize, downloadSpeed);
-
-        file.Close();
-        return true;
-      }
-      else
-      {
-        LOG::Log(LOGERROR, "A problem occurred in the download, no data received: %s", url.c_str());
-      }
-    }
-
-    file.Close();
     return false;
   }
 
