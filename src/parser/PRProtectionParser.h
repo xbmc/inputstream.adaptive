@@ -32,6 +32,12 @@ public:
    */
   bool ParseHeader(std::string_view prHeader);
 
+  /*!
+   * \brief Determines if there is PlayReady protection
+   * \return True if there is PlayReady protection, otherwise false
+   */
+  bool HasProtection() const { return !m_PSSH.empty(); }
+
   std::string_view GetKID() const { return m_KID; }
   std::string_view GetLicenseURL() const { return m_licenseURL; }
   std::string_view GetPSSH() const { return m_PSSH; }

@@ -62,42 +62,6 @@ bool adaptive::CSmoothTree::open(const std::string& url,
 
   m_currentPeriod = m_periods[0].get();
 
-  uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
-
-  if (!current_defaultKID_.empty())
-  {
-    CAdaptationSet* adpSetLast = m_currentPeriod->GetAdaptationSets().back().get();
-    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, m_currentPeriod, adpSetLast, current_pssh_,
-                               current_defaultKID_, current_iv_);
-  }
-
-  // Generate representation segment timeline
-  for (auto& adpSet : m_currentPeriod->GetAdaptationSets())
-  {
-    for (auto& repr : adpSet->GetRepresentations())
-    {
-      repr->SegmentTimeline().GetData().reserve(adpSet->SegmentTimelineDuration().GetSize());
-
-      uint64_t nextStartPts = adpSet->GetStartPTS() - base_time_;
-      uint64_t index = 1;
-
-      for (uint32_t segDuration : adpSet->SegmentTimelineDuration().GetData())
-      {
-        CSegment seg;
-        seg.startPTS_ = nextStartPts;
-        seg.range_begin_ = nextStartPts + base_time_;
-        seg.range_end_ = index;
-
-        repr->SegmentTimeline().GetData().emplace_back(seg);
-
-        nextStartPts += segDuration;
-        index++;
-      }
-
-      repr->m_psshSetPos = psshSetPos;
-    }
-  }
-
   SortTree();
 
   return true;
@@ -138,6 +102,7 @@ bool adaptive::CSmoothTree::ParseManifest(std::string& data)
   base_time_ = NO_PTS_VALUE;
 
   // Parse <Protection> tag
+  PRProtectionParser protParser;
   xml_node nodeProt = nodeSSM.child("Protection");
   if (nodeProt)
   {
@@ -150,14 +115,11 @@ bool adaptive::CSmoothTree::ParseManifest(std::string& data)
       if (STRING::CompareNoCase(XML::GetAttrib(nodeProtHead, "SystemID"),
                                 "9A04F079-9840-4286-AB92-E65BE0885F95"))
       {
-        PRProtectionParser parser;
-
-        if (parser.ParseHeader(nodeProtHead.child_value()))
+        if (protParser.ParseHeader(nodeProtHead.child_value()))
+        {
           period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-
-        current_defaultKID_ = parser.GetKID();
-        license_url_ = parser.GetLicenseURL();
-        current_pssh_ = parser.GetPSSH();
+          license_url_ = protParser.GetLicenseURL();
+        }
       }
       else
         LOG::LogF(LOGERROR, "Protection header with a SystemID not supported or not implemented.");
@@ -167,7 +129,7 @@ bool adaptive::CSmoothTree::ParseManifest(std::string& data)
   // Parse <StreamIndex> tags
   for (xml_node node : nodeSSM.children("StreamIndex"))
   {
-    ParseTagStreamIndex(node, period.get());
+    ParseTagStreamIndex(node, period.get(), protParser);
   }
 
   if (period->GetAdaptationSets().empty())
@@ -181,7 +143,9 @@ bool adaptive::CSmoothTree::ParseManifest(std::string& data)
   return true;
 }
 
-void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI, PLAYLIST::CPeriod* period)
+void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
+                                                PLAYLIST::CPeriod* period,
+                                                const PRProtectionParser& protParser)
 {
   std::unique_ptr<CAdaptationSet> adpSet = CAdaptationSet::MakeUniquePtr(period);
 
@@ -194,6 +158,15 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI, PLAYLIST:
     adpSet->SetStreamType(StreamType::AUDIO);
   else if (type == "text")
     adpSet->SetStreamType(StreamType::SUBTITLE);
+
+  uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
+
+  if (protParser.HasProtection() && (adpSet->GetStreamType() == StreamType::VIDEO ||
+                                     adpSet->GetStreamType() == StreamType::AUDIO))
+  {
+    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(),
+                               protParser.GetPSSH(), protParser.GetKID());
+  }
 
   adpSet->SetLanguage(XML::GetAttrib(nodeSI, "Language"));
 
@@ -220,18 +193,6 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI, PLAYLIST:
       return;
     }
     adpSet->SetBaseUrl(URL::Join(base_url_, url.data()));
-  }
-
-  // Parse <QualityLevel> tags
-  for (xml_node node : nodeSI.children("QualityLevel"))
-  {
-    ParseTagQualityLevel(node, adpSet.get(), timescale);
-  }
-
-  if (adpSet->GetRepresentations().empty())
-  {
-    LOG::LogF(LOGDEBUG, "No generated representations, adaptation set skipped.");
-    return;
   }
 
   // Parse <c> tags (Chunk identifier for segment of data)
@@ -280,6 +241,18 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI, PLAYLIST:
     return;
   }
 
+  // Parse <QualityLevel> tags
+  for (xml_node node : nodeSI.children("QualityLevel"))
+  {
+    ParseTagQualityLevel(node, adpSet.get(), timescale, psshSetPos);
+  }
+
+  if (adpSet->GetRepresentations().empty())
+  {
+    LOG::LogF(LOGDEBUG, "No generated representations, adaptation set skipped.");
+    return;
+  }
+
   if (adpSet->GetStartPTS() < base_time_)
     base_time_ = adpSet->GetStartPTS();
 
@@ -288,7 +261,8 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI, PLAYLIST:
 
 void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
                                                  PLAYLIST::CAdaptationSet* adpSet,
-                                                 uint32_t timescale)
+                                                 const uint32_t timescale,
+                                                 const uint16_t psshSetPos)
 {
   std::unique_ptr<CRepresentation> repr = CRepresentation::MakeUniquePtr(adpSet);
 
@@ -301,6 +275,8 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
   std::string fourCc;
   if (XML::QueryAttrib(nodeQI, "FourCC", fourCc))
     repr->AddCodecs(fourCc);
+
+  repr->m_psshSetPos = psshSetPos;
 
   repr->SetResWidth(XML::GetAttribInt(nodeQI, "MaxWidth"));
   repr->SetResHeight(XML::GetAttribInt(nodeQI, "MaxHeight"));
@@ -370,6 +346,25 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
   segTpl.SetMediaUrl(mediaUrl);
 
   repr->SetSegmentTemplate(segTpl);
+
+  // Generate segment timeline
+  repr->SegmentTimeline().GetData().reserve(adpSet->SegmentTimelineDuration().GetSize());
+
+  uint64_t nextStartPts = adpSet->GetStartPTS() - base_time_;
+  uint64_t index = 1;
+
+  for (uint32_t segDuration : adpSet->SegmentTimelineDuration().GetData())
+  {
+    CSegment seg;
+    seg.startPTS_ = nextStartPts;
+    seg.range_begin_ = nextStartPts + base_time_;
+    seg.range_end_ = index;
+
+    repr->SegmentTimeline().GetData().emplace_back(seg);
+
+    nextStartPts += segDuration;
+    index++;
+  }
 
   repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
   repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
