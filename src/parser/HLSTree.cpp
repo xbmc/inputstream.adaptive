@@ -866,6 +866,8 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
       repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
       repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
+      repr->SetScaling();
+
       // Add the representation/adaptation set to the group
       adpSet->AddRepresentation(repr);
       group.m_adpSets.push_back(std::move(adpSet));
@@ -942,6 +944,8 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
       repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
       repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
+      repr->SetScaling();
+
       // Try read on the next stream line, to get the playlist URL address
       if (STRING::GetLine(streamData, line) && !line.empty() && line[0] != '#')
       {
@@ -978,6 +982,8 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
 
       repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
       repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
+
+      repr->SetScaling();
 
       newAdpSet->AddRepresentation(repr);
       period->AddAdaptationSet(newAdpSet);
@@ -1043,6 +1049,8 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
 
     repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
     repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
+
+    repr->SetScaling();
 
     newAdpSet->AddRepresentation(repr);
     period->AddAdaptationSet(newAdpSet);

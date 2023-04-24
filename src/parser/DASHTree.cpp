@@ -1183,6 +1183,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   if (repr->GetStartNumber() > m_firstStartNumber)
     m_firstStartNumber = repr->GetStartNumber();
 
+  repr->SetScaling();
+
   adpSet->AddRepresentation(repr);
 }
 
