@@ -633,44 +633,8 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     }
   }
 
-  if (adpSet->SegmentTimelineDuration().IsEmpty() && adpSet->HasSegmentTemplate() &&
-      !adpSet->GetSegmentTemplate()->GetMedia().empty())
-  {
-    for (auto& rep : adpSet->GetRepresentations())
-    {
-      if (rep->GetDuration() == 0 || rep->GetTimescale() == 0)
-      {
-        rep->SetDuration(adpSet->GetSegmentTemplate()->GetDuration());
-        rep->SetTimescale(adpSet->GetSegmentTemplate()->GetTimescale());
-      }
-    }
-  }
-  else if (!adpSet->SegmentTimelineDuration().IsEmpty())
-  {
-    // If representations are not timelined, we have to adjust startPTS in representation segments
-    for (auto& rep : adpSet->GetRepresentations())
-    {
-      if (rep->HasSegmentTimeline())
-        continue;
-
-      uint64_t startPts{0};
-      for (size_t i{0}; i < adpSet->SegmentTimelineDuration().GetSize(); i++)
-      {
-        auto adpSeg = adpSet->SegmentTimelineDuration().Get(i);
-        auto repSeg = rep->SegmentTimeline().Get(i);
-        if (repSeg && adpSeg)
-        {
-          repSeg->startPTS_ = startPts;
-          startPts += *adpSeg;
-        }
-      }
-      rep->nextPts_ = startPts;
-    }
-  }
-
   period->AddAdaptationSet(adpSet);
 }
-
 
 void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
                                                  PLAYLIST::CAdaptationSet* adpSet,
