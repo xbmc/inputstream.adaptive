@@ -102,10 +102,6 @@ public:
   bool IsForced() const { return m_isForced; }
   void SetIsForced(bool isForced) { m_isForced = isForced; }
 
-  //! @todo: undocumented, used to distingish audio streams on mergeable method? could be removed?
-  std::string GetAudioTrackId() const { return m_audioTrackId; }
-  void SetAudioTrackId(std::string_view audioTrackId) { m_audioTrackId = audioTrackId; }
-
   void CopyHLSData(const CAdaptationSet* other);
 
   bool IsMergeable(const CAdaptationSet* other) const;
@@ -139,7 +135,6 @@ protected:
   bool m_isOriginal{false};
   bool m_isDefault{false};
   bool m_isForced{false};
-  std::string m_audioTrackId;
 };
 
 } // namespace PLAYLIST

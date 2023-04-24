@@ -437,8 +437,6 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
   adpSet->AddCodecs(XML::GetAttrib(nodeAdp, "codecs"));
 
-  adpSet->SetAudioTrackId(XML::GetAttrib(nodeAdp, "audioTrackId")); // ISA custom attribute
-
   // Following stream properties, can be used to override existing values
   std::string isImpaired;
   if (XML::QueryAttrib(nodeAdp, "impaired", isImpaired)) // ISA custom attribute
