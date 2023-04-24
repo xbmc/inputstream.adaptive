@@ -22,6 +22,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -78,7 +79,6 @@ public:
   std::string location_;
 
   CryptoMode m_cryptoMode{CryptoMode::NONE};
-  std::string license_url_; // SmoothTree only
 
   AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser);
   AdaptiveTree(const AdaptiveTree& left);
@@ -230,6 +230,12 @@ public:
    */
   TreeUpdateThread& GetTreeUpdMutex() { return m_updThread; };
 
+  /*!
+   * \brief Get the license URL, some DRM-encrypted manifests (e.g. SmoothStreaming) can provide it.
+   * \return The license URL if found, otherwise empty string.
+   */
+  std::string_view GetLicenseUrl() { return m_licenseUrl; }
+
 protected:
   /*!
    * \brief Download a file.
@@ -297,6 +303,8 @@ protected:
 
   // Provide the path where the manifests will be saved, if debug enabled
   std::string m_pathSaveManifest;
+
+  std::string m_licenseUrl;
 };
 
 } // namespace adaptive

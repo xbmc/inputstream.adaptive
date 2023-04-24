@@ -116,7 +116,7 @@ bool adaptive::CSmoothTree::ParseManifest(std::string& data)
         if (protParser.ParseHeader(nodeProtHead.child_value()))
         {
           period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-          license_url_ = protParser.GetLicenseURL();
+          m_licenseUrl = protParser.GetLicenseURL();
         }
       }
       else

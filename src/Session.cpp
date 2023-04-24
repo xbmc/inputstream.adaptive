@@ -423,7 +423,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     std::string licenseKey{m_kodiProps.m_licenseKey};
 
     if (licenseKey.empty())
-      licenseKey = m_adaptiveTree->license_url_;
+      licenseKey = m_adaptiveTree->GetLicenseUrl();
 
     LOG::Log(LOGDEBUG, "Entering encryption section");
 
