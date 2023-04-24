@@ -64,7 +64,6 @@ public:
 
   std::string manifest_url_;
   std::string base_url_;
-  std::string effective_url_;
   std::string m_manifestUpdateParam;
 
   std::optional<uint32_t> initial_sequence_; // HLS only

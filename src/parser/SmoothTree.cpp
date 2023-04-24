@@ -46,9 +46,7 @@ bool adaptive::CSmoothTree::open(const std::string& url,
   // We do not add "info" arg to SaveManifest or corrupt possible UTF16 data
   SaveManifest("", data, "");
 
-  effective_url_ = respHeaders.m_effectiveUrl;
-
-  if (!PreparePaths(effective_url_))
+  if (!PreparePaths(respHeaders.m_effectiveUrl))
     return false;
 
   if (!ParseManifest(data))

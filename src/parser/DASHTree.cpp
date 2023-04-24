@@ -104,10 +104,9 @@ bool adaptive::CDashTree::open(const std::string& url,
 
   SaveManifest("", data, url);
 
-  effective_url_ = respHeaders.m_effectiveUrl;
   m_manifestRespHeaders = respHeaders;
 
-  if (!PreparePaths(effective_url_))
+  if (!PreparePaths(respHeaders.m_effectiveUrl))
     return false;
 
   if (!ParseManifest(data))

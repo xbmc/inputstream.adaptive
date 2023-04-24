@@ -157,9 +157,7 @@ bool adaptive::CHLSTree::open(const std::string& url,
 
   SaveManifest(nullptr, data, url);
 
-  effective_url_ = respHeaders.m_effectiveUrl;
-
-  if (!PreparePaths(effective_url_))
+  if (!PreparePaths(respHeaders.m_effectiveUrl))
     return false;
 
   if (!ParseManifest(data))
@@ -211,8 +209,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
     SaveManifest(adp, data, rep->GetSourceUrl());
 
-    effective_url_ = respHeaders.m_effectiveUrl;
-    std::string baseUrl = URL::RemoveParameters(effective_url_);
+    std::string baseUrl = URL::RemoveParameters(respHeaders.m_effectiveUrl);
 
     EncryptionType currentEncryptionType = EncryptionType::CLEAR;
 
