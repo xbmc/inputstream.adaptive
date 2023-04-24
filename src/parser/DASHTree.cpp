@@ -688,20 +688,18 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     return;
   }
 
-  // Sanitize AdaptationSet properties
-  //! @todo: sanitize need to be reworked and moved outside representation parser
-  if (adpSet->GetStreamType() != StreamType::SUBTITLE)
+  // If AdaptationSet tag dont provide any info to know the content type
+  // we attempt to determine it based on the content of the representation
+  if (adpSet->GetStreamType() == StreamType::NOTYPE)
   {
-    if (adpSet->GetStreamType() == StreamType::NOTYPE)
+    StreamType streamType = DetectStreamType("", repr->GetMimeType());
+
+    if (streamType == StreamType::NOTYPE &&
+        (repr->ContainsCodec("wvtt") || (repr->ContainsCodec("ttml"))))
     {
-      StreamType streamType = DetectStreamType("", repr->GetMimeType());
-
-      if (streamType == StreamType::NOTYPE &&
-          (repr->ContainsCodec("wvtt") || (repr->ContainsCodec("ttml"))))
-        streamType = StreamType::SUBTITLE;
-
-      adpSet->SetStreamType(streamType);
+      streamType = StreamType::SUBTITLE;
     }
+    adpSet->SetStreamType(streamType);
   }
 
   // Set properties for subtitles types
