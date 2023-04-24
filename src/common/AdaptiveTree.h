@@ -78,9 +78,6 @@ public:
   std::string m_supportedKeySystem;
   std::string location_;
 
-  std::string current_pssh_; //! @todo: remove me
-  std::string current_defaultKID_; //! @todo: remove me
-  std::string current_iv_; //! @todo: remove me
   CryptoMode m_cryptoMode{CryptoMode::NONE};
   std::string license_url_; // SmoothTree only
 

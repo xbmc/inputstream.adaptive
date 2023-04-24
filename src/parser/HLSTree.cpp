@@ -270,8 +270,8 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
             currentEncryptionType = EncryptionType::WIDEVINE;
             period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
 
-            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, current_pssh_,
-                                              current_defaultKID_, current_iv_);
+            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
+                                              m_currentDefaultKID, m_currentIV);
             if (period->GetPSSHSets()[rep->GetPsshSetPos()].m_usageCount == 1 ||
                 prepareStatus == PrepareRepStatus::DRMCHANGED)
             {
@@ -442,8 +442,8 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         {
           if (psshSetPos == PSSHSET_POS_DEFAULT)
           {
-            psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, current_pssh_,
-                                       current_defaultKID_, current_iv_);
+            psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
+                                       m_currentDefaultKID, m_currentIV);
             newSegment->pssh_set_ = psshSetPos;
           }
           else
@@ -540,8 +540,8 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
         if (currentEncryptionType == EncryptionType::WIDEVINE)
         {
-          rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, current_pssh_,
-                                            current_defaultKID_, current_iv_);
+          rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
+                                            m_currentDefaultKID, m_currentIV);
           period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
         }
 
@@ -1078,7 +1078,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   // NO ENCRYPTION
   if (encryptMethod == "NONE")
   {
-    current_pssh_.clear();
+    m_currentPssh.clear();
 
     return EncryptionType::CLEAR;
   }
@@ -1086,11 +1086,11 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   // AES-128
   if (encryptMethod == "AES-128" && !attribs["URI"].empty())
   {
-    current_pssh_ = attribs["URI"];
-    if (URL::IsUrlRelative(current_pssh_))
-      current_pssh_ = URL::Join(baseUrl.data(), current_pssh_);
+    m_currentPssh = attribs["URI"];
+    if (URL::IsUrlRelative(m_currentPssh))
+      m_currentPssh = URL::Join(baseUrl.data(), m_currentPssh);
 
-    current_iv_ = m_decrypter->convertIV(attribs["IV"]);
+    m_currentIV = m_decrypter->convertIV(attribs["IV"]);
 
     return EncryptionType::AES128;
   }
@@ -1104,23 +1104,23 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     {
       std::string keyid = attribs["KEYID"].substr(2);
       const char* defaultKID = keyid.c_str();
-      current_defaultKID_.resize(16);
+      m_currentDefaultKID.resize(16);
       for (unsigned int i(0); i < 16; ++i)
       {
-        current_defaultKID_[i] = STRING::ToHexNibble(*defaultKID) << 4;
+        m_currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
         ++defaultKID;
-        current_defaultKID_[i] |= STRING::ToHexNibble(*defaultKID);
+        m_currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
         ++defaultKID;
       }
     }
 
-    current_pssh_ = attribs["URI"].substr(23);
+    m_currentPssh = attribs["URI"].substr(23);
     // Try to get KID from pssh, we assume len+'pssh'+version(0)+systemid+lenkid+kid
-    if (current_defaultKID_.empty() && current_pssh_.size() == 68)
+    if (m_currentDefaultKID.empty() && m_currentPssh.size() == 68)
     {
-      std::string decPssh{BASE64::Decode(current_pssh_)};
+      std::string decPssh{BASE64::Decode(m_currentPssh)};
       if (decPssh.size() == 50)
-        current_defaultKID_ = decPssh.substr(34, 16);
+        m_currentDefaultKID = decPssh.substr(34, 16);
     }
     if (encryptMethod == "SAMPLE-AES-CTR")
       m_cryptoMode = CryptoMode::AES_CTR;

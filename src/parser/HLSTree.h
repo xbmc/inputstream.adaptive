@@ -90,6 +90,10 @@ private:
   uint8_t m_segmentIntervalSec = 4;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;
+
+  std::string m_currentPssh; // Last processed encryption URI
+  std::string m_currentDefaultKID; // Last processed encryption KID
+  std::string m_currentIV; // Last processed encryption IV
 };
 
 } // namespace
