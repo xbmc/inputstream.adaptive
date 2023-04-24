@@ -163,12 +163,7 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 include_directories(${PUGIXML_INCLUDE_DIRS})
 
-if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
-  set(BENTOUSESTCFS 1)
-  include_directories(${BENTO4_INCLUDE_DIRS})
-else()
-  add_subdirectory(wvdecrypter)
-endif()
+add_subdirectory(wvdecrypter)
 
 add_subdirectory(lib/mpegts)
 add_subdirectory(lib/webm_parser)

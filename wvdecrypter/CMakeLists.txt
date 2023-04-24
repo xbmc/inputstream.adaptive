@@ -42,6 +42,11 @@ if(CORE_SYSTEM_NAME STREQUAL android)
     ../src/utils/Base64Utils.cpp
     ../src/utils/DigestMD5Utils.cpp
   )
+elseif(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
+  add_library(ssd_wv STATIC
+    wvdecrypter_empty.cpp
+    wvdecrypter.h
+  )
 else()
   if(WIN32)
     set(CDMTYPE "win.cc")
