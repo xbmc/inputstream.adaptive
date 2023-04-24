@@ -6,6 +6,8 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "wvdecrypter.h"
+
 #include "../src/common/AdaptiveDecrypter.h"
 #include "../src/utils/Base64Utils.h"
 #include "../src/utils/DigestMD5Utils.h"
@@ -1412,55 +1414,46 @@ JNIEnv* xbmc_jnienv()
   return static_cast<JNIEnv*>(GLOBAL::Host->GetJNIEnv());
 }
 
-extern "C" {
+static CJNIClassLoader *classLoader;
 
-#ifdef _WIN32
-#define MODULE_API __declspec(dllexport)
-#else
-#define MODULE_API
-#endif
+SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h, uint32_t host_version)
+{
+  if (host_version != SSD_HOST::version)
+    return nullptr;
 
-  CJNIClassLoader *classLoader;
+  GLOBAL::Host = h;
 
-  SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h, uint32_t host_version)
+  CJNIBase::SetSDKVersion(GLOBAL::Host->GetSDKVersion());
+  CJNIBase::SetBaseClassName(GLOBAL::Host->GetClassName());
+
+  LOG::Log(SSDDEBUG, "WVDecrypter JNI, SDK version: %d, class: %s", CJNIBase::GetSDKVersion(),
+      CJNIBase::GetBaseClassName().c_str());
+
+  const char *apkEnv = getenv("XBMC_ANDROID_APK");
+  if (!apkEnv)
+    apkEnv = getenv("KODI_ANDROID_APK");
+
+  if (!apkEnv)
+    return nullptr;
+
+  std::string apkPath = apkEnv;
+
+  classLoader = new CJNIClassLoader(apkPath);
+  if (xbmc_jnienv()->ExceptionCheck())
   {
-    if (host_version != SSD_HOST::version)
-      return nullptr;
-    
-    GLOBAL::Host = h;
+    LOG::LogF(SSDERROR, "Failed to create JNI::ClassLoader");
+    xbmc_jnienv()->ExceptionDescribe();
+    xbmc_jnienv()->ExceptionClear();
 
-    CJNIBase::SetSDKVersion(GLOBAL::Host->GetSDKVersion());
-    CJNIBase::SetBaseClassName(GLOBAL::Host->GetClassName());
-
-    LOG::Log(SSDDEBUG, "WVDecrypter JNI, SDK version: %d, class: %s", CJNIBase::GetSDKVersion(),
-        CJNIBase::GetBaseClassName().c_str());
-
-    const char *apkEnv = getenv("XBMC_ANDROID_APK");
-    if (!apkEnv)
-      apkEnv = getenv("KODI_ANDROID_APK");
-
-    if (!apkEnv)
-      return nullptr;
-
-    std::string apkPath = apkEnv;
-
-    classLoader = new CJNIClassLoader(apkPath);
-    if (xbmc_jnienv()->ExceptionCheck())
-    {
-      LOG::LogF(SSDERROR, "Failed to create JNI::ClassLoader");
-      xbmc_jnienv()->ExceptionDescribe();
-      xbmc_jnienv()->ExceptionClear();
-
-      delete classLoader, classLoader = nullptr;
-
-      return nullptr;
-    }
-    return new WVDecrypter(classLoader);
-  };
-
-  void MODULE_API DeleteDecryptorInstance(class SSD_DECRYPTER *d)
-  {
     delete classLoader, classLoader = nullptr;
-    delete static_cast<WVDecrypter*>(d);
+
+    return nullptr;
   }
+  return new WVDecrypter(classLoader);
 };
+
+void MODULE_API DeleteDecryptorInstance(class SSD_DECRYPTER *d)
+{
+  delete classLoader, classLoader = nullptr;
+  delete static_cast<WVDecrypter*>(d);
+}

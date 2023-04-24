@@ -23,6 +23,7 @@
 #include "utils/StringUtils.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
+#include "../wvdecrypter/wvdecrypter.h"
 
 #include <array>
 
@@ -106,9 +107,6 @@ CSession::~CSession()
 
 void CSession::SetSupportedDecrypterURN(std::string& key_system)
 {
-  typedef SSD::SSD_DECRYPTER* (*CreateDecryptorInstanceFunc)(SSD::SSD_HOST * host,
-                                                             uint32_t version);
-
   std::string specialpath = kodi::addon::GetSettingString("DECRYPTERPATH");
   if (specialpath.empty())
   {
@@ -117,69 +115,13 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
   }
   m_KodiHost->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
 
-  std::array<std::string, 3> searchPaths =
+  SSD::SSD_DECRYPTER* decrypter = CreateDecryptorInstance(m_KodiHost.get(), SSD::SSD_HOST::version);
+  const char* suppUrn(0);
+
+  if (decrypter && (suppUrn = decrypter->SelectKeySytem(m_kodiProps.m_licenseType.c_str())))
   {
-    kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/"),
-    kodi::vfs::TranslateSpecialProtocol("special://xbmcaltbinaddons/inputstream.adaptive/"),
-    kodi::addon::GetAddonInfo("path"),
-  };
-
-  std::vector<kodi::vfs::CDirEntry> items;
-
-  for (auto searchPath : searchPaths)
-  {
-    LOG::Log(LOGDEBUG, "Searching for decrypters in: %s", searchPath.c_str());
-
-    if (!kodi::vfs::GetDirectory(searchPath, "", items))
-      continue;
-
-    for (auto item : items)
-    {
-      if (item.Label().compare(0, 4, "ssd_") && item.Label().compare(0, 7, "libssd_"))
-        continue;
-
-      bool success = false;
-      m_dllHelper = std::make_unique<kodi::tools::CDllHelper>();
-      if (m_dllHelper->LoadDll(item.Path()))
-      {
-#if defined(__linux__) && defined(__aarch64__) && !defined(ANDROID)
-        // On linux arm64, libwidevinecdm.so depends on two dynamic symbols:
-        //   __aarch64_ldadd4_acq_rel
-        //   __aarch64_swp4_acq_rel
-        // These are defined in libssd_wv.so, but to make them available in the main binary's PLT,
-        // we need RTLD_GLOBAL. LoadDll() above uses RTLD_LOCAL, so we use RTLD_NOLOAD here to
-        // switch the flags from LOCAL to GLOBAL.
-        void *hdl = dlopen(item.Path().c_str(), RTLD_NOLOAD | RTLD_GLOBAL | RTLD_LAZY);
-        if (!hdl)
-        {
-          LOG::Log(LOGERROR, "Failed to reload dll in global mode: %s", dlerror());
-        }
-#endif
-        CreateDecryptorInstanceFunc startup;
-        if (m_dllHelper->RegisterSymbol(startup, "CreateDecryptorInstance"))
-        {
-          SSD::SSD_DECRYPTER* decrypter = startup(m_KodiHost.get(), SSD::SSD_HOST::version);
-          const char* suppUrn(0);
-
-          if (decrypter && (suppUrn = decrypter->SelectKeySytem(m_kodiProps.m_licenseType.c_str())))
-          {
-            LOG::Log(LOGDEBUG, "Found decrypter: %s", item.Path().c_str());
-            success = true;
-            m_decrypter = decrypter;
-            key_system = suppUrn;
-            break;
-          }
-        }
-      }
-      else
-      {
-        LOG::Log(LOGDEBUG, "%s", dlerror());
-      }
-      if (!success)
-      {
-        m_dllHelper.reset();
-      }
-    }
+    m_decrypter = decrypter;
+    key_system = suppUrn;
   }
 }
 
@@ -211,11 +153,7 @@ void CSession::DisposeDecrypter()
 
   DisposeSampleDecrypter();
 
-  typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER*);
-  DeleteDecryptorInstanceFunc disposefn;
-
-  if (m_dllHelper->RegisterSymbol(disposefn, "DeleteDecryptorInstance"))
-    disposefn(m_decrypter);
+  DeleteDecryptorInstance(m_decrypter);
 
   m_decrypter = nullptr;
 }

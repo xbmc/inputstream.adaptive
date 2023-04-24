@@ -6,6 +6,8 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "wvdecrypter.h"
+
 #include "../src/common/AdaptiveDecrypter.h"
 #include "../src/utils/Base64Utils.h"
 #include "../src/utils/DigestMD5Utils.h"
@@ -1642,22 +1644,17 @@ int32_t __aarch64_swp4_acq_rel(int32_t value, int32_t *ptr)
 }
 #endif
 
-#ifdef _WIN32
-#define MODULE_API __declspec(dllexport)
-#else
-#define MODULE_API
-#endif
-
-  SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h, uint32_t host_version)
-  {
-    if (host_version != SSD_HOST::version)
-      return 0;
-    GLOBAL::Host = h;
-    return new WVDecrypter();
-  };
-
-  void MODULE_API DeleteDecryptorInstance(SSD_DECRYPTER *d)
-  {
-    delete static_cast<WVDecrypter*>(d);
-  }
 };
+
+SSD_DECRYPTER MODULE_API *CreateDecryptorInstance(class SSD_HOST *h, uint32_t host_version)
+{
+  if (host_version != SSD_HOST::version)
+    return 0;
+  GLOBAL::Host = h;
+  return new WVDecrypter();
+};
+
+void DeleteDecryptorInstance(SSD_DECRYPTER *d)
+{
+  delete static_cast<WVDecrypter*>(d);
+}

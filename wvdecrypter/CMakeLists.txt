@@ -32,9 +32,10 @@ add_definitions(-DINPUTSTREAM_SSD_BUILD)
 
 if(CORE_SYSTEM_NAME STREQUAL android)
   subdirs ( jni )
-  add_library ( ssd_wv SHARED
+  add_library ( ssd_wv STATIC
 	Helper.cpp
 	wvdecrypter_android.cpp
+	wvdecrypter.h
 	jsmn.c
     ../src/utils/Utils.cpp
     ../src/utils/StringUtils.cpp
@@ -53,9 +54,10 @@ else()
     add_definitions("-DWIDEVINECDMFILENAME=\"libwidevinecdm.so\"")
   endif()
 
-  add_library ( ssd_wv SHARED
+  add_library ( ssd_wv STATIC
         Helper.cpp
         wvdecrypter.cpp
+        wvdecrypter.h
         jsmn.c
         ../src/utils/Utils.cpp
         ../src/utils/StringUtils.cpp
