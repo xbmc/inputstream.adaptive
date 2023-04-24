@@ -7,9 +7,14 @@
  */
 
 #include "AdaptiveCencSampleDecrypter.h"
-#include "AdaptiveDecrypter.h"
 
-#include "../utils/log.h"
+CAdaptiveCencSampleDecrypter::CAdaptiveCencSampleDecrypter(
+    Adaptive_CencSingleSampleDecrypter* singleSampleDecrypter,
+    AP4_CencSampleInfoTable* sampleInfoTable)
+  : AP4_CencSampleDecrypter(singleSampleDecrypter, sampleInfoTable)
+{
+  m_decrypter = singleSampleDecrypter;
+}
 
 AP4_Result CAdaptiveCencSampleDecrypter::DecryptSampleData(AP4_UI32 poolid,
                                        AP4_DataBuffer& data_in,
@@ -45,13 +50,6 @@ AP4_Result CAdaptiveCencSampleDecrypter::DecryptSampleData(AP4_UI32 poolid,
     }
 
     // decrypt the sample
-    Adaptive_CencSingleSampleDecrypter* decrypter =
-        dynamic_cast<Adaptive_CencSingleSampleDecrypter*>(m_SingleSampleDecrypter);
-    if (!decrypter)
-    {
-      LOG::LogF(LOGERROR, "Failed to cast AP4 decrypter to Adaptive");
-      return AP4_ERROR_INVALID_PARAMETERS;
-    }
-    return decrypter->DecryptSampleData(poolid, data_in, data_out, iv_block, subsample_count,
-                                        bytes_of_cleartext_data, bytes_of_encrypted_data);
+    return m_decrypter->DecryptSampleData(poolid, data_in, data_out, iv_block, subsample_count,
+                                          bytes_of_cleartext_data, bytes_of_encrypted_data);
   }
