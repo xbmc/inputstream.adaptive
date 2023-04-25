@@ -78,7 +78,6 @@ void PLAYLIST::CAdaptationSet::CopyHLSData(const CAdaptationSet* other)
   m_id = other->m_id;
   m_group = other->m_group;
   m_codecs = other->m_codecs;
-  m_audioTrackId = other->m_audioTrackId;
   m_name = other->m_name;
 }
 
@@ -106,8 +105,7 @@ bool PLAYLIST::CAdaptationSet::IsMergeable(const CAdaptationSet* other) const
         m_baseUrl == other->m_baseUrl && m_isDefault == other->m_isDefault &&
         m_isOriginal == other->m_isOriginal && m_isForced == other->m_isForced &&
         m_isImpaired == other->m_isImpaired && m_mimeType == other->m_mimeType &&
-        m_audioTrackId == other->m_audioTrackId && m_audioChannels == other->m_audioChannels &&
-        m_codecs == other->m_codecs)
+        m_audioChannels == other->m_audioChannels && m_codecs == other->m_codecs)
     {
       return true;
     }
@@ -127,9 +125,6 @@ bool PLAYLIST::CAdaptationSet::Compare(const std::unique_ptr<CAdaptationSet>& le
 
   if (left->m_streamType == StreamType::AUDIO)
   {
-    if (left->m_audioTrackId != right->m_audioTrackId)
-      return left->m_audioTrackId < right->m_audioTrackId;
-
     if (left->m_name != right->m_name)
       return left->m_name < right->m_name;
 

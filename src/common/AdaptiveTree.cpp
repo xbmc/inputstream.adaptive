@@ -256,12 +256,6 @@ namespace adaptive
       {
         std::sort(adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
                   CRepresentation::CompareBandwidth);
-
-        //! @todo: move set scaling out of SortTree
-        for (auto& repr : adpSet->GetRepresentations())
-        {
-          repr->SetScaling();
-        }
       }
     }
   }

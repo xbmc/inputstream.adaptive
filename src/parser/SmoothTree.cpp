@@ -46,9 +46,7 @@ bool adaptive::CSmoothTree::open(const std::string& url,
   // We do not add "info" arg to SaveManifest or corrupt possible UTF16 data
   SaveManifest("", data, "");
 
-  effective_url_ = respHeaders.m_effectiveUrl;
-
-  if (!PreparePaths(effective_url_))
+  if (!PreparePaths(respHeaders.m_effectiveUrl))
     return false;
 
   if (!ParseManifest(data))
@@ -118,7 +116,7 @@ bool adaptive::CSmoothTree::ParseManifest(std::string& data)
         if (protParser.ParseHeader(nodeProtHead.child_value()))
         {
           period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-          license_url_ = protParser.GetLicenseURL();
+          m_licenseUrl = protParser.GetLicenseURL();
         }
       }
       else
@@ -368,6 +366,8 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
 
   repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
   repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
+
+  repr->SetScaling();
 
   adpSet->AddRepresentation(repr);
 }

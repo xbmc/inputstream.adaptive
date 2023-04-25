@@ -104,10 +104,9 @@ bool adaptive::CDashTree::open(const std::string& url,
 
   SaveManifest("", data, url);
 
-  effective_url_ = respHeaders.m_effectiveUrl;
   m_manifestRespHeaders = respHeaders;
 
-  if (!PreparePaths(effective_url_))
+  if (!PreparePaths(respHeaders.m_effectiveUrl))
     return false;
 
   if (!ParseManifest(data))
@@ -438,8 +437,6 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
   adpSet->AddCodecs(XML::GetAttrib(nodeAdp, "codecs"));
 
-  adpSet->SetAudioTrackId(XML::GetAttrib(nodeAdp, "audioTrackId")); // ISA custom attribute
-
   // Following stream properties, can be used to override existing values
   std::string isImpaired;
   if (XML::QueryAttrib(nodeAdp, "impaired", isImpaired)) // ISA custom attribute
@@ -636,44 +633,8 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     }
   }
 
-  if (adpSet->SegmentTimelineDuration().IsEmpty() && adpSet->HasSegmentTemplate() &&
-      !adpSet->GetSegmentTemplate()->GetMedia().empty())
-  {
-    for (auto& rep : adpSet->GetRepresentations())
-    {
-      if (rep->GetDuration() == 0 || rep->GetTimescale() == 0)
-      {
-        rep->SetDuration(adpSet->GetSegmentTemplate()->GetDuration());
-        rep->SetTimescale(adpSet->GetSegmentTemplate()->GetTimescale());
-      }
-    }
-  }
-  else if (!adpSet->SegmentTimelineDuration().IsEmpty())
-  {
-    // If representations are not timelined, we have to adjust startPTS in representation segments
-    for (auto& rep : adpSet->GetRepresentations())
-    {
-      if (rep->HasSegmentTimeline())
-        continue;
-
-      uint64_t startPts{0};
-      for (size_t i{0}; i < adpSet->SegmentTimelineDuration().GetSize(); i++)
-      {
-        auto adpSeg = adpSet->SegmentTimelineDuration().Get(i);
-        auto repSeg = rep->SegmentTimeline().Get(i);
-        if (repSeg && adpSeg)
-        {
-          repSeg->startPTS_ = startPts;
-          startPts += *adpSeg;
-        }
-      }
-      rep->nextPts_ = startPts;
-    }
-  }
-
   period->AddAdaptationSet(adpSet);
 }
-
 
 void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
                                                  PLAYLIST::CAdaptationSet* adpSet,
@@ -727,20 +688,18 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     return;
   }
 
-  // Sanitize AdaptationSet properties
-  //! @todo: sanitize need to be reworked and moved outside representation parser
-  if (adpSet->GetStreamType() != StreamType::SUBTITLE)
+  // If AdaptationSet tag dont provide any info to know the content type
+  // we attempt to determine it based on the content of the representation
+  if (adpSet->GetStreamType() == StreamType::NOTYPE)
   {
-    if (adpSet->GetStreamType() == StreamType::NOTYPE)
+    StreamType streamType = DetectStreamType("", repr->GetMimeType());
+
+    if (streamType == StreamType::NOTYPE &&
+        (repr->ContainsCodec("wvtt") || (repr->ContainsCodec("ttml"))))
     {
-      StreamType streamType = DetectStreamType("", repr->GetMimeType());
-
-      if (streamType == StreamType::NOTYPE &&
-          (repr->ContainsCodec("wvtt") || (repr->ContainsCodec("ttml"))))
-        streamType = StreamType::SUBTITLE;
-
-      adpSet->SetStreamType(streamType);
+      streamType = StreamType::SUBTITLE;
     }
+    adpSet->SetStreamType(streamType);
   }
 
   // Set properties for subtitles types
@@ -1221,6 +1180,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   // YouTube fix
   if (repr->GetStartNumber() > m_firstStartNumber)
     m_firstStartNumber = repr->GetStartNumber();
+
+  repr->SetScaling();
 
   adpSet->AddRepresentation(repr);
 }
