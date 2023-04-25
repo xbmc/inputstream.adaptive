@@ -105,14 +105,16 @@ public:
   {
     return std::chrono::system_clock::now();
   }
+
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
                              uint8_t iv[16],
-                             const uint8_t* src,
-                             std::string& dst,
-                             size_t dstOffset,
-                             size_t dataSize,
-                             bool lastChunk);
+                             const char* srcData,
+                             size_t srcDataSize,
+                             std::string& segBuffer,
+                             size_t segBufferSize,
+                             bool isLastChunk);
+
   virtual void RefreshSegments(PLAYLIST::CPeriod* period,
                                PLAYLIST::CAdaptationSet* adp,
                                PLAYLIST::CRepresentation* rep,

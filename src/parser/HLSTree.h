@@ -40,11 +40,11 @@ public:
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
                              uint8_t iv[16],
-                             const uint8_t* src,
-                             std::string& dst,
-                             size_t dstOffset,
-                             size_t dataSize,
-                             bool lastChunk) override;
+                             const char* srcData,
+                             size_t srcDataSize,
+                             std::string& segBuffer,
+                             size_t segBufferSize,
+                             bool isLastChunk) override;
 
   virtual void RefreshSegments(PLAYLIST::CPeriod* period,
                                PLAYLIST::CAdaptationSet* adp,
