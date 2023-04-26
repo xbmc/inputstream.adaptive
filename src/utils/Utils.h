@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <ctime> // time
 #include <map>
 #include <string>
