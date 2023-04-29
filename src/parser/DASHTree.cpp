@@ -183,6 +183,14 @@ bool ParseContentProtection(const char** attr, DASHTree* dash)
       else
         urnFound = stricmp(dash->m_supportedKeySystem.c_str(), (const char*)*(attr + 1)) == 0;
     }
+    else if (StringUtils::EqualsNoCase(*attr, "value"))
+    {
+      std::string_view protectionValue = *(attr + 1);
+      if (protectionValue == "cenc")
+        dash->m_cryptoMode = CryptoMode::AES_CTR;
+      else if (protectionValue == "cbcs")
+        dash->m_cryptoMode = CryptoMode::AES_CBC;
+    }
     else if (StringUtils::EndsWith(*attr, "default_KID"))
       defaultKID = (const char*)*(attr + 1);
     attr += 2;
