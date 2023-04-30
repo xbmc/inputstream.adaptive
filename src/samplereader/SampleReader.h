@@ -9,6 +9,7 @@
 #pragma once
 
 #include "../common/AdaptiveDecrypter.h"
+#include "../utils/CryptoUtils.h"
 
 #include <bento4/Ap4.h>
 
@@ -26,13 +27,6 @@ namespace SESSION
 {
 class CSession;
 }
-
-struct ReaderCryptoInfo
-{
-  uint8_t m_cryptBlocks{0};
-  uint8_t m_skipBlocks{0};
-  CryptoMode m_mode{CryptoMode::NONE};
-};
 
 class ATTR_DLL_LOCAL ISampleReader
 {
@@ -63,7 +57,7 @@ public:
   virtual void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid) {};
   virtual bool RemoveStreamType(INPUTSTREAM_TYPE type) { return true; };
   virtual bool IsStarted() const = 0;
-  virtual ReaderCryptoInfo GetReaderCryptoInfo() const { return ReaderCryptoInfo(); }
+  virtual CryptoInfo GetReaderCryptoInfo() const { return CryptoInfo(); }
 
   /*!
    * \brief Read the sample asynchronously

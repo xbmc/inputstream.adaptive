@@ -416,12 +416,14 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
         // we assume unencrypted fragment here
         goto SUCCESS;
 
+      AP4_CencSampleDecrypter* decrypter = nullptr;
       if (AP4_FAILED(result = AP4_CencSampleDecrypter::Create(sample_table, algorithm_id, 0, 0, 0,
                                                               reset_iv, m_singleSampleDecryptor,
-                                                              m_decrypter)))
+                                                              decrypter)))
       {
         return result;
       }
+      m_decrypter = new CAdaptiveCencSampleDecrypter(m_singleSampleDecryptor, sample_table);
 
       // Inform decrypter of pattern decryption (CBCS)
       AP4_UI32 schemeType = m_protectedDesc->GetSchemeType();
@@ -437,10 +439,6 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
           m_readerCryptoInfo.m_mode = CryptoMode::AES_CTR;
         else
           m_readerCryptoInfo.m_mode = CryptoMode::AES_CBC;
-        
-        m_singleSampleDecryptor->SetEncryptionMode(m_readerCryptoInfo.m_mode);
-        m_singleSampleDecryptor->SetCrypto(m_readerCryptoInfo.m_cryptBlocks,
-                                           m_readerCryptoInfo.m_skipBlocks);
       }
       else if (schemeType == AP4_PROTECTION_SCHEME_TYPE_CBC1 ||
                schemeType == AP4_PROTECTION_SCHEME_TYPE_CENS)
@@ -451,10 +449,11 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
   }
 SUCCESS:
   if (m_singleSampleDecryptor && m_codecHandler)
-    m_singleSampleDecryptor->SetFragmentInfo(m_poolId, m_defaultKey,
-                                             m_codecHandler->m_naluLengthSize,
-                                             m_codecHandler->m_extraData, m_decrypterCaps.flags);
-
+  {
+     m_singleSampleDecryptor->SetFragmentInfo(
+        m_poolId, m_defaultKey, m_codecHandler->m_naluLengthSize, m_codecHandler->m_extraData,
+        m_decrypterCaps.flags, m_readerCryptoInfo);
+  }
   return AP4_SUCCESS;
 }
 

@@ -18,6 +18,7 @@ set(ADP_SOURCES
 	src/codechandler/VP9CodecHandler.cpp
 	src/codechandler/WebVTTCodecHandler.cpp
 	src/codechandler/ttml/TTML.cpp
+	src/common/AdaptiveCencSampleDecrypter.cpp
 	src/common/AdaptiveStream.cpp
 	src/common/AdaptiveTree.cpp
 	src/common/Chooser.cpp
@@ -56,8 +57,7 @@ set(ADP_SOURCES
 	)
 
 set(ADP_HEADERS
-    src/AdaptiveByteStream.h
-	src/CryptoMode.h
+	src/AdaptiveByteStream.h
 	src/main.h
 	src/oscompat.h
 	src/SSD_dll.h
@@ -70,7 +70,8 @@ set(ADP_HEADERS
 	src/codechandler/VP9CodecHandler.h
 	src/codechandler/WebVTTCodecHandler.h
 	src/codechandler/ttml/TTML.h
-    src/common/AdaptiveDecrypter.h
+	src/common/AdaptiveCencSampleDecrypter.h
+	src/common/AdaptiveDecrypter.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
 	src/common/Chooser.h
@@ -91,6 +92,7 @@ set(ADP_HEADERS
 	src/samplereader/TSSampleReader.h
 	src/samplereader/WebmSampleReader.h
 	src/utils/Base64Utils.h
+	src/utils/CryptoUtils.h
 	src/utils/DigestMD5Utils.h
 	src/utils/FFmpeg.h
 	src/utils/FileUtils.h

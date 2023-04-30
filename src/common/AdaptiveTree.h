@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "../CryptoMode.h"
+#include "../utils/CryptoUtils.h"
 #include "../utils/PropertiesUtils.h"
 #include "expat.h"
 
