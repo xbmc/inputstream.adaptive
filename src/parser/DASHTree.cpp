@@ -1344,6 +1344,13 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
       xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
       if (attrKID)
         defaultKID = attrKID.value();
+
+      // get crypto mode if available
+      std::string_view protectionValue = XML::GetAttrib(nodeCP, "value");
+      if (protectionValue == "cenc")
+        m_cryptoMode = CryptoMode::AES_CTR;
+      else if (protectionValue == "cbcs")
+        m_cryptoMode = CryptoMode::AES_CBC;
     }
   }
 
