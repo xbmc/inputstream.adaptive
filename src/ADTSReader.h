@@ -86,5 +86,6 @@ private:
   AP4_ByteStream *m_stream;
   ID3TAG m_id3TagParser;
   ADTSFrame m_frameParser;
-  uint64_t m_basePts, m_pts;
+  uint64_t m_basePts{0};
+  uint64_t m_pts;
 };
