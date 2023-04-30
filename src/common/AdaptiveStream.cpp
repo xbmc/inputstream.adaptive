@@ -177,14 +177,12 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
             if (state_ == STOPPED)
               break;
 
-            std::string& segment_buffer = downloadInfo.m_segmentBuffer->buffer;
-            size_t insertPos(segment_buffer.size());
-            segment_buffer.resize(insertPos + bytesRead);
+            std::string& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
 
             tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
                                 downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
-                                reinterpret_cast<const uint8_t*>(bufferData.data()), segment_buffer,
-                                insertPos, bytesRead, isLastChunk);
+                                bufferData.data(), bytesRead, segmentBuffer, segmentBuffer.size(),
+                                isLastChunk);
           }
           thread_data_->signal_rw_.notify_all();
         }
@@ -983,6 +981,7 @@ NEXTSEGMENT:
     while (true)
     {
       uint32_t avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
+
       if (avail < bytesToRead && worker_processing_)
       {
         thread_data_->signal_rw_.wait(lckrw);

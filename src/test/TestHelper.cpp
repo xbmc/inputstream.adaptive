@@ -31,22 +31,47 @@ bool TestAdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
   if (downloadInfo.m_url.empty())
     return false;
 
+  std::string& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
+  std::stringstream sampleData("Sixteen bytes!!!");
+
+  const size_t bufferSize = 8;
+  char bufferData[bufferSize];
+  size_t totalByteRead = 0;
+
+  sampleData.clear();
+  sampleData.seekg(0);
+
+  // Simulate the downloading/reading data in chunks
+  while (true)
+  {
+    {
+      std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
+
+      if (state_ == STOPPED)
+        break;
+
+      sampleData.read(bufferData, bufferSize);
+      size_t bytesRead = sampleData.gcount();
+
+      if (bytesRead == 0) // EOF
+        break;
+
+      tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
+                          downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
+                          bufferData, bytesRead, segmentBuffer, segmentBuffer.size(), false);
+
+      totalByteRead += bytesRead;
+    }
+  }
+
+  if (totalByteRead == 0)
+  {
+    LOG::LogF(LOGFATAL, "Cannot read buffer sample data, download cancelled");
+    return false;
+  }
+
   testHelper::downloadList.push_back(downloadInfo.m_url);
 
-  {
-    std::lock_guard<std::mutex> lckrw(thread_data_->mutex_rw_);
-
-    if (state_ == STOPPED)
-      return false;
-
-    std::string& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
-    std::string sampleData = "Sixteen bytes!!!";
-
-    tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
-                        downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
-                        reinterpret_cast<const uint8_t*>(sampleData.data()), segmentBuffer, 0,
-                        sampleData.size(), false);
-  }
   thread_data_->signal_rw_.notify_all();
   return true;
 }

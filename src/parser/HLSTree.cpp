@@ -654,11 +654,11 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
                                        uint16_t psshSet,
                                        uint8_t iv[16],
-                                       const uint8_t* src,
-                                       std::string& dst,
-                                       size_t dstOffset,
-                                       size_t dataSize,
-                                       bool lastChunk)
+                                       const char* srcData,
+                                       size_t srcDataSize,
+                                       std::string& segBuffer,
+                                       size_t segBufferSize,
+                                       bool isLastChunk)
 {
   if (psshSet && m_currentPeriod->GetEncryptionState() != EncryptionState::ENCRYPTED_SUPPORTED)
   {
@@ -720,10 +720,10 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     }
     if (pssh.defaultKID_ == "0")
     {
-      dst.insert(dstOffset, dataSize, 0);
+      segBuffer.insert(segBufferSize, srcDataSize, 0);
       return;
     }
-    else if (!dstOffset)
+    else if (!segBufferSize)
     {
       if (pssh.iv.empty())
         m_decrypter->ivFromSequence(iv, segNum);
@@ -733,13 +733,19 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
         memcpy(iv, pssh.iv.data(), pssh.iv.size() < 16 ? pssh.iv.size() : 16);
       }
     }
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv, src, dst,
-                         dstOffset, dataSize, lastChunk);
-    if (dataSize >= 16)
-      memcpy(iv, src + (dataSize - 16), 16);
+
+    // Decrypter needs preallocated string data
+    segBuffer.resize(segBufferSize + srcDataSize);
+
+    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv,
+                         reinterpret_cast<const AP4_UI08*>(srcData), segBuffer, segBufferSize,
+                         srcDataSize, isLastChunk);
+    if (srcDataSize >= 16)
+      memcpy(iv, srcData + (srcDataSize - 16), 16);
   }
   else
-    AdaptiveTree::OnDataArrived(segNum, psshSet, iv, src, dst, dstOffset, dataSize, lastChunk);
+    AdaptiveTree::OnDataArrived(segNum, psshSet, iv, srcData, srcDataSize, segBuffer, segBufferSize,
+                                isLastChunk);
 }
 
 //Called each time before we switch to a new segment
