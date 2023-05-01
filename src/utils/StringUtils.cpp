@@ -18,6 +18,24 @@
 using namespace UTILS::STRING;
 using namespace kodi::tools;
 
+namespace
+{
+/*!
+ * \brief Converts a string to a number of a specified type, by using istringstream.
+ * \param str The string to convert
+ * \param fallback [OPT] The number to return when the conversion fails
+ * \return The converted number, otherwise fallback if conversion fails
+ */
+template<typename T>
+T NumberFromSS(std::string_view str, T fallback) noexcept
+{
+  std::istringstream iss{str.data()};
+  T result{fallback};
+  iss >> result;
+  return result;
+}
+} // namespace
+
 bool UTILS::STRING::ReplaceFirst(std::string& inputStr,
                                  std::string_view oldStr,
                                  std::string_view newStr)
@@ -135,4 +153,9 @@ std::string UTILS::STRING::URLEncode(std::string_view strURLData)
     }
   }
   return result;
+}
+
+uint64_t UTILS::STRING::ToUint64(std::string_view str, uint64_t fallback /* = 0 */)
+{
+  return NumberFromSS(str, fallback);
 }

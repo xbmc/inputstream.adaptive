@@ -64,5 +64,13 @@ std::string URLDecode(std::string_view strURLData);
  */
 std::string URLEncode(std::string_view strURLData);
 
+/*!
+ * \brief Converts a string to unsigned int64 without throw exceptions.
+ * \param str The number as string
+ * \param fallback [OPT] The value returned if the parsing fails.
+ * \return The resulting number, if fails return the fallback value.
+ */
+uint64_t ToUint64(std::string_view str, uint64_t fallback = 0);
+
 } // namespace STRING
 } // namespace UTILS
