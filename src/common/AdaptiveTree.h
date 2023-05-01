@@ -533,6 +533,13 @@ public:
 
   virtual bool open(const std::string& url) = 0;
   virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) = 0;
+
+  /*!
+   * \brief Performs tasks after opening the manifest
+   * \param kodiProps The Kodi properties
+   */
+  virtual void PostOpen(const UTILS::PROPERTIES::KodiProperties& kodiProps);
+
   virtual PREPARE_RESULT prepareRepresentation(Period* period,
                                                AdaptationSet* adp,
                                                Representation* rep,

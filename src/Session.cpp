@@ -273,9 +273,7 @@ bool CSession::Initialize()
       m_adaptiveTree->periods_.size(), m_adaptiveTree->current_period_->adaptationSets_.size(),
       m_adaptiveTree->has_timeshift_buffer_ ? "live" : "VOD");
 
-  // Always need at least 16s delay from live
-  if (m_adaptiveTree->live_delay_ < 16)
-    m_adaptiveTree->live_delay_ = 16;
+  m_adaptiveTree->PostOpen(m_kodiProps);
 
   return InitializePeriod(isSessionOpened);
 }

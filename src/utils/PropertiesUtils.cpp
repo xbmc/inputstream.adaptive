@@ -9,6 +9,7 @@
 #include "PropertiesUtils.h"
 
 #include "SettingsUtils.h"
+#include "StringUtils.h"
 #include "Utils.h"
 #include "kodi/tools/StringUtils.h"
 #include "log.h"
@@ -38,6 +39,7 @@ constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_he
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
 constexpr std::string_view PROP_BANDWIDTH_MAX = "inputstream.adaptive.max_bandwidth"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
+constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
 // Chooser's properties
@@ -128,6 +130,10 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
       props.m_playTimeshiftBuffer = StringUtils::CompareNoCase(prop.second, "true") == 0;
+    }
+    else if (prop.first == PROP_LIVE_DELAY)
+    {
+      props.m_liveDelay = STRING::ToUint64(prop.second);
     }
     else if (prop.first == PROP_PRE_INIT_DATA)
     {
