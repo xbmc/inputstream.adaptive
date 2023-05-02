@@ -72,7 +72,7 @@ public:
   uint64_t stream_start_{0};
   uint64_t available_time_{0};
   uint64_t base_time_{0}; // SmoothTree only, the lower start PTS time between all StreamIndex tags
-  uint64_t live_delay_{0};
+  uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
   bool has_timeshift_buffer_{false}; // Returns true when there is timeshift buffer for live content
   
   std::string m_supportedKeySystem;

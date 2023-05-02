@@ -70,9 +70,9 @@ namespace adaptive
     // value of 16 secs, this is needed to ensure an appropriate playback,
     // an add-on can override the delay to try fix edge use cases
     if (kodiProps.m_liveDelay >= 16)
-      live_delay_ = kodiProps.m_liveDelay;
-    else if (live_delay_ < 16)
-      live_delay_ = 16;
+      m_liveDelay = kodiProps.m_liveDelay;
+    else if (m_liveDelay < 16)
+      m_liveDelay = 16;
   }
 
   void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
