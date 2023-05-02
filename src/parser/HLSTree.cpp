@@ -1161,7 +1161,7 @@ void adaptive::CHLSTree::SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
   std::string fileNameSuffix = "master";
   if (adpSet)
   {
-    fileNameSuffix += "child-";
+    fileNameSuffix = "child-";
     fileNameSuffix += StreamTypeToString(adpSet->GetStreamType());
   }
 
