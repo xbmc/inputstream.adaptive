@@ -11,13 +11,11 @@
 #include "SettingsUtils.h"
 #include "StringUtils.h"
 #include "Utils.h"
-#include "kodi/tools/StringUtils.h"
 #include "log.h"
 
 #include <string_view>
 
 using namespace UTILS::PROPERTIES;
-using namespace kodi::tools;
 
 namespace
 {
@@ -86,11 +84,11 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     }
     else if (prop.first == PROP_MANIFEST_TYPE)
     {
-      if (StringUtils::CompareNoCase(prop.second, "MPD") == 0)
+      if (STRING::CompareNoCase(prop.second, "MPD"))
         props.m_manifestType = ManifestType::MPD;
-      else if (StringUtils::CompareNoCase(prop.second, "ISM") == 0)
+      else if (STRING::CompareNoCase(prop.second, "ISM"))
         props.m_manifestType = ManifestType::ISM;
-      else if (StringUtils::CompareNoCase(prop.second, "HLS") == 0)
+      else if (STRING::CompareNoCase(prop.second, "HLS"))
         props.m_manifestType = ManifestType::HLS;
       else
         LOG::LogF(LOGERROR, "Manifest type \"%s\" is not supported", prop.second.c_str());
@@ -121,7 +119,7 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
-      props.m_playTimeshiftBuffer = StringUtils::CompareNoCase(prop.second, "true") == 0;
+      props.m_playTimeshiftBuffer = STRING::CompareNoCase(prop.second, "true");
     }
     else if (prop.first == PROP_LIVE_DELAY)
     {
