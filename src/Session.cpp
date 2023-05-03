@@ -1250,7 +1250,7 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
       }
     }
 
-    maxSeek = (static_cast<double>(maxTime) / 1000) - m_adaptiveTree->live_delay_;
+    maxSeek = (static_cast<double>(maxTime) / 1000) - m_adaptiveTree->m_liveDelay;
     if (maxSeek < 0)
       maxSeek = 0;
 

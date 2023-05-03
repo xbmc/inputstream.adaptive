@@ -496,7 +496,7 @@ public:
   uint64_t stream_start_{0};
   uint64_t available_time_{0};
   uint64_t base_time_{0};
-  uint64_t live_delay_{0};
+  uint64_t m_liveDelay{0};
   uint64_t minPresentationOffset{0};
   bool has_timeshift_buffer_{false};
   bool has_overall_seconds_{false};
