@@ -72,5 +72,13 @@ std::string URLEncode(std::string_view strURLData);
  */
 uint64_t ToUint64(std::string_view str, uint64_t fallback = 0);
 
+/*!
+ * \brief Compares two strings in case insensitive way
+ * \param str1 String to be compared
+ * \param str2 String to be compared
+ * \return True if strings are equal.
+ */
+bool CompareNoCase(std::string_view str1, std::string_view str2);
+
 } // namespace STRING
 } // namespace UTILS

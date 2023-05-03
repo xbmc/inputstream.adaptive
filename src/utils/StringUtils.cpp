@@ -159,3 +159,12 @@ uint64_t UTILS::STRING::ToUint64(std::string_view str, uint64_t fallback /* = 0 
 {
   return NumberFromSS(str, fallback);
 }
+
+bool UTILS::STRING::CompareNoCase(std::string_view str1, std::string_view str2)
+{
+  if (str1.size() != str2.size())
+    return false;
+  return std::equal(str1.cbegin(), str1.cend(), str2.cbegin(),
+                    [](std::string::value_type l, std::string::value_type r)
+                    { return std::tolower(l) == std::tolower(r); });
+}
