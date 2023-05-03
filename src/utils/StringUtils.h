@@ -9,6 +9,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <set>
 #include <string>
 #include <string_view>
@@ -163,6 +164,23 @@ bool GetLine(std::stringstream& ss, std::string& line);
  * \return The string in lowercase.
  */
 std::string ToLower(std::string str);
+
+/*!
+ * \brief Convert a string to a map.
+ * \param str The string to convert
+ * \param delimiter The character separating the key from the value
+ * \param separator The character separating more key/value pairs
+ * \return The mapped string.
+ */
+std::map<std::string_view, std::string_view> ToMap(std::string_view str,
+                                                   const char delimiter,
+                                                   const char separator);
+
+/*!
+ * \brief Trim a string with remove of not wanted spaces at begin and end of string.
+ * \return The changed string.
+ */
+std::string_view Trim(std::string_view str);
 
 } // namespace STRING
 } // namespace UTILS
