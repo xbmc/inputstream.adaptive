@@ -575,5 +575,5 @@ TEST_F(DASHTreeTest, AdaptionSetSwitching)
 TEST_F(DASHTreeTest, SuggestedPresentationDelay)
 {
   OpenTestFile("mpd/segtpl_spd.mpd", "https://foo.bar/segtpl_spd.mpd");
-  EXPECT_EQ(tree->live_delay_, 32);
+  EXPECT_EQ(tree->m_liveDelay, 32);
 }

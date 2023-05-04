@@ -55,6 +55,8 @@ struct KodiProperties
   std::map<std::string, std::string> m_streamHeaders;
   std::string m_audioLanguageOrig;
   bool m_playTimeshiftBuffer{false};
+  // Set a custom delay from live edge in seconds
+  uint64_t m_liveDelay{0};
   // PSSH/KID used to "pre-initialize" the DRM, the property value must be as
   // "{PSSH as base64}|{KID as base64}". The challenge/session ID data generated
   // by the initialisation of the DRM will be attached to the manifest request

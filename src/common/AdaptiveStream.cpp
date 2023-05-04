@@ -680,9 +680,12 @@ bool AdaptiveStream::start_stream()
         uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
                           current_rep_->get_segment(pos - 1)->startPTS_);
         size_t segmentPos{0};
-        if (pos > (tree_.live_delay_ * current_rep_->GetTimescale()) / duration)
+        size_t segPosDelay =
+            static_cast<size_t>((tree_.m_liveDelay * current_rep_->GetTimescale()) / duration);
+
+        if (pos > segPosDelay)
         {
-          segmentPos = pos - ((tree_.live_delay_ * current_rep_->GetTimescale()) / duration);
+          segmentPos = pos - segPosDelay;
         }
         current_rep_->current_segment_ = current_rep_->get_segment(segmentPos);
       }

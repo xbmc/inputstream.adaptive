@@ -235,7 +235,7 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
 
   std::string suggestedPresentationDelayStr;
   if (XML::QueryAttrib(nodeMPD, "suggestedPresentationDelay", suggestedPresentationDelayStr))
-    live_delay_ = static_cast<uint64_t>(XML::ParseDuration(suggestedPresentationDelayStr));
+    m_liveDelay = static_cast<uint64_t>(XML::ParseDuration(suggestedPresentationDelayStr));
 
   std::string minimumUpdatePeriodStr;
   if (XML::QueryAttrib(nodeMPD, "minimumUpdatePeriod", minimumUpdatePeriodStr))

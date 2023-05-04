@@ -64,6 +64,17 @@ namespace adaptive
         static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
   }
 
+  void AdaptiveTree::PostOpen(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+  {
+    // A manifest can provide live delay value, if not so we use our default
+    // value of 16 secs, this is needed to ensure an appropriate playback,
+    // an add-on can override the delay to try fix edge use cases
+    if (kodiProps.m_liveDelay >= 16)
+      m_liveDelay = kodiProps.m_liveDelay;
+    else if (m_liveDelay < 16)
+      m_liveDelay = 16;
+  }
+
   void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
   {
     for (auto& segment : repr->SegmentTimeline().GetData())
