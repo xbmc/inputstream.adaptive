@@ -14,6 +14,7 @@
 #include "Segment.h"
 #include "SegTemplate.h"
 #include "SegmentList.h"
+#include "../utils/Utils.h"
 
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "../test/KodiStubs.h"
@@ -73,7 +74,7 @@ public:
   std::string& GetCodecPrivateData() { return m_codecPrivateData; }
   void SetCodecPrivateData(std::string_view codecPrivateData)
   {
-    m_codecPrivateData = codecPrivateData;
+    m_codecPrivateData = UTILS::AnnexbToAvc(std::string(codecPrivateData).c_str());
   }
 
   uint32_t GetBandwidth() const { return m_bandwidth; }
