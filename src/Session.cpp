@@ -1209,9 +1209,6 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
         }
       }
     }
-
-    if (isStarted && streamReader->GetInformation(stream->m_info))
-      m_changed = true;
   }
 
   if (waiting)
@@ -1222,8 +1219,6 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
   {
     CheckFragmentDuration(*res);
     ISampleReader* sr{res->GetReader()};
-    if (sr->GetInformation(res->m_info))
-      m_changed = true;
 
     if (sr->PTS() != STREAM_NOPTS_VALUE)
       m_elapsedTime = PTSToElapsed(sr->PTS()) + GetChapterStartTime();
