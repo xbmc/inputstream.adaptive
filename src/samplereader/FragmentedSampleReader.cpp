@@ -233,7 +233,7 @@ bool CFragmentedSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
   {
     info.SetExtraData(m_codecHandler->m_extraData.GetData(),
                       m_codecHandler->m_extraData.GetDataSize());
-    edChanged = true;
+    //edChanged = true;
   }
 
   AP4_SampleDescription* desc(m_track->GetSampleDescription(0));
