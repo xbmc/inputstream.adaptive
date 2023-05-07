@@ -1,3 +1,10 @@
+v20.3.7 (2023-05-07)
+- Fix some causes of potential freezing
+- [Widevine] use single decrypter session where possible (resolves some license issues)
+- Bumped Bento4
+- Fix no audio issue with some aac streams
+- Add new property live_delay to force playback away from live edge
+
 v20.3.6 (2023-04-04)
 - [MP4] Handle PIFF protection scheme
 - [DASH] Better period matching for multiperiod live manifest refreshes
