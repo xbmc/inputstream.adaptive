@@ -870,7 +870,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       segList.SetDuration(duration);
 
     uint32_t timescale;
-    if (XML::QueryAttrib(nodeSeglist, "duration", timescale))
+    if (XML::QueryAttrib(nodeSeglist, "timescale", timescale))
       segList.SetTimescale(timescale);
 
     uint64_t pto;
