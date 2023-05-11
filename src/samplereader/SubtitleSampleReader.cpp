@@ -53,9 +53,9 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
 
   // Single subtitle file
   if (codecInternalName == "wvtt")
-    m_codecHandler = new WebVTTCodecHandler(nullptr, true);
+    m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, true);
   else
-    m_codecHandler = new TTMLCodecHandler(nullptr);
+    m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
 
   m_codecHandler->Transform(0, 0, result, 1000);
 }
@@ -69,11 +69,11 @@ CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
   if (codecInternalName == "wvtt")
   {
     m_isSideDataRequired = true;
-    m_codecHandler = new WebVTTCodecHandler(nullptr, false);
+    m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
   }
   else
   {
-    m_codecHandler = new TTMLCodecHandler(nullptr);
+    m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
   }
 }
 
@@ -181,7 +181,7 @@ bool CSubtitleSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
 
 bool CSubtitleSampleReader::TimeSeek(uint64_t pts, bool preceeding)
 {
-  if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler))
+  if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler.get()))
   {
     m_pts = pts;
     return true;
