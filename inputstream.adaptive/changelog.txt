@@ -1,3 +1,6 @@
+v20.3.8 (2023-05-12)
+- Fix memory leaks - should resolve instability issues on live DASH streams.
+
 v20.3.7 (2023-05-07)
 - Fix some causes of potential freezing
 - [Widevine] use single decrypter session where possible (resolves some license issues)
