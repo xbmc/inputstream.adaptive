@@ -12,6 +12,8 @@
 #include "../Stream.h"
 #include "SampleReader.h"
 
+#include <memory>
+
 class ATTR_DLL_LOCAL CSubtitleSampleReader : public ISampleReader
 {
 public:
@@ -53,7 +55,7 @@ private:
   AP4_UI32 m_streamId;
   bool m_eos{false};
   bool m_started{false};
-  CodecHandler* m_codecHandler;
+  std::unique_ptr<CodecHandler> m_codecHandler;
   AP4_Sample m_sample;
   AP4_DataBuffer m_sampleData;
   CAdaptiveByteStream* m_adByteStream{nullptr};
