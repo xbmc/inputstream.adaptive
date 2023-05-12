@@ -523,7 +523,11 @@ public:
 
   AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser);
   AdaptiveTree(const AdaptiveTree& left);
-  virtual ~AdaptiveTree() = default;
+  virtual ~AdaptiveTree()
+  {
+    for (auto period : periods_)
+      delete period;
+  }
 
   /*!
    * \brief Configure the adaptive tree.
