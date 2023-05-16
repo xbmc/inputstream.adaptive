@@ -257,7 +257,17 @@ webm::Status WebmReader::OnFrame(const webm::FrameMetadata& metadata, webm::Read
 
 webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, const webm::TrackEntry& track_entry)
 {
-  if (track_entry.video.is_present())
+  if (track_entry.audio.is_present())
+  {
+    m_metadataChanged = true;
+
+    if (track_entry.codec_private.is_present())
+    {
+      m_codecPrivate.SetData(track_entry.codec_private.value().data(),
+                             track_entry.codec_private.value().size());
+    }
+  }
+  else if (track_entry.video.is_present())
   {
     m_metadataChanged = true;
 
