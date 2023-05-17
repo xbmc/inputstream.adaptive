@@ -36,7 +36,7 @@ public:
   virtual ~HLSTree();
 
   virtual bool open(const std::string& url) override;
-  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) override;
+  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders, bool isUpdate=false) override;
   virtual PREPARE_RESULT prepareRepresentation(Period* period,
                                                AdaptationSet* adp,
                                                Representation* rep,

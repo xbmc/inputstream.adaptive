@@ -1630,7 +1630,7 @@ bool DASHTree::open(const std::string& url)
   return open(url, {});
 }
 
-bool DASHTree::open(const std::string& url, std::map<std::string, std::string> addHeaders)
+bool DASHTree::open(const std::string& url, std::map<std::string, std::string> addHeaders, bool isUpdate)
 {
   currentNode_ = 0;
 
@@ -1658,7 +1658,8 @@ bool DASHTree::open(const std::string& url, std::map<std::string, std::string> a
 
   current_period_ = periods_[0];
   SortTree();
-  StartUpdateThread();
+  if (!isUpdate)
+    StartUpdateThread();
 
   return true;
 }
@@ -1781,7 +1782,7 @@ void DASHTree::RefreshLiveSegments()
       addHeaders["If-Modified-Since"] = m_manifestRespHeaders.m_lastModified;
   }
   //m_manifestParams
-  if (updateTree->open(manifestUrlUpd, addHeaders))
+  if (updateTree->open(manifestUrlUpd, addHeaders, true))
   {
     m_manifestRespHeaders = updateTree->m_manifestRespHeaders;
     location_ = updateTree->location_;

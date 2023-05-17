@@ -180,7 +180,7 @@ bool HLSTree::open(const std::string& url)
   return open(url, std::map<std::string, std::string>());
 }
 
-bool HLSTree::open(const std::string& url, std::map<std::string, std::string> addHeaders)
+bool HLSTree::open(const std::string& url, std::map<std::string, std::string> addHeaders, bool isUpdate)
 {
   std::stringstream data;
   HTTPRespHeaders respHeaders;

@@ -536,7 +536,7 @@ public:
   virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps);
 
   virtual bool open(const std::string& url) = 0;
-  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) = 0;
+  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders, bool isUpdate=false) = 0;
 
   /*!
    * \brief Performs tasks after opening the manifest

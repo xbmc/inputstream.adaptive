@@ -360,7 +360,7 @@ bool SmoothTree::open(const std::string& url)
   return open(url, std::map<std::string, std::string>());
 }
 
-bool SmoothTree::open(const std::string& url, std::map<std::string, std::string> addHeaders)
+bool SmoothTree::open(const std::string& url, std::map<std::string, std::string> addHeaders, bool isUpdate)
 {
   currentNode_ = 0;
 

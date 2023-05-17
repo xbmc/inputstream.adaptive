@@ -22,7 +22,7 @@ public:
   virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
 
   virtual bool open(const std::string& url) override;
-  virtual bool open(const std::string& url, std::map<std::string, std::string> addHeaders) override;
+  virtual bool open(const std::string& url, std::map<std::string, std::string> addHeaders, bool isUpdate=false) override;
 
   virtual SmoothTree* Clone() const override { return new SmoothTree{*this}; }
 

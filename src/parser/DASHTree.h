@@ -20,7 +20,7 @@ public:
   DASHTree(const DASHTree& left);
 
   virtual bool open(const std::string& url) override;
-  virtual bool open(const std::string& url, std::map<std::string, std::string> addHeaders) override;
+  virtual bool open(const std::string& url, std::map<std::string, std::string> addHeaders, bool isUpdate=false) override;
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
                                Representation* rep,
