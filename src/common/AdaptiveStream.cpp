@@ -893,10 +893,10 @@ bool AdaptiveStream::ensureSegment()
       {
         newRep = current_rep_;
       }
-      else if (lastSeg) // Don't change reps on last segment of period, use the rep of preceeding seg
-      {
-        newRep = segment_buffers_[valid_segment_buffers_ - 1]->rep;
-      }
+      //else if (lastSeg) // Don't change reps on last segment of period, use the rep of preceeding seg
+      //{
+      //  newRep = segment_buffers_[valid_segment_buffers_ - 1]->rep;
+      //}
       else
       {
         // Defer until we have some free buffer
