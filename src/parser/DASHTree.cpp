@@ -1658,7 +1658,6 @@ bool DASHTree::open(const std::string& url, std::map<std::string, std::string> a
 
   current_period_ = periods_[0];
   SortTree();
-  StartUpdateThread();
 
   return true;
 }

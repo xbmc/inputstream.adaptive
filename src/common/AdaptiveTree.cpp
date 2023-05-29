@@ -88,6 +88,8 @@ namespace adaptive
       m_liveDelay = kodiProps.m_liveDelay;
     else if (m_liveDelay < 16)
       m_liveDelay = 16;
+
+    StartUpdateThread();
   }
 
   void AdaptiveTree::FreeSegments(Period* period, Representation* rep)
