@@ -37,6 +37,7 @@ set(ADP_SOURCES
 	src/common/Segment.cpp
 	src/common/SegmentList.cpp
 	src/common/SegTemplate.cpp
+	src/parser/CodecParser.cpp
 	src/parser/DASHTree.cpp
 	src/parser/HLSTree.cpp
 	src/parser/SmoothTree.cpp
@@ -102,6 +103,7 @@ set(ADP_HEADERS
 	src/common/Segment.h
 	src/common/SegmentList.h
 	src/common/SegTemplate.h
+	src/parser/CodecParser.h
 	src/parser/DASHTree.h
 	src/parser/HLSTree.h
 	src/parser/SmoothTree.h

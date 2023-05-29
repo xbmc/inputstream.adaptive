@@ -7,8 +7,14 @@
  */
 
 #include "ADTSReader.h"
-#include <bento4/Ap4ByteStream.h>
+
+#include "parser/CodecParser.h"
+#include "utils/log.h"
+
 #include <stdlib.h>
+
+#include <bento4/Ap4ByteStream.h>
+using namespace adaptive;
 
 uint64_t ID3TAG::getSize(const uint8_t *data, unsigned int len, unsigned int shift)
 {
@@ -73,61 +79,140 @@ ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
 
 /**********************************************************************************************************************************/
 
-uint64_t ADTSFrame::getBE(const uint8_t *data, unsigned int len)
+void ADTSFrame::AdjustStreamForPadding(AP4_ByteStream* stream)
 {
-  uint64_t size(0);
-  const uint8_t *dataE(data + len);
-  for (; data < dataE; ++data)
-    size = size << 8 | *data;
-  return size;
-};
+  AP4_Position currentPos;
+  AP4_Position newPos;
+  stream->Tell(currentPos);
+  stream->Seek(currentPos + 16);
+  stream->Tell(newPos);
+  if (newPos - currentPos == 16)
+    stream->Seek(currentPos);
+}
 
-bool ADTSFrame::parse(AP4_ByteStream *stream)
+bool ADTSFrame::parse(AP4_ByteStream* stream)
 {
-  uint8_t buffer[64];
+  AdtsType adtsType = CAdaptiveAdtsHeaderParser::GetAdtsType(stream);
+  switch (adtsType)
+  {
+    case AdtsType::AAC:
+      return ParseAac(stream);
+    case AdtsType::AC3:
+      return ParseAc3(stream);
+    case AdtsType::EAC3:
+      return ParseEc3(stream);
+    case AdtsType::AC4:
+      return false;
+    default:
+      return false;
+  }
+}
 
-  static const uint32_t freqTable[13] = { 96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350 };
+bool ADTSFrame::ParseAac(AP4_ByteStream* stream)
+{
+  AP4_DataBuffer buffer;
+  buffer.SetDataSize(16);
 
-  if (!AP4_SUCCEEDED(stream->Read(buffer, 2)))
+  if (!AP4_SUCCEEDED(stream->Read(buffer.UseData(), AP4_ADTS_HEADER_SIZE)))
     return false;
 
-  m_outerHeader = static_cast<uint16_t>(getBE(buffer, 2));
-  if ((m_outerHeader & 0xFFF6u) != 0xFFF0u)
+  CAdaptiveAdtsParser parser;
+  AP4_AacFrame frame;
+  AP4_Size sz = buffer.GetDataSize();
+  parser.Feed(buffer.GetData(), &sz);
+  AP4_Result result = parser.FindFrameHeader(frame);
+  if (!AP4_SUCCEEDED(result))
     return false;
 
-  m_innerHeaderSize = (m_outerHeader & 1) ? 7 : 5; // 16 bit CRC
-  if (!AP4_SUCCEEDED(stream->Read(buffer, m_innerHeaderSize)))
-    return false;
-
-  m_innerHeader = getBE(buffer, m_innerHeaderSize);
-  // add 0 crc to have bits on same place for crc / nocrc
-  m_innerHeader <<= ((7 - m_innerHeaderSize) * 8);
-
-  m_totalSize = (m_innerHeader >> 0x1D) & 0x1FFFu;
-  m_frameCount = ((m_innerHeader >> 0x10) & 0x3u) ? 960 : 1024;
+  m_totalSize = frame.m_Info.m_FrameLength + AP4_ADTS_HEADER_SIZE;
+  m_frameCount = 1024;
   m_summedFrameCount += m_frameCount;
-  m_sampleRate = (m_innerHeader >> 0x32) & 0xFu;
-  m_sampleRate = (m_sampleRate < 13) ? freqTable[m_sampleRate] : 0;
-  m_channelConfig = (m_innerHeader >> 0x2E) & 0x7u;
+  m_sampleRate = frame.m_Info.m_SamplingFrequency;
+  m_channelCount = frame.m_Info.m_ChannelConfiguration;
 
+  // rewind stream to beginning of syncframe
   AP4_Position currentPos;
   stream->Tell(currentPos);
-  stream->Seek(currentPos - (m_innerHeaderSize + 2));
+  stream->Seek(currentPos - (AP4_ADTS_HEADER_SIZE));
 
   m_dataBuffer.SetDataSize(m_totalSize);
   if (!AP4_SUCCEEDED(stream->Read(m_dataBuffer.UseData(), m_dataBuffer.GetDataSize())))
     return false;
 
-  //ADTS Streams have padding, at EOF
-  AP4_Position pos, posNew;
-  stream->Tell(pos);
-  stream->Seek(pos + 16);
-  stream->Tell(posNew);
-  if (posNew - pos == 16)
-    stream->Seek(pos);
-
+  AdjustStreamForPadding(stream);
   return true;
 }
+
+bool ADTSFrame::ParseAc3(AP4_ByteStream* stream)
+{
+  AP4_DataBuffer buffer;
+  buffer.SetDataSize(AP4_AC3_HEADER_SIZE);
+
+  if (!AP4_SUCCEEDED(stream->Read(buffer.UseData(), AP4_AC3_HEADER_SIZE)))
+    return false;
+
+  CAdaptiveAc3Parser parser;
+  AP4_Ac3Frame frame;
+  AP4_Size sz = buffer.GetDataSize();
+  parser.Feed(buffer.GetData(), &sz);
+  AP4_Result result = parser.FindFrameHeader(frame);
+  if (!AP4_SUCCEEDED(result))
+    return false;
+
+  m_totalSize = frame.m_Info.m_FrameSize;
+  m_sampleRate = frame.m_Info.m_SampleRate;
+  m_channelCount = frame.m_Info.m_ChannelCount;
+  m_frameCount = 256 * m_channelCount;
+  m_summedFrameCount += m_frameCount;
+
+  // rewind stream to beginning of syncframe
+  AP4_Position currentPos;
+  stream->Tell(currentPos);
+  stream->Seek(currentPos - (AP4_AC3_HEADER_SIZE));
+
+  m_dataBuffer.SetDataSize(m_totalSize);
+  if (!AP4_SUCCEEDED(stream->Read(m_dataBuffer.UseData(), m_dataBuffer.GetDataSize())))
+    return false;
+
+  AdjustStreamForPadding(stream);
+  return true;
+}
+
+bool ADTSFrame::ParseEc3(AP4_ByteStream* stream)
+{
+  AP4_DataBuffer buffer;
+  buffer.SetDataSize(AP4_EAC3_HEADER_SIZE);
+
+  if (!AP4_SUCCEEDED(stream->Read(buffer.UseData(), AP4_EAC3_HEADER_SIZE)))
+    return false;
+
+  CAdaptiveEac3Parser parser;
+  AP4_Eac3Frame frame;
+  AP4_Size sz = buffer.GetDataSize();
+  parser.Feed(buffer.GetData(), &sz);
+  AP4_Result result = parser.FindFrameHeader(frame);
+  if (!AP4_SUCCEEDED(result))
+    return false;
+
+  m_totalSize = frame.m_Info.m_FrameSize;
+  m_sampleRate = frame.m_Info.m_SampleRate;
+  m_channelCount = frame.m_Info.m_ChannelCount;
+  m_frameCount = 256 * m_channelCount;
+  m_summedFrameCount += m_frameCount;
+
+  // rewind stream to beginning of syncframe
+  AP4_Position currentPos;
+  stream->Tell(currentPos);
+  stream->Seek(currentPos - (AP4_EAC3_HEADER_SIZE));
+
+  m_dataBuffer.SetDataSize(m_totalSize);
+  if (!AP4_SUCCEEDED(stream->Read(m_dataBuffer.UseData(), m_dataBuffer.GetDataSize())))
+    return false;
+
+  AdjustStreamForPadding(stream);
+  return true;
+}
+
 
 /**********************************************************************************************************************************/
 
