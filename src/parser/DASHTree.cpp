@@ -121,7 +121,6 @@ bool adaptive::CDashTree::open(const std::string& url,
   m_currentPeriod = m_periods[0].get();
 
   SortTree();
-  StartUpdateThread();
 
   return true;
 }
