@@ -29,7 +29,6 @@ using namespace UTILS;
 CInputStreamAdaptive::CInputStreamAdaptive(const kodi::addon::IInstanceInfo& instance)
   : CInstanceInputStream(instance)
 {
-  memset(m_IncludedStreams, 0, sizeof(m_IncludedStreams));
 }
 
 ADDON_STATUS CInputStreamAdaptive::CreateInstance(const kodi::addon::IInstanceInfo& instance,
@@ -196,7 +195,7 @@ void CInputStreamAdaptive::UnlinkIncludedStreams(CStream* stream)
   const CRepresentation* rep = stream->m_adStream.getRepresentation();
 
   if (rep->IsIncludedStream())
-    m_IncludedStreams[stream->m_info.GetStreamType()] = 0;
+    m_IncludedStreams.erase(stream->m_info.GetStreamType());
 }
 
 void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
@@ -379,22 +378,20 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
   {
-    //! @todo: the code in the loop below must be verified
-    //! the INPUTSTREAM_TYPE cast go out-of-range
-    //! on AddStreamType we add are adding right sid? if so explain it
-    //! and explain why the loop has 16 values
-    for (uint16_t i(0); i < 16; ++i)
+    for (auto& [streamType, id] : m_IncludedStreams)
     {
-      if (m_IncludedStreams[i])
+      stream->GetReader()->AddStreamType(streamType, id);
+
+      unsigned int sid = id - m_session->GetPeriodId() * 1000;
+
+      CStream* incStream = m_session->GetStream(sid);
+      if (!incStream)
       {
-        stream->GetReader()->AddStreamType(static_cast<INPUTSTREAM_TYPE>(i), m_IncludedStreams[i]);
-        unsigned int sid = m_IncludedStreams[i] - m_session->GetPeriodId() * 1000;
-        CStream* incStream = m_session->GetStream(sid);
-        if (!incStream) {
-          LOG::LogF(LOGERROR, "Cannot get the stream from sid %u", sid);
-        }
-        stream->GetReader()->GetInformation(
-            m_session->GetStream(m_IncludedStreams[i] - m_session->GetPeriodId() * 1000)->m_info);
+        LOG::LogF(LOGERROR, "Cannot get the stream from sid %u", sid);
+      }
+      else
+      {
+        stream->GetReader()->GetInformation(incStream->m_info);
       }
     }
   }
