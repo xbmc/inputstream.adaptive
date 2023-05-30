@@ -1,3 +1,16 @@
+v21.1.1 (2023-05-30)
+- [AdaptiveStream] Overhaul threading (fixes some freezes/deadlocks)
+- [AdaptiveTree] Massive overhaul of manifest and ttml parsers (thanks @CastagnaIT !)
+- [Widevine] Remove multi-subsample decrypting, use only 1 session where possible
+- Improved debug logging and add option to save manifest files
+- [AdaptiveTree] fix possible deadlocking
+- Several code cleanups
+- [ADTS] fix missing audio for some streams
+- Add Live Delay property to force distance between live edge
+- [webm] Parse audio track extradata (fixes audio)
+- [MP4] Fix memory leak
+- [DASH] Don't start update thread for temp update tree
+
 v21.1.0 (2023-04-04)
 - Minor version bump - missed at time of v21.0.3
 
