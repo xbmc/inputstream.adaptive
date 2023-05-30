@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2023-03-24 11:16+0000\n"
+"PO-Revision-Date: 2023-05-29 17:42+0000\n"
 "Last-Translator: skypichat <skypichat@hotmail.fr>\n"
 "Language-Team: French (France) <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/fr_fr/>\n"
 "Language: fr_fr\n"
@@ -13,7 +13,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Weblate 4.15.2\n"
+"X-Generator: Weblate 4.17\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -21,7 +21,7 @@ msgstr "Client InputStream pour les flux adaptatifs"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
-msgstr "Client InputStream pour les flux adaptatifs. Les protocoles de streaming courants tels que MPEG-DASH, HLS et Microsoft Smooth Streaming sont pris en charge.[CR][CR]Le module complémentaire prend également en charge les flux protégés par DRM, tels que Google Widevine, Microsoft PlayReady et autres.[CR][CR] ]Pour la documentation, visitez : https://github.com/xbmc/inputstream.adaptive"
+msgstr "Client InputStream pour les flux adaptatifs. Les protocoles de streaming courants tels que MPEG-DASH, HLS et Microsoft Smooth Streaming sont pris en charge.[CR][CR]Le module complémentaire prend également en charge les flux protégés par DRM, tels que Google Widevine, Microsoft PlayReady et autres.[CR][CR] Pour la documentation, visitez : https://github.com/xbmc/inputstream.adaptive"
 
 #. Category title
 msgctxt "#30100"
