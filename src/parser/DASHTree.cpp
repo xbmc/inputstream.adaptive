@@ -1433,7 +1433,7 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
     }
   }
 
-  return isUrnSchemeFound;
+  return isUrnSchemeFound || isUrnProtectionFound;
 }
 
 uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
