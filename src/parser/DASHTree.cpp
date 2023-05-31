@@ -1408,15 +1408,14 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
 
   if (commonPssh.empty() && !playReadyPro.empty())
   {
-    currentPssh = PSSH_FROM_FILE;
-
     PRProtectionParser parser;
     if (parser.ParseHeader(playReadyPro))
       currentDefaultKID = parser.GetKID();
   }
   else
   {
-    currentPssh = commonPssh;
+    if (!commonPssh.empty())
+      currentPssh = commonPssh;
 
     if ((isUrnSchemeFound || isUrnProtectionFound) && defaultKID && std::strlen(defaultKID) == 36)
     {
@@ -1433,7 +1432,7 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
     }
   }
 
-  return isUrnSchemeFound;
+  return isUrnSchemeFound || isUrnProtectionFound;
 }
 
 uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)

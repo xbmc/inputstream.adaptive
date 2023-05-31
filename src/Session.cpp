@@ -466,7 +466,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
 
-      if (sessionPsshset.pssh_ == "FILE")
+      if (sessionPsshset.pssh_ == PSSH_FROM_FILE)
       {
         LOG::Log(LOGDEBUG, "Searching PSSH data in FILE");
 
