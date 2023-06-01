@@ -42,7 +42,14 @@ private:
 class ATTR_DLL_LOCAL ADTSFrame
 {
 public:
+  /*! \brief Adjust the stream position to advance over padding if neccessary (end of file)
+   *  \param stream The stream to check
+   */
+  void AdjustStreamForPadding(AP4_ByteStream* stream);
   bool parse(AP4_ByteStream *stream);
+  bool ParseAac(AP4_ByteStream* stream);
+  bool ParseAc3(AP4_ByteStream* stream);
+  bool ParseEc3(AP4_ByteStream* stream);
   void reset() { m_summedFrameCount = 0; m_frameCount = 0; m_dataBuffer.SetDataSize(0); }
   void resetFrameCount() { m_summedFrameCount = 0; }
   uint64_t getPtsOffset() const { return m_sampleRate ? (static_cast<uint64_t>(m_summedFrameCount) * 90000) / m_sampleRate : 0; }
@@ -50,16 +57,11 @@ public:
   const AP4_Byte *getData() const { return m_dataBuffer.GetData(); }
   AP4_Size getDataSize() const { return m_dataBuffer.GetDataSize(); }
 private:
-  uint64_t getBE(const uint8_t *data, unsigned int len);
-  uint16_t m_outerHeader;
-  uint64_t m_innerHeader;
-  long m_innerHeaderSize;
-
   uint32_t m_totalSize = 0;
   uint32_t m_summedFrameCount = 0;
   uint32_t m_frameCount = 0;
   uint32_t m_sampleRate = 0;
-  uint32_t m_channelConfig = 0;
+  uint32_t m_channelCount = 0;
 
   AP4_DataBuffer m_dataBuffer;
 };
