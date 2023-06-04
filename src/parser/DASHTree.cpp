@@ -355,7 +355,11 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
   adpSet->SegmentTimelineDuration() = period->SegmentTimelineDuration();
 
-  adpSet->SetId(XML::GetAttrib(nodeAdp, "id"));
+  std::string id;
+  // "audioTrackId" tag is amazon VOD specific, since dont use the standard "id" tag
+  // this helps to avoid merging adpSets (done with AdaptiveTree::SortTree) for some limit cases
+  if (XML::QueryAttrib(nodeAdp, "id", id) || XML::QueryAttrib(nodeAdp, "audioTrackId", id))
+    adpSet->SetId(id);
 
   std::string contentType;
 
