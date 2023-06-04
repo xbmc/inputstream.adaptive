@@ -59,6 +59,7 @@ public:
   void SetAudioChannels(uint32_t audioChannels) { m_audioChannels = audioChannels; }
 
 protected:
+  CCommonAttribs* m_parentCommonAttributes{nullptr};
   std::string m_mimeType;
   std::optional<ContainerType> m_containerType;
   int m_resHeight{0};
@@ -68,9 +69,6 @@ protected:
   uint32_t m_frameRateScale{0};
   uint32_t m_sampleRate{0};
   uint32_t m_audioChannels{0};
-
-private:
-  CCommonAttribs* m_parentCommonAttributes{nullptr};
 };
 
 } // namespace PLAYLIST
