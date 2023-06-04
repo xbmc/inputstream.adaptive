@@ -254,7 +254,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       {
         auto attribs = ParseTagAttributes(tagValue);
 
-        switch (ProcessEncryption(base_url_, attribs))
+        switch (ProcessEncryption(baseUrl, attribs))
         {
           case EncryptionType::NOT_SUPPORTED:
             period->SetEncryptionState(EncryptionState::ENCRYPTED);
