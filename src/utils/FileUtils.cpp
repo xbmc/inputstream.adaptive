@@ -19,19 +19,19 @@
 
 #include <cctype> // isalpha
 
-bool UTILS::FILESYS::SaveFile(std::string_view filePath, std::string_view data, bool overwrite)
+bool UTILS::FILESYS::SaveFile(const std::string filePath, const std::string& data, bool overwrite)
 {
   if (filePath.empty())
     return false;
 
   kodi::vfs::CFile saveFile;
-  if (!saveFile.OpenFileForWrite(filePath.data(), overwrite))
+  if (!saveFile.OpenFileForWrite(filePath, overwrite))
   {
-    LOG::LogF(LOGERROR, "Cannot create file \"%s\".", filePath.data());
+    LOG::LogF(LOGERROR, "Cannot create file \"%s\".", filePath.c_str());
     return false;
   }
 
-  bool isWritten = saveFile.Write(data.data(), data.size()) != -1;
+  bool isWritten = saveFile.Write(data.c_str(), data.size()) != -1;
   saveFile.Close();
   return isWritten;
 }

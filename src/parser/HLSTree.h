@@ -81,7 +81,7 @@ protected:
                                              std::map<std::string, std::string>& attribs);
 
   virtual void SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
-                            std::string_view data,
+                            const std::string& data,
                             std::string_view info);
 
   std::unique_ptr<IAESDecrypter> m_decrypter;

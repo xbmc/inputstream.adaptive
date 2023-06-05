@@ -287,7 +287,7 @@ namespace adaptive
   }
 
   void AdaptiveTree::SaveManifest(const std::string& fileNameSuffix,
-                                  std::string_view data,
+                                  const std::string& data,
                                   std::string_view info)
   {
     if (!m_pathSaveManifest.empty())
@@ -304,7 +304,7 @@ namespace adaptive
       // Manage duplicate files and limit them, too many means a problem to be solved
       if (FILESYS::CheckDuplicateFilePath(filePath, 10))
       {
-        std::string dataToSave = data.data();
+        std::string dataToSave = data;
         if (!info.empty())
         {
           dataToSave.insert(0, "\n\n");

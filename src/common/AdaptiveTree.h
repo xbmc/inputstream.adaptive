@@ -251,7 +251,7 @@ protected:
    * \param info Additionals info to be add before the data.
    */
   virtual void SaveManifest(const std::string& fileNameSuffix,
-                            std::string_view data,
+                            const std::string& data,
                             std::string_view info);
 
   void SortTree();

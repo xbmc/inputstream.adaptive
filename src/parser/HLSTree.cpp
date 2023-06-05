@@ -1162,7 +1162,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
 }
 
 void adaptive::CHLSTree::SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
-                                      std::string_view data,
+                                      const std::string& data,
                                       std::string_view info)
 {
   if (m_pathSaveManifest.empty())

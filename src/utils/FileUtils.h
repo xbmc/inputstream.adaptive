@@ -24,7 +24,7 @@ namespace FILESYS
  * \param overwrite If true will overwrite the existing file.
  * \return True if success, otherwise false.
  */
-bool SaveFile(std::string_view filePath, std::string_view data, bool overwrite);
+bool SaveFile(const std::string filePath, const std::string& data, bool overwrite);
 
 /*!
  * \brief Combine a path with another one
