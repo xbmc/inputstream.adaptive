@@ -157,5 +157,12 @@ bool CompareNoCase(std::string_view str1, std::string_view str2);
  */
 bool GetLine(std::stringstream& ss, std::string& line);
 
+/*!
+ * \brief Convert a string to lower.
+ * \param str The string to be converted
+ * \return The string in lowercase.
+ */
+std::string ToLower(std::string str);
+
 } // namespace STRING
 } // namespace UTILS

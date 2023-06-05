@@ -19,14 +19,8 @@ class DASHTreeTest : public ::testing::Test
 protected:
   void SetUp() override
   {
-    UTILS::PROPERTIES::KodiProperties kodiProps;
-
     m_reprChooser = new CTestRepresentationChooserDefault();
-    m_reprChooser->Initialize(kodiProps.m_chooserProps);
-
-    tree = new DASHTestTree(m_reprChooser);
-    tree->Configure(kodiProps);
-    tree->m_supportedKeySystem = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+    tree = new DASHTestTree();
   }
 
   void TearDown() override
@@ -40,16 +34,37 @@ protected:
 
   void OpenTestFile(std::string filePath) { OpenTestFile(filePath, "http://foo.bar/" + filePath); }
 
-  void OpenTestFile(std::string filePath, std::string url) { OpenTestFile(filePath, url, {}); }
+  void OpenTestFile(std::string filePath, std::string url) { OpenTestFile(filePath, url, {}, ""); }
+
+  void OpenTestFile(std::string filePath, std::string url, std::map<std::string, std::string> manifestHeaders)
+  {
+    OpenTestFile(filePath, url, manifestHeaders, "");
+  }
 
   void OpenTestFile(std::string filePath,
                     std::string url,
-                    std::map<std::string, std::string> manifestHeaders)
+                    std::map<std::string, std::string> manifestHeaders,
+                    std::string manifestUpdateParam)
   {
     SetFileName(testHelper::testFile, filePath);
 
-    tree->SetManifestUpdateParam(url, "");
-    if (!tree->open(url, manifestHeaders))
+    // Download the manifest
+    UTILS::CURL::HTTPResponse resp;
+    if (!testHelper::DownloadFile(url, {}, {}, resp))
+    {
+      LOG::Log(LOGERROR, "Cannot download \"%s\" DASH manifest file.", url.c_str());
+      exit(1);
+    }
+
+    m_reprChooser->Initialize(m_kodiProps.m_chooserProps);
+    // We set the download speed to calculate the initial network bandwidth
+    m_reprChooser->SetDownloadSpeed(500000);
+
+    tree->Configure(m_kodiProps, m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED",
+                    manifestUpdateParam);
+
+    // Parse the manifest
+    if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
     {
       LOG::Log(LOGERROR, "Cannot open \"%s\" DASH manifest.", url.c_str());
       exit(1);
@@ -58,6 +73,7 @@ protected:
 
   DASHTestTree* tree;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
+  UTILS::PROPERTIES::KodiProperties m_kodiProps;
 };
 
 class DASHTreeAdaptiveStreamTest : public DASHTreeTest
@@ -344,15 +360,17 @@ TEST_F(DASHTreeTest, updateParameterLiveSegmentTimeline)
 
 TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumber)
 {
-  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux&start_seq=$START_NUMBER$");
-  EXPECT_EQ(tree->m_manifestUpdateParam, "&start_seq=$START_NUMBER$");
+  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux", {},
+               "?start_seq=$START_NUMBER$");
+  EXPECT_EQ(tree->m_manifestUpdateParam, "?start_seq=$START_NUMBER$");
   EXPECT_EQ(tree->manifest_url_, "https://foo.bar/dash.mpd?foo=bar&baz=qux");
 }
 
 TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumberRedirect)
 {
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123";
-  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?start_seq=$START_NUMBER$");
+  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd", {},
+               "?start_seq=$START_NUMBER$");
   EXPECT_EQ(tree->m_manifestUpdateParam, "?start_seq=$START_NUMBER$");
   EXPECT_EQ(tree->manifest_url_, "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123");
 }

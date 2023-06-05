@@ -136,29 +136,23 @@ adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
   m_decrypter = std::make_unique<AESDecrypter>(left.m_decrypter->getLicenseKey());
 }
 
-void adaptive::CHLSTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+void adaptive::CHLSTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                                   CHOOSER::IRepresentationChooser* reprChooser,
+                                   std::string_view supportedKeySystem,
+                                   std::string_view manifestUpdateParam)
 {
-  AdaptiveTree::Configure(kodiProps);
+  AdaptiveTree::Configure(kodiProps, reprChooser, supportedKeySystem, manifestUpdateParam);
   m_decrypter = std::make_unique<AESDecrypter>(kodiProps.m_licenseKey);
 }
 
-bool adaptive::CHLSTree::open(const std::string& url)
+bool adaptive::CHLSTree::Open(std::string_view url,
+                              const std::map<std::string, std::string>& headers,
+                              const std::string& data)
 {
-  return open(url, {});
-}
-
-bool adaptive::CHLSTree::open(const std::string& url,
-                              std::map<std::string, std::string> additionalHeaders)
-{
-  std::string data;
-  HTTPRespHeaders respHeaders;
-  if (!DownloadManifest(url, additionalHeaders, data, respHeaders))
-    return false;
-
   SaveManifest(nullptr, data, url);
 
-  if (!PreparePaths(respHeaders.m_effectiveUrl))
-    return false;
+  manifest_url_ = url;
+  base_url_ = URL::RemoveParameters(url.data());
 
   if (!ParseManifest(data))
   {
@@ -196,20 +190,21 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
   std::unique_ptr<CPeriod> periodLost;
 
   PrepareRepStatus prepareStatus = PrepareRepStatus::OK;
-  std::string data;
-  HTTPRespHeaders respHeaders;
+  UTILS::CURL::HTTPResponse resp;
 
-  if (rep->m_isDownloaded)
+  if (!rep->m_isDownloaded)
   {
-    // do nothing
-  }
-  else if (DownloadManifest(rep->GetSourceUrl(), {}, data, respHeaders))
-  {
+    // Download child manifest playlist
+    std::string manifestUrl = rep->GetSourceUrl();
+    URL::AppendParameters(manifestUrl, m_manifestParams);
+
+    if (!DownloadManifestChild(manifestUrl, m_manifestHeaders, {}, resp))
+      return PrepareRepStatus::FAILURE;
+
+    SaveManifest(adp, resp.data, manifestUrl);
+
     // Parse child playlist
-
-    SaveManifest(adp, data, rep->GetSourceUrl());
-
-    std::string baseUrl = URL::RemoveParameters(respHeaders.m_effectiveUrl);
+    std::string baseUrl = URL::RemoveParameters(resp.effectiveUrl);
 
     EncryptionType currentEncryptionType = EncryptionType::CLEAR;
 
@@ -230,7 +225,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
     bool isExtM3Uformat{false};
 
-    std::stringstream streamData{data};
+    std::stringstream streamData{resp.data};
 
     for (std::string line; STRING::GetLine(streamData, line);)
     {
@@ -702,12 +697,11 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
         if (keyParts.size() > 1)
           ParseHeaderString(headers, keyParts[1]);
 
-        std::string data;
-        HTTPRespHeaders respHeaders;
+        CURL::HTTPResponse resp;
 
-        if (Download(url, headers, data, respHeaders))
+        if (DownloadKey(url, headers, {}, resp))
         {
-          pssh.defaultKID_ = data;
+          pssh.defaultKID_ = resp.data;
         }
         else if (pssh.defaultKID_ != "0")
         {
@@ -762,6 +756,22 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
     m_updThread.ResetStartTime();
     prepareRepresentation(period, adp, rep, true);
   }
+}
+
+bool adaptive::CHLSTree::DownloadKey(std::string_view url,
+                                     const std::map<std::string, std::string>& reqHeaders,
+                                     const std::vector<std::string>& respHeaders,
+                                     UTILS::CURL::HTTPResponse& resp)
+{
+  return CURL::DownloadFile(url, reqHeaders, respHeaders, resp);
+}
+
+bool adaptive::CHLSTree::DownloadManifestChild(std::string_view url,
+                                               const std::map<std::string, std::string>& reqHeaders,
+                                               const std::vector<std::string>& respHeaders,
+                                               UTILS::CURL::HTTPResponse& resp)
+{
+  return CURL::DownloadFile(url, reqHeaders, respHeaders, resp);
 }
 
 // Can be called form update-thread!

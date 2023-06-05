@@ -26,7 +26,7 @@ constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_dat
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
 
-constexpr std::string_view PROP_MANIFEST_TYPE = "inputstream.adaptive.manifest_type";
+constexpr std::string_view PROP_MANIFEST_TYPE = "inputstream.adaptive.manifest_type"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter";
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
@@ -82,8 +82,16 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
       props.m_serverCertificate = prop.second;
       logPropValRedacted = true;
     }
-    else if (prop.first == PROP_MANIFEST_TYPE)
+    else if (prop.first == PROP_MANIFEST_TYPE) //! @todo: deprecated, to be removed on next Kodi release
     {
+      LOG::Log(
+          LOGWARNING,
+          "Warning \"inputstream.adaptive.manifest_type\" property is deprecated and "
+          "will be removed next Kodi version, the manifest type is now automatically detected.\n"
+          "If you are using a proxy remember to add the appropriate \"content-type\" header "
+          "to the HTTP manifest response\nSee Wiki page \"How to provide custom manifest/license\" "
+          "to learn more about it.");
+
       if (STRING::CompareNoCase(prop.second, "MPD"))
         props.m_manifestType = ManifestType::MPD;
       else if (STRING::CompareNoCase(prop.second, "ISM"))

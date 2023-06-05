@@ -8,9 +8,10 @@
 
 #pragma once
 
+#include "../Iaes_decrypter.h"
 #include "../common/AdaptiveTree.h"
 #include "../common/AdaptiveUtils.h"
-#include "../Iaes_decrypter.h"
+#include "../utils/CurlUtils.h"
 
 #include <map>
 
@@ -20,17 +21,21 @@ namespace adaptive
 class ATTR_DLL_LOCAL CHLSTree : public AdaptiveTree
 {
 public:
-  CHLSTree(CHOOSER::IRepresentationChooser* reprChooser) : AdaptiveTree(reprChooser) {}
+  CHLSTree() : AdaptiveTree() {}
   virtual ~CHLSTree() {}
 
   CHLSTree(const CHLSTree& left);
 
   virtual CHLSTree* Clone() const override { return new CHLSTree{*this}; }
 
-  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps) override;
+  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                         CHOOSER::IRepresentationChooser* reprChooser,
+                         std::string_view supportedKeySystem,
+                         std::string_view manifestUpdateParam) override;
 
-  virtual bool open(const std::string& url) override;
-  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) override;
+  virtual bool Open(std::string_view url,
+                    const std::map<std::string, std::string>& headers,
+                    const std::string& data) override;
 
   virtual PLAYLIST::PrepareRepStatus prepareRepresentation(PLAYLIST::CPeriod* period,
                                                             PLAYLIST::CAdaptationSet* adp,
@@ -52,6 +57,22 @@ public:
                                PLAYLIST::StreamType type) override;
 
 protected:
+  /*!
+   * \brief Download the key from media initialization section, overridable method for test project
+   */
+  virtual bool DownloadKey(std::string_view url,
+                           const std::map<std::string, std::string>& reqHeaders,
+                           const std::vector<std::string>& respHeaders,
+                           UTILS::CURL::HTTPResponse& resp);
+
+  /*!
+   * \brief Download manifest child, overridable method for test project
+   */
+  virtual bool DownloadManifestChild(std::string_view url,
+                                     const std::map<std::string, std::string>& reqHeaders,
+                                     const std::vector<std::string>& respHeaders,
+                                     UTILS::CURL::HTTPResponse& resp);
+
   virtual void RefreshLiveSegments() override;
 
   virtual bool ParseManifest(const std::string& stream);

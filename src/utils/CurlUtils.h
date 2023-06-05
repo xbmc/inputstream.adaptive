@@ -109,5 +109,28 @@ private:
   size_t m_bytesRead{0};
 };
 
+struct HTTPResponse
+{
+  std::string effectiveUrl; // The last used url (after following redirects)
+  std::string data; // Response data
+  size_t dataSize{0}; // Response data size in bytes
+  std::map<std::string, std::string> headers; // Headers retrieved from response
+  double downloadSpeed{0}; // Download speed in byte/s
+};
+
+ /*!
+  * \brief Helper method to download a file.
+  * \param url Url of the file to download
+  * \param reqHeaders Headers to use for the HTTP request
+  * \param respHeaders Headers to get from the HTTP response,
+  *                    by default content-type header is always retrieved.
+  * \param resp The data from the response
+  * \return True if has success, otherwise false
+  */
+bool DownloadFile(std::string_view url,
+                  const std::map<std::string, std::string>& reqHeaders,
+                  const std::vector<std::string>& respHeaders,
+                  HTTPResponse& resp);
+
 } // namespace CURL
 } // namespace UTILS

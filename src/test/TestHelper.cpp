@@ -8,9 +8,48 @@
 
 #include "TestHelper.h"
 
+#include "../utils/CurlUtils.h"
+
 std::string testHelper::testFile;
 std::string testHelper::effectiveUrl;
 std::vector<std::string> testHelper::downloadList;
+
+bool testHelper::DownloadFile(std::string_view url,
+                  const std::map<std::string, std::string>& reqHeaders,
+                  const std::vector<std::string>& respHeaders,
+                  UTILS::CURL::HTTPResponse& resp)
+{
+  FILE* f = fopen(testHelper::testFile.c_str(), "rb");
+  if (!f)
+    return false;
+
+  if (!testHelper::effectiveUrl.empty())
+    resp.effectiveUrl = testHelper::effectiveUrl;
+  else
+    resp.effectiveUrl = url;
+
+  // read the file
+  static const size_t bufferSize{16 * 1024}; // 16 byte
+  std::vector<char> bufferData(bufferSize);
+  bool isEOF{false};
+
+  while (!isEOF)
+  {
+    // Read the data in chunks
+    size_t byteRead{fread(bufferData.data(), sizeof(char), bufferSize, f)};
+    if (byteRead == 0) // EOF
+    {
+      isEOF = true;
+    }
+    else
+    {
+      resp.data.append(bufferData.data(), byteRead);
+    }
+  }
+
+  fclose(f);
+  return true;
+}
 
 std::string GetEnv(const std::string& var)
 {
@@ -102,125 +141,42 @@ void AESDecrypter::ivFromSequence(uint8_t* buffer, uint64_t sid){}
 
 bool AESDecrypter::RenewLicense(const std::string& pluginUrl){return false;}
 
-bool DownloadFile(std::string_view url,
-                  const std::map<std::string, std::string>& reqHeaders,
-                  std::string& data,
-                  adaptive::HTTPRespHeaders& respHeaders)
+bool DASHTestTree::DownloadManifestUpd(std::string_view url,
+                                       const std::map<std::string, std::string>& reqHeaders,
+                                       const std::vector<std::string>& respHeaders,
+                                       UTILS::CURL::HTTPResponse& resp)
 {
-  FILE* f = fopen(testHelper::testFile.c_str(), "rb");
-  if (!f)
-    return false;
-
-  if (!testHelper::effectiveUrl.empty())
-    respHeaders.m_effectiveUrl = testHelper::effectiveUrl;
-  else
-    respHeaders.m_effectiveUrl = url;
-
-  // read the file
-  static const size_t bufferSize{16 * 1024}; // 16 byte
-  std::vector<char> bufferData(bufferSize);
-  bool isEOF{false};
-
-  while (!isEOF)
-  {
-    // Read the data in chunks
-    size_t byteRead{fread(bufferData.data(), sizeof(char), bufferSize, f)};
-    if (byteRead == 0) // EOF
-    {
-      isEOF = true;
-    }
-    else
-    {
-      data.append(bufferData.data(), byteRead);
-    }
-  }
-
-  fclose(f);
-  return true;
-}
-
-bool DASHTestTree::Download(std::string_view url,
-                            const std::map<std::string, std::string>& addHeaders,
-                            std::string& data,
-                            adaptive::HTTPRespHeaders& respHeaders)
-{
-  if (DownloadFile(url, addHeaders, data, respHeaders))
+  if (testHelper::DownloadFile(url, reqHeaders, respHeaders, resp))
   {
     return true;
   }
   return false;
 }
 
-bool DASHTestTree::DownloadManifest(std::string url,
-                                    const std::map<std::string, std::string>& addHeaders,
-                                    std::string& data,
-                                    adaptive::HTTPRespHeaders& respHeaders)
-{
-  if (DownloadFile(url, addHeaders, data, respHeaders))
-  {
-    // We set the download speed to calculate the initial network bandwidth
-    m_reprChooser->SetDownloadSpeed(500000);
-
-    return true;
-  }
-  return false;
-}
-
-HLSTestTree::HLSTestTree(CHOOSER::IRepresentationChooser* reprChooser)
-  : CHLSTree(reprChooser) 
+HLSTestTree::HLSTestTree() : CHLSTree() 
 {
   m_decrypter = std::make_unique<AESDecrypter>(AESDecrypter(std::string()));
 }
 
-bool HLSTestTree::Download(std::string_view url,
-                           const std::map<std::string, std::string>& addHeaders,
-                           std::string& data,
-                           adaptive::HTTPRespHeaders& respHeaders)
+bool HLSTestTree::DownloadKey(std::string_view url,
+                              const std::map<std::string, std::string>& reqHeaders,
+                              const std::vector<std::string>& respHeaders,
+                              UTILS::CURL::HTTPResponse& resp)
 {
-  if (DownloadFile(url, addHeaders, data, respHeaders))
+  if (testHelper::DownloadFile(url, reqHeaders, respHeaders, resp))
   {
     return true;
   }
   return false;
 }
 
-bool HLSTestTree::DownloadManifest(std::string url,
-                                   const std::map<std::string, std::string>& addHeaders,
-                                   std::string& data,
-                                   adaptive::HTTPRespHeaders& respHeaders)
+bool HLSTestTree::DownloadManifestChild(std::string_view url,
+                                        const std::map<std::string, std::string>& reqHeaders,
+                                        const std::vector<std::string>& respHeaders,
+                                        UTILS::CURL::HTTPResponse& resp)
 {
-  if (DownloadFile(url, addHeaders, data, respHeaders))
+  if (testHelper::DownloadFile(url, reqHeaders, respHeaders, resp))
   {
-    // We set the download speed to calculate the initial network bandwidth
-    m_reprChooser->SetDownloadSpeed(500000);
-
-    return true;
-  }
-  return false;
-}
-
-bool SmoothTestTree::Download(std::string_view url,
-                              const std::map<std::string, std::string>& addHeaders,
-                              std::string& data,
-                              adaptive::HTTPRespHeaders& respHeaders)
-{
-  if (DownloadFile(url, addHeaders, data, respHeaders))
-  {
-    return true;
-  }
-  return false;
-}
-
-bool SmoothTestTree::DownloadManifest(std::string url,
-                                      const std::map<std::string, std::string>& addHeaders,
-                                      std::string& data,
-                                      adaptive::HTTPRespHeaders& respHeaders)
-{
-  if (DownloadFile(url, addHeaders, data, respHeaders))
-  {
-    // We set the download speed to calculate the initial network bandwidth
-    m_reprChooser->SetDownloadSpeed(500000);
-
     return true;
   }
   return false;

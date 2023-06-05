@@ -90,3 +90,12 @@ bool UTILS::FILESYS::RemoveDirectory(std::string_view path, bool recursive /* = 
 {
   return kodi::vfs::RemoveDirectory(path.data(), recursive);
 }
+
+std::string UTILS::FILESYS::GetFileExtension(std::string path)
+{
+  size_t extPos = path.rfind('.');
+  if (extPos != std::string::npos)
+    return path.substr(extPos + 1);
+
+  return {};
+}

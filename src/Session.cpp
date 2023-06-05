@@ -9,18 +9,18 @@
 #include "Session.h"
 
 #include "aes_decrypter.h"
+#include "common/AdaptiveTreeFactory.h"
 #include "common/Chooser.h"
-#include "parser/DASHTree.h"
-#include "parser/HLSTree.h"
-#include "parser/SmoothTree.h"
 #include "samplereader/ADTSSampleReader.h"
 #include "samplereader/FragmentedSampleReader.h"
 #include "samplereader/SubtitleSampleReader.h"
 #include "samplereader/TSSampleReader.h"
 #include "samplereader/WebmSampleReader.h"
 #include "utils/Base64Utils.h"
+#include "utils/CurlUtils.h"
 #include "utils/SettingsUtils.h"
 #include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
 
@@ -43,24 +43,6 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
 {
   m_KodiHost->SetProfilePath(profilePath);
   m_KodiHost->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
-
-  switch (kodiProps.m_manifestType)
-  {
-    case PROPERTIES::ManifestType::MPD:
-      m_adaptiveTree = new adaptive::CDashTree(m_reprChooser);
-      break;
-    case PROPERTIES::ManifestType::ISM:
-      m_adaptiveTree = new adaptive::CSmoothTree(m_reprChooser);
-      break;
-    case PROPERTIES::ManifestType::HLS:
-      m_adaptiveTree = new adaptive::CHLSTree(m_reprChooser);
-      break;
-    default:
-      LOG::LogF(LOGFATAL, "Manifest type not handled");
-      return;
-  };
-
-  m_adaptiveTree->Configure(kodiProps);
 
   m_settingNoSecureDecoder = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
   LOG::Log(LOGDEBUG, "Setting NOSECUREDECODER value: %d", m_settingNoSecureDecoder);
@@ -226,14 +208,12 @@ void CSession::DisposeDecrypter()
 
 bool CSession::Initialize()
 {
-  if (!m_adaptiveTree)
-    return false;
-
   // Get URN's wich are supported by this addon
+  std::string supportedKeySystem;
   if (!m_kodiProps.m_licenseType.empty())
   {
-    SetSupportedDecrypterURN(m_adaptiveTree->m_supportedKeySystem);
-    LOG::Log(LOGDEBUG, "Supported URN: %s", m_adaptiveTree->m_supportedKeySystem.c_str());
+    SetSupportedDecrypterURN(supportedKeySystem);
+    LOG::Log(LOGDEBUG, "Supported URN: %s", supportedKeySystem.c_str());
   }
 
   // Preinitialize the DRM, if pre-initialisation data are provided
@@ -257,22 +237,49 @@ bool CSession::Initialize()
     }
   }
 
-  // Open manifest file with location redirect support  bool mpdSuccess;
-  std::string manifestUrl =
-      m_adaptiveTree->location_.empty() ? m_manifestUrl : m_adaptiveTree->location_;
+  std::string manifestUrl = m_manifestUrl;
 
-  m_adaptiveTree->SetManifestUpdateParam(manifestUrl, m_kodiProps.m_manifestUpdateParam);
-
-  if (!m_adaptiveTree->open(manifestUrl, addHeaders))
+  //! @todo: In the next version of kodi, remove this hack of adding the $START_NUMBER$ parameter
+  //!        to the manifest url which is forcibly cut and copied to the manifest update request url,
+  //!        this seem used by YouTube addon only, adaptations are relatively simple
+  std::string manifestUpdateParam = m_kodiProps.m_manifestUpdateParam;
+  if (manifestUpdateParam.empty() && STRING::Contains(manifestUrl, "$START_NUMBER$"))
   {
-    LOG::Log(LOGERROR, "Could not open / parse manifest (%s)", manifestUrl.c_str());
+    LOG::Log(LOGWARNING,
+             "The misuse of adding params with $START_NUMBER$ placeholder to the "
+             "manifest url has been deprecated and will be removed on next Kodi version.\n"
+             "Please use \"manifest_update_parameter\" Kodi property to set manifest update "
+             "parameters, see Wiki integration page.");
+    manifestUpdateParam = URL::GetParametersFromPlaceholder(manifestUrl, "$START_NUMBER$");
+    manifestUrl.resize(manifestUrl.size() - manifestUpdateParam.size());
+  }
+
+  CURL::HTTPResponse manifestResp;
+  if (!CURL::DownloadFile(manifestUrl, addHeaders, {"etag", "last-modified"}, manifestResp))
+    return false;
+
+  // The download speed with small file sizes is not accurate, we should download at least 512Kb
+  // to have a sufficient acceptable value to calculate the bandwidth,
+  // then to have a better speed value we apply following proportion hack.
+  // This does not happen when you play with webbrowser because can obtain the connection speed.
+  static const size_t minSize{512 * 1024};
+  if (manifestResp.dataSize < minSize)
+    manifestResp.downloadSpeed = (manifestResp.downloadSpeed / manifestResp.dataSize) * minSize;
+
+  // We set the download speed to calculate the initial network bandwidth
+  m_reprChooser->SetDownloadSpeed(manifestResp.downloadSpeed);
+
+  m_adaptiveTree = PLAYLIST_FACTORY::CreateAdaptiveTree(m_kodiProps, manifestResp);
+  if (!m_adaptiveTree)
+    return false;
+
+  m_adaptiveTree->Configure(m_kodiProps, m_reprChooser, supportedKeySystem, manifestUpdateParam);
+
+  if (!m_adaptiveTree->Open(manifestResp.effectiveUrl, manifestResp.headers, manifestResp.data))
+  {
+    LOG::Log(LOGERROR, "Cannot parse the manifest (%s)", manifestUrl.c_str());
     return false;
   }
-  LOG::Log(
-      LOGINFO,
-      "Successfully parsed manifest file (Periods: %ld, Streams in first period: %ld, Type: %s)",
-      m_adaptiveTree->m_periods.size(), m_adaptiveTree->m_currentPeriod->GetAdaptationSets().size(),
-      m_adaptiveTree->has_timeshift_buffer_ ? "live" : "VOD");
 
   m_adaptiveTree->PostOpen(m_kodiProps);
 

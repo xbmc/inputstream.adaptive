@@ -22,6 +22,7 @@ set(ADP_SOURCES
 	src/common/AdaptiveCencSampleDecrypter.cpp
 	src/common/AdaptiveStream.cpp
 	src/common/AdaptiveTree.cpp
+	src/common/AdaptiveTreeFactory.cpp
 	src/common/AdaptiveUtils.cpp
 	src/common/Chooser.cpp
 	src/common/ChooserAskQuality.cpp
@@ -88,6 +89,7 @@ set(ADP_HEADERS
 	src/common/AdaptiveDecrypter.h
 	src/common/AdaptiveStream.h
 	src/common/AdaptiveTree.h
+	src/common/AdaptiveTreeFactory.h
 	src/common/AdaptiveUtils.h
 	src/common/Chooser.h
 	src/common/ChooserAskQuality.h
