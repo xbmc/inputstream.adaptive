@@ -10,6 +10,7 @@
 
  // Kodi interface stubs
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
