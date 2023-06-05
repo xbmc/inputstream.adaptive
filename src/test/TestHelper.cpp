@@ -14,19 +14,17 @@ std::string testHelper::testFile;
 std::string testHelper::effectiveUrl;
 std::vector<std::string> testHelper::downloadList;
 
-bool testHelper::DownloadFile(std::string_view url,
-                  const std::map<std::string, std::string>& reqHeaders,
-                  const std::vector<std::string>& respHeaders,
-                  UTILS::CURL::HTTPResponse& resp)
+bool testHelper::LoadFile(std::string path, std::string& data)
 {
-  FILE* f = fopen(testHelper::testFile.c_str(), "rb");
-  if (!f)
-    return false;
+  // Add project "test/manifests/" data folder path
+  path.insert(0, GetEnv("DATADIR") + "/");
 
-  if (!testHelper::effectiveUrl.empty())
-    resp.effectiveUrl = testHelper::effectiveUrl;
-  else
-    resp.effectiveUrl = url;
+  FILE* f = fopen(path.c_str(), "rb");
+  if (!f)
+  {
+    LOG::LogF(LOGERROR, "Failed open file %s", path.c_str());
+    return false;
+  }
 
   // read the file
   static const size_t bufferSize{16 * 1024}; // 16 byte
@@ -43,11 +41,29 @@ bool testHelper::DownloadFile(std::string_view url,
     }
     else
     {
-      resp.data.append(bufferData.data(), byteRead);
+      data.append(bufferData.data(), byteRead);
     }
   }
 
   fclose(f);
+  return isEOF;
+}
+
+bool testHelper::DownloadFile(std::string_view url,
+                  const std::map<std::string, std::string>& reqHeaders,
+                  const std::vector<std::string>& respHeaders,
+                  UTILS::CURL::HTTPResponse& resp)
+{
+  bool ret = LoadFile(testHelper::testFile, resp.data);
+
+  if (!ret)
+    return false;
+
+  if (!testHelper::effectiveUrl.empty())
+    resp.effectiveUrl = testHelper::effectiveUrl;
+  else
+    resp.effectiveUrl = url;
+
   return true;
 }
 

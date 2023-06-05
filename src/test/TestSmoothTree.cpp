@@ -40,7 +40,7 @@ protected:
                     std::string url,
                     std::map<std::string, std::string> manifestHeaders)
   {
-    SetFileName(testHelper::testFile, filePath);
+    testHelper::testFile = filePath;
 
     // Download the manifest
     UTILS::CURL::HTTPResponse resp;

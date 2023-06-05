@@ -30,6 +30,8 @@ void SetFileName(std::string& file, const std::string name);
 class testHelper
 {
 public:
+  static bool LoadFile(std::string path, std::string& data);
+
   static bool DownloadFile(std::string_view url,
                            const std::map<std::string, std::string>& reqHeaders,
                            const std::vector<std::string>& respHeaders,

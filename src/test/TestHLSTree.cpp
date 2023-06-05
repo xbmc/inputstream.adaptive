@@ -45,7 +45,7 @@ protected:
                           std::string url,
                           std::map<std::string, std::string> manifestHeaders)
   {
-    SetFileName(testHelper::testFile, filePath);
+    testHelper::testFile = filePath;
 
     // Download the manifest
     UTILS::CURL::HTTPResponse resp;
@@ -81,7 +81,7 @@ protected:
     if (!url.empty())
       rep->SetSourceUrl(url);
 
-    SetFileName(testHelper::testFile, filePath);
+    testHelper::testFile = filePath;
     return tree->prepareRepresentation(per, adp, rep);
   }
 

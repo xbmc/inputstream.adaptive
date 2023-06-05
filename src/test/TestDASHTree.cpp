@@ -46,7 +46,7 @@ protected:
                     std::map<std::string, std::string> manifestHeaders,
                     std::string manifestUpdateParam)
   {
-    SetFileName(testHelper::testFile, filePath);
+    testHelper::testFile = filePath;
 
     // Download the manifest
     UTILS::CURL::HTTPResponse resp;
@@ -556,15 +556,15 @@ TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
 
   ReadSegments(testStream, 16, 1);
 
-  SetFileName(testHelper::testFile, "mpd/bad_segtimeline_2.mpd");
+  testHelper::testFile = "mpd/bad_segtimeline_2.mpd";
   ReadSegments(testStream, 16, 1);
   EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 3);
 
-  SetFileName(testHelper::testFile, "mpd/bad_segtimeline_3.mpd");
+  testHelper::testFile = "mpd/bad_segtimeline_3.mpd";
   ReadSegments(testStream, 16, 1);
   EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 4);
 
-  SetFileName(testHelper::testFile, "mpd/bad_segtimeline_4.mpd");
+  testHelper::testFile = "mpd/bad_segtimeline_4.mpd";
   ReadSegments(testStream, 16, 1);
   EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 5);
 }

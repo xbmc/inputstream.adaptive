@@ -18,6 +18,7 @@ add_executable(${BINARY}
     ../common/AdaptationSet.cpp
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
+    ../common/AdaptiveTreeFactory.cpp
     ../common/AdaptiveUtils.cpp
     ../common/Chooser.cpp
     ../common/ChooserAskQuality.cpp
