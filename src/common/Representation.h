@@ -40,6 +40,18 @@ public:
   }
   ~CRepresentation() {}
 
+  /*!
+   * \brief Set the parent AdaptationSet class, it may be necessary to allow methods to obtain
+   *        the data of some common attributes from the parent when the representation is missing data.
+   *        To be used if you plan to set or move a representation to an AdptationSet or a different one.
+   * \param parent[OPT] The parent AdaptationSet to link
+   */
+  void SetParent(CAdaptationSet* parent = nullptr)
+  {
+    CCommonSegAttribs::m_parentCommonSegAttribs = parent;
+    CCommonAttribs::m_parentCommonAttributes = parent;
+  }
+
   // Share AdaptationSet common attribs
   static std::unique_ptr<CRepresentation> MakeUniquePtr(CAdaptationSet* parent = nullptr)
   {

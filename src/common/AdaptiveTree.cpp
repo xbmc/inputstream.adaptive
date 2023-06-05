@@ -229,6 +229,13 @@ namespace adaptive
       auto& periodAdpSets = period->GetAdaptationSets();
 
       // Merge VIDEO & AUDIO adaptation sets
+      //! @todo: seem that merge adpsets is this not safe thing to do, adpsets may have different encryptions
+      //!        and relative different child data (e.g. dash xml child tags)
+      //!        it is needed to investigate if we really need do this,
+      //!        if so maybe limit for some use cases or improve it in some way.
+      //!        audio merging has been impl years ago without give any details of the reasons or for what manifest types
+      //!        video merging has been impl by https://github.com/xbmc/inputstream.adaptive/pull/694
+      //!        second thing, merge should be decoupled from sort behaviour with different methods
       for (auto itAdpSet = periodAdpSets.begin(); itAdpSet != periodAdpSets.end();)
       {
         auto adpSet = (*itAdpSet).get();
@@ -250,10 +257,15 @@ namespace adaptive
                 psshSets[index].adaptation_set_ = nextAdpSet;
               }
             }
+
             // Move representations unique_ptr from adpSet repr vector to nextAdpSet repr vector
-            std::move(adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
-                      std::inserter(nextAdpSet->GetRepresentations(),
-                      nextAdpSet->GetRepresentations().end()));
+            for (auto itRepr = adpSet->GetRepresentations().begin();
+                 itRepr != adpSet->GetRepresentations().end(); itRepr++)
+            {
+              nextAdpSet->GetRepresentations().push_back(std::move(*itRepr));
+              // We need to change the parent adaptation set in the representation itself
+              nextAdpSet->GetRepresentations().back()->SetParent(nextAdpSet);
+            }
 
             itAdpSet = periodAdpSets.erase(itAdpSet);
             continue;

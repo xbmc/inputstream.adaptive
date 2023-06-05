@@ -27,10 +27,8 @@ public:
   bool HasSegmentList();
 
 protected:
-  std::optional<CSegmentList> m_segmentList;
-
-private:
   CCommonSegAttribs* m_parentCommonSegAttribs{nullptr};
+  std::optional<CSegmentList> m_segmentList;
 };
 
 } // namespace PLAYLIST
