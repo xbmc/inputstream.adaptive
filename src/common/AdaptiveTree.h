@@ -41,13 +41,6 @@ class IRepresentationChooser;
 namespace adaptive
 {
 
-struct ATTR_DLL_LOCAL HTTPRespHeaders {
-
-  std::string m_effectiveUrl;
-  std::string m_etag; // etag header
-  std::string m_lastModified; // last-modified header
-};
-
 class ATTR_DLL_LOCAL AdaptiveTree
 {
 public:
@@ -65,6 +58,11 @@ public:
 
   std::string manifest_url_;
   std::string base_url_;
+  
+  //! @todo: m_manifestUpdateParam is used to force enabling manifest updates and to
+  //!  be able to set also parameters to the manifest update url, we should start decouple
+  //!  the "full" use case and the parameters case with appropriate separate properties,
+  //!  in a future "full" use case should be dropped and possible broken dash live manifest fixed
   std::string m_manifestUpdateParam;
 
   std::optional<uint32_t> initial_sequence_; // HLS only
@@ -80,18 +78,32 @@ public:
 
   CryptoMode m_cryptoMode{CryptoMode::NONE};
 
-  AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser);
+  AdaptiveTree() = default;
   AdaptiveTree(const AdaptiveTree& left);
   virtual ~AdaptiveTree() = default;
 
   /*!
    * \brief Configure the adaptive tree.
    * \param kodiProps The Kodi properties
+   * \param manifestUpdateParam Set to "full" to force enabling future manifest updates or set parameters
+   *                            that will be add to manifest request url, with an optional support
+   *                            of placeholder $START_NUMBER$ to allow set the segment start number
+   *                            to the parameter e.g. ?start_seq=$START_NUMBER$ become ?start_seq=10
    */
-  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps);
+  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                         CHOOSER::IRepresentationChooser* reprChooser,
+                         std::string_view supportedKeySystem,
+                         std::string_view manifestUpdateParam);
 
-  virtual bool open(const std::string& url) = 0;
-  virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) = 0;
+  /*!
+   * \brief Open manifest data for parsing.
+   * \param url Effective url where the manifest is downloaded
+   * \param headers Headers provided in the HTTP response
+   * \param data The manifest data
+   */
+  virtual bool Open(std::string_view url,
+                    const std::map<std::string, std::string>& headers,
+                    const std::string& data) = 0;
 
   /*!
    * \brief Performs tasks after opening the manifest
@@ -175,20 +187,6 @@ public:
 
   virtual AdaptiveTree* Clone() const = 0;
 
-  /*!
-   * \brief Set the manifest update url parameter, used to force enabling manifest updates,
-   *        by default by set the @param argument to "full" value, but the behaviour
-   *        could change, it depends on the parser implementation.
-   * \param manifestUrl The original manifest url value may be modified,
-   *                    refer to each implementation of the parser.
-   * \param param The update parameter, by default is accepted "full" value,
-   *              refer to each implementation of the parser.
-   */
-  virtual void SetManifestUpdateParam(std::string& manifestUrl, std::string_view param)
-  {
-    m_manifestUpdateParam = param;
-  }
-
   Settings m_settings;
 
   class TreeUpdateThread
@@ -247,56 +245,15 @@ public:
 
 protected:
   /*!
-   * \brief Download a file.
-   * \param url The url of the file to download
-   * \param addHeaders Additional headers to add in the HTTP request
-   * \param data [OUT] Return the HTTP response data
-   * \param respHeaders [OUT] Return the HTTP response headers
-   * \return True if has success, otherwise false
-   */
-  virtual bool Download(std::string_view url,
-                        const std::map<std::string, std::string>& addHeaders,
-                        std::string& data,
-                        HTTPRespHeaders& respHeaders);
-
-  /*!
-   * \brief Download manifest file by adding custom user defined manifest headers and parameters.
-   * \param url The url of the file to download
-   * \param addHeaders Additional headers to add in the HTTP request
-   * \param data [OUT] Return the HTTP response data
-   * \param respHeaders [OUT] Return the HTTP response headers
-   * \return True if has success, otherwise false
-   */
-  virtual bool DownloadManifest(std::string url,
-                                const std::map<std::string, std::string>& addHeaders,
-                                std::string& data,
-                                HTTPRespHeaders& respHeaders);
-
-  /*!
-   * \brief Implementation to download a file.
-   *        This also update the representation "chooser" to calculate the initial network bandwidth.
-   * \param url The url of the file to download
-   * \param reqHeaders The headers to use in the HTTP request
-   * \param data [OUT] Return the HTTP response data
-   * \param respHeaders [OUT] Return the HTTP response headers
-   * \return True if has success, otherwise false
-   */
-  bool DownloadImpl(std::string_view url,
-                    const std::map<std::string, std::string>& reqHeaders,
-                    std::string& data,
-                    HTTPRespHeaders& respHeaders);
-
-  /*!
    * \brief Save manifest data to a file for debugging purpose.
    * \param fileNameSuffix Suffix to add to the filename generated.
    * \param data The manifest data to save.
    * \param info Additionals info to be add before the data.
    */
   virtual void SaveManifest(const std::string& fileNameSuffix,
-                            std::string_view data,
+                            const std::string& data,
                             std::string_view info);
 
-  bool PreparePaths(const std::string &url);
   void SortTree();
 
   // Live segment update section

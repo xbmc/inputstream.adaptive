@@ -23,16 +23,17 @@ class PRProtectionParser;
 class ATTR_DLL_LOCAL CSmoothTree : public AdaptiveTree
 {
 public:
-  CSmoothTree(CHOOSER::IRepresentationChooser* reprChooser);
+  CSmoothTree() : AdaptiveTree() {}
   CSmoothTree(const CSmoothTree& left);
 
-  virtual bool open(const std::string& url) override;
-  virtual bool open(const std::string& url, std::map<std::string, std::string> addHeaders) override;
+  virtual bool Open(std::string_view url,
+                    const std::map<std::string, std::string>& headers,
+                    const std::string& data) override;
 
   virtual CSmoothTree* Clone() const override { return new CSmoothTree{*this}; }
 
 protected:
-  virtual bool ParseManifest(std::string& data);
+  virtual bool ParseManifest(const std::string& data);
 
   void ParseTagStreamIndex(pugi::xml_node nodeSI,
                            PLAYLIST::CPeriod* period,

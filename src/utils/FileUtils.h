@@ -24,7 +24,7 @@ namespace FILESYS
  * \param overwrite If true will overwrite the existing file.
  * \return True if success, otherwise false.
  */
-bool SaveFile(std::string_view filePath, std::string_view data, bool overwrite);
+bool SaveFile(const std::string filePath, const std::string& data, bool overwrite);
 
 /*!
  * \brief Combine a path with another one
@@ -59,6 +59,13 @@ bool CheckDuplicateFilePath(std::string& filePath, uint32_t filesLimit = 0);
  * \return True is success, otherwise false.
  */
 bool RemoveDirectory(std::string_view path, bool recursive = true);
+
+/*!
+ * \brief Get the file extension from a filename.
+ * \param path The filename with or without a path.
+ * \return The file extension if found, otherwise empty string.
+ */
+std::string GetFileExtension(std::string path);
 
 } // namespace FILESYS
 } // namespace UTILS

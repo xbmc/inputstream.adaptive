@@ -122,3 +122,52 @@ bool UTILS::CURL::CUrl::IsEOF()
 {
   return m_file.AtEnd();
 }
+
+bool UTILS::CURL::DownloadFile(std::string_view url,
+                               const std::map<std::string, std::string>& reqHeaders,
+                               const std::vector<std::string>& respHeaders,
+                               HTTPResponse& resp)
+{
+  if (url.empty())
+    return false;
+
+  CURL::CUrl curl{url};
+  curl.AddHeaders(reqHeaders);
+
+  int statusCode = curl.Open();
+
+  if (statusCode == -1)
+    LOG::Log(LOGERROR, "Download failed, internal error: %s", url.data());
+  else if (statusCode >= 400)
+    LOG::Log(LOGERROR, "Download failed, HTTP error %d: %s", statusCode, url.data());
+  else // Start the download
+  {
+    resp.effectiveUrl = curl.GetEffectiveUrl();
+
+    if (curl.Read(resp.data) != CURL::ReadStatus::IS_EOF)
+    {
+      LOG::Log(LOGERROR, "Download failed: %s", statusCode, url.data());
+      return false;
+    }
+
+    if (resp.data.empty())
+    {
+      LOG::Log(LOGERROR, "Download failed, no data: %s", url.data());
+      return false;
+    }
+
+    resp.headers["content-type"] = curl.GetResponseHeader("content-type");
+    for (std::string_view name : respHeaders)
+    {
+      resp.headers[name.data()] = curl.GetResponseHeader(name);
+    }
+
+    resp.downloadSpeed = curl.GetDownloadSpeed();
+    resp.dataSize = curl.GetTotalByteRead();
+
+    LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
+             url.data(), curl.GetTotalByteRead(), resp.downloadSpeed);
+    return true;
+  }
+  return false;
+}

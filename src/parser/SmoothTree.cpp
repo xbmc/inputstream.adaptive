@@ -21,33 +21,19 @@ using namespace pugi;
 using namespace PLAYLIST;
 using namespace UTILS;
 
-adaptive::CSmoothTree::CSmoothTree(CHOOSER::IRepresentationChooser* reprChooser)
-  : AdaptiveTree(reprChooser)
-{
-}
-
 adaptive::CSmoothTree::CSmoothTree(const CSmoothTree& left) : AdaptiveTree(left)
 {
 }
 
-bool adaptive::CSmoothTree::open(const std::string& url)
+bool adaptive::CSmoothTree::Open(std::string_view url,
+                                 const std::map<std::string, std::string>& headers,
+                                 const std::string& data)
 {
-  return open(url, {});
-}
-
-bool adaptive::CSmoothTree::open(const std::string& url,
-                                 std::map<std::string, std::string> addHeaders)
-{
-  std::string data;
-  HTTPRespHeaders respHeaders;
-  if (!DownloadManifest(url, addHeaders, data, respHeaders))
-    return false;
-
   // We do not add "info" arg to SaveManifest or corrupt possible UTF16 data
   SaveManifest("", data, "");
 
-  if (!PreparePaths(respHeaders.m_effectiveUrl))
-    return false;
+  manifest_url_ = url;
+  base_url_ = URL::RemoveParameters(url.data());
 
   if (!ParseManifest(data))
     return false;
@@ -65,7 +51,7 @@ bool adaptive::CSmoothTree::open(const std::string& url,
   return true;
 }
 
-bool adaptive::CSmoothTree::ParseManifest(std::string& data)
+bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
 {
   std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
 

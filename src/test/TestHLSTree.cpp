@@ -18,14 +18,8 @@ class HLSTreeTest : public ::testing::Test
 protected:
   void SetUp() override
   {
-    UTILS::PROPERTIES::KodiProperties kodiProps;
-
     m_reprChooser = new CTestRepresentationChooserDefault();
-    m_reprChooser->Initialize(kodiProps.m_chooserProps);
-
-    tree = new HLSTestTree(m_reprChooser);
-    tree->Configure(kodiProps);
-    tree->m_supportedKeySystem = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+    tree = new HLSTestTree();
   }
 
   void TearDown() override
@@ -51,10 +45,24 @@ protected:
                           std::string url,
                           std::map<std::string, std::string> manifestHeaders)
   {
-    SetFileName(testHelper::testFile, filePath);
+    testHelper::testFile = filePath;
 
-    tree->SetManifestUpdateParam(url, "");
-    if (!tree->open(url, manifestHeaders))
+    // Download the manifest
+    UTILS::CURL::HTTPResponse resp;
+    if (!testHelper::DownloadFile(url, {}, {}, resp))
+    {
+      LOG::Log(LOGERROR, "Cannot download \"%s\" DASH manifest file.", url.c_str());
+      exit(1);
+    }
+
+    m_reprChooser->Initialize(m_kodiProps.m_chooserProps);
+    // We set the download speed to calculate the initial network bandwidth
+    m_reprChooser->SetDownloadSpeed(500000);
+
+    tree->Configure(m_kodiProps, m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED", "");
+
+    // Parse the manifest
+    if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
     {
       LOG::Log(LOGERROR, "Cannot open \"%s\" HLS manifest.", url.c_str());
       exit(1);
@@ -73,12 +81,13 @@ protected:
     if (!url.empty())
       rep->SetSourceUrl(url);
 
-    SetFileName(testHelper::testFile, filePath);
+    testHelper::testFile = filePath;
     return tree->prepareRepresentation(per, adp, rep);
   }
 
   adaptive::CHLSTree* tree;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
+  UTILS::PROPERTIES::KodiProperties m_kodiProps;
 };
 
 

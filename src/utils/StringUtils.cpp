@@ -249,3 +249,9 @@ bool UTILS::STRING::GetLine(std::stringstream& ss, std::string& line)
 
   return true;
 }
+
+std::string UTILS::STRING::ToLower(std::string str)
+{
+  StringUtils::ToLower(str);
+  return str;
+}

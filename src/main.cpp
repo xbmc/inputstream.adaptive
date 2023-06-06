@@ -49,9 +49,6 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
   std::string url = props.GetURL();
   m_kodiProps = PROPERTIES::ParseKodiProperties(props.GetProperties());
 
-  if (m_kodiProps.m_manifestType == PROPERTIES::ManifestType::UNKNOWN)
-    return false;
-
   std::uint8_t drmConfig{0};
   if (m_kodiProps.m_isLicensePersistentStorage)
     drmConfig |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;

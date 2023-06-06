@@ -1,0 +1,62 @@
+<?xml version="1.0" ?>
+<!-- Just In Time Delivered by Quortex Solution -->
+<MPD availabilityStartTime="1970-01-01T00:00:06Z" minBufferTime="PT6S" minimumUpdatePeriod="PT6S" profiles="urn:mpeg:dash:profile:isoff-live:2011,urn:hbbtv:dash:profile:isoff-live:2012" publishTime="2020-06-07T11:59:55Z" suggestedPresentationDelay="PT12S" timeShiftBufferDepth="PT1M18S" type="dynamic" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="urn:microsoft:playready" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd">
+	<Period id="0" start="PT1588628086S">
+		<AdaptationSet id="1" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment_$Number$.m4s" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400"></Representation>
+		</AdaptationSet>
+		<AdaptationSet id="2" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment_$Number%08d$.m4s" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400"></Representation>
+		</AdaptationSet>
+		<AdaptationSet id="3" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment_$Time$.m4s" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400"></Representation>
+		</AdaptationSet>
+		<AdaptationSet id="4" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment_$Time%014llu$" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400"></Representation>
+		</AdaptationSet>
+		<AdaptationSet id="5" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment_$Number$.m4s?t=$Time$" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400"></Representation>
+		</AdaptationSet>
+		<AdaptationSet id="6" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment_$Number%08d$.m4s?t=$Time%014llu$" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400"></Representation>
+		</AdaptationSet>
+		<AdaptationSet id="7" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment.m4s" startNumber="487050" timescale="90000">
+				<SegmentTimeline>
+					<S d="540000" r="12" t="263007000000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="videosd-400x224" sar="224:225" scanType="progressive" width="400"></Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>

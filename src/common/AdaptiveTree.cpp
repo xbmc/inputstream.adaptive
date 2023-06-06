@@ -9,7 +9,6 @@
 #include "AdaptiveTree.h"
 #include "Chooser.h"
 
-#include "../utils/CurlUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/UrlUtils.h"
@@ -31,21 +30,23 @@ using namespace UTILS;
 
 namespace adaptive
 {
-  AdaptiveTree::AdaptiveTree(CHOOSER::IRepresentationChooser* reprChooser)
-  : m_reprChooser(reprChooser)
+  AdaptiveTree::AdaptiveTree(const AdaptiveTree& left) : AdaptiveTree()
   {
-  }
-
-  AdaptiveTree::AdaptiveTree(const AdaptiveTree& left) : AdaptiveTree(left.m_reprChooser)
-  {
+    m_reprChooser = left.m_reprChooser;
     m_manifestParams = left.m_manifestParams;
     m_manifestHeaders = left.m_manifestHeaders;
     m_settings = left.m_settings;
     m_supportedKeySystem = left.m_supportedKeySystem;
   }
 
-  void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+  void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                               CHOOSER::IRepresentationChooser* reprChooser,
+                               std::string_view supportedKeySystem,
+                               std::string_view manifestUpdateParam)
   {
+    m_reprChooser = reprChooser;
+    m_supportedKeySystem = supportedKeySystem;
+
     if (kodi::addon::GetSettingBoolean("debug.save.manifest"))
     {
       m_pathSaveManifest = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), "manifests");
@@ -55,6 +56,7 @@ namespace adaptive
 
     m_manifestParams = kodiProps.m_manifestParams;
     m_manifestHeaders = kodiProps.m_manifestHeaders;
+    m_manifestUpdateParam = manifestUpdateParam;
 
     // Convenience way to share common addon settings we avoid
     // calling the API many times to improve parsing performance
@@ -75,6 +77,11 @@ namespace adaptive
       m_liveDelay = 16;
 
     StartUpdateThread();
+
+    LOG::Log(LOGINFO,
+             "Manifest successfully parsed (Periods: %zu, Streams in first period: %zu, Type: %s)",
+             m_periods.size(), m_currentPeriod->GetAdaptationSets().size(),
+             has_timeshift_buffer_ ? "live" : "VOD");
   }
 
   void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
@@ -201,18 +208,6 @@ namespace adaptive
       return period->InsertPSSHSet(nullptr);
   }
 
-  bool AdaptiveTree::PreparePaths(const std::string &url)
-  {
-    if (!URL::IsValidUrl(url))
-    {
-      LOG::LogF(LOGERROR, "URL not valid (%s)", url.c_str());
-      return false;
-    }
-    manifest_url_ = url;
-    base_url_ = URL::RemoveParameters(url);
-    return true;
-  }
-
   std::string AdaptiveTree::BuildDownloadUrl(const std::string& url) const
   {
     if (URL::IsUrlAbsolute(url))
@@ -291,94 +286,8 @@ namespace adaptive
       m_updThread.Initialize(this);
   }
 
-  bool AdaptiveTree::Download(std::string_view url,
-                              const std::map<std::string, std::string>& addHeaders,
-                              std::string& data,
-                              HTTPRespHeaders& respHeaders)
-  {
-    return DownloadImpl(url, addHeaders, data, respHeaders);
-  }
-
-  bool AdaptiveTree::DownloadManifest(std::string url,
-                                      const std::map<std::string, std::string>& addHeaders,
-                                      std::string& data,
-                                      HTTPRespHeaders& respHeaders)
-  {
-    std::map<std::string, std::string> manifestHeaders = m_manifestHeaders;
-    // Merge additional headers to the predefined one
-    for (auto& headerIt : addHeaders)
-    {
-      manifestHeaders[headerIt.first] = headerIt.second;
-    }
-
-    // Append manifest parameters, only if not already provided (e.g. manifest update)
-    if (url.find('?') == std::string::npos)
-      URL::AppendParameters(url, m_manifestParams);
-
-    return DownloadImpl(url, manifestHeaders, data, respHeaders);
-  }
-
-  //! @todo: Download implementation method always update the representation chooser speed
-  //!        this also when we download manifest updates during playback or when HLS parser
-  //!        use AdaptiveTree::Download to download KID data, updating chooser speed here
-  //!        should be done only the first time and after let the AdaptiveStream this task
-  bool AdaptiveTree::DownloadImpl(std::string_view url,
-                                  const std::map<std::string, std::string>& reqHeaders,
-                                  std::string& data,
-                                  HTTPRespHeaders& respHeaders)
-  {
-    if (url.empty())
-      return false;
-
-    CURL::CUrl curl{url};
-    curl.AddHeaders(reqHeaders);
-
-    int statusCode = curl.Open();
-
-    if (statusCode == -1)
-      LOG::Log(LOGERROR, "Download failed, internal error: %s", url.data());
-    else if (statusCode >= 400)
-      LOG::Log(LOGERROR, "Download failed, HTTP error %d: %s", statusCode, url.data());
-    else // Start the download
-    {
-      respHeaders.m_effectiveUrl = curl.GetEffectiveUrl();
-
-      if (curl.Read(data) != CURL::ReadStatus::IS_EOF)
-      {
-        LOG::Log(LOGERROR, "Download failed: %s", statusCode, url.data());
-        return false;
-      }
-
-      if (data.empty())
-      {
-        LOG::Log(LOGERROR, "Download failed, no data: %s", url.data());
-        return false;
-      }
-
-      respHeaders.m_etag = curl.GetResponseHeader("etag");
-      respHeaders.m_lastModified = curl.GetResponseHeader("last-modified");
-
-      double downloadSpeed = curl.GetDownloadSpeed();
-      // The download speed with small file sizes is not accurate, we should download at least 512Kb
-      // to have a sufficient acceptable value to calculate the bandwidth,
-      // then to have a better speed value we apply following proportion hack.
-      // This does not happen when you play with webbrowser because can obtain the connection speed.
-      static const size_t minSize{512 * 1024};
-      if (curl.GetTotalByteRead() < minSize)
-        downloadSpeed = (downloadSpeed / curl.GetTotalByteRead()) * minSize;
-
-      // We set the download speed to calculate the initial network bandwidth
-      m_reprChooser->SetDownloadSpeed(downloadSpeed);
-
-      LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
-               url.data(), curl.GetTotalByteRead(), downloadSpeed);
-      return true;
-    }
-    return false;
-  }
-
   void AdaptiveTree::SaveManifest(const std::string& fileNameSuffix,
-                                  std::string_view data,
+                                  const std::string& data,
                                   std::string_view info)
   {
     if (!m_pathSaveManifest.empty())
@@ -395,7 +304,7 @@ namespace adaptive
       // Manage duplicate files and limit them, too many means a problem to be solved
       if (FILESYS::CheckDuplicateFilePath(filePath, 10))
       {
-        std::string dataToSave = data.data();
+        std::string dataToSave = data;
         if (!info.empty())
         {
           dataToSave.insert(0, "\n\n");

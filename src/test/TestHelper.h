@@ -27,14 +27,16 @@ using STR = std::string;
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 
-static bool DownloadFile(std::string_view url,
-                         const std::map<std::string, std::string>& reqHeaders,
-                         std::stringstream& data,
-                         adaptive::HTTPRespHeaders& respHeaders);
-
 class testHelper
 {
 public:
+  static bool LoadFile(std::string path, std::string& data);
+
+  static bool DownloadFile(std::string_view url,
+                           const std::map<std::string, std::string>& reqHeaders,
+                           const std::vector<std::string>& respHeaders,
+                           UTILS::CURL::HTTPResponse& resp);
+
   static std::string testFile;
   static std::string effectiveUrl;
   static std::vector<std::string> downloadList;
@@ -99,22 +101,17 @@ private:
 class DASHTestTree : public adaptive::CDashTree
 {
 public:
-  DASHTestTree(CHOOSER::IRepresentationChooser* reprChooser) : CDashTree(reprChooser) {}
+  DASHTestTree() : CDashTree() {}
   uint64_t GetTimestamp() override { return m_mockTime; }
   void SetNowTime(uint64_t time) { m_mockTime = time; }
   void SetLastUpdated(const std::chrono::system_clock::time_point tm) { lastUpdated_ = tm; }
   std::chrono::system_clock::time_point GetNowTimeChrono() { return m_mock_time_chrono; };
 
 private:
-  bool Download(std::string_view url,
-                const std::map<std::string, std::string>& addHeaders,
-                std::string& data,
-                adaptive::HTTPRespHeaders& respHeaders) override;
-
-  bool DownloadManifest(std::string url,
-                        const std::map<std::string, std::string>& addHeaders,
-                        std::string& data,
-                        adaptive::HTTPRespHeaders& respHeaders) override;
+  bool DownloadManifestUpd(std::string_view url,
+                           const std::map<std::string, std::string>& reqHeaders,
+                           const std::vector<std::string>& respHeaders,
+                           UTILS::CURL::HTTPResponse& resp) override;
 
   virtual CDashTree* Clone() const override { return new DASHTestTree{*this}; }
 
@@ -125,35 +122,24 @@ private:
 class HLSTestTree : public adaptive::CHLSTree
 {
 public:
-  HLSTestTree(CHOOSER::IRepresentationChooser* reprChooser);
+  HLSTestTree();
 
   virtual HLSTestTree* Clone() const override { return new HLSTestTree{*this}; }
 
 private:
-  bool Download(std::string_view url,
-                const std::map<std::string, std::string>& addHeaders,
-                std::string& data,
-                adaptive::HTTPRespHeaders& respHeaders) override;
+  bool DownloadKey(std::string_view url,
+                   const std::map<std::string, std::string>& reqHeaders,
+                   const std::vector<std::string>& respHeaders,
+                   UTILS::CURL::HTTPResponse& resp) override;
 
-  bool DownloadManifest(std::string url,
-                        const std::map<std::string, std::string>& addHeaders,
-                        std::string& data,
-                        adaptive::HTTPRespHeaders& respHeaders) override;
+  bool DownloadManifestChild(std::string_view url,
+                             const std::map<std::string, std::string>& reqHeaders,
+                             const std::vector<std::string>& respHeaders,
+                             UTILS::CURL::HTTPResponse& resp) override;
 };
 
 class SmoothTestTree : public adaptive::CSmoothTree
 {
 public:
-  SmoothTestTree(CHOOSER::IRepresentationChooser* reprChooser) : CSmoothTree(reprChooser) {}
-
-private:
-  bool Download(std::string_view url,
-                const std::map<std::string, std::string>& addHeaders,
-                std::string& data,
-                adaptive::HTTPRespHeaders& respHeaders) override;
-
-  bool DownloadManifest(std::string url,
-                        const std::map<std::string, std::string>& addHeaders,
-                        std::string& data,
-                        adaptive::HTTPRespHeaders& respHeaders) override;
+  SmoothTestTree() : CSmoothTree() {}
 };
