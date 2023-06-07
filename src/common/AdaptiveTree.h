@@ -254,6 +254,12 @@ protected:
                             const std::string& data,
                             std::string_view info);
 
+  /*!
+   * \brief Apply fixes and overrides to audio/subtitles stream flags.
+   * \param kodiProps The Kodi properties
+   */
+  void FixStreamsFlags(const UTILS::PROPERTIES::KodiProperties& kodiProps);
+
   void SortTree();
 
   // Live segment update section

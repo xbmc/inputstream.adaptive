@@ -376,6 +376,8 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
         adpSet->SetIsForced(true);
       else if (value == "main")
         adpSet->SetIsDefault(true);
+      else if (value == "caption" || value == "alternate" || value == "commentary")
+        adpSet->SetIsImpaired(true);
     }
   }
 
@@ -388,7 +390,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
     if (schemeIdUri == "urn:mpeg:dash:role:2011")
     {
-      if (value == "caption")
+      if (STRING::StartsWith(value, "caption")) // caption or captions
         adpSet->SetIsImpaired(true);
     }
   }

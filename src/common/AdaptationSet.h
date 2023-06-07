@@ -109,6 +109,12 @@ public:
   static bool Compare(const std::unique_ptr<CAdaptationSet>& left,
                       const std::unique_ptr<CAdaptationSet>& right);
 
+  static std::vector<std::unique_ptr<CAdaptationSet>>::const_iterator FindAudioAdpSet(
+      const std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
+      const std::string langCode,
+      bool isPreferStereo,
+      bool filterImpaired = false);
+
 protected:
   std::vector<std::unique_ptr<CRepresentation>> m_representations;
 

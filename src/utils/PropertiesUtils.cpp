@@ -34,7 +34,9 @@ constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifes
 constexpr std::string_view PROP_STREAM_PARAMS = "inputstream.adaptive.stream_params";
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
 
-constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
+constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language"; //! @todo: deprecated, to be removed on next Kodi release
+constexpr std::string_view PROP_STREAMS_CONFIG = "inputstream.adaptive.streams_config";
+
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
@@ -121,9 +123,29 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     {
       ParseHeaderString(props.m_streamHeaders, prop.second);
     }
-    else if (prop.first == PROP_AUDIO_LANG_ORIG)
+    else if (prop.first == PROP_AUDIO_LANG_ORIG) //! @todo: deprecated, to be removed on next Kodi release
     {
-      props.m_audioLanguageOrig = prop.second;
+      LOG::Log(LOGWARNING,
+               "Warning \"inputstream.adaptive.original_audio_language\" property is deprecated "
+               "has been replaced by \"inputstream.adaptive.stream_audio_cfg\". "
+               "Please read Wiki \"Integration\" page to learn more about the new properties.");
+      props.m_audioLangOriginal = prop.second;
+    }
+    else if (prop.first == PROP_STREAMS_CONFIG)
+    {
+      auto values = STRING::ToMap(prop.second, '=', ';');
+
+      if (STRING::KeyExists(values, "audio_langcode_default"))
+        props.m_audioLangDefault = STRING::Trim(values["audio_langcode_default"]);
+      if (STRING::KeyExists(values, "audio_langcode_original"))
+        props.m_audioLangOriginal = STRING::Trim(values["audio_langcode_original"]);
+      if (STRING::KeyExists(values, "audio_prefer_stereo"))
+        props.m_audioPrefStereo = values["audio_prefer_stereo"] == "true";
+      if (STRING::KeyExists(values, "audio_prefer_type"))
+        props.m_audioPrefType = STRING::Trim(values["audio_prefer_type"]);
+
+      if (STRING::KeyExists(values, "subtitles_langcode_default"))
+        props.m_subtitleLangDefault = STRING::Trim(values["subtitles_langcode_default"]);
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
