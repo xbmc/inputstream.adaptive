@@ -290,11 +290,16 @@ bool AdaptiveStream::PrepareDownload(const PLAYLIST::CRepresentation* rep,
   }
   else
   {
-    if (rep->HasSegmentTemplate() && ~segNum)
+    if (rep->HasSegmentTemplate() && ~segNum) //templated segment
     {
-      streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
-      ReplacePlaceholder(streamUrl, "$Number", rep->GetStartNumber());
-      ReplacePlaceholder(streamUrl, "$Time", 0);
+      if (rep->GetSegmentTemplate()->GetInitialization().empty())
+      {
+        streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
+        ReplacePlaceholder(streamUrl, "$Number", rep->GetStartNumber());
+        ReplacePlaceholder(streamUrl, "$Time", 0);
+      }
+      else
+        streamUrl = rep->GetSegmentTemplate()->GetInitialization();
     }
     else
       streamUrl = rep->GetUrl();
