@@ -1,3 +1,11 @@
+v21.1.2 (2023-06-09)
+- [DASH] - allow contentprotection tag without systemID URN
+- [ADTS] - add support for AC-3 and EAC-3 in ADTS container
+- [HLS] fix key url resolution
+- Remove getinfo checks from getnextsample (fixes Amazon stuttering issues)
+- [AdaptiveTree] - introduce feature to autodetect manifest type
+- [DASH] - always set startNumber from SegmentTemplate
+
 v21.1.1 (2023-05-30)
 - [AdaptiveStream] Overhaul threading (fixes some freezes/deadlocks)
 - [AdaptiveTree] Massive overhaul of manifest and ttml parsers (thanks @CastagnaIT !)
