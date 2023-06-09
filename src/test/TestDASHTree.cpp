@@ -595,3 +595,29 @@ TEST_F(DASHTreeTest, SuggestedPresentationDelay)
   OpenTestFile("mpd/segtpl_spd.mpd", "https://foo.bar/segtpl_spd.mpd");
   EXPECT_EQ(tree->m_liveDelay, 32);
 }
+
+TEST_F(DASHTreeTest, SegmentTemplateStartNumber)
+{
+  OpenTestFile("mpd/segmenttemplate_startnumber.mpd", "https://vod.service.net/SGP1/highlightpost/1234567890/1/web/dash/segtpl_sn.mpd");
+
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
+
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetInitialization()), "https://vod.service.net/SGP1/highlightpost/1234567890/1/h264/288000/init_dash.m4v");
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetMediaUrl()), "https://vod.service.net/SGP1/highlightpost/1234567890/1/h264/288000/seg_dash_$Number$.m4v");
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetStartNumber(), 0);
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetTimescale(), 25000);
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetSegmentTemplate()->GetDuration(), 48000);
+
+  // Verify segments
+  auto& rep1Timeline = adpSets[0]->GetRepresentations()[0]->SegmentTimeline();
+  EXPECT_EQ(rep1Timeline.GetSize(), 144);
+
+  EXPECT_EQ(rep1Timeline.Get(0)->range_begin_, 0);
+  EXPECT_EQ(rep1Timeline.Get(0)->range_end_, 0);
+
+  EXPECT_EQ(rep1Timeline.Get(1)->range_begin_, 48000);
+  EXPECT_EQ(rep1Timeline.Get(1)->range_end_, 1);
+
+  EXPECT_EQ(rep1Timeline.Get(143)->range_begin_, 6864000);
+  EXPECT_EQ(rep1Timeline.Get(143)->range_end_, 143);
+}
