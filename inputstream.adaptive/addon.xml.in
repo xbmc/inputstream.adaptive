@@ -3,7 +3,7 @@
   id="inputstream.adaptive"
   version="21.1.2"
   name="InputStream Adaptive"
-  provider-name="peak3d">
+  provider-name="peak3d, Team Kodi">
   <requires>@ADDON_DEPENDS@</requires>
   <extension
     point="kodi.inputstream"
