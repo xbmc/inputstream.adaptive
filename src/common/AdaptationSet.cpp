@@ -157,3 +157,24 @@ bool PLAYLIST::CAdaptationSet::Compare(const std::unique_ptr<CAdaptationSet>& le
 
   return false;
 }
+
+std::vector<std::unique_ptr<CAdaptationSet>>::const_iterator PLAYLIST::CAdaptationSet::
+    FindAudioAdpSet(const std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
+                    const std::string langCode,
+                    bool isPreferStereo,
+                    bool filterImpaired)
+{
+  for (auto& itAdpSet = adpSets.cbegin(); itAdpSet != adpSets.cend(); itAdpSet++)
+  {
+    auto adpSet = itAdpSet->get();
+    if (adpSet->GetStreamType() == StreamType::AUDIO &&
+        STRING::CompareNoCase(adpSet->GetLanguage(), langCode) &&
+        (isPreferStereo ? adpSet->GetRepresentations()[0]->GetAudioChannels() <= 2
+                        : adpSet->GetRepresentations()[0]->GetAudioChannels() > 2) &&
+        adpSet->IsImpaired() == filterImpaired)
+    {
+      return itAdpSet;
+    }
+  }
+  return adpSets.end();
+}

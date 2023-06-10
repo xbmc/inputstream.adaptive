@@ -53,7 +53,21 @@ struct KodiProperties
   std::string m_streamParams;
   // HTTP headers used to download streams
   std::map<std::string, std::string> m_streamHeaders;
-  std::string m_audioLanguageOrig;
+
+  // Defines what type of audio tracks should be preferred for the "default" flag,
+  // accepted values are: original, impaired, or empty string.
+  // When empty: it try to set the flag to a regular language track or fallback to original language
+  std::string m_audioPrefType;
+  // Defines if stereo audio tracks are preferred over multichannels one,
+  // it depends from m_audioLangDefault
+  bool m_audioPrefStereo{false};
+  // Force audio streams with the specified language code to have the "default" flag
+  std::string m_audioLangDefault;
+  // Force audio streams with the specified language code to have the "original" flag
+  std::string m_audioLangOriginal;
+  // Force subtitle streams with the specified language code to have the "default" flag
+  std::string m_subtitleLangDefault;
+
   bool m_playTimeshiftBuffer{false};
   // Set a custom delay from live edge in seconds
   uint64_t m_liveDelay{0};

@@ -798,13 +798,10 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
       stream.m_info.SetStreamType(INPUTSTREAM_TYPE_AUDIO);
       if (adp->IsImpaired())
         flags |= INPUTSTREAM_FLAG_VISUAL_IMPAIRED;
+      if (adp->IsOriginal())
+        flags |= INPUTSTREAM_FLAG_ORIGINAL;
       if (adp->IsDefault())
         flags |= INPUTSTREAM_FLAG_DEFAULT;
-      if (adp->IsOriginal() || (!m_kodiProps.m_audioLanguageOrig.empty() &&
-                                adp->GetLanguage() == m_kodiProps.m_audioLanguageOrig))
-      {
-        flags |= INPUTSTREAM_FLAG_ORIGINAL;
-      }
       break;
     }
     case StreamType::SUBTITLE:

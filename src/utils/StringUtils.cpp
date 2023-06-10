@@ -11,6 +11,7 @@
 #include "kodi/tools/StringUtils.h"
 
 #include <algorithm>
+#include <cctype> // isspace
 #include <charconv> // from_chars
 #include <cstdio>
 #include <cstring> // strstr
@@ -254,4 +255,57 @@ std::string UTILS::STRING::ToLower(std::string str)
 {
   StringUtils::ToLower(str);
   return str;
+}
+
+std::map<std::string_view, std::string_view> UTILS::STRING::ToMap(std::string_view str,
+                                                                  const char delimiter,
+                                                                  const char separator)
+{
+  std::map<std::string_view, std::string_view> mapped;
+
+  size_t keyPos = 0;
+  size_t keyEnd;
+  size_t valPos;
+  size_t valEnd;
+
+  while ((keyEnd = str.find(delimiter, keyPos)) != std::string::npos)
+  {
+    valPos = str.find_first_not_of(delimiter, keyEnd);
+    if (valPos == std::string::npos)
+      break;
+
+    valEnd = str.find(separator, valPos);
+    mapped.emplace(str.substr(keyPos, keyEnd - keyPos), str.substr(valPos, valEnd - valPos));
+
+    keyPos = valEnd;
+    if (keyPos != std::string::npos)
+      ++keyPos;
+  }
+
+  return mapped;
+}
+
+std::string_view UTILS::STRING::Trim(std::string_view str)
+{
+  auto left = str.begin();
+  while (left != str.end())
+  {
+    if (!std::isspace(*left))
+      break;
+
+    left++;
+  }
+
+  if (left == str.end())
+    return {};
+
+  auto right = str.end() - 1;
+  while (right > left && std::isspace(*right))
+  {
+    right--;
+  }
+
+  //! @todo: when we will switch to C++20 replace return code with:
+  //!   return {left, std::distance(left, right) + 1};
+  return str.substr(left - str.begin(), std::distance(left, right) + 1);
 }
