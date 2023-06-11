@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2022-06-28 16:14+0000\n"
+"PO-Revision-Date: 2023-06-11 05:42+0000\n"
 "Last-Translator: Oskari Lavinto <olavinto@protonmail.com>\n"
 "Language-Team: Finnish <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/fi_fi/>\n"
 "Language: fi_fi\n"
@@ -13,7 +13,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.13\n"
+"X-Generator: Weblate 4.17\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -31,54 +31,54 @@ msgstr "Yleiset"
 #. The minimum bandwidth which should not be deceeded
 msgctxt "#30101"
 msgid "Minimum bandwidth (Kbps)"
-msgstr ""
+msgstr "Vähimmäiskaistanleveys (Kbps)"
 
 #. The maximum bandwidth which should not be exceeded
 msgctxt "#30102"
 msgid "Maximum bandwidth (Kbps)"
-msgstr ""
+msgstr "Enimmäiskaistanleveys (Kbps)"
 
 #. Description of setting with label #30101, 30102
 msgctxt "#30103"
 msgid "Establishes the bandwidth limit not to be exceeded with the audio / video streams. Set to 0 to disable it."
-msgstr ""
+msgstr "Asettaa kaistanleveysrajoituksen, jota ääni-/videovirrat eivät saa ylittää. Poista käytöstä asettamalla arvoksi 0."
 
 # empty strings from id 30104 to 30109
 #. Maximum video resolution non-protected videos
 msgctxt "#30110"
 msgid "Maximum resolution"
-msgstr ""
+msgstr "Enimmäisresoluutio"
 
 # empty string with id 30111
 #. Type of media streams that will be handled for the playback
 msgctxt "#30112"
 msgid "Type of media streams played"
-msgstr ""
+msgstr "Toistettavien mediavirtojen tyyppi"
 
 #. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
 msgid "Maximum resolution for DRM videos"
-msgstr ""
+msgstr "DRM-videoiden enimmäistarkkuus"
 
 # empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore screen resolution"
-msgstr ""
+msgstr "Älä huomioi näytön resoluutiota"
 
 #. Description of setting with label #30115
 msgctxt "#30116"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
-msgstr ""
+msgstr "Tämän ollessa käytössä näytön resoluutiota (tai ikkunan kokoa ikkunatilassa) ei enää huomioida valittaessa videovirralle sopivinta resoluutiota videotoiston alkaessa ja toiston aikana."
 
 msgctxt "#30117"
 msgid "Manual stream selection mode"
-msgstr ""
+msgstr "Manuaalinen mediavirran valintatila"
 
 #. Description of setting with label #30117
 msgctxt "#30118"
 msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
-msgstr ""
+msgstr "Määrittää Kodin kuvaruutuvalikosta manuaalisesti valittavissa olevat mediavirtatyypit."
 
 #. Category title
 msgctxt "#30120"
@@ -88,18 +88,18 @@ msgstr "Lisäasetukset"
 # empty string with id 30121
 msgctxt "#30122"
 msgid "Try avoiding the use of secure decoder"
-msgstr ""
+msgstr "Pyri välttämään suojatun dekooderin käyttöä"
 
 #. Description of setting with label #30122
 msgctxt "#30123"
 msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
-msgstr ""
+msgstr "Jotkin Widevine L1 -luokitellut Android-laitteet eivät välttämättä toimi oikein ja näyttö voi pimentyä toiston aikana. Tämä asetus voi auttaa."
 
 # empty strings from id 30124 to 30155
 #. Item list value of setting with label #30117
 msgctxt "#30156"
 msgid "Audio / Video streams"
-msgstr ""
+msgstr "Ääni-/videovirrat"
 
 #. Item list value of setting with label #30112
 msgctxt "#30157"
@@ -119,213 +119,213 @@ msgstr "Video"
 #. Item list value of setting with label #30117
 msgctxt "#30160"
 msgid "Video streams"
-msgstr ""
+msgstr "Videovirrat"
 
 #. Item list value of setting with label #30112
 msgctxt "#30161"
 msgid "Video / Subtitles"
-msgstr ""
+msgstr "Video/tekstitykset"
 
 #. Category group title
 msgctxt "#30162"
 msgid "Adaptive stream"
-msgstr ""
+msgstr "Mukautuva mediavirta"
 
 # empty strings from id 30163 to 30165
 #. Category group title
 msgctxt "#30166"
 msgid "DRM Widevine"
-msgstr ""
+msgstr "DRM Widevine"
 
 msgctxt "#30167"
 msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
-msgstr ""
+msgstr "VAROITUS: Tämä on KOKEELLINEN ominaisuus, joka ei välttämättä toimi oikein ja voi muuttua tulevissa versioissa."
 
 msgctxt "#30168"
 msgid "Auto determines initial bandwidth"
-msgstr ""
+msgstr "Automaattinen määrittää aloituskaistanleveyden"
 
 #. Description of setting with label #30168
 msgctxt "#30169"
 msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
-msgstr ""
+msgstr "Tämän ollessa käytössä kaistanleveys määritetään ensimmäisen latauksen perusteella, mutta tulos ei välttämättä ole tarkka. Jos videon laatu on toiston alussa liian heikko, kokeile asetuksen käytöstä poistoa."
 
 msgctxt "#30170"
 msgid "Initial bandwidth (Kbps)"
-msgstr ""
+msgstr "Aloituskaistanleveys"
 
 #. Description of setting with label #30170
 msgctxt "#30171"
 msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
-msgstr ""
+msgstr "Määrittää aloituskaistanleveyden kun sen automaattinen tunnistus ei onnistu. \"Vähimmäiskaistanleveys\"-asetus voi ohittaa tämän arvon."
 
 msgctxt "#30172"
 msgid "Ignore HDCP status"
-msgstr ""
+msgstr "Älä huomioi HDCP-tilaa"
 
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
-msgstr ""
+msgstr "Jotkin DRM-suojatut HD-/UHD-videot voidaan toistaa vain, jos HDCP-tilaa ei huomoida."
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
 msgid "Stream selection type"
-msgstr ""
+msgstr "Mediavirran valinnan tyyppi"
 
 #. Description of setting with label #30174
 msgctxt "#30175"
 msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
-msgstr ""
+msgstr "Määrittää miten ääni-/videovirran laatu valitaan toiston aikana. Käytössä oleva videolisäosa voi ohittaa asetuksen. Lue lisää Wikistä."
 
 #. Item list value of setting with label #30174
 msgctxt "#30176"
 msgid "Adaptive (default)"
-msgstr ""
+msgstr "Mukautuvasti (oletus)"
 
 #. Item list value of setting with label #30174
 msgctxt "#30177"
 msgid "Manual OSD"
-msgstr ""
+msgstr "Manuaalisesti kuvaruutuvalikosta"
 
 #. Item list value of setting with label #30174
 msgctxt "#30178"
 msgid "Fixed resolution"
-msgstr ""
+msgstr "Kiinteä resoluutio"
 
 #. Item list value of setting with label #30174
 msgctxt "#30179"
 msgid "Ask quality"
-msgstr ""
+msgstr "Kysy laatua"
 
 #. Item list value of setting with label #30174
 msgctxt "#30180"
 msgid "Test"
-msgstr ""
+msgstr "Kokeile"
 
 # empty strings reserved for "stream selection types" from id 30181 to 30190
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
 msgid "Assured buffer duration (sec)"
-msgstr ""
+msgstr "Puskurin varmennettu kesto (s)"
 
 #. Max buffer length duration (seconds)
 msgctxt "#30201"
 msgid "Maximum buffer duration (sec)"
-msgstr ""
+msgstr "Puskurin enimmäiskesto (s)"
 
 #. Ignore screen resolution change e.g. window resize
 msgctxt "#30202"
 msgid "Ignore screen resolution change"
-msgstr ""
+msgstr "Älä huomioi näytön resoluutiomuutosta"
 
 #. Description of setting with label #30202
 msgctxt "#30203"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
-msgstr ""
+msgstr "Tämän ollessa käytössä näytön resoluutiota (tai ikkunan kokoa ikkunatilassa) ei enää huomioida valittaessa parasta videovirran resoluutiota toiston aikana."
 
 #. Absolute path to the folder containing the DRM binary files
 msgctxt "#30204"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Salauksen purkaimen sijainti"
 
 # empty strings from id 30205 to 30209
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30210"
 msgid "Auto"
-msgstr ""
+msgstr "Automaattinen"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30211"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30212"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30213"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30214"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30215"
 msgid "2K"
-msgstr ""
+msgstr "2K"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30216"
 msgid "1440p"
-msgstr ""
+msgstr "1440p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30217"
 msgid "4K"
-msgstr ""
+msgstr "4K"
 
 # empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
 #. Dialog window to select the video stream
 msgctxt "#30231"
 msgid "Select video stream"
-msgstr ""
+msgstr "Valitse videovirta"
 
 #. Description of each list item in #30231 dialog window
 #. Do not translate placeholders: {codec} {quality}
 msgctxt "#30232"
 msgid "Video stream {codec} {quality}"
-msgstr ""
+msgstr "Videovirta {codec} {quality}"
 
 #. Enum setting to set the test mode
 msgctxt "#30233"
 msgid "Test mode"
-msgstr ""
+msgstr "Testitila"
 
 #. Item list value of setting with label #30233
 msgctxt "#30234"
 msgid "Switch by segments"
-msgstr ""
+msgstr "Vaihda segmenttien perusteella"
 
 #. Stand for stream segments, referred to setting with label #30234
 msgctxt "#30235"
 msgid "Segments"
-msgstr ""
+msgstr "Segmentit"
 
 #. Category group title
 msgctxt "#30236"
 msgid "Override settings"
-msgstr ""
+msgstr "Älä huomioi asetuksia"
 
 #. Category group title for debug settings
 msgctxt "#30237"
 msgid "Debug logging"
-msgstr ""
+msgstr "Vianselvitysloki"
 
 #. Debug setting to save stream manifests
 msgctxt "#30238"
 msgid "Save stream manifests"
-msgstr ""
+msgstr "Tallenna mediavirtojen manifest-tiedostot"
 
 #. Description of setting with label #30238
 msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
-msgstr ""
+msgstr "Tallentaa toiston aikana ladatut mediavirtojen manifest-tiedostot InputStream Adaptiven \"userdata\"-kansioon."
 
 #. Debug setting to save license data
 msgctxt "#30240"
 msgid "Save license data"
-msgstr ""
+msgstr "Tallenna lisenssitiedot"
 
 #. Description of setting with label #30240
 msgctxt "#30241"
 msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
-msgstr ""
+msgstr "Tallentaa lisenssitiedot kuten aloitus-, haaste- ja vastaustiedot Kodin tietokansion \"cdm\"-kansioon."
 
 # The minimum bandwidth which should not be deceeded.
 #~ msgctxt "#30101"
