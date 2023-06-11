@@ -77,7 +77,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
 
   if (STRING::CompareNoCase(XML::GetAttrib(nodeSSM, "IsLive"), "true"))
   {
-    has_timeshift_buffer_ = true;
+    m_isLive = true;
     stream_start_ = UTILS::GetTimestamp();
     available_time_ = stream_start_;
   }

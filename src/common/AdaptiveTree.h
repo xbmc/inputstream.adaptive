@@ -59,19 +59,12 @@ public:
   std::string manifest_url_;
   std::string base_url_;
   
-  //! @todo: m_manifestUpdateParam is used to force enabling manifest updates and to
-  //!  be able to set also parameters to the manifest update url, we should start decouple
-  //!  the "full" use case and the parameters case with appropriate separate properties,
-  //!  in a future "full" use case should be dropped and possible broken dash live manifest fixed
-  std::string m_manifestUpdateParam;
-
   std::optional<uint32_t> initial_sequence_; // HLS only
   uint64_t m_totalTimeSecs{0}; // Total playing time in seconds
   uint64_t stream_start_{0};
   uint64_t available_time_{0};
   uint64_t base_time_{0}; // SmoothTree only, the lower start PTS time between all StreamIndex tags
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
-  bool has_timeshift_buffer_{false}; // Returns true when there is timeshift buffer for live content
   
   std::string m_supportedKeySystem;
   std::string location_;
@@ -85,15 +78,12 @@ public:
   /*!
    * \brief Configure the adaptive tree.
    * \param kodiProps The Kodi properties
-   * \param manifestUpdateParam Set to "full" to force enabling future manifest updates or set parameters
-   *                            that will be add to manifest request url, with an optional support
-   *                            of placeholder $START_NUMBER$ to allow set the segment start number
-   *                            to the parameter e.g. ?start_seq=$START_NUMBER$ become ?start_seq=10
+   * \param manifestUpdParams Parameters to be add to manifest request url, depends on manifest implementation
    */
   virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
                          CHOOSER::IRepresentationChooser* reprChooser,
                          std::string_view supportedKeySystem,
-                         std::string_view manifestUpdateParam);
+                         std::string_view manifestUpdParams);
 
   /*!
    * \brief Open manifest data for parsing.
@@ -168,10 +158,15 @@ public:
 
   std::string BuildDownloadUrl(const std::string& url) const;
 
+  /*!
+   * \brief Check for live streaming content (timeshift buffer)
+   * \return True for live streaming content, otherwise false for VOD content
+   */
+  bool IsLive() const { return m_isLive; }
+
   bool HasManifestUpdates() const
   {
-    return ~m_updateInterval && m_updateInterval > 0 && has_timeshift_buffer_ &&
-           !m_manifestUpdateParam.empty();
+    return m_isLive && ~m_updateInterval && m_updateInterval > 0;
   }
 
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
@@ -257,12 +252,15 @@ protected:
   void SortTree();
 
   // Live segment update section
+  bool m_isLive{false};
   virtual void StartUpdateThread();
   virtual void RefreshLiveSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
   std::atomic<uint32_t> m_updateInterval{~0U};
   TreeUpdateThread m_updThread;
   std::atomic<std::chrono::time_point<std::chrono::system_clock>> lastUpdated_{std::chrono::system_clock::now()};
 
+  // Optionals URL parameters to add to the manifest update requests
+  std::string m_manifestUpdParams;
   std::string m_manifestParams;
   std::map<std::string, std::string> m_manifestHeaders;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};

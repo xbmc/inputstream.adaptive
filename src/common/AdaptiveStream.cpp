@@ -407,17 +407,15 @@ void AdaptiveStream::worker()
       thread_data_->signal_dl_.notify_one();
       lckdl.unlock();
 
-      bool isLive = tree_.has_timeshift_buffer_;
-
       //! @todo: for live content we should calculate max attempts and sleep timing
       //! based on segment duration / playlist updates timing
-      size_t maxAttempts = isLive ? 10 : 6;
-      std::chrono::milliseconds msSleep = isLive ? 1000ms : 500ms;
+      size_t maxAttempts = tree_.IsLive() ? 10 : 6;
+      std::chrono::milliseconds msSleep = tree_.IsLive() ? 1000ms : 500ms;
 
       //! @todo: Some streaming software offers subtitle tracks with missing fragments, usually live tv
       //! When a programme is broadcasted that has subtitles, subtitles fragments are offered,
       //! Ensure we continue with the next segment after one retry on errors
-      if (current_adp_->GetStreamType() == StreamType::SUBTITLE && isLive)
+      if (current_adp_->GetStreamType() == StreamType::SUBTITLE && tree_.IsLive())
         maxAttempts = 2;
 
       size_t downloadAttempts = 1;
@@ -659,13 +657,13 @@ bool AdaptiveStream::start_stream()
 
   if (!current_rep_->current_segment_)
   {
-    if (!play_timeshift_buffer_ && tree_.has_timeshift_buffer_ &&
+    if (!play_timeshift_buffer_ && tree_.IsLive() &&
         current_rep_->SegmentTimeline().GetSize() > 1 && tree_.m_periods.size() == 1)
     {
       if (!last_rep_)
       {
         std::size_t pos;
-        if (tree_.has_timeshift_buffer_ || tree_.available_time_ >= tree_.stream_start_)
+        if (tree_.IsLive() || tree_.available_time_ >= tree_.stream_start_)
         {
           pos = current_rep_->SegmentTimeline().GetSize() - 1;
         }
@@ -914,7 +912,7 @@ bool AdaptiveStream::ensureSegment()
       if (tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
         tree_.prepareRepresentation(
-          current_period_, current_adp_, newRep, tree_.has_timeshift_buffer_);
+          current_period_, current_adp_, newRep, tree_.IsLive());
       }
 
       size_t nextsegmentPos = static_cast<size_t>(nextsegno - newRep->GetStartNumber());

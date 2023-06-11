@@ -42,9 +42,11 @@ struct KodiProperties
   bool m_isLicenseForceSecureDecoder{false};
   std::string m_serverCertificate;
   ManifestType m_manifestType{ManifestType::UNKNOWN};
-  // Can be used to force enable manifest updates,
-  // and optionally to set a specific url parameter
-  std::string m_manifestUpdateParam;
+  std::string m_manifestUpdateParam; // Deprecated
+  // HTTP parameters used to download manifest updates
+  // Dash manifest have the optional support of placeholder $START_NUMBER$ to allow set the segment
+  // start number to a parameter e.g. ?start_seq=$START_NUMBER$ become ?start_seq=10
+  std::string m_manifestUpdParams;
   // HTTP parameters used to download manifests
   std::string m_manifestParams;
   // HTTP headers used to download manifests

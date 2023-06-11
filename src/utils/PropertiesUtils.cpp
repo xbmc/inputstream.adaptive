@@ -27,9 +27,10 @@ constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_fl
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
 
 constexpr std::string_view PROP_MANIFEST_TYPE = "inputstream.adaptive.manifest_type"; //! @todo: deprecated, to be removed on next Kodi release
-constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter";
+constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
+constexpr std::string_view PROP_MANIFEST_UPD_PARAMS = "inputstream.adaptive.manifest_upd_params";
 
 constexpr std::string_view PROP_STREAM_PARAMS = "inputstream.adaptive.stream_params";
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
@@ -101,9 +102,29 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
       else
         LOG::LogF(LOGERROR, "Manifest type \"%s\" is not supported", prop.second.c_str());
     }
-    else if (prop.first == PROP_MANIFEST_UPD_PARAM)
+    else if (prop.first == PROP_MANIFEST_UPD_PARAM) //! @todo: deprecated, to be removed on next Kodi release
     {
-      props.m_manifestUpdateParam = prop.second;
+      LOG::Log(
+          LOGWARNING,
+          "Warning \"inputstream.adaptive.manifest_update_parameter\" property is deprecated and"
+          " will be removed next Kodi version, use \"inputstream.adaptive.manifest_upd_params\""
+          " instead.\nSee Wiki integration page for more details.");
+      if (prop.second == "full")
+      {
+        LOG::Log(LOGERROR, "The parameter \"full\" is no longer supported. For problems with live "
+                           "streaming contents please open an Issue to the GitHub repository.");
+      }
+      else
+        props.m_manifestUpdateParam = prop.second;
+    }
+    else if (prop.first == PROP_MANIFEST_UPD_PARAMS)
+    {
+      // Should not happen that an add-on try to force the old "full" parameter value
+      // of PROP_MANIFEST_UPD_PARAM here but better verify it, in the future this can be removed
+      if (prop.second == "full")
+        LOG::Log(LOGERROR, "The parameter \"full\" is not supported.");
+      else
+        props.m_manifestUpdParams = prop.second;
     }
     else if (prop.first == PROP_MANIFEST_PARAMS)
     {

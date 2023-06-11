@@ -238,20 +238,24 @@ bool CSession::Initialize()
   }
 
   std::string manifestUrl = m_manifestUrl;
+  std::string manifestUpdateParam = m_kodiProps.m_manifestUpdParams;
 
-  //! @todo: In the next version of kodi, remove this hack of adding the $START_NUMBER$ parameter
-  //!        to the manifest url which is forcibly cut and copied to the manifest update request url,
-  //!        this seem used by YouTube addon only, adaptations are relatively simple
-  std::string manifestUpdateParam = m_kodiProps.m_manifestUpdateParam;
-  if (manifestUpdateParam.empty() && STRING::Contains(manifestUrl, "$START_NUMBER$"))
+  if (manifestUpdateParam.empty() && !m_kodiProps.m_manifestUpdateParam.empty())
   {
-    LOG::Log(LOGWARNING,
-             "The misuse of adding params with $START_NUMBER$ placeholder to the "
-             "manifest url has been deprecated and will be removed on next Kodi version.\n"
-             "Please use \"manifest_update_parameter\" Kodi property to set manifest update "
-             "parameters, see Wiki integration page.");
-    manifestUpdateParam = URL::GetParametersFromPlaceholder(manifestUrl, "$START_NUMBER$");
-    manifestUrl.resize(manifestUrl.size() - manifestUpdateParam.size());
+    //! @todo: In the next version of kodi, remove this hack of adding the $START_NUMBER$ parameter
+    //!        to the manifest url which is forcibly cut and copied to the manifest update request url,
+    //!        this seem used by YouTube addon only, adaptations are relatively simple
+    std::string manifestUpdateParam = m_kodiProps.m_manifestUpdateParam;
+    if (manifestUpdateParam.empty() && STRING::Contains(manifestUrl, "$START_NUMBER$"))
+    {
+      LOG::Log(LOGWARNING,
+               "The misuse of adding params with $START_NUMBER$ placeholder to the "
+               "manifest url has been deprecated and will be removed on next Kodi version.\n"
+               "Please use \"manifest_upd_params\" Kodi property to set manifest update "
+               "parameters, see Wiki integration page.");
+      manifestUpdateParam = URL::GetParametersFromPlaceholder(manifestUrl, "$START_NUMBER$");
+      manifestUrl.resize(manifestUrl.size() - manifestUpdateParam.size());
+    }
   }
 
   CURL::HTTPResponse manifestResp;
@@ -1272,7 +1276,7 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   seekTime -= chapterTime;
 
   // don't try to seek past the end of the stream, leave a sensible amount so we can buffer properly
-  if (m_adaptiveTree->has_timeshift_buffer_)
+  if (m_adaptiveTree->IsLive())
   {
     double maxSeek{0};
     uint64_t curTime;
