@@ -18,6 +18,8 @@
 #include "../utils/log.h"
 #include "../utils/PropertiesUtils.h"
 
+#include <condition_variable>
+#include <mutex>
 #include <string_view>
 
 // \brief Current version of gtest dont support compare std::string_view values
@@ -107,6 +109,20 @@ public:
   void SetLastUpdated(const std::chrono::system_clock::time_point tm) { lastUpdated_ = tm; }
   std::chrono::system_clock::time_point GetNowTimeChrono() { return m_mock_time_chrono; };
 
+  virtual void RefreshLiveSegments() override;
+
+  /*!
+   * \brief Start a manifest update, will be executed a single update,
+   *        mandatory use WaitGetManifestUpdate method to wait the response data
+   */
+  void StartManifestUpdate();
+
+  /*!
+   * \brief Wait the data response of a manifest update
+   * \param url[OUT] Provides the url used to the manifest request
+   */
+  void WaitManifestUpdate(std::string& url);
+
 private:
   bool DownloadManifestUpd(std::string_view url,
                            const std::map<std::string, std::string>& reqHeaders,
@@ -117,6 +133,13 @@ private:
 
   uint64_t m_mockTime = 10000000L;
   std::chrono::system_clock::time_point m_mock_time_chrono = std::chrono::system_clock::now();
+
+  bool m_isManifestUpdSingleRun{false};
+  std::string m_manifestUpdUrl; // Temporarily stores the url where to request the manifest update
+  bool m_isManifestUpdReady{false}; // Security check for the variable_condition
+
+  static std::condition_variable s_cvDashManifestUpd;
+  static std::mutex s_mutexDashManifestUpd;
 };
 
 class HLSTestTree : public adaptive::CHLSTree

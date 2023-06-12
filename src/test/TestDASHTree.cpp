@@ -13,7 +13,6 @@
 
 #include <gtest/gtest.h>
 
-
 class DASHTreeTest : public ::testing::Test
 {
 protected:
@@ -44,7 +43,7 @@ protected:
   void OpenTestFile(std::string filePath,
                     std::string url,
                     std::map<std::string, std::string> manifestHeaders,
-                    std::string manifestUpdateParam)
+                    std::string manifestUpdParams)
   {
     testHelper::testFile = filePath;
 
@@ -61,7 +60,7 @@ protected:
     m_reprChooser->SetDownloadSpeed(500000);
 
     tree->Configure(m_kodiProps, m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED",
-                    manifestUpdateParam);
+                    manifestUpdParams);
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
@@ -263,18 +262,6 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
   EXPECT_EQ(segments.Get(30)->range_end_, 603302);
 }
 
-TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
-{
-  OpenTestFile("mpd/segtimeline_live_pd.mpd");
-  EXPECT_EQ(tree->has_timeshift_buffer_, true);
-}
-
-TEST_F(DASHTreeTest, CalculateStaticWithPresentationDuration)
-{
-  OpenTestFile("mpd/segtpl_slash_baseurl_slash.mpd");
-  EXPECT_EQ(tree->has_timeshift_buffer_, false);
-}
-
 TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 {
   OpenTestFile("mpd/fps_scale_adaptset.mpd");
@@ -306,7 +293,6 @@ TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
 {
   OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd");
-  tree->has_timeshift_buffer_ = false;
   SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
   
   testStream->start_stream();
@@ -352,45 +338,30 @@ TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
   EXPECT_EQ(testHelper::downloadList[4], "https://foo.bar/videosd-400x224/segment.m4s");
 }
 
-TEST_F(DASHTreeTest, updateParameterLiveSegmentTimeline)
+TEST_F(DASHTreeTest, isLiveManifestOnLiveSegmentTimeline)
 {
   OpenTestFile("mpd/segtimeline_live_pd.mpd");
-  EXPECT_EQ(tree->m_manifestUpdateParam, "full");
+  EXPECT_EQ(tree->IsLive(), true);
 }
 
-TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumber)
-{
-  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux", {},
-               "?start_seq=$START_NUMBER$");
-  EXPECT_EQ(tree->m_manifestUpdateParam, "?start_seq=$START_NUMBER$");
-  EXPECT_EQ(tree->manifest_url_, "https://foo.bar/dash.mpd?foo=bar&baz=qux");
-}
-
-TEST_F(DASHTreeTest, updateParameterVODSegmentStartNumberRedirect)
-{
-  testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123";
-  OpenTestFile("mpd/segtimeline_vod.mpd", "https://foo.bar/dash.mpd", {},
-               "?start_seq=$START_NUMBER$");
-  EXPECT_EQ(tree->m_manifestUpdateParam, "?start_seq=$START_NUMBER$");
-  EXPECT_EQ(tree->manifest_url_, "https://foo.bar/mpd/stream.mpd?foo=bar&baz=qux&test=123");
-}
-
-TEST_F(DASHTreeTest, updateParameterVODSegmentTimeline)
+TEST_F(DASHTreeTest, isLiveManifestOnVODSegmentTimeline)
 {
   OpenTestFile("mpd/segtimeline_vod.mpd");
-  EXPECT_EQ(tree->m_manifestUpdateParam, "");
+  EXPECT_EQ(tree->IsLive(), false);
 }
 
-TEST_F(DASHTreeTest, updateParameterLiveSegmentTemplate)
+TEST_F(DASHTreeTest, updateParameterLiveSegmentStartNumber)
 {
-  OpenTestFile("mpd/segtpl_pto.mpd");
-  EXPECT_EQ(tree->m_manifestUpdateParam, "");
-}
+  OpenTestFile("mpd/segtimeline_live_pd.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux", {},
+               "?start_seq=$START_NUMBER$");
+  // Clear testFile to not download the same file as manifest update or will cause mess,
+  // the manifest update operation is just to verify the manifest update url
+  testHelper::testFile.clear();
 
-TEST_F(DASHTreeTest, updateParameterVODSegmentTemplate)
-{
-  OpenTestFile("mpd/segtpl_baseurl_noslashs.mpd");
-  EXPECT_EQ(tree->m_manifestUpdateParam, "");
+  tree->StartManifestUpdate();
+  std::string manifestUpdUrl;
+  tree->WaitManifestUpdate(manifestUpdUrl);
+  EXPECT_EQ(manifestUpdUrl, "https://foo.bar/dash.mpd?start_seq=487063");
 }
 
 TEST_F(DASHTreeTest, CalculatePsshDefaultKid)

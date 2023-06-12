@@ -220,7 +220,7 @@ public:
   /*! \brief Report if the current content is dynamic/live
    *  \return True if live, false if VOD
    */
-  bool IsLive() const { return m_adaptiveTree->has_timeshift_buffer_; };
+  bool IsLive() const { return m_adaptiveTree->IsLive(); };
 
   /*! \brief Get the type of manifest being played
    *  \return ManifestType - MPD/ISM/HLS

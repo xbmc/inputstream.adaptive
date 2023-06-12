@@ -206,14 +206,14 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
   double mediaPresDuration =
       XML::ParseDuration(XML::GetAttrib(nodeMPD, "mediaPresentationDuration"));
 
-  has_timeshift_buffer_ = XML::GetAttrib(nodeMPD, "type") == "dynamic";
+  m_isLive = XML::GetAttrib(nodeMPD, "type") == "dynamic";
 
   double timeShiftBufferDepth{0};
   std::string timeShiftBufferDepthStr;
   if (XML::QueryAttrib(nodeMPD, "timeShiftBufferDepth", timeShiftBufferDepthStr))
   {
     timeShiftBufferDepth = XML::ParseDuration(timeShiftBufferDepthStr);
-    has_timeshift_buffer_ = true;
+    m_isLive = true;
   }
 
   std::string availabilityStartTimeStr;
@@ -510,9 +510,6 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
                                                   segTemplate.GetTimescale());
 
       adpSet->SetStartPTS(startPts);
-
-      if (m_manifestUpdateParam.empty() && has_timeshift_buffer_)
-        m_manifestUpdateParam = "full";
 
       if (period->GetDuration() == 0 && segTemplate.GetTimescale() > 0)
       {
@@ -818,9 +815,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
           ParseTagSegmentTimeline(nodeSegTL, repr->SegmentTimeline(), segTemplate.GetTimescale(),
                                   totalTimeSecs, &segTemplate);
 
-      if (m_manifestUpdateParam.empty() && has_timeshift_buffer_)
-        m_manifestUpdateParam = "full";
-
       repr->nextPts_ = startPts;
 
       if (!repr->SegmentTimeline().IsEmpty())
@@ -1061,7 +1055,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         segTl.range_end_ = repr->GetStartNumber();
         segTl.startPTS_ = adpSet->GetStartPTS();
 
-        if (has_timeshift_buffer_ && !segTemplate->HasVariableTime() &&
+        if (m_isLive && !segTemplate->HasVariableTime() &&
             segTemplate->GetDuration() > 0)
         {
           uint64_t sampleTime = period->GetStart() / 1000;
@@ -1498,12 +1492,18 @@ void adaptive::CDashTree::RefreshLiveSegments()
 
   std::unique_ptr<CDashTree> updateTree{std::move(Clone())};
 
-  std::string manifestUrl = location_.empty() ? manifest_url_ : location_;
-
   // Custom manifest update url parameters
-  std::string manifestParams;
-  if (m_manifestUpdateParam != "full")
-    manifestParams = m_manifestUpdateParam;
+  std::string manifestParams = m_manifestUpdParams;
+
+  std::string manifestUrl;
+  if (location_.empty())
+  {
+    manifestUrl = manifest_url_;
+    if (!manifestParams.empty())
+      manifestUrl = URL::RemoveParameters(manifestUrl, false);
+  }
+  else
+    manifestUrl = location_;
 
   // YouTube needs segment start number as parameter
   bool urlHaveStartNumber = manifestParams.find("$START_NUMBER$") != std::string::npos;

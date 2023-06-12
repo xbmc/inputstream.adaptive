@@ -319,7 +319,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         if (STRING::CompareNoCase(tagValue, "VOD"))
         {
           m_refreshPlayList = false;
-          has_timeshift_buffer_ = false;
+          m_isLive = false;
         }
       }
       else if (tagName == "#EXT-X-TARGETDURATION")
@@ -546,7 +546,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       else if (tagName == "#EXT-X-ENDLIST")
       {
         m_refreshPlayList = false;
-        has_timeshift_buffer_ = false;
+        m_isLive = false;
       }
     }
 
@@ -593,7 +593,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       for (auto& p : m_periods)
       {
         totalTimeSecs += p->GetDuration() / p->GetTimescale();
-        if (!has_timeshift_buffer_ && !m_refreshPlayList)
+        if (!m_isLive && !m_refreshPlayList)
         {
           auto& adpSet = p->GetAdaptationSets()[adpSetPos];
           adpSet->GetRepresentations()[reprPos]->m_isDownloaded = true;
@@ -603,7 +603,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
     else
     {
       totalTimeSecs = rep->GetDuration() / rep->GetTimescale();
-      if (!has_timeshift_buffer_ && !m_refreshPlayList)
+      if (!m_isLive && !m_refreshPlayList)
       {
         rep->m_isDownloaded = true;
       }
@@ -1083,8 +1083,7 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
   m_extGroups.clear();
 
   // Set Live as default
-  has_timeshift_buffer_ = true;
-  m_manifestUpdateParam = "full";
+  m_isLive = true;
 
   m_periods.push_back(std::move(period));
 

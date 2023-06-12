@@ -42,7 +42,7 @@ namespace adaptive
   void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
                                CHOOSER::IRepresentationChooser* reprChooser,
                                std::string_view supportedKeySystem,
-                               std::string_view manifestUpdateParam)
+                               std::string_view manifestUpdParams)
   {
     m_reprChooser = reprChooser;
     m_supportedKeySystem = supportedKeySystem;
@@ -56,7 +56,7 @@ namespace adaptive
 
     m_manifestParams = kodiProps.m_manifestParams;
     m_manifestHeaders = kodiProps.m_manifestHeaders;
-    m_manifestUpdateParam = manifestUpdateParam;
+    m_manifestUpdParams = manifestUpdParams;
 
     // Convenience way to share common addon settings we avoid
     // calling the API many times to improve parsing performance
@@ -81,7 +81,7 @@ namespace adaptive
     LOG::Log(LOGINFO,
              "Manifest successfully parsed (Periods: %zu, Streams in first period: %zu, Type: %s)",
              m_periods.size(), m_currentPeriod->GetAdaptationSets().size(),
-             has_timeshift_buffer_ ? "live" : "VOD");
+             m_isLive ? "live" : "VOD");
   }
 
   void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
@@ -106,7 +106,7 @@ namespace adaptive
                                          uint32_t fragmentDuration,
                                          uint32_t movie_timescale)
   {
-    if (!has_timeshift_buffer_ || HasManifestUpdates() || repr->HasSegmentsUrl())
+    if (!m_isLive || HasManifestUpdates() || repr->HasSegmentsUrl())
       return;
 
     // Check if its the last frame we watch
