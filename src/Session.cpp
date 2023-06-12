@@ -240,12 +240,12 @@ bool CSession::Initialize()
   std::string manifestUrl = m_manifestUrl;
   std::string manifestUpdateParam = m_kodiProps.m_manifestUpdParams;
 
-  if (manifestUpdateParam.empty() && !m_kodiProps.m_manifestUpdateParam.empty())
+  if (manifestUpdateParam.empty())
   {
     //! @todo: In the next version of kodi, remove this hack of adding the $START_NUMBER$ parameter
     //!        to the manifest url which is forcibly cut and copied to the manifest update request url,
     //!        this seem used by YouTube addon only, adaptations are relatively simple
-    std::string manifestUpdateParam = m_kodiProps.m_manifestUpdateParam;
+    manifestUpdateParam = m_kodiProps.m_manifestUpdateParam;
     if (manifestUpdateParam.empty() && STRING::Contains(manifestUrl, "$START_NUMBER$"))
     {
       LOG::Log(LOGWARNING,
