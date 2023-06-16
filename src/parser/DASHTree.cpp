@@ -19,6 +19,7 @@
 #include "pugixml.hpp"
 
 #include <algorithm> // max
+#include <cmath>
 #include <cstdio> // sscanf
 #include <numeric> // accumulate
 #include <string>
@@ -1037,7 +1038,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         double lengthSecs =
             static_cast<double>(segTemplate->GetDuration()) / segTemplate->GetTimescale();
         segmentsCount =
-            static_cast<size_t>(static_cast<double>(reprTotalTimeSecs) / lengthSecs + 1);
+            static_cast<size_t>(std::ceil(static_cast<double>(reprTotalTimeSecs) / lengthSecs));
       }
 
       if (segmentsCount < 65536) // SIDX atom is limited to 65535 references (fragments)
