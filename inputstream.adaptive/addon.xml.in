@@ -47,7 +47,7 @@
     <description lang="es_ES">Cliente InputStream para flujo de datos adaptativos</description>
     <description lang="es_MX">Cliente InputStream para transmisiones adaptativas</description>
     <description lang="fi_FI">InputStream-asiakas mukautuville mediavirroille</description>
-    <description lang="fr_FR">Client InputStream pour les flux adaptatifs. Les protocoles de streaming courants tels que MPEG-DASH, HLS et Microsoft Smooth Streaming sont pris en charge.[CR][CR]Le module complémentaire prend également en charge les flux protégés par DRM, tels que Google Widevine, Microsoft PlayReady et autres.[CR][CR] ]Pour la documentation, visitez : https://github.com/xbmc/inputstream.adaptive</description>
+    <description lang="fr_FR">Client InputStream pour les flux adaptatifs. Les protocoles de streaming courants tels que MPEG-DASH, HLS et Microsoft Smooth Streaming sont pris en charge.[CR][CR]Le module complémentaire prend également en charge les flux protégés par DRM, tels que Google Widevine, Microsoft PlayReady et autres.[CR][CR] Pour la documentation, visitez : https://github.com/xbmc/inputstream.adaptive</description>
     <description lang="he_IL">לקוח InputStream לתזרימים מסתגלים</description>
     <description lang="hr_HR">InputStream klijent za prilagodljiva strujanja</description>
     <description lang="hu_HU">InputStream kliens az adaptív streamekhez</description>
