@@ -237,80 +237,53 @@ bool AdaptiveStream::PrepareNextDownload(DownloadInfo& downloadInfo)
   segBuffer->buffer.clear();
   downloadInfo.m_segmentBuffer = segBuffer;
 
-  return PrepareDownload(segBuffer->rep, segBuffer->segment, segBuffer->segment_number,
-                         downloadInfo);
+  return PrepareDownload(segBuffer->rep, segBuffer->segment, downloadInfo);
 }
 
 bool AdaptiveStream::PrepareDownload(const PLAYLIST::CRepresentation* rep,
                                      const PLAYLIST::CSegment& seg,
-                                     const uint64_t segNum,
                                      DownloadInfo& downloadInfo)
 {
-  if (!rep)
-    return false;
-
   std::string rangeHeader;
   std::string streamUrl;
 
-  if (!rep->HasSegmentBase())
+  if (rep->HasSegmentTemplate())
   {
-    if (!rep->HasSegmentTemplate())
+    auto segTpl = rep->GetSegmentTemplate();
+
+    if (seg.IsInitialization()) // Templated initialization segment
     {
-      if (rep->HasSegmentsUrl())
-      {
-        if (URL::IsUrlAbsolute(seg.url))
-          streamUrl = seg.url;
-        else
-          streamUrl = URL::Join(rep->GetUrl(), seg.url);
-      }
-      else
-        streamUrl = rep->GetUrl();
-      if (seg.range_begin_ != CSegment::NO_RANGE_VALUE)
-      {
-        uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
-        if (seg.range_end_ != CSegment::NO_RANGE_VALUE)
-        {
-          rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg.range_begin_ + fileOffset,
-                                            seg.range_end_ + fileOffset);
-        }
-        else
-        {
-          rangeHeader = StringUtils::Format("bytes=%llu-", seg.range_begin_ + fileOffset);
-        }
-      }
+      streamUrl = segTpl->FormatUrl(segTpl->GetInitialization(), rep->GetId().data(),
+                                    rep->GetBandwidth(), rep->GetStartNumber(), 0);
     }
-    else if (~segNum) //templated segment
+    else // Templated media segment
     {
-      streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
-      ReplacePlaceholder(streamUrl, "$Number", seg.range_end_);
-      ReplacePlaceholder(streamUrl, "$Time", seg.range_begin_);
+      streamUrl = segTpl->FormatUrl(segTpl->GetMedia(), rep->GetId().data(), rep->GetBandwidth(),
+                                    seg.m_number, seg.m_time);
     }
-    else //templated initialization segment
-      streamUrl = rep->GetUrl();
   }
   else
   {
-    if (rep->HasSegmentTemplate() && ~segNum)
+    if (seg.url.empty())
+      streamUrl = rep->GetBaseUrl();
+    else
+      streamUrl = seg.url;
+  }
+
+  if (URL::IsUrlRelative(streamUrl))
+    streamUrl = URL::Join(rep->GetBaseUrl(), streamUrl);
+
+  if (seg.range_begin_ != NO_VALUE)
+  {
+    uint64_t fileOffset = seg.IsInitialization() ? 0 : m_segmentFileOffset;
+    if (seg.range_end_ != NO_VALUE)
     {
-      streamUrl = rep->GetSegmentTemplate()->GetMediaUrl();
-      ReplacePlaceholder(streamUrl, "$Number", rep->GetStartNumber());
-      ReplacePlaceholder(streamUrl, "$Time", 0);
+      rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg.range_begin_ + fileOffset,
+                                        seg.range_end_ + fileOffset);
     }
     else
-      streamUrl = rep->GetUrl();
-
-    if (seg.range_begin_ != CSegment::NO_RANGE_VALUE)
     {
-      uint64_t fileOffset = ~segNum ? m_segmentFileOffset : 0;
-      if (seg.range_end_ != CSegment::NO_RANGE_VALUE)
-      {
-        rangeHeader = StringUtils::Format("bytes=%llu-%llu", seg.range_begin_ + fileOffset,
-                                          seg.range_end_ + fileOffset);
-      }
-      else
-      {
-        rangeHeader = StringUtils::Format("bytes=%llu-", seg.range_begin_ + fileOffset);
-      }
+      rangeHeader = StringUtils::Format("bytes=%llu-", seg.range_begin_ + fileOffset);
     }
   }
 
@@ -475,7 +448,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep, const std::
 
   if (rep->GetContainerType() == ContainerType::WEBM)
   {
-    if (!rep->m_segBaseIndexRangeMin)
+    if (rep->GetSegmentBase()->GetIndexRangeBegin() == 0)
       return false;
 
     WebmReader reader(&byteStream);
@@ -510,7 +483,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep, const std::
   }
   else if (rep->GetContainerType() == ContainerType::MP4)
   {
-    if (rep->m_segBaseIndexRangeMin == 0)
+    if (rep->GetSegmentBase()->GetIndexRangeBegin() == 0)
     {
       AP4_File fileStream{byteStream, AP4_DefaultAtomFactory::Instance_, true};
       AP4_Movie* movie{fileStream.GetMovie()};
@@ -521,11 +494,15 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep, const std::
         return false;
       }
 
-      rep->initialization_.range_begin_ = 0;
+      if (!rep->HasInitSegment())
+      {
+        LOG::LogF(LOGERROR, "[AS-%u] Representation has no init segment", clsId);
+        return false;      
+      }
+      rep->GetInitSegment()->range_begin_ = 0;
       AP4_Position pos;
       byteStream.Tell(pos);
-      rep->initialization_.range_end_ = pos - 1;
-      rep->SetHasInitialization(true);
+      rep->GetInitSegment()->range_end_ = pos - 1;
     }
 
     CSegment seg;
@@ -565,7 +542,8 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep, const std::
 
       AP4_Position pos;
       byteStream.Tell(pos);
-      seg.range_end_ = pos + rep->m_segBaseIndexRangeMin + sidx->GetFirstOffset() - 1;
+      seg.range_end_ =
+          pos + rep->GetSegmentBase()->GetIndexRangeBegin() + sidx->GetFirstOffset() - 1;
       rep->SetTimescale(sidx->GetTimeScale());
       rep->SetScaling();
 
@@ -645,10 +623,11 @@ bool AdaptiveStream::start_stream()
     thread_data_->signal_dl_.wait(lckdl);
   }
 
+  if (current_rep_->SegmentTimeline().IsEmpty() && current_rep_->HasSegmentBase())
   {
     // ResolveSegmentbase assumes mutex_dl locked
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
-    if (!ResolveSegmentBase(current_rep_, true))
+    if (!ResolveSegmentBase(current_rep_))
     {
       state_ = STOPPED;
       return false;
@@ -717,8 +696,7 @@ bool AdaptiveStream::start_stream()
   absolute_position_ = 0;
 
   // load the initialization segment
-  const CSegment* loadingSeg = current_rep_->get_initialization();
-  if (loadingSeg)
+  if (current_rep_->HasInitSegment())
   {
     StopWorker(PAUSED);
     WaitWorker();
@@ -728,10 +706,8 @@ bool AdaptiveStream::start_stream()
                   segment_buffers_.rend() - available_segment_buffers_, segment_buffers_.rend());
     ++available_segment_buffers_;
 
-    segment_buffers_[0]->segment.url.clear();
-    segment_buffers_[0]->segment.Copy(loadingSeg);
+    segment_buffers_[0]->segment = *current_rep_->GetInitSegment();
     segment_buffers_[0]->rep = current_rep_;
-    segment_buffers_[0]->segment_number = SEGMENT_NO_NUMBER;
     segment_buffers_[0]->buffer.clear();
     segment_read_pos_ = 0;
 
@@ -836,7 +812,7 @@ bool AdaptiveStream::ensureSegment()
     }
     if (valid_segment_buffers_)
     {
-      if (segment_buffers_[0]->segment_number != SEGMENT_NO_NUMBER)
+      if (!segment_buffers_[0]->segment.IsInitialization())
       {
         nextSegment = current_rep_->get_segment(static_cast<size_t>(
             segment_buffers_[0]->segment_number - current_rep_->GetStartNumber()));
@@ -865,7 +841,7 @@ bool AdaptiveStream::ensureSegment()
       current_rep_->current_segment_ = nextSegment;
       ResetSegment(nextSegment);
 
-      if (observer_ && nextSegment != &current_rep_->initialization_ &&
+      if (observer_ && !nextSegment->IsInitialization() &&
           nextSegment->startPTS_ != NO_PTS_VALUE)
       {
         observer_->OnSegmentChanged(this);
@@ -885,7 +861,7 @@ bool AdaptiveStream::ensureSegment()
         }
       }
       
-      if (segment_buffers_[0]->segment_number == SEGMENT_NO_NUMBER ||
+      if (segment_buffers_[0]->segment.IsInitialization() ||
           valid_segment_buffers_ == 0 ||
           current_adp_->GetStreamType() != StreamType::VIDEO)
       {
@@ -906,8 +882,9 @@ bool AdaptiveStream::ensureSegment()
           newRep = current_rep_;
       }
 
-      // Make sure, new representation has segments!
-      ResolveSegmentBase(newRep, false); // For DASH
+      // If the representation has been changed, segments may have to be generated (DASH)
+      if (newRep->SegmentTimeline().IsEmpty() && newRep->HasSegmentBase())
+        ResolveSegmentBase(newRep);
 
       if (tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
@@ -926,7 +903,7 @@ bool AdaptiveStream::ensureSegment()
 
         if (futureSegment)
         {
-          segment_buffers_[updPos]->segment.Copy(futureSegment);
+          segment_buffers_[updPos]->segment = *futureSegment;
           segment_buffers_[updPos]->segment_number =
               newRep->GetStartNumber() + nextsegmentPos + updPos;
           segment_buffers_[updPos]->rep = newRep;
@@ -1219,41 +1196,46 @@ bool AdaptiveStream::waitingForSegment(bool checkTime) const
 
 void AdaptiveStream::FixateInitialization(bool on)
 {
-  m_fixateInitialization = on && current_rep_->get_initialization() != nullptr;
+  m_fixateInitialization = on && current_rep_->HasInitSegment();
 }
 
-bool AdaptiveStream::ResolveSegmentBase(PLAYLIST::CRepresentation* rep, bool stopWorker)
+bool AdaptiveStream::ResolveSegmentBase(PLAYLIST::CRepresentation* rep)
 {
-  /* If we have indexRangeExact SegmentBase, update SegmentList from SIDX */
-  if (rep->HasSegmentBase())
+  // Get the byte ranges to download the index segment to generate media segments from SIDX atom
+
+  auto& segBase = rep->GetSegmentBase();
+  CSegment seg;
+
+  if (!rep->HasInitSegment() && segBase->GetIndexRangeBegin() == 0 &&
+      segBase->GetIndexRangeEnd() > 0)
   {
-    // We assume mutex_dl is locked so we can safely call prepare_download
-    CSegment seg;
-    unsigned int segNum = ~0U;
-    if (rep->m_segBaseIndexRangeMin > 0 || !rep->HasInitialization())
-    {
-      seg.range_begin_ = rep->m_segBaseIndexRangeMin;
-      seg.range_end_ = rep->m_segBaseIndexRangeMax;
-      seg.pssh_set_ = 0;
-      segNum = 0; // It's no an initialization segment
-    }
-    else if (rep->HasInitialization())
-      seg = *rep->get_initialization();
-    else
-      return false;
-
-    std::string sidxBuffer;
-    DownloadInfo downloadInfo;
-
-    if (PrepareDownload(rep, seg, segNum, downloadInfo) && Download(downloadInfo, sidxBuffer) &&
-        parseIndexRange(rep, sidxBuffer))
-    {
-      rep->SetHasSegmentBase(false);
-    }
-    else
-      return false;
+    seg.SetIsInitialization(true);
+    seg.range_end_ = segBase->GetIndexRangeEnd();
+    // Initialization segment will be set to representation by ParseIndexRange
   }
-  return true;
+  else if (segBase->GetIndexRangeBegin() > 0 || !rep->HasInitSegment())
+  {
+    // It's no an initialization segment
+    seg.range_begin_ = segBase->GetIndexRangeBegin();
+    seg.range_end_ = segBase->GetIndexRangeEnd();
+  }
+  else if (rep->HasInitSegment())
+  {
+    seg = *rep->GetInitSegment();
+  }
+  else
+    return false;
+
+  std::string sidxBuffer;
+  DownloadInfo downloadInfo;
+  // We assume mutex_dl is locked so we can safely call prepare_download
+  if (PrepareDownload(rep, seg, downloadInfo) && Download(downloadInfo, sidxBuffer) &&
+      parseIndexRange(rep, sidxBuffer))
+  {
+    return true;
+  }
+
+  return false;
 }
 
 void AdaptiveStream::Stop()

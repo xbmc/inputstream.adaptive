@@ -107,7 +107,7 @@ class AdaptiveStream;
     {
       std::string buffer;
       PLAYLIST::CSegment segment;
-      uint64_t segment_number{0}; // SEGMENT_NO_NUMBER is initialization segment!
+      uint64_t segment_number{0};
       PLAYLIST::CRepresentation* rep{nullptr};
     };
     std::vector<SEGMENTBUFFER*> segment_buffers_;
@@ -156,7 +156,6 @@ class AdaptiveStream;
     bool PrepareNextDownload(DownloadInfo& downloadInfo);
     bool PrepareDownload(const PLAYLIST::CRepresentation* rep,
                          const PLAYLIST::CSegment& seg,
-                         const uint64_t segNum,
                          DownloadInfo& downloadInfo);
 
     void ResetSegment(const PLAYLIST::CSegment* segment);
@@ -174,7 +173,7 @@ class AdaptiveStream;
 
     int SecondsSinceUpdate() const;
     static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
-    bool ResolveSegmentBase(PLAYLIST::CRepresentation* rep, bool stopWorker);
+    bool ResolveSegmentBase(PLAYLIST::CRepresentation* rep);
 
     struct THREADDATA
     {

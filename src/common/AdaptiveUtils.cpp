@@ -31,8 +31,8 @@ std::string_view PLAYLIST::StreamTypeToString(const StreamType streamType)
 bool PLAYLIST::ParseRangeRFC(std::string_view range, uint64_t& start, uint64_t& end)
 {
   //! @todo: must be reworked as https://httpwg.org/specs/rfc7233.html
-  uint64_t startVal;
-  uint64_t endVal;
+  uint64_t startVal{0};
+  uint64_t endVal{0};
   if (std::sscanf(range.data(), "%" SCNu64 "-%" SCNu64, &startVal, &endVal) > 0)
   {
     start = startVal;

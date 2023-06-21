@@ -91,9 +91,6 @@ namespace adaptive
       period->DecrasePSSHSetUsageCount(segment.pssh_set_);
     }
 
-    if (repr->HasInitialization() && repr->HasSegmentsUrl())
-      repr->initialization_.url.clear();
-
     repr->SegmentTimeline().Clear();
     repr->current_segment_ = nullptr;
   }

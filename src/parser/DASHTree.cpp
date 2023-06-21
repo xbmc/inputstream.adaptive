@@ -744,51 +744,33 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   xml_node nodeSegBase = nodeRepr.child("SegmentBase");
   if (nodeSegBase)
   {
-    uint64_t rangeStart{0};
-    uint64_t rangeEnd{0};
-
-    if (ParseRangeRFC(XML::GetAttrib(nodeSegBase, "indexRange"), rangeStart, rangeEnd))
-    {
-      repr->m_segBaseIndexRangeMin = rangeStart;
-      repr->m_segBaseIndexRangeMax = rangeEnd;
-    }
-    else
-      LOG::LogF(LOGERROR, "Cannot get \"indexRange\" attribute from <SegmentBase> tag");
-
-    repr->SetHasSegmentBase(true);
+    CSegmentBase segBase;
+    std::string indexRange;
+    if (XML::QueryAttrib(nodeSegBase, "indexRange", indexRange))
+      segBase.SetIndexRange(indexRange);
 
     if (XML::GetAttrib(nodeSegBase, "indexRangeExact") == "true")
-      repr->SetHasSegBaseRangeExact(true);
+      segBase.SetIsRangeExact(true);
 
     uint32_t timescale;
     if (XML::QueryAttrib(nodeSegBase, "timescale", timescale))
+    {
+      segBase.SetTimescale(timescale);
       repr->SetTimescale(timescale);
+    }
 
     // Parse <SegmentBase> <Initialization> child tag
     xml_node nodeInit = nodeSegBase.child("Initialization");
     if (nodeInit)
     {
-      CSegment seg;
-      uint64_t rangeStart{0};
-      uint64_t rangeEnd{0};
-
-      seg.startPTS_ = 0;
-
       std::string range;
       if (XML::QueryAttrib(nodeInit, "range", range))
-      {
-        if (ParseRangeRFC(range, rangeStart, rangeEnd))
-        {
-          seg.range_begin_ = rangeStart;
-          seg.range_end_ = rangeEnd;
-        }
-        else
-          LOG::LogF(LOGERROR, "Failed to parse \"range\" attribute in the <Initialization> tag");
-      }
+        segBase.SetInitRange(range);
 
-      repr->initialization_ = seg;
-      repr->SetHasInitialization(true);
+      repr->SetInitSegment(segBase.MakeInitSegment());
     }
+
+    repr->SetSegmentBase(segBase);
   }
 
   // Parse <SegmentTemplate> tag
@@ -801,8 +783,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
     ParseSegmentTemplate(nodeSegTpl, &segTemplate);
 
-    if (!segTemplate.GetInitialization().empty())
-      repr->SetHasInitialization(true);
+    if (segTemplate.HasInitialization())
+      repr->SetInitSegment(segTemplate.MakeInitSegment());
 
     // Parse <SegmentTemplate> <SegmentTimeline> child
     xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
@@ -817,12 +799,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
                                   totalTimeSecs, &segTemplate);
 
       repr->nextPts_ = startPts;
-
-      if (!repr->SegmentTimeline().IsEmpty())
-      {
-        repr->SetHasInitialization(true);
-        repr->initialization_ = CSegment();
-      }
     }
     repr->SetTimescale(segTemplate.GetTimescale());
     repr->SetSegmentTemplate(segTemplate);
@@ -837,8 +813,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
     repr->SetStartNumber(segTemplate.GetStartNumber());
 
-    if (!repr->GetSegmentTemplate()->GetInitialization().empty())
-      repr->SetHasInitialization(true);
+    if (segTemplate.HasInitialization())
+      repr->SetInitSegment(segTemplate.MakeInitSegment());
   }
 
   // Parse <SegmentList> tag
@@ -876,39 +852,19 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
                                 repr->GetStartNumber() * repr->GetDuration());
     }
 
-    repr->SetSegmentList(segList);
-
     // Parse <SegmentList> <Initialization> child tag
     xml_node nodeInit = nodeSeglist.child("Initialization");
     if (nodeInit)
     {
-      CSegment seg;
-      uint64_t rangeStart{0};
-      uint64_t rangeEnd{0};
-
-      seg.startPTS_ = 0;
-
       std::string range;
       if (XML::QueryAttrib(nodeInit, "range", range))
-      {
-        if (ParseRangeRFC(range, rangeStart, rangeEnd))
-        {
-          seg.range_begin_ = rangeStart;
-          seg.range_end_ = rangeEnd;
-        }
-        else
-          LOG::LogF(LOGERROR, "Failed to parse \"range\" attribute in the <Initialization> tag");
-      }
+        segList.SetInitRange(range);
 
       std::string sourceURL;
       if (XML::QueryAttrib(nodeInit, "sourceURL", sourceURL))
-      {
-        seg.url = sourceURL;
-        repr->SetHasSegmentsUrl(true);
-      }
+        segList.SetInitSourceUrl(sourceURL);
 
-      repr->initialization_ = seg;
-      repr->SetHasInitialization(true);
+      repr->SetInitSegment(segList.MakeInitSegment());
     }
 
     if (segList.GetTimescale() > 0 && segList.GetDuration() > 0)
@@ -940,11 +896,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       {
         seg.range_begin_ = rangeStart;
         seg.range_end_ = rangeEnd;
-      }
-      else
-      {
-        if (isTimelineEmpty)
-          seg.range_end_ = repr->GetStartNumber();
       }
 
       uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(index);
@@ -979,6 +930,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
     if (segList.GetTimescale() > 0)
       repr->SetTimescale(segList.GetTimescale());
+
+    repr->SetSegmentList(segList);
   }
 
   // Parse <ContentProtection> tags
@@ -1046,21 +999,21 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         if (!segTemplate->GetInitialization().empty())
         {
           CSegment seg;
+          seg.SetIsInitialization(true);
           seg.startPTS_ = 0;
-          repr->initialization_ = seg;
-          repr->SetHasInitialization(true);
+          repr->SetInitSegment(seg);
         }
 
         CSegment segTl;
-        segTl.range_begin_ = adpSet->GetStartPTS();
-        segTl.range_end_ = repr->GetStartNumber();
+        segTl.m_time = adpSet->GetStartPTS();
+        segTl.m_number = repr->GetStartNumber();
         segTl.startPTS_ = adpSet->GetStartPTS();
 
         if (m_isLive && !segTemplate->HasVariableTime() &&
             segTemplate->GetDuration() > 0)
         {
           uint64_t sampleTime = period->GetStart() / 1000;
-          segTl.range_end_ +=
+          segTl.m_number +=
               static_cast<uint64_t>(static_cast<int64_t>(stream_start_ - available_time_ -
                                                          reprTotalTimeSecs - sampleTime) *
                                         segTemplate->GetTimescale() / segTemplate->GetDuration() +
@@ -1084,8 +1037,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
           uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(pos);
           uint32_t duration = tlDuration ? *tlDuration : segTplDuration;
-          segTl.range_begin_ += duration;
-          segTl.range_end_ += 1;
+          segTl.m_time += duration;
+          segTl.m_number += 1;
           segTl.startPTS_ += duration;
         }
 
@@ -1100,26 +1053,21 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     else if (!repr->HasSegmentBase() && !repr->IsSubtitleFileStream())
     {
       //Let us try to extract the fragments out of SIDX atom
-      repr->SetHasSegmentBase(true);
-
-      repr->m_segBaseIndexRangeMin = 0;
+      CSegmentBase segBase;
+      
+      segBase.SetIndexRangeBegin(0);
       //! @todo: Explain the reason of these specific values
       static const uint64_t indexRangeMax = 1024 * 200;
-      repr->m_segBaseIndexRangeMax = indexRangeMax;
+      segBase.SetIndexRangeEnd(indexRangeMax);
+
+      repr->SetSegmentBase(segBase);
     }
   }
 
-  if (repr->HasSegmentBase() && repr->m_segBaseIndexRangeMin == 0 &&
-      repr->m_segBaseIndexRangeMax > 0 && !repr->HasInitialization())
-  {
-    // AdaptiveStream::ParseIndexRange will fix the initialization max to its real value.
-    CSegment seg;
-    seg.range_end_ = repr->m_segBaseIndexRangeMax;
-    repr->initialization_ = seg;
-    repr->SetHasInitialization(true);
-  }
-
-  if (repr->HasInitialization() && !repr->SegmentTimeline().IsEmpty())
+  //! @todo: "init prefixed" behaviour is not so clear and may be invalidated by ResolveSegmentBase (?)
+  //! we need to investigate if we can move this check where its used by CSession::PrepareStream
+  //! and remove HasInitPrefixed statement
+  if (repr->HasInitSegment() && !repr->SegmentTimeline().IsEmpty())
   {
     // we assume that we have a MOOV atom included in each segment (max 100k = youtube)
     repr->SetHasInitPrefixed(true);
@@ -1130,37 +1078,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     period->SetTimescale(repr->GetTimescale());
   if (period->GetDuration() == 0)
     period->SetDuration(repr->GetDuration());
-
-  // Create the url
-  std::string url;
-
-  if (repr->HasSegmentTemplate())
-  {
-    if (repr->HasInitialization())
-    {
-      url = ReplacePlaceHolders(repr->GetSegmentTemplate()->GetInitialization().data(),
-                                repr->GetId(), repr->GetBandwidth());
-
-      if (URL::IsUrlRelative(url))
-        url = URL::Join(repr->GetBaseUrl().data(), url);
-
-      repr->GetSegmentTemplate()->SetInitialization(url);
-    }
-    else
-      url = repr->GetBaseUrl();
-
-    std::string mediaUrl = repr->GetSegmentTemplate()->GetMedia().data();
-    mediaUrl = ReplacePlaceHolders(mediaUrl, repr->GetId(), repr->GetBandwidth());
-
-    if (URL::IsUrlRelative(mediaUrl))
-      mediaUrl = URL::Join(repr->GetBaseUrl().data(), mediaUrl);
-
-    repr->GetSegmentTemplate()->SetMediaUrl(mediaUrl);
-  }
-  else
-    url = repr->GetBaseUrl();
-
-  repr->SetUrl(url);
 
   // YouTube fix
   if (repr->GetStartNumber() > m_firstStartNumber)
@@ -1251,12 +1168,12 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
         else
           SCTimeline.GetData().reserve(EstimateSegmentsCount(duration, timescale, totalTimeSecs));
 
-        seg.range_end_ = startNumber;
+        seg.m_number = startNumber;
       }
       else
-        seg.range_end_ = SCTimeline.GetData().back().range_end_ + 1;
+        seg.m_number = SCTimeline.GetData().back().m_number + 1;
 
-      seg.range_begin_ = nextPts;
+      seg.m_time = nextPts;
       seg.startPTS_ = nextPts;
 
       for (; repeat > 0; --repeat)
@@ -1265,8 +1182,8 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
         startPts = seg.startPTS_;
 
         nextPts += duration;
-        seg.range_begin_ = nextPts;
-        seg.range_end_ += 1;
+        seg.m_time = nextPts;
+        seg.m_number += 1;
         seg.startPTS_ += duration;
       }
     }
@@ -1705,28 +1622,28 @@ void adaptive::CDashTree::RefreshLiveSegments()
 
                 if (repr->HasSegmentTimeline())
                 {
-                  uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->range_begin_;
+                  uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->m_time;
                   uint64_t misaligned = 0;
                   for (const auto& segment : repr->SegmentTimeline().GetData())
                   {
                     if (misaligned)
                     {
-                      uint64_t ptsDiff = segment.range_begin_ - (&segment - 1)->range_begin_;
+                      uint64_t ptsDiff = segment.m_time - (&segment - 1)->m_time;
                       // our misalignment is small ( < 2%), let's decrement the start number
                       if (misaligned < (ptsDiff * 2 / 100))
                         repr->SetStartNumber(repr->GetStartNumber() - 1);
                       break;
                     }
-                    if (segment.range_begin_ == search_pts)
+                    if (segment.m_time == search_pts)
                       break;
-                    else if (segment.range_begin_ > search_pts)
+                    else if (segment.m_time > search_pts)
                     {
                       if (&repr->SegmentTimeline().GetData().front() == &segment)
                       {
                         repr->SetStartNumber(repr->GetStartNumber() - 1);
                         break;
                       }
-                      misaligned = search_pts - (&segment - 1)->range_begin_;
+                      misaligned = search_pts - (&segment - 1)->m_time;
                     }
                     else
                       repr->SetStartNumber(repr->GetStartNumber() + 1);
@@ -1735,10 +1652,10 @@ void adaptive::CDashTree::RefreshLiveSegments()
                 else if (updRepr->SegmentTimeline().Get(0)->startPTS_ ==
                           repr->SegmentTimeline().Get(0)->startPTS_)
                 {
-                  uint64_t search_re = updRepr->SegmentTimeline().Get(0)->range_end_;
+                  uint64_t search_re = updRepr->SegmentTimeline().Get(0)->m_number;
                   for (const auto& segment : repr->SegmentTimeline().GetData())
                   {
-                    if (segment.range_end_ >= search_re)
+                    if (segment.m_number >= search_re)
                       break;
                     repr->SetStartNumber(repr->GetStartNumber() + 1);
                   }

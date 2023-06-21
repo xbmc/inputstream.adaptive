@@ -20,6 +20,9 @@
 
 namespace PLAYLIST
 {
+// Forward
+class CSegment;
+
 // SegmentTemplate class provide segment template data
 // of class itself or when not set of the parent class (if any).
 class ATTR_DLL_LOCAL CSegmentTemplate
@@ -28,15 +31,13 @@ public:
   CSegmentTemplate(CSegmentTemplate* parent = nullptr);
   ~CSegmentTemplate() {}
 
-  std::string_view GetInitialization() const;
+  std::string GetInitialization() const;
   void SetInitialization(std::string_view init) { m_initialization = init; }
 
-  std::string_view GetMedia() const;
-  void SetMedia(std::string_view media) { m_media = media; }
+  bool HasInitialization() const { return !GetInitialization().empty(); }
 
-  // Same content of "GetMedia" method but with placeholder $RepresentationID$ and $Bandwidth$ filled
-  std::string_view GetMediaUrl() const;
-  void SetMediaUrl(std::string_view mediaUrl) { m_mediaUrl = mediaUrl; }
+  std::string GetMedia() const;
+  void SetMedia(std::string_view media) { m_media = media; }
 
   uint32_t GetTimescale() const;
   void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
@@ -48,11 +49,20 @@ public:
   void SetStartNumber(uint64_t startNumber) { m_startNumber = startNumber; }
 
   bool HasVariableTime() const;
+  
+  CSegment MakeInitSegment();
+
+  std::string FormatUrl(const std::string url,
+                        const std::string id,
+                        const uint32_t bandwidth,
+                        const uint64_t number,
+                        const uint64_t time);
 
 private:
+  void FormatIdentifier(std::string& identifier, const uint64_t value);
+
   std::string m_initialization;
   std::string m_media;
-  std::string m_mediaUrl;
   std::optional<uint32_t> m_timescale;
   std::optional<uint32_t> m_duration;
   std::optional<uint64_t> m_startNumber;

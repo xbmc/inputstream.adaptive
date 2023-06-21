@@ -28,21 +28,29 @@ public:
   CSegment() {}
   ~CSegment(){}
 
-  static constexpr uint64_t NO_RANGE_VALUE = std::numeric_limits<uint64_t>::max();
-
   //! @todo: create getters/setters
-  //! its possible add a way to determinate if range is set
 
-  //Either byterange start or timestamp or NO_RANGE_VALUE
-  uint64_t range_begin_ = NO_RANGE_VALUE;
-  //Either byterange end or sequence_id if range_begin is NO_RANGE_VALUE
-  uint64_t range_end_ = NO_RANGE_VALUE;
+  // Byte range start
+  uint64_t range_begin_ = NO_VALUE;
+  // Byte range end
+  uint64_t range_end_ = NO_VALUE;
   std::string url;
   uint64_t startPTS_ = NO_PTS_VALUE;
   uint64_t m_duration = 0; // If available gives the media duration of a segment (depends on type of stream e.g. HLS)
   uint16_t pssh_set_ = PSSHSET_POS_DEFAULT;
 
-  void Copy(const CSegment* src);
+  uint64_t m_time{0};
+  uint64_t m_number{0};
+
+  /*!
+   * \brief Determines if it is an initialization segment.
+   * \return True if it is an initialization segment, otherwise false for media segment.
+   */
+  bool IsInitialization() const { return m_isInitialization; }
+  void SetIsInitialization(bool isInitialization) { m_isInitialization = isInitialization; }
+
+private:
+  bool m_isInitialization{false};
 };
 
-} // namespace adaptive
+} // namespace PLAYLIST

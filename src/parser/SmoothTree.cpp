@@ -250,7 +250,7 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
 {
   std::unique_ptr<CRepresentation> repr = CRepresentation::MakeUniquePtr(adpSet);
 
-  repr->SetUrl(adpSet->GetBaseUrl());
+  repr->SetBaseUrl(adpSet->GetBaseUrl());
   repr->SetTimescale(timescale);
 
   repr->SetId(XML::GetAttrib(nodeQI, "Index"));
@@ -321,13 +321,12 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
 
   CSegmentTemplate segTpl;
 
-  segTpl.SetMedia(repr->GetUrl());
-  std::string mediaUrl = repr->GetUrl();
-
+  std::string mediaUrl = repr->GetBaseUrl();
+  // Convert markers to DASH template identification tag
   STRING::ReplaceFirst(mediaUrl, "{start time}", "$Time$");
-  STRING::ReplaceFirst(mediaUrl, "{bitrate}", std::to_string(repr->GetBandwidth()));
+  STRING::ReplaceFirst(mediaUrl, "{bitrate}", "$Bandwidth$");
 
-  segTpl.SetMediaUrl(mediaUrl);
+  segTpl.SetMedia(mediaUrl);
 
   repr->SetSegmentTemplate(segTpl);
 
@@ -341,8 +340,8 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
   {
     CSegment seg;
     seg.startPTS_ = nextStartPts;
-    seg.range_begin_ = nextStartPts + base_time_;
-    seg.range_end_ = index;
+    seg.m_time = nextStartPts + base_time_;
+    seg.m_number = index;
 
     repr->SegmentTimeline().GetData().emplace_back(seg);
 
