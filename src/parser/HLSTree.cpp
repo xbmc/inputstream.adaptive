@@ -217,10 +217,6 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
     // Pssh set used between segments
     uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
 
-    CSegment segInit; // Initialization segment
-    std::string segInitUrl; // Initialization segment URL
-    bool hasSegmentInit{false};
-
     uint32_t discontCount{0};
 
     bool isExtM3Uformat{false};
@@ -282,23 +278,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       else if (tagName == "#EXT-X-MAP")
       {
         auto attribs = ParseTagAttributes(tagValue);
-
-        if (STRING::KeyExists(attribs, "URI"))
-        {
-          std::string uri = attribs["URI"];
-
-          if (URL::IsUrlRelative(uri))
-            segInitUrl = URL::Join(baseUrl, uri);
-          else
-            segInitUrl = uri;
-
-          segInit.url = segInitUrl;
-          segInit.startPTS_ = NO_PTS_VALUE;
-          segInit.pssh_set_ = PSSHSET_POS_DEFAULT;
-          rep->SetHasInitialization(true);
-          rep->SetContainerType(ContainerType::MP4);
-          hasSegmentInit = true;
-        }
+        CSegment segInit;
 
         if (STRING::KeyExists(attribs, "BYTERANGE"))
         {
@@ -307,8 +287,21 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
             segInit.range_end_ = segInit.range_begin_ + segInit.range_end_ - 1;
           }
         }
-        else
-          segInit.range_begin_ = CSegment::NO_RANGE_VALUE;
+
+        if (STRING::KeyExists(attribs, "URI"))
+        {
+          std::string uri = attribs["URI"];
+
+          if (URL::IsUrlRelative(uri))
+            uri = URL::Join(baseUrl, uri);
+
+          segInit.SetIsInitialization(true);
+          segInit.url = uri;
+          segInit.startPTS_ = NO_PTS_VALUE;
+          segInit.pssh_set_ = PSSHSET_POS_DEFAULT;
+          rep->SetInitSegment(segInit);
+          rep->SetContainerType(ContainerType::MP4);
+        }
       }
       else if (tagName == "#EXT-X-MEDIA-SEQUENCE")
       {
@@ -346,7 +339,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       {
         ParseRangeValues(tagValue, newSegment->range_end_, newSegment->range_begin_);
 
-        if (newSegment->range_begin_ == CSegment::NO_RANGE_VALUE)
+        if (newSegment->range_begin_ == NO_VALUE)
         {
           if (newSegments.GetSize() > 0)
             newSegment->range_begin_ = newSegments.Get(newSegments.GetSize() - 1)->range_end_ + 1;
@@ -414,7 +407,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
           continue;
         }
 
-        if (!segmentHasByteRange || rep->GetUrl().empty())
+        if (!segmentHasByteRange || rep->GetBaseUrl().empty())
         {
           std::string url;
           if (URL::IsUrlRelative(line))
@@ -427,7 +420,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
             newSegment->url = url;
           }
           else
-            rep->SetUrl(url);
+            rep->SetBaseUrl(url);
         }
 
         if (currentEncryptionType == EncryptionType::AES128)
@@ -508,15 +501,11 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         rep->SegmentTimeline().Swap(newSegments);
         rep->SetStartNumber(newStartNumber);
 
-        if (hasSegmentInit)
-        {
-          std::swap(rep->initialization_, segInit);
-          // EXT-X-MAP init url must persist to next period until overrided by new tag
-          segInit.url = segInitUrl;
-        }
         if (m_periods.size() == ++discontCount)
         {
           auto newPeriod = CPeriod::MakeUniquePtr();
+          // CopyHLSData will copy also the init segment in the representations
+          // that must persist to next period until overrided by new EXT-X-MAP tag
           newPeriod->CopyHLSData(m_currentPeriod);
           period = newPeriod.get();
           m_periods.push_back(std::move(newPeriod));
@@ -537,11 +526,8 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
           period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
         }
 
-        if (hasSegmentInit && !segInitUrl.empty())
-        {
-          rep->SetHasInitialization(true);
+        if (rep->HasInitSegment())
           rep->SetContainerType(ContainerType::MP4);
-        }
       }
       else if (tagName == "#EXT-X-ENDLIST")
       {
@@ -569,9 +555,6 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
     rep->SegmentTimeline().Swap(newSegments);
     rep->SetStartNumber(newStartNumber);
-
-    if (hasSegmentInit)
-      std::swap(rep->initialization_, segInit);
 
     uint64_t reprDuration{0};
     if (rep->SegmentTimeline().Get(0))

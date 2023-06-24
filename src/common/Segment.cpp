@@ -7,14 +7,3 @@
  */
 
 #include "Segment.h"
-#include "AdaptiveUtils.h"
-
-#include "kodi/tools/StringUtils.h"
-
-using namespace PLAYLIST;
-using namespace kodi::tools;
-
-void PLAYLIST::CSegment::Copy(const CSegment* src)
-{
-  *this = *src;
-}

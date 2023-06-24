@@ -35,6 +35,8 @@ constexpr size_t SEGMENT_NO_POS = std::numeric_limits<size_t>::max();
 constexpr uint64_t SEGMENT_NO_NUMBER = std::numeric_limits<uint64_t>::max();
 // Marker for undefined timestamp value
 constexpr uint64_t NO_PTS_VALUE = std::numeric_limits<uint64_t>::max();
+// Marker for undefined value
+constexpr uint64_t NO_VALUE = std::numeric_limits<uint64_t>::max();
 
 enum class EncryptionState
 {

@@ -52,10 +52,10 @@ bool PLAYLIST::CRepresentation::ContainsCodec(std::string_view codec, std::strin
 
 void PLAYLIST::CRepresentation::CopyHLSData(const CRepresentation* other)
 {
-  m_url = other->m_url;
   m_id = other->m_id;
   m_codecs = other->m_codecs;
   m_codecPrivateData = other->m_codecPrivateData;
+  m_baseUrl = other->m_baseUrl;
   m_sourceUrl = other->m_sourceUrl;
   m_bandwidth = other->m_bandwidth;
   m_sampleRate = other->m_sampleRate;
@@ -71,10 +71,10 @@ void PLAYLIST::CRepresentation::CopyHLSData(const CRepresentation* other)
   timescale_ext_ = other->timescale_ext_;
   timescale_int_ = other->timescale_int_;
 
-  m_hasInitialization = other->m_hasInitialization;
   m_isIncludedStream = other->m_isIncludedStream;
   m_hasSegmentsUrl = other->m_hasSegmentsUrl;
   m_isEnabled = other->m_isEnabled;
   m_isWaitForSegment = other->m_isWaitForSegment;
   m_isDownloaded = other->m_isDownloaded;
+  m_initSegment = other->m_initSegment;
 }

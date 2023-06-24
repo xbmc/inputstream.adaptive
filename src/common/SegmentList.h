@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "AdaptiveUtils.h"
+
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "../test/KodiStubs.h"
 #else
@@ -19,6 +21,8 @@
 
 namespace PLAYLIST
 {
+// Forward
+class CSegment;
 
 class ATTR_DLL_LOCAL CSegmentList
 {
@@ -38,11 +42,20 @@ public:
   uint64_t GetPresTimeOffset() const;
   void SetPresTimeOffset(uint64_t ptsOffset) { m_ptsOffset = ptsOffset; }
 
+  void SetInitSourceUrl(std::string_view url) { m_initSourceUrl = url; }
+
+  void SetInitRange(std::string_view range);
+  bool HasInitialization() { return m_initRangeBegin != NO_VALUE && m_initRangeEnd != NO_VALUE; }
+  CSegment MakeInitSegment();
+
 private:
   uint64_t m_startNumber{0};
   uint64_t m_duration{0};
   uint32_t m_timescale{0};
   uint64_t m_ptsOffset{0};
+  uint64_t m_initRangeBegin = NO_VALUE;
+  uint64_t m_initRangeEnd = NO_VALUE;
+  std::string m_initSourceUrl;
 
   CSegmentList* m_parentSegList{nullptr};
 };

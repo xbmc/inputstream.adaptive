@@ -36,6 +36,7 @@ set(ADP_SOURCES
 	src/common/Representation.cpp
 	src/common/ReprSelector.cpp
 	src/common/Segment.cpp
+	src/common/SegmentBase.cpp
 	src/common/SegmentList.cpp
 	src/common/SegTemplate.cpp
 	src/parser/CodecParser.cpp
@@ -103,6 +104,7 @@ set(ADP_HEADERS
 	src/common/Representation.h
 	src/common/ReprSelector.h
 	src/common/Segment.h
+	src/common/SegmentBase.h
 	src/common/SegmentList.h
 	src/common/SegTemplate.h
 	src/parser/CodecParser.h

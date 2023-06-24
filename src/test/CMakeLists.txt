@@ -32,6 +32,7 @@ add_executable(${BINARY}
     ../common/Representation.cpp
     ../common/ReprSelector.cpp
     ../common/Segment.cpp
+    ../common/SegmentBase.cpp
     ../common/SegmentList.cpp
     ../common/SegTemplate.cpp
     ../oscompat.cpp

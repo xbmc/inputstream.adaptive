@@ -1004,7 +1004,7 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
   }
 
   if (repr->GetContainerType() == ContainerType::MP4 && !repr->HasInitPrefixed() &&
-      !repr->HasInitialization())
+      !repr->HasInitSegment())
   {
     //We'll create a Movie out of the things we got from manifest file
     //note: movie will be deleted in destructor of stream->input_file_

@@ -12,6 +12,7 @@
 #include "AdaptiveUtils.h"
 #include "CommonAttribs.h"
 #include "Segment.h"
+#include "SegmentBase.h"
 #include "SegTemplate.h"
 #include "SegmentList.h"
 
@@ -61,9 +62,6 @@ public:
   std::string_view GetId() const { return m_id; }
   void SetId(std::string_view id) { m_id = id; }
 
-  std::string GetUrl() const { return m_url; }
-  void SetUrl(std::string_view url) { m_url = url; }
-
   std::string GetSourceUrl() const { return m_sourceUrl; }
   void SetSourceUrl(std::string_view sourceUrl) { m_sourceUrl = sourceUrl; }
 
@@ -103,6 +101,10 @@ public:
   void SetSegmentTemplate(const CSegmentTemplate& segTemplate) { m_segmentTemplate = segTemplate; }
   bool HasSegmentTemplate() const { return m_segmentTemplate.has_value(); }
 
+  std::optional<CSegmentBase>& GetSegmentBase() { return m_segmentBase; }
+  void SetSegmentBase(const CSegmentBase& segBase) { m_segmentBase = segBase; }
+  bool HasSegmentBase() const { return m_segmentBase.has_value(); }
+
   uint32_t GetTimescale() const { return m_timescale; }
   void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
 
@@ -123,21 +125,8 @@ public:
     m_isSubtitleFileStream = isSubtitleFileStream;
   }
 
-  //! @todo: the use of HasInitialization/SetHasInitialization need to be improved maybe std::optional use
-  bool HasInitialization() const { return m_hasInitialization; }
-  void SetHasInitialization(bool hasInitialization) { m_hasInitialization = hasInitialization; }
-
   bool HasInitPrefixed() const { return m_hasInitPrefixed; }
   void SetHasInitPrefixed(bool hasInitPrefixed) { m_hasInitPrefixed = hasInitPrefixed; }
-
-  bool HasSegmentBase() const { return m_hasSegmentBase; }
-  void SetHasSegmentBase(bool hasSegmentBase) { m_hasSegmentBase = hasSegmentBase; }
-
-  bool HasSegBaseRangeExact() const { return m_hasSegBaseRangeExact; }
-  void SetHasSegBaseRangeExact(bool hasSegBaseRangeExact)
-  {
-    m_hasSegBaseRangeExact = hasSegBaseRangeExact;
-  }
 
   bool HasSegmentsUrl() const { return m_hasSegmentsUrl; }
   void SetHasSegmentsUrl(bool hasSegmentsUrl) { m_hasSegmentsUrl = hasSegmentsUrl; }
@@ -170,30 +159,22 @@ public:
     return left->m_bandwidth < right->m_bandwidth;
   }
 
-  //! @todo: make appropriate getters/setters and cleanups all following variables/methods
-
-  uint64_t m_segBaseIndexRangeMin{0};
-  uint64_t m_segBaseIndexRangeMax{0};
-
   uint16_t m_psshSetPos{PSSHSET_POS_DEFAULT}; // Index position of the PSSHSet
   const uint16_t GetPsshSetPos() const { return m_psshSetPos; }
 
   size_t expired_segments_{0};
 
   CSegment* current_segment_{nullptr};
-  //! @todo: controversial use of this variable, to investigate
-  //! if possible use std::optional to improve all related code
-  //! and segment methods below
-  CSegment initialization_;
 
-  const CSegment* get_initialization() const
-  {
-    return HasInitialization() ? &initialization_ : nullptr;
-  }
+
+  bool HasInitSegment() const { return m_initSegment.has_value(); }
+  void SetInitSegment(CSegment initSegment) { m_initSegment = initSegment; }
+  std::optional<CSegment>& GetInitSegment() { return m_initSegment; }
+
 
   CSegment* get_next_segment(const CSegment* seg)
   {
-    if (!seg || seg == &initialization_)
+    if (!seg || seg->IsInitialization())
       return m_segmentTimeline.Get(0);
 
     size_t nextPos{m_segmentTimeline.GetPosition(seg) + 1};
@@ -278,7 +259,6 @@ public:
 
 protected:
   std::string m_id;
-  std::string m_url;
   std::string m_sourceUrl;
   std::string m_baseUrl;
 
@@ -290,6 +270,8 @@ protected:
   uint16_t m_hdcpVersion{0}; // 0 if not set
 
   std::optional<CSegmentTemplate> m_segmentTemplate;
+  std::optional<CSegmentBase> m_segmentBase;
+  std::optional<CSegment> m_initSegment;
 
   uint64_t m_startNumber{1};
 
@@ -299,11 +281,8 @@ protected:
   uint32_t m_timescale{0};
 
   bool m_isSubtitleFileStream{false};
-  bool m_hasInitialization{false};
   bool m_hasInitPrefixed{false};
 
-  bool m_hasSegmentBase{false};
-  bool m_hasSegBaseRangeExact{false};
   bool m_hasSegmentsUrl{false};
 
   bool m_isPrepared{false};

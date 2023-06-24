@@ -275,7 +275,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (rep->IsSubtitleFileStream())
   {
     stream->SetReader(std::make_unique<CSubtitleSampleReader>(
-        rep->GetUrl(), streamid, stream->m_info.GetCodecInternalName()));
+        rep->GetBaseUrl(), streamid, stream->m_info.GetCodecInternalName()));
     return stream->GetReader()->GetInformation(stream->m_info);
   }
 
