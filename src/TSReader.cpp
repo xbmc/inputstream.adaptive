@@ -7,12 +7,49 @@
  */
 
 #include "TSReader.h"
-#include <bento4/Ap4ByteStream.h>
+
+#include "../lib/mpegts/debug.h"
+#include "utils/log.h"
+
 #include <stdlib.h>
+
+#include <bento4/Ap4ByteStream.h>
+
+namespace
+{
+void DebugLog(int level, char* msg)
+{
+  if (msg[std::strlen(msg) - 1] == '\n')
+    msg[std::strlen(msg) - 1] = '\0';
+
+  switch (level)
+  {
+    case DEMUX_DBG_ERROR:
+      LOG::Log(LOGERROR, msg);
+      break;
+    case DEMUX_DBG_WARN:
+      LOG::Log(LOGWARNING, msg);
+      break;
+    case DEMUX_DBG_INFO:
+      LOG::Log(LOGINFO, msg);
+      break;
+    case DEMUX_DBG_DEBUG:
+      [[fallthrough]];
+    case DEMUX_DBG_PARSE:
+      LOG::Log(LOGDEBUG, msg);
+      break;
+    default:
+      break;
+  }
+}
+} // unnamed namespace
 
 TSReader::TSReader(AP4_ByteStream* stream, uint32_t requiredMask)
   : m_stream(stream), m_requiredMask(requiredMask), m_typeMask(0), m_startPts{STREAM_NOPTS_VALUE}
 {
+  // Uncomment to debug TSDemux library
+  // TSDemux::DBGAll();
+  // TSDemux::SetDBGMsgCallback(DebugLog);
 }
 
 bool TSReader::Initialize()
