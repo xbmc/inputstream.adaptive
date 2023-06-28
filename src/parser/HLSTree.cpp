@@ -621,7 +621,10 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
     }
   }
   else
+  {
+    entryRep->SetIsPrepared(true);
     StartUpdateThread();
+  }
 
   if (periodLost)
     m_periods.insert(m_periods.begin(), std::move(periodLost));
