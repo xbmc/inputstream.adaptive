@@ -150,11 +150,11 @@ namespace adaptive
     }
 
     segCopy.startPTS_ += fragmentDuration;
-    segCopy.range_begin_ += fragmentDuration;
-    segCopy.range_end_++;
+    segCopy.m_time += fragmentDuration;
+    segCopy.m_number++;
 
-    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu range_end: %llu", segCopy.startPTS_,
-              segCopy.range_end_);
+    LOG::LogF(LOGDEBUG, "Insert live segment: pts: %llu number: %llu", segCopy.startPTS_,
+              segCopy.m_number);
 
     for (auto& repr : adpSet->GetRepresentations())
     {
