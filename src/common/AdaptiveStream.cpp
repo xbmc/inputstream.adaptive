@@ -886,7 +886,7 @@ bool AdaptiveStream::ensureSegment()
       if (newRep->SegmentTimeline().IsEmpty() && newRep->HasSegmentBase())
         ResolveSegmentBase(newRep);
 
-      if (tree_.SecondsSinceRepUpdate(newRep) > 1)
+      if (!newRep->IsPrepared() && tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
         tree_.prepareRepresentation(
           current_period_, current_adp_, newRep, tree_.IsLive());
