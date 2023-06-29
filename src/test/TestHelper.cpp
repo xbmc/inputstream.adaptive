@@ -165,7 +165,7 @@ bool AESDecrypter::RenewLicense(const std::string& pluginUrl){return false;}
 void DASHTestTree::RefreshLiveSegments()
 {
   if (m_isManifestUpdSingleRun)
-    m_updateInterval = ~0U; // Prevent the execution of new manifest updates after this
+    m_updateInterval = PLAYLIST::NO_VALUE; // Prevent the execution of new manifest updates after this
 
   CDashTree::RefreshLiveSegments();
 

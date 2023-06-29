@@ -782,7 +782,7 @@ bool AdaptiveStream::ensureSegment()
     // lock live segment updates
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
 
-    if (tree_.HasManifestUpdates() && SecondsSinceUpdate() > 1)
+    if (tree_.HasManifestUpdatesSegs() && SecondsSinceUpdate() > 1)
     {
       tree_.RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->GetStreamType());
       lastUpdated_ = std::chrono::system_clock::now();
@@ -926,7 +926,8 @@ bool AdaptiveStream::ensureSegment()
         return false;
       }
     }
-    else if (tree_.HasManifestUpdates() && current_period_ == tree_.m_periods.back().get())
+    else if ((tree_.HasManifestUpdates() || tree_.HasManifestUpdatesSegs()) &&
+             current_period_ == tree_.m_periods.back().get())
     {
       if (!current_rep_->IsWaitForSegment())
       {
@@ -1179,7 +1180,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
 
 bool AdaptiveStream::waitingForSegment(bool checkTime) const
 {
-  if (tree_.HasManifestUpdates() && state_ == RUNNING)
+  if ((tree_.HasManifestUpdates() || tree_.HasManifestUpdatesSegs()) && state_ == RUNNING)
   {
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
 

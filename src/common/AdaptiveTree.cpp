@@ -103,7 +103,7 @@ namespace adaptive
                                          uint32_t fragmentDuration,
                                          uint32_t movie_timescale)
   {
-    if (!m_isLive || HasManifestUpdates() || repr->HasSegmentsUrl())
+    if (!m_isLive || HasManifestUpdatesSegs() || repr->HasSegmentsUrl())
       return;
 
     // Check if its the last frame we watch
@@ -124,6 +124,11 @@ namespace adaptive
     else if (pos != repr->SegmentTimeline().GetSize() - 1)
       return;
 
+    // Add new segment
+    // This may happen for example when a DASH live manifest
+    // has very long duration validity (set by minimumUpdatePeriod) and segments
+    // dont cover the entire duration until minimumUpdatePeriod interval time
+    // in this new segments must be added until the future manifest update
     CSegment* segment = repr->SegmentTimeline().Get(pos);
 
     if (!segment)
@@ -339,7 +344,7 @@ namespace adaptive
   {
     std::unique_lock<std::mutex> updLck(m_updMutex);
 
-    while (~m_tree->m_updateInterval && !m_threadStop)
+    while (m_tree->m_updateInterval != NO_VALUE && m_tree->m_updateInterval > 0 && !m_threadStop)
     {
       if (m_cvUpdInterval.wait_for(updLck, std::chrono::milliseconds(m_tree->m_updateInterval)) ==
           std::cv_status::timeout)

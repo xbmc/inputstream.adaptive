@@ -195,6 +195,11 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
   if (!rep->m_isDownloaded)
   {
     // Download child manifest playlist
+
+    // Since we assume Live content by default we enable manifest update by segment,
+    // this setting can be changed by parsing manifest below
+    m_updateInterval = 0;
+
     std::string manifestUrl = rep->GetSourceUrl();
     URL::AppendParameters(manifestUrl, m_manifestParams);
 
@@ -311,15 +316,16 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       {
         if (STRING::CompareNoCase(tagValue, "VOD"))
         {
-          m_refreshPlayList = false;
           m_isLive = false;
+          m_updateInterval = NO_VALUE;
         }
       }
       else if (tagName == "#EXT-X-TARGETDURATION")
       {
-        // Set update interval for manifest LIVE update
-        // to maximum segment duration * 1500 secs (25 minuts)
-        uint32_t newIntervalSecs = STRING::ToUint32(tagValue) * 1500;
+        // Use segment max duration as interval time to do a manifest update
+        // see: Reloading the Media Playlist file
+        // https://datatracker.ietf.org/doc/html/draft-pantos-http-live-streaming-16#section-6.3.4
+        uint64_t newIntervalSecs = STRING::ToUint64(tagValue) * 1000;
         if (newIntervalSecs < m_updateInterval)
           m_updateInterval = newIntervalSecs;
       }
@@ -531,8 +537,8 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       }
       else if (tagName == "#EXT-X-ENDLIST")
       {
-        m_refreshPlayList = false;
         m_isLive = false;
+        m_updateInterval = NO_VALUE;
       }
     }
 
@@ -576,7 +582,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       for (auto& p : m_periods)
       {
         totalTimeSecs += p->GetDuration() / p->GetTimescale();
-        if (!m_isLive && !m_refreshPlayList)
+        if (!m_isLive)
         {
           auto& adpSet = p->GetAdaptationSets()[adpSetPos];
           adpSet->GetRepresentations()[reprPos]->m_isDownloaded = true;
@@ -586,7 +592,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
     else
     {
       totalTimeSecs = rep->GetDuration() / rep->GetTimescale();
-      if (!m_isLive && !m_refreshPlayList)
+      if (!m_isLive)
       {
         rep->m_isDownloaded = true;
       }
@@ -734,14 +740,11 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
                                          PLAYLIST::CRepresentation* rep,
                                          PLAYLIST::StreamType type)
 {
-  if (m_refreshPlayList)
-  {
-    if (rep->IsIncludedStream())
-      return;
+  if (rep->IsIncludedStream())
+    return;
 
-    m_updThread.ResetStartTime();
-    prepareRepresentation(period, adp, rep, true);
-  }
+  m_updThread.ResetStartTime();
+  prepareRepresentation(period, adp, rep, true);
 }
 
 bool adaptive::CHLSTree::DownloadKey(std::string_view url,
@@ -765,9 +768,6 @@ bool adaptive::CHLSTree::DownloadManifestChild(std::string_view url,
 void adaptive::CHLSTree::RefreshLiveSegments()
 {
   lastUpdated_ = std::chrono::system_clock::now();
-
-  if (!m_refreshPlayList)
-    return;
 
   std::vector<std::tuple<CAdaptationSet*, CRepresentation*>> refreshList;
 
