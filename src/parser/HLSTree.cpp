@@ -208,8 +208,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
     SaveManifest(adp, resp.data, manifestUrl);
 
-    // Parse child playlist
-    std::string baseUrl = URL::RemoveParameters(resp.effectiveUrl);
+    rep->SetBaseUrl(URL::RemoveParameters(resp.effectiveUrl));
 
     EncryptionType currentEncryptionType = EncryptionType::CLEAR;
 
@@ -218,7 +217,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
     CSpinCache<CSegment> newSegments;
     std::optional<CSegment> newSegment;
-    bool segmentHasByteRange{false};
+
     // Pssh set used between segments
     uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
 
@@ -226,6 +225,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
     bool isExtM3Uformat{false};
 
+    // Parse child playlist
     std::stringstream streamData{resp.data};
 
     for (std::string line; STRING::GetLine(streamData, line);)
@@ -250,7 +250,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       {
         auto attribs = ParseTagAttributes(tagValue);
 
-        switch (ProcessEncryption(baseUrl, attribs))
+        switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
         {
           case EncryptionType::NOT_SUPPORTED:
             period->SetEncryptionState(EncryptionState::ENCRYPTED);
@@ -295,13 +295,8 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
         if (STRING::KeyExists(attribs, "URI"))
         {
-          std::string uri = attribs["URI"];
-
-          if (URL::IsUrlRelative(uri))
-            uri = URL::Join(baseUrl, uri);
-
           segInit.SetIsInitialization(true);
-          segInit.url = uri;
+          segInit.url = attribs["URI"];
           segInit.startPTS_ = NO_PTS_VALUE;
           segInit.pssh_set_ = PSSHSET_POS_DEFAULT;
           rep->SetInitSegment(segInit);
@@ -354,7 +349,6 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         }
 
         newSegment->range_end_ += newSegment->range_begin_ - 1;
-        segmentHasByteRange = true;
       }
       else if (newSegment.has_value() && !line.empty() && line[0] != '#')
       {
@@ -413,21 +407,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
           continue;
         }
 
-        if (!segmentHasByteRange || rep->GetBaseUrl().empty())
-        {
-          std::string url;
-          if (URL::IsUrlRelative(line))
-            url = URL::Join(baseUrl, line);
-          else
-            url = line;
-
-          if (!segmentHasByteRange)
-          {
-            newSegment->url = url;
-          }
-          else
-            rep->SetBaseUrl(url);
-        }
+        newSegment->url = line;
 
         if (currentEncryptionType == EncryptionType::AES128)
         {
@@ -488,8 +468,6 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         }
 
         period->SetSequence(m_discontSeq + discontCount);
-        if (!segmentHasByteRange)
-          rep->SetHasSegmentsUrl(true);
 
         uint64_t duration{0};
         if (!newSegments.IsEmpty())
@@ -547,9 +525,6 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       LOG::LogF(LOGERROR, "Non-compliant HLS manifest, #EXTM3U tag not found.");
       return PrepareRepStatus::FAILURE;
     }
-
-    if (!segmentHasByteRange)
-      rep->SetHasSegmentsUrl(true);
 
     FreeSegments(period, rep);
 

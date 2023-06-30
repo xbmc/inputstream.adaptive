@@ -49,6 +49,12 @@ public:
   bool IsInitialization() const { return m_isInitialization; }
   void SetIsInitialization(bool isInitialization) { m_isInitialization = isInitialization; }
 
+  /*!
+   * \brief Determines if there is a byte range set.
+   * \return True if there is a byte range, otherwise false.
+   */
+  bool HasByteRange() const { return range_begin_ != NO_VALUE || range_end_ != NO_VALUE; }
+
 private:
   bool m_isInitialization{false};
 };
