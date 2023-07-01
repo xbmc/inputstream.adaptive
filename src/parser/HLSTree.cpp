@@ -74,8 +74,19 @@ static std::string getVideoCodec(const std::string& codecs)
     return "av01";
   else if (codecs.find("av1") != std::string::npos)
     return "av1";
-  else
-    return "";
+  else if (codecs.find("vp9") != std::string::npos || codecs.find("vp09") != std::string::npos)
+  {
+    std::vector<std::string> list = StringUtils::Split(codecs, ",");
+    for (const std::string& name : list)
+    {
+      if (name.find("vp9") != std::string::npos || name.find("vp09") != std::string::npos)
+      {
+        return name;
+      }
+    }
+  }
+
+  return "";
 }
 
 static std::string getAudioCodec(const std::string& codecs)
