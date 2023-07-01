@@ -164,9 +164,18 @@ public:
    */
   bool IsLive() const { return m_isLive; }
 
+  /*!
+   * \brief Determines if a live manifest needs updates when new segments are requested
+   */
+  bool HasManifestUpdatesSegs() const { return m_isLive && m_updateInterval == 0; }
+
+  /*!
+   * \brief Determines if a live manifest needs updates that are handled automatically
+   *        by using time intervals
+   */
   bool HasManifestUpdates() const
   {
-    return m_isLive && ~m_updateInterval && m_updateInterval > 0;
+    return m_isLive && m_updateInterval != PLAYLIST::NO_VALUE && m_updateInterval > 0;
   }
 
   const std::chrono::time_point<std::chrono::system_clock> GetLastUpdated() const { return lastUpdated_; };
@@ -255,7 +264,11 @@ protected:
   bool m_isLive{false};
   virtual void StartUpdateThread();
   virtual void RefreshLiveSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
-  std::atomic<uint32_t> m_updateInterval{~0U};
+
+  // Manifest update interval in ms,
+  // Non-zero value: refresh interval starting from the moment mpd download was initiated
+  // Value 0: refresh each time we need to make new segments
+  std::atomic<uint64_t> m_updateInterval{PLAYLIST::NO_VALUE};
   TreeUpdateThread m_updThread;
   std::atomic<std::chrono::time_point<std::chrono::system_clock>> lastUpdated_{std::chrono::system_clock::now()};
 

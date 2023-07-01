@@ -13,8 +13,6 @@
 std::string testHelper::testFile;
 std::string testHelper::effectiveUrl;
 std::vector<std::string> testHelper::downloadList;
-std::condition_variable DASHTestTree::s_cvDashManifestUpd;
-std::mutex DASHTestTree::s_mutexDashManifestUpd;
 
 bool testHelper::LoadFile(std::string path, std::string& data)
 {
@@ -162,40 +160,12 @@ void AESDecrypter::ivFromSequence(uint8_t* buffer, uint64_t sid){}
 
 bool AESDecrypter::RenewLicense(const std::string& pluginUrl){return false;}
 
-void DASHTestTree::RefreshLiveSegments()
+std::string DASHTestTree::RunManifestUpdate(std::string manifestUpdFile)
 {
-  if (m_isManifestUpdSingleRun)
-    m_updateInterval = ~0U; // Prevent the execution of new manifest updates after this
-
-  CDashTree::RefreshLiveSegments();
-
-  m_isManifestUpdReady = true;
-  s_cvDashManifestUpd.notify_all();
-}
-
-void DASHTestTree::StartManifestUpdate()
-{
-  // Overriding interval to speed up execution
-  m_updateInterval = 1;
-  m_isManifestUpdSingleRun = true;
-  StartUpdateThread();
-}
-
-void DASHTestTree::WaitManifestUpdate(std::string& url)
-{
-  std::unique_lock<std::mutex> lock(s_mutexDashManifestUpd);
-  if (s_cvDashManifestUpd.wait_for(lock, std::chrono::milliseconds(1000),
-                                   [&] { return m_isManifestUpdReady; }) == false)
-  {
-    LOG::LogF(LOGFATAL, "Too much time elapsed to wait for manifest update");
-  }
-  else
-  {
-    url = m_manifestUpdUrl;
-    m_manifestUpdUrl.clear();
-  }
-  m_isManifestUpdReady = false;
-  m_isManifestUpdSingleRun = false;
+  m_manifestUpdUrl.clear();
+  testHelper::testFile = manifestUpdFile;
+  RefreshLiveSegments();
+  return m_manifestUpdUrl;
 }
 
 bool DASHTestTree::DownloadManifestUpd(std::string_view url,

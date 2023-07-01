@@ -107,7 +107,6 @@ private:
   };
 
   std::map<std::string, ExtGroup> m_extGroups;
-  bool m_refreshPlayList = true;
   uint8_t m_segmentIntervalSec = 4;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;

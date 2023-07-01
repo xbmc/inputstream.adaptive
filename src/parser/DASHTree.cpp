@@ -144,6 +144,11 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
   if (!locationText.empty() && URL::IsValidUrl(locationText.data()))
     location_ = locationText;
 
+  // Parse <MPD> <UTCTiming> tags
+  //! @todo: needed implementation
+  if (nodeMPD.child("UTCTiming"))
+    LOG::LogF(LOGWARNING, "The <UTCTiming> tag element is not supported so playback problems may occur.");
+
   // Parse <MPD> <BaseURL> tag (just first, multi BaseURL not supported yet)
   std::string mpdUrl = base_url_;
   std::string baseUrl = nodeMPD.child("BaseURL").child_value();
@@ -228,13 +233,8 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
   std::string minimumUpdatePeriodStr;
   if (XML::QueryAttrib(nodeMPD, "minimumUpdatePeriod", minimumUpdatePeriodStr))
   {
-    double duration = XML::ParseDuration(minimumUpdatePeriodStr) * 1500;
-    // 0S minimumUpdatePeriod = refresh after every segment
-    // We already do that so lets set our minimum updateInterval to 30s
-    if (duration == 0)
-      duration = 30000;
-
-    m_updateInterval = static_cast<uint32_t>(duration);
+    double duration = XML::ParseDuration(minimumUpdatePeriodStr) * 1000;
+    m_updateInterval = static_cast<uint64_t>(duration);
   }
 
   if (mediaPresDuration == 0)
