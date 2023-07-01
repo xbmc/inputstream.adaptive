@@ -72,7 +72,6 @@ void PLAYLIST::CRepresentation::CopyHLSData(const CRepresentation* other)
   timescale_int_ = other->timescale_int_;
 
   m_isIncludedStream = other->m_isIncludedStream;
-  m_hasSegmentsUrl = other->m_hasSegmentsUrl;
   m_isEnabled = other->m_isEnabled;
   m_isWaitForSegment = other->m_isWaitForSegment;
   m_isDownloaded = other->m_isDownloaded;
