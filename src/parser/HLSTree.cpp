@@ -353,7 +353,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
             newSegment->range_begin_ = 0;
         }
 
-        newSegment->range_end_ += newSegment->range_begin_;
+        newSegment->range_end_ += newSegment->range_begin_ - 1;
         segmentHasByteRange = true;
       }
       else if (newSegment.has_value() && !line.empty() && line[0] != '#')
