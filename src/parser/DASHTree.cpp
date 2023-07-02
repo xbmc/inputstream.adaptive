@@ -682,9 +682,10 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   if (adpSet->GetStreamType() == StreamType::NOTYPE)
   {
     StreamType streamType = DetectStreamType("", repr->GetMimeType());
-
-    if (streamType == StreamType::NOTYPE &&
-        (repr->ContainsCodec("wvtt") || (repr->ContainsCodec("ttml"))))
+    const auto& codecs = repr->GetCodecs();
+    if (streamType == StreamType::NOTYPE && (CODEC::Contains(codecs, CODEC::FOURCC_WVTT) ||
+                                             CODEC::Contains(codecs, CODEC::FOURCC_TTML) ||
+                                             CODEC::Contains(codecs, CODEC::FOURCC_STPP)))
     {
       streamType = StreamType::SUBTITLE;
     }
@@ -694,8 +695,10 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   // Set properties for subtitles types
   if (repr->GetMimeType() != "application/mp4") // Handle text type only, not ISOBMFF format
   {
+    const auto& codecs = repr->GetCodecs();
     if (repr->GetMimeType() == "application/ttml+xml" || repr->GetMimeType() == "text/vtt" ||
-        repr->ContainsCodec("wvtt") || repr->ContainsCodec("ttml"))
+        CODEC::Contains(codecs, CODEC::FOURCC_WVTT) ||
+        CODEC::Contains(codecs, CODEC::FOURCC_TTML) || CODEC::Contains(codecs, CODEC::FOURCC_STPP))
     {
       if (adpSet->SegmentTimelineDuration().IsEmpty())
         repr->SetIsSubtitleFileStream(true); // Treat as single subtitle file

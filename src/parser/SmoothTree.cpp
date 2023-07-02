@@ -278,13 +278,17 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
   std::string codecPrivateData;
   if (XML::QueryAttrib(nodeQI, "CodecPrivateData", codecPrivateData))
   {
-    if (repr->ContainsCodec("hev"))
+    const auto& codecs = repr->GetCodecs();
+    if (CODEC::Contains(codecs, CODEC::FOURCC_HEVC) ||
+        CODEC::Contains(codecs, CODEC::FOURCC_HEV1) || CODEC::Contains(codecs, CODEC::FOURCC_HVC1))
+    {
       repr->SetCodecPrivateData(AnnexbToHvcc(codecPrivateData.c_str()));
+    }
     else
       repr->SetCodecPrivateData(AnnexbToAvc(codecPrivateData.c_str()));
   }
 
-  if (repr->ContainsCodec("aacl") && repr->GetCodecPrivateData().empty())
+  if (CODEC::Contains(repr->GetCodecs(), CODEC::FOURCC_AACL) && repr->GetCodecPrivateData().empty())
   {
     uint16_t esds = 0x1010;
     uint16_t sidx = 4;

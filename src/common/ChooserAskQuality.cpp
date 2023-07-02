@@ -93,7 +93,7 @@ PLAYLIST::CRepresentation* CRepresentationChooserAskQuality::GetNextRepresentati
         CRepresentation* repr = (*itRep).get();
 
         std::string entryName{kodi::addon::GetLocalizedString(30232)};
-        STRING::ReplaceFirst(entryName, "{codec}", GetVideoCodecDesc(repr->GetFirstCodec()));
+        STRING::ReplaceFirst(entryName, "{codec}", CODEC::GetVideoDesc(repr->GetCodecs()));
 
         float fps{static_cast<float>(repr->GetFrameRate())};
         if (fps > 0 && repr->GetFrameRateScale() > 0)

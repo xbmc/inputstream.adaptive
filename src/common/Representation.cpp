@@ -10,8 +10,6 @@
 
 #include "../utils/StringUtils.h"
 
-#include <algorithm> // any_of, find_if
-
 using namespace PLAYLIST;
 using namespace UTILS;
 
@@ -24,30 +22,6 @@ void PLAYLIST::CRepresentation::AddCodecs(std::string_view codecs)
 void PLAYLIST::CRepresentation::AddCodecs(const std::set<std::string>& codecs)
 {
   m_codecs.insert(codecs.begin(), codecs.end());
-}
-
-bool PLAYLIST::CRepresentation::ContainsCodec(std::string_view codec) const
-{
-  if (std::any_of(m_codecs.begin(), m_codecs.end(),
-                  [codec](const std::string_view name) { return STRING::Contains(name, codec); }))
-  {
-    return true;
-  }
-  return false;
-}
-
-bool PLAYLIST::CRepresentation::ContainsCodec(std::string_view codec, std::string& codecStr) const
-{
-  auto itCodec =
-      std::find_if(m_codecs.begin(), m_codecs.end(),
-                   [codec](const std::string_view name) { return STRING::Contains(name, codec); });
-  if (itCodec != m_codecs.end())
-  {
-    codecStr = *itCodec;
-    return true;
-  }
-  codecStr.clear();
-  return false;
 }
 
 void PLAYLIST::CRepresentation::CopyHLSData(const CRepresentation* other)

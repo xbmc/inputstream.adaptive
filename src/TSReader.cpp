@@ -10,10 +10,13 @@
 
 #include "../lib/mpegts/debug.h"
 #include "utils/log.h"
+#include "utils/Utils.h"
 
 #include <stdlib.h>
 
 #include <bento4/Ap4ByteStream.h>
+
+using namespace UTILS;
 
 namespace
 {
@@ -104,9 +107,13 @@ bool TSReader::StartStreaming(AP4_UI32 typeMask)
 
 bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
 {
-  static const char* STREAMTYPEMAP[] = {
-    "unk", "mpeg1", "mpeg2", "mpeg1", "mpeg2", "aac", "aac", "aac", "h264", "hevc", "ac3", "eac3", "unk", "srt", "mpeg4", "vc1", "unk", "unk", "unk"
-  };
+  // Keep it in sync with TSDemux::STREAM_TYPE
+  static const char* STREAMTYPEMAP[19] = {
+      CODEC::NAME_UNKNOWN, CODEC::NAME_MPEG1, CODEC::NAME_MPEG2,  CODEC::NAME_MPEG1,
+      CODEC::NAME_MPEG2,   CODEC::NAME_AAC,   CODEC::NAME_AAC,    CODEC::NAME_AAC,
+      CODEC::NAME_H264,    CODEC::NAME_HEVC,  CODEC::NAME_AC3,    CODEC::NAME_EAC3,
+      CODEC::NAME_UNKNOWN, CODEC::NAME_SRT,   CODEC::NAME_MPEG4,  CODEC::NAME_VC1,
+      CODEC::NAME_UNKNOWN, CODEC::NAME_DTS,   CODEC::NAME_UNKNOWN};
 
   for (auto &tsInfo : m_streamInfos)
   {

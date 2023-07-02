@@ -111,22 +111,23 @@ std::string GetAudioCodec(std::string_view codecs)
   // The codec search must follow exactly the following order, this is currently the best workaround
   // to make multi-channel audio formats work, but since CODECS attribute is unreliable
   // this workaround can still cause playback problems
-  if (codecs.find("ec-3") != std::string::npos)
-    return "ec-3";
-  else if (codecs.find("ac-3") != std::string::npos)
-    return "ac-3";
+  if (codecs.find(CODEC::FOURCC_EC_3) != std::string::npos)
+    return CODEC::FOURCC_EC_3;
+  else if (codecs.find(CODEC::FOURCC_AC_3) != std::string::npos)
+    return CODEC::FOURCC_AC_3;
   else
-    return "aac";
+    return CODEC::FOURCC_MP4A;
 }
 // \brief Workaround to get audio codec from representation codecs list
 std::string GetAudioCodec(const PLAYLIST::CRepresentation* repr)
 {
-  if (repr->ContainsCodec("ec-3"))
-    return "ec-3";
-  else if (repr->ContainsCodec("ac-3"))
-    return "ac-3";
+  const auto& codecs = repr->GetCodecs();
+  if (CODEC::Contains(codecs, CODEC::FOURCC_EC_3))
+    return CODEC::FOURCC_EC_3;
+  else if (CODEC::Contains(codecs, CODEC::FOURCC_AC_3))
+    return CODEC::FOURCC_AC_3;
   else
-    return "aac";
+    return CODEC::FOURCC_MP4A;
 }
 
 } // unnamed namespace
@@ -1012,7 +1013,7 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
     repr->SetTimescale(1000000);
 
     // Try to get the codecs from first representation
-    std::string codec = "aac";
+    std::string codec = CODEC::FOURCC_MP4A;
     auto& adpSets = period->GetAdaptationSets();
     if (!adpSets.empty())
     {

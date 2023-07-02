@@ -10,8 +10,11 @@
 
 #include "../utils/PropertiesUtils.h"
 #include "../utils/UrlUtils.h"
+#include "../utils/Utils.h"
 
 #include <gtest/gtest.h>
+
+using namespace UTILS;
 
 class DASHTreeTest : public ::testing::Test
 {
@@ -405,47 +408,47 @@ TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
 
   EXPECT_EQ(adpSets[1]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[1]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[1]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_TTML), true);
 
   EXPECT_EQ(adpSets[2]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[2]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[2]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_TTML), true);
 
   EXPECT_EQ(adpSets[3]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[3]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[3]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_TTML), true);
 
   EXPECT_EQ(adpSets[4]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[4]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[4]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_TTML), true);
 
   EXPECT_EQ(adpSets[5]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[5]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[5]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_WVTT), true);
 
   EXPECT_EQ(adpSets[6]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[6]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[6]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_WVTT), true);
 
   EXPECT_EQ(adpSets[7]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[7]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[7]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[7]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_WVTT), true);
 
   EXPECT_EQ(adpSets[8]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[8]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[8]->GetRepresentations()[0]->ContainsCodec("wvtt"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[8]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_WVTT), true);
 
   EXPECT_EQ(adpSets[9]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[9]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[9]->GetRepresentations()[0]->ContainsCodec("my_codec"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[9]->GetRepresentations()[0]->GetCodecs(), "my_codec"), true);
 
   EXPECT_EQ(adpSets[10]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(adpSets[10]->GetRepresentations()[0]->IsSubtitleFileStream(), true);
-  EXPECT_EQ(adpSets[10]->GetRepresentations()[0]->ContainsCodec("ttml"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[10]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_TTML), true);
 
   EXPECT_EQ(adpSets[11]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(STR(adpSets[11]->GetRepresentations()[0]->GetMimeType()), "application/mp4");
-  EXPECT_EQ(adpSets[11]->GetRepresentations()[0]->ContainsCodec("stpp"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[11]->GetRepresentations()[0]->GetCodecs(), CODEC::FOURCC_STPP), true);
 
   SetTestStream(NewStream(adpSets[11].get()));
   testStream->start_stream();
@@ -455,7 +458,7 @@ TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
 
   EXPECT_EQ(adpSets[12]->GetStreamType(), PLAYLIST::StreamType::SUBTITLE);
   EXPECT_EQ(STR(adpSets[12]->GetMimeType()), "application/mp4");
-  EXPECT_EQ(adpSets[12]->GetRepresentations()[0]->ContainsCodec("stpp.ttml.im1t"), true);
+  EXPECT_EQ(CODEC::Contains(adpSets[12]->GetRepresentations()[0]->GetCodecs(), "stpp.ttml.im1t"), true);
 
   SetTestStream(NewStream(adpSets[12].get()));
   testStream->start_stream();

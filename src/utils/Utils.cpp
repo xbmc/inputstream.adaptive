@@ -12,6 +12,7 @@
 #include "StringUtils.h"
 #include "kodi/tools/StringUtils.h"
 
+#include <algorithm> // any_of
 #include <chrono>
 #include <cstring>
 #include <ctime>
@@ -320,34 +321,57 @@ void UTILS::ParseHeaderString(std::map<std::string, std::string>& headerMap,
   }
 }
 
-std::string UTILS::GetVideoCodecDesc(std::string_view codecName)
-{
-  if (codecName.find("avc") != std::string::npos || codecName.find("h264") != std::string::npos)
-  {
-    return "H.264";
-  }
-  else if (codecName.find("hev") != std::string::npos ||
-           codecName.find("hvc") != std::string::npos || codecName.find("dvh") != std::string::npos)
-  {
-    return "H.265 / HEVC";
-  }
-  else if (codecName.find("vp9") != std::string::npos ||
-           codecName.find("vp09") != std::string::npos)
-  {
-    return "H.265 / VP9";
-  }
-  else if (codecName.find("av1") != std::string::npos ||
-           codecName.find("av01") != std::string::npos)
-  {
-    return "AV1";
-  }
-  else
-    return "";
-}
-
 uint64_t UTILS::GetTimestamp()
 {
   std::chrono::seconds unix_timestamp = std::chrono::seconds(std::time(NULL));
   using dCast = std::chrono::duration<std::uint64_t>;
   return std::chrono::duration_cast<dCast>(std::chrono::milliseconds(unix_timestamp)).count();
+}
+
+bool UTILS::CODEC::Contains(const std::set<std::string>& list, std::string_view codec)
+{
+  return std::any_of(list.cbegin(), list.cend(),
+                     [codec](const std::string& str) { return STRING::Contains(str, codec); });
+}
+
+bool UTILS::CODEC::Contains(const std::set<std::string>& list,
+                            std::string_view codec,
+                            std::string& codecStr)
+{
+  auto itCodec =
+      std::find_if(list.cbegin(), list.cend(),
+                   [codec](const std::string& str) { return STRING::Contains(str, codec); });
+  if (itCodec != list.cend())
+  {
+    codecStr = *itCodec;
+    return true;
+  }
+  codecStr.clear();
+  return false;
+}
+
+std::string UTILS::CODEC::GetVideoDesc(const std::set<std::string>& list)
+{
+  for (const std::string& codec : list)
+  {
+    if (STRING::Contains(codec, FOURCC_AVC_) || STRING::Contains(codec, FOURCC_H264))
+    {
+      return "H.264";
+    }
+    if (STRING::Contains(codec, FOURCC_HEVC) || STRING::Contains(codec, FOURCC_HVC1) ||
+        STRING::Contains(codec, FOURCC_DVH1) || STRING::Contains(codec, FOURCC_HEV1) ||
+        STRING::Contains(codec, FOURCC_DVHE))
+    {
+      return "HEVC";
+    }
+    if (STRING::Contains(codec, FOURCC_VP09) || STRING::Contains(codec, NAME_VP9))
+    {
+      return "VP9";
+    }
+    if (STRING::Contains(codec, FOURCC_AV01) || STRING::Contains(codec, NAME_AV1))
+    {
+      return "AV1";
+    }
+  }
+  return "";
 }

@@ -68,16 +68,27 @@ public:
   std::string GetBaseUrl() const { return m_baseUrl; }
   void SetBaseUrl(std::string_view baseUrl) { m_baseUrl = baseUrl; }
 
+  /*!
+   * \brief Add a codec string
+   */
   void AddCodecs(std::string_view codecs);
-  void AddCodecs(const std::set<std::string>& codecs);
-  std::set<std::string> GetCodecs() const { return m_codecs; }
-  const std::set<std::string>& GetCodecs() { return m_codecs; }
-  std::string GetFirstCodec() const { return m_codecs.empty() ? "" : *m_codecs.begin(); }
 
-  // Check if a codec exists, convenient function to check within of strings
-  // e.g find "ttml" return true also when there is a "stpp.ttml.im1t" codec name
-  bool ContainsCodec(std::string_view codec) const;
-  bool ContainsCodec(std::string_view codec, std::string& codecStr) const;
+  /*!
+   * \brief Add codec string
+   */
+  void AddCodecs(const std::set<std::string>& codecs);
+
+  /*!
+   * \brief Get codec list, a common rule for a codec string among manifest types is the use
+   *        of fourcc codes, but codec string can contains other info as ISO BMFF (RFC 6381) format
+   */
+  std::set<std::string> GetCodecs() const { return m_codecs; }
+
+  /*!
+   * \brief Get codec list, a common rule for a codec string among manifest types is the use
+   *        of fourcc codes, but codec string can contains other info as ISO BMFF (RFC 6381) format
+   */
+  const std::set<std::string>& GetCodecs() { return m_codecs; }
 
   // ISA custom attribute
   std::string& GetCodecPrivateData() { return m_codecPrivateData; }

@@ -17,6 +17,9 @@
 #include "../codechandler/VP9CodecHandler.h"
 #include "../codechandler/WebVTTCodecHandler.h"
 #include "../utils/log.h"
+#include "../utils/Utils.h"
+
+using namespace UTILS;
 
 namespace
 {
@@ -245,19 +248,19 @@ bool CFragmentedSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
       case AP4_OTI_MPEG2_AAC_AUDIO_MAIN:
       case AP4_OTI_MPEG2_AAC_AUDIO_LC:
       case AP4_OTI_MPEG2_AAC_AUDIO_SSRP:
-        info.SetCodecName("aac");
+        info.SetCodecName(CODEC::NAME_AAC);
         break;
       case AP4_OTI_DTS_AUDIO:
       case AP4_OTI_DTS_HIRES_AUDIO:
       case AP4_OTI_DTS_MASTER_AUDIO:
       case AP4_OTI_DTS_EXPRESS_AUDIO:
-        info.SetCodecName("dca");
+        info.SetCodecName(CODEC::NAME_DTS);
         break;
       case AP4_OTI_AC3_AUDIO:
-        info.SetCodecName("ac3");
+        info.SetCodecName(CODEC::NAME_AC3);
         break;
       case AP4_OTI_EAC3_AUDIO:
-        info.SetCodecName("eac3");
+        info.SetCodecName(CODEC::NAME_EAC3);
         break;
     }
   }
