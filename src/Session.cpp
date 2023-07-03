@@ -876,8 +876,9 @@ void CSession::UpdateStream(CStream& stream)
 
   stream.m_info.SetCodecFourCC(0);
   stream.m_info.SetBitRate(rep->GetBandwidth());
+  const std::set<std::string>& codecs = rep->GetCodecs();
 
-  // Original codec name
+  // Original codec string
   std::string codecStr;
 
   if (streamType == StreamType::VIDEO)
@@ -898,18 +899,35 @@ void CSession::UpdateStream(CStream& stream)
     stream.m_info.SetColorPrimaries(INPUTSTREAM_COLORPRIMARY_UNSPECIFIED);
     stream.m_info.SetColorTransferCharacteristic(INPUTSTREAM_COLORTRC_UNSPECIFIED);
 
-    if (rep->ContainsCodec("avc", codecStr) || rep->ContainsCodec("h264", codecStr))
-      stream.m_info.SetCodecName("h264");
-    else if (rep->ContainsCodec("hev", codecStr))
-      stream.m_info.SetCodecName("hevc");
-    else if (rep->ContainsCodec("hvc", codecStr) || rep->ContainsCodec("dvh", codecStr))
+    if (CODEC::Contains(codecs, CODEC::FOURCC_AVC_, codecStr) ||
+        CODEC::Contains(codecs, CODEC::FOURCC_H264, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_H264);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_HEVC, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_HEVC);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_HVC1, codecStr))
     {
-      stream.m_info.SetCodecFourCC(MakeFourCC(codecStr[0], codecStr[1], codecStr[2], codecStr[3]));
-      stream.m_info.SetCodecName("hevc");
+      stream.m_info.SetCodecName(CODEC::NAME_HEVC);
+      stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_HVC1));
     }
-    else if (rep->ContainsCodec("vp9", codecStr) || rep->ContainsCodec("vp09", codecStr))
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_DVH1, codecStr))
     {
-      stream.m_info.SetCodecName("vp9");
+      stream.m_info.SetCodecName(CODEC::NAME_HEVC);
+      stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_DVH1));
+    }
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_HEV1, codecStr))
+    {
+      stream.m_info.SetCodecName(CODEC::NAME_HEVC);
+      stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_HEV1));
+    }
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_DVHE, codecStr))
+    {
+      stream.m_info.SetCodecName(CODEC::NAME_HEVC);
+      stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_DVHE));
+    }
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_VP09, codecStr) ||
+             CODEC::Contains(codecs, CODEC::NAME_VP9, codecStr)) // Some streams incorrectly use the name
+    {
+      stream.m_info.SetCodecName(CODEC::NAME_VP9);
       if (STRING::Contains(codecStr, "."))
       {
         int codecProfileNum = STRING::ToInt32(codecStr.substr(codecStr.find('.') + 1));
@@ -934,8 +952,9 @@ void CSession::UpdateStream(CStream& stream)
         }
       }
     }
-    else if (rep->ContainsCodec("av1", codecStr) || rep->ContainsCodec("av01", codecStr))
-      stream.m_info.SetCodecName("av1");
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_AV01, codecStr) ||
+             CODEC::Contains(codecs, CODEC::NAME_AV1, codecStr)) // Some streams incorrectly use the name
+      stream.m_info.SetCodecName(CODEC::NAME_AV1);
     else
     {
       stream.m_isValid = false;
@@ -947,18 +966,25 @@ void CSession::UpdateStream(CStream& stream)
     stream.m_info.SetSampleRate(rep->GetSampleRate());
     stream.m_info.SetChannels(rep->GetAudioChannels());
 
-    if (rep->ContainsCodec("mp4a", codecStr) || rep->ContainsCodec("aac", codecStr))
-      stream.m_info.SetCodecName("aac");
-    else if (rep->ContainsCodec("dts", codecStr))
-      stream.m_info.SetCodecName("dca");
-    else if (rep->ContainsCodec("ac-3", codecStr))
-      stream.m_info.SetCodecName("ac3");
-    else if (rep->ContainsCodec("ec-3", codecStr))
-      stream.m_info.SetCodecName("eac3");
-    else if (rep->ContainsCodec("opus", codecStr))
-      stream.m_info.SetCodecName("opus");
-    else if (rep->ContainsCodec("vorbis", codecStr))
-      stream.m_info.SetCodecName("vorbis");
+    if (CODEC::Contains(codecs, CODEC::FOURCC_MP4A, codecStr) ||
+        CODEC::Contains(codecs, CODEC::FOURCC_AAC_, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_AAC);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_DTS_, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_DTS);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_AC_3, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_AC3);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_EC_3, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_EAC3);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_OPUS, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_OPUS);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_VORB, codecStr) || // Find "vorb" and "vorbis" case
+             CODEC::Contains(codecs, CODEC::FOURCC_VORB1, codecStr) ||
+             CODEC::Contains(codecs, CODEC::FOURCC_VORB1P, codecStr) ||
+             CODEC::Contains(codecs, CODEC::FOURCC_VORB2, codecStr) ||
+             CODEC::Contains(codecs, CODEC::FOURCC_VORB2P, codecStr) ||
+             CODEC::Contains(codecs, CODEC::FOURCC_VORB3, codecStr) ||
+             CODEC::Contains(codecs, CODEC::FOURCC_VORB3P, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_VORBIS);
     else
     {
       stream.m_isValid = false;
@@ -967,10 +993,11 @@ void CSession::UpdateStream(CStream& stream)
   }
   else if (streamType == StreamType::SUBTITLE)
   {
-    if (rep->ContainsCodec("stpp", codecStr) || rep->ContainsCodec("ttml", codecStr))
-      stream.m_info.SetCodecName("srt");
-    else if (rep->ContainsCodec("wvtt", codecStr))
-      stream.m_info.SetCodecName("webvtt");
+    if (CODEC::Contains(codecs, CODEC::FOURCC_TTML, codecStr) ||
+        CODEC::Contains(codecs, CODEC::FOURCC_STPP, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_SRT); // We convert it to SRT, Kodi dont support TTML yet
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_WVTT, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_WEBVTT);
     else
     {
       stream.m_isValid = false;
