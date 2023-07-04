@@ -37,6 +37,7 @@ namespace adaptive
     m_manifestHeaders = left.m_manifestHeaders;
     m_settings = left.m_settings;
     m_supportedKeySystem = left.m_supportedKeySystem;
+    m_pathSaveManifest = left.m_pathSaveManifest;
   }
 
   void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
