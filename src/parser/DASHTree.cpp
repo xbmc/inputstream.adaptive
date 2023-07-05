@@ -1617,9 +1617,6 @@ static void XMLCALL end(void* data, const char* el)
 DASHTree::DASHTree(const DASHTree& left) : AdaptiveTree(left)
 {
   base_time_ = left.base_time_;
-  
-  // Location element should be used on manifest updates
-  location_ = left.location_;
 }
 
 /*----------------------------------------------------------------------
@@ -1728,7 +1725,8 @@ void DASHTree::RefreshLiveSegments()
 
   std::unique_ptr<DASHTree> updateTree{std::move(Clone())};
 
-  std::string manifestUrlUpd{manifest_url_};
+  std::string manifestUrlUpd = location_.empty() ? manifest_url_ : location_;
+
   bool urlHaveStartNumber{m_manifestUpdateParam.find("$START_NUMBER$") != std::string::npos};
 
   if (urlHaveStartNumber)

@@ -256,9 +256,8 @@ bool CSession::Initialize()
     }
   }
 
-  // Open manifest file with location redirect support  bool mpdSuccess;
-  std::string manifestUrl =
-      m_adaptiveTree->location_.empty() ? m_manifestUrl : m_adaptiveTree->location_;
+  // Open manifest file
+  std::string manifestUrl = m_manifestUrl;
 
   m_adaptiveTree->SetManifestUpdateParam(manifestUrl, m_kodiProps.m_manifestUpdateParam);
 
