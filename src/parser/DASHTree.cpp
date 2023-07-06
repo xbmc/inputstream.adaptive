@@ -996,14 +996,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
       if (segmentsCount < 65536) // SIDX atom is limited to 65535 references (fragments)
       {
-        if (!segTemplate->GetInitialization().empty())
-        {
-          CSegment seg;
-          seg.SetIsInitialization(true);
-          seg.startPTS_ = 0;
-          repr->SetInitSegment(seg);
-        }
-
         CSegment segTl;
         segTl.m_time = adpSet->GetStartPTS();
         segTl.m_number = repr->GetStartNumber();
