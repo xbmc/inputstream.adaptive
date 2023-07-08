@@ -118,9 +118,9 @@ public:
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
                              uint8_t iv[16],
-                             const char* srcData,
+                             const uint8_t* srcData,
                              size_t srcDataSize,
-                             std::string& segBuffer,
+                             std::vector<uint8_t>& segBuffer,
                              size_t segBufferSize,
                              bool isLastChunk);
 

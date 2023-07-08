@@ -89,11 +89,11 @@ bool TestAdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
   if (downloadInfo.m_url.empty())
     return false;
 
-  std::string& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
+  std::vector<uint8_t>& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
   std::stringstream sampleData("Sixteen bytes!!!");
 
   const size_t bufferSize = 8;
-  char bufferData[bufferSize];
+  uint8_t bufferData[bufferSize];
   size_t totalByteRead = 0;
 
   sampleData.clear();
@@ -108,7 +108,7 @@ bool TestAdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
       if (state_ == STOPPED)
         break;
 
-      sampleData.read(bufferData, bufferSize);
+      sampleData.read(reinterpret_cast<char*>(bufferData), bufferSize);
       size_t bytesRead = sampleData.gcount();
 
       if (bytesRead == 0) // EOF
@@ -134,16 +134,17 @@ bool TestAdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
   return true;
 }
 
-bool TestAdaptiveStream::Download(const DownloadInfo& downloadInfo, std::string& data)
+bool TestAdaptiveStream::Download(const DownloadInfo& downloadInfo, std::vector<uint8_t>& data)
 {
-  data = "Sixteen bytes!!!";
+  const char* dataStr = "Sixteen bytes!!!";
+  data.insert(data.end(), dataStr, dataStr + 16);
   return true;
 }
 
 void AESDecrypter::decrypt(const AP4_UI08* aes_key,
                            const AP4_UI08* aes_iv,
                            const AP4_UI08* src,
-                           std::string& dst,
+                           std::vector<uint8_t>& dst,
                            size_t dstOffset,
                            size_t& dataSize,
                            bool lastChunk)

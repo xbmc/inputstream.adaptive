@@ -89,7 +89,8 @@ class AdaptiveStream;
     bool StreamChanged() { return stream_changed_; }
 
   protected:
-    virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep, const std::string& buffer);
+    virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep,
+                                 const std::vector<uint8_t>& buffer);
 
     virtual void SetLastUpdated(const std::chrono::system_clock::time_point tm) {}
     std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
@@ -105,7 +106,7 @@ class AdaptiveStream;
 
     struct SEGMENTBUFFER
     {
-      std::string buffer;
+      std::vector<uint8_t> buffer;
       PLAYLIST::CSegment segment;
       uint64_t segment_number{0};
       PLAYLIST::CRepresentation* rep{nullptr};
@@ -132,7 +133,7 @@ class AdaptiveStream;
     * \param data[OUT] The downloaded data
     * \return Return true if success, otherwise false
     */
-    virtual bool Download(const DownloadInfo& downloadInfo, std::string& data);
+    virtual bool Download(const DownloadInfo& downloadInfo, std::vector<uint8_t>& data);
 
    /*!
     * \brief Download a segment file in chunks, the data could be also decrypted by the manifest parser,
@@ -151,7 +152,7 @@ class AdaptiveStream;
     *                  will be stored to the segment buffer and could be decrypted by the manifest parser.
     * \return Return true if success, otherwise false
     */
-    bool DownloadImpl(const DownloadInfo& downloadInfo, std::string* data);
+    bool DownloadImpl(const DownloadInfo& downloadInfo, std::vector<uint8_t>* data);
 
     bool PrepareNextDownload(DownloadInfo& downloadInfo);
     bool PrepareDownload(const PLAYLIST::CRepresentation* rep,
