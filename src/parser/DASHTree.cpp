@@ -16,6 +16,7 @@
 #include "PRProtectionParser.h"
 #include "kodi/tools/StringUtils.h"
 
+#include <cmath>
 #include <cstring>
 #include <float.h>
 #include <string>
@@ -1251,9 +1252,8 @@ static void XMLCALL end(void* data, const char* el)
                 if (countSegs == 0)
                 {
                   countSegs =
-                      static_cast<size_t>(static_cast<double>(overallSeconds) /
-                                          (static_cast<double>(tpl.duration) / tpl.timescale)) +
-                      1;
+                      static_cast<size_t>(std::ceil(static_cast<double>(overallSeconds) /
+                                          (static_cast<double>(tpl.duration) / tpl.timescale)));
                 }
 
                 if (countSegs < 65536)

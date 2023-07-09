@@ -235,9 +235,9 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
-  EXPECT_EQ(segments.size(), 451);
+  EXPECT_EQ(segments.size(), 450);
   EXPECT_EQ(segments.Get(0)->range_end_, 404305525);
-  EXPECT_EQ(segments.Get(450)->range_end_, 404305975);
+  EXPECT_EQ(segments.Get(449)->range_end_, 404305974);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
@@ -249,9 +249,9 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
   adaptive::SPINCACHE<adaptive::AdaptiveTree::Segment> segments =
       tree->periods_[0]->adaptationSets_[0]->representations_[0]->segments_;
 
-  EXPECT_EQ(segments.size(), 31);
+  EXPECT_EQ(segments.size(), 30);
   EXPECT_EQ(segments.Get(0)->range_end_, 603272);
-  EXPECT_EQ(segments.Get(30)->range_end_, 603302);
+  EXPECT_EQ(segments.Get(29)->range_end_, 603301);
 }
 
 TEST_F(DASHTreeTest, CalculateLiveWithPresentationDuration)
