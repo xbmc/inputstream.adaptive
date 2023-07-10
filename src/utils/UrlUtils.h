@@ -69,7 +69,7 @@ void AppendParameters(std::string& url, std::string params);
 
 /*! \brief Get the domain URL from an URL
  *  \param url An URL
- *  \return The domain URL
+ *  \return The domain URL if found, otherwise empty string
  */
 std::string GetDomainUrl(std::string url);
 
