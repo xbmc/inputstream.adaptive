@@ -206,11 +206,13 @@ std::string UTILS::URL::GetDomainUrl(std::string url)
     size_t slashPos = url.find_first_of('/', url.find("://") + 3);
     if (slashPos != std::string::npos)
       url = url.substr(0, slashPos);
-  }
-  if (url.back() == '/')
-    url.pop_back();
 
-  return url;
+    if (url.back() == '/')
+      url.pop_back();
+
+    return url;
+  }
+  return "";
 }
 
 std::string UTILS::URL::Join(std::string baseUrl, std::string relativeUrl)
@@ -248,7 +250,9 @@ std::string UTILS::URL::Join(std::string baseUrl, std::string relativeUrl)
   {
     skipRemovingSegs = false;
     relativeUrl.erase(0, 1);
-    baseUrl = GetDomainUrl(baseUrl) + "/";
+    std::string domain = GetDomainUrl(baseUrl);
+    if (!domain.empty())
+      baseUrl = domain + "/";
   }
 
   if (IsUrlRelativeLevel(relativeUrl))
