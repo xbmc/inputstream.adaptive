@@ -174,13 +174,13 @@ namespace adaptive
   void AdaptiveTree::OnDataArrived(uint64_t segNum,
                                    uint16_t psshSet,
                                    uint8_t iv[16],
-                                   const char* srcData,
+                                   const uint8_t* srcData,
                                    size_t srcDataSize,
-                                   std::string& segBuffer,
+                                   std::vector<uint8_t>& segBuffer,
                                    size_t segBufferSize,
                                    bool isLastChunk)
   {
-    segBuffer.append(srcData, srcDataSize);
+    segBuffer.insert(segBuffer.end(), srcData, srcData + srcDataSize);
   }
 
   uint16_t AdaptiveTree::InsertPsshSet(PLAYLIST::StreamType streamType,

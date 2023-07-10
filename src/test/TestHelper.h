@@ -75,7 +75,7 @@ public:
   virtual bool DownloadSegment(const DownloadInfo& downloadInfo) override;
 
 protected:
-  virtual bool Download(const DownloadInfo& downloadInfo, std::string& data) override;
+  virtual bool Download(const DownloadInfo& downloadInfo, std::vector<uint8_t>& data) override;
 };
 
 class AESDecrypter : public IAESDecrypter
@@ -87,7 +87,7 @@ public:
   void decrypt(const AP4_UI08* aes_key,
                const AP4_UI08* aes_iv,
                const AP4_UI08* src,
-               std::string& dst,
+               std::vector<uint8_t>& dst,
                size_t dstOffset,
                size_t& dataSize,
                bool lastChunk);

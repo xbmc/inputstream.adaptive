@@ -619,9 +619,9 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
                                        uint16_t psshSet,
                                        uint8_t iv[16],
-                                       const char* srcData,
+                                       const uint8_t* srcData,
                                        size_t srcDataSize,
-                                       std::string& segBuffer,
+                                       std::vector<uint8_t>& segBuffer,
                                        size_t segBufferSize,
                                        bool isLastChunk)
 {
@@ -684,7 +684,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     }
     if (pssh.defaultKID_ == "0")
     {
-      segBuffer.insert(segBufferSize, srcDataSize, 0);
+      segBuffer.resize(segBufferSize + srcDataSize, 0);
       return;
     }
     else if (!segBufferSize)
@@ -698,7 +698,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
       }
     }
 
-    // Decrypter needs preallocated string data
+    // Decrypter needs preallocated data
     segBuffer.resize(segBufferSize + srcDataSize);
 
     m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv,

@@ -105,7 +105,8 @@ void adaptive::AdaptiveStream::DeallocateSegmentBuffers()
   }
 }
 
-bool adaptive::AdaptiveStream::Download(const DownloadInfo& downloadInfo, std::string& data)
+bool adaptive::AdaptiveStream::Download(const DownloadInfo& downloadInfo,
+                                        std::vector<uint8_t>& data)
 {
   return DownloadImpl(downloadInfo, &data);
 }
@@ -121,7 +122,7 @@ bool adaptive::AdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
 }
 
 bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
-                                            std::string* downloadData)
+                                            std::vector<uint8_t>* downloadData)
 {
   if (downloadInfo.m_url.empty())
     return false;
@@ -153,7 +154,7 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
 
     while (downloadStatus == CURL::ReadStatus::CHUNK_READ)
     {
-      std::vector<char> bufferData(CURL::BUFFER_SIZE_32);
+      std::vector<uint8_t> bufferData(CURL::BUFFER_SIZE_32);
       size_t bytesRead{0};
 
       downloadStatus = curl.ReadChunk(bufferData.data(), CURL::BUFFER_SIZE_32, bytesRead);
@@ -162,7 +163,7 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
       {
         if (downloadData) // Write the data in to the string
         {
-          downloadData->append(bufferData.data(), bytesRead);
+          downloadData->insert(downloadData->end(), bufferData.begin(), bufferData.end());
         }
         else // Write the data to the segment buffer
         {
@@ -177,7 +178,7 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
             if (state_ == STOPPED)
               break;
 
-            std::string& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
+            std::vector<uint8_t>& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
 
             tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
                                 downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
@@ -436,7 +437,8 @@ int AdaptiveStream::SecondsSinceUpdate() const
           .count());
 }
 
-bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep, const std::string& buffer)
+bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
+                                     const std::vector<uint8_t>& buffer)
 {
 #ifndef INPUTSTREAM_TEST_BUILD
   LOG::Log(LOGDEBUG, "[AS-%u] Build segments from SIDX atom...", clsId);
@@ -1226,7 +1228,7 @@ bool AdaptiveStream::ResolveSegmentBase(PLAYLIST::CRepresentation* rep)
   else
     return false;
 
-  std::string sidxBuffer;
+  std::vector<uint8_t> sidxBuffer;
   DownloadInfo downloadInfo;
   // We assume mutex_dl is locked so we can safely call prepare_download
   if (PrepareDownload(rep, seg, downloadInfo) && Download(downloadInfo, sidxBuffer) &&
