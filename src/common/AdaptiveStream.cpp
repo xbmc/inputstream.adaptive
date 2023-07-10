@@ -300,8 +300,9 @@ void AdaptiveStream::ResetSegment(const PLAYLIST::CSegment* segment)
 
   if (segment)
   {
-    if (!current_rep_->HasSegmentBase() && !current_rep_->HasSegmentTemplate() &&
-        segment->url.empty() && current_rep_->GetContainerType() != ContainerType::TS)
+    if (segment->HasByteRange() && !current_rep_->HasSegmentBase() &&
+        !current_rep_->HasSegmentTemplate() &&
+        current_rep_->GetContainerType() != ContainerType::TS)
     {
       absolute_position_ = segment->range_begin_;
     }
