@@ -998,14 +998,14 @@ bool AdaptiveStream::seek(uint64_t const pos)
   // we seek only in the current segment
   if (state_ != STOPPED && pos >= absolute_position_ - segment_read_pos_)
   {
-    segment_read_pos_ = static_cast<uint32_t>(pos - (absolute_position_ - segment_read_pos_));
+    segment_read_pos_ = static_cast<size_t>(pos - (absolute_position_ - segment_read_pos_));
 
     while (segment_read_pos_ > segment_buffers_[0]->buffer.size() && worker_processing_)
       thread_data_->signal_rw_.wait(lckrw);
 
     if (segment_read_pos_ > segment_buffers_[0]->buffer.size())
     {
-      segment_read_pos_ = static_cast<uint32_t>(segment_buffers_[0]->buffer.size());
+      segment_read_pos_ = segment_buffers_[0]->buffer.size();
       return false;
     }
     absolute_position_ = pos;
