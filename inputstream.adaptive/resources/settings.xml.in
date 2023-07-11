@@ -174,11 +174,13 @@
         <setting id="ASSUREDBUFFERDURATION" type="integer" label="30200" help="30167">
           <level>1</level>
           <default>60</default>
+          <visible>false</visible> <!-- Working code disabled, rework needed -->
           <control type="edit" format="integer" />
         </setting>
         <setting id="MAXBUFFERDURATION" type="integer" label="30201" help="30167">
           <level>1</level>
           <default>120</default>
+          <visible>false</visible> <!-- Working code disabled, rework needed -->
           <control type="edit" format="integer" />
         </setting>
         <setting id="MEDIATYPE" type="integer" label="30112">
