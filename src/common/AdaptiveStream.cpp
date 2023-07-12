@@ -44,8 +44,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     current_period_(tree_.m_currentPeriod),
     current_adp_(adp),
     current_rep_(initialRepr),
-    available_segment_buffers_(0),
-    valid_segment_buffers_(0),
     m_streamParams(kodiProps.m_streamParams),
     m_streamHeaders(kodiProps.m_streamHeaders),
     segment_read_pos_(0),
@@ -58,9 +56,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     choose_rep_(choose_rep),
     rep_counter_(1),
     prev_rep_(0),
-    last_rep_(0),
-    assured_buffer_length_(5),
-    max_buffer_length_(10)
+    last_rep_(0)
 {
   current_rep_->current_segment_ = nullptr;
 
@@ -598,8 +594,16 @@ bool AdaptiveStream::start_stream()
   //! a fixed duration of 1 sec moreover these properties currently works for
   //! the DASH manifest with "SegmentTemplate" tags defined only,
   //! in all other type of manifest cases always fallback on hardcoded values
+  /*
+   * Adaptive/custom buffering code disabled
+   * currently cause a bad memory management especially for 4k content
+   * too much buffer length leads to filling the RAM and cause kodi to crash
+   * required to implement a way to determine the max length of the buffer 
+   * by taking in account also the device RAM
+   *
   assured_buffer_length_ = current_rep_->assured_buffer_duration_;
   max_buffer_length_ = current_rep_->max_buffer_duration_;
+
   if (current_rep_->HasSegmentTemplate())
   {
     const auto& segTemplate = current_rep_->GetSegmentTemplate();
@@ -608,6 +612,7 @@ bool AdaptiveStream::start_stream()
     max_buffer_length_ = std::ceil((max_buffer_length_ * segTemplate->GetTimescale()) /
                                    static_cast<float>(segTemplate->GetDuration()));
   }
+  */
   assured_buffer_length_  = assured_buffer_length_ <4 ? 4:assured_buffer_length_;//for incorrect settings input
   if(max_buffer_length_<=assured_buffer_length_)//for incorrect settings input
     max_buffer_length_=assured_buffer_length_+4u;
@@ -998,14 +1003,14 @@ bool AdaptiveStream::seek(uint64_t const pos)
   // we seek only in the current segment
   if (state_ != STOPPED && pos >= absolute_position_ - segment_read_pos_)
   {
-    segment_read_pos_ = static_cast<uint32_t>(pos - (absolute_position_ - segment_read_pos_));
+    segment_read_pos_ = static_cast<size_t>(pos - (absolute_position_ - segment_read_pos_));
 
     while (segment_read_pos_ > segment_buffers_[0]->buffer.size() && worker_processing_)
       thread_data_->signal_rw_.wait(lckrw);
 
     if (segment_read_pos_ > segment_buffers_[0]->buffer.size())
     {
-      segment_read_pos_ = static_cast<uint32_t>(segment_buffers_[0]->buffer.size());
+      segment_read_pos_ = segment_buffers_[0]->buffer.size();
       return false;
     }
     absolute_position_ = pos;
