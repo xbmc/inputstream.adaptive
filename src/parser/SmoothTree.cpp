@@ -141,6 +141,7 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
   }
 
   adpSet->SetName(XML::GetAttrib(nodeSI, "Name"));
+  adpSet->SetId("SI:" + adpSet->GetName());
 
   std::string_view type = XML::GetAttrib(nodeSI, "Type");
   std::string_view subtype = XML::GetAttrib(nodeSI, "Subtype");
@@ -290,7 +291,10 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
   repr->SetBaseUrl(adpSet->GetBaseUrl());
   repr->SetTimescale(timescale);
 
-  repr->SetId(XML::GetAttrib(nodeQI, "Index"));
+  std::string id = "SI:" + adpSet->GetName() + " - QL:";
+  id += XML::GetAttrib(nodeQI, "Index");
+  repr->SetId(id);
+
   repr->SetBandwidth(XML::GetAttribUint32(nodeQI, "Bitrate"));
 
   std::string fourCc;
