@@ -96,8 +96,9 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
     pugi::xml_node nodeProtHead = nodeProt.child("ProtectionHeader");
     if (nodeProtHead)
     {
-      if (STRING::CompareNoCase(XML::GetAttrib(nodeProtHead, "SystemID"),
-                                "9A04F079-9840-4286-AB92-E65BE0885F95"))
+      // SystemID can be wrapped by {}
+      if (STRING::Contains(XML::GetAttrib(nodeProtHead, "SystemID"),
+                           "9A04F079-9840-4286-AB92-E65BE0885F95"))
       {
         if (protParser.ParseHeader(nodeProtHead.child_value()))
         {
