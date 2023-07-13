@@ -133,15 +133,51 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
 {
   std::unique_ptr<CAdaptationSet> adpSet = CAdaptationSet::MakeUniquePtr(period);
 
+  if (nodeSI.attribute("ParentStreamIndex"))
+  {
+    LOG::LogF(LOGDEBUG, "Skipped <StreamIndex> tag, \"ParentStreamIndex\" attribute is not supported.");
+    return;
+  }
+
   adpSet->SetName(XML::GetAttrib(nodeSI, "Name"));
 
   std::string_view type = XML::GetAttrib(nodeSI, "Type");
+  std::string_view subtype = XML::GetAttrib(nodeSI, "Subtype");
+
   if (type == "video")
+  {
+    // Skip know unsupported subtypes
+    if (subtype == "ZOET" || // Trick mode
+        subtype == "CHAP") // Chapter headings
+    {
+      LOG::LogF(LOGDEBUG, "Skipped <StreamIndex> tag, Subtype \"%s\" not supported.", subtype.data());
+      return;
+    }
     adpSet->SetStreamType(StreamType::VIDEO);
+  }
   else if (type == "audio")
+  {
     adpSet->SetStreamType(StreamType::AUDIO);
+  }
   else if (type == "text")
+  {
+    // Skip know unsupported subtypes
+    if (subtype == "SCMD" || // Script commands
+        subtype == "CHAP" || // Chapter headings
+        subtype == "CTRL" || // Control events (ADS)
+        subtype == "DATA" || // Application data
+        subtype == "ADI3") // ADS sparse tracks
+    {
+      LOG::LogF(LOGDEBUG, "Skipped <StreamIndex> tag, Subtype \"%s\" not supported.",
+                subtype.data());
+      return;
+    }
+    else if (subtype == "CAPT" || subtype == "DESC") // Captions
+    {
+      adpSet->SetIsImpaired(true);
+    }
     adpSet->SetStreamType(StreamType::SUBTITLE);
+  }
 
   uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
 
