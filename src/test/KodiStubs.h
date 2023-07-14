@@ -69,10 +69,23 @@ enum AdjustRefreshRateStatus
   ADJUST_REFRESHRATE_STATUS_ON_START,
 };
 
+enum INPUTSTREAM_TYPE
+{
+  INPUTSTREAM_TYPE_NONE = 0,
+  INPUTSTREAM_TYPE_VIDEO,
+  INPUTSTREAM_TYPE_AUDIO,
+  INPUTSTREAM_TYPE_SUBTITLE,
+  INPUTSTREAM_TYPE_TELETEXT,
+  INPUTSTREAM_TYPE_RDS,
+  INPUTSTREAM_TYPE_ID3,
+};
+
 namespace kodi
 {
 namespace addon
 {
+class InputstreamInfo;
+
 inline std::string GetLocalizedString(uint32_t labelId, const std::string& defaultStr = "")
 {
   return defaultStr;
