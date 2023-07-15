@@ -55,7 +55,7 @@ public:
    * \brief Set the stream sample reader
    * \param reader The reader
    */
-  void SetReader(std::unique_ptr<ISampleReader> reader) { m_streamReader = std::move(reader); }
+  void SetReader(std::unique_ptr<ISampleReader> reader);
 
   /*!
    * \brief Get the stream file handler pointer

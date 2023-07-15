@@ -39,7 +39,6 @@ public:
   uint64_t GetStartPTS() const override { return m_startPts; }
   void SetStartPTS(uint64_t pts) override { m_startPts = pts; }
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
   uint32_t GetTimeScale() const override { return 1000; }
   AP4_UI32 GetStreamId() const override { return m_streamId; }
   AP4_Size GetSampleDataSize() const override { return m_sampleData.GetDataSize(); }

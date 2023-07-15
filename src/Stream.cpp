@@ -42,3 +42,9 @@ void CStream::Reset()
     m_mainId = 0;
   }
 }
+
+void SESSION::CStream::SetReader(std::unique_ptr<ISampleReader> reader)
+{
+  m_streamReader = std::move(reader);
+  m_streamReader->SetObserver(&m_adStream);
+}

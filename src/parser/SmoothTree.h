@@ -32,6 +32,14 @@ public:
 
   virtual CSmoothTree* Clone() const override { return new CSmoothTree{*this}; }
 
+  virtual void InsertLiveSegment(PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adpSet,
+                                 PLAYLIST::CRepresentation* repr,
+                                 size_t pos,
+                                 uint64_t timestamp,
+                                 uint64_t fragmentDuration,
+                                 uint32_t mediaTimescale);
+
 protected:
   virtual bool ParseManifest(const std::string& data);
 
@@ -42,6 +50,9 @@ protected:
                             PLAYLIST::CAdaptationSet* adpSet,
                             const uint32_t timescale,
                             const uint16_t psshSetPos);
+  void CreateSegmentTimeline();
+
+  uint64_t m_ptsBase{PLAYLIST::NO_PTS_VALUE}; // The lower start PTS time between all StreamIndex tags
 };
 
 } // namespace adaptive

@@ -45,7 +45,7 @@ public:
   uint64_t GetStartPTS() const override { return m_startPts; }
   void SetStartPTS(uint64_t pts) override { m_startPts = pts; }
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
-  bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override;
+  bool GetFragmentInfo(uint64_t& duration) override;
   uint32_t GetTimeScale() const override { return m_track->GetMediaTimeScale(); }
   CryptoInfo GetReaderCryptoInfo() const override { return m_readerCryptoInfo; }
 
@@ -59,6 +59,7 @@ protected:
 
 private:
   void UpdateSampleDescription();
+  void ParseTrafTfrf(AP4_UuidAtom* uuidAtom);
 
   AP4_Track* m_track;
   AP4_UI32 m_poolId{0};
@@ -84,7 +85,5 @@ private:
   AP4_ProtectedSampleDescription* m_protectedDesc{nullptr};
   Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor;
   CAdaptiveCencSampleDecrypter* m_decrypter{nullptr};
-  uint64_t m_nextDuration{0};
-  uint64_t m_nextTimestamp{0};
   CryptoInfo m_readerCryptoInfo{};
 };

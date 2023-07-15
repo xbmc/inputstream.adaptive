@@ -63,7 +63,6 @@ public:
   uint64_t m_totalTimeSecs{0}; // Total playing time in seconds
   uint64_t stream_start_{0};
   uint64_t available_time_{0};
-  uint64_t base_time_{0}; // SmoothTree only, the lower start PTS time between all StreamIndex tags
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
   
   std::string m_supportedKeySystem;
@@ -133,13 +132,27 @@ public:
 
   void FreeSegments(PLAYLIST::CPeriod* period, PLAYLIST::CRepresentation* repr);
 
-  void SetFragmentDuration(PLAYLIST::CPeriod* period,
-                           PLAYLIST::CAdaptationSet* adpSet,
-                           PLAYLIST::CRepresentation* repr,
-                           size_t pos,
-                           uint64_t timestamp,
-                           uint32_t fragmentDuration,
-                           uint32_t movie_timescale);
+  /*!
+   * \brief Some adaptive streaming protocols allow the client to download the live playlist once and
+   *        build future segments based on metadata contained in the fragments e.g. to avoid repeated
+   *        manifest downloads or to cover the duration of a period not fully covered by the provided timeline.
+   * \param period Current period
+   * \param adpSet Current adaptation set
+   * \param repr Current representation
+   * \param pos Current segment position
+   * \param timestamp Fragment start timestamp
+   * \param fragmentDuration Fragment duration
+   * \param movieTimescale Fragment movie timescale
+   */
+  virtual void InsertLiveSegment(PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adpSet,
+                                 PLAYLIST::CRepresentation* repr,
+                                 size_t pos,
+                                 uint64_t timestamp,
+                                 uint64_t fragmentDuration,
+                                 uint32_t movieTimescale)
+  {
+  }
 
   // Insert a PSSHSet to the specified Period and return the position
   uint16_t InsertPsshSet(PLAYLIST::StreamType streamType,
