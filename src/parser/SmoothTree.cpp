@@ -430,16 +430,15 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   //! expired_segments_ should be removed by implementing DVRWindowLength (and timeShiftBufferDepth on dash)
   //! and then add a method to clear old segments from the timeline based on timeshift window
   //! but this looks like that need to take care also of how works segment positions.
-  //! SmoothStreaming seem to not set manifest duration for live playback so the video will result
-  //! not seekable, then atm should be no side effects on disabling this code.
-  /*
+
   // Check if its not the last frame we watch
+  //! @todo: this code prevent to add many fragments done by more callbacks
+  //! atm not found a good way to change this code by having smooth playback
   if (pos != adpSet->SegmentTimelineDuration().GetSize() - 1)
   {
     repr->expired_segments_++;
     return;
   }
-  */
 
   adpSet->SegmentTimelineDuration().Insert(
       static_cast<std::uint32_t>(fragmentDuration * period->GetTimescale() / mediaTimescale));
