@@ -1,3 +1,19 @@
+v21.1.3 (2023-07-17)
+- [DASH] Rework of manifest update parameters. NOTE: inputstream.adaptive.manifest_update_parameter is now deprecated and replaced by inputstream.adaptive.manifest_upd_params which has a different implementation - add-on devs please see the wiki
+- [DASH] fix rounding of segment count calculation - allows affected VOD streams to finish correctly
+- [AdaptiveTree] rework and cleanup of segment objects, fixing some live DASH streams
+- [TS] improved logging capabilities
+- multiple improvements for live manifest refresh handling
+- [HLS] fix wrong offset for byteranged downloads
+- Cleanup of codec names/fourcc codes, fix incorrect codec displaying in quality chooser
+- [AdaptiveTree] Preserve path to save manifest on cloning class
+- [DASH] Fix replaced init segment from SegmentTemplate
+- [HLS] fix file extension (container) detection
+- Fixes relating to high memory allocation (was causing crashes on high bitrate streams due to memory exhaustion)
+- [AdaptiveStream] On ResetSegment check for byterange not url
+- [SmoothTree] big rework to fix regressions and improve logging. Many affected streams are now playable
+- [HLS] fix for directly playing variant playlists
+
 v21.1.2 (2023-06-09)
 - [DASH] - allow contentprotection tag without systemID URN
 - [ADTS] - add support for AC-3 and EAC-3 in ADTS container
