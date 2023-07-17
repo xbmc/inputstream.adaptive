@@ -951,14 +951,18 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
     }
     else if (tagName == "#EXTINF")
     {
-      // This is not a multi - bitrate playlist
+      // This is a media playlist (not a master playlist with multi-bitrate playlist)
 
+      //! @todo: here we are add some fake data, and we are downloading two times the same manifest
+      //! because the current parser code is splitted on two parts and managed from different code,
+      //! to solve this situation a rework is needed, where we can have a seletable parsing method
       auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
       newAdpSet->SetStreamType(StreamType::VIDEO);
 
       auto repr = CRepresentation::MakeUniquePtr(newAdpSet.get());
       repr->SetTimescale(1000000);
       repr->SetSourceUrl(manifest_url_);
+      repr->AddCodecs(CODEC::FOURCC_H264);
 
       repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
       repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
