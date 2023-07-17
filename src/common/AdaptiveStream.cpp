@@ -434,6 +434,12 @@ int AdaptiveStream::SecondsSinceUpdate() const
           .count());
 }
 
+void AdaptiveStream::OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTimescale)
+{
+  tree_.InsertLiveSegment(current_period_, current_adp_, current_rep_, getSegmentPos(), ts,
+                          duration, mediaTimescale);
+}
+
 bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
                                      const std::vector<uint8_t>& buffer)
 {

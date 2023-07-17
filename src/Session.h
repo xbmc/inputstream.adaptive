@@ -334,11 +334,12 @@ public:
   void OnStreamChange(adaptive::AdaptiveStream* adStream) override;
 
 protected:
-  /*! \brief If available, read the duration and timestamp of the next fragment and
-   *         set the related members
-   *  \param adStream [OUT] The adaptive stream to check
+  /*!
+   * \brief Event raised when the current segment is changed and
+   *        the data has already been read by the sample reader.
+   * \param stream The stream for which segment has changed.
    */
-  void CheckFragmentDuration(CStream& stream);
+  void OnSegmentChangedRead(CStream* stream);
 
   /*! \brief Check for and load decrypter module matching the supplied key system
    *  \param key_system [OUT] Will be assigned to if a decrypter is found matching

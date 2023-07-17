@@ -82,3 +82,32 @@ TEST_F(SmoothTreeTest, CalculateBaseURLWithNoExtension)
   OpenTestFile("ism/TearsOfSteel.ism", "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/TearsOfSteel.ism/manifest");
   EXPECT_EQ(tree->base_url_, "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/TearsOfSteel.ism/");
 }
+
+TEST_F(SmoothTreeTest, CheckAsyncTimelineStartPTS)
+{
+  OpenTestFile("ism/live_async_streams.ism", "http://amssamples.streaming.mediaservices.windows.net/bc57e088-27ec-44e0-ac20-a85ccbcd50da/live_async_streams.ism/manifest");
+
+  // Each <StreamIndex> start with different chunk timestamp
+  // so to sync streams we adjust PTS with <StreamIndex> which has the lowest timestamp (CSmoothTree::m_ptsBase)
+  auto& period = tree->m_periods[0];
+  auto& segTL = period->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
+
+  EXPECT_EQ(segTL.GetSize(), 30);
+  EXPECT_EQ(segTL.Get(0)->startPTS_, 7058030);
+  EXPECT_EQ(segTL.Get(0)->m_time, 3903180167058030);
+  EXPECT_EQ(segTL.Get(0)->m_number, 1);
+
+  segTL = period->GetAdaptationSets()[1]->GetRepresentations()[0]->SegmentTimeline();
+
+  EXPECT_EQ(segTL.GetSize(), 30);
+  EXPECT_EQ(segTL.Get(0)->startPTS_, 71363);
+  EXPECT_EQ(segTL.Get(0)->m_time, 3903180160071363);
+  EXPECT_EQ(segTL.Get(0)->m_number, 1);
+
+  segTL = period->GetAdaptationSets()[3]->GetRepresentations()[0]->SegmentTimeline();
+
+  EXPECT_EQ(segTL.GetSize(), 29);
+  EXPECT_EQ(segTL.Get(0)->startPTS_, 0);
+  EXPECT_EQ(segTL.Get(0)->m_time, 3903180160000000);
+  EXPECT_EQ(segTL.Get(0)->m_number, 1);
+}

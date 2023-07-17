@@ -36,6 +36,14 @@ public:
                     const std::map<std::string, std::string>& headers,
                     const std::string& data) override;
 
+  virtual void InsertLiveSegment(PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adpSet,
+                                 PLAYLIST::CRepresentation* repr,
+                                 size_t pos,
+                                 uint64_t timestamp,
+                                 uint64_t fragmentDuration,
+                                 uint32_t movieTimescale);
+
 protected:
   virtual CDashTree* Clone() const override { return new CDashTree{*this}; }
 

@@ -17,6 +17,7 @@
 #include "../codechandler/VP9CodecHandler.h"
 #include "../codechandler/WebVTTCodecHandler.h"
 #include "../utils/log.h"
+#include "../utils/CharArrayParser.h"
 #include "../utils/Utils.h"
 
 using namespace UTILS;
@@ -297,27 +298,16 @@ void CFragmentedSampleReader::SetPTSOffset(uint64_t offset)
     m_codecHandler->SetPTSOffset((offset * m_timeBaseInt) / m_timeBaseExt);
 }
 
-bool CFragmentedSampleReader::GetNextFragmentInfo(uint64_t& ts, uint64_t& dur)
+bool CFragmentedSampleReader::GetFragmentInfo(uint64_t& duration)
 {
-  if (m_nextDuration)
-  {
-    dur = m_nextDuration;
-    ts = m_nextTimestamp;
-  }
+  auto fragSampleTable =
+      dynamic_cast<AP4_FragmentSampleTable*>(FindTracker(m_track->GetId())->m_SampleTable);
+  if (fragSampleTable)
+    duration = fragSampleTable->GetDuration();
   else
   {
-    auto fragSampleTable =
-        dynamic_cast<AP4_FragmentSampleTable*>(FindTracker(m_track->GetId())->m_SampleTable);
-    if (fragSampleTable)
-    {
-      dur = fragSampleTable->GetDuration();
-      ts = 0;
-    }
-    else
-    {
-      LOG::LogF(LOGERROR, "Can't get FragmentSampleTable from track %u", m_track->GetId());
-      return false;
-    }
+    LOG::LogF(LOGERROR, "Can't get FragmentSampleTable from track %u", m_track->GetId());
+    return false;
   }
   return true;
 }
@@ -355,25 +345,16 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
     AP4_ContainerAtom* traf =
         AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->GetChild(AP4_ATOM_TYPE_TRAF, 0));
 
-    //For ISM Livestreams we have an UUID atom with one / more following fragment durations
-    m_nextDuration = 0;
-    m_nextTimestamp = 0;
     AP4_Atom* atom{nullptr};
     unsigned int atom_pos{0};
 
     while ((atom = traf->GetChild(AP4_ATOM_TYPE_UUID, atom_pos++)) != nullptr)
     {
-      AP4_UuidAtom* uuid_atom{AP4_DYNAMIC_CAST(AP4_UuidAtom, atom)};
-      if (memcmp(uuid_atom->GetUuid(), SMOOTHSTREAM_TFRFBOX_UUID, 16) == 0)
+      AP4_UuidAtom* uuidAtom{AP4_DYNAMIC_CAST(AP4_UuidAtom, atom)};
+      // For smooth streaming live streams we have an TFRF atom with one / more following fragment durations
+      if (std::memcmp(uuidAtom->GetUuid(), SMOOTHSTREAM_TFRFBOX_UUID, 16) == 0)
       {
-        //verison(8) + flags(24) + numpairs(8) + pairs(ts(64)/dur(64))*numpairs
-        const AP4_DataBuffer& buf(AP4_DYNAMIC_CAST(AP4_UnknownUuidAtom, uuid_atom)->GetData());
-        if (buf.GetDataSize() >= 21)
-        {
-          const uint8_t* data(buf.GetData());
-          m_nextTimestamp = AP4_BytesToUInt64BE(data + 5);
-          m_nextDuration = AP4_BytesToUInt64BE(data + 13);
-        }
+        ParseTrafTfrf(uuidAtom);
         break;
       }
     }
@@ -508,4 +489,43 @@ void CFragmentedSampleReader::UpdateSampleDescription()
 
   if ((m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
     m_codecHandler->ExtraDataToAnnexB();
+}
+
+void CFragmentedSampleReader::ParseTrafTfrf(AP4_UuidAtom* uuidAtom)
+{
+  const AP4_DataBuffer& buf{AP4_DYNAMIC_CAST(AP4_UnknownUuidAtom, uuidAtom)->GetData()};
+  CCharArrayParser parser;
+  parser.Reset(reinterpret_cast<const char*>(buf.GetData()), static_cast<int>(buf.GetDataSize()));
+
+  if (parser.CharsLeft() < 5)
+  {
+    LOG::LogF(LOGERROR, "Wrong data length on TFRF atom.");
+    return;
+  }
+  uint8_t version = parser.ReadNextUnsignedChar();
+  uint32_t flags = parser.ReadNextUnsignedInt24();
+  uint8_t fragmentCount = parser.ReadNextUnsignedChar();
+
+  for (uint8_t index = 0; index < fragmentCount; index++)
+  {
+    uint64_t time;
+    uint64_t duration;
+
+    if (version == 0)
+    {
+      time = static_cast<uint64_t>(parser.ReadNextUnsignedInt());
+      duration = static_cast<uint64_t>(parser.ReadNextUnsignedInt());
+    }
+    else if (version == 1)
+    {
+      time = parser.ReadNextUnsignedInt64();
+      duration = parser.ReadNextUnsignedInt64();
+    }
+    else
+    {
+      LOG::LogF(LOGWARNING, "Version %u of TFRF atom fragment is not supported.", version);
+      return;
+    }
+    m_observer->OnTFRFatom(time, duration, m_track->GetMediaTimeScale());
+  }
 }

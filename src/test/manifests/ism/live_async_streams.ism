@@ -1,0 +1,141 @@
+<SmoothStreamingMedia MajorVersion="2" MinorVersion="0" Duration="0" TimeScale="10000000" IsLive="true" LookAheadFragmentCount="2" DVRWindowLength="600000000" CanSeek="true" CanPause="true">
+    <Protection>
+        <ProtectionHeader SystemID="9A04F079-9840-4286-AB92-E65BE0885F95">MgMAAAEAAQAoAzwAVwBSAE0ASABFAEEARABFAFIAIAB4AG0AbABuAHMAPQAiAGgAdAB0AHAAOgAvAC8AcwBjAGgAZQBtAGEAcwAuAG0AaQBjAHIAbwBzAG8AZgB0AC4AYwBvAG0ALwBEAFIATQAvADIAMAAwADcALwAwADMALwBQAGwAYQB5AFIAZQBhAGQAeQBIAGUAYQBkAGUAcgAiACAAdgBlAHIAcwBpAG8AbgA9ACIANAAuADAALgAwAC4AMAAiAD4APABEAEEAVABBAD4APABQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsARQBZAEwARQBOAD4AMQA2ADwALwBLAEUAWQBMAEUATgA+ADwAQQBMAEcASQBEAD4AQQBFAFMAQwBUAFIAPAAvAEEATABHAEkARAA+ADwALwBQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsASQBEAD4AdgBYAHAAMQA5AGgAVAAzAHAATABNAGoAZgAvAFIAMwBuAGkARgBEAFgAQQA9AD0APAAvAEsASQBEAD4APABDAEgARQBDAEsAUwBVAE0APgAyAEQAVwB1ADkAYgArAGwAcwBYADgAPQA8AC8AQwBIAEUAQwBLAFMAVQBNAD4APABMAEEAXwBVAFIATAA+AGgAdAB0AHAAOgAvAC8AbABvAGMAYQBsAGgAbwBzAHQALwB2ADIALwBzAGUAcgB2AGkAYwBlAHMALwBWAG8AUABsAGEAeQBSAGUAYQBkAHkAQQBxAHUAaQByAGUATABpAGMAZQBuAHMAZQAuAGMAZgBtADwALwBMAEEAXwBVAFIATAA+ADwATABVAEkAXwBVAFIATAA+AGgAdAB0AHAAOgAvAC8AbABvAGMAYQBsAGgAbwBzAHQALwB2ADIALwBzAGUAcgB2AGkAYwBlAHMALwBWAG8AUABsAGEAeQBSAGUAYQBkAHkAQQBxAHUAaQByAGUATABpAGMAZQBuAHMAZQAuAGMAZgBtADwALwBMAFUASQBfAFUAUgBMAD4APAAvAEQAQQBUAEEAPgA8AC8AVwBSAE0ASABFAEEARABFAFIAPgA=</ProtectionHeader>
+    </Protection>
+    <StreamIndex Type="video" Name="video" Language="und" Subtype="" Chunks="30" Url="QualityLevels({bitrate})/Fragments(video={start time})" QualityLevels="6">
+        <QualityLevel Index="1" Bitrate="800000" CodecPrivateData="000000016764001fac3ca50280bfe5c050808080a000000300200000065c0800186a0000927c7e27c1400000000168ef7525" FourCC="AVC1" MaxWidth="640" MaxHeight="360" FrameRate="25"></QualityLevel>
+        <QualityLevel Index="2" Bitrate="1800000" CodecPrivateData="000000016764001fac3ca50360f79bffc140014050808080a000000300200000065c0c000dbba0002932df89f0500000000168ef7525" FourCC="AVC1" MaxWidth="854" MaxHeight="480" FrameRate="25"></QualityLevel>
+        <QualityLevel Index="3" Bitrate="2800000" CodecPrivateData="000000016764001fac3ca50100126c050808080a00000300020000030065c1000055730000802b7e27c1400000000168ef7525" FourCC="AVC1" MaxWidth="1024" MaxHeight="576" FrameRate="25"></QualityLevel>
+        <QualityLevel Index="4" Bitrate="4000000" CodecPrivateData="000000016764001fac3ca50100126c050808080a00000300020000030065c100007a120000b71b7e27c1400000000168ef7525" FourCC="AVC1" MaxWidth="1024" MaxHeight="576" FrameRate="25"></QualityLevel>
+        <QualityLevel Index="5" Bitrate="5200000" CodecPrivateData="0000000167640029ac3ca5014016ec050808080a00000300020000030065c500004f588000ee087e27c1400000000168ef7525" FourCC="AVC1" MaxWidth="1280" MaxHeight="720" FrameRate="25"></QualityLevel>
+        <QualityLevel Index="6" Bitrate="6500000" CodecPrivateData="0000000167640029ac3ca501e0089f97014202020280000003008000001971500018cba00025315f89f0500000000168ef7525" FourCC="AVC1" MaxWidth="1920" MaxHeight="1080" FrameRate="25"></QualityLevel>
+        <c t="3903180167058030" d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+    </StreamIndex>
+    <StreamIndex Type="audio" Name="audio_spa" Language="spa" Subtype="" Chunks="30" Url="QualityLevels({bitrate})/Fragments(audio_spa={start time})" QualityLevels="1">
+        <QualityLevel Index="0" Bitrate="96000" CodecPrivateData="1190" FourCC="AACL" AudioTag="255" Channels="2" SamplingRate="48000" BitsPerSample="16" PacketSize="4"></QualityLevel>
+        <c t="3903180160071363" d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+    </StreamIndex>
+    <StreamIndex Type="audio" Name="audio_qaa" Language="qaa" Subtype="" Chunks="30" Url="QualityLevels({bitrate})/Fragments(audio_qaa={start time})" QualityLevels="1">
+        <QualityLevel Index="0" Bitrate="96000" CodecPrivateData="1190" FourCC="AACL" AudioTag="255" Channels="2" SamplingRate="48000" BitsPerSample="16" PacketSize="4"></QualityLevel>
+        <c t="3903180160071363" d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+        <c d="19840000"></c>
+        <c d="20053333"></c>
+        <c d="20053333"></c>
+        <c d="20053334"></c>
+    </StreamIndex>
+    <StreamIndex Type="text" Name="SPA_231_888" Language="spa" Subtype="CAPT" Chunks="29" Url="QualityLevels({bitrate})/Fragments(SPA_231_888={start time})" QualityLevels="1">
+        <QualityLevel Index="0" Bitrate="15000" FourCC="TTML"></QualityLevel>
+        <c t="3903180160000000" d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+        <c d="20000000"></c>
+    </StreamIndex>
+</SmoothStreamingMedia>

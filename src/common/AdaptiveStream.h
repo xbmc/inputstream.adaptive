@@ -10,6 +10,8 @@
 
 #include "AdaptiveTree.h"
 
+#include "../samplereader/SampleReader.h"
+
 #include <atomic>
 #include <condition_variable>
 #include <map>
@@ -30,7 +32,7 @@ class AdaptiveStream;
     virtual void OnStreamChange(AdaptiveStream *stream) = 0;
   };
 
-  class ATTR_DLL_LOCAL AdaptiveStream
+  class ATTR_DLL_LOCAL AdaptiveStream : public SampleReaderObserver
   {
   public:
     AdaptiveStream(AdaptiveTree& tree,
@@ -87,6 +89,8 @@ class AdaptiveStream;
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
     bool StreamChanged() { return stream_changed_; }
+
+    void OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTimescale) override;
 
   protected:
     virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep,

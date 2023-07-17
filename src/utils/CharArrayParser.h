@@ -81,11 +81,25 @@ public:
   uint16_t ReadLENextUnsignedShort();
 
   /*!
+   * \brief Reads the next three chars as unsigned int 24bit value (it is assumed 
+   * that the caller has already checked the availability of the data for its length)
+   * \return The unsigned int24 converted to uint32_t
+   */
+  uint32_t ReadNextUnsignedInt24();
+
+  /*!
    * \brief Reads the next four chars as unsigned int value (it is assumed 
    * that the caller has already checked the availability of the data for its length)
    * \return The unsigned int value
    */
   uint32_t ReadNextUnsignedInt();
+
+  /*!
+   * \brief Reads the next eight chars as unsigned int64 value (it is assumed 
+   * that the caller has already checked the availability of the data for its length)
+   * \return The unsigned int64 value
+   */
+  uint64_t ReadNextUnsignedInt64();
 
   /*!
    * \brief Reads the next string of specified length (it is assumed that

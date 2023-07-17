@@ -46,6 +46,7 @@ bool adaptive::CSmoothTree::Open(std::string_view url,
 
   m_currentPeriod = m_periods[0].get();
 
+  CreateSegmentTimeline();
   SortTree();
 
   return true;
@@ -83,7 +84,6 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
   }
 
   m_totalTimeSecs = period->GetDuration() / period->GetTimescale();
-  base_time_ = NO_PTS_VALUE;
 
   // Parse <Protection> tag
   PRProtectionParser protParser;
@@ -96,8 +96,9 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
     pugi::xml_node nodeProtHead = nodeProt.child("ProtectionHeader");
     if (nodeProtHead)
     {
-      if (STRING::CompareNoCase(XML::GetAttrib(nodeProtHead, "SystemID"),
-                                "9A04F079-9840-4286-AB92-E65BE0885F95"))
+      // SystemID can be wrapped by {}
+      if (STRING::Contains(XML::GetAttrib(nodeProtHead, "SystemID"),
+                           "9A04F079-9840-4286-AB92-E65BE0885F95"))
       {
         if (protParser.ParseHeader(nodeProtHead.child_value()))
         {
@@ -133,15 +134,52 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
 {
   std::unique_ptr<CAdaptationSet> adpSet = CAdaptationSet::MakeUniquePtr(period);
 
+  if (nodeSI.attribute("ParentStreamIndex"))
+  {
+    LOG::LogF(LOGDEBUG, "Skipped <StreamIndex> tag, \"ParentStreamIndex\" attribute is not supported.");
+    return;
+  }
+
   adpSet->SetName(XML::GetAttrib(nodeSI, "Name"));
+  adpSet->SetId("SI:" + adpSet->GetName());
 
   std::string_view type = XML::GetAttrib(nodeSI, "Type");
+  std::string_view subtype = XML::GetAttrib(nodeSI, "Subtype");
+
   if (type == "video")
+  {
+    // Skip know unsupported subtypes
+    if (subtype == "ZOET" || // Trick mode
+        subtype == "CHAP") // Chapter headings
+    {
+      LOG::LogF(LOGDEBUG, "Skipped <StreamIndex> tag, Subtype \"%s\" not supported.", subtype.data());
+      return;
+    }
     adpSet->SetStreamType(StreamType::VIDEO);
+  }
   else if (type == "audio")
+  {
     adpSet->SetStreamType(StreamType::AUDIO);
+  }
   else if (type == "text")
+  {
+    // Skip know unsupported subtypes
+    if (subtype == "SCMD" || // Script commands
+        subtype == "CHAP" || // Chapter headings
+        subtype == "CTRL" || // Control events (ADS)
+        subtype == "DATA" || // Application data
+        subtype == "ADI3") // ADS sparse tracks
+    {
+      LOG::LogF(LOGDEBUG, "Skipped <StreamIndex> tag, Subtype \"%s\" not supported.",
+                subtype.data());
+      return;
+    }
+    else if (subtype == "CAPT" || subtype == "DESC") // Captions
+    {
+      adpSet->SetIsImpaired(true);
+    }
     adpSet->SetStreamType(StreamType::SUBTITLE);
+  }
 
   uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
 
@@ -237,8 +275,8 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
     return;
   }
 
-  if (adpSet->GetStartPTS() < base_time_)
-    base_time_ = adpSet->GetStartPTS();
+  if (m_ptsBase == NO_PTS_VALUE || adpSet->GetStartPTS() < m_ptsBase)
+    m_ptsBase = adpSet->GetStartPTS();
 
   period->AddAdaptationSet(adpSet);
 }
@@ -253,7 +291,10 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
   repr->SetBaseUrl(adpSet->GetBaseUrl());
   repr->SetTimescale(timescale);
 
-  repr->SetId(XML::GetAttrib(nodeQI, "Index"));
+  std::string id = "SI:" + adpSet->GetName() + " - QL:";
+  id += XML::GetAttrib(nodeQI, "Index");
+  repr->SetId(id);
+
   repr->SetBandwidth(XML::GetAttribUint32(nodeQI, "Bitrate"));
 
   std::string fourCc;
@@ -334,29 +375,99 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
 
   repr->SetSegmentTemplate(segTpl);
 
-  // Generate segment timeline
-  repr->SegmentTimeline().GetData().reserve(adpSet->SegmentTimelineDuration().GetSize());
-
-  uint64_t nextStartPts = adpSet->GetStartPTS() - base_time_;
-  uint64_t index = 1;
-
-  for (uint32_t segDuration : adpSet->SegmentTimelineDuration().GetData())
-  {
-    CSegment seg;
-    seg.startPTS_ = nextStartPts;
-    seg.m_time = nextStartPts + base_time_;
-    seg.m_number = index;
-
-    repr->SegmentTimeline().GetData().emplace_back(seg);
-
-    nextStartPts += segDuration;
-    index++;
-  }
-
   repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
   repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
   repr->SetScaling();
 
   adpSet->AddRepresentation(repr);
+}
+
+void adaptive::CSmoothTree::CreateSegmentTimeline()
+{
+  for (auto& period : m_periods)
+  {
+    for (auto& adpSet : period->GetAdaptationSets())
+    {
+      for (auto& repr : adpSet->GetRepresentations())
+      {
+        repr->SegmentTimeline().GetData().reserve(adpSet->SegmentTimelineDuration().GetSize());
+
+        // Adjust PTS with the StreamIndex with lower PTS to sync streams during playback
+        uint64_t nextStartPts = adpSet->GetStartPTS() - m_ptsBase;
+        uint64_t index = 1;
+
+        for (uint32_t segDuration : adpSet->SegmentTimelineDuration().GetData())
+        {
+          CSegment seg;
+          seg.startPTS_ = nextStartPts;
+          seg.m_time = nextStartPts + m_ptsBase;
+          seg.m_number = index;
+
+          repr->SegmentTimeline().GetData().emplace_back(seg);
+
+          nextStartPts += segDuration;
+          index++;
+        }
+      }
+    }
+  }
+}
+
+void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
+                                              PLAYLIST::CAdaptationSet* adpSet,
+                                              PLAYLIST::CRepresentation* repr,
+                                              size_t pos,
+                                              uint64_t timestamp,
+                                              uint64_t fragmentDuration,
+                                              uint32_t mediaTimescale)
+{
+  if (!m_isLive)
+    return;
+
+  //! @todo: This old code is now wrong because InsertLiveSegment can be called many times
+  //! by the same segment, that will lead expired_segments_ to have a wrong value
+  //! expired_segments_ should be removed by implementing DVRWindowLength (and timeShiftBufferDepth on dash)
+  //! and then add a method to clear old segments from the timeline based on timeshift window
+  //! but this looks like that need to take care also of how works segment positions.
+
+  // Check if its not the last frame we watch
+  //! @todo: this code prevent to add many fragments done by more callbacks
+  //! atm not found a good way to change this code by having smooth playback
+  if (pos != adpSet->SegmentTimelineDuration().GetSize() - 1)
+  {
+    repr->expired_segments_++;
+    return;
+  }
+
+  adpSet->SegmentTimelineDuration().Insert(
+      static_cast<std::uint32_t>(fragmentDuration * period->GetTimescale() / mediaTimescale));
+
+  CSegment* segment = repr->SegmentTimeline().Get(pos);
+
+  if (!segment)
+  {
+    LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
+              repr->GetId().data());
+    return;
+  }
+
+  CSegment segCopy = *segment;
+
+  LOG::LogF(LOGDEBUG,
+            "Fragment duration from timestamp (timestamp: %llu, PTS base: %llu, start PTS: %llu)",
+            timestamp, m_ptsBase, segCopy.startPTS_);
+  fragmentDuration = timestamp - m_ptsBase - segCopy.startPTS_;
+
+  segCopy.startPTS_ += fragmentDuration;
+  segCopy.m_time += fragmentDuration;
+  segCopy.m_number++;
+
+  LOG::LogF(LOGDEBUG, "Insert live segment to adptation set \"%s\" (PTS: %llu, number: %llu)",
+            adpSet->GetId().data(), segCopy.startPTS_, segCopy.m_number);
+
+  for (auto& repr : adpSet->GetRepresentations())
+  {
+    repr->SegmentTimeline().Insert(segCopy);
+  }
 }

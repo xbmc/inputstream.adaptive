@@ -22,11 +22,14 @@
 
 #include <future>
 
-// Forward namespace/class
-namespace SESSION
+class ATTR_DLL_LOCAL SampleReaderObserver
 {
-class CSession;
-}
+public:
+  /*!
+   * \brief Callback raised when each fragment contained in a (fMP4) TFRF atom is parsed
+   */
+  virtual void OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTimescale) = 0;
+};
 
 class ATTR_DLL_LOCAL ISampleReader
 {
@@ -46,7 +49,14 @@ public:
   virtual int64_t GetPTSDiff() const = 0;
   virtual void SetStartPTS(uint64_t pts) = 0;
   virtual uint64_t GetStartPTS() const = 0;
-  virtual bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) = 0;
+
+  /*!
+   * \brief Read info about fragment on current segment (fMP4)
+   * \param duration[OUT] Set the duration of current media sample
+   * \return True if the fragment info was successfully retrieved, otherwise false
+   */
+  virtual bool GetFragmentInfo(uint64_t& duration) { return false; }
+
   virtual uint32_t GetTimeScale() const = 0;
   virtual AP4_UI32 GetStreamId() const = 0;
   virtual AP4_Size GetSampleDataSize() const = 0;
@@ -86,6 +96,11 @@ public:
            m_readSampleAsyncState.wait_for(std::chrono::milliseconds(0)) !=
                std::future_status::ready;
   }
+
+  void SetObserver(SampleReaderObserver* observer) { m_observer = observer; }
+
+protected:
+  SampleReaderObserver* m_observer{nullptr};
 
 private:
   std::future<AP4_Result> m_readSampleAsyncState;

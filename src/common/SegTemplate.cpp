@@ -9,12 +9,14 @@
 #include "SegTemplate.h"
 #include "Segment.h"
 #include "../utils/log.h"
+#include "../utils/StringUtils.h"
 
 #include "kodi/tools/StringUtils.h"
 
 #include <cstdio> // sprintf
 
 using namespace PLAYLIST;
+using namespace UTILS;
 using namespace kodi::tools;
 
 PLAYLIST::CSegmentTemplate::CSegmentTemplate(CSegmentTemplate* parent /* = nullptr */)
@@ -90,43 +92,83 @@ CSegment PLAYLIST::CSegmentTemplate::MakeInitSegment()
   return seg;
 }
 
-std::string PLAYLIST::CSegmentTemplate::FormatUrl(const std::string url,
+std::string PLAYLIST::CSegmentTemplate::FormatUrl(std::string_view url,
                                                   const std::string id,
                                                   const uint32_t bandwidth,
                                                   const uint64_t number,
                                                   const uint64_t time)
 {
-  std::vector<std::string> chunks = StringUtils::Split(url, '$');
+  size_t curPos{0};
+  std::string ret;
 
-  if (chunks.size() > 1)
+  do
   {
-    for (size_t i = 0; i < chunks.size(); i++)
+    size_t chPos = url.find('$', curPos);
+    if (chPos == std::string::npos)
     {
-      if (chunks.at(i) == "RepresentationID")
-        chunks.at(i) = id;
-      else if (chunks.at(i).find("Bandwidth") == 0)
-        FormatIdentifier(chunks.at(i), static_cast<uint64_t>(bandwidth));
-      else if (chunks.at(i).find("Number") == 0)
-        FormatIdentifier(chunks.at(i), number);
-      else if (chunks.at(i).find("Time") == 0)
-        FormatIdentifier(chunks.at(i), time);
+      // No other identifiers to substitute
+      ret += url.substr(curPos);
+      curPos = url.size();
+      break;
     }
 
-    std::string replacedUrl = "";
-    for (size_t i = 0; i < chunks.size(); i++)
+    ret += url.substr(curPos, chPos - curPos);
+
+    size_t nextChPos = url.find('$', chPos + 1);
+
+    if (nextChPos == std::string::npos)
+      nextChPos = url.size();
+
+    std::string_view identifier = url.substr(chPos, nextChPos - chPos + 1);
+
+    if (identifier == "$$") // Escape sequence
     {
-      replacedUrl += chunks.at(i);
+      ret += "$";
+      curPos = nextChPos + 1;
     }
-    return replacedUrl;
-  }
-  else
-  {
-    return url;
-  }
+    else if (identifier == "$RepresentationID$")
+    {
+      ret += id;
+      curPos = nextChPos + 1;
+    }
+    else if (STRING::StartsWith(identifier, "$Number"))
+    {
+      ret += FormatIdentifier(identifier, number);
+      curPos = nextChPos + 1;
+    }
+    else if (STRING::StartsWith(identifier, "$Time"))
+    {
+      ret += FormatIdentifier(identifier, time);
+      curPos = nextChPos + 1;
+    }
+    else if (STRING::StartsWith(identifier, "$Bandwidth"))
+    {
+      ret += FormatIdentifier(identifier, static_cast<uint64_t>(bandwidth));
+      curPos = nextChPos + 1;
+    }
+    else // Unknow indentifier, or $ char that isnt part of an identifier
+    {
+      if (nextChPos != url.size())
+        identifier.remove_suffix(1);
+      ret += identifier;
+      curPos = nextChPos;
+    }
+  } while (curPos < url.size());
+
+  return ret;
 }
 
-void PLAYLIST::CSegmentTemplate::FormatIdentifier(std::string& identifier, const uint64_t value)
+std::string PLAYLIST::CSegmentTemplate::FormatIdentifier(std::string_view identifier,
+                                                         const uint64_t value)
 {
+  if (identifier.back() == '$')
+    identifier.remove_suffix(1);
+  else
+  {
+    LOG::LogF(LOGWARNING, "Cannot format template identifier because malformed");
+    return std::string{identifier};
+  }
+
   size_t formatTagIndex = identifier.find("%0");
   std::string formatTag = "%01d"; // default format tag
 
@@ -143,7 +185,7 @@ void PLAYLIST::CSegmentTemplate::FormatIdentifier(std::string& identifier, const
       case 'o':
         break; // supported conversions as dash.js
       default:
-        return; // leave as is
+        return std::string{identifier}; // leave as is
     }
   }
   // sprintf expect the right length of data type
@@ -155,8 +197,10 @@ void PLAYLIST::CSegmentTemplate::FormatIdentifier(std::string& identifier, const
 
   char substitution[128];
   if (std::sprintf(substitution, formatTag.c_str(), value) > 0)
-    identifier = substitution;
+    return substitution;
   else
     LOG::LogF(LOGERROR, "Cannot convert value \"%llu\" with \"%s\" format tag", value,
               formatTag.c_str());
+
+  return std::string{identifier};
 }

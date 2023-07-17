@@ -52,14 +52,14 @@ public:
   
   CSegment MakeInitSegment();
 
-  std::string FormatUrl(const std::string url,
+  std::string FormatUrl(std::string_view url,
                         const std::string id,
                         const uint32_t bandwidth,
                         const uint64_t number,
                         const uint64_t time);
 
 private:
-  void FormatIdentifier(std::string& identifier, const uint64_t value);
+  std::string FormatIdentifier(std::string_view identifier, const uint64_t value);
 
   std::string m_initialization;
   std::string m_media;

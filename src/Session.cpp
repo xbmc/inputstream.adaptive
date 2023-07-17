@@ -1255,7 +1255,12 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
   }
   else if (res)
   {
-    CheckFragmentDuration(*res);
+    if (res->m_hasSegmentChanged)
+    {
+      OnSegmentChangedRead(res);
+      res->m_hasSegmentChanged = false;
+    }
+
     ISampleReader* sr{res->GetReader()};
 
     if (sr->PTS() != STREAM_NOPTS_VALUE)
@@ -1432,25 +1437,22 @@ void CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
   }
 }
 
-void CSession::CheckFragmentDuration(CStream& stream)
+void CSession::OnSegmentChangedRead(CStream* stream)
 {
-  uint64_t nextTs;
-  uint64_t nextDur;
-  ISampleReader* streamReader{stream.GetReader()};
-  if (!streamReader)
+  if (m_adaptiveTree->IsLive())
   {
-    LOG::LogF(LOGERROR, "Cannot get the stream sample reader");
-    return;
-  }
+    ISampleReader* sr = stream->GetReader();
+    uint64_t duration;
 
-  if (stream.m_hasSegmentChanged && streamReader->GetNextFragmentInfo(nextTs, nextDur))
-  {
-    m_adaptiveTree->SetFragmentDuration(
-        stream.m_adStream.getPeriod(), stream.m_adStream.getAdaptationSet(),
-        stream.m_adStream.getRepresentation(), stream.m_adStream.getSegmentPos(), nextTs,
-        static_cast<uint32_t>(nextDur), streamReader->GetTimeScale());
+    if (sr->GetFragmentInfo(duration))
+    {
+      adaptive::AdaptiveStream& adStream = stream->m_adStream;
+
+      m_adaptiveTree->InsertLiveSegment(adStream.getPeriod(), adStream.getAdaptationSet(),
+                                        adStream.getRepresentation(), adStream.getSegmentPos(),
+                                        0, duration, sr->GetTimeScale());
+    }
   }
-  stream.m_hasSegmentChanged = false;
 }
 
 const AP4_UI08* CSession::GetDefaultKeyId(const uint16_t index) const

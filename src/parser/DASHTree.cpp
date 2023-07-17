@@ -1710,6 +1710,69 @@ void adaptive::CDashTree::RefreshLiveSegments()
   }
 }
 
+void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
+                                            PLAYLIST::CAdaptationSet* adpSet,
+                                            PLAYLIST::CRepresentation* repr,
+                                            size_t pos,
+                                            uint64_t timestamp,
+                                            uint64_t fragmentDuration,
+                                            uint32_t movieTimescale)
+{
+  if (HasManifestUpdatesSegs())
+    return;
+
+  // Check if its the last frame we watch
+  if (!adpSet->SegmentTimelineDuration().IsEmpty())
+  {
+    if (pos == adpSet->SegmentTimelineDuration().GetSize() - 1)
+    {
+      adpSet->SegmentTimelineDuration().Insert(
+          static_cast<std::uint32_t>(fragmentDuration * period->GetTimescale() / movieTimescale));
+    }
+    else
+    {
+      repr->expired_segments_++;
+      return;
+    }
+  }
+  else if (pos != repr->SegmentTimeline().GetSize() - 1)
+    return;
+
+  // When a live manifest has very long duration validity (set by minimumUpdatePeriod)
+  // and segments dont cover the entire duration until minimumUpdatePeriod interval time
+  // we add new segments until the future manifest update
+  CSegment* segment = repr->SegmentTimeline().Get(pos);
+
+  if (!segment)
+  {
+    LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
+              repr->GetId().data());
+    return;
+  }
+
+  if (segment->HasByteRange())
+    return;
+
+  CSegment segCopy = *segment;
+
+  LOG::LogF(LOGDEBUG,
+            "Scale fragment duration (duration: %llu, repr. timescale: %u, movie timescale: %u)",
+            fragmentDuration, repr->GetTimescale(), movieTimescale);
+  fragmentDuration = (fragmentDuration * repr->GetTimescale()) / movieTimescale;
+
+  segCopy.startPTS_ += fragmentDuration;
+  segCopy.m_time += fragmentDuration;
+  segCopy.m_number++;
+
+  LOG::LogF(LOGDEBUG, "Insert live segment to adptation set \"%s\" (PTS: %llu, number: %llu)",
+            adpSet->GetId().data(), segCopy.startPTS_, segCopy.m_number);
+
+  for (auto& repr : adpSet->GetRepresentations())
+  {
+    repr->SegmentTimeline().Insert(segCopy);
+  }
+}
+
 uint64_t adaptive::CDashTree::GetTimestamp()
 {
   return UTILS::GetTimestamp();

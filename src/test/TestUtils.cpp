@@ -9,11 +9,13 @@
 #include "TestHelper.h"
 
 #include "../common/AdaptiveTreeFactory.h"
+#include "../common/SegTemplate.h"
 #include "../utils/UrlUtils.h"
 
 #include <gtest/gtest.h>
 
 using namespace adaptive;
+using namespace PLAYLIST;
 using namespace PLAYLIST_FACTORY;
 using namespace UTILS;
 
@@ -225,4 +227,23 @@ TEST_F(UtilsTest, AdaptiveTreeFactory_ISM)
   // test url
   type = InferManifestType("http://www.someservice.com/cdm1/manifest.isml", "", "");
   EXPECT_EQ(type, PROPERTIES::ManifestType::ISM);
+}
+
+TEST_F(UtilsTest, SegTemplateFormatUrlChecks)
+{
+  CSegmentTemplate segTpl;
+
+  std::string url = "https://cdn.com/example/$$$Number$$RepresentationID$$Bandwidth$$Time$";
+  std::string ret = segTpl.FormatUrl(url, "repID", 1500, 1, 0);
+  EXPECT_EQ(ret, "https://cdn.com/example/$1repID15000");
+
+  // Dash placeholders use special char "$", but an url can use single "$" char along the path that must be kept
+  url = "https://cdn.com/_$_example/QualityLevels($Bandwidth$)/Fragments(video=$Time$)";
+  ret = segTpl.FormatUrl(url, "repID", 1500, 1, 0);
+  EXPECT_EQ(ret, "https://cdn.com/_$_example/QualityLevels(1500)/Fragments(video=0)");
+
+  // Malformed, do nothing
+  url = "https://cdn.com/_$_example/$Bandwidth";
+  ret = segTpl.FormatUrl(url, "repID", 1500, 1, 0);
+  EXPECT_EQ(ret, "https://cdn.com/_$_example/$Bandwidth");
 }
