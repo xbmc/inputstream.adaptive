@@ -277,7 +277,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   bool needRefetch = false; //Make sure that Kodi fetches changes
   stream->m_isEnabled = true;
 
-  const adaptive::AdaptiveTree::Representation* rep(stream->m_adStream.getRepresentation());
+  adaptive::AdaptiveTree::Representation* rep = stream->m_adStream.getRepresentation();
 
   // If we select a dummy (=inside video) stream, open the video part
   // Dummy streams will be never enabled, they will only enable / activate audio track.
@@ -337,12 +337,27 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     stream->SetReader(std::make_unique<CTSSampleReader>(
         stream->GetAdByteStream(), stream->m_info.GetStreamType(), streamid, mask));
 
-    if (!stream->GetReader()->Initialize())
+    if (stream->GetReader()->Initialize())
+    {
+      m_session->OnSegmentChanged(&stream->m_adStream);
+    }
+    else if (stream->m_adStream.get_type() == adaptive::AdaptiveTree::AUDIO)
+    {
+      // If TSSampleReader fail, try fallback to ADTS
+      //! @todo: we should have an appropriate file type check
+      //! e.g. with HLS we determine the container type from file extension
+      //! in the url address, but .ts file could have ADTS
+      LOG::LogF(LOGWARNING, "Cannot initialize TS sample reader, fallback to ADTS sample reader");
+      rep->containerType_ = adaptive::AdaptiveTree::CONTAINERTYPE_ADTS;
+
+      stream->GetAdByteStream()->Seek(0); // Seek because bytes are consumed from previous reader
+      stream->SetReader(std::make_unique<CADTSSampleReader>(stream->GetAdByteStream(), streamid));
+    }
+    else
     {
       stream->Disable();
       return false;
     }
-    m_session->OnSegmentChanged(&stream->m_adStream);
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
   {
