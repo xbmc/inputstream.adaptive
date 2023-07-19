@@ -10,10 +10,10 @@ set(ADP_SOURCES
 	src/AdaptiveByteStream.cpp
 	src/main.cpp
 	src/codechandler/CodecHandler.cpp
+	src/codechandler/AudioCodecHandler.cpp
 	src/codechandler/AV1CodecHandler.cpp
 	src/codechandler/AVCCodecHandler.cpp
 	src/codechandler/HEVCCodecHandler.cpp
-	src/codechandler/MPEGCodecHandler.cpp
 	src/codechandler/TTMLCodecHandler.cpp
 	src/codechandler/VP9CodecHandler.cpp
 	src/codechandler/WebVTTCodecHandler.cpp
@@ -77,10 +77,10 @@ set(ADP_HEADERS
 	src/oscompat.h
 	src/SSD_dll.h
 	src/codechandler/CodecHandler.h
+	src/codechandler/AudioCodecHandler.h
 	src/codechandler/AV1CodecHandler.h
 	src/codechandler/AVCCodecHandler.h
 	src/codechandler/HEVCCodecHandler.h
-	src/codechandler/MPEGCodecHandler.h
 	src/codechandler/TTMLCodecHandler.h
 	src/codechandler/VP9CodecHandler.h
 	src/codechandler/WebVTTCodecHandler.h

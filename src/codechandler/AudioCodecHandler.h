@@ -10,8 +10,11 @@
 
 #include "CodecHandler.h"
 
-class ATTR_DLL_LOCAL MPEGCodecHandler : public CodecHandler
+// \brief Generic audio codec handler
+class ATTR_DLL_LOCAL AudioCodecHandler : public CodecHandler
 {
 public:
-  MPEGCodecHandler(AP4_SampleDescription* sd);
+  AudioCodecHandler(AP4_SampleDescription* sd);
+
+  bool GetInformation(kodi::addon::InputstreamInfo& info) override;
 };

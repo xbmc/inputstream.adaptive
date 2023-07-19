@@ -118,6 +118,13 @@ constexpr uint32_t MakeFourCC(const char* fourcc)
 }
 
 /*!
+ * \brief Convert a fourCC unsigned integer to equivalent string
+ * \param fourcc The FourCC
+ * \return The FourCC as string value
+ */
+std::string FourCCToString(const uint32_t fourcc);
+
+/*!
  * \brief Check if a codec string exists in the list, convenient function to check within of strings
  *        e.g find "ttml" return true also when there is a "stpp.ttml.im1t" codec string
  * \param list The list of codecs

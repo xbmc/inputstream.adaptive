@@ -328,6 +328,16 @@ uint64_t UTILS::GetTimestamp()
   return std::chrono::duration_cast<dCast>(std::chrono::milliseconds(unix_timestamp)).count();
 }
 
+std::string UTILS::CODEC::FourCCToString(const uint32_t fourcc)
+{
+  std::string str;
+  str += static_cast<char>((fourcc >> 24) & 255);
+  str += static_cast<char>((fourcc >> 16) & 255);
+  str += static_cast<char>((fourcc >> 8) & 255);
+  str += static_cast<char>(fourcc & 255);
+  return str;
+}
+
 bool UTILS::CODEC::Contains(const std::set<std::string>& list, std::string_view codec)
 {
   return std::any_of(list.cbegin(), list.cend(),

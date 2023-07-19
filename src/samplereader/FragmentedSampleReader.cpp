@@ -9,10 +9,10 @@
 #include "FragmentedSampleReader.h"
 
 #include "../AdaptiveByteStream.h"
+#include "../codechandler/AudioCodecHandler.h"
 #include "../codechandler/AV1CodecHandler.h"
 #include "../codechandler/AVCCodecHandler.h"
 #include "../codechandler/HEVCCodecHandler.h"
-#include "../codechandler/MPEGCodecHandler.h"
 #include "../codechandler/TTMLCodecHandler.h"
 #include "../codechandler/VP9CodecHandler.h"
 #include "../codechandler/WebVTTCodecHandler.h"
@@ -113,8 +113,11 @@ AP4_Result CFragmentedSampleReader::Start(bool& bStarted)
 
 AP4_Result CFragmentedSampleReader::ReadSample()
 {
+  if (!m_codecHandler)
+    return AP4_FAILURE;
+
   AP4_Result result;
-  if (!m_codecHandler || !m_codecHandler->ReadNextSample(m_sample, m_sampleData))
+  if (!m_codecHandler->ReadNextSample(m_sample, m_sampleData))
   {
     bool useDecryptingDecoder =
         m_protectedDesc &&
@@ -227,48 +230,21 @@ bool CFragmentedSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
   if (!m_codecHandler)
     return false;
 
-  bool edChanged(false);
+  bool isChanged{false};
   if (m_bSampleDescChanged && m_codecHandler->m_extraData.GetDataSize() &&
       !info.CompareExtraData(m_codecHandler->m_extraData.GetData(),
                              m_codecHandler->m_extraData.GetDataSize()))
   {
     info.SetExtraData(m_codecHandler->m_extraData.GetData(),
                       m_codecHandler->m_extraData.GetDataSize());
-    edChanged = true;
-  }
-
-  AP4_SampleDescription* desc(m_track->GetSampleDescription(0));
-  if (desc->GetType() == AP4_SampleDescription::TYPE_MPEG)
-  {
-    switch (static_cast<AP4_MpegSampleDescription*>(desc)->GetObjectTypeId())
-    {
-      case AP4_OTI_MPEG4_AUDIO:
-      case AP4_OTI_MPEG2_AAC_AUDIO_MAIN:
-      case AP4_OTI_MPEG2_AAC_AUDIO_LC:
-      case AP4_OTI_MPEG2_AAC_AUDIO_SSRP:
-        info.SetCodecName(CODEC::NAME_AAC);
-        break;
-      case AP4_OTI_DTS_AUDIO:
-      case AP4_OTI_DTS_HIRES_AUDIO:
-      case AP4_OTI_DTS_MASTER_AUDIO:
-      case AP4_OTI_DTS_EXPRESS_AUDIO:
-        info.SetCodecName(CODEC::NAME_DTS);
-        break;
-      case AP4_OTI_AC3_AUDIO:
-        info.SetCodecName(CODEC::NAME_AC3);
-        break;
-      case AP4_OTI_EAC3_AUDIO:
-        info.SetCodecName(CODEC::NAME_EAC3);
-        break;
-    }
+    isChanged |= true;
   }
 
   m_bSampleDescChanged = false;
 
-  if (m_codecHandler->GetInformation(info))
-    return true;
+  isChanged |= m_codecHandler->GetInformation(info);
 
-  return edChanged;
+  return isChanged;
 }
 
 bool CFragmentedSampleReader::TimeSeek(uint64_t pts, bool preceeding)
@@ -442,49 +418,70 @@ SUCCESS:
 void CFragmentedSampleReader::UpdateSampleDescription()
 {
   if (m_codecHandler)
+  {
     delete m_codecHandler;
-  m_codecHandler = 0;
+    m_codecHandler = nullptr;
+  }
   m_bSampleDescChanged = true;
 
-  AP4_SampleDescription* desc(m_track->GetSampleDescription(m_sampleDescIndex - 1));
+  AP4_SampleDescription* desc = m_track->GetSampleDescription(m_sampleDescIndex - 1);
+  if (!desc)
+  {
+    LOG::LogF(LOGERROR, "Cannot get sample description from index %u", m_sampleDescIndex - 1);
+    return;
+  }
+
   if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
   {
     m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(desc);
     desc = m_protectedDesc->GetOriginalSampleDescription();
+    if (!desc)
+    {
+      LOG::LogF(LOGERROR, "Cannot sample description from protected sample description");
+      return;
+    }
   }
-  LOG::Log(LOGDEBUG, "UpdateSampleDescription: codec %d", desc->GetFormat());
-  switch (desc->GetFormat())
+
+  LOG::LogF(LOGDEBUG, "Codec fourcc: %s (%u)", CODEC::FourCCToString(desc->GetFormat()).c_str(),
+            desc->GetFormat());
+  
+  if (AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, desc))
   {
-    case AP4_SAMPLE_FORMAT_AVC1:
-    case AP4_SAMPLE_FORMAT_AVC2:
-    case AP4_SAMPLE_FORMAT_AVC3:
-    case AP4_SAMPLE_FORMAT_AVC4:
-      m_codecHandler = new AVCCodecHandler(desc);
-      break;
-    case AP4_SAMPLE_FORMAT_HEV1:
-    case AP4_SAMPLE_FORMAT_HVC1:
-    case AP4_SAMPLE_FORMAT_DVHE:
-    case AP4_SAMPLE_FORMAT_DVH1:
-      m_codecHandler = new HEVCCodecHandler(desc);
-      break;
-    case AP4_SAMPLE_FORMAT_MP4A:
-      m_codecHandler = new MPEGCodecHandler(desc);
-      break;
-    case AP4_SAMPLE_FORMAT_STPP:
-      m_codecHandler = new TTMLCodecHandler(desc);
-      break;
-    case AP4_SAMPLE_FORMAT_WVTT:
-      m_codecHandler = new WebVTTCodecHandler(desc, false);
-      break;
-    case AP4_SAMPLE_FORMAT_VP9:
-      m_codecHandler = new VP9CodecHandler(desc);
-      break;
-    case AP4_SAMPLE_FORMAT_AV01:
-      m_codecHandler = new AV1CodecHandler(desc);
-      break;
-    default:
-      m_codecHandler = new CodecHandler(desc);
-      break;
+    // Audio sample of any format
+    m_codecHandler = new AudioCodecHandler(desc);
+  }
+  else
+  {
+    switch (desc->GetFormat())
+    {
+      case AP4_SAMPLE_FORMAT_AVC1:
+      case AP4_SAMPLE_FORMAT_AVC2:
+      case AP4_SAMPLE_FORMAT_AVC3:
+      case AP4_SAMPLE_FORMAT_AVC4:
+        m_codecHandler = new AVCCodecHandler(desc);
+        break;
+      case AP4_SAMPLE_FORMAT_HEV1:
+      case AP4_SAMPLE_FORMAT_HVC1:
+      case AP4_SAMPLE_FORMAT_DVHE:
+      case AP4_SAMPLE_FORMAT_DVH1:
+        m_codecHandler = new HEVCCodecHandler(desc);
+        break;
+      case AP4_SAMPLE_FORMAT_STPP:
+        m_codecHandler = new TTMLCodecHandler(desc);
+        break;
+      case AP4_SAMPLE_FORMAT_WVTT:
+        m_codecHandler = new WebVTTCodecHandler(desc, false);
+        break;
+      case AP4_SAMPLE_FORMAT_VP9:
+        m_codecHandler = new VP9CodecHandler(desc);
+        break;
+      case AP4_SAMPLE_FORMAT_AV01:
+        m_codecHandler = new AV1CodecHandler(desc);
+        break;
+      default:
+        m_codecHandler = new CodecHandler(desc);
+        break;
+    }
   }
 
   if ((m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
