@@ -76,6 +76,7 @@ private:
   //Video section
   uint32_t m_width = 0;
   uint32_t m_height = 0;
+  std::string m_codecId;
   STREAMCODEC_PROFILE m_codecProfile = CodecProfileUnknown;
   bool m_metadataChanged = true;
 

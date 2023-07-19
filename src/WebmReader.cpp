@@ -7,10 +7,15 @@
  */
 
 #include "WebmReader.h"
-#include <bento4/Ap4ByteStream.h>
 
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
+
+#include <bento4/Ap4ByteStream.h>
 #include <webm/reader.h>
 #include <webm/webm_parser.h>
+
+using namespace UTILS;
 
 class ATTR_DLL_LOCAL WebmAP4Reader : public webm::Reader
 {
@@ -114,6 +119,26 @@ bool WebmReader::GetInformation(kodi::addon::InputstreamInfo& info)
   {
     info.SetExtraData(m_codecPrivate.GetData(), m_codecPrivate.GetDataSize());
     ret = true;
+  }
+
+  if (!m_codecId.empty())
+  {
+    // Verify codec name for officially supported codecs only
+    std::string codecName;
+    if (STRING::Contains(m_codecId, "VP9"))
+      codecName = CODEC::NAME_VP9;
+    else if (STRING::Contains(m_codecId, "AV1"))
+      codecName = CODEC::NAME_AV1;
+    else if (STRING::Contains(m_codecId, "VORBIS"))
+      codecName = CODEC::NAME_VORBIS;
+    else if (STRING::Contains(m_codecId, "OPUS"))
+      codecName = CODEC::NAME_OPUS;
+
+    if (!codecName.empty() && info.GetCodecName() != codecName)
+    {
+      info.SetCodecName(codecName);
+      ret = true;
+    }
   }
 
   if (m_codecProfile && info.GetCodecProfile() != m_codecProfile)
@@ -257,6 +282,9 @@ webm::Status WebmReader::OnFrame(const webm::FrameMetadata& metadata, webm::Read
 
 webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, const webm::TrackEntry& track_entry)
 {
+  if (track_entry.codec_id.is_present())
+    m_codecId = track_entry.codec_id.value();
+
   if (track_entry.audio.is_present())
   {
     m_metadataChanged = true;
