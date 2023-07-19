@@ -164,7 +164,13 @@ bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
         isChanged = true;
       }
     }
-    info.SetCodecName(STREAMTYPEMAP[tsInfo.m_stream->stream_type]);
+
+    const char* codecName = STREAMTYPEMAP[tsInfo.m_stream->stream_type];
+    if (info.GetCodecName() != codecName)
+    {
+      info.SetCodecName(codecName);
+      isChanged = true;
+    }
 
     if (!info.CompareExtraData(tsInfo.m_stream->stream_info.extra_data,
                                tsInfo.m_stream->stream_info.extra_data_size))
