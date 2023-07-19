@@ -93,7 +93,7 @@ ContainerType DetectContainerTypeFromExt(std::string_view extension)
     return ContainerType::TS;
   else if (STRING::CompareNoCase(extension, "aac"))
     return ContainerType::ADTS;
-  else if (STRING::CompareNoCase(extension, "mp4"))
+  else if (STRING::CompareNoCase(extension, "mp4") || STRING::CompareNoCase(extension, "m4s"))
     return ContainerType::MP4;
   else if (STRING::CompareNoCase(extension, "vtt") || STRING::CompareNoCase(extension, "webvtt"))
     return ContainerType::TEXT;
