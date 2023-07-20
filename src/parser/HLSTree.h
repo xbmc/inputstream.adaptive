@@ -95,12 +95,14 @@ private:
     // Apply codecs to the first representation of each adaptation set
     void SetCodecs(std::string_view codecs)
     {
-      if (m_codecs.empty())
+      if (m_codecs.empty()) // Update only one time
       {
         m_codecs = codecs;
         for (auto& adpSet : m_adpSets)
         {
-          adpSet->GetRepresentations()[0]->AddCodecs(codecs);
+          auto& repr = adpSet->GetRepresentations()[0];
+          repr->AddCodecs(codecs);
+          adpSet->AddCodecs(codecs);
         }
       }
     };

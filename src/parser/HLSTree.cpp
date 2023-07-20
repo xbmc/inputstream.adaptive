@@ -827,6 +827,8 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
       if (streamType == StreamType::AUDIO)
       {
         repr->SetAudioChannels(STRING::ToUint32(attribs["CHANNELS"], 2));
+        // Copy channels to adpset to help AdaptiveTree::SortTree() on adpsets merging
+        adpSet->SetAudioChannels(repr->GetAudioChannels());
       }
 
       repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
