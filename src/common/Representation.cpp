@@ -15,7 +15,7 @@ using namespace UTILS;
 
 void PLAYLIST::CRepresentation::AddCodecs(std::string_view codecs)
 {
-  std::set<std::string> list = STRING::Split(codecs.data(), ',');
+  std::set<std::string> list = STRING::Split(codecs, ',');
   m_codecs.insert(list.begin(), list.end());
 }
 
