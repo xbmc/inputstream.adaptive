@@ -134,6 +134,15 @@ bool StartsWith(std::string_view str, std::string_view startStr);
 std::set<std::string> Split(std::string_view input, const char delimiter, int maxStrings = 0);
 
 /*!
+ * \brief Splits the given input string using the given delimiter into separate strings.
+ * \param input Input string to be split
+ * \param delimiter Delimiter to be used to split the input string
+ * \param maxStrings [OPT] Maximum number of resulting split strings
+ * \return List of splitted strings.
+ */
+std::vector<std::string> SplitToVec(std::string_view input, const char delimiter, int maxStrings = 0);
+
+/*!
  * \brief Compares two strings in case sensitive way
  * \param str1 String to be compared
  * \param str2 String to be compared
