@@ -101,35 +101,21 @@ ContainerType DetectContainerTypeFromExt(std::string_view extension)
     return ContainerType::INVALID;
 }
 
-// \brief Workaround to get audio codec from CODECS attribute list
+// \brief Get the first audio codec string from CODECS attribute list
 std::string GetAudioCodec(std::string_view codecs)
 {
-  //! @todo: this way to get the audio codec is inappropriate and can lead to bad playback
-  //! this because CODECS attribute its optionals and not guarantee to provide full codec list
-  //! the codec format should be provided by MP4 demuxer
-
-  // The codec search must follow exactly the following order, this is currently the best workaround
-  // to make multi-channel audio formats work, but since CODECS attribute is unreliable
-  // this workaround can still cause playback problems
-  if (codecs.find(CODEC::FOURCC_EC_3) != std::string::npos)
-    return CODEC::FOURCC_EC_3;
-  else if (codecs.find(CODEC::FOURCC_AC_3) != std::string::npos)
-    return CODEC::FOURCC_AC_3;
-  else
-    return CODEC::FOURCC_MP4A;
+  // Some manifests can provide CODECS attribute with more audio codecs
+  // it seems that usually the first in order of apparence is the one referring to the specified
+  // AUDIO group attribute, so we return the first one found
+  // e.g. CODECS="dvh1.05.01,ec-3,mp4a.40.2", ..., AUDIO="eac-3"
+  const std::vector<std::string> list = STRING::SplitToVec(codecs, ',');
+  for (const std::string& codecStr : list)
+  {
+    if (CODEC::IsAudio(codecStr))
+      return codecStr;
+  }
+  return codecs.data();
 }
-// \brief Workaround to get audio codec from representation codecs list
-std::string GetAudioCodec(const PLAYLIST::CRepresentation* repr)
-{
-  const auto& codecs = repr->GetCodecs();
-  if (CODEC::Contains(codecs, CODEC::FOURCC_EC_3))
-    return CODEC::FOURCC_EC_3;
-  else if (CODEC::Contains(codecs, CODEC::FOURCC_AC_3))
-    return CODEC::FOURCC_AC_3;
-  else
-    return CODEC::FOURCC_MP4A;
-}
-
 } // unnamed namespace
 
 adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
@@ -1019,15 +1005,15 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
     repr->SetTimescale(1000000);
 
     // Try to get the codecs from first representation
-    std::string codec = CODEC::FOURCC_MP4A;
+    std::set<std::string> codecs{CODEC::FOURCC_MP4A};
     auto& adpSets = period->GetAdaptationSets();
     if (!adpSets.empty())
     {
       auto& reprs = adpSets[0]->GetRepresentations();
       if (!reprs.empty())
-        codec = GetAudioCodec(reprs[0].get());
+        codecs = reprs[0]->GetCodecs();
     }
-    repr->AddCodecs(codec);
+    repr->AddCodecs(codecs);
     repr->SetAudioChannels(2);
     repr->SetIsIncludedStream(true);
 

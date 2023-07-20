@@ -385,3 +385,18 @@ std::string UTILS::CODEC::GetVideoDesc(const std::set<std::string>& list)
   }
   return "";
 }
+
+bool UTILS::CODEC::IsAudio(std::string_view codec)
+{
+  for (const auto fourcc : CODEC::AUDIO_FOURCC_LIST)
+  {
+    if (STRING::Contains(codec, fourcc))
+      return true;
+  }
+  for (const auto name : CODEC::AUDIO_NAME_LIST)
+  {
+    if (STRING::Contains(codec, name))
+      return true;
+  }
+  return false;
+}
