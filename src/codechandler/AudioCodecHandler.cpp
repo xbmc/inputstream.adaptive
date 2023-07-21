@@ -59,7 +59,9 @@ bool AudioCodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
   if (AP4_AudioSampleDescription* audioSd =
           AP4_DYNAMIC_CAST(AP4_AudioSampleDescription, m_sampleDescription))
   {
-    if (audioSd->GetChannelCount() > 0 && audioSd->GetChannelCount() != info.GetChannels())
+    // Note: channel count field on audio sample description atom v0 and v1
+    // have the max value of 2 channels, we dont have to override existing higher values
+    if (audioSd->GetChannelCount() > 0 && audioSd->GetChannelCount() > info.GetChannels())
     {
       info.SetChannels(audioSd->GetChannelCount());
       isChanged = true;
