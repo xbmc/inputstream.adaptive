@@ -10,6 +10,7 @@
 
 #include <bento4/Ap4Types.h>
 
+#include <cstdint>
 #include <string>
 
 class IAESDecrypter
