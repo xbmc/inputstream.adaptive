@@ -13,7 +13,13 @@
 #include <bento4/Ap4DataBuffer.h>
 #include <kodi/addon-instance/Inputstream.h>
 
+// Forwards
 class AP4_ByteStream;
+
+namespace adaptive
+{
+enum class AdtsType;
+}
 
 class ATTR_DLL_LOCAL ID3TAG
 {
@@ -25,7 +31,8 @@ public:
     PARSE_NO_ID3
   };
 
-  PARSECODE parse(AP4_ByteStream *stream);
+  PARSECODE parse(AP4_ByteStream* stream);
+  void SkipID3Data(AP4_ByteStream* stream);
   bool getPts(uint64_t &pts) { if (m_timestamp) { pts = m_timestamp; m_timestamp = 0; return true; } return false; }
 
 private:
@@ -34,6 +41,7 @@ private:
   static const unsigned int HEADER_SIZE = 10;
 
   uint8_t m_majorVer;
+  uint8_t m_revisionVer;
   uint8_t m_flags;
   uint64_t m_timestamp;
 };
@@ -46,6 +54,7 @@ public:
    *  \param stream The stream to check
    */
   void AdjustStreamForPadding(AP4_ByteStream* stream);
+  adaptive::AdtsType GetAdtsType(AP4_ByteStream* stream);
   bool parse(AP4_ByteStream *stream);
   bool ParseAac(AP4_ByteStream* stream);
   bool ParseAc3(AP4_ByteStream* stream);

@@ -10,22 +10,25 @@
 
 #include "parser/CodecParser.h"
 #include "utils/log.h"
+#include "utils/Utils.h"
 
 #include <stdlib.h>
 
 #include <bento4/Ap4ByteStream.h>
-using namespace adaptive;
 
-uint64_t ID3TAG::getSize(const uint8_t *data, unsigned int len, unsigned int shift)
+using namespace adaptive;
+using namespace UTILS;
+
+uint64_t ID3TAG::getSize(const uint8_t* data, unsigned int len, unsigned int shift)
 {
   uint64_t size(0);
-  const uint8_t *dataE(data + len);
+  const uint8_t* dataE(data + len);
   for (; data < dataE; ++data)
     size = size << shift | *data;
   return size;
 };
 
-ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
+ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream* stream)
 {
   uint8_t buffer[64];
   unsigned int retCount(0);
@@ -36,6 +39,8 @@ ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
       return PARSE_FAIL;
   }
 
+  // ID3v2 header
+  // 3 byte "ID3" + 1 byte ver + 1 byte revision + 1 byte flags + 4 byte size
   if (memcmp(buffer, "ID3", 3) != 0)
   {
     AP4_Position pos;
@@ -45,6 +50,7 @@ ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
   }
 
   m_majorVer = buffer[3];
+  m_revisionVer = buffer[4];
   m_flags = buffer[5];
   uint32_t size = static_cast<uint32_t>(getSize(buffer + 6, 4, 7));
 
@@ -61,6 +67,7 @@ ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
       if (!AP4_SUCCEEDED(stream->Read(buffer, frameSize)))
         return PARSE_FAIL;
 
+      // HLS audio packet timestamp: https://datatracker.ietf.org/doc/html/rfc8216
       if (strncmp(reinterpret_cast<const char*>(buffer), "com.apple.streaming.transportStreamTimestamp", 44) == 0 && buffer[44] == 0)
       {
         m_timestamp = getSize(buffer + 45, 8, 8);
@@ -77,6 +84,33 @@ ID3TAG::PARSECODE ID3TAG::parse(AP4_ByteStream *stream)
   return PARSE_SUCCESS;
 }
 
+void ID3TAG::SkipID3Data(AP4_ByteStream* stream)
+{
+  uint8_t buffer[64];
+
+  if (!AP4_SUCCEEDED(stream->Read(buffer, HEADER_SIZE)))
+  {
+    // Try again
+    if (!AP4_SUCCEEDED(stream->Read(buffer, HEADER_SIZE)))
+      return;
+  }
+
+  if (std::memcmp(buffer, "ID3", 3) != 0) // No ID3 header
+  {
+    AP4_Position currentPos;
+    stream->Tell(currentPos);
+    stream->Seek(currentPos - HEADER_SIZE);
+    return;
+  }
+
+  // Get ID3v2 data size
+  uint32_t headerSize = static_cast<uint32_t>(getSize(buffer + 6, 4, 7));
+
+  AP4_Position currentPos;
+  stream->Tell(currentPos);
+  stream->Seek(currentPos + headerSize);
+}
+
 /**********************************************************************************************************************************/
 
 void ADTSFrame::AdjustStreamForPadding(AP4_ByteStream* stream)
@@ -88,6 +122,11 @@ void ADTSFrame::AdjustStreamForPadding(AP4_ByteStream* stream)
   stream->Tell(newPos);
   if (newPos - currentPos == 16)
     stream->Seek(currentPos);
+}
+
+AdtsType ADTSFrame::GetAdtsType(AP4_ByteStream* stream)
+{
+  return CAdaptiveAdtsHeaderParser::GetAdtsType(stream);
 }
 
 bool ADTSFrame::parse(AP4_ByteStream* stream)
@@ -234,6 +273,31 @@ void ADTSReader::Reset()
 
 bool ADTSReader::GetInformation(kodi::addon::InputstreamInfo& info)
 {
+  m_id3TagParser.SkipID3Data(m_stream);
+  AdtsType adtsType = m_frameParser.GetAdtsType(m_stream);
+  m_stream->Seek(0); // Seek back because data has been consumed
+
+  std::string codecName;
+  switch (adtsType)
+  {
+    case AdtsType::AAC:
+      codecName = CODEC::NAME_AAC;
+      break;
+    case AdtsType::AC3:
+      codecName = CODEC::NAME_AC3;
+      break;
+    case AdtsType::EAC3:
+      codecName = CODEC::NAME_EAC3;
+      break;
+    default:
+      break;
+  }
+
+  if (!codecName.empty() && info.GetCodecName() != codecName)
+  {
+    info.SetCodecName(codecName);
+    return true;
+  }
   return false;
 }
 

@@ -115,69 +115,74 @@ bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
       CODEC::NAME_UNKNOWN, CODEC::NAME_SRT,   CODEC::NAME_MPEG4,  CODEC::NAME_VC1,
       CODEC::NAME_UNKNOWN, CODEC::NAME_DTS,   CODEC::NAME_UNKNOWN};
 
-  for (auto &tsInfo : m_streamInfos)
+  bool isChanged{false};
+
+  for (auto& tsInfo : m_streamInfos)
   {
-    if (tsInfo.m_streamType == info.GetStreamType())
+    if (tsInfo.m_streamType != info.GetStreamType())
+      continue;
+
+    if (!tsInfo.m_changed)
+      return false;
+    tsInfo.m_changed = false;
+
+    if (tsInfo.m_streamType == INPUTSTREAM_TYPE_VIDEO)
     {
-      if (!tsInfo.m_changed)
-        return false;
-      tsInfo.m_changed = false;
-
-      bool ret(false);
-
-      if (tsInfo.m_streamType == INPUTSTREAM_TYPE_VIDEO)
+      if (tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.GetFpsScale()) ||
+          tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.GetFpsRate()) ||
+          tsInfo.m_stream->stream_info.height != static_cast<int>(info.GetHeight()) ||
+          tsInfo.m_stream->stream_info.width != static_cast<int>(info.GetWidth()) ||
+          (tsInfo.m_stream->stream_info.aspect > 0 &&
+           tsInfo.m_stream->stream_info.aspect != info.GetAspect()))
       {
-        if ((!info.GetFpsScale() &&
-             tsInfo.m_stream->stream_info.fps_scale != static_cast<int>(info.GetFpsScale())) ||
-            (!info.GetFpsRate() &&
-             tsInfo.m_stream->stream_info.fps_rate != static_cast<int>(info.GetFpsRate())) ||
-            (tsInfo.m_stream->stream_info.height != static_cast<int>(info.GetHeight())) ||
-            (tsInfo.m_stream->stream_info.width != static_cast<int>(info.GetWidth())) ||
-            (tsInfo.m_stream->stream_info.aspect &&
-             tsInfo.m_stream->stream_info.aspect != info.GetAspect()))
-        {
-          info.SetFpsRate(tsInfo.m_stream->stream_info.fps_rate);
-          info.SetFpsScale(tsInfo.m_stream->stream_info.fps_scale);
-          info.SetWidth(tsInfo.m_stream->stream_info.width);
-          info.SetHeight(tsInfo.m_stream->stream_info.height);
-          if (tsInfo.m_stream->stream_info.aspect)
-            info.SetAspect(tsInfo.m_stream->stream_info.aspect);
-          ret = true;
-        }
-      }
-      else if (tsInfo.m_streamType == INPUTSTREAM_TYPE_AUDIO)
-      {
-        if (tsInfo.m_stream->stream_info.language[0])
-          info.SetLanguage(tsInfo.m_stream->stream_info.language);
+        info.SetFpsRate(tsInfo.m_stream->stream_info.fps_rate);
+        info.SetFpsScale(tsInfo.m_stream->stream_info.fps_scale);
+        info.SetWidth(tsInfo.m_stream->stream_info.width);
+        info.SetHeight(tsInfo.m_stream->stream_info.height);
+        if (tsInfo.m_stream->stream_info.aspect > 0)
+          info.SetAspect(tsInfo.m_stream->stream_info.aspect);
 
-        if ((tsInfo.m_stream->stream_info.channels != static_cast<int>(info.GetChannels())) ||
-            (tsInfo.m_stream->stream_info.sample_rate != static_cast<int>(info.GetSampleRate())) ||
-            (tsInfo.m_stream->stream_info.block_align != static_cast<int>(info.GetBlockAlign())) ||
-            (tsInfo.m_stream->stream_info.bit_rate != static_cast<int>(info.GetBitRate())) ||
-            (tsInfo.m_stream->stream_info.bits_per_sample !=
-             static_cast<int>(info.GetBitsPerSample())))
-        {
-          info.SetChannels(tsInfo.m_stream->stream_info.channels);
-          info.SetSampleRate(tsInfo.m_stream->stream_info.sample_rate);
-          info.SetBlockAlign(tsInfo.m_stream->stream_info.block_align);
-          info.SetBitRate(tsInfo.m_stream->stream_info.bit_rate);
-          info.SetBitsPerSample(tsInfo.m_stream->stream_info.bits_per_sample);
-          ret = true;
-        }
+        isChanged = true;
       }
-      info.SetCodecName(STREAMTYPEMAP[tsInfo.m_stream->stream_type]);
-
-      if (!info.CompareExtraData(tsInfo.m_stream->stream_info.extra_data,
-                                 tsInfo.m_stream->stream_info.extra_data_size))
-      {
-        info.SetExtraData(tsInfo.m_stream->stream_info.extra_data,
-                          tsInfo.m_stream->stream_info.extra_data_size);
-        ret = true;
-      }
-      return ret;
     }
+    else if (tsInfo.m_streamType == INPUTSTREAM_TYPE_AUDIO)
+    {
+      if (tsInfo.m_stream->stream_info.language[0])
+        info.SetLanguage(tsInfo.m_stream->stream_info.language);
+
+      if (tsInfo.m_stream->stream_info.channels != static_cast<int>(info.GetChannels()) ||
+          tsInfo.m_stream->stream_info.sample_rate != static_cast<int>(info.GetSampleRate()) ||
+          tsInfo.m_stream->stream_info.block_align != static_cast<int>(info.GetBlockAlign()) ||
+          tsInfo.m_stream->stream_info.bit_rate != static_cast<int>(info.GetBitRate()) ||
+          tsInfo.m_stream->stream_info.bits_per_sample != static_cast<int>(info.GetBitsPerSample()))
+      {
+        info.SetChannels(tsInfo.m_stream->stream_info.channels);
+        info.SetSampleRate(tsInfo.m_stream->stream_info.sample_rate);
+        info.SetBlockAlign(tsInfo.m_stream->stream_info.block_align);
+        info.SetBitRate(tsInfo.m_stream->stream_info.bit_rate);
+        info.SetBitsPerSample(tsInfo.m_stream->stream_info.bits_per_sample);
+        isChanged = true;
+      }
+    }
+
+    const char* codecName = STREAMTYPEMAP[tsInfo.m_stream->stream_type];
+    if (info.GetCodecName() != codecName)
+    {
+      info.SetCodecName(codecName);
+      isChanged = true;
+    }
+
+    if (!info.CompareExtraData(tsInfo.m_stream->stream_info.extra_data,
+                               tsInfo.m_stream->stream_info.extra_data_size))
+    {
+      info.SetExtraData(tsInfo.m_stream->stream_info.extra_data,
+                        tsInfo.m_stream->stream_info.extra_data_size);
+      isChanged = true;
+    }
+    break;
   }
-  return false;
+
+  return isChanged;
 }
 
 // We assume that m_startpos is the current I-Frame position

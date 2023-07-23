@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <ctime> // time
 #include <map>
@@ -62,6 +63,9 @@ constexpr char* NAME_EAC3 = "eac3"; // Enhanced AC-3
 constexpr char* NAME_OPUS = "opus";
 constexpr char* NAME_VORBIS = "vorbis";
 
+constexpr std::array AUDIO_NAME_LIST = {NAME_AAC,  NAME_DTS,  NAME_AC3,
+                                        NAME_EAC3, NAME_OPUS, NAME_VORBIS};
+
 // Subtitles definitions
 
 constexpr char* NAME_SRT = "srt";
@@ -97,6 +101,11 @@ constexpr char* FOURCC_VORB3 = "vor3"; // Vorbis 3
 constexpr char* FOURCC_VORB3P = "vo3+"; // Vorbis 3+
 constexpr char* FOURCC_DTS_ = "dts"; // Generic prefix for all dts* fourcc, e.g. dtsx
 
+constexpr std::array AUDIO_FOURCC_LIST = {FOURCC_MP4A, FOURCC_AAC_, FOURCC_AACL,
+                                          FOURCC_AC_3, FOURCC_EC_3, FOURCC_OPUS, FOURCC_VORB, FOURCC_VORB1,
+                                          FOURCC_VORB1P, FOURCC_VORB2, FOURCC_VORB2P, FOURCC_VORB3,
+                                          FOURCC_VORB3P, FOURCC_DTS_};
+
 // Fourcc subtitles definitions
 
 constexpr char* FOURCC_WVTT = "wvtt"; // WebVTT
@@ -116,6 +125,13 @@ constexpr uint32_t MakeFourCC(const char* fourcc)
   return ((static_cast<uint32_t>(fourcc[0])) | (static_cast<uint32_t>(fourcc[1]) << 8) |
           (static_cast<uint32_t>(fourcc[2]) << 16) | (static_cast<uint32_t>(fourcc[3]) << 24));
 }
+
+/*!
+ * \brief Convert a fourCC unsigned integer to equivalent string
+ * \param fourcc The FourCC
+ * \return The FourCC as string value
+ */
+std::string FourCCToString(const uint32_t fourcc);
 
 /*!
  * \brief Check if a codec string exists in the list, convenient function to check within of strings
@@ -142,6 +158,13 @@ bool Contains(const std::set<std::string>& list, std::string_view codec, std::st
  * \return The video codec description, otherwise empty if unsupported
  */
 std::string GetVideoDesc(const std::set<std::string>& list);
+
+/*!
+ * \brief Determines if the codec string is of type audio, regardless of whether it is a name or fourcc.
+ * \param codec The codec string
+ * \return True if it is audio type, otherwise false
+ */
+bool IsAudio(std::string_view codec);
 
 }
 

@@ -214,6 +214,15 @@ std::set<std::string> UTILS::STRING::Split(std::string_view input,
   return result;
 }
 
+std::vector<std::string> UTILS::STRING::SplitToVec(std::string_view input,
+                                                   const char delimiter,
+                                                   int maxStrings /* = 0 */)
+{
+  std::vector<std::string> result;
+  StringUtils::SplitTo(std::back_inserter(result), input.data(), delimiter, maxStrings);
+  return result;
+}
+
 bool UTILS::STRING::Compare(std::string_view str1, std::string_view str2)
 {
   return str1.compare(str2) == 0;
