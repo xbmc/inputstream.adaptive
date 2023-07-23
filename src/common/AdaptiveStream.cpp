@@ -287,7 +287,7 @@ bool AdaptiveStream::PrepareDownload(const PLAYLIST::CRepresentation* rep,
     downloadInfo.m_addHeaders["Range"] = rangeHeader;
   }
 
-  downloadInfo.m_url = tree_.BuildDownloadUrl(streamUrl);
+  downloadInfo.m_url = streamUrl;
   return true;
 }
 
