@@ -8,6 +8,10 @@
 
 #include "AV1CodecHandler.h"
 
+#include "../utils/Utils.h"
+
+using namespace UTILS;
+
 AV1CodecHandler::AV1CodecHandler(AP4_SampleDescription* sd)
   : CodecHandler(sd), m_codecProfile{STREAMCODEC_PROFILE::CodecProfileUnknown}
 {
@@ -39,12 +43,15 @@ AV1CodecHandler::AV1CodecHandler(AP4_SampleDescription* sd)
 
 bool AV1CodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
 {
-  bool ret{CodecHandler::GetInformation(info)};
+  bool isChanged = CodecHandler::GetInformation(info);
+
+  isChanged |= UpdateInfoCodecName(info, CODEC::NAME_AV1);
+
   if (info.GetCodecProfile() != m_codecProfile)
   {
     info.SetCodecProfile(m_codecProfile);
-    return true;
+    isChanged = true;
   }
 
-  return false;
+  return isChanged;
 }

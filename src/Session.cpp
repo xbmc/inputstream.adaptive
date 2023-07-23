@@ -839,6 +839,8 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
 
 void CSession::UpdateStream(CStream& stream)
 {
+  // On this method we set stream info provided by manifest parsing, but these info could be
+  // changed by sample readers just before the start of playback by using GetInformation() methods
   const StreamType streamType = stream.m_adStream.getAdaptationSet()->GetStreamType();
   CRepresentation* rep{stream.m_adStream.getRepresentation()};
 

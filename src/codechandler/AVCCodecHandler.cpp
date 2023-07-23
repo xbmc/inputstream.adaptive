@@ -8,6 +8,10 @@
 
 #include "AVCCodecHandler.h"
 
+#include "../utils/Utils.h"
+
+using namespace UTILS;
+
 AVCCodecHandler::AVCCodecHandler(AP4_SampleDescription* sd)
   : CodecHandler{sd},
     m_countPictureSetIds{0},
@@ -173,6 +177,8 @@ bool AVCCodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
     return false;
   m_pictureIdPrev = m_pictureId;
 
+  bool isChanged = UpdateInfoCodecName(info, CODEC::NAME_H264);
+
   if (AP4_AvcSampleDescription* avcSampleDescription =
           AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, m_sampleDescription))
   {
@@ -196,22 +202,23 @@ bool AVCCodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
             unsigned int fps_ticks = info.GetFpsRate();
             unsigned int fps_scale = info.GetFpsScale();
             float aspect = info.GetAspect();
-            bool ret = sps.GetInfo(width, height);
-            ret = sps.GetVUIInfo(fps_ticks, fps_scale, aspect) || ret;
-            if (ret)
+            bool haveInfo = sps.GetInfo(width, height);
+            haveInfo = sps.GetVUIInfo(fps_ticks, fps_scale, aspect) || haveInfo;
+            if (haveInfo)
             {
               info.SetWidth(width);
               info.SetHeight(height);
               info.SetFpsRate(fps_ticks);
               info.SetFpsScale(fps_scale);
               info.SetAspect(aspect);
+              isChanged = true;
             }
-            return ret;
+            break;
           }
         }
         break;
       }
     }
   }
-  return false;
+  return isChanged;
 };

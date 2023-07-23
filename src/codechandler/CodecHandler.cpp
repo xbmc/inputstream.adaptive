@@ -60,4 +60,25 @@ bool CodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
     }
   }
   return false;
+}
+
+bool CodecHandler::UpdateInfoCodecName(kodi::addon::InputstreamInfo& info, const char* codecName)
+{
+  bool isChanged{false};
+
+  if (info.GetCodecName() != codecName)
+  {
+    info.SetCodecName(codecName);
+    isChanged = true;
+  }
+
+  AP4_String codecStr;
+  m_sampleDescription->GetCodecString(codecStr);
+  if (codecStr.GetLength() > 0 && info.GetCodecInternalName() != codecStr.GetChars())
+  {
+    info.SetCodecInternalName(codecStr.GetChars());
+    isChanged = true;
+  }
+
+  return isChanged;
 };

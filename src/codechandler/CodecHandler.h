@@ -25,6 +25,13 @@ public:
   virtual ~CodecHandler(){};
 
   virtual void UpdatePPSId(AP4_DataBuffer const&){};
+
+  /*!
+   * \brief Query the codec handler to get stream info. It can provide info that are missing
+   *        from the manifest metadata and/or correct wrong info provided by malformed manifests.
+   * \param info The object where set the info
+   * \return True if some info is changed, otherwise false
+   */
   virtual bool GetInformation(kodi::addon::InputstreamInfo& info);
   virtual bool ExtraDataToAnnexB() { return false; };
   virtual STREAMCODEC_PROFILE GetProfile() { return STREAMCODEC_PROFILE::CodecProfileNotNeeded; };
@@ -42,4 +49,7 @@ public:
   AP4_UI08 m_naluLengthSize;
   AP4_UI08 m_pictureId;
   AP4_UI08 m_pictureIdPrev;
+
+  protected:
+  bool UpdateInfoCodecName(kodi::addon::InputstreamInfo& info, const char* codecName);
 };
