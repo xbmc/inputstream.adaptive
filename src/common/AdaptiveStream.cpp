@@ -972,7 +972,7 @@ NEXTSEGMENT:
   {
     while (true)
     {
-      uint32_t avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
+      size_t avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
 
       if (avail < bytesToRead && worker_processing_)
       {
@@ -989,7 +989,7 @@ NEXTSEGMENT:
       if (avail == bytesToRead)
       {
         memcpy(buffer, segment_buffers_[0]->buffer.data() + (segment_read_pos_ - avail), avail);
-        return avail;
+        return static_cast<uint32_t>(avail);
       }
       // If we call read after the last chunk was read but before worker finishes download, we end up here.
       if (!avail)
