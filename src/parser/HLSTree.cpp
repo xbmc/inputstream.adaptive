@@ -369,14 +369,10 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
             switch (adp->GetStreamType())
             {
               case StreamType::VIDEO:
+              case StreamType::AUDIO:
                 LOG::LogF(LOGWARNING,
                           "Cannot detect container type from media url, fallback to TS");
                 containerType = ContainerType::TS;
-                break;
-              case StreamType::AUDIO:
-                LOG::LogF(LOGWARNING,
-                          "Cannot detect container type from media url, fallback to ADTS");
-                containerType = ContainerType::ADTS;
                 break;
               case StreamType::SUBTITLE:
                 LOG::LogF(LOGWARNING,
