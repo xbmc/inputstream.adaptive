@@ -67,6 +67,8 @@ PLAYLIST::ContainerType DetectContainerType(std::string_view mimeType)
     return ContainerType::WEBM;
   if (STRING::Contains(mimeType, "/x-matroska"))
     return ContainerType::MATROSKA;
+  if (STRING::Contains(mimeType, "/ttml+xml") || STRING::Contains(mimeType, "vtt"))
+    return ContainerType::TEXT;
 
   return ContainerType::MP4;
 }
@@ -74,9 +76,9 @@ PLAYLIST::ContainerType DetectContainerType(std::string_view mimeType)
 std::string DetectCodecFromMimeType(std::string_view mimeType)
 {
   if (mimeType == "text/vtt")
-    return "wvtt";
+    return CODEC::FOURCC_WVTT;
   if (mimeType == "application/ttml+xml")
-    return "ttml";
+    return CODEC::FOURCC_TTML;
 
   return "";
 }
@@ -683,28 +685,24 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   {
     StreamType streamType = DetectStreamType("", repr->GetMimeType());
     const auto& codecs = repr->GetCodecs();
-    if (streamType == StreamType::NOTYPE && (CODEC::Contains(codecs, CODEC::FOURCC_WVTT) ||
-                                             CODEC::Contains(codecs, CODEC::FOURCC_TTML) ||
-                                             CODEC::Contains(codecs, CODEC::FOURCC_STPP)))
+    if (streamType == StreamType::NOTYPE)
     {
-      streamType = StreamType::SUBTITLE;
+      // Try find stream type by checking the codec string
+      for (const std::string& codec : codecs)
+      {
+        if (CODEC::IsSubtitleFourCC(codec))
+        {
+          streamType = StreamType::SUBTITLE;
+          break;
+        }
+      }
     }
-    adpSet->SetStreamType(streamType);
-  }
 
-  // Set properties for subtitles types
-  if (repr->GetMimeType() != "application/mp4") // Handle text type only, not ISOBMFF format
-  {
-    const auto& codecs = repr->GetCodecs();
-    if (repr->GetMimeType() == "application/ttml+xml" || repr->GetMimeType() == "text/vtt" ||
-        CODEC::Contains(codecs, CODEC::FOURCC_WVTT) ||
-        CODEC::Contains(codecs, CODEC::FOURCC_TTML) || CODEC::Contains(codecs, CODEC::FOURCC_STPP))
-    {
-      if (adpSet->SegmentTimelineDuration().IsEmpty())
-        repr->SetIsSubtitleFileStream(true); // Treat as single subtitle file
-      else
-        repr->SetContainerType(ContainerType::TEXT); // Segmented subtitles
-    }
+    adpSet->SetStreamType(streamType);
+
+    if (streamType == StreamType::SUBTITLE &&
+        repr->GetMimeType() != "application/mp4") // Text format type only, not ISOBMFF
+      repr->SetContainerType(ContainerType::TEXT);
   }
 
   // ISA custom attribute
@@ -971,6 +969,15 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     adpSet->SetAudioChannels(ParseAudioChannelConfig(nodeAudioCh));
   else if (adpSet->GetStreamType() == StreamType::AUDIO && repr->GetAudioChannels() == 0)
     repr->SetAudioChannels(2); // Fallback to 2 channels when no value is set
+
+  // For subtitles that are not as ISOBMFF format and where there is no timeline for segments
+  // we should treat them as a single subtitle file
+  if (repr->GetContainerType() == ContainerType::TEXT && repr->GetMimeType() != "application/mp4" &&
+      !adpSet->HasSegmentTimelineDuration() && !repr->HasSegmentTimeline())
+  {
+
+    repr->SetIsSubtitleFileStream(true);
+  }
 
   // Generate timeline segments
   if (!repr->HasSegmentTimeline() && repr->HasSegmentTemplate())

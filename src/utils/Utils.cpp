@@ -400,3 +400,13 @@ bool UTILS::CODEC::IsAudio(std::string_view codec)
   }
   return false;
 }
+
+bool UTILS::CODEC::IsSubtitleFourCC(std::string_view codec)
+{
+  for (const auto fourcc : CODEC::SUBTITLES_FOURCC_LIST)
+  {
+    if (STRING::Contains(codec, fourcc))
+      return true;
+  }
+  return false;
+}
