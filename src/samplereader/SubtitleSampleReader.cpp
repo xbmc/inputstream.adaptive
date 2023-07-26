@@ -10,6 +10,7 @@
 
 #include "../utils/CurlUtils.h"
 #include "../utils/StringUtils.h"
+#include "../utils/Utils.h"
 #include "../utils/log.h"
 
 using namespace UTILS;
@@ -20,9 +21,9 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
   : m_streamId{streamId}
 {
   // Single subtitle file
-  if (STRING::Contains(codecInternalName, "wvtt"))
+  if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
     m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, true);
-  else if (STRING::Contains(codecInternalName, "ttml"))
+  else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
     m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
   else
   {
@@ -65,9 +66,9 @@ CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
   : m_streamId{streamId}, m_adByteStream{stream->GetAdByteStream()}, m_adStream{&stream->m_adStream}
 {
   // Segmented subtitle
-  if (STRING::Contains(codecInternalName, "wvtt"))
+  if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
     m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
-  else if (STRING::Contains(codecInternalName, "ttml"))
+  else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
     m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
   else
     LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());

@@ -169,8 +169,6 @@ public:
                : nullptr;
   }
 
-  std::string BuildDownloadUrl(const std::string& url) const;
-
   /*!
    * \brief Check for live streaming content (timeshift buffer)
    * \return True for live streaming content, otherwise false for VOD content

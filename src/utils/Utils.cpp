@@ -309,7 +309,7 @@ bool UTILS::CreateISMlicense(std::string_view key,
 void UTILS::ParseHeaderString(std::map<std::string, std::string>& headerMap,
                               const std::string& header)
 {
-  std::vector<std::string> headers = StringUtils::Split(header, '&');
+  std::vector<std::string> headers = STRING::SplitToVec(header, '&');
   for (std::string& header : headers)
   {
     size_t pos = header.find('=');

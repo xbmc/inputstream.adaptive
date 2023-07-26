@@ -131,7 +131,7 @@ bool StartsWith(std::string_view str, std::string_view startStr);
  * \param maxStrings [OPT] Maximum number of resulting split strings
  * \return List of splitted unique strings.
  */
-std::set<std::string> Split(std::string_view input, const char delimiter, int maxStrings = 0);
+std::set<std::string> SplitToSet(std::string_view input, const char delimiter, int maxStrings = 0);
 
 /*!
  * \brief Splits the given input string using the given delimiter into separate strings.

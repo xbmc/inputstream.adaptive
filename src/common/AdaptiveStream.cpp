@@ -287,7 +287,7 @@ bool AdaptiveStream::PrepareDownload(const PLAYLIST::CRepresentation* rep,
     downloadInfo.m_addHeaders["Range"] = rangeHeader;
   }
 
-  downloadInfo.m_url = tree_.BuildDownloadUrl(streamUrl);
+  downloadInfo.m_url = streamUrl;
   return true;
 }
 
@@ -967,36 +967,35 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
 
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
-NEXTSEGMENT:
-  if (ensureSegment() && bytesToRead)
+  while (ensureSegment() && bytesToRead > 0)
   {
-    while (true)
+    size_t avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
+    // Wait until we have all data
+    while (avail < bytesToRead && worker_processing_)
     {
-      uint32_t avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
-
-      if (avail < bytesToRead && worker_processing_)
-      {
-        thread_data_->signal_rw_.wait(lckrw);
-        continue;
-      }
-
-      if (avail > bytesToRead)
-        avail = bytesToRead;
-
-      segment_read_pos_ += avail;
-      absolute_position_ += avail;
-
-      if (avail == bytesToRead)
-      {
-        memcpy(buffer, segment_buffers_[0]->buffer.data() + (segment_read_pos_ - avail), avail);
-        return avail;
-      }
-      // If we call read after the last chunk was read but before worker finishes download, we end up here.
-      if (!avail)
-        goto NEXTSEGMENT;
-      return 0;
+      thread_data_->signal_rw_.wait(lckrw);
+      avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
     }
+
+    if (avail > bytesToRead)
+      avail = bytesToRead;
+
+    segment_read_pos_ += avail;
+    absolute_position_ += avail;
+
+    if (avail == bytesToRead)
+    {
+      std::memcpy(buffer, segment_buffers_[0]->buffer.data() + (segment_read_pos_ - avail), avail);
+      return static_cast<uint32_t>(avail);
+    }
+
+    // If we call read after the last chunk was read but before worker finishes download, we end up here.
+    if (avail == 0)
+      continue;
+
+    break;
   }
+
   return 0;
 }
 

@@ -139,14 +139,6 @@ namespace adaptive
       return period->InsertPSSHSet(nullptr);
   }
 
-  std::string AdaptiveTree::BuildDownloadUrl(const std::string& url) const
-  {
-    if (URL::IsUrlAbsolute(url))
-      return url;
-
-    return URL::Join(base_url_, url);
-  }
-
   void AdaptiveTree::SortTree()
   {
     for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end(); itPeriod++)

@@ -639,7 +639,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
       {
       RETRY:
         std::map<std::string, std::string> headers;
-        std::vector<std::string> keyParts{StringUtils::Split(m_decrypter->getLicenseKey(), '|')};
+        std::vector<std::string> keyParts = STRING::SplitToVec(m_decrypter->getLicenseKey(), '|');
         std::string url = pssh.pssh_.c_str();
 
         if (keyParts.size() > 0)
@@ -806,7 +806,11 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
 
       if (STRING::KeyExists(attribs, "URI"))
       {
-        repr->SetSourceUrl(BuildDownloadUrl(attribs["URI"]));
+        std::string uri = attribs["URI"];
+        if (URL::IsUrlRelative(uri))
+          uri = URL::Join(base_url_, uri);
+
+        repr->SetSourceUrl(uri);
 
         if (streamType == StreamType::SUBTITLE)
         {
@@ -913,17 +917,18 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
       // Try read on the next stream line, to get the playlist URL address
       if (STRING::GetLine(streamData, line) && !line.empty() && line[0] != '#')
       {
-        std::string sourceUrl = BuildDownloadUrl(line);
+        std::string url = line;
+        if (URL::IsUrlRelative(url))
+          url = URL::Join(base_url_, url);
 
         // Ensure that we do not add duplicate URLs / representations
-        auto itRepr =
-            std::find_if(adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
-                         [&sourceUrl](const std::unique_ptr<CRepresentation>& r)
-                         { return r->GetSourceUrl() == sourceUrl; });
+        auto itRepr = std::find_if(
+            adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
+            [&url](const std::unique_ptr<CRepresentation>& r) { return r->GetSourceUrl() == url; });
 
         if (itRepr == adpSet->GetRepresentations().end())
         {
-          repr->SetSourceUrl(sourceUrl);
+          repr->SetSourceUrl(url);
           adpSet->AddRepresentation(repr);
         }
       }
