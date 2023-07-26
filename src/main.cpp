@@ -281,9 +281,6 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   AP4_Movie* movie(m_session->PrepareStream(stream, needRefetch));
 
-  // We load fragments on PrepareTime for HLS manifests and have to reevaluate the start-segment
-  //if (m_session->GetManifestType() == PROPERTIES::ManifestType::HLS)
-  //  stream->m_adStream.restart_stream();
   stream->m_adStream.start_stream();
 
   ContainerType reprContainerType = rep->GetContainerType();
