@@ -639,7 +639,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
       {
       RETRY:
         std::map<std::string, std::string> headers;
-        std::vector<std::string> keyParts{StringUtils::Split(m_decrypter->getLicenseKey(), '|')};
+        std::vector<std::string> keyParts = STRING::SplitToVec(m_decrypter->getLicenseKey(), '|');
         std::string url = pssh.pssh_.c_str();
 
         if (keyParts.size() > 0)

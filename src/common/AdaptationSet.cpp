@@ -9,18 +9,16 @@
 #include "AdaptationSet.h"
 
 #include "Representation.h"
-#include "kodi/tools/StringUtils.h"
 #include "../utils/StringUtils.h"
 
 #include <algorithm> // any_of
 
 using namespace PLAYLIST;
 using namespace UTILS;
-using namespace kodi::tools;
 
 void PLAYLIST::CAdaptationSet::AddCodecs(std::string_view codecs)
 {
-  std::set<std::string> list = STRING::Split(codecs.data(), ',');
+  std::set<std::string> list = STRING::SplitToSet(codecs.data(), ',');
   m_codecs.insert(list.begin(), list.end());
 }
 
@@ -36,7 +34,7 @@ bool PLAYLIST::CAdaptationSet::ContainsCodec(std::string_view codec)
 
 void PLAYLIST::CAdaptationSet::AddSwitchingIds(std::string_view switchingIds)
 {
-  std::vector<std::string> list = StringUtils::Split(switchingIds.data(), ',');
+  std::vector<std::string> list = STRING::SplitToVec(switchingIds.data(), ',');
   m_switchingIds.insert(m_switchingIds.end(), list.begin(), list.end());
 }
 

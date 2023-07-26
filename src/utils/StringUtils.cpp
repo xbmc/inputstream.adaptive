@@ -205,9 +205,9 @@ bool UTILS::STRING::StartsWith(std::string_view str, std::string_view startStr)
   return str.substr(0, startStr.size()) == startStr;
 }
 
-std::set<std::string> UTILS::STRING::Split(std::string_view input,
-                                             const char delimiter,
-                                           int maxStrings /* = 0 */)
+std::set<std::string> UTILS::STRING::SplitToSet(std::string_view input,
+                                                const char delimiter,
+                                                int maxStrings /* = 0 */)
 {
   std::set<std::string> result;
   StringUtils::SplitTo(std::inserter(result, result.end()), input.data(), delimiter, maxStrings);
