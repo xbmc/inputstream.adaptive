@@ -801,6 +801,17 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
       adpSet->SetIsDefault(attribs["DEFAULT"] == "YES");
       adpSet->SetIsForced(attribs["FORCED"] == "YES");
 
+      if (STRING::KeyExists(attribs, "CHARACTERISTICS"))
+      {
+        std::string ch = attribs["CHARACTERISTICS"];
+        if (STRING::Contains(ch, "public.accessibility.transcribes-spoken-dialog") ||
+            STRING::Contains(ch, "public.accessibility.describes-music-and-sound") ||
+            STRING::Contains(ch, "public.accessibility.describes-video"))
+        {
+          adpSet->SetIsImpaired(true);
+        }
+      }
+
       repr->AddCodecs(group.m_codecs);
       repr->SetTimescale(1000000);
 
