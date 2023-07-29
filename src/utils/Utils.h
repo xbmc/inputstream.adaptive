@@ -115,6 +115,8 @@ constexpr char* FOURCC_TTML = "ttml";
 // for example "stpp.ttml.im1t", or only "stpp"
 constexpr char* FOURCC_STPP = "stpp";
 
+constexpr std::array SUBTITLES_FOURCC_LIST = {FOURCC_WVTT, FOURCC_TTML, FOURCC_STPP};
+
 /*!
  * \brief Make a FourCC code as unsigned integer value
  * \param fourcc The FourCC code (4 chars)
@@ -165,6 +167,13 @@ std::string GetVideoDesc(const std::set<std::string>& list);
  * \return True if it is audio type, otherwise false
  */
 bool IsAudio(std::string_view codec);
+
+/*!
+ * \brief Determines if the codec string contains a fourcc of type subtitles.
+ * \param codec The codec string
+ * \return True if contains a fourcc of type subtitles, otherwise false
+ */
+bool IsSubtitleFourCC(std::string_view codec);
 
 }
 
