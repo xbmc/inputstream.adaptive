@@ -36,22 +36,22 @@ public:
     throw std::logic_error("SetDefaultKeyId method not implemented.");
   };
 
-  virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id,
+  virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
                                      const AP4_UI08* key,
-                                     const AP4_UI08 nal_length_size,
-                                     AP4_DataBuffer& annexb_sps_pps,
+                                     const AP4_UI08 nalLengthSize,
+                                     AP4_DataBuffer& annexbSpsPps,
                                      AP4_UI32 flags,
                                      CryptoInfo cryptoInfo) = 0;
 
-  virtual AP4_Result DecryptSampleData(AP4_UI32 poolid,
-                                       AP4_DataBuffer& data_in,
-                                       AP4_DataBuffer& data_out,
+  virtual AP4_Result DecryptSampleData(AP4_UI32 poolId,
+                                       AP4_DataBuffer& dataIn,
+                                       AP4_DataBuffer& dataOut,
                                        const AP4_UI08* iv,
-                                       unsigned int subsample_count,
-                                       const AP4_UI16* bytes_of_cleartext_data,
-                                       const AP4_UI32* bytes_of_encrypted_data) = 0;
+                                       unsigned int subsampleCount,
+                                       const AP4_UI16* bytesOfCleartextData,
+                                       const AP4_UI32* bytesOfEncryptedData) = 0;
 
   virtual AP4_UI32 AddPool() { return 0; }
-  virtual void RemovePool(AP4_UI32 poolid) {}
+  virtual void RemovePool(AP4_UI32 poolId) {}
   virtual const char* GetSessionId() { return nullptr; }
 };

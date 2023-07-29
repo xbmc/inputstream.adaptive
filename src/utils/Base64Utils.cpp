@@ -8,10 +8,7 @@
 
 #include "Base64Utils.h"
 
-#ifndef INPUTSTREAM_SSD_BUILD
-//! @todo: not accessible between two differents projects builds
 #include "log.h"
-#endif
 
 using namespace UTILS::BASE64;
 
@@ -140,9 +137,7 @@ void UTILS::BASE64::Decode(const char* input, const size_t length, std::string& 
     // Characters that are not '=', in the middle of the padding, are not allowed
     if (paddingStarted)
     {
-#ifndef INPUTSTREAM_SSD_BUILD
       LOG::LogF(LOGERROR, "Invalid base64-encoded string: Incorrect padding characters");
-#endif
       output.clear();
       return;
     }
@@ -179,16 +174,12 @@ void UTILS::BASE64::Decode(const char* input, const size_t length, std::string& 
       // There is exactly one extra valid, non-padding, base64 character.
       // This is an invalid length, as there is no possible input that
       // could encoded into such a base64 string.
-#ifndef INPUTSTREAM_SSD_BUILD
       LOG::LogF(LOGERROR, "Invalid base64-encoded string: number of data characters cannot be 1 "
                           "more than a multiple of 4");
-#endif
     }
     else
     {
-#ifndef INPUTSTREAM_SSD_BUILD
       LOG::LogF(LOGERROR, "Invalid base64-encoded string: Incorrect padding");
-#endif
     }
     output.clear();
   }

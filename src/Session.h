@@ -8,13 +8,18 @@
 
 #pragma once
 
-#include "KodiHost.h"
 #include "Stream.h"
 #include "common/AdaptiveStream.h"
+#include "decrypters/DrmFactory.h"
+#include "decrypters/IDecrypter.h"
 #include "utils/PropertiesUtils.h"
 
 #include <bento4/Ap4.h>
 #include <kodi/tools/DllHelper.h>
+
+#if defined(ANDROID)
+#include <kodi/platform/android/System.h>
+#endif
 
 class Adaptive_CencSingleSampleDecrypter;
 
@@ -136,10 +141,10 @@ public:
     return m_cdmSessions[index].m_cencSingleSampleDecrypter;
   }
 
-  /*! \brief Get the decrypter (SSD lib)
+  /*! \brief Get the decrypter (DRM lib)
    *  \return The decrypter
    */
-  SSD::SSD_DECRYPTER* GetDecrypter() { return m_decrypter; }
+  DRM::IDecrypter* GetDecrypter() { return m_decrypter; }
 
   /*! \brief Get a single sample decrypter matching the session id provided
    *  \param sessionId The session id string to match
@@ -151,7 +156,7 @@ public:
    *  \param index The index (psshSet number) of the cdm session
    *  \return The single sample decrypter capabilities
    */
-  const SSD::SSD_DECRYPTER::SSD_CAPS& GetDecrypterCaps(unsigned int index) const
+  const DRM::IDecrypter::DecrypterCapabilites& GetDecrypterCaps(unsigned int index) const
   {
     return m_cdmSessions[index].m_decrypterCaps;
   };
@@ -363,13 +368,15 @@ protected:
 private:
   const UTILS::PROPERTIES::KodiProperties m_kodiProps;
   std::string m_manifestUrl;
+  std::string m_profilePath;
   AP4_DataBuffer m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
-  SSD::SSD_DECRYPTER* m_decrypter{nullptr};
+  DRM::IDecrypter* m_decrypter{nullptr};
+  DRM::CDrmFactory m_factory;
 
   struct CCdmSession
   {
-    SSD::SSD_DECRYPTER::SSD_CAPS m_decrypterCaps{};
+    DRM::IDecrypter::DecrypterCapabilites m_decrypterCaps{};
     Adaptive_CencSingleSampleDecrypter* m_cencSingleSampleDecrypter{nullptr};
     const char* m_cdmSessionStr{nullptr};
     bool m_sharedCencSsd{false};
@@ -390,6 +397,5 @@ private:
   uint8_t m_drmConfig{0};
   bool m_settingNoSecureDecoder{false};
   bool m_settingIsHdcpOverride{false};
-  std::unique_ptr<CKodiHost> m_KodiHost;
 };
 } // namespace SESSION

@@ -15,6 +15,7 @@ class CAdaptiveCencSampleDecrypter : public AP4_CencSampleDecrypter
 public:
   CAdaptiveCencSampleDecrypter(Adaptive_CencSingleSampleDecrypter* singleSampleDecrypter,
                                AP4_CencSampleInfoTable* sampleInfoTable);
+  ~CAdaptiveCencSampleDecrypter() override {};
 
   virtual AP4_Result DecryptSampleData(AP4_UI32 poolid,
                                        AP4_DataBuffer& data_in,

@@ -34,7 +34,7 @@ CFragmentedSampleReader::CFragmentedSampleReader(AP4_ByteStream* input,
                                                  AP4_Track* track,
                                                  AP4_UI32 streamId,
                                                  Adaptive_CencSingleSampleDecrypter* ssd,
-                                                 const SSD::SSD_DECRYPTER::SSD_CAPS& dcaps)
+                                                 const DRM::IDecrypter::DecrypterCapabilites& dcaps)
   : AP4_LinearReader{*movie, input},
     m_track{track},
     m_streamId{streamId},
@@ -121,7 +121,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
   {
     bool useDecryptingDecoder =
         m_protectedDesc &&
-        (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0;
+        (m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH) != 0;
     bool decrypterPresent{m_decrypter != nullptr};
     if (AP4_FAILED(result = ReadNextSample(m_track->GetId(), m_sample,
                                            (m_decrypter || useDecryptingDecoder) ? m_encrypted
@@ -221,7 +221,7 @@ uint64_t CFragmentedSampleReader::GetDuration() const
 
 bool CFragmentedSampleReader::IsEncrypted() const
 {
-  return (m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH) != 0 &&
+  return (m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH) != 0 &&
          m_decrypter != nullptr;
 }
 
@@ -484,7 +484,7 @@ void CFragmentedSampleReader::UpdateSampleDescription()
     }
   }
 
-  if ((m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) != 0)
+  if ((m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) != 0)
     m_codecHandler->ExtraDataToAnnexB();
 }
 

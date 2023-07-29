@@ -1,10 +1,44 @@
 cmake_minimum_required(VERSION 3.10)
+
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    # require at least gcc 4.8
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.8)
+        message(FATAL_ERROR "GCC version must be at least 4.8!")
+    endif()
+endif()
+
 project(inputstream.adaptive)
 option(BUILD_TESTING "Build the testing tree." ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 
 find_package(Kodi REQUIRED)
+
+# Function to add source files to the main file list
+function(add_dir_sources source_files header_files)
+    foreach(_source ${${source_files}})
+        if (IS_ABSOLUTE "${_source}")
+            set(_source_abs "${_source}")
+        else()
+            get_filename_component(_source_abs "${_source}" ABSOLUTE)
+        endif()
+        set_property(GLOBAL APPEND PROPERTY GlobalSourceList "${_source_abs}")
+    endforeach()
+    foreach(_header ${${header_files}})
+        if (IS_ABSOLUTE "${_header}")
+            set(_header_abs "${_header}")
+        else()
+            get_filename_component(_header_abs "${_header}" ABSOLUTE)
+        endif()
+        set_property(GLOBAL APPEND PROPERTY GlobalHeaderList "${_header_abs}")
+    endforeach()
+endfunction(add_dir_sources)
+
+# Function to add an additional dependency
+function(add_dependency project_name folder)
+    set_property(GLOBAL APPEND PROPERTY GlobalDepsNamesList "${project_name}")
+    set_property(GLOBAL APPEND PROPERTY GlobalDepsFoldersList "${folder}")
+endfunction(add_dependency)
 
 set(ADP_SOURCES
 	src/AdaptiveByteStream.cpp
@@ -61,7 +95,6 @@ set(ADP_SOURCES
 	src/utils/UrlUtils.cpp
 	src/utils/Utils.cpp
 	src/utils/XMLUtils.cpp
-	src/KodiHost.cpp
 	src/oscompat.cpp
 	src/Session.cpp
 	src/Stream.cpp
@@ -75,7 +108,6 @@ set(ADP_HEADERS
 	src/AdaptiveByteStream.h
 	src/main.h
 	src/oscompat.h
-	src/SSD_dll.h
 	src/codechandler/CodecHandler.h
 	src/codechandler/AudioCodecHandler.h
 	src/codechandler/AV1CodecHandler.h
@@ -132,7 +164,6 @@ set(ADP_HEADERS
 	src/utils/UrlUtils.h
 	src/utils/Utils.h
 	src/utils/XMLUtils.h
-	src/KodiHost.h
 	src/Session.h
 	src/Stream.h
 	src/TSReader.h
@@ -141,6 +172,8 @@ set(ADP_HEADERS
 	src/Iaes_decrypter.h
 	src/WebmReader.h
 	)
+
+add_subdirectory(src/decrypters)
 
 if(WIN32)
   find_package(dlfcn-win32 REQUIRED)
@@ -169,20 +202,11 @@ add_definitions(-DUNICODE -D_UNICODE)
 
 include_directories(${PUGIXML_INCLUDE_DIRS})
 
-if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
-  set(BENTOUSESTCFS 1)
-  include_directories(${BENTO4_INCLUDE_DIRS})
-else()
-  add_subdirectory(wvdecrypter)
-  set(ADP_ADDITIONAL_BINARY $<TARGET_FILE:ssd_wv>)
-endif()
-
 add_subdirectory(lib/mpegts)
 add_subdirectory(lib/webm_parser)
 
 if(ENABLE_INTERNAL_BENTO4)
   include_directories(${BENTO4_INCLUDE_DIRS})
-  add_dependencies(ssd_wv bento4)
   add_dependencies(mpegts bento4)
   add_dependencies(webm_parser bento4)
 endif()
@@ -193,6 +217,20 @@ list(APPEND DEPLIBS ${BENTO4_LIBRARIES})
 list(APPEND DEPLIBS mpegts)
 list(APPEND DEPLIBS webm_parser)
 list(APPEND DEPLIBS ${PUGIXML_LIBRARIES})
+
+# Add sources from CMakeLists on subfolders
+get_property(SOURCES_LIST GLOBAL PROPERTY GlobalSourceList)
+list(APPEND ADP_SOURCES ${SOURCES_LIST})
+get_property(HEADERS_LIST GLOBAL PROPERTY GlobalHeaderList)
+list(APPEND ADP_HEADERS ${HEADERS_LIST})
+
+# Add additional dependencies
+get_property(DEPS_FOLDERS_LIST GLOBAL PROPERTY GlobalDepsFoldersList)
+foreach(DEP_FOLDER ${DEPS_FOLDERS_LIST})
+  add_subdirectory(${DEP_FOLDER})
+endforeach()
+get_property(DEPS_NAMES_LIST GLOBAL PROPERTY GlobalDepsNamesList)
+list(APPEND DEPLIBS ${DEPS_NAMES_LIST})
 
 build_addon(inputstream.adaptive ADP DEPLIBS)
 
