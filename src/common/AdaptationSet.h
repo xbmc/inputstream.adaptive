@@ -65,6 +65,11 @@ public:
   void AddCodecs(std::string_view codecs);
   const std::set<std::string>& GetCodecs() { return m_codecs; }
 
+  /*!
+   * \brief Add codec strings
+   */
+  void AddCodecs(const std::set<std::string>& codecs);
+
   StreamType GetStreamType() const { return m_streamType; }
   void SetStreamType(StreamType streamType) { m_streamType = streamType; }
 
@@ -105,6 +110,14 @@ public:
   void CopyHLSData(const CAdaptationSet* other);
 
   bool IsMergeable(const CAdaptationSet* other) const;
+
+  /*!
+   * \brief Determine if an adaptation set is switchable with another one,
+   *        as urn:mpeg:dash:adaptation-set-switching:2016 scheme
+   * \param adpSets The adaptation set to compare
+   * \return True if switchable, otherwise false
+   */
+  bool CompareSwitchingId(const CAdaptationSet* other) const;
 
   static bool Compare(const std::unique_ptr<CAdaptationSet>& left,
                       const std::unique_ptr<CAdaptationSet>& right);

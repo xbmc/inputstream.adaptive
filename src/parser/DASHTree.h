@@ -80,6 +80,8 @@ protected:
    */
   size_t EstimateSegmentsCount(uint64_t duration, uint32_t timescale, uint64_t totalTimeSecs = 0);
 
+  void MergeAdpSets();
+
   /*!
    * \brief Download manifest update, overridable method for test project
    */

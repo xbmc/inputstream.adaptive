@@ -62,6 +62,7 @@ protected:
       LOG::Log(LOGERROR, "Cannot open \"%s\" Smooth Streaming manifest.", url.c_str());
       exit(1);
     }
+    tree->PostOpen(m_kodiProps);
   }
 
   SmoothTestTree* tree;
