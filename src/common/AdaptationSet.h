@@ -109,6 +109,24 @@ public:
   static bool Compare(const std::unique_ptr<CAdaptationSet>& left,
                       const std::unique_ptr<CAdaptationSet>& right);
 
+  /*!
+   * \brief Find an adaptation set by codec string.
+   * \param adpSets The adaptation set list where to search
+   * \param codec The codec string
+   * \return The adaptation set if found, otherwise nullptr
+   */
+  static CAdaptationSet* FindByCodec(std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
+                                     std::string codec);
+
+  /*!
+   * \brief Find a mergeable adaptation set by comparing properties.
+   * \param adpSets The adaptation set list where to search
+   * \param adpSet The adaptation set to be compared
+   * \return The adaptation set if found, otherwise nullptr
+   */
+  static CAdaptationSet* FindMergeable(std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
+                                       CAdaptationSet* adpSet);
+
 protected:
   std::vector<std::unique_ptr<CRepresentation>> m_representations;
 

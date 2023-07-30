@@ -80,6 +80,11 @@ protected:
   PLAYLIST::EncryptionType ProcessEncryption(std::string_view baseUrl,
                                              std::map<std::string, std::string>& attribs);
 
+  bool ParseMediaGroup(std::unique_ptr<PLAYLIST::CAdaptationSet>& adpSet,
+                       std::unique_ptr<PLAYLIST::CRepresentation>& repr,
+                       std::map<std::string, std::string> attribs,
+                       const std::string& codecStr);
+
   virtual void SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
                             const std::string& data,
                             std::string_view info);
@@ -87,28 +92,6 @@ protected:
   std::unique_ptr<IAESDecrypter> m_decrypter;
 
 private:
-  struct ExtGroup
-  {
-    std::string m_codecs;
-    std::vector<std::unique_ptr<PLAYLIST::CAdaptationSet>> m_adpSets;
-
-    // Apply codecs to the first representation of each adaptation set
-    void SetCodecs(std::string_view codecs)
-    {
-      if (m_codecs.empty()) // Update only one time
-      {
-        m_codecs = codecs;
-        for (auto& adpSet : m_adpSets)
-        {
-          auto& repr = adpSet->GetRepresentations()[0];
-          repr->AddCodecs(codecs);
-          adpSet->AddCodecs(codecs);
-        }
-      }
-    };
-  };
-
-  std::map<std::string, ExtGroup> m_extGroups;
   uint8_t m_segmentIntervalSec = 4;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;
