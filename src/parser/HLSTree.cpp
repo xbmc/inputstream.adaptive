@@ -167,8 +167,6 @@ bool adaptive::CHLSTree::Open(std::string_view url,
 
   m_currentPeriod = m_periods[0].get();
 
-  // SortTree();
-
   return true;
 }
 

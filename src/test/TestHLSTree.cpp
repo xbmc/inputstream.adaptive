@@ -67,7 +67,7 @@ protected:
       LOG::Log(LOGERROR, "Cannot open \"%s\" HLS manifest.", url.c_str());
       exit(1);
     }
-
+    tree->PostOpen(m_kodiProps);
     tree->m_currentAdpSet = tree->m_periods[0]->GetAdaptationSets()[0].get();
     tree->m_currentRepr = tree->m_currentAdpSet->GetRepresentations()[0].get();
   }
