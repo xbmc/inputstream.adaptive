@@ -197,7 +197,7 @@ bool UTILS::STRING::Contains(std::string_view str,
     return (itStr != str.end());
   }
 
-  return std::strstr(str.data(), keyword.data()) != nullptr;
+  return str.find(keyword) != std::string_view::npos;
 }
 
 bool UTILS::STRING::StartsWith(std::string_view str, std::string_view startStr)
