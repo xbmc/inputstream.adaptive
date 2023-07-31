@@ -1162,11 +1162,8 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 
     if (fragInfo.nal_length_size_ && (!iv || bytes_of_cleartext_data[0] > 0))
     {
-      //Note that we assume that there is enough data in data_out to hold everything without reallocating.
-
       //check NAL / subsample
       const AP4_Byte *packet_in(data_in.GetData()), *packet_in_e(data_in.GetData() + data_in.GetDataSize());
-      AP4_Byte *packet_out(data_out.UseData() + data_out.GetDataSize());
       AP4_UI16 *clrb_out(iv ? reinterpret_cast<AP4_UI16*>(data_out.UseData() + sizeof(subsample_count)):nullptr);
       unsigned int nalunitcount(0), nalunitsum(0), configSize(0);
 
@@ -1178,19 +1175,18 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
         //look if we have to inject sps / pps
         if (fragInfo.annexb_sps_pps_.GetDataSize() && (*packet_in & 0x1F) != 9 /*AVC_NAL_AUD*/)
         {
-          memcpy(packet_out, fragInfo.annexb_sps_pps_.GetData(), fragInfo.annexb_sps_pps_.GetDataSize());
-          packet_out += fragInfo.annexb_sps_pps_.GetDataSize();
+          data_out.AppendData(fragInfo.annexb_sps_pps_.GetData(),
+                              fragInfo.annexb_sps_pps_.GetDataSize());
           if(clrb_out) *clrb_out += fragInfo.annexb_sps_pps_.GetDataSize();
           configSize = fragInfo.annexb_sps_pps_.GetDataSize();
           fragInfo.annexb_sps_pps_.SetDataSize(0);
         }
 
-        //Anex-B Start pos
-        packet_out[0] = packet_out[1] = packet_out[2] = 0; packet_out[3] = 1;
-        packet_out += 4;
-        memcpy(packet_out, packet_in, nalsize);
+        // Annex-B Start pos
+        static AP4_Byte annexbStartCode[4] = {0x00, 0x00, 0x00, 0x01};
+        data_out.AppendData(annexbStartCode, 4);
+        data_out.AppendData(packet_in, nalsize);
         packet_in += nalsize;
-        packet_out += nalsize;
         if (clrb_out) *clrb_out += (4 - fragInfo.nal_length_size_);
         ++nalunitcount;
 
@@ -1230,7 +1226,6 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
                  static_cast<unsigned int>(packet_in_e - packet_in), subsample_count);
         return AP4_ERROR_NOT_SUPPORTED;
       }
-      data_out.SetDataSize(data_out.GetDataSize() + data_in.GetDataSize() + configSize + (4 - fragInfo.nal_length_size_) * nalunitcount);
     }
     else
       data_out.AppendData(data_in.GetData(), data_in.GetDataSize());
