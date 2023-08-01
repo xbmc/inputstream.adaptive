@@ -446,17 +446,15 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       }
       else if (tagName == "#EXT-X-DISCONTINUITY")
       {
-        if (!newSegments.Get(0))
+        if (newSegments.IsEmpty())
         {
-          LOG::LogF(LOGERROR, "Segment at position 0 not found");
+          LOG::Log(LOGDEBUG, "Ignored EXT-X-DISCONTINUITY tag, no segment");
           continue;
         }
 
         period->SetSequence(m_discontSeq + discontCount);
 
-        uint64_t duration{0};
-        if (!newSegments.IsEmpty())
-          duration = currentSegStartPts - newSegments.Get(0)->startPTS_;
+        uint64_t duration = currentSegStartPts - newSegments.Get(0)->startPTS_;
         rep->SetDuration(duration);
 
         if (adp->GetStreamType() != StreamType::SUBTITLE)
