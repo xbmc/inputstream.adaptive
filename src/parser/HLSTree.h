@@ -57,6 +57,39 @@ public:
                                PLAYLIST::StreamType type) override;
 
 protected:
+  // \brief Usually refer to an EXT-X-MEDIA tag
+  struct Rendition
+  {
+    std::string m_type;
+    std::string m_groupId;
+    std::string m_language;
+    std::string m_name;
+    bool m_isDefault{false};
+    bool m_isForced{false};
+    uint32_t m_channels{0};
+    std::string m_characteristics;
+    std::string m_uri;
+  };
+
+  // \brief Usually refer to an EXT-X-STREAM-INF tag
+  struct Variant
+  {
+    uint32_t m_bandwidth{0};
+    std::string m_codecs;
+    std::string m_resolution;
+    double m_frameRate{0};
+    std::string m_groupIdAudio;
+    std::string m_groupIdSubtitles;
+    std::string m_uri;
+  };
+
+  struct MultivariantPlaylist
+  {
+    std::vector<Rendition> m_audioRenditions;
+    std::vector<Rendition> m_subtitleRenditions;
+    std::vector<Variant> m_variants;
+  };
+
   /*!
    * \brief Download the key from media initialization section, overridable method for test project
    */
@@ -80,35 +113,58 @@ protected:
   PLAYLIST::EncryptionType ProcessEncryption(std::string_view baseUrl,
                                              std::map<std::string, std::string>& attribs);
 
+  /*!
+   * \brief Parse a rendition and set the data to the AdaptationSet and Representation.
+   * \param r The rendition
+   * \param adpSet The adaptation set where set the data
+   * \param repr The representation where set the data
+   * \return True if success, otherwise false
+   */
+  bool ParseRenditon(const Rendition& r,
+                     std::unique_ptr<PLAYLIST::CAdaptationSet>& adpSet,
+                     std::unique_ptr<PLAYLIST::CRepresentation>& repr);
+
+  /*!
+   * \brief Parse a multivariant playlist
+   * \param data The manifest data
+   * \return True if success, otherwise false
+   */
+  bool ParseMultivariantPlaylist(const std::string& data);
+
   virtual void SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
                             const std::string& data,
                             std::string_view info);
 
+
   std::unique_ptr<IAESDecrypter> m_decrypter;
 
 private:
-  struct ExtGroup
-  {
-    std::string m_codecs;
-    std::vector<std::unique_ptr<PLAYLIST::CAdaptationSet>> m_adpSets;
+  /*!
+   * \brief Find the first variant with the specified audio group id.
+   * \param groupId The group id
+   * \param variants The variants where search for
+   * \return The variant if found, otherwise nullptr
+   */
+  const Variant* FindVariantByAudioGroupId(std::string groupId,
+                                           std::vector<Variant>& variants) const;
 
-    // Apply codecs to the first representation of each adaptation set
-    void SetCodecs(std::string_view codecs)
-    {
-      if (m_codecs.empty()) // Update only one time
-      {
-        m_codecs = codecs;
-        for (auto& adpSet : m_adpSets)
-        {
-          auto& repr = adpSet->GetRepresentations()[0];
-          repr->AddCodecs(codecs);
-          adpSet->AddCodecs(codecs);
-        }
-      }
-    };
-  };
+  /*!
+   * \brief Find the first rendition with the specified group id.
+   * \param groupId The group id
+   * \param renditions The renditions where search for
+   * \return The rendition if found, otherwise nullptr
+   */
+  const Rendition* FindRenditionByGroupId(std::string groupId,
+                                          std::vector<Rendition>& renditions) const;
 
-  std::map<std::string, ExtGroup> m_extGroups;
+  /*!
+   * \brief Create and add a new adaptation set with an audio representaton,
+   *        intended as included in the video, to the specified period.
+   * \param period The period
+   * \param codec The codec string of the audio stream
+   */
+  void AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPeriod>& period, std::string codec);
+
   uint8_t m_segmentIntervalSec = 4;
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;
