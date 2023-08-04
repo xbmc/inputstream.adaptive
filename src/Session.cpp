@@ -485,8 +485,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         {
           auto initialRepr{m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_)};
 
-          CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps,
-                         false};
+          CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps};
 
           stream.m_isEnabled = true;
           stream.m_adStream.start_stream();
@@ -771,7 +770,6 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
     }
   }
 
-  m_firstPeriodInitialized = true;
   return true;
 }
 
@@ -780,8 +778,7 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
                          bool isDefaultRepr,
                          uint32_t uniqueId)
 {
-  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr, m_kodiProps,
-                                                m_firstPeriodInitialized));
+  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr, m_kodiProps));
 
   CStream& stream{*m_streams.back()};
 

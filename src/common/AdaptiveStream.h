@@ -38,8 +38,7 @@ class AdaptiveStream;
     AdaptiveStream(AdaptiveTree& tree,
                    PLAYLIST::CAdaptationSet* adpSet,
                    PLAYLIST::CRepresentation* initialRepr,
-                   const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                   bool choose_rep_);
+                   const UTILS::PROPERTIES::KodiProperties& kodiProps);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     void Reset();
@@ -243,7 +242,6 @@ class AdaptiveStream;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
     bool stream_changed_ = false;
-    bool choose_rep_;
 
     // Class ID for debug log purpose, allow the LOG prints of each AdaptiveStream to be distinguished
     uint32_t clsId;

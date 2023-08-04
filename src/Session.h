@@ -385,7 +385,6 @@ private:
   uint8_t m_drmConfig{0};
   bool m_settingNoSecureDecoder{false};
   bool m_settingIsHdcpOverride{false};
-  bool m_firstPeriodInitialized{false};
   std::unique_ptr<CKodiHost> m_KodiHost;
 };
 } // namespace SESSION

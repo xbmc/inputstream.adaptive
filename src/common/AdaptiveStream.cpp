@@ -36,8 +36,7 @@ uint32_t AdaptiveStream::globalClsId = 0;
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                PLAYLIST::CAdaptationSet* adp,
                                PLAYLIST::CRepresentation* initialRepr,
-                               const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                               bool choose_rep)
+                               const UTILS::PROPERTIES::KodiProperties& kodiProps)
   : thread_data_(nullptr),
     tree_(tree),
     observer_(nullptr),
@@ -53,7 +52,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
     play_timeshift_buffer_(kodiProps.m_playTimeshiftBuffer),
-    choose_rep_(choose_rep),
     rep_counter_(1),
     prev_rep_(0),
     last_rep_(0)
@@ -582,12 +580,6 @@ bool AdaptiveStream::start_stream()
 {
   if (!current_rep_)
     return false;
-
-  if (choose_rep_)
-  {
-    choose_rep_ = false;
-    current_rep_ = tree_.GetRepChooser()->GetRepresentation(current_adp_);
-  }
 
   if (!current_rep_->IsPrepared())
   {
