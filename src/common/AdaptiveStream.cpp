@@ -792,6 +792,7 @@ bool AdaptiveStream::ensureSegment()
     stream_changed_ = false;
     CSegment* nextSegment{nullptr};
     last_rep_ = current_rep_;
+
     if (valid_segment_buffers_)
     {
       // rotate element 0 to the end
