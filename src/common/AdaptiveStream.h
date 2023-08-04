@@ -229,8 +229,6 @@ class AdaptiveStream;
     uint32_t assured_buffer_length_{0};
     uint32_t max_buffer_length_{0};
     size_t valid_segment_buffers_{0};
-    uint32_t rep_counter_;
-    PLAYLIST::CRepresentation* prev_rep_; // used for rep_counter_
     PLAYLIST::CRepresentation* last_rep_; // used to align new live rep with old
 
     std::size_t segment_read_pos_;

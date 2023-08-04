@@ -52,8 +52,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
     play_timeshift_buffer_(kodiProps.m_playTimeshiftBuffer),
-    rep_counter_(1),
-    prev_rep_(0),
     last_rep_(0)
 {
   current_rep_->current_segment_ = nullptr;
@@ -820,14 +818,6 @@ bool AdaptiveStream::ensureSegment()
     }
     else
       nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
-
-    if(prev_rep_== current_rep_)
-      rep_counter_++;
-    else
-    {
-      rep_counter_=1;
-      prev_rep_=current_rep_;
-    }
 
     if (nextSegment)
     {
