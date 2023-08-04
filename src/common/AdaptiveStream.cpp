@@ -581,11 +581,6 @@ bool AdaptiveStream::start_stream()
   if (!current_rep_)
     return false;
 
-  if (!current_rep_->IsPrepared())
-  {
-    tree_.prepareRepresentation(current_period_, current_adp_, current_rep_, false);
-  }
-
   //! @todo: the assured_buffer_duration_ and max_buffer_duration_
   //! isnt implemeted correctly and need to be reworked,
   //! these properties are intended to determine the amount of buffer
