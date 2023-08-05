@@ -688,11 +688,14 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
 bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 {
-  bool psshChanged{true};
+  bool isPsshChanged{true};
+  bool isReusePssh{true};
   if (m_adaptiveTree->m_nextPeriod)
   {
-    psshChanged =
+    isPsshChanged =
         !(m_adaptiveTree->m_currentPeriod->GetPSSHSets() == m_adaptiveTree->m_nextPeriod->GetPSSHSets());
+    isReusePssh = !isPsshChanged && m_adaptiveTree->m_nextPeriod->GetEncryptionState() ==
+                                       EncryptionState::ENCRYPTED_SUPPORTED;
     m_adaptiveTree->m_currentPeriod = m_adaptiveTree->m_nextPeriod;
     m_adaptiveTree->m_nextPeriod = nullptr;
   }
@@ -708,8 +711,11 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
   // create SESSION::STREAM objects. One for each AdaptationSet
   m_streams.clear();
 
-  if (!psshChanged)
-    LOG::Log(LOGDEBUG, "Reusing DRM psshSets for new period!");
+  if (!isPsshChanged)
+  {
+    if (isReusePssh)
+      LOG::Log(LOGDEBUG, "Reusing DRM psshSets for new period!");
+  }
   else
   {
     if (isSessionOpened)
