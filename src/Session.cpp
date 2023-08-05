@@ -1222,7 +1222,7 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
       {
         // Once the start PTS has been acquired for the timing stream, set this value
         // to the other stream readers
-        if (stream.get() != timingStream &&
+        if (timingStream && stream.get() != timingStream &&
             timingStream->GetReader()->GetStartPTS() != STREAM_NOPTS_VALUE &&
             streamReader->GetStartPTS() == STREAM_NOPTS_VALUE)
         {
