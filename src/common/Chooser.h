@@ -36,7 +36,7 @@ public:
   virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) {}
 
   /*!
-   * \brief Post initialization, will be called just after DRM initialization
+   * \brief Post initialization, will be called after the session initialization
    */
   virtual void PostInit() {}
 
@@ -72,7 +72,7 @@ public:
   }
 
   /*!
-   * \brief Set if the DRM use a secure session
+   * \brief Called at each DRM initialization to set if the secure session is currently being used.
    * \param isSecureSession Set true if a secure session is in use
    */
   virtual void SetSecureSession(const bool isSecureSession) { m_isSecureSession = isSecureSession; }

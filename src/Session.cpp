@@ -287,7 +287,9 @@ bool CSession::Initialize()
 
   m_adaptiveTree->PostOpen(m_kodiProps);
 
-  return InitializePeriod(isSessionOpened);
+  bool isPeriodInit = InitializePeriod(isSessionOpened);
+  m_reprChooser->PostInit();
+  return isPeriodInit;
 }
 
 void CSession::CheckHDCP()
@@ -681,7 +683,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     CheckHDCP();
 
   m_reprChooser->SetSecureSession(isSecureVideoSession);
-  m_reprChooser->PostInit();
 
   return true;
 }

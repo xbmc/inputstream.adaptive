@@ -89,6 +89,12 @@ void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::ChooserP
            m_ignoreScreenResChange);
 }
 
+void CRepresentationChooserDefault::SetSecureSession(const bool isSecureSession)
+{
+  m_isSecureSession = isSecureSession;
+  RefreshResolution();
+}
+
 void CRepresentationChooserDefault::PostInit()
 {
   RefreshResolution();
@@ -114,21 +120,28 @@ void CRepresentationChooserDefault::PostInit()
            m_screenWidth, m_screenHeight, m_bandwidthCurrent);
 }
 
+void CRepresentationChooserDefault::CheckResolution()
+{
+  if (m_screenWidth != m_screenCurrentWidth || m_screenHeight != m_screenCurrentHeight)
+  {
+    // Update the screen resolution values only after n seconds
+    // to prevent too fast update when Kodi window will be resized
+    if (m_screenResLastUpdate.has_value() &&
+        std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
+                                                         *m_screenResLastUpdate)
+                .count() < SCREEN_RES_REFRESH_SECS)
+    {
+      return;
+    }
+    RefreshResolution();
+    m_screenResLastUpdate = std::chrono::steady_clock::now();
+    LOG::Log(LOGDEBUG, "[Repr. chooser] Screen resolution has changed: %ix%i", m_screenCurrentWidth,
+             m_screenCurrentHeight);
+  }
+}
+
 void CRepresentationChooserDefault::RefreshResolution()
 {
-  if (m_screenWidth == m_screenCurrentWidth && m_screenHeight == m_screenCurrentHeight)
-    return;
-
-  // Update the screen resolution values only after n seconds
-  // to prevent too fast update when Kodi window will be resized
-  if (m_screenResLastUpdate.has_value() &&
-      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
-                                                       *m_screenResLastUpdate)
-              .count() < SCREEN_RES_REFRESH_SECS)
-  {
-    return;
-  }
-
   m_screenWidth = m_ignoreScreenRes ? 16384 : m_screenCurrentWidth;
   m_screenHeight = m_ignoreScreenRes ? 16384 : m_screenCurrentHeight;
 
@@ -143,10 +156,6 @@ void CRepresentationChooserDefault::RefreshResolution()
     if (m_screenHeight > userResLimit.second)
       m_screenHeight = userResLimit.second;
   }
-
-  LOG::Log(LOGDEBUG, "[Repr. chooser] Screen resolution has changed: %ix%i", m_screenCurrentWidth,
-           m_screenCurrentHeight);
-  m_screenResLastUpdate = std::chrono::steady_clock::now();
 }
 
 void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
@@ -180,7 +189,7 @@ PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
     PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
 {
   if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
-    RefreshResolution();
+    CheckResolution();
 
   CRepresentationSelector selector(m_screenWidth, m_screenHeight);
   uint32_t bandwidth;
