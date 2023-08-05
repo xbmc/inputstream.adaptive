@@ -203,12 +203,6 @@ PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
   else
     bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.1);
 
-  if (isVideoStreamType) // To avoid fill too much the log
-  {
-    LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s (filtered to %u bit/s)",
-             m_bandwidthCurrent, bandwidth);
-  }
-
   CRepresentation* nextRep{nullptr};
   int bestScore{-1};
 
@@ -234,8 +228,12 @@ PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
   if (!nextRep)
     nextRep = selector.Lowest(adp);
 
-  if (isVideoStreamType)
+  if (isVideoStreamType) // Only video, to avoid fill too much the log
+  {
+    LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s (filtered to %u bit/s)",
+             m_bandwidthCurrent, bandwidth);
     LogDetails(currentRep, nextRep);
+  }
 
   if (m_isForceStartsMaxRes)
     m_isForceStartsMaxRes = false;
