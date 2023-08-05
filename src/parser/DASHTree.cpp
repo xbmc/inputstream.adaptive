@@ -235,7 +235,7 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
   std::string minimumUpdatePeriodStr;
   if (XML::QueryAttrib(nodeMPD, "minimumUpdatePeriod", minimumUpdatePeriodStr))
   {
-    double duration = XML::ParseDuration(minimumUpdatePeriodStr) * 1000;
+    double duration = XML::ParseDuration(minimumUpdatePeriodStr) * 1500;
     m_updateInterval = static_cast<uint64_t>(duration);
   }
 
