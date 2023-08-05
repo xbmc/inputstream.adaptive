@@ -364,9 +364,9 @@ private:
 
   struct CCdmSession
   {
-    SSD::SSD_DECRYPTER::SSD_CAPS m_decrypterCaps;
-    Adaptive_CencSingleSampleDecrypter* m_cencSingleSampleDecrypter;
-    const char* m_cdmSessionStr = nullptr;
+    SSD::SSD_DECRYPTER::SSD_CAPS m_decrypterCaps{};
+    Adaptive_CencSingleSampleDecrypter* m_cencSingleSampleDecrypter{nullptr};
+    const char* m_cdmSessionStr{nullptr};
     bool m_sharedCencSsd{false};
   };
   std::vector<CCdmSession> m_cdmSessions;

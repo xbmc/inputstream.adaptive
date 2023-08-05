@@ -355,7 +355,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   }
 
   m_cdmSessions.resize(2);
-  memset(&m_cdmSessions.front(), 0, sizeof(CCdmSession));
+
   // Try to initialize an SingleSampleDecryptor
   LOG::LogF(LOGDEBUG, "Entering encryption section");
 
@@ -425,7 +425,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 {
   bool isSecureVideoSession{false};
   m_cdmSessions.resize(m_adaptiveTree->m_currentPeriod->GetPSSHSets().size());
-  memset(&m_cdmSessions.front(), 0, sizeof(CCdmSession));
 
   // Try to initialize an SingleSampleDecryptor
   if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() !=
