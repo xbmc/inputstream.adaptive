@@ -188,7 +188,9 @@ void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
 PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
     PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
 {
-  if (!m_ignoreScreenRes && !m_ignoreScreenResChange)
+  bool isVideoStreamType = adp->GetStreamType() == StreamType::VIDEO;
+
+  if (isVideoStreamType && !m_ignoreScreenRes && !m_ignoreScreenResChange)
     CheckResolution();
 
   CRepresentationSelector selector(m_screenWidth, m_screenHeight);
@@ -196,12 +198,12 @@ PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
 
   // From bandwidth take in consideration:
   // 90% of bandwidth for video - 10 % for other
-  if (adp->GetStreamType() == StreamType::VIDEO)
+  if (isVideoStreamType)
     bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.9);
   else
     bandwidth = static_cast<uint32_t>(m_bandwidthCurrentLimited * 0.1);
 
-  if (adp->GetStreamType() == StreamType::VIDEO) // To avoid fill too much the log
+  if (isVideoStreamType) // To avoid fill too much the log
   {
     LOG::Log(LOGDEBUG, "[Repr. chooser] Current average bandwidth: %u bit/s (filtered to %u bit/s)",
              m_bandwidthCurrent, bandwidth);
@@ -232,7 +234,7 @@ PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
   if (!nextRep)
     nextRep = selector.Lowest(adp);
 
-  if (adp->GetStreamType() == StreamType::VIDEO)
+  if (isVideoStreamType)
     LogDetails(currentRep, nextRep);
 
   if (m_isForceStartsMaxRes)
