@@ -109,5 +109,8 @@ protected:
 
   // Period sequence incremented to every new period added
   uint32_t m_periodCurrentSeq{0};
+
+  uint64_t m_minimumUpdatePeriod{0}; // in seconds
+  bool m_allowInsertLiveSegments{false};
 };
 } // namespace adaptive

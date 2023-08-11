@@ -235,8 +235,10 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
   std::string minimumUpdatePeriodStr;
   if (XML::QueryAttrib(nodeMPD, "minimumUpdatePeriod", minimumUpdatePeriodStr))
   {
-    double duration = XML::ParseDuration(minimumUpdatePeriodStr) * 1000;
-    m_updateInterval = static_cast<uint64_t>(duration);
+    double duration = XML::ParseDuration(minimumUpdatePeriodStr);
+    m_minimumUpdatePeriod = static_cast<uint64_t>(duration);
+    m_allowInsertLiveSegments = m_minimumUpdatePeriod == 0;
+    m_updateInterval = static_cast<uint64_t>(duration * 1000);
   }
 
   if (mediaPresDuration == 0)
@@ -1005,16 +1007,14 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
       if (segmentsCount < 65536) // SIDX atom is limited to 65535 references (fragments)
       {
-        CSegment segTl;
-        segTl.m_time = adpSet->GetStartPTS();
-        segTl.m_number = repr->GetStartNumber();
-        segTl.startPTS_ = adpSet->GetStartPTS();
+        uint64_t segStartNumber = repr->GetStartNumber();
+        uint64_t segStartPts = adpSet->GetStartPTS();
 
         if (m_isLive && !segTemplate->HasVariableTime() &&
             segTemplate->GetDuration() > 0)
         {
           uint64_t sampleTime = period->GetStart() / 1000;
-          segTl.m_number +=
+          segStartNumber +=
               static_cast<uint64_t>(static_cast<int64_t>(stream_start_ - available_time_ -
                                                          reprTotalTimeSecs - sampleTime) *
                                         segTemplate->GetTimescale() / segTemplate->GetDuration() +
@@ -1032,18 +1032,32 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         // Reserve memory to speedup
         repr->SegmentTimeline().GetData().reserve(segmentsCount);
 
+        CSegment seg;
+        seg.m_number = segStartNumber;
+        seg.startPTS_ = segStartPts;
+        seg.m_time = segStartPts;
+
         for (size_t pos{0}; pos < segmentsCount; pos++)
         {
-          repr->SegmentTimeline().GetData().push_back(segTl);
-
           uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(pos);
           uint32_t duration = tlDuration ? *tlDuration : segTplDuration;
-          segTl.m_time += duration;
-          segTl.m_number += 1;
-          segTl.startPTS_ += duration;
+          seg.m_duration = duration;
+          repr->SegmentTimeline().GetData().push_back(seg);
+
+          seg.m_number += 1;
+          seg.startPTS_ += duration;
+          seg.m_time += duration;
         }
 
-        repr->nextPts_ = segTl.startPTS_;
+        const CSegment& lastSeg = repr->SegmentTimeline().GetData().back();
+        uint64_t totalSegsDuration = lastSeg.startPTS_ + lastSeg.m_duration;
+
+        repr->nextPts_ = totalSegsDuration;
+
+        // If the duration of segments dont cover the interval duration for the manifest update
+        // then allow new segments to be inserted until the next manifest update
+        if (m_isLive && totalSegsDuration < m_minimumUpdatePeriod)
+          m_allowInsertLiveSegments = true;
       }
       else
       {
@@ -1727,7 +1741,7 @@ void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                             uint64_t fragmentDuration,
                                             uint32_t movieTimescale)
 {
-  if (HasManifestUpdatesSegs())
+  if (!m_allowInsertLiveSegments || HasManifestUpdatesSegs())
     return;
 
   // Check if its the last frame we watch
