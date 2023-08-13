@@ -149,10 +149,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
 
     if (m_decrypter)
     {
-      // Make sure that the decrypter is NOT allocating memory!
-      // If decrypter and addon are compiled with different DEBUG / RELEASE
-      // options freeing HEAP memory will fail.
-      m_sampleData.Reserve(m_encrypted.GetDataSize() + 4096);
+      m_sampleData.Reserve(m_encrypted.GetDataSize());
       if (AP4_FAILED(result =
                          m_decrypter->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, NULL)))
       {
@@ -174,7 +171,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
     }
     else if (useDecryptingDecoder)
     {
-      m_sampleData.Reserve(m_encrypted.GetDataSize() + 1024);
+      m_sampleData.Reserve(m_encrypted.GetDataSize());
       m_singleSampleDecryptor->DecryptSampleData(m_poolId, m_encrypted, m_sampleData, nullptr, 0,
                                                  nullptr, nullptr);
     }
