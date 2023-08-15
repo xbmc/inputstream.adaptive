@@ -38,8 +38,7 @@ class AdaptiveStream;
     AdaptiveStream(AdaptiveTree& tree,
                    PLAYLIST::CAdaptationSet* adpSet,
                    PLAYLIST::CRepresentation* initialRepr,
-                   const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                   bool choose_rep_);
+                   const UTILS::PROPERTIES::KodiProperties& kodiProps);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     void Reset();
@@ -224,14 +223,14 @@ class AdaptiveStream;
     // We need to store here because linked to representation
     uint8_t m_decrypterIv[16];
 
-    // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
-    size_t available_segment_buffers_{0};
-    // number of segment_buffers which are downloaded / downloading
+    // Minimum segment buffer size (segment_buffers_)
     uint32_t assured_buffer_length_{0};
+    // The segment buffer size (segment_buffers_), so the max number of segments that can be downloaded and stored in memory
     uint32_t max_buffer_length_{0};
+    // Number of segments stored in segment buffer (segment_buffers_) queued for downloading, always >= valid_segment_buffers_
+    size_t available_segment_buffers_{0};
+    // Number of segments stored in segment buffer (segment_buffers_) currently in download and downloaded
     size_t valid_segment_buffers_{0};
-    uint32_t rep_counter_;
-    PLAYLIST::CRepresentation* prev_rep_; // used for rep_counter_
     PLAYLIST::CRepresentation* last_rep_; // used to align new live rep with old
 
     std::size_t segment_read_pos_;
@@ -243,7 +242,6 @@ class AdaptiveStream;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
     bool stream_changed_ = false;
-    bool choose_rep_;
 
     // Class ID for debug log purpose, allow the LOG prints of each AdaptiveStream to be distinguished
     uint32_t clsId;

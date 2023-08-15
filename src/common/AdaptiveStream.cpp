@@ -36,8 +36,7 @@ uint32_t AdaptiveStream::globalClsId = 0;
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                PLAYLIST::CAdaptationSet* adp,
                                PLAYLIST::CRepresentation* initialRepr,
-                               const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                               bool choose_rep)
+                               const UTILS::PROPERTIES::KodiProperties& kodiProps)
   : thread_data_(nullptr),
     tree_(tree),
     observer_(nullptr),
@@ -53,9 +52,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
     play_timeshift_buffer_(kodiProps.m_playTimeshiftBuffer),
-    choose_rep_(choose_rep),
-    rep_counter_(1),
-    prev_rep_(0),
     last_rep_(0)
 {
   current_rep_->current_segment_ = nullptr;
@@ -583,17 +579,6 @@ bool AdaptiveStream::start_stream()
   if (!current_rep_)
     return false;
 
-  if (choose_rep_)
-  {
-    choose_rep_ = false;
-    current_rep_ = tree_.GetRepChooser()->GetRepresentation(current_adp_);
-  }
-
-  if (!current_rep_->IsPrepared())
-  {
-    tree_.prepareRepresentation(current_period_, current_adp_, current_rep_, false);
-  }
-
   //! @todo: the assured_buffer_duration_ and max_buffer_duration_
   //! isnt implemeted correctly and need to be reworked,
   //! these properties are intended to determine the amount of buffer
@@ -807,14 +792,16 @@ bool AdaptiveStream::ensureSegment()
     stream_changed_ = false;
     CSegment* nextSegment{nullptr};
     last_rep_ = current_rep_;
-    if (valid_segment_buffers_)
+
+    if (valid_segment_buffers_ > 0)
     {
-      // rotate element 0 to the end
+      // Move the segment at initial position 0 to the end, because consumed
       std::rotate(segment_buffers_.begin(), segment_buffers_.begin() + 1,
                   segment_buffers_.begin() + available_segment_buffers_);
       --valid_segment_buffers_;
       --available_segment_buffers_;
-
+      // Check if next segment use same representation of previous one
+      // if not, update the current representation
       if (segment_buffers_[0]->rep != current_rep_)
       {
         current_rep_->SetIsEnabled(false);
@@ -823,7 +810,7 @@ bool AdaptiveStream::ensureSegment()
         stream_changed_ = true;
       }
     }
-    if (valid_segment_buffers_)
+    if (valid_segment_buffers_ > 0)
     {
       if (!segment_buffers_[0]->segment.IsInitialization())
       {
@@ -833,14 +820,6 @@ bool AdaptiveStream::ensureSegment()
     }
     else
       nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
-
-    if(prev_rep_== current_rep_)
-      rep_counter_++;
-    else
-    {
-      rep_counter_=1;
-      prev_rep_=current_rep_;
-    }
 
     if (nextSegment)
     {
@@ -862,37 +841,26 @@ bool AdaptiveStream::ensureSegment()
 
       size_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
       uint64_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
-      CRepresentation* newRep{nullptr};
 
-      bool lastSeg{false};
-      if (current_period_ != tree_.m_periods.back().get())
+      CRepresentation* newRep = current_rep_;
+      bool isBufferFull = valid_segment_buffers_ >= max_buffer_length_;
+
+      if (!segment_buffers_[0]->segment.IsInitialization() && available_segment_buffers_ > 0 &&
+          !isBufferFull) // Defer until we have some free buffer
       {
-        if (nextsegmentPosold + available_segment_buffers_ ==
-            current_rep_->SegmentTimeline().GetSize() - 1)
-        {
-          lastSeg = true;
-        }
-      }
-      
-      if (segment_buffers_[0]->segment.IsInitialization() ||
-          valid_segment_buffers_ == 0 ||
-          current_adp_->GetStreamType() != StreamType::VIDEO)
-      {
-        newRep = current_rep_;
-      }
-      else if (lastSeg) // Don't change reps on last segment of period, use the rep of preceeding seg
-      {
-        newRep = segment_buffers_[valid_segment_buffers_ - 1]->rep;
-      }
-      else
-      {
-        // Defer until we have some free buffer
-        if (available_segment_buffers_ < max_buffer_length_) {
-          newRep = tree_.GetRepChooser()->GetNextRepresentation(
-              current_adp_, segment_buffers_[available_segment_buffers_ - 1]->rep);
-        }
+        // The representation from the last added segment buffer
+        CRepresentation* prevRep = segment_buffers_[available_segment_buffers_ - 1]->rep;
+
+        bool isLastSegment = nextsegmentPosold + available_segment_buffers_ ==
+                             current_rep_->SegmentTimeline().GetSize() - 1;
+        // Dont change representation if it is the last segment of a period otherwise when it comes
+        // the time to play the last segment in a period, AdaptiveStream wasn't able to insert the
+        // initialization segment (in the case of fMP4) and you would get corrupted or blank video
+        // for the last segment
+        if (isLastSegment)
+          newRep = prevRep;
         else
-          newRep = current_rep_;
+          newRep = tree_.GetRepChooser()->GetNextRepresentation(current_adp_, prevRep);
       }
 
       // If the representation has been changed, segments may have to be generated (DASH)
@@ -904,6 +872,8 @@ bool AdaptiveStream::ensureSegment()
         tree_.prepareRepresentation(
           current_period_, current_adp_, newRep, tree_.IsLive());
       }
+
+      // Add to the buffer next future segment
 
       size_t nextsegmentPos = static_cast<size_t>(nextsegno - newRep->GetStartNumber());
       if (nextsegmentPos + available_segment_buffers_ >= newRep->SegmentTimeline().GetSize())

@@ -115,7 +115,7 @@ protected:
     UTILS::PROPERTIES::KodiProperties kodiProps;
     kodiProps.m_playTimeshiftBuffer = playTimeshiftBuffer;
 
-    return new TestAdaptiveStream(*tree, adp, initialRepr, kodiProps, false);
+    return new TestAdaptiveStream(*tree, adp, initialRepr, kodiProps);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,

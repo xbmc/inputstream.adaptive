@@ -287,7 +287,9 @@ bool CSession::Initialize()
 
   m_adaptiveTree->PostOpen(m_kodiProps);
 
-  return InitializePeriod(isSessionOpened);
+  bool isPeriodInit = InitializePeriod(isSessionOpened);
+  m_reprChooser->PostInit();
+  return isPeriodInit;
 }
 
 void CSession::CheckHDCP()
@@ -353,7 +355,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   }
 
   m_cdmSessions.resize(2);
-  memset(&m_cdmSessions.front(), 0, sizeof(CCdmSession));
+
   // Try to initialize an SingleSampleDecryptor
   LOG::LogF(LOGDEBUG, "Entering encryption section");
 
@@ -423,7 +425,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 {
   bool isSecureVideoSession{false};
   m_cdmSessions.resize(m_adaptiveTree->m_currentPeriod->GetPSSHSets().size());
-  memset(&m_cdmSessions.front(), 0, sizeof(CCdmSession));
 
   // Try to initialize an SingleSampleDecryptor
   if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() !=
@@ -485,8 +486,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         {
           auto initialRepr{m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_)};
 
-          CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps,
-                         false};
+          CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps};
 
           stream.m_isEnabled = true;
           stream.m_adStream.start_stream();
@@ -682,18 +682,20 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     CheckHDCP();
 
   m_reprChooser->SetSecureSession(isSecureVideoSession);
-  m_reprChooser->PostInit();
 
   return true;
 }
 
 bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 {
-  bool psshChanged{true};
+  bool isPsshChanged{true};
+  bool isReusePssh{true};
   if (m_adaptiveTree->m_nextPeriod)
   {
-    psshChanged =
+    isPsshChanged =
         !(m_adaptiveTree->m_currentPeriod->GetPSSHSets() == m_adaptiveTree->m_nextPeriod->GetPSSHSets());
+    isReusePssh = !isPsshChanged && m_adaptiveTree->m_nextPeriod->GetEncryptionState() ==
+                                       EncryptionState::ENCRYPTED_SUPPORTED;
     m_adaptiveTree->m_currentPeriod = m_adaptiveTree->m_nextPeriod;
     m_adaptiveTree->m_nextPeriod = nullptr;
   }
@@ -709,8 +711,11 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
   // create SESSION::STREAM objects. One for each AdaptationSet
   m_streams.clear();
 
-  if (!psshChanged)
-    LOG::Log(LOGDEBUG, "Reusing DRM psshSets for new period!");
+  if (!isPsshChanged)
+  {
+    if (isReusePssh)
+      LOG::Log(LOGDEBUG, "Reusing DRM psshSets for new period!");
+  }
   else
   {
     if (isSessionOpened)
@@ -771,7 +776,6 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
     }
   }
 
-  m_firstPeriodInitialized = true;
   return true;
 }
 
@@ -780,8 +784,7 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
                          bool isDefaultRepr,
                          uint32_t uniqueId)
 {
-  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr, m_kodiProps,
-                                                m_firstPeriodInitialized));
+  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr, m_kodiProps));
 
   CStream& stream{*m_streams.back()};
 
@@ -1225,7 +1228,7 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
       {
         // Once the start PTS has been acquired for the timing stream, set this value
         // to the other stream readers
-        if (stream.get() != timingStream &&
+        if (timingStream && stream.get() != timingStream &&
             timingStream->GetReader()->GetStartPTS() != STREAM_NOPTS_VALUE &&
             streamReader->GetStartPTS() == STREAM_NOPTS_VALUE)
         {

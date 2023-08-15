@@ -28,6 +28,7 @@ public:
   ~CRepresentationChooserDefault() override {}
 
   virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
+  virtual void SetSecureSession(const bool isSecureSession) override;
   virtual void PostInit() override;
 
   void SetDownloadSpeed(const double speed) override;
@@ -36,6 +37,11 @@ public:
                                                    PLAYLIST::CRepresentation* currentRep) override;
 
 protected:
+  /*!
+   * \brief Check if screen resolution is changed, if so will refresh values
+   */
+  void CheckResolution();
+
   /*!
    * \brief Refresh screen resolution values from the current
    */

@@ -61,9 +61,8 @@ public:
   TestAdaptiveStream(adaptive::AdaptiveTree& tree,
                      PLAYLIST::CAdaptationSet* adp,
                      PLAYLIST::CRepresentation* initialRepr,
-                     const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                     bool choose_rep)
-    : adaptive::AdaptiveStream(tree, adp, initialRepr, kodiProps, choose_rep)
+                     const UTILS::PROPERTIES::KodiProperties& kodiProps)
+    : adaptive::AdaptiveStream(tree, adp, initialRepr, kodiProps)
   {
   }
 
