@@ -71,6 +71,7 @@ protected:
       LOG::Log(LOGERROR, "Cannot open \"%s\" DASH manifest.", url.c_str());
       exit(1);
     }
+    tree->PostOpen(m_kodiProps);
   }
 
   DASHTestTree* tree;
@@ -611,19 +612,40 @@ TEST_F(DASHTreeTest, AdaptionSetSwitching)
 
   auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
 
-  EXPECT_EQ(adpSets.size(), 5);
+  EXPECT_EQ(adpSets.size(), 6);
   EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetId()), "3");
   EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[1]->GetId()), "1");
   EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[2]->GetId()), "2");
-
+  // Below adaptation set (id 6) should be merged with previous one
+  // but since has a different codec will not be merged
+  // see note on related DASH parser code
   EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetId()), "4");
-  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[1]->GetId()), "5");
 
-  EXPECT_EQ(STR(adpSets[2]->GetRepresentations()[0]->GetId()), "6");
+  EXPECT_EQ(STR(adpSets[2]->GetRepresentations()[0]->GetId()), "5");
+  EXPECT_EQ(STR(adpSets[2]->GetRepresentations()[1]->GetId()), "6");
 
   EXPECT_EQ(STR(adpSets[3]->GetRepresentations()[0]->GetId()), "7");
 
   EXPECT_EQ(STR(adpSets[4]->GetRepresentations()[0]->GetId()), "8");
+
+  EXPECT_EQ(STR(adpSets[5]->GetRepresentations()[0]->GetId()), "9");
+}
+
+TEST_F(DASHTreeTest, AdaptionSetMerge)
+{
+  OpenTestFile("mpd/adaptation_set_merge.mpd");
+
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
+
+  EXPECT_EQ(adpSets.size(), 6);
+  EXPECT_EQ(STR(adpSets[0]->GetRepresentations()[0]->GetId()), "video=100000");
+  EXPECT_EQ(STR(adpSets[1]->GetRepresentations()[0]->GetId()), "audio_ja-JP_3=128000");
+  EXPECT_EQ(STR(adpSets[2]->GetRepresentations()[0]->GetId()), "audio_es-419_3=128000");
+  EXPECT_EQ(STR(adpSets[3]->GetRepresentations()[0]->GetId()), "audio_en-GB_3=96000");
+  EXPECT_EQ(STR(adpSets[4]->GetRepresentations()[0]->GetId()), "audio_es-ES=20000");
+  // Below two adaptation sets merged
+  EXPECT_EQ(STR(adpSets[5]->GetRepresentations()[0]->GetId()), "audio_es-ES_1=64000");
+  EXPECT_EQ(STR(adpSets[5]->GetRepresentations()[1]->GetId()), "audio_es-ES_1=64000"); 
 }
 
 TEST_F(DASHTreeTest, SuggestedPresentationDelay)

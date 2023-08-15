@@ -54,6 +54,9 @@ constexpr char* NAME_HEVC = "hevc";
 constexpr char* NAME_VP9 = "vp9";
 constexpr char* NAME_AV1 = "av1";
 
+constexpr std::array VIDEO_NAME_LIST = {NAME_MPEG1, NAME_MPEG2, NAME_MPEG4, NAME_VC1,
+                                        NAME_H264,  NAME_HEVC,  NAME_VP9,   NAME_AV1};
+
 // Audio definitions
 
 constexpr char* NAME_AAC = "aac";
@@ -83,6 +86,10 @@ constexpr char* FOURCC_HVC1 = "hvc1"; // HEVC Dolby vision
 constexpr char* FOURCC_DVH1 = "dvh1"; // HEVC Dolby vision, hvc1 variant
 constexpr char* FOURCC_HEV1 = "hev1"; // HEVC Dolby vision
 constexpr char* FOURCC_DVHE = "dvhe"; // HEVC Dolby vision, hev1 variant
+
+constexpr std::array VIDEO_FOURCC_LIST = {FOURCC_H264,   FOURCC_AVC_,  FOURCC_VP09,   FOURCC_AV01,
+                                          FOURCC_HEVC,   FOURCC_HVC1,  FOURCC_DVH1,   FOURCC_HEV1,
+                                          FOURCC_DVHE};
 
 // Fourcc audio definitions
 
@@ -167,6 +174,13 @@ std::string GetVideoDesc(const std::set<std::string>& list);
  * \return True if it is audio type, otherwise false
  */
 bool IsAudio(std::string_view codec);
+
+/*!
+ * \brief Determines if the codec string is of type video, regardless of whether it is a name or fourcc.
+ * \param codec The codec string
+ * \return True if it is video type, otherwise false
+ */
+bool IsVideo(std::string_view codec);
 
 /*!
  * \brief Determines if the codec string contains a fourcc of type subtitles.

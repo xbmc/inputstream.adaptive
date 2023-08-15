@@ -114,7 +114,19 @@ std::string GetAudioCodec(std::string_view codecs)
     if (CODEC::IsAudio(codecStr))
       return codecStr;
   }
-  return codecs.data();
+  return "";
+}
+
+// \brief Get the video codec string from CODECS attribute list
+std::string GetVideoCodec(std::string_view codecs)
+{
+  const std::vector<std::string> list = STRING::SplitToVec(codecs, ',');
+  for (const std::string& codecStr : list)
+  {
+    if (CODEC::IsVideo(codecStr))
+      return codecStr;
+  }
+  return "";
 }
 } // unnamed namespace
 
@@ -154,8 +166,6 @@ bool adaptive::CHLSTree::Open(std::string_view url,
   }
 
   m_currentPeriod = m_periods[0].get();
-
-  SortTree();
 
   return true;
 }
@@ -745,289 +755,32 @@ void adaptive::CHLSTree::RefreshLiveSegments()
 
 bool adaptive::CHLSTree::ParseManifest(const std::string& data)
 {
-  // Parse master playlist
-
-  bool isExtM3Uformat{false};
-
-  // Determine if is needed create a dummy audio representation for audio stream embedded on video stream
-  bool createDummyAudioRepr{false};
-
-  std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
-  period->SetTimescale(1000000);
-
-  std::stringstream streamData{data};
-
-  for (std::string line; STRING::GetLine(streamData, line);)
-  {
-    // Keep track of current line pos, can be used to go back to previous line
-    // if we move forward within the loop code
-    std::streampos currentStreamPos = streamData.tellg();
-
-    std::string tagName;
-    std::string tagValue;
-    ParseTagNameValue(line, tagName, tagValue);
-
-    // Find the extended M3U file initialization tag
-    if (!isExtM3Uformat)
-    {
-      if (tagName == "#EXTM3U")
-        isExtM3Uformat = true;
-      continue;
-    }
-
-    if (tagName == "#EXT-X-MEDIA")
-    {
-      auto attribs = ParseTagAttributes(tagValue);
-
-      StreamType streamType = StreamType::NOTYPE;
-      if (attribs["TYPE"] == "AUDIO")
-        streamType = StreamType::AUDIO;
-      else if (attribs["TYPE"] == "SUBTITLES")
-        streamType = StreamType::SUBTITLE;
-      else
-        continue;
-
-      // Create or get existing group id
-      ExtGroup& group = m_extGroups[attribs["GROUP-ID"]];
-
-      auto adpSet = CAdaptationSet::MakeUniquePtr(period.get());
-      auto repr = CRepresentation::MakeUniquePtr(adpSet.get());
-
-      adpSet->SetStreamType(streamType);
-      adpSet->SetLanguage(attribs["LANGUAGE"].empty() ? "unk" : attribs["LANGUAGE"]);
-      adpSet->SetName(attribs["NAME"]);
-      adpSet->SetIsDefault(attribs["DEFAULT"] == "YES");
-      adpSet->SetIsForced(attribs["FORCED"] == "YES");
-
-      if (STRING::KeyExists(attribs, "CHARACTERISTICS"))
-      {
-        std::string ch = attribs["CHARACTERISTICS"];
-        if (STRING::Contains(ch, "public.accessibility.transcribes-spoken-dialog") ||
-            STRING::Contains(ch, "public.accessibility.describes-music-and-sound") ||
-            STRING::Contains(ch, "public.accessibility.describes-video"))
-        {
-          adpSet->SetIsImpaired(true);
-        }
-      }
-
-      repr->AddCodecs(group.m_codecs);
-      repr->SetTimescale(1000000);
-
-      if (STRING::KeyExists(attribs, "URI"))
-      {
-        std::string uri = attribs["URI"];
-        if (URL::IsUrlRelative(uri))
-          uri = URL::Join(base_url_, uri);
-
-        repr->SetSourceUrl(uri);
-
-        if (streamType == StreamType::SUBTITLE)
-        {
-          // default to WebVTT
-          repr->AddCodecs("wvtt");
-        }
-      }
-      else
-      {
-        repr->SetIsIncludedStream(true);
-        period->m_includedStreamType |= 1U << static_cast<int>(streamType);
-      }
-
-      if (streamType == StreamType::AUDIO)
-      {
-        repr->SetAudioChannels(STRING::ToUint32(attribs["CHANNELS"], 2));
-        // Copy channels to adpset to help AdaptiveTree::SortTree() on adpsets merging
-        adpSet->SetAudioChannels(repr->GetAudioChannels());
-      }
-
-      repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
-
-      repr->SetScaling();
-
-      // Add the representation/adaptation set to the group
-      adpSet->AddRepresentation(repr);
-      group.m_adpSets.push_back(std::move(adpSet));
-    }
-    else if (tagName == "#EXT-X-STREAM-INF")
-    {
-      //! @todo: If CODECS value is not present, get StreamReps from stream program section
-      // #EXT-X-STREAM-INF:BANDWIDTH=263851,CODECS="mp4a.40.2, avc1.4d400d",RESOLUTION=416x234,AUDIO="bipbop_audio",SUBTITLES="subs"
-
-      auto attribs = ParseTagAttributes(tagValue);
-
-      if (!STRING::KeyExists(attribs, "BANDWIDTH"))
-      {
-        LOG::LogF(LOGERROR, "Skipped EXT-X-STREAM-INF due to to missing bandwidth attribute (%s)",
-                  tagValue.c_str());
-        continue;
-      }
-
-      if (period->GetAdaptationSets().empty())
-      {
-        auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
-        newAdpSet->SetStreamType(StreamType::VIDEO);
-        period->AddAdaptationSet(newAdpSet);
-      }
-
-      CAdaptationSet* adpSet = period->GetAdaptationSets()[0].get();
-
-      auto repr = CRepresentation::MakeUniquePtr(adpSet);
-      repr->SetTimescale(1000000);
-
-      if (STRING::KeyExists(attribs, "CODECS"))
-        repr->AddCodecs(attribs["CODECS"]);
-      else
-      {
-        LOG::LogF(LOGDEBUG, "Missing CODECS attribute, fallback to h264");
-        repr->AddCodecs("h264");
-      }
-
-      repr->SetBandwidth(STRING::ToUint32(attribs["BANDWIDTH"]));
-
-      if (STRING::KeyExists(attribs, "RESOLUTION"))
-      {
-        int resWidth{0};
-        int resHeight{0};
-        ParseResolution(resWidth, resHeight, attribs["RESOLUTION"]);
-        repr->SetResWidth(resWidth);
-        repr->SetResHeight(resHeight);
-      }
-
-      if (STRING::KeyExists(attribs, "AUDIO"))
-      {
-        // Set codecs to the representations of audio group
-        m_extGroups[attribs["AUDIO"]].SetCodecs(GetAudioCodec(attribs["CODECS"]));
-      }
-      else
-      {
-        // We assume audio is included
-        period->m_includedStreamType |= 1U << static_cast<int>(StreamType::AUDIO);
-        createDummyAudioRepr = true;
-      }
-
-      if (STRING::KeyExists(attribs, "FRAME-RATE"))
-      {
-        double frameRate = STRING::ToFloat(attribs["FRAME-RATE"]);
-        if (frameRate == 0)
-        {
-          LOG::LogF(LOGWARNING, "Wrong FRAME-RATE attribute, fallback to 60 fps");
-          frameRate = 60.0f;
-        }
-        repr->SetFrameRate(static_cast<uint32_t>(frameRate * 1000));
-        repr->SetFrameRateScale(1000);
-      }
-
-      repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
-
-      repr->SetScaling();
-
-      // Try read on the next stream line, to get the playlist URL address
-      if (STRING::GetLine(streamData, line) && !line.empty() && line[0] != '#')
-      {
-        std::string url = line;
-        if (URL::IsUrlRelative(url))
-          url = URL::Join(base_url_, url);
-
-        // Ensure that we do not add duplicate URLs / representations
-        auto itRepr = std::find_if(
-            adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
-            [&url](const std::unique_ptr<CRepresentation>& r) { return r->GetSourceUrl() == url; });
-
-        if (itRepr == adpSet->GetRepresentations().end())
-        {
-          repr->SetSourceUrl(url);
-          adpSet->AddRepresentation(repr);
-        }
-      }
-      else
-      {
-        // Malformed line, rollback stream to previous line position
-        streamData.seekg(currentStreamPos);
-      }
-    }
-    else if (tagName == "#EXTINF")
-    {
-      // This is a media playlist (not a master playlist with multi-bitrate playlist)
-
-      //! @todo: here we are add some fake data, and we are downloading two times the same manifest
-      //! because the current parser code is splitted on two parts and managed from different code,
-      //! to solve this situation a rework is needed, where we can have a seletable parsing method
-      auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
-      newAdpSet->SetStreamType(StreamType::VIDEO);
-
-      auto repr = CRepresentation::MakeUniquePtr(newAdpSet.get());
-      repr->SetTimescale(1000000);
-      repr->SetSourceUrl(manifest_url_);
-      repr->AddCodecs(CODEC::FOURCC_H264);
-
-      repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
-
-      repr->SetScaling();
-
-      newAdpSet->AddRepresentation(repr);
-      period->AddAdaptationSet(newAdpSet);
-
-      // We assume audio is included
-      period->m_includedStreamType |= 1U << static_cast<int>(StreamType::AUDIO);
-      createDummyAudioRepr = true;
-      break;
-    }
-    else if (tagName == "#EXT-X-SESSION-KEY")
-    {
-      auto attribs = ParseTagAttributes(tagValue);
-
-      switch (ProcessEncryption(base_url_, attribs))
-      {
-        case EncryptionType::NOT_SUPPORTED:
-          return false;
-        case EncryptionType::AES128:
-        case EncryptionType::WIDEVINE:
-          // #EXT-X-SESSION-KEY is meant for preparing DRM without
-          // loading sub-playlist. As long our workflow is serial, we
-          // don't profite and therefore do not any action.
-          break;
-        case EncryptionType::UNKNOWN:
-          LOG::LogF(LOGWARNING, "Unknown encryption type");
-          break;
-        default:
-          break;
-      }
-    }
-  }
-
-  if (!isExtM3Uformat)
+  if (data.find("#EXTM3U") == std::string::npos)
   {
     LOG::LogF(LOGERROR, "Non-compliant HLS manifest, #EXTM3U tag not found.");
     return false;
   }
 
-  if (createDummyAudioRepr)
+  if (data.find("#EXTINF") == std::string::npos)
   {
-    // We may need to create the Default / Dummy audio representation
+    if (!ParseMultivariantPlaylist(data))
+      return false;
+  }
+  else // Media playlist
+  {
+    //! @todo: we are downloading two times the same manifest
+    //! media playlist parsing code could be reused
+    
+    std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
+    period->SetTimescale(1000000);
 
     auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
-    newAdpSet->SetStreamType(StreamType::AUDIO);
-    newAdpSet->SetContainerType(ContainerType::MP4);
-    newAdpSet->SetLanguage("unk"); // Unknown
+    newAdpSet->SetStreamType(StreamType::VIDEO);
 
     auto repr = CRepresentation::MakeUniquePtr(newAdpSet.get());
     repr->SetTimescale(1000000);
-
-    // Try to get the codecs from first representation
-    std::set<std::string> codecs{CODEC::FOURCC_MP4A};
-    auto& adpSets = period->GetAdaptationSets();
-    if (!adpSets.empty())
-    {
-      auto& reprs = adpSets[0]->GetRepresentations();
-      if (!reprs.empty())
-        codecs = reprs[0]->GetCodecs();
-    }
-    repr->AddCodecs(codecs);
-    repr->SetAudioChannels(2);
-    repr->SetIsIncludedStream(true);
+    repr->SetSourceUrl(manifest_url_);
+    repr->AddCodecs(CODEC::FOURCC_H264);
 
     repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
     repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
@@ -1036,22 +789,16 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
 
     newAdpSet->AddRepresentation(repr);
     period->AddAdaptationSet(newAdpSet);
-  }
 
-  // Add adaptation sets from groups
-  for (auto& group : m_extGroups)
-  {
-    for (auto& adpSet : group.second.m_adpSets)
-    {
-      period->AddAdaptationSet(adpSet);
-    }
+    // We assume audio is included
+    period->m_includedStreamType |= 1U << static_cast<int>(StreamType::AUDIO);
+    AddIncludedAudioStream(period, CODEC::FOURCC_MP4A);
+
+    m_periods.push_back(std::move(period));
   }
-  m_extGroups.clear();
 
   // Set Live as default
   m_isLive = true;
-
-  m_periods.push_back(std::move(period));
 
   return true;
 }
@@ -1126,6 +873,379 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   return EncryptionType::UNKNOWN;
 }
 
+bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,
+                                       std::unique_ptr<PLAYLIST::CAdaptationSet>& adpSet,
+                                       std::unique_ptr<PLAYLIST::CRepresentation>& repr)
+{
+  StreamType streamType = StreamType::NOTYPE;
+  if (r.m_type == "AUDIO")
+    streamType = StreamType::AUDIO;
+  else if (r.m_type == "SUBTITLES")
+    streamType = StreamType::SUBTITLE;
+  else // Not supported
+    return false;
+
+  adpSet->SetStreamType(streamType);
+  adpSet->SetLanguage(r.m_language.empty() ? "unk" : r.m_language);
+  adpSet->SetName(r.m_name);
+  adpSet->SetIsDefault(r.m_isDefault);
+  adpSet->SetIsForced(r.m_isForced);
+
+  if (!r.m_characteristics.empty())
+  {
+    if (STRING::Contains(r.m_characteristics, "public.accessibility.transcribes-spoken-dialog") ||
+        STRING::Contains(r.m_characteristics, "public.accessibility.describes-music-and-sound") ||
+        STRING::Contains(r.m_characteristics, "public.accessibility.describes-video"))
+    {
+      adpSet->SetIsImpaired(true);
+    }
+  }
+
+  repr->SetTimescale(1000000);
+
+  if (!r.m_uri.empty())
+  {
+    std::string uri = r.m_uri;
+    if (URL::IsUrlRelative(uri))
+      uri = URL::Join(base_url_, uri);
+
+    repr->SetSourceUrl(uri);
+  }
+
+  if (streamType == StreamType::AUDIO)
+  {
+    repr->SetAudioChannels(r.m_channels);
+    // Set channels in the adptation set to help distinguish it from other similar renditions
+    adpSet->SetAudioChannels(r.m_channels);
+  }
+
+  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
+
+  repr->SetScaling();
+
+  return true;
+}
+
+bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
+{
+  std::stringstream streamData{data};
+  MultivariantPlaylist pl;
+
+  // Parse text data
+
+  for (std::string line; STRING::GetLine(streamData, line);)
+  {
+    // Keep track of current line pos, can be used to go back to previous line
+    // if we move forward within the loop code
+    std::streampos currentStreamPos = streamData.tellg();
+
+    std::string tagName;
+    std::string tagValue;
+    ParseTagNameValue(line, tagName, tagValue);
+
+    if (tagName == "#EXT-X-MEDIA")
+    {
+      auto attribs = ParseTagAttributes(tagValue);
+
+      StreamType streamType = StreamType::NOTYPE;
+      if (attribs["TYPE"] == "AUDIO")
+        streamType = StreamType::AUDIO;
+      else if (attribs["TYPE"] == "SUBTITLES")
+        streamType = StreamType::SUBTITLE;
+      else
+        continue; // Skip, other types are not supported
+
+      Rendition rend;
+      rend.m_type = attribs["TYPE"];
+      rend.m_groupId = attribs["GROUP-ID"];
+      rend.m_name = attribs["NAME"];
+      rend.m_language = attribs["LANGUAGE"];
+      if (streamType == StreamType::AUDIO)
+        rend.m_channels = STRING::ToUint32(attribs["CHANNELS"]);
+      rend.m_isDefault = attribs["DEFAULT"] == "YES";
+      rend.m_isForced = attribs["FORCED"] == "YES";
+      rend.m_characteristics = attribs["CHARACTERISTICS"];
+      rend.m_uri = attribs["URI"];
+
+      if (streamType == StreamType::AUDIO)
+        pl.m_audioRenditions.emplace_back(rend);
+      else if (streamType == StreamType::SUBTITLE)
+        pl.m_subtitleRenditions.emplace_back(rend);
+    }
+    else if (tagName == "#EXT-X-STREAM-INF")
+    {
+      auto attribs = ParseTagAttributes(tagValue);
+
+      if (!STRING::KeyExists(attribs, "BANDWIDTH"))
+      {
+        LOG::LogF(LOGERROR, "Skipped EXT-X-STREAM-INF due to to missing bandwidth attribute (%s)",
+                  tagValue.c_str());
+        continue;
+      }
+
+      std::string uri;
+      // Try read on the next stream line, to get the playlist URL address
+      if (STRING::GetLine(streamData, line) && !line.empty() && line.front() != '#')
+        uri = line;
+      else
+      {
+        LOG::Log(LOGDEBUG, "Skipped EXT-X-STREAM-INF tag due to missing uri (%s)",
+                 tagValue.c_str());
+        streamData.seekg(currentStreamPos); // rollback stream to previous line position
+        continue;
+      }
+
+      Variant var;
+      var.m_bandwidth = STRING::ToUint32(attribs["BANDWIDTH"]);
+      var.m_codecs = attribs["CODECS"];
+      var.m_resolution = attribs["RESOLUTION"];
+      if (STRING::KeyExists(attribs, "FRAME-RATE"))
+      {
+        var.m_frameRate = STRING::ToFloat(attribs["FRAME-RATE"]);
+        if (var.m_frameRate == 0)
+          LOG::LogF(LOGWARNING, "Cannot get FRAME-RATE attribute");
+      }
+      var.m_groupIdAudio = attribs["AUDIO"];
+      var.m_groupIdSubtitles = attribs["SUBTITLES"];
+      var.m_uri = uri;
+
+      pl.m_variants.emplace_back(var);
+    }
+    else if (tagName == "#EXT-X-SESSION-KEY")
+    {
+      auto attribs = ParseTagAttributes(tagValue);
+
+      switch (ProcessEncryption(base_url_, attribs))
+      {
+        case EncryptionType::NOT_SUPPORTED:
+          return false;
+        case EncryptionType::AES128:
+        case EncryptionType::WIDEVINE:
+          // #EXT-X-SESSION-KEY is meant for preparing DRM without
+          // loading sub-playlist. As long our workflow is serial, we
+          // don't profite and therefore do not any action.
+          break;
+        case EncryptionType::UNKNOWN:
+          LOG::LogF(LOGWARNING, "Unknown encryption type");
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  // Create Period / Adaptation sets / Representations
+
+  std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
+  period->SetTimescale(1000000);
+
+  // Add audio renditions (do not take in account variants references)
+  for (const Rendition& r : pl.m_audioRenditions)
+  {
+    auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
+    auto newRepr = CRepresentation::MakeUniquePtr(newAdpSet.get());
+
+    if (!ParseRenditon(r, newAdpSet, newRepr))
+      continue;
+
+    // Find the codec string from a variant that references it
+    const Variant* varFound = FindVariantByAudioGroupId(r.m_groupId, pl.m_variants);
+    std::string codecStr = CODEC::FOURCC_MP4A; // Fallback
+    if (varFound)
+      codecStr = GetAudioCodec(varFound->m_codecs);
+    else
+      LOG::LogF(LOGERROR, "Cannot find variant for AUDIO GROUP-ID: %s", r.m_groupId.c_str());
+
+    newRepr->AddCodecs(codecStr);
+    newAdpSet->AddCodecs(codecStr);
+
+    if (r.m_uri.empty()) // EXT-X-MEDIA without URI (audio included to video)
+    {
+      newRepr->SetIsIncludedStream(true);
+      period->m_includedStreamType |= 1U << static_cast<int>(StreamType::AUDIO);
+    }
+    // Ensure that we dont have already an existing adaptation set with same attributes,
+    // usually should happens only when we have more EXT-X-MEDIA without URI (audio included to video)
+    // and we need to keep just one
+    CAdaptationSet* foundAdpSet =
+        CAdaptationSet::FindMergeable(period->GetAdaptationSets(), newAdpSet.get());
+
+    if (foundAdpSet)
+    {
+      if (newRepr->IsIncludedStream())
+        continue; // Repr. with included audio already exists
+
+      newRepr->SetParent(foundAdpSet);
+      foundAdpSet->AddRepresentation(newRepr);
+    }
+    else
+    {
+      newAdpSet->AddRepresentation(newRepr);
+      period->AddAdaptationSet(newAdpSet);
+    }
+  }
+
+  // Add subtitles renditions (do not take in account variants references)
+  for (const Rendition& r : pl.m_subtitleRenditions)
+  {
+    auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
+    auto newRepr = CRepresentation::MakeUniquePtr(newAdpSet.get());
+
+    if (!ParseRenditon(r, newAdpSet, newRepr))
+      continue;
+    // Use WebVTT as default subtitle codec
+    newRepr->AddCodecs(CODEC::FOURCC_WVTT);
+    newAdpSet->AddCodecs(CODEC::FOURCC_WVTT);
+
+    newAdpSet->AddRepresentation(newRepr);
+    period->AddAdaptationSet(newAdpSet);
+  }
+
+  // Add variants
+  for (const Variant& var : pl.m_variants)
+  {
+    if (var.m_bandwidth == 0)
+      LOG::LogF(LOGWARNING, "Variant with malformed bandwidth attribute");
+
+    // Try determine the type of stream from codecs
+    StreamType streamType = StreamType::NOTYPE;
+    std::string codecVideo;
+    std::string codecAudio;
+
+    if (!var.m_codecs.empty())
+    {
+      codecVideo = GetVideoCodec(var.m_codecs);
+      codecAudio = GetAudioCodec(var.m_codecs);
+
+      if (!codecVideo.empty()) // Audio/Video stream
+        streamType = StreamType::VIDEO;
+      else if (!codecAudio.empty()) // Audio only stream
+        streamType = StreamType::AUDIO;
+    }
+    else
+    {
+      if (!var.m_resolution.empty())
+      {
+        LOG::LogF(
+            LOGDEBUG,
+            "CODECS attribute missing in the EXT-X-STREAM-INF variant, assumed as video stream");
+        streamType = StreamType::VIDEO;
+        codecVideo = CODEC::FOURCC_H264;
+        if (codecAudio.empty())
+          codecAudio = CODEC::FOURCC_MP4A;
+      }
+      else
+        LOG::LogF(LOGERROR, "The EXT-X-STREAM-INF variant does not have enough info to "
+                            "determine the stream type");
+    }
+
+    if (streamType == StreamType::AUDIO) // Audio only variant
+    {
+      auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
+      auto newRepr = CRepresentation::MakeUniquePtr(newAdpSet.get());
+      // Initialize a rendition with generic info
+      Rendition r;
+      r.m_channels = 2;
+      r.m_language = "unk";
+      r.m_type = "AUDIO";
+
+      if (!var.m_groupIdAudio.empty())
+      {
+        // Get info from the specified group id rendition
+        const Rendition* rFound = FindRenditionByGroupId(var.m_groupIdAudio, pl.m_audioRenditions);
+        if (rFound)
+          r = *rFound;
+        else
+          LOG::LogF(LOGWARNING, "Undefined GROUP-ID \"%s\" in EXT-X-STREAM-INF variant",
+                    var.m_groupIdAudio.c_str());
+      }
+
+      r.m_uri = var.m_uri;
+
+      if (!ParseRenditon(r, newAdpSet, newRepr))
+        continue;
+
+      newAdpSet->AddCodecs(codecAudio);
+      newRepr->AddCodecs(codecAudio);
+      newRepr->SetBandwidth(var.m_bandwidth);
+
+      // Check if it is mergeable with an existing adp set
+      CAdaptationSet* foundAdpSet =
+          CAdaptationSet::FindMergeable(period->GetAdaptationSets(), newAdpSet.get());
+      if (foundAdpSet)
+      {
+        newRepr->SetParent(foundAdpSet);
+        foundAdpSet->AddRepresentation(newRepr);
+      }
+      else
+      {
+        newAdpSet->AddRepresentation(newRepr);
+        period->AddAdaptationSet(newAdpSet);
+      }
+    }
+    else if (streamType == StreamType::VIDEO) // Video variant
+    {
+      if (var.m_groupIdAudio.empty())
+      {
+        // No audio group specified, we assume audio is included to video stream
+        period->m_includedStreamType |= 1U << static_cast<int>(StreamType::AUDIO);
+        AddIncludedAudioStream(period, codecAudio);
+      }
+
+      // We group all video representations by codec fourcc, similar to the DASH specs
+      std::string codecFourcc = codecVideo.substr(0, codecVideo.find('.'));
+      // Find existing adaptation set with same codec fourcc ...
+      CAdaptationSet* adpSet = CAdaptationSet::FindByCodec(period->GetAdaptationSets(), codecFourcc);
+      if (!adpSet) // ... or create a new one
+      {
+        auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
+        newAdpSet->SetStreamType(streamType);
+        newAdpSet->AddCodecs(codecFourcc);
+        adpSet = newAdpSet.get();
+        period->AddAdaptationSet(newAdpSet);
+      }
+
+      auto repr = CRepresentation::MakeUniquePtr(adpSet);
+      repr->SetTimescale(1000000);
+      repr->AddCodecs(codecVideo);
+      repr->SetBandwidth(var.m_bandwidth);
+
+      if (!var.m_resolution.empty())
+      {
+        int resWidth{0};
+        int resHeight{0};
+        ParseResolution(resWidth, resHeight, var.m_resolution);
+        repr->SetResWidth(resWidth);
+        repr->SetResHeight(resHeight);
+      }
+      if (var.m_frameRate != 0)
+      {
+        repr->SetFrameRate(static_cast<uint32_t>(var.m_frameRate * 1000));
+        repr->SetFrameRateScale(1000);
+      }
+
+      repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+      repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
+      repr->SetScaling();
+
+      std::string uri = var.m_uri;
+      if (URL::IsUrlRelative(uri))
+        uri = URL::Join(base_url_, uri);
+
+      repr->SetSourceUrl(uri);
+      adpSet->AddRepresentation(repr);
+    }
+    else
+    {
+      LOG::LogF(LOGWARNING, "Cannot add EXT-X-STREAM-INF variant due to unhandled data");
+    }
+  }
+
+  m_periods.push_back(std::move(period));
+  return true;
+}
+
 void adaptive::CHLSTree::SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
                                       const std::string& data,
                                       std::string_view info)
@@ -1141,4 +1261,51 @@ void adaptive::CHLSTree::SaveManifest(PLAYLIST::CAdaptationSet* adpSet,
   }
 
   AdaptiveTree::SaveManifest(fileNameSuffix, data, info);
+}
+
+void adaptive::CHLSTree::AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPeriod>& period, std::string codec)
+{
+  auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
+  newAdpSet->SetStreamType(StreamType::AUDIO);
+  newAdpSet->SetContainerType(ContainerType::MP4);
+  newAdpSet->SetLanguage("unk"); // Unknown
+
+  auto repr = CRepresentation::MakeUniquePtr(newAdpSet.get());
+  repr->SetTimescale(1000000);
+
+  repr->AddCodecs(codec);
+  repr->SetAudioChannels(2);
+  repr->SetIsIncludedStream(true);
+
+  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
+  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
+
+  repr->SetScaling();
+
+  newAdpSet->AddRepresentation(repr);
+  period->AddAdaptationSet(newAdpSet);
+}
+
+const adaptive::CHLSTree::Variant* adaptive::CHLSTree::FindVariantByAudioGroupId(
+    std::string groupId, std::vector<Variant>& variants) const
+{
+  auto itVar =
+      std::find_if(variants.cbegin(), variants.cend(),
+                   [&groupId](const Variant& item) { return item.m_groupIdAudio == groupId; });
+  if (itVar != variants.cend())
+    return &(*itVar);
+
+  return nullptr;
+}
+
+const adaptive::CHLSTree::Rendition* adaptive::CHLSTree::FindRenditionByGroupId(
+    std::string groupId, std::vector<adaptive::CHLSTree::Rendition>& renditions) const
+{
+  auto itRend =
+      std::find_if(renditions.cbegin(), renditions.cend(),
+                   [&groupId](const Rendition& item) { return item.m_groupId == groupId; });
+  if (itRend != renditions.cend())
+    return &(*itRend);
+
+  return nullptr;
 }

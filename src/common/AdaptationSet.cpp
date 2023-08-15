@@ -10,6 +10,7 @@
 
 #include "Representation.h"
 #include "../utils/StringUtils.h"
+#include "../utils/Utils.h"
 
 #include <algorithm> // any_of
 
@@ -20,6 +21,11 @@ void PLAYLIST::CAdaptationSet::AddCodecs(std::string_view codecs)
 {
   std::set<std::string> list = STRING::SplitToSet(codecs.data(), ',');
   m_codecs.insert(list.begin(), list.end());
+}
+
+void PLAYLIST::CAdaptationSet::AddCodecs(const std::set<std::string>& codecs)
+{
+  m_codecs.insert(codecs.begin(), codecs.end());
 }
 
 bool PLAYLIST::CAdaptationSet::ContainsCodec(std::string_view codec)
@@ -85,18 +91,7 @@ bool PLAYLIST::CAdaptationSet::IsMergeable(const CAdaptationSet* other) const
   if (m_streamType != other->m_streamType)
     return false;
 
-  if (m_streamType == StreamType::VIDEO)
-  {
-    if (m_group == other->m_group &&
-        std::find(m_switchingIds.begin(), m_switchingIds.end(), other->m_id) !=
-            m_switchingIds.end() &&
-        std::find(other->m_switchingIds.begin(), other->m_switchingIds.end(), m_id) !=
-            other->m_switchingIds.end())
-    {
-      return true;
-    }
-  }
-  else if (m_streamType == StreamType::AUDIO)
+  if (m_streamType == StreamType::AUDIO)
   {
     if (m_id == other->m_id && m_startPts == other->m_startPts &&
         m_startNumber == other->m_startNumber && m_duration == other->m_duration &&
@@ -105,6 +100,46 @@ bool PLAYLIST::CAdaptationSet::IsMergeable(const CAdaptationSet* other) const
         m_isOriginal == other->m_isOriginal && m_isForced == other->m_isForced &&
         m_isImpaired == other->m_isImpaired && m_mimeType == other->m_mimeType &&
         m_audioChannels == other->m_audioChannels && m_codecs == other->m_codecs)
+    {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool PLAYLIST::CAdaptationSet::CompareSwitchingId(const CAdaptationSet* other) const
+{
+  if (m_streamType != other->m_streamType || m_switchingIds.empty())
+    return false;
+
+  if (m_streamType == StreamType::VIDEO)
+  {
+    if (m_group == other->m_group &&
+        std::find(m_switchingIds.cbegin(), m_switchingIds.cend(), other->m_id) !=
+            m_switchingIds.cend() &&
+        std::find(other->m_switchingIds.cbegin(), other->m_switchingIds.cend(), m_id) !=
+            other->m_switchingIds.cend())
+    {
+      //! @todo: we have no way to determine supported codecs by hardware in use
+      //! and can broken playback, we allow same codec only
+      for (std::string codec : m_codecs)
+      {
+        codec = codec.substr(0, codec.find('.')); // Get fourcc only
+        if (CODEC::IsVideo(codec) && CODEC::Contains(other->m_codecs, codec))
+        {
+          return true;
+        }
+      }
+    }
+  }
+  else if (m_streamType == StreamType::AUDIO)
+  {
+    if (m_language == other->m_language && m_group == other->m_group &&
+        std::find(m_switchingIds.cbegin(), m_switchingIds.cend(), other->m_id) !=
+            m_switchingIds.cend() &&
+        std::find(other->m_switchingIds.cbegin(), other->m_switchingIds.cend(), m_id) !=
+            other->m_switchingIds.cend())
     {
       return true;
     }
@@ -155,4 +190,28 @@ bool PLAYLIST::CAdaptationSet::Compare(const std::unique_ptr<CAdaptationSet>& le
   }
 
   return false;
+}
+
+PLAYLIST::CAdaptationSet* PLAYLIST::CAdaptationSet::FindByCodec(
+    std::vector<std::unique_ptr<CAdaptationSet>>& adpSets, std::string codec)
+{
+  auto itAdpSet = std::find_if(adpSets.cbegin(), adpSets.cend(),
+                               [&codec](const std::unique_ptr<CAdaptationSet>& item)
+                               { return CODEC::Contains(item->GetCodecs(), codec); });
+  if (itAdpSet != adpSets.cend())
+    return (*itAdpSet).get();
+
+  return nullptr;
+}
+
+CAdaptationSet* PLAYLIST::CAdaptationSet::FindMergeable(
+    std::vector<std::unique_ptr<CAdaptationSet>>& adpSets, CAdaptationSet* adpSet)
+{
+  auto itAdpSet = std::find_if(adpSets.cbegin(), adpSets.cend(),
+                               [&adpSet](const std::unique_ptr<CAdaptationSet>& item)
+                               { return item->IsMergeable(adpSet); });
+  if (itAdpSet != adpSets.cend())
+    return (*itAdpSet).get();
+
+  return nullptr;
 }

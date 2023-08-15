@@ -69,6 +69,8 @@ namespace adaptive
 
   void AdaptiveTree::PostOpen(const UTILS::PROPERTIES::KodiProperties& kodiProps)
   {
+    SortTree();
+
     // A manifest can provide live delay value, if not so we use our default
     // value of 16 secs, this is needed to ensure an appropriate playback,
     // an add-on can override the delay to try fix edge use cases
@@ -141,61 +143,13 @@ namespace adaptive
 
   void AdaptiveTree::SortTree()
   {
-    for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end(); itPeriod++)
+    for (auto& period : m_periods)
     {
-      CPeriod* period = (*itPeriod).get();
-      auto& periodAdpSets = period->GetAdaptationSets();
+      auto& adpSets = period->GetAdaptationSets();
 
-      // Merge VIDEO & AUDIO adaptation sets
-      //! @todo: seem that merge adpsets is this not safe thing to do, adpsets may have different encryptions
-      //!        and relative different child data (e.g. dash xml child tags)
-      //!        it is needed to investigate if we really need do this,
-      //!        if so maybe limit for some use cases or improve it in some way.
-      //!        audio merging has been impl years ago without give any details of the reasons or for what manifest types
-      //!        video merging has been impl by https://github.com/xbmc/inputstream.adaptive/pull/694
-      //!        second thing, merge should be decoupled from sort behaviour with different methods
-      for (auto itAdpSet = periodAdpSets.begin(); itAdpSet != periodAdpSets.end();)
-      {
-        auto adpSet = (*itAdpSet).get();
-        auto itNextAdpSet = itAdpSet + 1;
+      std::stable_sort(adpSets.begin(), adpSets.end(), CAdaptationSet::Compare);
 
-        if (itNextAdpSet != periodAdpSets.end() &&
-            (adpSet->GetStreamType() == StreamType::AUDIO ||
-             adpSet->GetStreamType() == StreamType::VIDEO))
-        {
-          auto nextAdpSet = (*itNextAdpSet).get();
-
-          if (adpSet->IsMergeable(nextAdpSet))
-          {
-            std::vector<CPeriod::PSSHSet>& psshSets = period->GetPSSHSets();
-            for (size_t index = 1; index < psshSets.size(); index++)
-            {
-              if (psshSets[index].adaptation_set_ == adpSet)
-              {
-                psshSets[index].adaptation_set_ = nextAdpSet;
-              }
-            }
-
-            // Move representations unique_ptr from adpSet repr vector to nextAdpSet repr vector
-            for (auto itRepr = adpSet->GetRepresentations().begin();
-                 itRepr != adpSet->GetRepresentations().end(); itRepr++)
-            {
-              nextAdpSet->GetRepresentations().push_back(std::move(*itRepr));
-              // We need to change the parent adaptation set in the representation itself
-              nextAdpSet->GetRepresentations().back()->SetParent(nextAdpSet);
-            }
-
-            itAdpSet = periodAdpSets.erase(itAdpSet);
-            continue;
-          }
-        }
-        itAdpSet++;
-      }
-
-      std::stable_sort(periodAdpSets.begin(), periodAdpSets.end(),
-                       CAdaptationSet::Compare);
-
-      for (auto& adpSet : periodAdpSets)
+      for (auto& adpSet : adpSets)
       {
         std::sort(adpSet->GetRepresentations().begin(), adpSet->GetRepresentations().end(),
                   CRepresentation::CompareBandwidth);

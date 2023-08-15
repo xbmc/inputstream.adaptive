@@ -109,9 +109,9 @@ bool adaptive::CDashTree::Open(std::string_view url,
     return false;
   }
 
-  m_currentPeriod = m_periods[0].get();
+  MergeAdpSets();
 
-  SortTree();
+  m_currentPeriod = m_periods[0].get();
 
   return true;
 }
@@ -348,7 +348,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
   std::string id;
   // "audioTrackId" tag is amazon VOD specific, since dont use the standard "id" tag
-  // this helps to avoid merging adpSets (done with AdaptiveTree::SortTree) for some limit cases
+  // this to to make MergeAdpSets more effective for some limit case
   if (XML::QueryAttrib(nodeAdp, "id", id) || XML::QueryAttrib(nodeAdp, "audioTrackId", id))
     adpSet->SetId(id);
 
@@ -624,6 +624,12 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
         rep->m_psshSetPos = currentPsshSetPos;
       }
     }
+  }
+
+  // Copy codecs in the adaptation set to make MergeAdpSets more effective
+  if (adpSet->GetCodecs().empty())
+  {
+    adpSet->AddCodecs(adpSet->GetRepresentations().front()->GetCodecs());
   }
 
   period->AddAdaptationSet(adpSet);
@@ -1378,6 +1384,53 @@ size_t adaptive::CDashTree::EstimateSegmentsCount(uint64_t duration,
     totalTimeSecs = std::max(m_totalTimeSecs, static_cast<uint64_t>(1));
 
   return static_cast<size_t>(totalTimeSecs / lengthSecs);
+}
+
+void adaptive::CDashTree::MergeAdpSets()
+{
+  // NOTE: This method wipe out all properties of merged adaptation set
+  for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end(); ++itPeriod)
+  {
+    auto period = itPeriod->get();
+    auto& periodAdpSets = period->GetAdaptationSets();
+    for (auto itAdpSet = periodAdpSets.begin(); itAdpSet != periodAdpSets.end(); ++itAdpSet)
+    {
+      CAdaptationSet* adpSet = itAdpSet->get();
+      for (auto itNextAdpSet = itAdpSet + 1; itNextAdpSet != periodAdpSets.end();)
+      {
+        CAdaptationSet* nextAdpSet = itNextAdpSet->get();
+        // IsMergeable:
+        //  Some services (e.g. amazon) may have several AdaptationSets of the exact same audio track
+        //  the only difference is in the ContentProtection kid/pssh and the base url,
+        //  in order not to show several identical audio tracks in the Kodi GUI, we must merge adaptation sets
+        // CompareSwitchingId:
+        //  Some services can provide switchable video adp sets, these could havedifferent codecs, and could be
+        //  used to split HD resolutions from SD, so to allow Chooser's to autoselect the video quality
+        //  we need to merge them all
+        // CODEC NOTE: since we cannot know in advance the supported video codecs by the hardware in use
+        //  we cannot merge adp sets with different codecs otherwise playback will not work
+        if (adpSet->CompareSwitchingId(nextAdpSet) || adpSet->IsMergeable(nextAdpSet))
+        {
+          // Sanitize adaptation set references to pssh sets
+          for (CPeriod::PSSHSet& psshSet : period->GetPSSHSets())
+          {
+            if (psshSet.adaptation_set_ == nextAdpSet)
+              psshSet.adaptation_set_ = adpSet;
+          }
+          // Move representations to the first switchable adaptation set
+          for (auto itRepr = nextAdpSet->GetRepresentations().begin();
+               itRepr < nextAdpSet->GetRepresentations().end(); ++itRepr)
+          {
+            itRepr->get()->SetParent(adpSet);
+            adpSet->GetRepresentations().push_back(std::move(*itRepr));
+          }
+          itNextAdpSet = periodAdpSets.erase(itNextAdpSet);
+        }
+        else
+          ++itNextAdpSet;
+      }
+    }
+  }
 }
 
 bool adaptive::CDashTree::DownloadManifestUpd(std::string_view url,

@@ -47,7 +47,6 @@ bool adaptive::CSmoothTree::Open(std::string_view url,
   m_currentPeriod = m_periods[0].get();
 
   CreateSegmentTimeline();
-  SortTree();
 
   return true;
 }

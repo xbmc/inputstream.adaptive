@@ -65,6 +65,11 @@ public:
   void AddCodecs(std::string_view codecs);
   const std::set<std::string>& GetCodecs() { return m_codecs; }
 
+  /*!
+   * \brief Add codec strings
+   */
+  void AddCodecs(const std::set<std::string>& codecs);
+
   StreamType GetStreamType() const { return m_streamType; }
   void SetStreamType(StreamType streamType) { m_streamType = streamType; }
 
@@ -106,8 +111,34 @@ public:
 
   bool IsMergeable(const CAdaptationSet* other) const;
 
+  /*!
+   * \brief Determine if an adaptation set is switchable with another one,
+   *        as urn:mpeg:dash:adaptation-set-switching:2016 scheme
+   * \param adpSets The adaptation set to compare
+   * \return True if switchable, otherwise false
+   */
+  bool CompareSwitchingId(const CAdaptationSet* other) const;
+
   static bool Compare(const std::unique_ptr<CAdaptationSet>& left,
                       const std::unique_ptr<CAdaptationSet>& right);
+
+  /*!
+   * \brief Find an adaptation set by codec string.
+   * \param adpSets The adaptation set list where to search
+   * \param codec The codec string
+   * \return The adaptation set if found, otherwise nullptr
+   */
+  static CAdaptationSet* FindByCodec(std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
+                                     std::string codec);
+
+  /*!
+   * \brief Find a mergeable adaptation set by comparing properties.
+   * \param adpSets The adaptation set list where to search
+   * \param adpSet The adaptation set to be compared
+   * \return The adaptation set if found, otherwise nullptr
+   */
+  static CAdaptationSet* FindMergeable(std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
+                                       CAdaptationSet* adpSet);
 
 protected:
   std::vector<std::unique_ptr<CRepresentation>> m_representations;
