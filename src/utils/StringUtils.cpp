@@ -264,3 +264,12 @@ std::string UTILS::STRING::ToLower(std::string str)
   StringUtils::ToLower(str);
   return str;
 }
+
+uint32_t UTILS::STRING::HexStrToUint(std::string_view hexValue)
+{
+  uint32_t val;
+  std::stringstream ss;
+  ss << std::hex << hexValue;
+  ss >> val;
+  return val;
+}
