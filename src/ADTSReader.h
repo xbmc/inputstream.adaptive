@@ -21,6 +21,7 @@ namespace adaptive
 enum class AdtsType;
 }
 
+
 class ATTR_DLL_LOCAL ID3TAG
 {
 public:
@@ -50,28 +51,47 @@ private:
 class ATTR_DLL_LOCAL ADTSFrame
 {
 public:
-  /*! \brief Adjust the stream position to advance over padding if neccessary (end of file)
-   *  \param stream The stream to check
+  enum CODEC_FLAG
+  {
+    CODEC_FLAG_NONE = 0,
+    CODEC_FLAG_ATMOS = 1 << 0
+  };
+
+  // \brief Generic frame info struct for all codec types.
+  struct ADTSFrameInfo
+  {
+    adaptive::AdtsType m_codecType{0};
+    int m_codecProfile{-1}; // For his definition refer to the type of codec parsed, -1 for unset value
+    int m_codecFlags{CODEC_FLAG_NONE}; // Refer to CODEC_FLAG enum
+    AP4_Size m_frameSize{0};
+    uint32_t m_frameCount{0};
+    uint32_t m_sampleRate{0};
+    uint32_t m_channels{0};
+  };
+
+  /*!
+   * \brief Adjust the stream position to advance over padding if neccessary (end of file)
+   * \param stream The stream to check
    */
   void AdjustStreamForPadding(AP4_ByteStream* stream);
-  adaptive::AdtsType GetAdtsType(AP4_ByteStream* stream);
+  ADTSFrameInfo GetFrameInfo(AP4_ByteStream* stream);
   bool parse(AP4_ByteStream *stream);
   bool ParseAac(AP4_ByteStream* stream);
+  bool ParseAacHeader(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo);
   bool ParseAc3(AP4_ByteStream* stream);
+  bool ParseAc3Header(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo);
   bool ParseEc3(AP4_ByteStream* stream);
-  void reset() { m_summedFrameCount = 0; m_frameCount = 0; m_dataBuffer.SetDataSize(0); }
+  bool ParseEc3Header(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo);
+  void reset();
   void resetFrameCount() { m_summedFrameCount = 0; }
-  uint64_t getPtsOffset() const { return m_sampleRate ? (static_cast<uint64_t>(m_summedFrameCount) * 90000) / m_sampleRate : 0; }
-  uint64_t getDuration() const { return m_sampleRate ? (static_cast<uint64_t>(m_frameCount) * 90000) / m_sampleRate : 0; }
+  uint64_t getPtsOffset() const;
+  uint64_t getDuration() const;
   const AP4_Byte *getData() const { return m_dataBuffer.GetData(); }
   AP4_Size getDataSize() const { return m_dataBuffer.GetDataSize(); }
-private:
-  uint32_t m_totalSize = 0;
-  uint32_t m_summedFrameCount = 0;
-  uint32_t m_frameCount = 0;
-  uint32_t m_sampleRate = 0;
-  uint32_t m_channelCount = 0;
 
+private:
+  uint64_t m_summedFrameCount{0};
+  ADTSFrameInfo m_frameInfo;
   AP4_DataBuffer m_dataBuffer;
 };
 
@@ -98,5 +118,5 @@ private:
   ID3TAG m_id3TagParser;
   ADTSFrame m_frameParser;
   uint64_t m_basePts{0};
-  uint64_t m_pts;
+  uint64_t m_pts{0};
 };
