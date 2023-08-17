@@ -52,7 +52,7 @@ bool CodecHandler::UpdateInfoCodecName(kodi::addon::InputstreamInfo& info, const
 
   AP4_String codecStr;
   m_sampleDescription->GetCodecString(codecStr);
-  if (codecStr.GetLength() > 0 && info.GetCodecInternalName() != codecStr.GetChars())
+  if (isChanged && codecStr.GetLength() > 0 && info.GetCodecInternalName() != codecStr.GetChars())
   {
     info.SetCodecInternalName(codecStr.GetChars());
     isChanged = true;
