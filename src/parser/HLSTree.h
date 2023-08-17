@@ -59,6 +59,13 @@ public:
                                PLAYLIST::StreamType type) override;
 
 protected:
+  // \brief Rendition features
+  enum REND_FEATURE
+  {
+    REND_FEATURE_NONE,
+    REND_FEATURE_EC3_JOC = 1 << 0
+  };
+
   // \brief Usually refer to an EXT-X-MEDIA tag
   struct Rendition
   {
@@ -71,6 +78,7 @@ protected:
     uint32_t m_channels{0};
     std::string m_characteristics;
     std::string m_uri;
+    int m_features{REND_FEATURE_NONE};
   };
 
   // \brief Usually refer to an EXT-X-STREAM-INF tag

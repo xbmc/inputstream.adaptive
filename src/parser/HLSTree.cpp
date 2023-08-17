@@ -917,6 +917,9 @@ bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,
     repr->SetAudioChannels(r.m_channels);
     // Set channels in the adptation set to help distinguish it from other similar renditions
     adpSet->SetAudioChannels(r.m_channels);
+
+    if ((r.m_features & REND_FEATURE_EC3_JOC) == REND_FEATURE_EC3_JOC)
+      repr->AddCodecs(CODEC::NAME_EAC3_JOC);
   }
 
   repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
@@ -962,7 +965,11 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       rend.m_name = attribs["NAME"];
       rend.m_language = attribs["LANGUAGE"];
       if (streamType == StreamType::AUDIO)
+      {
         rend.m_channels = STRING::ToUint32(attribs["CHANNELS"]);
+        if (STRING::Contains(attribs["CHANNELS"], "/JOC"))
+          rend.m_features |= REND_FEATURE_EC3_JOC;
+      }
       rend.m_isDefault = attribs["DEFAULT"] == "YES";
       rend.m_isForced = attribs["FORCED"] == "YES";
       rend.m_characteristics = attribs["CHARACTERISTICS"];

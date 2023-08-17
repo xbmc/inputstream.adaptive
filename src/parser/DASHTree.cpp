@@ -980,6 +980,25 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   else if (adpSet->GetStreamType() == StreamType::AUDIO && repr->GetAudioChannels() == 0)
     repr->SetAudioChannels(2); // Fallback to 2 channels when no value is set
 
+  // Parse <SupplementalProperty> child tags
+  for (xml_node nodeSP : nodeRepr.children("SupplementalProperty"))
+  {
+    std::string_view schemeIdUri = XML::GetAttrib(nodeSP, "schemeIdUri");
+    std::string_view value = XML::GetAttrib(nodeSP, "value");
+
+    if (schemeIdUri == "tag:dolby.com,2018:dash:EC3_ExtensionType:2018")
+    {
+      if (value == "JOC")
+        repr->AddCodecs(CODEC::NAME_EAC3_JOC);
+    }
+    else if (schemeIdUri == "tag:dolby.com,2018:dash:EC3_ExtensionComplexityIndex:2018")
+    {
+      uint32_t channels = STRING::ToUint32(value);
+      if (channels > 0)
+        repr->SetAudioChannels(channels);
+    }
+  }
+
   // For subtitles that are not as ISOBMFF format and where there is no timeline for segments
   // we should treat them as a single subtitle file
   if (repr->GetContainerType() == ContainerType::TEXT && repr->GetMimeType() != "application/mp4" &&
