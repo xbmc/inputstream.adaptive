@@ -91,6 +91,13 @@ class AdaptiveStream;
 
     void OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTimescale) override;
 
+    /*!
+    * \brief Some streaming manifest types can be required to create the Movie (MOOV) atom
+    *        because its not provided with the stream.
+    * \return True if its required to create Movie (MOOV) atom, otherwise false
+    */
+    bool IsRequiredCreateMovieAtom();
+
   protected:
     virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep,
                                  const std::vector<uint8_t>& buffer);
@@ -177,7 +184,7 @@ class AdaptiveStream;
 
     int SecondsSinceUpdate() const;
     static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
-    bool ResolveSegmentBase(PLAYLIST::CRepresentation* rep);
+    bool GenerateSidxSegments(PLAYLIST::CRepresentation* rep);
 
     struct THREADDATA
     {

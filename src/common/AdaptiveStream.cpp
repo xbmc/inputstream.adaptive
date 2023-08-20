@@ -436,6 +436,11 @@ void AdaptiveStream::OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTi
                           duration, mediaTimescale);
 }
 
+bool adaptive::AdaptiveStream::IsRequiredCreateMovieAtom()
+{
+  return tree_.GetTreeType() == TreeType::SMOOTH_STREAMING;
+}
+
 bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
                                      const std::vector<uint8_t>& buffer)
 {
@@ -483,87 +488,100 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
   }
   else if (rep->GetContainerType() == ContainerType::MP4)
   {
-    if (rep->GetSegmentBase()->GetIndexRangeBegin() == 0)
+    uint64_t boxSize{0};
+    uint64_t initRangeEnd{NO_VALUE};
+    // Note: if the init segment is set, means that we have downloaded data starting from the IndexRangeBegin offset
+    // so we need to include the data size not downloaded to the begin range of first segment
+    if (rep->HasSegmentBase() && rep->HasInitSegment())
     {
-      AP4_File fileStream{byteStream, AP4_DefaultAtomFactory::Instance_, true};
-      AP4_Movie* movie{fileStream.GetMovie()};
-
-      if (movie == nullptr)
-      {
-        LOG::Log(LOGERROR, "[AS-%u] No MOOV in stream!", clsId);
-        return false;
-      }
-
-      if (!rep->HasInitSegment())
-      {
-        LOG::LogF(LOGERROR, "[AS-%u] Representation has no init segment", clsId);
-        return false;      
-      }
-      rep->GetInitSegment()->range_begin_ = 0;
-      AP4_Position pos;
-      byteStream.Tell(pos);
-      rep->GetInitSegment()->range_end_ = pos - 1;
+      boxSize = rep->GetSegmentBase()->GetIndexRangeBegin();
+      initRangeEnd = boxSize - 1;
     }
+
+    bool isMoovFound{false};
+    AP4_Cardinal sidxCount{1};
+    uint64_t reprDuration{0};
 
     CSegment seg;
     seg.startPTS_ = 0;
-    AP4_Cardinal numSIDX{1};
-    uint64_t reprDuration{0};
 
-    while (numSIDX > 0)
+    // Iterate each atom in the stream
+    AP4_DefaultAtomFactory atomFactory;
+    AP4_Atom* atom{nullptr};
+    while (AP4_SUCCEEDED(atomFactory.CreateAtomFromStream(byteStream, atom)))
     {
-      AP4_Atom* atom{nullptr};
-      if (AP4_FAILED(AP4_DefaultAtomFactory::Instance_.CreateAtomFromStream(byteStream, atom)))
-      {
-        LOG::Log(LOGERROR, "[AS-%u] Unable to create SIDX from IndexRange bytes", clsId);
-        return false;
-      }
+      AP4_Position streamPos{0}; // Current stream position (offset where ends the current box)
+      byteStream.Tell(streamPos);
 
-      if (atom->GetType() == AP4_ATOM_TYPE_MOOF)
+      if (atom->GetType() == AP4_ATOM_TYPE_MOOV)
       {
+        isMoovFound = true;
+        initRangeEnd = streamPos - 1;
+        delete atom;
+      }
+      else if (atom->GetType() == AP4_ATOM_TYPE_MOOF || atom->GetType() == AP4_ATOM_TYPE_MDAT)
+      {
+        // Stop iteration because media segments are started
         delete atom;
         break;
       }
-      else if (atom->GetType() != AP4_ATOM_TYPE_SIDX)
+      else if (atom->GetType() == AP4_ATOM_TYPE_SIDX && sidxCount > 0)
       {
-        delete atom;
-        continue;
-      }
+        AP4_SidxAtom* sidx = AP4_DYNAMIC_CAST(AP4_SidxAtom, atom);
+        const AP4_Array<AP4_SidxAtom::Reference>& refs = sidx->GetReferences();
 
-      AP4_SidxAtom* sidx(AP4_DYNAMIC_CAST(AP4_SidxAtom, atom));
-      const AP4_Array<AP4_SidxAtom::Reference>& refs(sidx->GetReferences());
-
-      if (refs[0].m_ReferenceType == 1)
-      {
-        numSIDX = refs.ItemCount();
-        delete atom;
-        continue;
-      }
-
-      AP4_Position pos;
-      byteStream.Tell(pos);
-      seg.range_end_ =
-          pos + rep->GetSegmentBase()->GetIndexRangeBegin() + sidx->GetFirstOffset() - 1;
-      rep->SetTimescale(sidx->GetTimeScale());
-      rep->SetScaling();
-
-      for (AP4_Cardinal i{0}; i < refs.ItemCount(); i++)
-      {
-        seg.range_begin_ = seg.range_end_ + 1;
-        seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
-        rep->SegmentTimeline().GetData().emplace_back(seg);
-
-        if (adpSet->SegmentTimelineDuration().GetSize() < rep->SegmentTimeline().GetSize())
+        if (refs[0].m_ReferenceType == 1) // type 1 ref to a sidx box, type 0 ref to a moof box
         {
-          adpSet->SegmentTimelineDuration().GetData().emplace_back(refs[i].m_SubsegmentDuration);
+          sidxCount = refs.ItemCount();
+          delete atom;
+          continue;
         }
 
-        seg.startPTS_ += refs[i].m_SubsegmentDuration;
-        reprDuration += refs[i].m_SubsegmentDuration;
-      }
+        rep->SetTimescale(sidx->GetTimeScale());
+        rep->SetScaling();
 
-      delete atom;
-      numSIDX--;
+        seg.range_end_ = streamPos + boxSize + sidx->GetFirstOffset() - 1;
+
+        for (AP4_Cardinal i{0}; i < refs.ItemCount(); i++)
+        {
+          seg.range_begin_ = seg.range_end_ + 1;
+          seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
+          rep->SegmentTimeline().GetData().emplace_back(seg);
+
+          if (adpSet->SegmentTimelineDuration().GetSize() < rep->SegmentTimeline().GetSize())
+          {
+            adpSet->SegmentTimelineDuration().GetData().emplace_back(refs[i].m_SubsegmentDuration);
+          }
+
+          seg.startPTS_ += refs[i].m_SubsegmentDuration;
+          reprDuration += refs[i].m_SubsegmentDuration;
+        }
+
+        sidxCount--;
+        delete atom;
+      }
+    }
+
+    if (!rep->HasInitSegment())
+    {
+      if (!isMoovFound)
+      {
+        LOG::LogF(LOGERROR, "[AS-%u] Cannot create init segment, missing MOOV atom in stream",
+                  clsId);
+        return false;
+      }
+      if (initRangeEnd == NO_VALUE)
+      {
+        LOG::LogF(LOGERROR, "[AS-%u] Cannot create init segment, cannot determinate range end",
+                  clsId);
+        return false;
+      }
+      // Create the initialization segment
+      CSegment initSeg;
+      initSeg.SetIsInitialization(true);
+      initSeg.range_begin_ = 0;
+      initSeg.range_end_ = initRangeEnd;
+      rep->SetInitSegment(initSeg);
     }
 
     rep->SetDuration(reprDuration);
@@ -621,11 +639,11 @@ bool AdaptiveStream::start_stream()
     thread_data_->signal_dl_.wait(lckdl);
   }
 
-  if (current_rep_->SegmentTimeline().IsEmpty() && current_rep_->HasSegmentBase())
+  if (current_rep_->SegmentTimeline().IsEmpty() && !current_rep_->IsSubtitleFileStream())
   {
-    // ResolveSegmentbase assumes mutex_dl locked
+    // GenerateSidxSegments assumes mutex_dl locked
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
-    if (!ResolveSegmentBase(current_rep_))
+    if (!GenerateSidxSegments(current_rep_))
     {
       state_ = STOPPED;
       return false;
@@ -864,8 +882,8 @@ bool AdaptiveStream::ensureSegment()
       }
 
       // If the representation has been changed, segments may have to be generated (DASH)
-      if (newRep->SegmentTimeline().IsEmpty() && newRep->HasSegmentBase())
-        ResolveSegmentBase(newRep);
+      if (newRep->SegmentTimeline().IsEmpty() && !newRep->IsSubtitleFileStream())
+        GenerateSidxSegments(newRep);
 
       if (!newRep->IsPrepared() && tree_.SecondsSinceRepUpdate(newRep) > 1)
       {
@@ -1182,32 +1200,46 @@ void AdaptiveStream::FixateInitialization(bool on)
   m_fixateInitialization = on && current_rep_->HasInitSegment();
 }
 
-bool AdaptiveStream::ResolveSegmentBase(PLAYLIST::CRepresentation* rep)
+bool AdaptiveStream::GenerateSidxSegments(PLAYLIST::CRepresentation* rep)
 {
+  if (rep->GetContainerType() != ContainerType::MP4 &&
+      rep->GetContainerType() != ContainerType::WEBM)
+  {
+    LOG::LogF(LOGERROR,
+              "[AS-%u] Cannot generate segments from SIDX on repr id \"%s\" with container \"%i\"",
+              clsId, rep->GetId().data(), static_cast<int>(rep->GetContainerType()));
+    return false;
+  }
+
   // Get the byte ranges to download the index segment to generate media segments from SIDX atom
-
-  auto& segBase = rep->GetSegmentBase();
   CSegment seg;
+  // SetIsInitialization is set just to ignore fileOffset on PrepareDownload
+  // the init segment will be set to representation by ParseIndexRange
+  seg.SetIsInitialization(true);
 
-  if (!rep->HasInitSegment() && segBase->GetIndexRangeBegin() == 0 &&
-      segBase->GetIndexRangeEnd() > 0)
+  if (rep->HasSegmentBase())
   {
-    seg.SetIsInitialization(true);
-    seg.range_end_ = segBase->GetIndexRangeEnd();
-    // Initialization segment will be set to representation by ParseIndexRange
-  }
-  else if (segBase->GetIndexRangeBegin() > 0 || !rep->HasInitSegment())
-  {
-    // It's no an initialization segment
-    seg.range_begin_ = segBase->GetIndexRangeBegin();
-    seg.range_end_ = segBase->GetIndexRangeEnd();
-  }
-  else if (rep->HasInitSegment())
-  {
-    seg = *rep->GetInitSegment();
+    auto& segBase = rep->GetSegmentBase();
+    if (segBase->GetIndexRangeEnd() > 0)
+    {
+      // No init segment, we need to create it, so get all bytes from start to try get MOOV atom
+      seg.range_begin_ = rep->HasInitSegment() ? segBase->GetIndexRangeBegin() : 0;
+      seg.range_end_ = segBase->GetIndexRangeEnd();
+    }
+    else if (rep->HasInitSegment())
+    {
+      seg = *rep->GetInitSegment();
+    }
+    else
+      return false;
   }
   else
-    return false;
+  {
+    // We dont know the range positions for the index segment
+    static const uint64_t indexRangeEnd = 1024 * 200;
+    seg.range_begin_ = 0;
+    seg.range_end_ = indexRangeEnd;
+  }
 
   std::vector<uint8_t> sidxBuffer;
   DownloadInfo downloadInfo;

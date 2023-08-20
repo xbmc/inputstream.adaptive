@@ -1013,7 +1013,7 @@ void CSession::UpdateStream(CStream& stream)
   stream.m_info.SetCodecInternalName(codecStr);
 }
 
-AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
+void CSession::PrepareStream(CStream* stream, bool& needRefetch)
 {
   needRefetch = false;
   CRepresentation* repr = stream->m_adStream.getRepresentation();
@@ -1022,10 +1022,10 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
                                                 stream->m_adStream.getAdaptationSet(), repr))
   {
     case PrepareRepStatus::FAILURE:
-      return nullptr;
+      return;
     case PrepareRepStatus::DRMCHANGED:
       if (!InitializeDRM())
-        return nullptr;
+        return;
       [[fallthrough]];
     case PrepareRepStatus::DRMUNCHANGED:
       stream->m_isEncrypted = repr->m_psshSetPos != PSSHSET_POS_DEFAULT;
@@ -1034,72 +1034,6 @@ AP4_Movie* CSession::PrepareStream(CStream* stream, bool& needRefetch)
     default:
       break;
   }
-
-  if (repr->GetContainerType() == ContainerType::MP4 && !repr->HasInitPrefixed() &&
-      !repr->HasInitSegment())
-  {
-    //We'll create a Movie out of the things we got from manifest file
-    //note: movie will be deleted in destructor of stream->input_file_
-    AP4_Movie* movie{new AP4_Movie()};
-
-    AP4_SyntheticSampleTable* sample_table{new AP4_SyntheticSampleTable()};
-
-    AP4_SampleDescription* sample_descryption;
-    const std::string& extradata = repr->GetCodecPrivateData();
-
-    if (stream->m_info.GetCodecName() == "h264")
-    {
-      AP4_MemoryByteStream ms{reinterpret_cast<const uint8_t*>(extradata.data()),
-                              static_cast<const AP4_Size>(extradata.size())};
-      AP4_AvccAtom* atom{AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
-      sample_descryption =
-          new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->m_info.GetWidth(),
-                                       stream->m_info.GetHeight(), 0, nullptr, atom);
-    }
-    else if (stream->m_info.GetCodecName() == "hevc")
-    {
-      AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
-                              static_cast<const AP4_Size>(extradata.size())};
-      AP4_HvccAtom* atom{AP4_HvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
-      sample_descryption =
-          new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->m_info.GetWidth(),
-                                        stream->m_info.GetHeight(), 0, nullptr, atom);
-    }
-    else if (stream->m_info.GetCodecName() == "av1")
-    {
-      AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
-                              static_cast<AP4_Size>(extradata.size())};
-      AP4_Av1cAtom* atom = AP4_Av1cAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
-      sample_descryption =
-          new AP4_Av1SampleDescription(AP4_SAMPLE_FORMAT_AV01, stream->m_info.GetWidth(),
-                                       stream->m_info.GetHeight(), 0, nullptr, atom);
-    }
-    else if (stream->m_info.GetCodecName() == "srt")
-      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES,
-                                                     AP4_SAMPLE_FORMAT_STPP, 0);
-    else
-      sample_descryption = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
-
-    if (repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT)
-    {
-      AP4_ContainerAtom schi{AP4_ATOM_TYPE_SCHI};
-      schi.AddChild(
-          new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8,
-                           GetDefaultKeyId(repr->GetPsshSetPos())));
-      sample_descryption = new AP4_ProtectedSampleDescription(
-          0, sample_descryption, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
-    }
-    sample_table->AddSampleDescription(sample_descryption);
-    movie->AddTrack(new AP4_Track(static_cast<AP4_Track::Type>(stream->m_adStream.GetTrackType()),
-                                  sample_table, CFragmentedSampleReader::TRACKID_UNKNOWN,
-                                  repr->GetTimescale(), 0, repr->GetTimescale(), 0, "", 0, 0));
-    //Create a dumy MOOV Atom to tell Bento4 its a fragmented stream
-    AP4_MoovAtom* moov{new AP4_MoovAtom()};
-    moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
-    movie->SetMoovAtom(moov);
-    return movie;
-  }
-  return nullptr;
 }
 
 void CSession::EnableStream(CStream* stream, bool enable)
@@ -1627,4 +1561,76 @@ bool CSession::SeekChapter(int ch)
     return true;
   }
   return false;
+}
+
+AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
+{
+  CRepresentation* repr = stream->m_adStream.getRepresentation();
+
+  if (repr->GetContainerType() == ContainerType::MP4 && !repr->HasInitSegment())
+  {
+    AP4_SampleDescription* sampleDesc;
+    const std::string& extradata = repr->GetCodecPrivateData();
+
+    if (stream->m_info.GetCodecName() == CODEC::NAME_H264)
+    {
+      AP4_MemoryByteStream ms{reinterpret_cast<const uint8_t*>(extradata.data()),
+                              static_cast<const AP4_Size>(extradata.size())};
+      AP4_AvccAtom* atom{AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
+      sampleDesc = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->m_info.GetWidth(),
+                                                stream->m_info.GetHeight(), 0, nullptr, atom);
+    }
+    else if (stream->m_info.GetCodecName() == CODEC::NAME_HEVC)
+    {
+      AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
+                              static_cast<const AP4_Size>(extradata.size())};
+      AP4_HvccAtom* atom{AP4_HvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
+      sampleDesc = new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->m_info.GetWidth(),
+                                                 stream->m_info.GetHeight(), 0, nullptr, atom);
+    }
+    else if (stream->m_info.GetCodecName() == CODEC::NAME_AV1)
+    {
+      AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
+                              static_cast<AP4_Size>(extradata.size())};
+      AP4_Av1cAtom* atom = AP4_Av1cAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
+      sampleDesc = new AP4_Av1SampleDescription(AP4_SAMPLE_FORMAT_AV01, stream->m_info.GetWidth(),
+                                                stream->m_info.GetHeight(), 0, nullptr, atom);
+    }
+    else if (stream->m_info.GetCodecName() == CODEC::NAME_SRT)
+    {
+      sampleDesc = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES,
+                                             AP4_SAMPLE_FORMAT_STPP, 0);
+    }
+    else
+    {
+      LOG::LogF(LOGWARNING,
+                "Created sample desciption atom of unknown type, codec \"%s\" is not handled",
+                stream->m_info.GetCodecName().c_str());
+      sampleDesc = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+    }
+
+    if (repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT)
+    {
+      AP4_ContainerAtom schi{AP4_ATOM_TYPE_SCHI};
+      schi.AddChild(
+          new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8, GetDefaultKeyId(repr->GetPsshSetPos())));
+      sampleDesc = new AP4_ProtectedSampleDescription(
+          0, sampleDesc, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
+    }
+
+    AP4_SyntheticSampleTable* sampleTable{new AP4_SyntheticSampleTable()};
+    sampleTable->AddSampleDescription(sampleDesc);
+
+    // Note: AP4_Movie ptr will be deleted from AP4_File destructor of CStream
+    AP4_Movie* movie{new AP4_Movie()};
+    movie->AddTrack(new AP4_Track(static_cast<AP4_Track::Type>(stream->m_adStream.GetTrackType()),
+                                  sampleTable, CFragmentedSampleReader::TRACKID_UNKNOWN,
+                                  repr->GetTimescale(), 0, repr->GetTimescale(), 0, "", 0, 0));
+    // Create MOOV Atom to allow bento4 to handle stream as fragmented MP4
+    AP4_MoovAtom* moov{new AP4_MoovAtom()};
+    moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
+    movie->SetMoovAtom(moov);
+    return movie;
+  }
+  return nullptr;
 }

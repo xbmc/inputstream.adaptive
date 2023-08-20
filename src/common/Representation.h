@@ -136,9 +136,6 @@ public:
     m_isSubtitleFileStream = isSubtitleFileStream;
   }
 
-  bool HasInitPrefixed() const { return m_hasInitPrefixed; }
-  void SetHasInitPrefixed(bool hasInitPrefixed) { m_hasInitPrefixed = hasInitPrefixed; }
-
   // Currently used for HLS only
   bool IsPrepared() const { return m_isPrepared; }
   // Currently used for HLS only
@@ -289,7 +286,6 @@ protected:
   uint32_t m_timescale{0};
 
   bool m_isSubtitleFileStream{false};
-  bool m_hasInitPrefixed{false};
 
   bool m_isPrepared{false};
   bool m_isEnabled{false};

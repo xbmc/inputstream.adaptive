@@ -990,7 +990,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   // Generate timeline segments
-  if (!repr->HasSegmentTimeline() && repr->HasSegmentTemplate())
+  if (repr->HasSegmentTemplate())
   {
     auto& segTemplate = repr->GetSegmentTemplate();
 
@@ -1071,27 +1071,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
                   "Cannot generate segments timeline, the segment count exceeds SIDX atom limit.");
       }
     }
-    else if (!repr->HasSegmentBase() && !repr->IsSubtitleFileStream())
-    {
-      //Let us try to extract the fragments out of SIDX atom
-      CSegmentBase segBase;
-      
-      segBase.SetIndexRangeBegin(0);
-      //! @todo: Explain the reason of these specific values
-      static const uint64_t indexRangeMax = 1024 * 200;
-      segBase.SetIndexRangeEnd(indexRangeMax);
-
-      repr->SetSegmentBase(segBase);
-    }
-  }
-
-  //! @todo: "init prefixed" behaviour is not so clear and may be invalidated by ResolveSegmentBase (?)
-  //! we need to investigate if we can move this check where its used by CSession::PrepareStream
-  //! and remove HasInitPrefixed statement
-  if (repr->HasInitSegment() && !repr->SegmentTimeline().IsEmpty())
-  {
-    // we assume that we have a MOOV atom included in each segment (max 100k = youtube)
-    repr->SetHasInitPrefixed(true);
   }
 
   // Sanitize period
