@@ -38,7 +38,7 @@ public:
                                  size_t pos,
                                  uint64_t timestamp,
                                  uint64_t fragmentDuration,
-                                 uint32_t mediaTimescale);
+                                 uint32_t mediaTimescale) override;
 
 protected:
   virtual bool ParseManifest(const std::string& data);

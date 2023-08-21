@@ -42,7 +42,7 @@ public:
                                  size_t pos,
                                  uint64_t timestamp,
                                  uint64_t fragmentDuration,
-                                 uint32_t movieTimescale);
+                                 uint32_t movieTimescale) override;
 
 protected:
   virtual CDashTree* Clone() const override { return new CDashTree{*this}; }
