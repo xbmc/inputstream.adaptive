@@ -32,6 +32,8 @@ public:
   CDashTree() : AdaptiveTree() {}
   CDashTree(const CDashTree& left);
 
+  virtual TreeType GetTreeType() override { return TreeType::DASH; }
+
   virtual bool Open(std::string_view url,
                     const std::map<std::string, std::string>& headers,
                     const std::string& data) override;

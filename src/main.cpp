@@ -279,7 +279,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     return stream->GetReader()->GetInformation(stream->m_info);
   }
 
-  AP4_Movie* movie(m_session->PrepareStream(stream, needRefetch));
+  m_session->PrepareStream(stream, needRefetch);
 
   stream->m_adStream.start_stream();
 
@@ -338,14 +338,19 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
   else if (reprContainerType == ContainerType::MP4)
   {
+    AP4_Movie* movie{nullptr};
+    if (stream->m_adStream.IsRequiredCreateMovieAtom())
+      movie = m_session->CreateMovieAtom(stream);
+
     stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
+    // When "movie" is nullptr, AP4_File tries to extract it from the stream
     stream->SetStreamFile(std::make_unique<AP4_File>(
         *stream->GetAdByteStream(), AP4_DefaultAtomFactory::Instance_, true, movie));
     movie = stream->GetStreamFile()->GetMovie();
 
-    if (movie == NULL)
+    if (!movie)
     {
-      LOG::Log(LOGERROR, "No MOOV in stream!");
+      LOG::LogF(LOGERROR, "No MOOV atom in stream");
       m_session->EnableStream(stream, false);
       return false;
     }
@@ -358,7 +363,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
         track = movie->GetTrack(AP4_Track::TYPE_TEXT);
       if (!track)
       {
-        LOG::Log(LOGERROR, "No suitable track found in stream");
+        LOG::LogF(LOGERROR, "No suitable Track atom found in stream");
         m_session->EnableStream(stream, false);
         return false;
       }

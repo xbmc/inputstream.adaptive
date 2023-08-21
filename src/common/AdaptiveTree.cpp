@@ -9,6 +9,7 @@
 #include "AdaptiveTree.h"
 #include "Chooser.h"
 
+#include "../common/AdaptiveUtils.h"
 #include "../utils/FileUtils.h"
 #include "../utils/StringUtils.h"
 #include "../utils/UrlUtils.h"

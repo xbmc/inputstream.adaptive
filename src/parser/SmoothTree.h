@@ -26,6 +26,8 @@ public:
   CSmoothTree() : AdaptiveTree() {}
   CSmoothTree(const CSmoothTree& left);
 
+  virtual TreeType GetTreeType() override { return TreeType::SMOOTH_STREAMING; }
+
   virtual bool Open(std::string_view url,
                     const std::map<std::string, std::string>& headers,
                     const std::string& data) override;

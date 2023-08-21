@@ -24,6 +24,8 @@ public:
   CHLSTree() : AdaptiveTree() {}
   virtual ~CHLSTree() {}
 
+  virtual TreeType GetTreeType() override { return TreeType::HLS; }
+
   CHLSTree(const CHLSTree& left);
 
   virtual CHLSTree* Clone() const override { return new CHLSTree{*this}; }

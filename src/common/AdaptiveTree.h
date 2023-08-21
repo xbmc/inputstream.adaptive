@@ -37,9 +37,22 @@ namespace CHOOSER
 {
 class IRepresentationChooser;
 }
+namespace PLAYLIST
+{
+enum class TreeType;
+}
 
 namespace adaptive
 {
+
+// \brief Adaptive tree types
+enum class TreeType
+{
+  UNKNOWN,
+  DASH,
+  HLS,
+  SMOOTH_STREAMING
+};
 
 class ATTR_DLL_LOCAL AdaptiveTree
 {
@@ -73,6 +86,8 @@ public:
   AdaptiveTree() = default;
   AdaptiveTree(const AdaptiveTree& left);
   virtual ~AdaptiveTree() = default;
+
+  virtual TreeType GetTreeType() { return TreeType::UNKNOWN; }
 
   /*!
    * \brief Configure the adaptive tree.
