@@ -17,4 +17,7 @@ public:
   AudioCodecHandler(AP4_SampleDescription* sd);
 
   bool GetInformation(kodi::addon::InputstreamInfo& info) override;
+
+protected:
+  int GetMpeg4AACProfile();
 };

@@ -49,6 +49,7 @@ namespace TSDemux
     char                  language[4];
     int                   composition_id;
     int                   ancillary_id;
+    int codecProfile;
     int                   fps_scale;
     int                   fps_rate;
     int                   height;
@@ -105,7 +106,7 @@ namespace TSDemux
     void ResetStreamPacket(STREAM_PKT* pkt);
     uint64_t Rescale(uint64_t a, uint64_t b, uint64_t c);
     bool SetVideoInformation(int FpsScale, int FpsRate, int Height, int Width, float Aspect, bool Interlaced);
-    bool SetAudioInformation(int Channels, int SampleRate, int BitRate, int BitsPerSample, int BlockAlign);
+    bool SetAudioInformation(int Channels, int SampleRate, int BitRate, int BitsPerSample, int BlockAlign, int codecProfile = 0);
 
     size_t es_alloc_init;         ///< Initial allocation of memory for buffer
     unsigned char* es_buf;        ///< The Pointer to buffer

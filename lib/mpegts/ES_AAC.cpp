@@ -27,6 +27,7 @@ ES_AAC::ES_AAC(uint16_t pes_pid)
   m_PTS                         = 0;
   m_DTS                         = 0;
   m_FrameSize                   = 0;
+  m_codecProfile = PROFILE_NONE;
   m_SampleRate                  = 0;
   m_Channels                    = 0;
   m_BitRate                     = 0;
@@ -53,7 +54,7 @@ void ES_AAC::Parse(STREAM_PKT* pkt)
 
   if (es_found_frame && l >= m_FrameSize)
   {
-    bool streamChange = SetAudioInformation(m_Channels, m_SampleRate, m_BitRate, 0, 0);
+    bool streamChange = SetAudioInformation(m_Channels, m_SampleRate, m_BitRate, 0, 0, m_codecProfile);
     pkt->pid            = pid;
     pkt->data           = &es_buf[p];
     pkt->size           = m_FrameSize;
@@ -122,7 +123,26 @@ int ES_AAC::FindHeaders(uint8_t *buf, int buf_size)
       if (!noCrc && (buf_size < 9))
         return -1;
 
-      bs.skipBits(2); // profile
+      unsigned int profile = bs.readBits(2);
+      switch (profile)
+      {
+        case 0:
+          m_codecProfile = PROFILE_MAIN;
+          break;
+        case 1:
+          m_codecProfile = PROFILE_LC;
+          break;
+        case 2:
+          m_codecProfile = PROFILE_SSR;
+          break;
+        case 3:
+          m_codecProfile = PROFILE_LTP;
+          break;
+        default:
+          m_codecProfile = PROFILE_UNKNOWN;
+          break;
+      }
+
       int SampleRateIndex = bs.readBits(4);
       bs.skipBits(1); // private
       m_Channels = bs.readBits(3);

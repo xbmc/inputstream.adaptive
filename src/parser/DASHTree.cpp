@@ -980,6 +980,25 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   else if (adpSet->GetStreamType() == StreamType::AUDIO && repr->GetAudioChannels() == 0)
     repr->SetAudioChannels(2); // Fallback to 2 channels when no value is set
 
+  // Parse <SupplementalProperty> child tags
+  for (xml_node nodeSP : nodeRepr.children("SupplementalProperty"))
+  {
+    std::string_view schemeIdUri = XML::GetAttrib(nodeSP, "schemeIdUri");
+    std::string_view value = XML::GetAttrib(nodeSP, "value");
+
+    if (schemeIdUri == "tag:dolby.com,2018:dash:EC3_ExtensionType:2018")
+    {
+      if (value == "JOC")
+        repr->AddCodecs(CODEC::NAME_EAC3_JOC);
+    }
+    else if (schemeIdUri == "tag:dolby.com,2018:dash:EC3_ExtensionComplexityIndex:2018")
+    {
+      uint32_t channels = STRING::ToUint32(value);
+      if (channels > 0)
+        repr->SetAudioChannels(channels);
+    }
+  }
+
   // For subtitles that are not as ISOBMFF format and where there is no timeline for segments
   // we should treat them as a single subtitle file
   if (repr->GetContainerType() == ContainerType::TEXT && repr->GetMimeType() != "application/mp4" &&
@@ -1343,18 +1362,48 @@ uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
   std::string_view value = XML::GetAttrib(node, "value");
   uint32_t channels{0};
 
-  if (schemeIdUri == "urn:mpeg:dash:23003:3:audio_channel_configuration:2011" ||
-      schemeIdUri == "urn:mpeg:mpegB:cicp:ChannelConfiguration")
+  if (schemeIdUri == "urn:mpeg:dash:outputChannelPositionList:2012")
   {
+    // A space-separated list of speaker positions,
+    // the number of channels is the length of the list
+    return static_cast<uint32_t>(STRING::SplitToVec(value, ' ').size());
+  }
+  else if (schemeIdUri == "urn:mpeg:dash:23003:3:audio_channel_configuration:2011" ||
+           schemeIdUri == "urn:dts:dash:audio_channel_configuration:2012")
+  {
+    // The value is the number of channels
     channels = STRING::ToUint32(value);
   }
   else if (schemeIdUri == "urn:dolby:dash:audio_channel_configuration:2011" ||
            schemeIdUri == "tag:dolby.com,2014:dash:audio_channel_configuration:2011")
   {
-    if (value == "F801")
-      channels = 6;
-    else if (value == "FE01")
-      channels = 8;
+    // A hex-encoded 16-bit integer, each bit represents a channel
+    uint32_t hexVal = STRING::HexStrToUint(value);
+    uint32_t numBits{0};
+    while (hexVal)
+    {
+      if (hexVal & 1)
+      {
+        ++numBits;
+      }
+      hexVal = hexVal >> 1;
+    }
+    channels = numBits;
+  }
+  else if (schemeIdUri == "urn:mpeg:mpegB:cicp:ChannelConfiguration")
+  {
+    // Defined by https://dashif.org/identifiers/audio_source_metadata/
+    static const size_t mapSize = 21;
+    static const int channelCountMapping[mapSize]{
+        0,  1, 2, 3,  4, 5,  6,  8,  2,  3, /* 0--9 */
+        4,  7, 8, 24, 8, 12, 10, 12, 14, 12, /* 10--19 */
+        14, /* 20 */
+    };
+    uint32_t pos = STRING::ToUint32(value);
+    if (pos > 0 && pos < mapSize)
+    {
+      channels = channelCountMapping[pos];
+    }
   }
   if (channels == 0)
   {

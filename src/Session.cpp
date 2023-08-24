@@ -978,8 +978,13 @@ void CSession::UpdateStream(CStream& stream)
       stream.m_info.SetCodecName(CODEC::NAME_DTS);
     else if (CODEC::Contains(codecs, CODEC::FOURCC_AC_3, codecStr))
       stream.m_info.SetCodecName(CODEC::NAME_AC3);
-    else if (CODEC::Contains(codecs, CODEC::FOURCC_EC_3, codecStr))
+    else if (CODEC::Contains(codecs, CODEC::NAME_EAC3_JOC, codecStr) ||
+             CODEC::Contains(codecs, CODEC::FOURCC_EC_3, codecStr))
+    {
+      // In the above condition above is checked NAME_EAC3_JOC as first,
+      // in order to get the codec string to signal DD+ Atmos in to the SetCodecInternalName
       stream.m_info.SetCodecName(CODEC::NAME_EAC3);
+    }
     else if (CODEC::Contains(codecs, CODEC::FOURCC_OPUS, codecStr))
       stream.m_info.SetCodecName(CODEC::NAME_OPUS);
     else if (CODEC::Contains(codecs, CODEC::FOURCC_VORB, codecStr) || // Find "vorb" and "vorbis" case
@@ -1010,6 +1015,7 @@ void CSession::UpdateStream(CStream& stream)
     }
   }
 
+  // Internal codec name can be used by Kodi to detect the codec name to be shown in the GUI track list
   stream.m_info.SetCodecInternalName(codecStr);
 }
 
@@ -1603,9 +1609,13 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
     }
     else
     {
-      LOG::LogF(LOGWARNING,
-                "Created sample desciption atom of unknown type, codec \"%s\" is not handled",
-                stream->m_info.GetCodecName().c_str());
+      // Codecs like audio types, will have unknown SampleDescription, because to create an appropriate
+      // audio SampleDescription atom require different code rework. This means also that CFragmentedSampleReader
+      // will use a generic CodecHandler instead of AudioCodecHandler, because will be not able do determine the codec
+      LOG::LogF(
+          LOGDEBUG,
+          "Created sample description atom of unknown type for codec \"%s\" because unhandled",
+          stream->m_info.GetCodecName().c_str());
       sampleDesc = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
     }
 

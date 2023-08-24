@@ -173,5 +173,12 @@ bool GetLine(std::stringstream& ss, std::string& line);
  */
 std::string ToLower(std::string str);
 
+/*!
+ * \brief Convert a hex value as string to unsigned integer.
+ * \param hexValue The hex value as string to be converted
+ * \return The hex value if has success, otherwise 0.
+ */
+uint32_t HexStrToUint(std::string_view hexValue);
+
 } // namespace STRING
 } // namespace UTILS

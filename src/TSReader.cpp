@@ -9,6 +9,7 @@
 #include "TSReader.h"
 
 #include "../lib/mpegts/debug.h"
+#include "../lib/mpegts/ES_AAC.h"
 #include "utils/log.h"
 #include "utils/Utils.h"
 
@@ -169,6 +170,26 @@ bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
     if (info.GetCodecName() != codecName)
     {
       info.SetCodecName(codecName);
+      isChanged = true;
+    }
+
+    STREAMCODEC_PROFILE codecProfile{CodecProfileUnknown};
+    if (codecName == CODEC::NAME_AAC)
+    {
+      int tsCodecProfile = tsInfo.m_stream->stream_info.codecProfile;
+      if (tsCodecProfile == TSDemux::ES_AAC::PROFILE_MAIN)
+        codecProfile = AACCodecProfileMAIN;
+      else if (tsCodecProfile == TSDemux::ES_AAC::PROFILE_LC)
+        codecProfile = AACCodecProfileLOW;
+      else if (tsCodecProfile == TSDemux::ES_AAC::PROFILE_SSR)
+        codecProfile = AACCodecProfileSSR;
+      else if (tsCodecProfile == TSDemux::ES_AAC::PROFILE_LTP)
+        codecProfile = AACCodecProfileLTP;
+    }
+
+    if (codecProfile != CodecProfileUnknown && info.GetCodecProfile() != codecProfile)
+    {
+      info.SetCodecProfile(codecProfile);
       isChanged = true;
     }
 
