@@ -53,13 +53,20 @@ std::string GetParametersFromPlaceholder(std::string& url, std::string_view plac
  */
 std::string GetParameters(std::string& url);
 
-/*! \brief Remove URL parameters e.g. "?q=something"
- *  \param url An URL
- *  \param removeFilenameParam If true remove the last URL level if it
- *   contains a filename with extension
- *  \return The URL without parameters
+/*!
+ * \brief Remove URL parameters e.g. "?q=something"
+ * \param url An URL
+ * \return The URL without parameters
  */
-std::string RemoveParameters(std::string url, bool removeFilenameParam = true);
+std::string RemoveParameters(std::string url);
+
+/*!
+ * \brief Get the url path, by removing file part and parameters
+ *        e.g. https://sample.com/part1/part2?test become https://sample.com/part1/
+ * \param url An URL
+ * \return The URL path
+ */
+std::string GetUrlPath(std::string url);
 
 /*! \brief Append a string of parameters to an URL with/without pre-existents params
  *  \param url URL where append the parameters

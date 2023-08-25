@@ -151,7 +151,7 @@ bool adaptive::CHLSTree::Open(std::string_view url,
   SaveManifest(nullptr, data, url);
 
   manifest_url_ = url;
-  base_url_ = URL::RemoveParameters(url.data());
+  base_url_ = URL::GetUrlPath(url.data());
 
   if (!ParseManifest(data))
   {
@@ -205,7 +205,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
     SaveManifest(adp, resp.data, manifestUrl);
 
-    rep->SetBaseUrl(URL::RemoveParameters(resp.effectiveUrl));
+    rep->SetBaseUrl(URL::GetUrlPath(resp.effectiveUrl));
 
     EncryptionType currentEncryptionType = EncryptionType::CLEAR;
 
@@ -354,7 +354,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         if (rep->GetContainerType() == ContainerType::NOTYPE)
         {
           // Try find the container type on the representation according to the file extension
-          std::string url = URL::RemoveParameters(line, false);
+          std::string url = URL::RemoveParameters(line);
           // Remove domain on absolute url, to not confuse top-level domain as extension
           url = url.substr(URL::GetDomainUrl(url).size());
 

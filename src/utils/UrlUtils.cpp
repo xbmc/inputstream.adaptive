@@ -164,18 +164,32 @@ std::string UTILS::URL::GetParameters(std::string& url) {
   return "";
 }
 
-std::string UTILS::URL::RemoveParameters(std::string url, bool removeFilenameParam /* = true */)
+std::string UTILS::URL::RemoveParameters(std::string url)
 {
   size_t paramsPos = url.find('?');
   if (paramsPos != std::string::npos)
     url.resize(paramsPos);
 
-  if (removeFilenameParam)
+  return url;
+}
+
+std::string UTILS::URL::GetUrlPath(std::string url)
+{
+  if (url.empty())
+    return url;
+
+  size_t paramsPos = url.find('?');
+  if (paramsPos != std::string::npos)
+    url.resize(paramsPos);
+
+  // The part of the base url after last / is not a directory so will not be taken into account
+  if (url.back() != '/')
   {
-    size_t slashPos = url.find_last_of('/');
-    if (slashPos != std::string::npos && slashPos != (url.find("://") + 2))
-      url.resize(slashPos + 1);
+    size_t slashPos = url.rfind("/");
+    if (slashPos > url.find("://") + 3)
+      url.erase(slashPos + 1);
   }
+
   return url;
 }
 
