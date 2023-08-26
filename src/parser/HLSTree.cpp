@@ -16,6 +16,7 @@
 #include "../utils/log.h"
 #include "kodi/tools/StringUtils.h"
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 
@@ -974,6 +975,19 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       rend.m_isForced = attribs["FORCED"] == "YES";
       rend.m_characteristics = attribs["CHARACTERISTICS"];
       rend.m_uri = attribs["URI"];
+      std::string uri = attribs["URI"];
+
+      if (!uri.empty())
+      {
+        // Check if this uri has been already added
+        if (std::any_of(pl.m_audioRenditions.cbegin(), pl.m_audioRenditions.cend(),
+                        [&uri](const Rendition& v) { return v.m_uri == uri; }) ||
+            std::any_of(pl.m_subtitleRenditions.cbegin(), pl.m_subtitleRenditions.cend(),
+                        [&uri](const Rendition& v) { return v.m_uri == uri; }))
+        {
+          rend.m_isUriDuplicate = true;
+        }
+      }
 
       if (streamType == StreamType::AUDIO)
         pl.m_audioRenditions.emplace_back(rend);
@@ -1017,6 +1031,13 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       var.m_groupIdSubtitles = attribs["SUBTITLES"];
       var.m_uri = uri;
 
+      // Check if this uri has been already added
+      if (std::any_of(pl.m_variants.cbegin(), pl.m_variants.cend(),
+                      [&uri](const Variant& v) { return v.m_uri == uri; }))
+      {
+        var.m_isUriDuplicate = true;
+      }
+
       pl.m_variants.emplace_back(var);
     }
     else if (tagName == "#EXT-X-SESSION-KEY")
@@ -1050,6 +1071,10 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
   // Add audio renditions (do not take in account variants references)
   for (const Rendition& r : pl.m_audioRenditions)
   {
+    // There may be multiple renditions with the same uri but different GROUP-ID
+    if (r.m_isUriDuplicate)
+      continue;
+
     auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
     auto newRepr = CRepresentation::MakeUniquePtr(newAdpSet.get());
 
@@ -1096,6 +1121,10 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
   // Add subtitles renditions (do not take in account variants references)
   for (const Rendition& r : pl.m_subtitleRenditions)
   {
+    // There may be multiple renditions with the same uri but different GROUP-ID
+    if (r.m_isUriDuplicate)
+      continue;
+
     auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
     auto newRepr = CRepresentation::MakeUniquePtr(newAdpSet.get());
 
@@ -1112,6 +1141,10 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
   // Add variants
   for (const Variant& var : pl.m_variants)
   {
+    // There may be multiple variants with the same uri but different AUDIO group
+    if (var.m_isUriDuplicate)
+      continue;
+
     if (var.m_bandwidth == 0)
       LOG::LogF(LOGWARNING, "Variant with malformed bandwidth attribute");
 
