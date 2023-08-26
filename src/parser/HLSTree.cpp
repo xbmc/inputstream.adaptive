@@ -489,11 +489,17 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
           m_periods.push_back(std::move(newPeriod));
         }
         else
+        {
+          // Period(s) already created by a previously downloaded manifest child
           period = m_periods[discontCount].get();
+        }
 
         newStartNumber += rep->SegmentTimeline().GetSize();
         adp = period->GetAdaptationSets()[adpSetPos].get();
-        rep = adp->GetRepresentations()[reprPos].get();
+        // When we switch to a repr of another period we need to set current base url
+        CRepresentation* switchRep = adp->GetRepresentations()[reprPos].get();
+        switchRep->SetBaseUrl(rep->GetBaseUrl());
+        rep = switchRep;
 
         currentSegStartPts = 0;
 
