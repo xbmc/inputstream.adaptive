@@ -525,6 +525,8 @@ public:
   AdaptiveTree(const AdaptiveTree& left);
   virtual ~AdaptiveTree()
   {
+    m_updThread.Stop();
+
     for (auto period : periods_)
       delete period;
   }
@@ -638,6 +640,9 @@ public:
 
     // \brief As "std::mutex" unlock, but resume the manifest updates (support std::lock_guard).
     void unlock() { Resume(); }
+
+    // \brief Stop performing new updates.
+    void Stop();
 
   private:
     void Worker();

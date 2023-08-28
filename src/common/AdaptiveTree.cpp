@@ -572,11 +572,22 @@ namespace adaptive
         // If paused, wait until last "Resume" will be called
         std::unique_lock<std::mutex> lckWait(m_waitMutex);
         m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
+        if (m_threadStop)
+          break;
 
         updLck.lock();
         m_tree->RefreshLiveSegments();
       }
     }
+  }
+
+  void AdaptiveTree::TreeUpdateThread::Stop()
+  {
+    m_threadStop = true;
+    // If an update is already in progress wait until exit
+    std::lock_guard<std::mutex> updLck{m_updMutex};
+    m_cvUpdInterval.notify_all();
+    m_cvWait.notify_all();
   }
 
   void AdaptiveTree::TreeUpdateThread::Pause()

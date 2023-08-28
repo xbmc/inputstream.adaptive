@@ -814,6 +814,10 @@ bool AdaptiveStream::ensureSegment()
   {
     // wait until worker is ready for new segment
     std::unique_lock<std::mutex> lck(thread_data_->mutex_dl_);
+
+    if (state_ == STOPPED)
+      return false;
+
     // lock live segment updates
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
 
