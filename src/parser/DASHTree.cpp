@@ -98,7 +98,7 @@ bool adaptive::CDashTree::Open(std::string_view url,
 
   m_manifestRespHeaders = headers;
   manifest_url_ = url;
-  base_url_ = URL::RemoveParameters(url.data());
+  base_url_ = URL::GetUrlPath(url.data());
 
   if (!ParseManifest(data))
     return false;
@@ -1514,7 +1514,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
   {
     manifestUrl = manifest_url_;
     if (!manifestParams.empty())
-      manifestUrl = URL::RemoveParameters(manifestUrl, false);
+      manifestUrl = URL::RemoveParameters(manifestUrl);
   }
   else
     manifestUrl = location_;

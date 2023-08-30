@@ -33,7 +33,7 @@ bool adaptive::CSmoothTree::Open(std::string_view url,
   SaveManifest("", data, "");
 
   manifest_url_ = url;
-  base_url_ = URL::RemoveParameters(url.data());
+  base_url_ = URL::GetUrlPath(url.data());
 
   if (!ParseManifest(data))
     return false;
