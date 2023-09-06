@@ -37,6 +37,7 @@ struct KodiProperties
 {
   std::string m_licenseType;
   std::string m_licenseKey;
+  // Custom PSSH initialization license data
   std::string m_licenseData;
   bool m_isLicensePersistentStorage{false};
   bool m_isLicenseForceSecureDecoder{false};

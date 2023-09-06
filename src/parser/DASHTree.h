@@ -32,6 +32,11 @@ public:
   CDashTree() : AdaptiveTree() {}
   CDashTree(const CDashTree& left);
 
+  void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                 CHOOSER::IRepresentationChooser* reprChooser,
+                 std::string_view supportedKeySystem,
+                 std::string_view manifestUpdParams);
+
   virtual TreeType GetTreeType() override { return TreeType::DASH; }
 
   virtual bool Open(std::string_view url,
@@ -56,8 +61,7 @@ protected:
   void ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST::CPeriod* period);
   void ParseTagRepresentation(pugi::xml_node nodeRepr,
                               PLAYLIST::CAdaptationSet* adpSet,
-                              PLAYLIST::CPeriod* period,
-                              bool& hasReprURN);
+                              PLAYLIST::CPeriod* period);
 
   uint64_t ParseTagSegmentTimeline(pugi::xml_node parentNode,
                                    PLAYLIST::CSpinCache<uint32_t>& SCTimeline,
@@ -70,10 +74,9 @@ protected:
 
   void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate* segTpl);
 
-  bool ParseTagContentProtection(pugi::xml_node nodeCP,
-                                 std::string& currentPssh,
-                                 std::string& currentDefaultKID,
-                                 bool& isSecureDecoderNeeded);
+  bool ParseTagContentProtection(pugi::xml_node nodeCP, std::string& pssh, std::string& kid);
+
+  bool ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 
   uint32_t ParseAudioChannelConfig(pugi::xml_node node);
 
@@ -116,5 +119,15 @@ protected:
 
   uint64_t m_minimumUpdatePeriod{0}; // in seconds
   bool m_allowInsertLiveSegments{false};
+  // Determines if a custom PSSH initialization license data is provided
+  bool m_isCustomInitPssh{false};
+
+  struct ProtectionScheme
+  {
+    std::string idUri;
+    std::string value;
+    std::string kid;
+    std::string pssh;
+  };
 };
 } // namespace adaptive

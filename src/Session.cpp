@@ -480,10 +480,10 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       if (sessionPsshset.pssh_ == PSSH_FROM_FILE)
       {
-        LOG::Log(LOGDEBUG, "Searching PSSH data in FILE");
-
         if (m_kodiProps.m_licenseData.empty())
         {
+          LOG::Log(LOGDEBUG, "Searching for PSSH data in the stream file");
+
           auto initialRepr{m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_)};
 
           CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps};
@@ -554,17 +554,16 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           }
           stream.Disable();
         }
-        else if (!sessionPsshset.defaultKID_.empty())
+        else
         {
-          std::string licenseData = BASE64::Decode(m_kodiProps.m_licenseData);
-          // Replace KID placeholder, if any
-          STRING::ReplaceFirst(licenseData, "{KID}", sessionPsshset.defaultKID_);
+          // This can allow to initialize a DRM that could be also not specified
+          // as supported in the manifest (e.g. on DASH ContentProtection tags)
+          LOG::Log(LOGDEBUG, "Set init PSSH data provided by the license data property");
 
+          std::string licenseData = BASE64::Decode(m_kodiProps.m_licenseData);
           init_data.SetData(reinterpret_cast<const AP4_Byte*>(licenseData.c_str()),
                             static_cast<AP4_Size>(licenseData.size()));
         }
-        else
-          return false;
       }
       else
       {
