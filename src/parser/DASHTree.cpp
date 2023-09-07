@@ -88,6 +88,16 @@ std::string DetectCodecFromMimeType(std::string_view mimeType)
 
 adaptive::CDashTree::CDashTree(const CDashTree& left) : AdaptiveTree(left)
 {
+  m_isCustomInitPssh = left.m_isCustomInitPssh;
+}
+
+void adaptive::CDashTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
+                                    CHOOSER::IRepresentationChooser* reprChooser,
+                                    std::string_view supportedKeySystem,
+                                    std::string_view manifestUpdParams)
+{
+  AdaptiveTree::Configure(kodiProps, reprChooser, supportedKeySystem, manifestUpdParams);
+  m_isCustomInitPssh = !kodiProps.m_licenseData.empty();
 }
 
 bool adaptive::CDashTree::Open(std::string_view url,
@@ -576,10 +586,9 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   }
 
   // Parse <Representation> child tags
-  bool hasReprURN{false}; // True if representations has URNs
   for (xml_node node : nodeAdp.children("Representation"))
   {
-    ParseTagRepresentation(node, adpSet.get(), period, hasReprURN);
+    ParseTagRepresentation(node, adpSet.get(), period);
   }
 
   if (adpSet->GetRepresentations().empty())
@@ -593,37 +602,35 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   if (nodeAdp.child("ContentProtection"))
   {
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
-    uint16_t currentPsshSetPos{PSSHSET_POS_DEFAULT};
-    std::string currentPssh{PSSH_FROM_FILE};
-    std::string currentDefaultKID;
-    bool isSecureDecoderNeeded{false};
+    std::string pssh{PSSH_FROM_FILE};
+    std::string kid;
 
-    if (ParseTagContentProtection(nodeAdp, currentPssh, currentDefaultKID, isSecureDecoderNeeded))
+    // If a custom init PSSH is provided, should mean that a certain content protection tag
+    // is missing, in this case we ignore the content protection tags and we add a PSSH marked
+    // PSSH_FROM_FILE to allow initialization of DRM with the specified PSSH data provided
+    if (m_isCustomInitPssh || ParseTagContentProtection(nodeAdp, pssh, kid))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-      currentPsshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet.get(), currentPssh,
-                                        currentDefaultKID);
-    }
-    if (currentPsshSetPos == PSSHSET_POS_INVALID)
-    {
-      LOG::LogF(LOGWARNING, "The PSSHSet in the adaptation set id \"%s\" is not valid.",
-                adpSet->GetId().data());
-    }
-    period->SetSecureDecodeNeeded(isSecureDecoderNeeded);
+      uint16_t currentPsshSetPos =
+          InsertPsshSet(adpSet->GetStreamType(), period, adpSet.get(), pssh, kid);
 
-    if (hasReprURN && currentPsshSetPos == PSSHSET_POS_INVALID)
-    {
-      LOG::LogF(LOGWARNING, "Skipped adaptation set with id: \"%s\", pssh not valid.",
-                adpSet->GetId().data());
-      return;
-    }
-
-    if (currentPsshSetPos != PSSHSET_POS_DEFAULT)
-    {
-      // Set PSSHSet of AdaptationSet to all representations
-      for (auto& rep : adpSet->GetRepresentations())
+      if (currentPsshSetPos == PSSHSET_POS_INVALID)
       {
-        rep->m_psshSetPos = currentPsshSetPos;
+        LOG::LogF(LOGWARNING, "Skipped adaptation set with id: \"%s\", due to not valid PSSH.",
+                  adpSet->GetId().data());
+        return;
+      }
+
+      period->SetSecureDecodeNeeded(ParseTagContentProtectionSecDec(nodeAdp));
+
+      if (currentPsshSetPos != PSSHSET_POS_DEFAULT)
+      {
+        // Set PSSHSet of AdaptationSet to representations when its not set
+        for (auto& rep : adpSet->GetRepresentations())
+        {
+          if (rep->m_psshSetPos == PSSHSET_POS_DEFAULT)
+            rep->m_psshSetPos = currentPsshSetPos;
+        }
       }
     }
   }
@@ -639,8 +646,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
 void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
                                                  PLAYLIST::CAdaptationSet* adpSet,
-                                                 PLAYLIST::CPeriod* period,
-                                                 bool& hasReprURN)
+                                                 PLAYLIST::CPeriod* period)
 {
   std::unique_ptr<CRepresentation> repr = CRepresentation::MakeUniquePtr(adpSet);
 
@@ -946,30 +952,31 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   if (nodeRepr.child("ContentProtection"))
   {
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
-    uint16_t currentPsshSetPos{PSSHSET_POS_DEFAULT};
-    std::string currentDefaultKID;
-    std::string currentPssh{PSSH_FROM_FILE};
-    bool isSecureDecoderNeeded{false};
+    std::string pssh{PSSH_FROM_FILE};
+    std::string kid;
 
-    if (ParseTagContentProtection(nodeRepr, currentPssh, currentDefaultKID, isSecureDecoderNeeded))
+    // If a custom init PSSH is provided, should mean that a certain content protection tag
+    // is missing, in this case we ignore the content protection tags and we add a PSSH marked
+    // PSSH_FROM_FILE to allow initialization of DRM with the specified PSSH data provided
+    if (m_isCustomInitPssh || ParseTagContentProtection(nodeRepr, pssh, kid))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-      currentPsshSetPos =
-          InsertPsshSet(adpSet->GetStreamType(), period, adpSet, currentPssh, currentDefaultKID);
 
-      repr->m_psshSetPos = currentPsshSetPos;
-      hasReprURN = true;
-    }
-    if (currentPsshSetPos == PSSHSET_POS_INVALID)
-    {
-      LOG::LogF(LOGWARNING, "Representation id \"%s\" skipped, invalid PSSHSet.",
-                repr->GetId().data());
-      return;
-    }
-    if (isSecureDecoderNeeded)
-    {
-      LOG::LogF(LOGERROR, "The <ContentProtection><widevine:license> tag must be child of "
-                          "the <AdaptationSet> tag.");
+      uint16_t psshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid);
+
+      if (psshSetPos == PSSHSET_POS_INVALID)
+      {
+        LOG::LogF(LOGWARNING, "Skipped representation with id: \"%s\", due to not valid PSSH",
+                  repr->GetId().data());
+        return;
+      }
+      repr->m_psshSetPos = psshSetPos;
+
+      if (ParseTagContentProtectionSecDec(nodeRepr))
+      {
+        LOG::LogF(LOGERROR, "The <ContentProtection><widevine:license> tag must be child of "
+                            "the <AdaptationSet> tag.");
+      }
     }
   }
 
@@ -1242,72 +1249,130 @@ void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemp
 }
 
 bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
-                                                    std::string& currentPssh,
-                                                    std::string& currentDefaultKID,
-                                                    bool& isSecureDecoderNeeded)
+                                                    std::string& pssh,
+                                                    std::string& kid)
 {
-  // Parse <ContentProtection> tags to find "default_KID" attribute
-  // We try read "default_KID" attribute on every ContentProtection type
-  const char* defaultKID{nullptr};
-
-  for (xml_node nodeCP : nodeParent.children("ContentProtection"))
-  {
-    if (defaultKID)
-      break;
-
-    std::string_view schemeIdUri = XML::GetAttrib(nodeCP, "schemeIdUri");
-
-    if (schemeIdUri == "urn:mpeg:dash:mp4protection:2011" ||
-        STRING::CompareNoCase(schemeIdUri, m_supportedKeySystem))
-    {
-      // Parse first attribute that end with "... default_KID"
-      // e.g. cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"
-      xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
-      if (attrKID)
-        defaultKID = attrKID.value();
-
-      // get crypto mode if available
-      std::string_view protectionValue = XML::GetAttrib(nodeCP, "value");
-      if (protectionValue == "cenc")
-        m_cryptoMode = CryptoMode::AES_CTR;
-      else if (protectionValue == "cbcs")
-        m_cryptoMode = CryptoMode::AES_CBC;
-    }
-  }
-
-  // Parse <ContentProtection> tags
-  bool isUrnProtectionFound{false};
-  bool isUrnSchemeFound{false};
-  std::string commonPssh;
-  std::string playReadyPro;
-
+  std::optional<ProtectionScheme> commonProtScheme;
+  std::vector<ProtectionScheme> protectionSchemes;
+  // Parse each ContentProtection tag to collect encryption schemes
   for (xml_node nodeCP : nodeParent.children("ContentProtection"))
   {
     std::string_view schemeIdUri = XML::GetAttrib(nodeCP, "schemeIdUri");
 
     if (schemeIdUri == "urn:mpeg:dash:mp4protection:2011")
-      isUrnProtectionFound = true;
+    {
+      ProtectionScheme protScheme;
+      protScheme.idUri = schemeIdUri;
+      protScheme.value = XML::GetAttrib(nodeCP, "value");
 
-    // Find Content protection compatible with current systemid
-    if (!STRING::CompareNoCase(schemeIdUri, m_supportedKeySystem))
-      continue;
+      // Get optional default KID
+      // Parse first attribute that end with "... default_KID"
+      // e.g. cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"
+      xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
+      if (attrKID)
+        protScheme.kid = attrKID.value();
 
-    isUrnSchemeFound = true;
+      commonProtScheme = protScheme;
+    }
+    else
+    {
+      ProtectionScheme protScheme;
+      protScheme.idUri = schemeIdUri;
+      protScheme.value = XML::GetAttrib(nodeCP, "value");
 
+      // We try find default KID also from the other protection schemes
+      xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
+      if (attrKID)
+        protScheme.kid = attrKID.value();
+
+      // Parse child tags
+      for (xml_node node : nodeCP.children())
+      {
+        std::string childName = node.name();
+
+        if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:selectedPssh> or <selectedPssh> ...
+        {
+          protScheme.pssh = node.child_value();
+        }
+        else if (childName == "mspr:pro" || childName == "pro")
+        {
+          PRProtectionParser parser;
+          if (parser.ParseHeader(node.child_value()))
+            protScheme.kid = parser.GetKID();
+        }
+      }
+      protectionSchemes.emplace_back(protScheme);
+    }
+  }
+
+  // Try find a protection scheme compatible for the current systemid
+  auto itProtScheme = std::find_if(protectionSchemes.cbegin(), protectionSchemes.cend(),
+                                   [&](const ProtectionScheme& item) {
+                                     return STRING::CompareNoCase(item.idUri, m_supportedKeySystem);
+                                   });
+
+  bool isEncrypted{false};
+  std::string selectedKid;
+  std::string selectedPssh;
+
+  if (itProtScheme != protectionSchemes.cend())
+  {
+    isEncrypted = true;
+    selectedKid = itProtScheme->kid;
+    selectedPssh = itProtScheme->pssh;
+  }
+  if (commonProtScheme.has_value())
+  {
+    isEncrypted = true;
+    if (selectedKid.empty())
+      selectedKid = commonProtScheme->kid;
+
+    // Set crypto mode
+    if (commonProtScheme->value == "cenc")
+      m_cryptoMode = CryptoMode::AES_CTR;
+    else if (commonProtScheme->value == "cbcs")
+      m_cryptoMode = CryptoMode::AES_CBC;
+  }
+
+  if (!selectedPssh.empty())
+    pssh = selectedPssh;
+
+  if (!selectedKid.empty())
+  {
+    if (selectedKid.size() == 36)
+    {
+      const char* selectedKidPtr = selectedKid.c_str();
+      kid.resize(16);
+      for (size_t i{0}; i < 16; i++)
+      {
+        if (i == 4 || i == 6 || i == 8 || i == 10)
+          selectedKidPtr++;
+        kid[i] = STRING::ToHexNibble(*selectedKidPtr) << 4;
+        selectedKidPtr++;
+        kid[i] |= STRING::ToHexNibble(*selectedKidPtr);
+        selectedKidPtr++;
+      }
+    }
+    else
+    {
+      kid = selectedKid;
+    }
+  }
+
+  return isEncrypted;
+}
+
+bool adaptive::CDashTree::ParseTagContentProtectionSecDec(pugi::xml_node nodeParent)
+{
+  // Try to find ISA custom tag/attrib:
+  // <ContentProtection><widevine:license robustness_level="HW_SECURE_CODECS_REQUIRED">
+  // to know if its needed to force the secure decoder
+  for (xml_node nodeCP : nodeParent.children("ContentProtection"))
+  {
     // Parse child tags
     for (xml_node node : nodeCP.children())
     {
-      std::string childName = node.name();
-
-      if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:pssh> or <pssh> ...
-      {
-        commonPssh = node.child_value();
-      }
-      else if (childName == "mspr:pro")
-      {
-        playReadyPro = node.child_value();
-      }
-      else if (childName == "widevine:license")
+      if (STRING::Compare(node.name(), "widevine:license"))
       {
         // <widevine:license robustness_level="HW_SECURE_CODECS_REQUIRED"> Custom ISA tag
         // to force secure decoder, accepted in the <AdaptationSet> only
@@ -1322,38 +1387,11 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
                                 "You must change it to \"HW_SECURE_CODECS_REQUIRED\".");
           robustnessLevel = "HW_SECURE_CODECS_REQUIRED";
         }
-        isSecureDecoderNeeded = robustnessLevel == "HW_SECURE_CODECS_REQUIRED";
+        return robustnessLevel == "HW_SECURE_CODECS_REQUIRED";
       }
     }
   }
-
-  if (commonPssh.empty() && !playReadyPro.empty())
-  {
-    PRProtectionParser parser;
-    if (parser.ParseHeader(playReadyPro))
-      currentDefaultKID = parser.GetKID();
-  }
-  else
-  {
-    if (!commonPssh.empty())
-      currentPssh = commonPssh;
-
-    if ((isUrnSchemeFound || isUrnProtectionFound) && defaultKID && std::strlen(defaultKID) == 36)
-    {
-      currentDefaultKID.resize(16);
-      for (size_t i{0}; i < 16; i++)
-      {
-        if (i == 4 || i == 6 || i == 8 || i == 10)
-          defaultKID++;
-        currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
-        defaultKID++;
-        currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
-        defaultKID++;
-      }
-    }
-  }
-
-  return isUrnSchemeFound || isUrnProtectionFound;
+  return false;
 }
 
 uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
@@ -1443,7 +1481,7 @@ void adaptive::CDashTree::MergeAdpSets()
         CAdaptationSet* nextAdpSet = itNextAdpSet->get();
         // IsMergeable:
         //  Some services (e.g. amazon) may have several AdaptationSets of the exact same audio track
-        //  the only difference is in the ContentProtection kid/pssh and the base url,
+        //  the only difference is in the ContentProtection selectedKid/selectedPssh and the base url,
         //  in order not to show several identical audio tracks in the Kodi GUI, we must merge adaptation sets
         // CompareSwitchingId:
         //  Some services can provide switchable video adp sets, these could havedifferent codecs, and could be
@@ -1453,7 +1491,7 @@ void adaptive::CDashTree::MergeAdpSets()
         //  we cannot merge adp sets with different codecs otherwise playback will not work
         if (adpSet->CompareSwitchingId(nextAdpSet) || adpSet->IsMergeable(nextAdpSet))
         {
-          // Sanitize adaptation set references to pssh sets
+          // Sanitize adaptation set references to selectedPssh sets
           for (CPeriod::PSSHSet& psshSet : period->GetPSSHSets())
           {
             if (psshSet.adaptation_set_ == nextAdpSet)

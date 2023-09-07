@@ -27,7 +27,7 @@ namespace PLAYLIST
 constexpr uint16_t PSSHSET_POS_DEFAULT = 0;
 // Marker for not valid psshset position
 constexpr uint16_t PSSHSET_POS_INVALID = std::numeric_limits<uint16_t>::max();
-// Marker to extract the PSSH from the file
+// Marker to try extract the PSSH from the file, or to try use a custom PSSH license data provided
 constexpr std::string_view PSSH_FROM_FILE = "FILE";
 // Marker for not set/not found segment position
 constexpr size_t SEGMENT_NO_POS = std::numeric_limits<size_t>::max();
