@@ -1,3 +1,10 @@
+v21.2.1 (2023-09-07)
+- [HLS] Fixed possible duplicated audio/video streams
+- [HLS] Fixed broken playback with some manifests containing EXT-X-DISCONTINUITY
+- [HLS] Fixed possible playback problems with audio/subtitles tracks
+- [DASH] Fixed inputstream.adaptive.license_data property
+- Removed support to KID placeholder on inputstream.adaptive.license_data property
+
 v21.2.0 (2023-08-25)
 - Kodi inputstream API update to version 3.3.0
 - Kodi inputstream videocodec API update to version 2.1.0
