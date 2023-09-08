@@ -1171,19 +1171,16 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
     }
     else
     {
-      if (!var.m_resolution.empty())
+      if (var.m_resolution.empty() && var.m_groupIdSubtitles.empty())
       {
-        LOG::LogF(
-            LOGDEBUG,
-            "CODECS attribute missing in the EXT-X-STREAM-INF variant, assumed as video stream");
-        streamType = StreamType::VIDEO;
-        codecVideo = CODEC::FOURCC_H264;
-        if (codecAudio.empty())
-          codecAudio = CODEC::FOURCC_MP4A;
+        LOG::LogF(LOGDEBUG, "The EXT-X-STREAM-INF variant does not have enough info to "
+                            "determine the stream type, will be set as video");
       }
-      else
-        LOG::LogF(LOGERROR, "The EXT-X-STREAM-INF variant does not have enough info to "
-                            "determine the stream type");
+      // We always assume as video type
+      streamType = StreamType::VIDEO;
+      codecVideo = CODEC::FOURCC_H264;
+      if (codecAudio.empty())
+        codecAudio = CODEC::FOURCC_MP4A;
     }
 
     if (streamType == StreamType::AUDIO) // Audio only variant
