@@ -149,10 +149,10 @@ bool CSession::Initialize()
     LOG::Log(LOGDEBUG, "Supported URN: %s", supportedKeySystem.c_str());
   }
 
-  // Preinitialize the DRM, if pre-initialisation data are provided
-  std::map<std::string, std::string> addHeaders;
+  std::map<std::string, std::string> manifestHeaders = m_kodiProps.m_manifestHeaders;
   bool isSessionOpened{false};
 
+  // Preinitialize the DRM, if pre-initialisation data are provided
   if (!m_kodiProps.m_drmPreInitData.empty())
   {
     std::string challengeB64;
@@ -161,8 +161,8 @@ bool CSession::Initialize()
     // used to make licensed manifest requests (via proxy callback)
     if (PreInitializeDRM(challengeB64, sessionId, isSessionOpened))
     {
-      addHeaders["challengeB64"] = STRING::URLEncode(challengeB64);
-      addHeaders["sessionId"] = sessionId;
+      manifestHeaders["challengeB64"] = STRING::URLEncode(challengeB64);
+      manifestHeaders["sessionId"] = sessionId;
     }
     else
     {
@@ -192,7 +192,7 @@ bool CSession::Initialize()
   }
 
   CURL::HTTPResponse manifestResp;
-  if (!CURL::DownloadFile(manifestUrl, addHeaders, {"etag", "last-modified"}, manifestResp))
+  if (!CURL::DownloadFile(manifestUrl, manifestHeaders, {"etag", "last-modified"}, manifestResp))
     return false;
 
   // The download speed with small file sizes is not accurate, we should download at least 512Kb
