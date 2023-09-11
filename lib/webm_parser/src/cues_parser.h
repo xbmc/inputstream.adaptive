@@ -8,8 +8,8 @@
 #ifndef SRC_CUES_PARSER_H_
 #define SRC_CUES_PARSER_H_
 
-#include "src/cue_point_parser.h"
-#include "src/master_parser.h"
+#include "cue_point_parser.h"
+#include "master_parser.h"
 #include "webm/id.h"
 
 namespace webm {

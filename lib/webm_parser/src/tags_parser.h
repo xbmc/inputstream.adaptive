@@ -8,8 +8,8 @@
 #ifndef SRC_TAGS_PARSER_H_
 #define SRC_TAGS_PARSER_H_
 
-#include "src/master_parser.h"
-#include "src/tag_parser.h"
+#include "master_parser.h"
+#include "tag_parser.h"
 #include "webm/id.h"
 
 namespace webm {

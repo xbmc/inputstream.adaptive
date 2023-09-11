@@ -11,9 +11,9 @@
 #include <cassert>
 #include <cstdint>
 
-#include "src/float_parser.h"
-#include "src/int_parser.h"
-#include "src/master_value_parser.h"
+#include "float_parser.h"
+#include "int_parser.h"
+#include "master_value_parser.h"
 #include "webm/callback.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"

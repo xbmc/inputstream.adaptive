@@ -10,8 +10,8 @@
 
 #include <cstdint>
 
-#include "src/parser.h"
-#include "src/var_int_parser.h"
+#include "parser.h"
+#include "var_int_parser.h"
 #include "webm/callback.h"
 #include "webm/reader.h"
 #include "webm/status.h"

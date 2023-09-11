@@ -8,9 +8,9 @@
 #ifndef SRC_COLOUR_PARSER_H_
 #define SRC_COLOUR_PARSER_H_
 
-#include "src/int_parser.h"
-#include "src/master_value_parser.h"
-#include "src/mastering_metadata_parser.h"
+#include "int_parser.h"
+#include "master_value_parser.h"
+#include "mastering_metadata_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

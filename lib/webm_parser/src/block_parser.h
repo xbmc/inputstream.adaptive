@@ -13,9 +13,9 @@
 #include <type_traits>
 #include <vector>
 
-#include "src/block_header_parser.h"
-#include "src/element_parser.h"
-#include "src/var_int_parser.h"
+#include "block_header_parser.h"
+#include "element_parser.h"
+#include "var_int_parser.h"
 #include "webm/callback.h"
 #include "webm/dom_types.h"
 #include "webm/element.h"

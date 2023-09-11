@@ -8,9 +8,9 @@
 #ifndef SRC_TAG_PARSER_H_
 #define SRC_TAG_PARSER_H_
 
-#include "src/master_value_parser.h"
-#include "src/simple_tag_parser.h"
-#include "src/targets_parser.h"
+#include "master_value_parser.h"
+#include "simple_tag_parser.h"
+#include "targets_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

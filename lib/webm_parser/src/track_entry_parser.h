@@ -9,13 +9,13 @@
 #ifndef SRC_TRACK_ENTRY_PARSER_H_
 #define SRC_TRACK_ENTRY_PARSER_H_
 
-#include "src/audio_parser.h"
-#include "src/bool_parser.h"
-#include "src/byte_parser.h"
-#include "src/content_encodings_parser.h"
-#include "src/int_parser.h"
-#include "src/master_value_parser.h"
-#include "src/video_parser.h"
+#include "audio_parser.h"
+#include "bool_parser.h"
+#include "byte_parser.h"
+#include "content_encodings_parser.h"
+#include "int_parser.h"
+#include "master_value_parser.h"
+#include "video_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

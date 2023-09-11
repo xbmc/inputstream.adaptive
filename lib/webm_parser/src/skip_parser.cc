@@ -5,7 +5,7 @@
 // tree. An additional intellectual property rights grant can be found
 // in the file PATENTS.  All contributing project authors may
 // be found in the AUTHORS file in the root of the source tree.
-#include "src/skip_parser.h"
+#include "skip_parser.h"
 
 #include <cassert>
 #include <cstdint>

@@ -8,8 +8,8 @@
 #ifndef SRC_MASTERING_METADATA_PARSER_H_
 #define SRC_MASTERING_METADATA_PARSER_H_
 
-#include "src/float_parser.h"
-#include "src/master_value_parser.h"
+#include "float_parser.h"
+#include "master_value_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

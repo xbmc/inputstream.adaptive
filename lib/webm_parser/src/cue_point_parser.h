@@ -8,9 +8,9 @@
 #ifndef SRC_CUE_POINT_PARSER_H_
 #define SRC_CUE_POINT_PARSER_H_
 
-#include "src/cue_track_positions_parser.h"
-#include "src/int_parser.h"
-#include "src/master_value_parser.h"
+#include "cue_track_positions_parser.h"
+#include "int_parser.h"
+#include "master_value_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

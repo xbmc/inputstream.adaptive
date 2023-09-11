@@ -10,7 +10,7 @@
 
 #include <cstdint>
 
-#include "src/parser.h"
+#include "parser.h"
 #include "webm/callback.h"
 #include "webm/id.h"
 #include "webm/reader.h"

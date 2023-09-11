@@ -5,14 +5,14 @@
 // tree. An additional intellectual property rights grant can be found
 // in the file PATENTS.  All contributing project authors may
 // be found in the AUTHORS file in the root of the source tree.
-#include "src/float_parser.h"
+#include "float_parser.h"
 
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 
-#include "src/parser_utils.h"
+#include "parser_utils.h"
 #include "webm/element.h"
 #include "webm/reader.h"
 #include "webm/status.h"

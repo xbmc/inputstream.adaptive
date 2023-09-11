@@ -5,16 +5,16 @@
 // tree. An additional intellectual property rights grant can be found
 // in the file PATENTS.  All contributing project authors may
 // be found in the AUTHORS file in the root of the source tree.
-#include "src/segment_parser.h"
+#include "segment_parser.h"
 
-#include "src/chapters_parser.h"
-#include "src/cluster_parser.h"
-#include "src/cues_parser.h"
-#include "src/info_parser.h"
-#include "src/seek_head_parser.h"
-#include "src/skip_callback.h"
-#include "src/tags_parser.h"
-#include "src/tracks_parser.h"
+#include "chapters_parser.h"
+#include "cluster_parser.h"
+#include "cues_parser.h"
+#include "info_parser.h"
+#include "seek_head_parser.h"
+#include "skip_callback.h"
+#include "tags_parser.h"
+#include "tracks_parser.h"
 #include "webm/id.h"
 
 namespace webm {

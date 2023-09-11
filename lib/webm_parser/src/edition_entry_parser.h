@@ -8,8 +8,8 @@
 #ifndef SRC_EDITION_ENTRY_PARSER_H_
 #define SRC_EDITION_ENTRY_PARSER_H_
 
-#include "src/chapter_atom_parser.h"
-#include "src/master_value_parser.h"
+#include "chapter_atom_parser.h"
+#include "master_value_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

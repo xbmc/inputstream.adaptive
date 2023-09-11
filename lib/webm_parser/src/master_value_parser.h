@@ -16,9 +16,9 @@
 #include <utility>
 #include <vector>
 
-#include "src/master_parser.h"
-#include "src/recursive_parser.h"
-#include "src/skip_callback.h"
+#include "master_parser.h"
+#include "recursive_parser.h"
+#include "skip_callback.h"
 #include "webm/callback.h"
 #include "webm/element.h"
 #include "webm/id.h"

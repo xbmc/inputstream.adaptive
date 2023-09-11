@@ -73,7 +73,6 @@ list(APPEND ADP_HEADERS ${HEADERS_LIST})
 
 include_directories(${INCLUDES}
                     ${KODI_INCLUDE_DIR}/.. # Hack way with "/..", need bigger Kodi cmake rework to match right include ways (becomes done in future)
-                    lib/webm_parser/include
 )
 
 add_subdirectory(lib/mpegts)

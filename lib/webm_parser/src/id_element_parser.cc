@@ -5,13 +5,13 @@
 // tree. An additional intellectual property rights grant can be found
 // in the file PATENTS.  All contributing project authors may
 // be found in the AUTHORS file in the root of the source tree.
-#include "src/id_element_parser.h"
+#include "id_element_parser.h"
 
 #include <cassert>
 #include <cstdint>
 
-#include "src/element_parser.h"
-#include "src/parser_utils.h"
+#include "element_parser.h"
+#include "parser_utils.h"
 #include "webm/callback.h"
 #include "webm/element.h"
 #include "webm/reader.h"

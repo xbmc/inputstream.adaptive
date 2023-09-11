@@ -8,12 +8,12 @@
 #ifndef SRC_BLOCK_GROUP_PARSER_H_
 #define SRC_BLOCK_GROUP_PARSER_H_
 
-#include "src/block_additions_parser.h"
-#include "src/block_parser.h"
-#include "src/int_parser.h"
-#include "src/master_value_parser.h"
-#include "src/slices_parser.h"
-#include "src/virtual_block_parser.h"
+#include "block_additions_parser.h"
+#include "block_parser.h"
+#include "int_parser.h"
+#include "master_value_parser.h"
+#include "slices_parser.h"
+#include "virtual_block_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

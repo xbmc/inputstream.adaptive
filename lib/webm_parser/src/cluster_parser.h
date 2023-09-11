@@ -8,10 +8,10 @@
 #ifndef SRC_CLUSTER_PARSER_H_
 #define SRC_CLUSTER_PARSER_H_
 
-#include "src/block_group_parser.h"
-#include "src/block_parser.h"
-#include "src/int_parser.h"
-#include "src/master_value_parser.h"
+#include "block_group_parser.h"
+#include "block_parser.h"
+#include "int_parser.h"
+#include "master_value_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

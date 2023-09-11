@@ -8,8 +8,8 @@
 #ifndef SRC_SLICES_PARSER_H_
 #define SRC_SLICES_PARSER_H_
 
-#include "src/master_value_parser.h"
-#include "src/time_slice_parser.h"
+#include "master_value_parser.h"
+#include "time_slice_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

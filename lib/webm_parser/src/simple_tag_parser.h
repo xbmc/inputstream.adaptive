@@ -8,9 +8,9 @@
 #ifndef SRC_SIMPLE_TAG_PARSER_H_
 #define SRC_SIMPLE_TAG_PARSER_H_
 
-#include "src/bool_parser.h"
-#include "src/byte_parser.h"
-#include "src/master_value_parser.h"
+#include "bool_parser.h"
+#include "byte_parser.h"
+#include "master_value_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 

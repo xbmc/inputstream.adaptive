@@ -11,7 +11,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "src/parser.h"
+#include "parser.h"
 #include "webm/callback.h"
 #include "webm/reader.h"
 #include "webm/status.h"

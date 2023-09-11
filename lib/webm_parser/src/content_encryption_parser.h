@@ -8,9 +8,9 @@
 #ifndef SRC_CONTENT_ENCRYPTION_PARSER_H_
 #define SRC_CONTENT_ENCRYPTION_PARSER_H_
 
-#include "src/byte_parser.h"
-#include "src/content_enc_aes_settings_parser.h"
-#include "src/master_value_parser.h"
+#include "byte_parser.h"
+#include "content_enc_aes_settings_parser.h"
+#include "master_value_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 
