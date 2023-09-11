@@ -51,7 +51,7 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 
   std::uint8_t drmConfig{0};
   if (m_kodiProps.m_isLicensePersistentStorage)
-    drmConfig |= SSD::SSD_DECRYPTER::CONFIG_PERSISTENTSTORAGE;
+    drmConfig |= DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE;
 
   m_session = std::make_shared<CSession>(m_kodiProps, url, props.GetProfileFolder());
   m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight, m_currentVideoMaxWidth,
@@ -161,13 +161,13 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
       cryptoSession.SetSessionId(sessionId);
 
       if (m_session->GetDecrypterCaps(cdmId).flags &
-          SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SUPPORTS_DECODING)
+          DRM::IDecrypter::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
         stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_DECODE);
       else
         stream->m_info.SetFeatures(0);
 
       cryptoSession.SetFlags((m_session->GetDecrypterCaps(cdmId).flags &
-                          SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER)
+                          DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_DECODER)
                              ? STREAM_CRYPTO_FLAG_SECURE_DECODER
                              : 0);
       stream->m_info.SetCryptoSession(cryptoSession);
@@ -637,7 +637,7 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
 {
   if (!m_session || !m_session->GetDecrypter())
     return false;
-
+ 
   if ((initData.GetCodecType() == VIDEOCODEC_H264 || initData.GetCodecType() == VIDEOCODEC_AV1) &&
       !initData.GetExtraDataSize() && !(m_state & STATE_WAIT_EXTRADATA))
   {
@@ -673,7 +673,7 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   Adaptive_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
 
   return m_session->GetDecrypter()->OpenVideoDecoder(
-      ssd, reinterpret_cast<const SSD::SSD_VIDEOINITDATA*>(initData.GetCStructure()));
+      ssd, initData.GetCStructure());
 }
 
 bool CVideoCodecAdaptive::Reconfigure(const kodi::addon::VideoCodecInitdata& initData)
@@ -686,31 +686,8 @@ bool CVideoCodecAdaptive::AddData(const DEMUX_PACKET& packet)
   if (!m_session || !m_session->GetDecrypter())
     return false;
 
-  SSD::SSD_SAMPLE sample{};
-  sample.data = packet.pData;
-  sample.dataSize = packet.iSize;
-  sample.pts = static_cast<int64_t>(packet.pts);
-  if (packet.cryptoInfo) // Is an encrypted demux packet
-  {
-    sample.cryptoInfo.numSubSamples = packet.cryptoInfo->numSubSamples;
-    sample.cryptoInfo.mode = packet.cryptoInfo->mode;
-    sample.cryptoInfo.cryptBlocks = packet.cryptoInfo->cryptBlocks;
-    sample.cryptoInfo.skipBlocks = packet.cryptoInfo->skipBlocks;
-    sample.cryptoInfo.clearBytes = packet.cryptoInfo->clearBytes;
-    sample.cryptoInfo.cipherBytes = packet.cryptoInfo->cipherBytes;
-    sample.cryptoInfo.iv = packet.cryptoInfo->iv;
-    sample.cryptoInfo.ivSize = 16;
-    sample.cryptoInfo.kid = packet.cryptoInfo->kid;
-    sample.cryptoInfo.kidSize = 16;
-    sample.cryptoInfo.flags = packet.cryptoInfo->flags;
-  }
-  else
-  {
-    sample.cryptoInfo.mode = static_cast<uint16_t>(CryptoMode::NONE);
-  }
-
   return m_session->GetDecrypter()->DecryptAndDecodeVideo(
-             dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &sample) != SSD::VC_ERROR;
+             dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &packet) != VC_ERROR;
 }
 
 VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE& picture)
@@ -723,8 +700,7 @@ VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE& picture)
                                      VIDEOCODEC_RETVAL::VC_EOF};
 
   return vrvm[m_session->GetDecrypter()->VideoFrameDataToPicture(
-      dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this),
-      reinterpret_cast<SSD::SSD_PICTURE*>(&picture))];
+      dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &picture)];
 }
 
 void CVideoCodecAdaptive::Reset()

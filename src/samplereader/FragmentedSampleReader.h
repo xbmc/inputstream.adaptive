@@ -8,10 +8,10 @@
 
 #pragma once
 
-#include "../SSD_dll.h"
 #include "../codechandler/CodecHandler.h"
-#include "../common/AdaptiveDecrypter.h"
 #include "../common/AdaptiveCencSampleDecrypter.h"
+#include "../common/AdaptiveDecrypter.h"
+#include "../decrypters/IDecrypter.h"
 #include "../utils/log.h"
 #include "SampleReader.h"
 
@@ -23,7 +23,7 @@ public:
                          AP4_Track* track,
                          AP4_UI32 streamId,
                          Adaptive_CencSingleSampleDecrypter* ssd,
-                         const SSD::SSD_DECRYPTER::SSD_CAPS& dcaps);
+                         const DRM::IDecrypter::DecrypterCapabilites& dcaps);
 
   ~CFragmentedSampleReader();
 
@@ -65,7 +65,7 @@ private:
   AP4_UI32 m_poolId{0};
   AP4_UI32 m_streamId;
   AP4_UI32 m_sampleDescIndex{1};
-  SSD::SSD_DECRYPTER::SSD_CAPS m_decrypterCaps;
+  DRM::IDecrypter::DecrypterCapabilites m_decrypterCaps;
   unsigned int m_failCount{0};
   bool m_bSampleDescChanged{false};
   bool m_eos{false};

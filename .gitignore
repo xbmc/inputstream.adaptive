@@ -1,5 +1,6 @@
 # build artifacts
-build/
+!*/build/
+/build/
 inputstream.*/addon.xml
 
 # Debian build files

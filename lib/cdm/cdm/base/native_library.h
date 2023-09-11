@@ -21,6 +21,8 @@
 
 #if defined(OS_WIN)
 #include <windows.h>
+// Windows "ERROR" define can conflicts with definitions of projects that use this name, so remove it
+#undef ERROR
 #elif defined(OS_MACOSX)
 #import <CoreFoundation/CoreFoundation.h>
 #endif  // OS_*

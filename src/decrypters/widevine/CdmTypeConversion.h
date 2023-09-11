@@ -8,12 +8,14 @@
 
 #pragma once
 
-#include "../../../../src/SSD_dll.h"
-#include "../../../../src/common/AdaptiveDecrypter.h"
-#include "api/content_decryption_module.h"
+#include "cdm/media/cdm/api/content_decryption_module.h"
 
 #include <string>
 #include <vector>
+
+#include <kodi/addon-instance/VideoCodec.h>
+
+enum class CryptoMode;
 
 namespace media
 {
@@ -24,29 +26,29 @@ std::string CdmStatusToString(const cdm::Status status);
 
 cdm::EncryptionScheme ToCdmEncryptionScheme(const CryptoMode cryptoMode);
 
-cdm::VideoCodec ToCdmVideoCodec(const SSD::Codec codec);
+cdm::VideoCodec ToCdmVideoCodec(const VIDEOCODEC_TYPE codec);
 
-cdm::VideoCodecProfile ToCdmVideoCodecProfile(const SSD::CodecProfile profile);
+cdm::VideoCodecProfile ToCdmVideoCodecProfile(const STREAMCODEC_PROFILE profile);
 
 // Video Converters
 
-cdm::VideoFormat ToCdmVideoFormat(const SSD::SSD_VIDEOFORMAT videoFormat);
+cdm::VideoFormat ToCdmVideoFormat(const VIDEOCODEC_FORMAT videoFormat);
 
-SSD::SSD_VIDEOFORMAT ToSSDVideoFormat(const cdm::VideoFormat format);
+VIDEOCODEC_FORMAT ToSSDVideoFormat(const cdm::VideoFormat format);
 
 // Aggregated Types
 
 // Warning: The returned config contains raw pointers to the extra data in the
 // input |config|. Hence, the caller must make sure the input |config| outlives
 // the returned config.
-cdm::VideoDecoderConfig_3 ToCdmVideoDecoderConfig(const SSD::SSD_VIDEOINITDATA* initData,
+cdm::VideoDecoderConfig_3 ToCdmVideoDecoderConfig(const VIDEOCODEC_INITDATA* initData,
                                                   const CryptoMode cryptoMode);
 
 // Fill |input_buffer| based on the values in |encrypted|. |subsamples|
 // is used to hold some of the data. |input_buffer| will contain pointers
 // to data contained in |encrypted| and |subsamples|, so the lifetime of
 // |input_buffer| must be <= the lifetime of |encrypted| and |subsamples|.
-void ToCdmInputBuffer(const SSD::SSD_SAMPLE* encryptedBuffer,
+void ToCdmInputBuffer(const DEMUX_PACKET* encryptedBuffer,
                       std::vector<cdm::SubsampleEntry>* subsamples,
                       cdm::InputBuffer_2* inputBuffer);
 

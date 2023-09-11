@@ -38,12 +38,9 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
                    const std::string& profilePath)
   : m_kodiProps(kodiProps),
     m_manifestUrl(manifestUrl),
-    m_KodiHost(std::make_unique<CKodiHost>()),
+    m_profilePath(profilePath),
     m_reprChooser(CHOOSER::CreateRepresentationChooser(kodiProps))
 {
-  m_KodiHost->SetProfilePath(profilePath);
-  m_KodiHost->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
-
   m_settingNoSecureDecoder = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
   LOG::Log(LOGDEBUG, "Setting NOSECUREDECODER value: %d", m_settingNoSecureDecoder);
 
@@ -88,81 +85,27 @@ CSession::~CSession()
 
 void CSession::SetSupportedDecrypterURN(std::string& key_system)
 {
-  typedef SSD::SSD_DECRYPTER* (*CreateDecryptorInstanceFunc)(SSD::SSD_HOST * host,
-                                                             uint32_t version);
-
   std::string specialpath = kodi::addon::GetSettingString("DECRYPTERPATH");
   if (specialpath.empty())
   {
     LOG::Log(LOGDEBUG, "DECRYPTERPATH not specified in settings.xml");
     return;
   }
-  m_KodiHost->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
 
-  std::array<std::string, 3> searchPaths =
+  m_decrypter = m_factory.GetDecrypter(GetCryptoKeySystem());
+  if (!m_decrypter)
+    return;
+
+  if (!m_decrypter->Initialize())
   {
-    kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/"),
-    kodi::vfs::TranslateSpecialProtocol("special://xbmcaltbinaddons/inputstream.adaptive/"),
-    kodi::addon::GetAddonInfo("path"),
-  };
-
-  std::vector<kodi::vfs::CDirEntry> items;
-
-  for (auto searchPath : searchPaths)
-  {
-    LOG::Log(LOGDEBUG, "Searching for decrypters in: %s", searchPath.c_str());
-
-    if (!kodi::vfs::GetDirectory(searchPath, "", items))
-      continue;
-
-    for (auto item : items)
-    {
-      if (item.Label().compare(0, 4, "ssd_") && item.Label().compare(0, 7, "libssd_"))
-        continue;
-
-      bool success = false;
-      m_dllHelper = std::make_unique<kodi::tools::CDllHelper>();
-      if (m_dllHelper->LoadDll(item.Path()))
-      {
-#if defined(__linux__) && defined(__aarch64__) && !defined(ANDROID)
-        // On linux arm64, libwidevinecdm.so depends on two dynamic symbols:
-        //   __aarch64_ldadd4_acq_rel
-        //   __aarch64_swp4_acq_rel
-        // These are defined in libssd_wv.so, but to make them available in the main binary's PLT,
-        // we need RTLD_GLOBAL. LoadDll() above uses RTLD_LOCAL, so we use RTLD_NOLOAD here to
-        // switch the flags from LOCAL to GLOBAL.
-        void *hdl = dlopen(item.Path().c_str(), RTLD_NOLOAD | RTLD_GLOBAL | RTLD_LAZY);
-        if (!hdl)
-        {
-          LOG::Log(LOGERROR, "Failed to reload dll in global mode: %s", dlerror());
-        }
-#endif
-        CreateDecryptorInstanceFunc startup;
-        if (m_dllHelper->RegisterSymbol(startup, "CreateDecryptorInstance"))
-        {
-          SSD::SSD_DECRYPTER* decrypter = startup(m_KodiHost.get(), SSD::SSD_HOST::version);
-          const char* suppUrn(0);
-
-          if (decrypter && (suppUrn = decrypter->SelectKeySytem(m_kodiProps.m_licenseType.c_str())))
-          {
-            LOG::Log(LOGDEBUG, "Found decrypter: %s", item.Path().c_str());
-            success = true;
-            m_decrypter = decrypter;
-            key_system = suppUrn;
-            break;
-          }
-        }
-      }
-      else
-      {
-        LOG::Log(LOGDEBUG, "%s", dlerror());
-      }
-      if (!success)
-      {
-        m_dllHelper.reset();
-      }
-    }
+    LOG::Log(LOGERROR, "The decrypter library cannot be initialized.");
+    return;
   }
+
+  key_system = m_decrypter->SelectKeySytem(m_kodiProps.m_licenseType.c_str());
+  m_decrypter->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
+  m_decrypter->SetProfilePath(m_profilePath);
+  m_decrypter->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
 }
 
 void CSession::DisposeSampleDecrypter()
@@ -188,18 +131,8 @@ void CSession::DisposeSampleDecrypter()
 
 void CSession::DisposeDecrypter()
 {
-  if (!m_dllHelper)
-    return;
-
   DisposeSampleDecrypter();
-
-  typedef void (*DeleteDecryptorInstanceFunc)(SSD::SSD_DECRYPTER*);
-  DeleteDecryptorInstanceFunc disposefn;
-
-  if (m_dllHelper->RegisterSymbol(disposefn, "DeleteDecryptorInstance"))
-    disposefn(m_decrypter);
-
-  m_decrypter = nullptr;
+  delete m_decrypter;
 }
 
 /*----------------------------------------------------------------------
@@ -299,7 +232,7 @@ void CSession::CheckHDCP()
   if (m_cdmSessions.empty())
     return;
 
-  std::vector<SSD::SSD_DECRYPTER::SSD_CAPS> decrypterCaps;
+  std::vector<DRM::IDecrypter::DecrypterCapabilites> decrypterCaps;
 
   for (const auto& cdmsession : m_cdmSessions)
   {
@@ -319,7 +252,7 @@ void CSession::CheckHDCP()
     {
       CRepresentation* repr = (*itRepr).get();
 
-      const SSD::SSD_DECRYPTER::SSD_CAPS& ssd_caps = decrypterCaps[repr->m_psshSetPos];
+      const DRM::IDecrypter::DecrypterCapabilites& ssd_caps = decrypterCaps[repr->m_psshSetPos];
 
       if (repr->GetHdcpVersion() > ssd_caps.hdcpVersion ||
           (ssd_caps.hdcpLimit > 0 && repr->GetWidth() * repr->GetHeight() > ssd_caps.hdcpLimit))
@@ -371,7 +304,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
     return false;
   }
 
-  if (!m_decrypter->HasCdmSession())
+  if (!m_decrypter->IsInitialised())
   {
     if (!m_decrypter->OpenDRMSystem(m_kodiProps.m_licenseKey.c_str(), m_serverCertificate,
                                     m_drmConfig))
@@ -449,7 +382,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       return false;
     }
 
-    if (!m_decrypter->HasCdmSession())
+    if (!m_decrypter->IsInitialised())
     {
       if (!m_decrypter->OpenDRMSystem(licenseKey.c_str(), m_serverCertificate, m_drmConfig))
       {
@@ -652,18 +585,18 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defkid,
                                      sessionPsshset.media_, session.m_decrypterCaps);
 
-        if (session.m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_INVALID)
+        if (session.m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_INVALID)
         {
           m_adaptiveTree->m_currentPeriod->RemovePSSHSet(static_cast<std::uint16_t>(ses));
         }
-        else if (session.m_decrypterCaps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
+        else if (session.m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH)
         {
           session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
           isSecureVideoSession = true;
 
           if (m_settingNoSecureDecoder && !m_kodiProps.m_isLicenseForceSecureDecoder &&
               !m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded())
-            session.m_decrypterCaps.flags &= ~SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_DECODER;
+            session.m_decrypterCaps.flags &= ~DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_DECODER;
         }
       }
       else
@@ -862,9 +795,9 @@ void CSession::UpdateStream(CStream& stream)
     std::string annexb;
     const std::string* extraData(&annexb);
 
-    const SSD::SSD_DECRYPTER::SSD_CAPS& caps{GetDecrypterCaps(rep->m_psshSetPos)};
+    const DRM::IDecrypter::DecrypterCapabilites& caps{GetDecrypterCaps(rep->m_psshSetPos)};
 
-    if ((caps.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_ANNEXB_REQUIRED) &&
+    if ((caps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) &&
         stream.m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
     {
       LOG::Log(LOGDEBUG, "UpdateStream: Convert avc -> annexb");
@@ -938,16 +871,16 @@ void CSession::UpdateStream(CStream& stream)
         switch (codecProfileNum)
         {
           case 0:
-            stream.m_info.SetCodecProfile(VP9CodecProfile0);
+            stream.m_info.SetCodecProfile(STREAMCODEC_PROFILE::VP9CodecProfile0);
             break;
           case 1:
-            stream.m_info.SetCodecProfile(VP9CodecProfile1);
+            stream.m_info.SetCodecProfile(STREAMCODEC_PROFILE::VP9CodecProfile1);
             break;
           case 2:
-            stream.m_info.SetCodecProfile(VP9CodecProfile2);
+            stream.m_info.SetCodecProfile(STREAMCODEC_PROFILE::VP9CodecProfile2);
             break;
           case 3:
-            stream.m_info.SetCodecProfile(VP9CodecProfile3);
+            stream.m_info.SetCodecProfile(STREAMCODEC_PROFILE::VP9CodecProfile3);
             break;
           default:
             LOG::LogF(LOGWARNING, "Unhandled video codec profile \"%i\" for codec string: %s",
