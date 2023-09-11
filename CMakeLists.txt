@@ -189,7 +189,7 @@ include_directories(${INCLUDES}
 set(CMAKE_FIND_FRAMEWORK LAST)
 
 find_package(Bento4 REQUIRED)
-find_package(Pugixml REQUIRED)
+find_package(pugixml REQUIRED)
 
 if(WIN32)
   add_definitions(-DXML_STATIC -D_CRT_NONSTDC_NO_DEPRECATE)
