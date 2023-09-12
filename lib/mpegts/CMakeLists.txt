@@ -6,19 +6,20 @@ if(TSDEMUX_DEBUG)
 endif(TSDEMUX_DEBUG)
 
 add_library(mpegts STATIC
-  elementaryStream.cpp
-  bitstream.cpp
-  ES_AC3.cpp
-  ES_MPEGAudio.cpp
-  ES_Subtitle.cpp
-  ES_AAC.cpp
-  ES_h264.cpp
-  ES_MPEGVideo.cpp
-  ES_Teletext.cpp
-  ES_hevc.cpp
-  debug.cpp
-  tsDemuxer.cpp)
+  mpegts/elementaryStream.cpp
+  mpegts/bitstream.cpp
+  mpegts/ES_AC3.cpp
+  mpegts/ES_MPEGAudio.cpp
+  mpegts/ES_Subtitle.cpp
+  mpegts/ES_AAC.cpp
+  mpegts/ES_h264.cpp
+  mpegts/ES_MPEGVideo.cpp
+  mpegts/ES_Teletext.cpp
+  mpegts/ES_hevc.cpp
+  mpegts/debug.cpp
+  mpegts/tsDemuxer.cpp
+)
 
-target_include_directories(mpegts PUBLIC ${PROJECT_SOURCE_DIR})
+target_include_directories(mpegts PRIVATE ${PROJECT_SOURCE_DIR}/mpegts PUBLIC ${PROJECT_SOURCE_DIR})
 
 set_target_properties(mpegts PROPERTIES POSITION_INDEPENDENT_CODE True)

@@ -8,10 +8,10 @@
 
 #include "TSReader.h"
 
-#include "../lib/mpegts/debug.h"
-#include "../lib/mpegts/ES_AAC.h"
-#include "utils/log.h"
+#include "mpegts/ES_AAC.h"
+#include "mpegts/debug.h"
 #include "utils/Utils.h"
+#include "utils/log.h"
 
 #include <stdlib.h>
 
