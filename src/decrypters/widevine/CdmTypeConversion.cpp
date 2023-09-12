@@ -8,8 +8,8 @@
 
 #include "CdmTypeConversion.h"
 
-#include "../../../src/utils/CryptoUtils.h"
-#include "../../../src/utils/log.h"
+#include "utils/CryptoUtils.h"
+#include "utils/log.h"
 
 using namespace media;
 

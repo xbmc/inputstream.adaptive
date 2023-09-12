@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "../utils/CurlUtils.h"
-#include "../utils/PropertiesUtils.h"
+#include "utils/CurlUtils.h"
+#include "utils/PropertiesUtils.h"
 #include "AdaptiveTree.h"
 
 namespace PLAYLIST_FACTORY

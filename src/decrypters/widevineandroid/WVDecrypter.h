@@ -8,17 +8,17 @@
 
 #pragma once
 
-#include "../../utils/Base64Utils.h"
-#include "../../utils/log.h"
 #include "../IDecrypter.h"
 #include "WVCdmAdapter.h"
+#include "utils/Base64Utils.h"
+#include "utils/log.h"
 
 #include <memory>
 #include <mutex>
 
-#include <kodi/platform/android/System.h>
 #include <jni/src/MediaDrm.h>
 #include <jni/src/MediaDrmOnEventListener.h>
+#include <kodi/platform/android/System.h>
 
 class CWVCencSingleSampleDecrypterA;
 

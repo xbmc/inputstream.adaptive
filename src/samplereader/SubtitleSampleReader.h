@@ -6,10 +6,10 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "../codechandler/TTMLCodecHandler.h"
-#include "../codechandler/WebVTTCodecHandler.h"
-#include "../common/AdaptiveStream.h"
-#include "../Stream.h"
+#include "codechandler/TTMLCodecHandler.h"
+#include "codechandler/WebVTTCodecHandler.h"
+#include "common/AdaptiveStream.h"
+#include "Stream.h"
 #include "SampleReader.h"
 
 #include <memory>

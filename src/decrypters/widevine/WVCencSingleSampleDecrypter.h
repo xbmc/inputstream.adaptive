@@ -8,9 +8,9 @@
 
 #pragma once
 
-#include "../../common/AdaptiveCencSampleDecrypter.h"
 #include "../IDecrypter.h"
 #include "cdm/media/cdm/api/content_decryption_module.h"
+#include "common/AdaptiveCencSampleDecrypter.h"
 
 #include <list>
 #include <mutex>

@@ -8,7 +8,7 @@
 
 #include "VP9CodecHandler.h"
 
-#include "../utils/Utils.h"
+#include "utils/Utils.h"
 
 using namespace UTILS;
 

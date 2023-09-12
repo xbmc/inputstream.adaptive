@@ -7,8 +7,8 @@
  */
 
 #pragma once
-#include "../../common/AdaptiveCencSampleDecrypter.h"
 #include "../IDecrypter.h"
+#include "common/AdaptiveCencSampleDecrypter.h"
 
 #include <map>
 

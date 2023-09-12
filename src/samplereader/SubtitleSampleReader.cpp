@@ -8,10 +8,10 @@
 
 #include "SubtitleSampleReader.h"
 
-#include "../utils/CurlUtils.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Utils.h"
-#include "../utils/log.h"
+#include "utils/CurlUtils.h"
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
+#include "utils/log.h"
 
 using namespace UTILS;
 

@@ -8,8 +8,8 @@
 
 #include "WVCdmAdapter.h"
 
-#include "../../utils/log.h"
 #include "WVDecrypter.h"
+#include "utils/log.h"
 
 #include <jni/src/UUID.h>
 #include <kodi/Filesystem.h>

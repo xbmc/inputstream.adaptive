@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "../utils/CryptoUtils.h"
-#include "../utils/PropertiesUtils.h"
+#include "utils/CryptoUtils.h"
+#include "utils/PropertiesUtils.h"
 #include "AdaptationSet.h"
 #include "Period.h"
 #include "Representation.h"
@@ -27,7 +27,7 @@
 #include <vector>
 
 #ifdef INPUTSTREAM_TEST_BUILD
-#include "../test/KodiStubs.h"
+#include "test/KodiStubs.h"
 #else
 #include <kodi/AddonBase.h>
 #endif

@@ -6,8 +6,8 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "../AdaptiveByteStream.h"
-#include "../TSReader.h"
+#include "AdaptiveByteStream.h"
+#include "TSReader.h"
 #include "SampleReader.h"
 
 class ATTR_DLL_LOCAL CTSSampleReader : public ISampleReader, public TSReader

@@ -8,8 +8,8 @@
 
 #include "HEVCCodecHandler.h"
 
-#include "../utils/log.h"
-#include "../utils/Utils.h"
+#include "utils/log.h"
+#include "utils/Utils.h"
 
 using namespace UTILS;
 

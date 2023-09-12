@@ -8,12 +8,12 @@
 
 #include "HLSTree.h"
 
-#include "../aes_decrypter.h"
-#include "../utils/Base64Utils.h"
-#include "../utils/StringUtils.h"
-#include "../utils/UrlUtils.h"
-#include "../utils/Utils.h"
-#include "../utils/log.h"
+#include "aes_decrypter.h"
+#include "utils/Base64Utils.h"
+#include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
+#include "utils/Utils.h"
+#include "utils/log.h"
 #include "kodi/tools/StringUtils.h"
 
 #include <algorithm>

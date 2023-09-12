@@ -8,9 +8,9 @@
 
 #include "ChooserAskQuality.h"
 
-#include "../utils/StringUtils.h"
-#include "../utils/Utils.h"
-#include "../utils/log.h"
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
+#include "utils/log.h"
 #include "ReprSelector.h"
 #include "kodi/tools/StringUtils.h"
 

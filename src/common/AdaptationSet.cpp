@@ -9,8 +9,8 @@
 #include "AdaptationSet.h"
 
 #include "Representation.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Utils.h"
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
 
 #include <algorithm> // any_of
 

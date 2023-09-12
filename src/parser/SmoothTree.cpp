@@ -8,11 +8,11 @@
 
 #include "SmoothTree.h"
 
-#include "../utils/StringUtils.h"
-#include "../utils/UrlUtils.h"
-#include "../utils/Utils.h"
-#include "../utils/XMLUtils.h"
-#include "../utils/log.h"
+#include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
+#include "utils/Utils.h"
+#include "utils/XMLUtils.h"
+#include "utils/log.h"
 #include "PRProtectionParser.h"
 #include "pugixml.hpp"
 

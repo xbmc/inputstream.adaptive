@@ -8,7 +8,7 @@
 
 #include "Representation.h"
 
-#include "../utils/StringUtils.h"
+#include "utils/StringUtils.h"
 
 using namespace PLAYLIST;
 using namespace UTILS;

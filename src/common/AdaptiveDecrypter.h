@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "../utils/CryptoUtils.h"
+#include "utils/CryptoUtils.h"
 
 #include <stdexcept>
 #include <string_view>

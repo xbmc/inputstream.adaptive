@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "../common/AdaptiveTree.h"
+#include "common/AdaptiveTree.h"
 
 namespace pugi
 {

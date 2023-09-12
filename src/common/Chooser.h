@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "../utils/PropertiesUtils.h"
-#include "../utils/SettingsUtils.h"
+#include "utils/PropertiesUtils.h"
+#include "utils/SettingsUtils.h"
 #include "AdaptiveTree.h"
 
 #include <map>

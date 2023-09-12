@@ -8,17 +8,17 @@
 
 #include "FragmentedSampleReader.h"
 
-#include "../AdaptiveByteStream.h"
-#include "../codechandler/AudioCodecHandler.h"
-#include "../codechandler/AV1CodecHandler.h"
-#include "../codechandler/AVCCodecHandler.h"
-#include "../codechandler/HEVCCodecHandler.h"
-#include "../codechandler/TTMLCodecHandler.h"
-#include "../codechandler/VP9CodecHandler.h"
-#include "../codechandler/WebVTTCodecHandler.h"
-#include "../utils/log.h"
-#include "../utils/CharArrayParser.h"
-#include "../utils/Utils.h"
+#include "AdaptiveByteStream.h"
+#include "codechandler/AudioCodecHandler.h"
+#include "codechandler/AV1CodecHandler.h"
+#include "codechandler/AVCCodecHandler.h"
+#include "codechandler/HEVCCodecHandler.h"
+#include "codechandler/TTMLCodecHandler.h"
+#include "codechandler/VP9CodecHandler.h"
+#include "codechandler/WebVTTCodecHandler.h"
+#include "utils/log.h"
+#include "utils/CharArrayParser.h"
+#include "utils/Utils.h"
 
 using namespace UTILS;
 

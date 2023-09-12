@@ -8,10 +8,10 @@
 
 #include "WVDecrypter.h"
 
-#include "../../utils/Base64Utils.h"
-#include "../../utils/log.h"
 #include "WVCdmAdapter.h"
 #include "WVCencSingleSampleDecrypter.h"
+#include "utils/Base64Utils.h"
+#include "utils/log.h"
 
 #include <kodi/Filesystem.h>
 

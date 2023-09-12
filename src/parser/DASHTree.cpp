@@ -8,12 +8,12 @@
 
 #include "DASHTree.h"
 
-#include "../oscompat.h"
-#include "../utils/StringUtils.h"
-#include "../utils/UrlUtils.h"
-#include "../utils/Utils.h"
-#include "../utils/XMLUtils.h"
-#include "../utils/log.h"
+#include "oscompat.h"
+#include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
+#include "utils/Utils.h"
+#include "utils/XMLUtils.h"
+#include "utils/log.h"
 #include "PRProtectionParser.h"
 #include "kodi/tools/StringUtils.h"
 #include "pugixml.hpp"

@@ -8,7 +8,7 @@
 
 #include "Chooser.h"
 
-#include "../utils/log.h"
+#include "utils/log.h"
 #include "ChooserAskQuality.h"
 #include "ChooserDefault.h"
 #include "ChooserFixedRes.h"

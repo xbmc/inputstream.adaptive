@@ -8,7 +8,7 @@
 
 #include "XMLUtils.h"
 
-#include "../oscompat.h" // _mkgmtime
+#include "oscompat.h" // _mkgmtime
 #include "StringUtils.h"
 #include "kodi/tools/StringUtils.h"
 #include "log.h"

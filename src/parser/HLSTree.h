@@ -8,10 +8,10 @@
 
 #pragma once
 
-#include "../Iaes_decrypter.h"
-#include "../common/AdaptiveTree.h"
-#include "../common/AdaptiveUtils.h"
-#include "../utils/CurlUtils.h"
+#include "Iaes_decrypter.h"
+#include "common/AdaptiveTree.h"
+#include "common/AdaptiveUtils.h"
+#include "utils/CurlUtils.h"
 
 #include <map>
 

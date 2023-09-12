@@ -10,7 +10,7 @@
 
 #include "AdaptiveTree.h"
 
-#include "../samplereader/SampleReader.h"
+#include "samplereader/SampleReader.h"
 
 #include <atomic>
 #include <condition_variable>

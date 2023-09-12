@@ -8,12 +8,12 @@
 
 #include "AdaptiveTreeFactory.h"
 
-#include "../parser/DASHTree.h"
-#include "../parser/HLSTree.h"
-#include "../parser/SmoothTree.h"
-#include "../utils/FileUtils.h"
-#include "../utils/StringUtils.h"
-#include "../utils/log.h"
+#include "parser/DASHTree.h"
+#include "parser/HLSTree.h"
+#include "parser/SmoothTree.h"
+#include "utils/FileUtils.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
 
 using namespace PLAYLIST;
 using namespace UTILS;

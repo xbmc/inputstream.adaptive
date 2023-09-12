@@ -8,10 +8,10 @@
 
 #include "TTML.h"
 
-#include "../../utils/StringUtils.h"
-#include "../../utils/XMLUtils.h"
-#include "../../utils/log.h"
 #include "pugixml.hpp"
+#include "utils/StringUtils.h"
+#include "utils/XMLUtils.h"
+#include "utils/log.h"
 
 #include <cstring>
 

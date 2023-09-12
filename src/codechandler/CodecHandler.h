@@ -11,7 +11,7 @@
 #include <bento4/Ap4.h>
 
 #ifdef INPUTSTREAM_TEST_BUILD
-#include "../test/KodiStubs.h"
+#include "test/KodiStubs.h"
 #else
 #include <kodi/AddonBase.h>
 #include <kodi/addon-instance/Inputstream.h>
