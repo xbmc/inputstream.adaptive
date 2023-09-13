@@ -44,6 +44,7 @@ obj-x86_64-linux-gnu/
 
 # to prevent add if project code opened by Visual Studio over CMake file
 .vs/
+out/
 
 #testfiles
 *.mpd_current
