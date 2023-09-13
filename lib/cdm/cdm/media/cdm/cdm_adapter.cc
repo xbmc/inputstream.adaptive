@@ -9,7 +9,7 @@
 #include "cdm_adapter.h"
 
 //! @todo: provide an appropriate interface for log output
-#include "../../../src/utils/log.h"
+#include "../../src/utils/log.h"
 
 #include <chrono>
 #include <thread>

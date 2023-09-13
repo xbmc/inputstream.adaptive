@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(mpegts)
 
-include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/.")
-
 if(TSDEMUX_DEBUG)
   add_definitions(-DTSDEMUX_DEBUG)
 endif(TSDEMUX_DEBUG)
@@ -20,5 +18,7 @@ add_library(mpegts STATIC
   ES_hevc.cpp
   debug.cpp
   tsDemuxer.cpp)
+
+target_include_directories(mpegts PUBLIC ${PROJECT_SOURCE_DIR})
 
 set_target_properties(mpegts PROPERTIES POSITION_INDEPENDENT_CODE True)
