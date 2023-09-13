@@ -12,7 +12,7 @@
 #include "SegmentList.h"
 
 #ifdef INPUTSTREAM_TEST_BUILD
-#include "../test/KodiStubs.h"
+#include "test/KodiStubs.h"
 #else
 #include <kodi/AddonBase.h>
 #endif

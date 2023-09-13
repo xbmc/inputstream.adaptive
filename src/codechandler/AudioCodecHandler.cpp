@@ -8,7 +8,7 @@
 
 #include "AudioCodecHandler.h"
 
-#include "../utils/Utils.h"
+#include "utils/Utils.h"
 
 #include <bento4/Ap4Mp4AudioInfo.h>
 

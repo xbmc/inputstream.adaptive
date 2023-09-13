@@ -8,12 +8,12 @@
 
 #pragma once
 
-#include "../common/AdaptationSet.h"
-#include "../common/AdaptiveTree.h"
-#include "../common/AdaptiveUtils.h"
-#include "../common/Period.h"
-#include "../common/SegTemplate.h"
-#include "../utils/CurlUtils.h"
+#include "common/AdaptationSet.h"
+#include "common/AdaptiveTree.h"
+#include "common/AdaptiveUtils.h"
+#include "common/Period.h"
+#include "common/SegTemplate.h"
+#include "utils/CurlUtils.h"
 
 #include <string_view>
 

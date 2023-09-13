@@ -8,7 +8,7 @@
 
 #include "AV1CodecHandler.h"
 
-#include "../utils/Utils.h"
+#include "utils/Utils.h"
 
 using namespace UTILS;
 

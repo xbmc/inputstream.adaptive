@@ -23,3 +23,5 @@ set_target_properties(cdm_library PROPERTIES POSITION_INDEPENDENT_CODE True)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   target_link_libraries(cdm_library "-framework CoreFoundation")
 endif()
+
+source_group_by_folder(cdm_library)

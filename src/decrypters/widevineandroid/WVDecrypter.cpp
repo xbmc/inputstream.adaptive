@@ -8,14 +8,14 @@
 
 #include "WVDecrypter.h"
 
-#include "../../common/AdaptiveDecrypter.h"
-#include "../../utils/Base64Utils.h"
-#include "../../utils/DigestMD5Utils.h"
-#include "../../utils/StringUtils.h"
-#include "../../utils/Utils.h"
 #include "WVCencSingleSampleDecrypter.h"
+#include "common/AdaptiveDecrypter.h"
 #include "jsmn.h"
 #include "kodi/tools/StringUtils.h"
+#include "utils/Base64Utils.h"
+#include "utils/DigestMD5Utils.h"
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
 
 #include <chrono>
 #include <deque>

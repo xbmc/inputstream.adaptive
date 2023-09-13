@@ -8,8 +8,8 @@
 
 #include "ChooserDefault.h"
 
-#include "../utils/SettingsUtils.h"
-#include "../utils/log.h"
+#include "utils/SettingsUtils.h"
+#include "utils/log.h"
 #include "ReprSelector.h"
 
 #include <algorithm>

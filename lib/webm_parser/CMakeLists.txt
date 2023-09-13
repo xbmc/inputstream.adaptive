@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(webm_parser)
 
-include_directories ("${CMAKE_CURRENT_SOURCE_DIR}/." ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
 set(webm_parser_sources
     "include/webm/buffer_reader.h"
     "include/webm/callback.h"
@@ -95,6 +93,11 @@ set(webm_parser_sources
     "src/webm_parser.cc")
 
 add_library(webm_parser STATIC ${webm_parser_sources})
+
+target_include_directories(webm_parser
+                           PRIVATE ${PROJECT_SOURCE_DIR}/include
+                           PUBLIC ${PROJECT_SOURCE_DIR}/include)
+
 set_target_properties(webm_parser PROPERTIES POSITION_INDEPENDENT_CODE True)
 
 # Fix C++17 Win UWP build error on src/master_parser.h line 156 and 160 with C4996.
@@ -102,3 +105,5 @@ set_target_properties(webm_parser PROPERTIES POSITION_INDEPENDENT_CODE True)
 if(CORE_SYSTEM_NAME MATCHES windows)
   target_compile_definitions(webm_parser PRIVATE -D_SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING)
 endif()
+
+source_group_by_folder(webm_parser)

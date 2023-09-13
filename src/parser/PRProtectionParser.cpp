@@ -8,12 +8,12 @@
 
 #include "PRProtectionParser.h"
 
-#include "../utils/Base64Utils.h"
-#include "../utils/CharArrayParser.h"
-#include "../utils/StringUtils.h"
-#include "../utils/Utils.h"
-#include "../utils/XMLUtils.h"
-#include "../utils/log.h"
+#include "utils/Base64Utils.h"
+#include "utils/CharArrayParser.h"
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
+#include "utils/XMLUtils.h"
+#include "utils/log.h"
 #include "pugixml.hpp"
 
 using namespace pugi;

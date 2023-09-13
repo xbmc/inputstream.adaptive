@@ -8,8 +8,8 @@
 #ifndef SRC_CHAPTERS_PARSER_H_
 #define SRC_CHAPTERS_PARSER_H_
 
-#include "src/edition_entry_parser.h"
-#include "src/master_parser.h"
+#include "edition_entry_parser.h"
+#include "master_parser.h"
 #include "webm/id.h"
 
 namespace webm {

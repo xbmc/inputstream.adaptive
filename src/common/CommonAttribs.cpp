@@ -8,7 +8,7 @@
 
 #include "CommonAttribs.h"
 
-#include "../utils/StringUtils.h"
+#include "utils/StringUtils.h"
 #include "Period.h"
 
 using namespace PLAYLIST;

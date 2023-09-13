@@ -8,8 +8,8 @@
 
 #include "SegTemplate.h"
 #include "Segment.h"
-#include "../utils/log.h"
-#include "../utils/StringUtils.h"
+#include "utils/log.h"
+#include "utils/StringUtils.h"
 
 #include "kodi/tools/StringUtils.h"
 

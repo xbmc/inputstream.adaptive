@@ -6,8 +6,8 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "../AdaptiveByteStream.h"
-#include "../WebmReader.h"
+#include "AdaptiveByteStream.h"
+#include "WebmReader.h"
 #include "SampleReader.h"
 
 class ATTR_DLL_LOCAL CWebmSampleReader : public ISampleReader, public WebmReader

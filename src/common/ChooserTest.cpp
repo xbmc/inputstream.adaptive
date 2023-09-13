@@ -8,8 +8,8 @@
 
 #include "ChooserTest.h"
 
-#include "../utils/SettingsUtils.h"
-#include "../utils/log.h"
+#include "utils/SettingsUtils.h"
+#include "utils/log.h"
 #include "ReprSelector.h"
 
 using namespace CHOOSER;

@@ -9,12 +9,12 @@
 #include "AdaptiveTree.h"
 #include "Chooser.h"
 
-#include "../common/AdaptiveUtils.h"
-#include "../utils/FileUtils.h"
-#include "../utils/StringUtils.h"
-#include "../utils/UrlUtils.h"
-#include "../utils/Utils.h"
-#include "../utils/log.h"
+#include "common/AdaptiveUtils.h"
+#include "utils/FileUtils.h"
+#include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
+#include "utils/Utils.h"
+#include "utils/log.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
 #include <kodi/General.h>

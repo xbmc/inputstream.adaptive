@@ -10,10 +10,10 @@
 #include <cassert>
 #include <cstdint>
 
-#include "src/ebml_parser.h"
-#include "src/master_parser.h"
-#include "src/segment_parser.h"
-#include "src/unknown_parser.h"
+#include "ebml_parser.h"
+#include "master_parser.h"
+#include "segment_parser.h"
+#include "unknown_parser.h"
 #include "webm/element.h"
 
 namespace webm {

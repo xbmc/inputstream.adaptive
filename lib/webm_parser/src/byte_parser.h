@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-#include "src/element_parser.h"
+#include "element_parser.h"
 #include "webm/callback.h"
 #include "webm/element.h"
 #include "webm/reader.h"

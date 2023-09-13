@@ -9,7 +9,7 @@
 #pragma once
 
 #ifdef INPUTSTREAM_TEST_BUILD
-#include "../test/KodiStubs.h"
+#include "test/KodiStubs.h"
 #else
 #include <kodi/AddonBase.h>
 //! @Todo: forward CFile?

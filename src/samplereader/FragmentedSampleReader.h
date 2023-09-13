@@ -8,11 +8,11 @@
 
 #pragma once
 
-#include "../codechandler/CodecHandler.h"
-#include "../common/AdaptiveCencSampleDecrypter.h"
-#include "../common/AdaptiveDecrypter.h"
-#include "../decrypters/IDecrypter.h"
-#include "../utils/log.h"
+#include "codechandler/CodecHandler.h"
+#include "common/AdaptiveCencSampleDecrypter.h"
+#include "common/AdaptiveDecrypter.h"
+#include "decrypters/IDecrypter.h"
+#include "utils/log.h"
 #include "SampleReader.h"
 
 class ATTR_DLL_LOCAL CFragmentedSampleReader : public ISampleReader, public AP4_LinearReader

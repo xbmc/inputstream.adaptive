@@ -8,8 +8,8 @@
 #ifndef SRC_TRACKS_PARSER_H_
 #define SRC_TRACKS_PARSER_H_
 
-#include "src/master_parser.h"
-#include "src/track_entry_parser.h"
+#include "master_parser.h"
+#include "track_entry_parser.h"
 #include "webm/id.h"
 
 namespace webm {

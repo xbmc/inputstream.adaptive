@@ -12,10 +12,10 @@
 #include "CommonSegAttribs.h"
 #include "SegTemplate.h"
 #include "SegmentList.h"
-#include "../utils/CryptoUtils.h"
+#include "utils/CryptoUtils.h"
 
 #ifdef INPUTSTREAM_TEST_BUILD
-#include "../test/KodiStubs.h"
+#include "test/KodiStubs.h"
 #else
 #include <kodi/AddonBase.h>
 #endif

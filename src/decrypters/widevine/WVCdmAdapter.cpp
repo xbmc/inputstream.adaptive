@@ -6,7 +6,7 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "../../utils/log.h"
+#include "utils/log.h"
 #include "CdmFixedBuffer.h"
 #include "WVCencSingleSampleDecrypter.h"
 #include "WVCdmAdapter.h"

@@ -11,8 +11,8 @@
 #include <cassert>
 #include <cstdint>
 
-#include "src/ancestory.h"
-#include "src/parser.h"
+#include "ancestory.h"
+#include "parser.h"
 #include "webm/callback.h"
 #include "webm/element.h"
 

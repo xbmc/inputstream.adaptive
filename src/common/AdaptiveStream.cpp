@@ -9,12 +9,12 @@
 #include "AdaptiveStream.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
-#include "../WebmReader.h"
+#include "WebmReader.h"
 #endif
-#include "../oscompat.h"
-#include "../utils/CurlUtils.h"
-#include "../utils/UrlUtils.h"
-#include "../utils/log.h"
+#include "oscompat.h"
+#include "utils/CurlUtils.h"
+#include "utils/UrlUtils.h"
+#include "utils/log.h"
 #include "Chooser.h"
 
 #include <algorithm>

@@ -8,7 +8,7 @@
 
 #include "AVCCodecHandler.h"
 
-#include "../utils/Utils.h"
+#include "utils/Utils.h"
 
 using namespace UTILS;
 

@@ -1,0 +1,50 @@
+set(SOURCES
+  AdaptationSet.cpp
+  AdaptiveCencSampleDecrypter.cpp
+  AdaptiveStream.cpp
+  AdaptiveTree.cpp
+  AdaptiveTreeFactory.cpp
+  AdaptiveUtils.cpp
+  Chooser.cpp
+  ChooserAskQuality.cpp
+  ChooserDefault.cpp
+  ChooserFixedRes.cpp
+  ChooserManualOSD.cpp
+  ChooserTest.cpp
+  CommonAttribs.cpp
+  CommonSegAttribs.cpp
+  Period.cpp
+  Representation.cpp
+  ReprSelector.cpp
+  Segment.cpp
+  SegmentBase.cpp
+  SegmentList.cpp
+  SegTemplate.cpp
+)
+
+set(HEADERS
+  AdaptationSet.h
+  AdaptiveCencSampleDecrypter.h
+  AdaptiveDecrypter.h
+  AdaptiveStream.h
+  AdaptiveTree.h
+  AdaptiveTreeFactory.h
+  AdaptiveUtils.h
+  Chooser.h
+  ChooserAskQuality.h
+  ChooserDefault.h
+  ChooserFixedRes.h
+  ChooserManualOSD.h
+  ChooserTest.h
+  CommonAttribs.h
+  CommonSegAttribs.h
+  Period.h
+  Representation.h
+  ReprSelector.h
+  Segment.h
+  SegmentBase.h
+  SegmentList.h
+  SegTemplate.h
+)
+
+add_dir_sources(SOURCES HEADERS)

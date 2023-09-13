@@ -8,8 +8,8 @@
 #ifndef SRC_CHAPTER_DISPLAY_PARSER_H_
 #define SRC_CHAPTER_DISPLAY_PARSER_H_
 
-#include "src/byte_parser.h"
-#include "src/master_value_parser.h"
+#include "byte_parser.h"
+#include "master_value_parser.h"
 #include "webm/dom_types.h"
 #include "webm/id.h"
 
