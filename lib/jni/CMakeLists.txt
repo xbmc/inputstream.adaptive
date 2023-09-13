@@ -26,3 +26,5 @@ add_library(jni STATIC
 )
 
 target_include_directories(jni PUBLIC ${PROJECT_SOURCE_DIR} PRIVATE ${PROJECT_SOURCE_DIR}/jni/jutils)
+
+source_group_by_folder(jni)

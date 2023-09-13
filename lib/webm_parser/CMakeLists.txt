@@ -105,3 +105,5 @@ set_target_properties(webm_parser PROPERTIES POSITION_INDEPENDENT_CODE True)
 if(CORE_SYSTEM_NAME MATCHES windows)
   target_compile_definitions(webm_parser PRIVATE -D_SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING)
 endif()
+
+source_group_by_folder(webm_parser)

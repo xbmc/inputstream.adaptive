@@ -23,3 +23,5 @@ add_library(mpegts STATIC
 target_include_directories(mpegts PRIVATE ${PROJECT_SOURCE_DIR}/mpegts PUBLIC ${PROJECT_SOURCE_DIR})
 
 set_target_properties(mpegts PROPERTIES POSITION_INDEPENDENT_CODE True)
+
+source_group_by_folder(mpegts)

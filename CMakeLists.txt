@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 
 project(inputstream.adaptive)
 
+include(Helpers.cmake)
+
 option(BUILD_TESTING "Build the testing tree." ON)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR})
 set(CMAKE_FIND_FRAMEWORK LAST)
@@ -27,32 +29,6 @@ else()
   # Required on some old linux platforms to use macro like PRIu64
   add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
-
-# Function to add source files to the main file list
-function(add_dir_sources source_files header_files)
-    foreach(_source ${${source_files}})
-        if (IS_ABSOLUTE "${_source}")
-            set(_source_abs "${_source}")
-        else()
-            get_filename_component(_source_abs "${_source}" ABSOLUTE)
-        endif()
-        set_property(GLOBAL APPEND PROPERTY GlobalSourceList "${_source_abs}")
-    endforeach()
-    foreach(_header ${${header_files}})
-        if (IS_ABSOLUTE "${_header}")
-            set(_header_abs "${_header}")
-        else()
-            get_filename_component(_header_abs "${_header}" ABSOLUTE)
-        endif()
-        set_property(GLOBAL APPEND PROPERTY GlobalHeaderList "${_header_abs}")
-    endforeach()
-endfunction(add_dir_sources)
-
-# Function to add an additional dependency
-function(add_dependency project_name folder)
-    set_property(GLOBAL APPEND PROPERTY GlobalDepsNamesList "${project_name}")
-    set_property(GLOBAL APPEND PROPERTY GlobalDepsFoldersList "${folder}")
-endfunction(add_dependency)
 
 # Sources to build
 # (use add_dir_sources function to add source/header files from the CMakeLists files of subdirectories)
