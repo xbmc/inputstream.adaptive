@@ -76,6 +76,8 @@ CSession::~CSession()
   m_streams.clear();
   DisposeDecrypter();
 
+  m_adaptiveTree->Uninitialize();
+
   delete m_adaptiveTree;
   m_adaptiveTree = nullptr;
 

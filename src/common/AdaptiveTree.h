@@ -100,6 +100,11 @@ public:
                          std::string_view manifestUpdParams);
 
   /*!
+   * \brief Performs operations to stop running process and release resources.
+   */
+  virtual void Uninitialize();
+
+  /*!
    * \brief Open manifest data for parsing.
    * \param url Effective url where the manifest is downloaded
    * \param headers Headers provided in the HTTP response
@@ -236,6 +241,9 @@ public:
 
     // \brief As "std::mutex" unlock, but resume the manifest updates (support std::lock_guard).
     void unlock() { Resume(); }
+
+    // \brief Stop performing new updates.
+    void Stop();
 
   private:
     void Worker();

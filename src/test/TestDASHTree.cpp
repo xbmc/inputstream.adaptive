@@ -27,6 +27,7 @@ protected:
 
   void TearDown() override
   {
+    tree->Uninitialize();
     testHelper::effectiveUrl.clear();
     delete tree;
     tree = nullptr;
