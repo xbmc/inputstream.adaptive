@@ -80,6 +80,13 @@ namespace adaptive
         static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
   }
 
+  void AdaptiveTree::Uninitialize()
+  {
+    // Stop the update thread before the tree class deconstruction otherwise derived classes
+    // will be destructed early, so while an update could be just started
+    m_updThread.Stop();
+  }
+
   void AdaptiveTree::PostOpen(const UTILS::PROPERTIES::KodiProperties& kodiProps)
   {
     // A manifest can provide live delay value, if not so we use our default
@@ -541,13 +548,12 @@ namespace adaptive
   AdaptiveTree::TreeUpdateThread::~TreeUpdateThread()
   {
     // assert(m_waitQueue == 0); // Debug only, missing resume
+
+    // We assume that Stop() method has been called before the deconstruction
     m_threadStop = true;
 
     if (m_thread.joinable())
-    {
-      m_cvUpdInterval.notify_all(); // Unlock possible waiting
       m_thread.join();
-    }
   }
 
   void AdaptiveTree::TreeUpdateThread::Initialize(AdaptiveTree* tree)
@@ -572,6 +578,8 @@ namespace adaptive
         // If paused, wait until last "Resume" will be called
         std::unique_lock<std::mutex> lckWait(m_waitMutex);
         m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
+        if (m_threadStop)
+          break;
 
         updLck.lock();
         m_tree->RefreshLiveSegments();
@@ -593,6 +601,15 @@ namespace adaptive
     // If there are no more pauses, unblock the update thread
     if (m_waitQueue == 0)
       m_cvWait.notify_all();
+  }
+
+  void AdaptiveTree::TreeUpdateThread::Stop()
+  {
+    m_threadStop = true;
+    // If an update is already in progress wait until exit
+    std::lock_guard<std::mutex> updLck{m_updMutex};
+    m_cvUpdInterval.notify_all();
+    m_cvWait.notify_all();
   }
 
   } // namespace adaptive
