@@ -535,6 +535,11 @@ public:
    */
   virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps);
 
+  /*!
+   * \brief Performs operations to stop running process and release resources.
+   */
+  virtual void Uninitialize();
+
   virtual bool open(const std::string& url) = 0;
   virtual bool open(const std::string& url, std::map<std::string, std::string> additionalHeaders) = 0;
 
@@ -638,6 +643,9 @@ public:
 
     // \brief As "std::mutex" unlock, but resume the manifest updates (support std::lock_guard).
     void unlock() { Resume(); }
+
+    // \brief Stop performing new updates.
+    void Stop();
 
   private:
     void Worker();
