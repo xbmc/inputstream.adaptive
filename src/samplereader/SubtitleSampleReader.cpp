@@ -135,7 +135,8 @@ AP4_Result CSubtitleSampleReader::ReadSample()
           if (currentSegment)
           {
             m_codecHandler->Transform(currentSegment->startPTS_ + GetStartPTS(),
-                                      currentSegment->m_duration, segData, 1000);
+                                      static_cast<AP4_UI32>(currentSegment->m_duration), segData,
+                                      1000);
             if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
             {
               m_pts = m_sample.GetCts();

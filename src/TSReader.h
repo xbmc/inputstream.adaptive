@@ -40,7 +40,7 @@ public:
   uint64_t GetStartPts() const { return m_startPts; }
   uint64_t GetDuration() const { return m_pkt.duration; }
   const AP4_Byte *GetPacketData() const { return m_pkt.data; };
-  const AP4_Size GetPacketSize() const { return m_pkt.size; };
+  const AP4_Size GetPacketSize() const { return static_cast<AP4_Size>(m_pkt.size); }
   const INPUTSTREAM_TYPE GetStreamType() const;
 
 private:

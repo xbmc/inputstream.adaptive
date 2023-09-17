@@ -79,7 +79,7 @@ TSReader::~TSReader()
 bool TSReader::ReadAV(uint64_t pos, unsigned char * data, size_t len)
 {
   m_stream->Seek(pos);
-  return AP4_SUCCEEDED(m_stream->Read(data, len));
+  return AP4_SUCCEEDED(m_stream->Read(data, static_cast<AP4_Size>(len)));
 }
 
 void TSReader::Reset(bool resetPackets)

@@ -36,7 +36,7 @@ public:
     std::uint64_t* num_actually_read) override
   {
     AP4_Size num_read;
-    AP4_Result status = m_stream->ReadPartial(buffer, num_to_read, num_read);
+    AP4_Result status = m_stream->ReadPartial(buffer, static_cast<AP4_Size>(num_to_read), num_read);
     *num_actually_read = num_read;
 
     if (AP4_SUCCEEDED(status))
@@ -291,8 +291,9 @@ webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, con
 
     if (track_entry.codec_private.is_present())
     {
-      m_codecPrivate.SetData(track_entry.codec_private.value().data(),
-                             track_entry.codec_private.value().size());
+      const auto& codecPrivateData = track_entry.codec_private.value();
+      m_codecPrivate.SetData(codecPrivateData.data(),
+                             static_cast<AP4_Size>(codecPrivateData.size()));
     }
   }
   else if (track_entry.video.is_present())
@@ -306,10 +307,16 @@ webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, con
 
     if (track_entry.codec_private.is_present())
     {
-      m_codecPrivate.SetData(track_entry.codec_private.value().data(), track_entry.codec_private.value().size());
+      const auto& codecPrivateData = track_entry.codec_private.value();
+      m_codecPrivate.SetData(codecPrivateData.data(),
+                             static_cast<AP4_Size>(codecPrivateData.size()));
 #if INPUTSTREAM_VERSION_LEVEL > 0
-      if (track_entry.codec_private.value().size() > 3 && track_entry.codec_id.is_present() && track_entry.codec_id.value() == "V_VP9")
-        m_codecProfile = static_cast<STREAMCODEC_PROFILE>(STREAMCODEC_PROFILE::VP9CodecProfile0 + track_entry.codec_private.value()[2]);
+      if (codecPrivateData.size() > 3 && track_entry.codec_id.is_present() &&
+          track_entry.codec_id.value() == "V_VP9")
+      {
+      m_codecProfile = static_cast<STREAMCODEC_PROFILE>(STREAMCODEC_PROFILE::VP9CodecProfile0 +
+                                                        codecPrivateData[2]);
+      }
 #endif
     }
 
