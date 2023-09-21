@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <map>
 
 #ifdef _WIN32 // windows
 #if !defined(_SSIZE_T_DEFINED) && !defined(HAVE_SSIZE_T)
@@ -86,6 +87,11 @@ namespace addon
 {
 class InputstreamInfo;
 
+inline std::string GetAddonInfo(const std::string& id)
+{
+  return "";
+}
+
 inline std::string GetLocalizedString(uint32_t labelId, const std::string& defaultStr = "")
 {
   return defaultStr;
@@ -114,8 +120,72 @@ inline std::string GetUserPath(const std::string& append = "")
 
 } // namespace addon
 
+struct VFSProperty
+{
+  char* name;
+  char* val;
+};
+
+struct VFSDirEntry
+{
+  char* label; //!< item label
+  char* title; //!< item title
+  char* path; //!< item path
+  unsigned int num_props; //!< Number of properties attached to item
+  struct VFSProperty* properties; //!< Properties
+  time_t date_time; //!< file creation date & time
+  bool folder; //!< Item is a folder
+  uint64_t size; //!< Size of file represented by item
+};
+
 namespace vfs
 {
+class ATTR_DLL_LOCAL CDirEntry
+{
+public:
+  CDirEntry(const std::string& label = "",
+            const std::string& path = "",
+            bool folder = false,
+            int64_t size = -1,
+            time_t dateTime = 0)
+    : m_label(label), m_path(path), m_folder(folder), m_size(size), m_dateTime(dateTime)
+  {
+  }
+
+  explicit CDirEntry(const VFSDirEntry& dirEntry)
+    : m_label(dirEntry.label ? dirEntry.label : ""),
+      m_path(dirEntry.path ? dirEntry.path : ""),
+      m_folder(dirEntry.folder),
+      m_size(dirEntry.size),
+      m_dateTime(dirEntry.date_time)
+  {
+  }
+
+  const std::string& Label(void) const { return m_label; }
+  const std::string& Title(void) const { return m_title; }
+  const std::string& Path(void) const { return m_path; }
+  bool IsFolder(void) const { return m_folder; }
+  int64_t Size(void) const { return m_size; }
+  time_t DateTime() { return m_dateTime; }
+  void SetLabel(const std::string& label) { m_label = label; }
+  void SetTitle(const std::string& title) { m_title = title; }
+  void SetPath(const std::string& path) { m_path = path; }
+  void SetFolder(bool folder) { m_folder = folder; }
+  void SetSize(int64_t size) { m_size = size; }
+  void SetDateTime(time_t dateTime) { m_dateTime = dateTime; }
+  void AddProperty(const std::string& id, const std::string& value) { m_properties[id] = value; }
+  void ClearProperties() { m_properties.clear(); }
+  const std::map<std::string, std::string>& GetProperties() const { return m_properties; }
+private:
+  std::string m_label;
+  std::string m_title;
+  std::string m_path;
+  std::map<std::string, std::string> m_properties;
+  bool m_folder;
+  int64_t m_size;
+  time_t m_dateTime;
+};
+
 class CFile
 {
 public:
@@ -183,9 +253,26 @@ inline bool FileExists(const std::string& filename, bool usecache = false)
   return false;
 }
 
+inline bool DirectoryExists(const std::string& path)
+{
+  return false;
+}
+
 inline bool RemoveDirectory(const std::string& path, bool recursive = false)
 {
   return true;
+}
+
+inline std::string TranslateSpecialProtocol(const std::string& source)
+{
+  return "";
+}
+
+inline bool GetDirectory(const std::string& path,
+                         const std::string& mask,
+                         std::vector<kodi::vfs::CDirEntry>& items)
+{
+  return false;
 }
 
 } // namespace vfs
