@@ -41,6 +41,12 @@ std::string PathCombine(std::string path, std::string filePath);
 std::string GetAddonUserPath();
 
 /*!
+ * \brief Get the data folder of the addon.
+ * \return The path.
+ */
+std::string GetAddonPath();
+
+/*!
  * \brief Check for duplicates for the file path, and change the filename
  *        based on the number of duplicate files.
  * \param path [IN][OUT] The file path. based on the number of duplicate files found,

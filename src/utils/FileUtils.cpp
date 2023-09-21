@@ -57,6 +57,29 @@ std::string UTILS::FILESYS::GetAddonUserPath()
   return kodi::addon::GetUserPath();
 }
 
+std::string UTILS::FILESYS::GetAddonPath()
+{
+  std::array<std::string, 3> searchPaths = {
+      kodi::vfs::TranslateSpecialProtocol("special://xbmcbinaddons/inputstream.adaptive/"),
+      kodi::vfs::TranslateSpecialProtocol("special://xbmcaltbinaddons/inputstream.adaptive/"),
+      kodi::addon::GetAddonInfo("path"),
+  };
+
+  for (auto searchPath : searchPaths)
+  {
+    std::vector<kodi::vfs::CDirEntry> items;
+    if (!kodi::vfs::DirectoryExists(searchPath) || !kodi::vfs::GetDirectory(searchPath, "", items))
+      continue;
+
+    for (auto item : items)
+    {
+      if (!item.IsFolder() && item.Label().find("inputstream.adaptive") != std::string::npos)
+        return searchPath;
+    }
+  }
+  return {};
+}
+
 bool UTILS::FILESYS::CheckDuplicateFilePath(std::string& filePath, uint32_t filesLimit /* = 0 */)
 {
   const size_t extensionPos = filePath.rfind('.');
