@@ -71,3 +71,9 @@ function(add_dependency project_name folder)
     set_property(GLOBAL APPEND PROPERTY GlobalDepsNamesList "${project_name}")
     set_property(GLOBAL APPEND PROPERTY GlobalDepsFoldersList "${folder}")
 endfunction(add_dependency)
+
+# Function to add an additional shared dependency to global properties GlobalSharedDepsNamesList/GlobalSharedDepsFoldersList
+function(add_shared_dependency project_name folder)
+    set_property(GLOBAL APPEND PROPERTY GlobalSharedDepsNamesList "${project_name}")
+    set_property(GLOBAL APPEND PROPERTY GlobalSharedDepsFoldersList "${folder}")
+endfunction(add_shared_dependency)

@@ -26,6 +26,7 @@ if(WIN32)
   list(APPEND DEPLIBS ${dlfcn-win32_LIBRARIES})
   include_directories(${dlfcn-win32_INCLUDE_DIRS})
 else()
+  list(APPEND DEPLIBS ${CMAKE_DL_LIBS})
   # Required on some old linux platforms to use macro like PRIu64
   add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
@@ -67,6 +68,16 @@ foreach(DEP_FOLDER ${DEPS_FOLDERS_LIST})
 endforeach()
 get_property(DEPS_NAMES_LIST GLOBAL PROPERTY GlobalDepsNamesList)
 list(APPEND DEPLIBS ${DEPS_NAMES_LIST})
+
+# Add additional shared dependencies
+get_property(DEPS_FOLDERS_LIST GLOBAL PROPERTY GlobalSharedDepsFoldersList)
+foreach(DEP_FOLDER ${DEPS_FOLDERS_LIST})
+  add_subdirectory(${DEP_FOLDER})
+endforeach()
+get_property(DEPS_NAMES_LIST GLOBAL PROPERTY GlobalSharedDepsNamesList)
+foreach(DEP_NAME ${DEPS_NAMES_LIST})
+  list(APPEND ADP_ADDITIONAL_BINARY $<TARGET_FILE:${DEP_NAME}>)
+endforeach()
 
 build_addon(inputstream.adaptive ADP DEPLIBS)
 

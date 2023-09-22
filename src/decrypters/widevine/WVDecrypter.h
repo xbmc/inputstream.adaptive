@@ -25,6 +25,8 @@ public:
   CWVDecrypter() : m_WVCdmAdapter(nullptr), m_decodingDecrypter(nullptr){};
   virtual ~CWVDecrypter() override;
 
+  virtual bool Initialize() override;
+
   virtual const char* SelectKeySytem(const char* keySystem) override;
   virtual bool OpenDRMSystem(const char* licenseURL,
                              const AP4_DataBuffer& serverCertificate,
@@ -69,4 +71,5 @@ private:
   std::string m_strProfilePath;
   std::string m_strLibraryPath;
   bool m_isDebugSaveLicense;
+  void* m_hdlLibLoader{nullptr}; // Aarch64 loader library handle
 };
