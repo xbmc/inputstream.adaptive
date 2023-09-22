@@ -1,3 +1,11 @@
+v21.3.0 (2023-09-22)
+- Massive refactoring of decrypters (thanks @glennguy)
+- Fix missing headers to manifest request (fix HTTP error 403)
+- [HLS] Fix playback of some manifests that dont provide info to detect the stream type
+- [DASH] Fix a possible crash when you stop a live video playback
+- Cleanups to CMake build files
+- Dev info: changes have been made to the binaries that are compiled, the libssd_wv.xxx library file no longer exists, instead for linux aarch64/arm64 platform only, a new library file libcdm_aarch64_loader.xxx will be created, which must be included in the add-on folder
+
 v21.2.1 (2023-09-07)
 - [HLS] Fixed possible duplicated audio/video streams
 - [HLS] Fixed broken playback with some manifests containing EXT-X-DISCONTINUITY
