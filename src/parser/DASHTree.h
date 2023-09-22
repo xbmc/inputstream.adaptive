@@ -35,7 +35,7 @@ public:
   void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
                  CHOOSER::IRepresentationChooser* reprChooser,
                  std::string_view supportedKeySystem,
-                 std::string_view manifestUpdParams);
+                 std::string_view manifestUpdParams) override;
 
   virtual TreeType GetTreeType() override { return TreeType::DASH; }
 

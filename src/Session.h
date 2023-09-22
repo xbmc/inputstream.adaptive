@@ -119,7 +119,7 @@ public:
   /*! \brief Get the number of streams in the session
    *  \return The number of streams in the session
    */
-  unsigned int GetStreamCount() const { return m_streams.size(); }
+  unsigned int GetStreamCount() const { return static_cast<unsigned int>(m_streams.size()); }
 
   /*! \brief Get a session string (session id) by index from the cdm sessions
    *  \param index The index (psshSet number) of the cdm session

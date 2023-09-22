@@ -469,7 +469,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
         pData += 16;
         std::memcpy(p->cryptoInfo->kid, pData, 16);
         pData += 16;
-        iSize -= (pData - sr->GetSampleData());
+        iSize -= static_cast<AP4_Size>(pData - sr->GetSampleData());
         CryptoInfo cryptoInfo = sr->GetReaderCryptoInfo();
         p->cryptoInfo->numSubSamples = numSubSamples;
         p->cryptoInfo->cryptBlocks = cryptoInfo.m_cryptBlocks;

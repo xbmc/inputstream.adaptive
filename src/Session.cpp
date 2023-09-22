@@ -66,7 +66,8 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
   if (!kodiProps.m_serverCertificate.empty())
   {
     std::string decCert{BASE64::Decode(kodiProps.m_serverCertificate)};
-    m_serverCertificate.SetData(reinterpret_cast<const AP4_Byte*>(decCert.data()), decCert.size());
+    m_serverCertificate.SetData(reinterpret_cast<const AP4_Byte*>(decCert.data()),
+                                static_cast<AP4_Size>(decCert.size()));
   }
 }
 
@@ -322,7 +323,8 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
 
   // Set the provided PSSH
   std::string decPssh{BASE64::Decode(psshData)};
-  init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()), decPssh.size());
+  init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()),
+                    static_cast<AP4_Size>(decPssh.size()));
 
   // Decode the provided KID
   std::string decKid{BASE64::Decode(kidData)};
@@ -437,7 +439,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           }
           AP4_Array<AP4_PsshAtom>& pssh{movie->GetPsshAtoms()};
 
-          for (size_t i{0}; !init_data.GetDataSize() && i < pssh.ItemCount(); i++)
+          for (unsigned int i = 0; init_data.GetDataSize() == 0 && i < pssh.ItemCount(); i++)
           {
             if (memcmp(pssh[i].GetSystemId(), key_system, 16) == 0)
             {
@@ -481,7 +483,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
             }
           }
 
-          if (!init_data.GetDataSize())
+          if (init_data.GetDataSize() == 0)
           {
             LOG::Log(LOGERROR, "Could not extract license from video stream (PSSH not found)");
             stream.Disable();
@@ -511,12 +513,12 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
               licenseData = "e0tJRH0="; // {KID}
             std::vector<uint8_t> init_data_v;
             CreateISMlicense(sessionPsshset.defaultKID_, licenseData, init_data_v);
-            init_data.SetData(init_data_v.data(), init_data_v.size());
+            init_data.SetData(init_data_v.data(), static_cast<AP4_Size>(init_data_v.size()));
           }
           else
           {
             init_data.SetData(reinterpret_cast<const uint8_t*>(sessionPsshset.pssh_.data()),
-                              sessionPsshset.pssh_.size());
+                              static_cast<AP4_Size>(sessionPsshset.pssh_.size()));
             optionalKeyParameter =
                 m_kodiProps.m_licenseData.empty() ? nullptr : m_kodiProps.m_licenseData.c_str();
           }
@@ -525,7 +527,8 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         {
           std::string decPssh{BASE64::Decode(sessionPsshset.pssh_)};
           init_data.SetBufferSize(1024);
-          init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()), decPssh.size());
+          init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()),
+                            static_cast<AP4_Size>(decPssh.size()));
         }
       }
 
@@ -1516,7 +1519,8 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
     {
       AP4_MemoryByteStream ms{reinterpret_cast<const uint8_t*>(extradata.data()),
                               static_cast<const AP4_Size>(extradata.size())};
-      AP4_AvccAtom* atom{AP4_AvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
+      AP4_AvccAtom* atom =
+          AP4_AvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
       sampleDesc = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->m_info.GetWidth(),
                                                 stream->m_info.GetHeight(), 0, nullptr, atom);
     }
@@ -1524,7 +1528,8 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
     {
       AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
                               static_cast<const AP4_Size>(extradata.size())};
-      AP4_HvccAtom* atom{AP4_HvccAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms)};
+      AP4_HvccAtom* atom =
+          AP4_HvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
       sampleDesc = new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->m_info.GetWidth(),
                                                  stream->m_info.GetHeight(), 0, nullptr, atom);
     }
@@ -1532,7 +1537,8 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
     {
       AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
                               static_cast<AP4_Size>(extradata.size())};
-      AP4_Av1cAtom* atom = AP4_Av1cAtom::Create(AP4_ATOM_HEADER_SIZE + extradata.size(), ms);
+      AP4_Av1cAtom* atom =
+          AP4_Av1cAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
       sampleDesc = new AP4_Av1SampleDescription(AP4_SAMPLE_FORMAT_AV01, stream->m_info.GetWidth(),
                                                 stream->m_info.GetHeight(), 0, nullptr, atom);
     }
