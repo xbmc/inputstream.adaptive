@@ -262,7 +262,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
             period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
 
             rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-                                              m_currentDefaultKID, m_currentIV);
+                                              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
             if (period->GetPSSHSets()[rep->GetPsshSetPos()].m_usageCount == 1 ||
                 prepareStatus == PrepareRepStatus::DRMCHANGED)
             {
@@ -410,7 +410,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
           if (psshSetPos == PSSHSET_POS_DEFAULT)
           {
             psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
-                                       m_currentDefaultKID, m_currentIV);
+                                       m_currentDefaultKID, m_currentKidUrl, m_currentIV);
             newSegment->pssh_set_ = psshSetPos;
           }
           else
@@ -506,7 +506,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         if (currentEncryptionType == EncryptionType::WIDEVINE)
         {
           rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-                                            m_currentDefaultKID, m_currentIV);
+                                            m_currentDefaultKID, m_currentKidUrl, m_currentIV);
           period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
         }
 
@@ -639,13 +639,13 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
-      //First look if we already have this URL resolved
-      for (auto itPsshSet = m_currentPeriod->GetPSSHSets().begin();
-           itPsshSet != m_currentPeriod->GetPSSHSets().end(); itPsshSet++)
+      // First look if we already have this URL resolved
+      for (const CPeriod::PSSHSet& psshSet : m_currentPeriod->GetPSSHSets())
       {
-        if (itPsshSet->pssh_ == pssh.pssh_ && !itPsshSet->defaultKID_.empty())
+        if (!psshSet.defaultKID_.empty() && psshSet.pssh_ == pssh.pssh_ ||
+            (!psshSet.m_kidUrl.empty() && psshSet.m_kidUrl == pssh.m_kidUrl))
         {
-          pssh.defaultKID_ = itPsshSet->defaultKID_;
+          pssh.defaultKID_ = psshSet.defaultKID_;
           break;
         }
       }
@@ -655,7 +655,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
       RETRY:
         std::map<std::string, std::string> headers;
         std::vector<std::string> keyParts = STRING::SplitToVec(m_decrypter->getLicenseKey(), '|');
-        std::string url = pssh.pssh_.c_str();
+        std::string url = pssh.m_kidUrl;
 
         if (keyParts.size() > 0)
         {
@@ -668,18 +668,23 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
 
         if (DownloadKey(url, headers, {}, resp))
         {
-          pssh.defaultKID_ = resp.data;
+          //! @todo: change DownloadKey and CURL methods to provide directly uint8_t data
+          pssh.defaultKID_.assign(resp.data.begin(), resp.data.end());
         }
-        else if (pssh.defaultKID_ != "0")
+        else if (pssh.defaultKID_.size() != 1)
         {
-          pssh.defaultKID_ = "0";
+          //! @todo: RenewLicense (addon) callback is not wiki documented, there are addons that could use this?
+          //!        currently fall here when the above download fail, there is no a better behaviour to avoid to do a broken download?
+          //!        the defaultKID_ is forced set with a single "0" instead of 16 chars without explanations
+          pssh.defaultKID_.clear();
+          pssh.defaultKID_.push_back('0');
           if (keyParts.size() >= 5 && !keyParts[4].empty() &&
               m_decrypter->RenewLicense(keyParts[4]))
             goto RETRY;
         }
       }
     }
-    if (pssh.defaultKID_ == "0")
+    if (pssh.defaultKID_.size() == 1 && pssh.defaultKID_.front() == '0')
     {
       segBuffer.resize(segBufferSize + srcDataSize, 0);
       return;
@@ -698,9 +703,8 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     // Decrypter needs preallocated data
     segBuffer.resize(segBufferSize + srcDataSize);
 
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv,
-                         reinterpret_cast<const AP4_UI08*>(srcData), segBuffer, segBufferSize,
-                         srcDataSize, isLastChunk);
+    m_decrypter->decrypt(pssh.defaultKID_, iv, reinterpret_cast<const AP4_UI08*>(srcData),
+                         segBuffer, segBufferSize, srcDataSize, isLastChunk);
     if (srcDataSize >= 16)
       memcpy(iv, srcData + (srcDataSize - 16), 16);
   }
@@ -826,9 +830,9 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   // AES-128
   if (encryptMethod == "AES-128" && !attribs["URI"].empty())
   {
-    m_currentPssh = attribs["URI"];
-    if (URL::IsUrlRelative(m_currentPssh))
-      m_currentPssh = URL::Join(baseUrl.data(), m_currentPssh);
+    m_currentKidUrl = attribs["URI"];
+    if (URL::IsUrlRelative(m_currentKidUrl))
+      m_currentKidUrl = URL::Join(baseUrl.data(), m_currentKidUrl);
 
     m_currentIV = m_decrypter->convertIV(attribs["IV"]);
 
@@ -844,6 +848,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     {
       std::string keyid = attribs["KEYID"].substr(2);
       const char* defaultKID = keyid.c_str();
+      m_currentDefaultKID.clear();
       m_currentDefaultKID.resize(16);
       for (unsigned int i(0); i < 16; ++i)
       {
@@ -854,7 +859,11 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
       }
     }
 
-    m_currentPssh = attribs["URI"].substr(23);
+    m_currentPssh = ConvertDataUriToBytes(attribs["URI"]);
+    /*
+    *! @TODO: Following commented code dont take in account of possible pssh data and skip pssh parsing
+    *         needed appropriate method to parse wv pssh
+    * 
     // Try to get KID from pssh, we assume len+'pssh'+version(0)+systemid+lenkid+kid
     if (m_currentDefaultKID.empty() && m_currentPssh.size() == 68)
     {
@@ -862,6 +871,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
       if (decPssh.size() == 50)
         m_currentDefaultKID = decPssh.substr(34, 16);
     }
+    */
     if (encryptMethod == "SAMPLE-AES-CTR")
       m_cryptoMode = CryptoMode::AES_CTR;
     else if (encryptMethod == "SAMPLE-AES")
@@ -878,6 +888,35 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   }
 
   return EncryptionType::UNKNOWN;
+}
+
+std::vector<uint8_t> adaptive::CHLSTree::ConvertDataUriToBytes(std::string_view uri)
+{
+  // Uri data format: "data:[media type][;attribute=value][;base64],<data>"
+  std::vector<std::string> colonSplit = STRING::SplitToVec(uri, ':');
+  if (colonSplit.size() == 2 && colonSplit[0] == "data")
+  {
+    std::vector<std::string> semiColonSplit = STRING::SplitToVec(colonSplit[1], ';');
+    if (semiColonSplit.size() > 0)
+    {
+      std::vector<std::string> comSplit = STRING::SplitToVec(semiColonSplit.back(), ',');
+      if (comSplit.size() == 2)
+      {
+        const bool isBase64 = comSplit[0] == "base64";
+        const std::string data = comSplit[1];
+        if (isBase64)
+        {
+          //return BASE64::DecodeStrToUint8(data);
+          return STRING::ToVecUint8(data);
+        }
+        else //!@TODO
+        {
+        }
+      }
+    }
+  }
+  // todo: log uri not supported?
+  return {};
 }
 
 bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,

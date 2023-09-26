@@ -273,3 +273,10 @@ uint32_t UTILS::STRING::HexStrToUint(std::string_view hexValue)
   ss >> val;
   return val;
 }
+
+std::vector<uint8_t> UTILS::STRING::ToVecUint8(std::string_view str)
+{
+  std::vector<uint8_t> val;
+  val.assign(str.begin(), str.end());
+  return val;
+}

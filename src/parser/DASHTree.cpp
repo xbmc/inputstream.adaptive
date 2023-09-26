@@ -602,8 +602,8 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   if (nodeAdp.child("ContentProtection"))
   {
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
-    std::string pssh{PSSH_FROM_FILE};
-    std::string kid;
+    std::vector<uint8_t> pssh;
+    std::vector<uint8_t> kid;
 
     // If a custom init PSSH is provided, should mean that a certain content protection tag
     // is missing, in this case we ignore the content protection tags and we add a PSSH marked
@@ -611,8 +611,8 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     if (m_isCustomInitPssh || ParseTagContentProtection(nodeAdp, pssh, kid))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-      uint16_t currentPsshSetPos =
-          InsertPsshSet(adpSet->GetStreamType(), period, adpSet.get(), pssh, kid);
+      uint16_t currentPsshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet.get(),
+                                                 pssh, kid, m_isCustomInitPssh);
 
       if (currentPsshSetPos == PSSHSET_POS_INVALID)
       {
@@ -952,8 +952,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   if (nodeRepr.child("ContentProtection"))
   {
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
-    std::string pssh{PSSH_FROM_FILE};
-    std::string kid;
+    std::vector<uint8_t> pssh;
+    std::vector<uint8_t> kid;
 
     // If a custom init PSSH is provided, should mean that a certain content protection tag
     // is missing, in this case we ignore the content protection tags and we add a PSSH marked
@@ -962,7 +962,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
 
-      uint16_t psshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid);
+      uint16_t psshSetPos =
+          InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid, m_isCustomInitPssh);
 
       if (psshSetPos == PSSHSET_POS_INVALID)
       {
@@ -1249,8 +1250,8 @@ void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemp
 }
 
 bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
-                                                    std::string& pssh,
-                                                    std::string& kid)
+                                                    std::vector<uint8_t>& pssh,
+                                                    std::vector<uint8_t>& kid)
 {
   std::optional<ProtectionScheme> commonProtScheme;
   std::vector<ProtectionScheme> protectionSchemes;
@@ -1270,7 +1271,7 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
       // e.g. cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"
       xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
       if (attrKID)
-        protScheme.kid = attrKID.value();
+        protScheme.kid = STRING::ToVecUint8(attrKID.value());
 
       commonProtScheme = protScheme;
     }
@@ -1282,17 +1283,17 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
 
       // We try find default KID also from the other protection schemes
       xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
-      if (attrKID)
-        protScheme.kid = attrKID.value();
+      if (attrKID && attrKID.value())
+        protScheme.kid = STRING::ToVecUint8(attrKID.value());
 
       // Parse child tags
       for (xml_node node : nodeCP.children())
       {
         std::string childName = node.name();
 
-        if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:selectedPssh> or <selectedPssh> ...
+        if (StringUtils::EndsWith(childName, "pssh") && node.child_value()) // e.g. <cenc:pssh> or <pssh> ...
         {
-          protScheme.pssh = node.child_value();
+          protScheme.pssh = STRING::ToVecUint8(node.child_value());
         }
         else if (childName == "mspr:pro" || childName == "pro")
         {
@@ -1312,8 +1313,8 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
                                    });
 
   bool isEncrypted{false};
-  std::string selectedKid;
-  std::string selectedPssh;
+  std::vector<uint8_t> selectedKid;
+  std::vector<uint8_t> selectedPssh;
 
   if (itProtScheme != protectionSchemes.cend())
   {
@@ -1341,7 +1342,7 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
   {
     if (selectedKid.size() == 36)
     {
-      const char* selectedKidPtr = selectedKid.c_str();
+      const uint8_t* selectedKidPtr = selectedKid.data();
       kid.resize(16);
       for (size_t i{0}; i < 16; i++)
       {

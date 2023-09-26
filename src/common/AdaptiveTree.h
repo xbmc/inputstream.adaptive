@@ -174,13 +174,20 @@ public:
   {
   }
 
-  // Insert a PSSHSet to the specified Period and return the position
   uint16_t InsertPsshSet(PLAYLIST::StreamType streamType,
                          PLAYLIST::CPeriod* period,
                          PLAYLIST::CAdaptationSet* adp,
-                         std::string_view pssh,
-                         std::string_view defaultKID,
-                         std::string_view iv = "");
+                         const std::vector<uint8_t>& pssh,
+                         const std::vector<uint8_t>& defaultKid,
+                         bool needsExtractPssh = false);
+
+  uint16_t InsertPsshSet(PLAYLIST::StreamType streamType,
+                         PLAYLIST::CPeriod* period,
+                         PLAYLIST::CAdaptationSet* adp,
+                         const std::vector<uint8_t>& pssh,
+                         const std::vector<uint8_t>& defaultKid,
+                         std::string_view kidUrl,
+                         std::string_view iv);
 
   PLAYLIST::CAdaptationSet* GetAdaptationSet(size_t pos) const
   {
@@ -282,6 +289,16 @@ public:
   std::string_view GetLicenseUrl() { return m_licenseUrl; }
 
 protected:
+  // Insert a PSSHSet to the specified Period and return the position
+  uint16_t InsertPsshSetImpl(PLAYLIST::StreamType streamType,
+                             PLAYLIST::CPeriod* period,
+                             PLAYLIST::CAdaptationSet* adp,
+                             const std::vector<uint8_t>& pssh,
+                             const std::vector<uint8_t>& defaultKID,
+                             std::string_view kidUrl,
+                             std::string_view iv,
+                             bool needsExtractPssh);
+
   /*!
    * \brief Save manifest data to a file for debugging purpose.
    * \param fileNameSuffix Suffix to add to the filename generated.

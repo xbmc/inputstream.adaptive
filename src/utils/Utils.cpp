@@ -208,32 +208,32 @@ std::string UTILS::AvcToAnnexb(const std::string& avc)
   return std::string(reinterpret_cast<char*>(buffer), buffer_size);
 }
 
-std::string UTILS::ConvertKIDtoWVKID(std::string_view kid)
+std::vector<uint8_t> UTILS::ConvertKIDtoWVKID(const std::vector<uint8_t>& kid)
 {
-  std::string remapped;
+  std::vector<uint8_t> remapped;
   static const size_t remap[16] = {3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15};
   for (size_t i{0}; i < 16; ++i)
   {
-    remapped += kid[remap[i]];
+    remapped.emplace_back(kid[remap[i]]);
   }
   return remapped;
 }
 
-std::string UTILS::ConvertKIDtoUUID(std::string_view kid)
+std::vector<uint8_t> UTILS::ConvertKIDtoUUID(const std::vector<uint8_t>& kid)
 {
   static char hexDigits[] = "0123456789abcdef";
-  std::string uuid;
+  std::vector<uint8_t> uuid;
   for (size_t i{0}; i < 16; ++i)
   {
     if (i == 4 || i == 6 || i == 8 || i == 10)
-      uuid += '-';
-    uuid += hexDigits[static_cast<uint8_t>(kid[i]) >> 4];
-    uuid += hexDigits[static_cast<uint8_t>(kid[i]) & 15];
+      uuid.emplace_back('-');
+    uuid.emplace_back(hexDigits[kid[i] >> 4]);
+    uuid.emplace_back(hexDigits[kid[i] & 15]);
   }
   return uuid;
 }
 
-bool UTILS::CreateISMlicense(std::string_view key,
+bool UTILS::CreateISMlicense(std::vector<uint8_t> key,
                              std::string_view licenseData,
                              std::vector<uint8_t>& initData)
 {
@@ -289,8 +289,8 @@ bool UTILS::CreateISMlicense(std::string_view key,
     std::memcpy(protoptr, kid, uuid - kid);
     protoptr += uuid - kid;
 
-    std::string uuidKid{ConvertKIDtoUUID(key)};
-    protoptr = reinterpret_cast<uint8_t*>(uuidKid.data());
+    std::vector<uint8_t> uuidKid = ConvertKIDtoUUID(key);
+    protoptr = uuidKid.data();
 
     size_t sizeleft = origLicenseSize - ((uuid - kid) + 6);
     std::memcpy(protoptr, uuid + 6, sizeleft);

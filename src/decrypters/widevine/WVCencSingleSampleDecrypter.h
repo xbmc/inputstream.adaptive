@@ -32,13 +32,15 @@ public:
   // methods
   CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
                                AP4_DataBuffer& pssh,
-                               std::string_view defaultKeyId,
+                               const std::vector<uint8_t>& defaultKeyId,
                                bool skipSessionMessage,
                                CryptoMode cryptoMode,
                                CWVDecrypter* host);
   virtual ~CWVCencSingleSampleDecrypter();
 
-  void GetCapabilities(const uint8_t* key, uint32_t media, IDecrypter::DecrypterCapabilites& caps);
+  void GetCapabilities(const std::vector<uint8_t>& key,
+                       uint32_t media,
+                       IDecrypter::DecrypterCapabilites& caps);
   virtual const char* GetSessionId() override;
   void CloseSessionId();
   AP4_DataBuffer GetChallengeData();
@@ -46,10 +48,10 @@ public:
   void SetSession(const char* session, uint32_t sessionSize, const uint8_t* data, size_t dataSize);
 
   void AddSessionKey(const uint8_t* data, size_t dataSize, uint32_t status);
-  bool HasKeyId(const uint8_t* keyid);
+  bool HasKeyId(const std::vector<uint8_t>& keyid);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
-                                     const AP4_UI08* key,
+                                     const std::vector<uint8_t>& key,
                                      const AP4_UI08 nalLengthSize,
                                      AP4_DataBuffer& annexbSpsPps,
                                      AP4_UI32 flags,
@@ -80,8 +82,8 @@ public:
   VIDEOCODEC_RETVAL VideoFrameDataToPicture(kodi::addon::CInstanceVideoCodec* codecInstance,
                                             VIDEOCODEC_PICTURE* picture);
   void ResetVideo();
-  void SetDefaultKeyId(std::string_view keyId) override;
-  void AddKeyId(std::string_view keyId) override;
+  void SetDefaultKeyId(const std::vector<uint8_t>& keyId) override;
+  void AddKeyId(const std::vector<uint8_t>& keyId) override;
 
 private:
   void CheckLicenseRenewal();
@@ -91,11 +93,11 @@ private:
   std::string m_strSession;
   AP4_DataBuffer m_pssh;
   AP4_DataBuffer m_challenge;
-  std::string m_defaultKeyId;
+  std::vector<uint8_t> m_defaultKeyId;
   struct WVSKEY
   {
     bool operator==(WVSKEY const& other) const { return m_keyId == other.m_keyId; };
-    std::string m_keyId;
+    std::vector<uint8_t> m_keyId;
     cdm::KeyStatus status;
   };
   std::vector<WVSKEY> m_keys;
@@ -109,14 +111,14 @@ private:
 
   struct FINFO
   {
-    const AP4_UI08* m_key;
+    std::vector<uint8_t> m_key;
     AP4_UI08 m_nalLengthSize;
     AP4_UI16 m_decrypterFlags;
     AP4_DataBuffer m_annexbSpsPps;
     CryptoInfo m_cryptoInfo;
   };
   std::vector<FINFO> m_fragmentPool;
-  void LogDecryptError(const cdm::Status status, const AP4_UI08* key);
+  void LogDecryptError(const cdm::Status status, const std::vector<uint8_t>& key);
   void SetCdmSubsamples(std::vector<cdm::SubsampleEntry>& subsamples, bool isCbc);
   void RepackSubsampleData(AP4_DataBuffer& dataIn,
                            AP4_DataBuffer& dataOut,

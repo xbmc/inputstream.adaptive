@@ -12,7 +12,7 @@
 #include <kodi/Filesystem.h>
 #include <vector>
 
-void AESDecrypter::decrypt(const AP4_UI08* aes_key,
+void AESDecrypter::decrypt(const std::vector<uint8_t>& aes_key,
                            const AP4_UI08* aes_iv,
                            const AP4_UI08* src,
                            std::vector<uint8_t>& dst,
@@ -22,13 +22,8 @@ void AESDecrypter::decrypt(const AP4_UI08* aes_key,
 {
   AP4_BlockCipher* cbc_d_block_cipher;
   AP4_DefaultBlockCipherFactory::Instance.CreateCipher(
-    AP4_BlockCipher::AES_128,
-    AP4_BlockCipher::DECRYPT,
-    AP4_BlockCipher::CBC,
-    NULL,
-    aes_key,
-    16,
-    cbc_d_block_cipher);
+      AP4_BlockCipher::AES_128, AP4_BlockCipher::DECRYPT, AP4_BlockCipher::CBC, NULL,
+      aes_key.data(), static_cast<AP4_Size>(aes_key.size()), cbc_d_block_cipher);
 
   AP4_CbcStreamCipher cbcStreamCipher{cbc_d_block_cipher};
   cbcStreamCipher.SetIV(aes_iv);

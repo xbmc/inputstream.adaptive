@@ -83,7 +83,7 @@ public:
   AESDecrypter(const std::string& licenseKey) : m_licenseKey(licenseKey){};
   virtual ~AESDecrypter() = default;
 
-  void decrypt(const AP4_UI08* aes_key,
+  void decrypt(const std::vector<uint8_t>& aes_key,
                const AP4_UI08* aes_iv,
                const AP4_UI08* src,
                std::vector<uint8_t>& dst,

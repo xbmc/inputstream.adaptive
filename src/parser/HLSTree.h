@@ -125,6 +125,8 @@ protected:
   PLAYLIST::EncryptionType ProcessEncryption(std::string_view baseUrl,
                                              std::map<std::string, std::string>& attribs);
 
+  std::vector<uint8_t> ConvertDataUriToBytes(std::string_view uri);
+
   /*!
    * \brief Parse a rendition and set the data to the AdaptationSet and Representation.
    * \param r The rendition
@@ -181,8 +183,9 @@ private:
   bool m_hasDiscontSeq = false;
   uint32_t m_discontSeq = 0;
 
-  std::string m_currentPssh; // Last processed encryption URI
-  std::string m_currentDefaultKID; // Last processed encryption KID
+  std::vector<uint8_t> m_currentPssh; // Last processed encryption URI
+  std::vector<uint8_t> m_currentDefaultKID; // Last processed encryption KID
+  std::string m_currentKidUrl; // Last processed encryption KID URI
   std::string m_currentIV; // Last processed encryption IV
 };
 

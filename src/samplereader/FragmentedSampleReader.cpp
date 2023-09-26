@@ -53,14 +53,14 @@ CFragmentedSampleReader::CFragmentedSampleReader(AP4_ByteStream* input,
         (schi = m_protectedDesc->GetSchemeInfo()->GetSchiAtom()))
     {
       AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
-      if (tenc)
-        m_defaultKey = tenc->GetDefaultKid();
+      if (tenc && tenc->GetDefaultKid())
+        m_defaultKey.assign(tenc->GetDefaultKid(), tenc->GetDefaultKid() + 16);
       else
       {
         AP4_PiffTrackEncryptionAtom* piff(AP4_DYNAMIC_CAST(
             AP4_PiffTrackEncryptionAtom, schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)));
-        if (piff)
-          m_defaultKey = piff->GetDefaultKid();
+        if (piff && piff->GetDefaultKid())
+          m_defaultKey.assign(piff->GetDefaultKid(), piff->GetDefaultKid() + 16);
       }
     }
   }
@@ -492,7 +492,7 @@ void CFragmentedSampleReader::ParseTrafTfrf(AP4_UuidAtom* uuidAtom)
 {
   const AP4_DataBuffer& buf{AP4_DYNAMIC_CAST(AP4_UnknownUuidAtom, uuidAtom)->GetData()};
   CCharArrayParser parser;
-  parser.Reset(reinterpret_cast<const char*>(buf.GetData()), static_cast<int>(buf.GetDataSize()));
+  parser.Reset(buf.GetData(), static_cast<int>(buf.GetDataSize()));
 
   if (parser.CharsLeft() < 5)
   {

@@ -38,14 +38,14 @@ public:
    */
   bool HasProtection() const { return !m_PSSH.empty(); }
 
-  std::string_view GetKID() const { return m_KID; }
+  std::vector<uint8_t> GetKID() const { return m_KID; }
   std::string_view GetLicenseURL() const { return m_licenseURL; }
-  std::string_view GetPSSH() const { return m_PSSH; }
+  std::vector<uint8_t> GetPSSH() const { return m_PSSH; }
 
 private:
-  std::string m_KID;
+  std::vector<uint8_t> m_KID;
   std::string m_licenseURL;
-  std::string m_PSSH;
+  std::vector<uint8_t> m_PSSH;
 };
 
 } // namespace adaptive

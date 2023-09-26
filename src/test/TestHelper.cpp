@@ -141,7 +141,7 @@ bool TestAdaptiveStream::Download(const DownloadInfo& downloadInfo, std::vector<
   return true;
 }
 
-void AESDecrypter::decrypt(const AP4_UI08* aes_key,
+void AESDecrypter::decrypt(const std::vector<uint8_t>& aes_key,
                            const AP4_UI08* aes_iv,
                            const AP4_UI08* src,
                            std::vector<uint8_t>& dst,

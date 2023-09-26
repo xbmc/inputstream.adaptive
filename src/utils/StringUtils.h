@@ -180,5 +180,7 @@ std::string ToLower(std::string str);
  */
 uint32_t HexStrToUint(std::string_view hexValue);
 
+std::vector<uint8_t> ToVecUint8(std::string_view str);
+
 } // namespace STRING
 } // namespace UTILS

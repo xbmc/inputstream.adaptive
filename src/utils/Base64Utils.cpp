@@ -14,7 +14,7 @@ using namespace UTILS::BASE64;
 
 namespace
 {
-constexpr char PADDING{'='};
+constexpr unsigned char PADDING{'='};
 constexpr std::string_view CHARACTERS{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                       "abcdefghijklmnopqrstuvwxyz"
                                       "0123456789+/"};
@@ -98,6 +98,109 @@ std::string UTILS::BASE64::Encode(const std::string& input)
   std::string output;
   Encode(input, output);
   return output;
+}
+
+std::vector<uint8_t> UTILS::BASE64::DecodeStrToUint8(const std::string& input)
+{
+  std::vector<uint8_t> output;
+  DecodeData(reinterpret_cast<const uint8_t*>(input.data()), input.size(), output);
+  return output;
+}
+
+std::vector<uint8_t> UTILS::BASE64::DecodeToUint8(const std::vector<uint8_t>& input)
+{
+  std::vector<uint8_t> output;
+  DecodeData(input.data(), input.size(), output);
+  return output;
+}
+
+void UTILS::BASE64::DecodeData(const uint8_t* input,
+                               const size_t length,
+                               std::vector<uint8_t>& output)
+{
+  if (!input)
+    return;
+
+  output.clear();
+  output.reserve(length - ((length + 2) / 4));
+
+  bool paddingStarted{false};
+  int quadPos{0};
+  unsigned char leftChar{0};
+  int pads{0};
+
+  for (size_t i{0}; i < length; i++)
+  {
+    // Check for pad sequences and ignore the invalid ones.
+    if (input[i] == PADDING)
+    {
+      paddingStarted = true;
+
+      if (quadPos >= 2 && quadPos + ++pads >= 4)
+      {
+        // A pad sequence means we should not parse more input.
+        // We've already interpreted the data from the quad at this point.
+        return;
+      }
+      continue;
+    }
+
+    unsigned char thisChar{BASE64_TABLE[static_cast<unsigned char>(input[i])]};
+    // Skip not allowed characters
+    if (thisChar >= 64)
+      continue;
+
+    // Characters that are not '=', in the middle of the padding, are not allowed
+    if (paddingStarted)
+    {
+#ifndef INPUTSTREAM_SSD_BUILD
+      LOG::LogF(LOGERROR, "Invalid base64-encoded string: Incorrect padding characters");
+#endif
+      output.clear();
+      return;
+    }
+    pads = 0;
+
+    switch (quadPos)
+    {
+      case 0:
+        quadPos = 1;
+        leftChar = thisChar;
+        break;
+      case 1:
+        quadPos = 2;
+        output.push_back((leftChar << 2) | (thisChar >> 4));
+        leftChar = thisChar & 0x0f;
+        break;
+      case 2:
+        quadPos = 3;
+        output.push_back((leftChar << 4) | (thisChar >> 2));
+        leftChar = thisChar & 0x03;
+        break;
+      case 3:
+        quadPos = 0;
+        output.push_back((leftChar << 6) | (thisChar));
+        leftChar = 0;
+        break;
+    }
+  }
+
+  if (quadPos != 0)
+  {
+    if (quadPos == 1)
+    {
+      // There is exactly one extra valid, non-padding, base64 character.
+      // This is an invalid length, as there is no possible input that
+      // could encoded into such a base64 string.
+      LOG::LogF(LOGERROR, "Invalid base64-encoded string: number of data characters cannot be 1 "
+                          "more than a multiple of 4");
+    }
+    else
+    {
+      LOG::LogF(LOGERROR, "Invalid base64-encoded string: Incorrect padding");
+    }
+    output.clear();
+  }
 }
 
 void UTILS::BASE64::Decode(const char* input, const size_t length, std::string& output)

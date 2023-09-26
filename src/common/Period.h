@@ -94,13 +94,17 @@ public:
     // Custom comparator for std::find
     bool operator==(const PSSHSet& other) const
     {
-      return m_usageCount == 0 || (media_ == other.media_ && pssh_ == other.pssh_ &&
-                                   defaultKID_ == other.defaultKID_ && iv == other.iv);
+      return m_usageCount == 0 ||
+             (m_kidUrl.empty() && media_ == other.media_ && pssh_ == other.pssh_ &&
+              defaultKID_ == other.defaultKID_ && iv == other.iv) ||
+             (!m_kidUrl.empty() && m_kidUrl == other.m_kidUrl);
     }
 
     //! @todo: create getter/setters
-    std::string pssh_;
-    std::string defaultKID_;
+    bool m_needsExtractPssh{false}; // Its required to extract PSSH from the file
+    std::vector<uint8_t> pssh_;
+    std::string m_kidUrl; // Url where get the KID
+    std::vector<uint8_t> defaultKID_;
     std::string iv;
     uint32_t media_{0};
     // Specify how many times the same PSSH is used between AdaptationSets or Representations

@@ -121,18 +121,43 @@ namespace adaptive
   uint16_t AdaptiveTree::InsertPsshSet(PLAYLIST::StreamType streamType,
                                        PLAYLIST::CPeriod* period,
                                        PLAYLIST::CAdaptationSet* adp,
-                                       std::string_view pssh,
-                                       std::string_view defaultKID,
-                                       std::string_view iv /* = "" */)
+                                       const std::vector<uint8_t>& pssh,
+                                       const std::vector<uint8_t>& defaultKid,
+                                       bool needsExtractPssh /* = false */)
   {
-    if (!pssh.empty())
+    return InsertPsshSetImpl(streamType, period, adp, pssh, defaultKid, "", "", needsExtractPssh);
+  }
+
+  uint16_t AdaptiveTree::InsertPsshSet(PLAYLIST::StreamType streamType,
+                                       PLAYLIST::CPeriod* period,
+                                       PLAYLIST::CAdaptationSet* adp,
+                                       const std::vector<uint8_t>& pssh,
+                                       const std::vector<uint8_t>& defaultKid,
+                                       std::string_view kidUrl,
+                                       std::string_view iv)
+  {
+    return InsertPsshSetImpl(streamType, period, adp, pssh, defaultKid, kidUrl, iv, false);
+  }
+
+  uint16_t AdaptiveTree::InsertPsshSetImpl(PLAYLIST::StreamType streamType,
+                                           PLAYLIST::CPeriod* period,
+                                           PLAYLIST::CAdaptationSet* adp,
+                                           const std::vector<uint8_t>& pssh,
+                                           const std::vector<uint8_t>& defaultKID,
+                                           std::string_view kidUrl,
+                                           std::string_view iv,
+                                           bool needsExtractPssh)
+  {
+    if (!pssh.empty() || !kidUrl.empty())
     {
       CPeriod::PSSHSet psshSet;
       psshSet.pssh_ = pssh;
       psshSet.defaultKID_ = defaultKID;
+      psshSet.m_kidUrl = kidUrl;
       psshSet.iv = iv;
       psshSet.m_cryptoMode = m_cryptoMode;
       psshSet.adaptation_set_ = adp;
+      psshSet.m_needsExtractPssh = needsExtractPssh;
 
       if (streamType == StreamType::VIDEO)
         psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO;

@@ -10,8 +10,10 @@
 
 #include "utils/CryptoUtils.h"
 
+#include <cstdint>
 #include <stdexcept>
 #include <string_view>
+#include <vector>
 
 #include <bento4/Ap4.h>
 
@@ -23,7 +25,7 @@ public:
   /*! \brief Add a Key ID to the current session
    *  \param keyId The KID
    */
-  virtual void AddKeyId(std::string_view keyId)
+  virtual void AddKeyId(const std::vector<uint8_t>& keyId)
   {
     throw std::logic_error("AddKeyId method not implemented.");
   };
@@ -31,13 +33,13 @@ public:
   /*! \brief Set a Key ID as default
    *  \param keyId The KID
    */
-  virtual void SetDefaultKeyId(std::string_view keyId)
+  virtual void SetDefaultKeyId(const std::vector<uint8_t>& keyId)
   {
     throw std::logic_error("SetDefaultKeyId method not implemented.");
   };
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
-                                     const AP4_UI08* key,
+                                     const std::vector<uint8_t>& key,
                                      const AP4_UI08 nalLengthSize,
                                      AP4_DataBuffer& annexbSpsPps,
                                      AP4_UI32 flags,

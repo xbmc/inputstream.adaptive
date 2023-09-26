@@ -33,12 +33,12 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
   if (prHeader.empty())
     return false;
 
-  std::string headerData = BASE64::Decode(prHeader);
+  std::vector<uint8_t> headerData = BASE64::DecodeStrToUint8(prHeader.data());
   m_PSSH = headerData;
 
   // Parse header object data
   CCharArrayParser charParser;
-  charParser.Reset(headerData.c_str(), static_cast<int>(headerData.size()));
+  charParser.Reset(headerData.data(), static_cast<int>(headerData.size()));
 
   if (!charParser.SkipChars(4))
   {
@@ -139,7 +139,7 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
 
   if (!kidBase64.empty())
   {
-    std::string kid = BASE64::Decode(kidBase64);
+    std::vector<uint8_t> kid = BASE64::DecodeStrToUint8(kidBase64);
     if (kid.size() == 16)
     {
       m_KID = ConvertKIDtoWVKID(kid);

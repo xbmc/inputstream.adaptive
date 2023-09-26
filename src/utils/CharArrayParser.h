@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace UTILS
 {
@@ -33,7 +34,7 @@ public:
    * \param data The data
    * \param limit The limit of length of the data
    */
-  void Reset(const char* data, int limit);
+  void Reset(const uint8_t* data, int limit);
 
   /*!
    * \brief Return the number of chars yet to be read
@@ -116,7 +117,7 @@ public:
    * \param data[OUT] The data read
    * \return True if success, otherwise false
    */
-  bool ReadNextArray(int length, char* data);
+  bool ReadNextArray(int length, std::vector<uint8_t>& data);
 
   /*!
    * \brief Reads a line of text.
@@ -133,10 +134,10 @@ public:
    * \brief Get the current data
    * \return The char pointer to the current data
    */
-  const char* GetData() { return m_data; };
+  const uint8_t* GetData() { return m_data; };
 
 private:
-  const char* m_data{nullptr};
+  const uint8_t* m_data{nullptr};
   int m_position{0};
   int m_limit{0};
 };

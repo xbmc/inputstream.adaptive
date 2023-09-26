@@ -322,16 +322,16 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   const char* optionalKeyParameter{nullptr};
 
   // Set the provided PSSH
-  std::string decPssh{BASE64::Decode(psshData)};
+  const std::vector<uint8_t> decPssh = BASE64::DecodeStrToUint8(psshData);
   init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()),
                     static_cast<AP4_Size>(decPssh.size()));
 
   // Decode the provided KID
-  std::string decKid{BASE64::Decode(kidData)};
+  const std::vector<uint8_t> decKid = BASE64::DecodeStrToUint8(kidData);
 
   CCdmSession& session(m_cdmSessions[1]);
 
-  std::string hexKid{StringUtils::ToHexadecimal(decKid)};
+  std::string hexKid{StringUtils::ToHexadecimal(reinterpret_cast<const char*>(decKid.data()))};
   LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
 
   if (m_decrypter && init_data.GetDataSize() >= 4 &&
@@ -415,7 +415,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
 
-      if (sessionPsshset.pssh_ == PSSH_FROM_FILE)
+      if (sessionPsshset.m_needsExtractPssh)
       {
         if (m_kodiProps.m_licenseData.empty())
         {
@@ -448,7 +448,8 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
               {
                 if (pssh[i].GetKid(0))
                 {
-                  sessionPsshset.defaultKID_ = std::string((const char*)pssh[i].GetKid(0), 16);
+                  const uint8_t* kidData = reinterpret_cast<const uint8_t*>(pssh[i].GetKid(0));
+                  sessionPsshset.defaultKID_ = std::vector(kidData, kidData + 16);
                 }
                 else if (AP4_Track* track = movie->GetTrack(
                              static_cast<AP4_Track::Type>(stream.m_adStream.GetTrackType())))
@@ -463,8 +464,9 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
                         AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0))};
                     if (tenc)
                     {
-                      sessionPsshset.defaultKID_ =
-                          std::string(reinterpret_cast<const char*>(tenc->GetDefaultKid()), 16);
+                      const uint8_t* kidData =
+                          reinterpret_cast<const uint8_t*>(tenc->GetDefaultKid());
+                      sessionPsshset.defaultKID_ = std::vector(kidData, kidData + 16);
                     }
                     else
                     {
@@ -473,8 +475,9 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
                                            schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0))};
                       if (piff)
                       {
-                        sessionPsshset.defaultKID_ =
-                            std::string(reinterpret_cast<const char*>(piff->GetDefaultKid()), 16);
+                        const uint8_t* kidData =
+                            reinterpret_cast<const uint8_t*>(piff->GetDefaultKid());
+                        sessionPsshset.defaultKID_ = std::vector(kidData, kidData + 16);
                       }
                     }
                   }
@@ -489,6 +492,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
             stream.Disable();
             return false;
           }
+          sessionPsshset.m_needsExtractPssh = false;
           stream.Disable();
         }
         else
@@ -496,7 +500,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           // This can allow to initialize a DRM that could be also not specified
           // as supported in the manifest (e.g. on DASH ContentProtection tags)
           LOG::Log(LOGDEBUG, "Set init PSSH data provided by the license data property");
-
           std::string licenseData = BASE64::Decode(m_kodiProps.m_licenseData);
           init_data.SetData(reinterpret_cast<const AP4_Byte*>(licenseData.c_str()),
                             static_cast<AP4_Size>(licenseData.size()));
@@ -525,7 +528,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         }
         else
         {
-          std::string decPssh{BASE64::Decode(sessionPsshset.pssh_)};
+          const std::vector<uint8_t> decPssh = BASE64::DecodeToUint8(sessionPsshset.pssh_);
           init_data.SetBufferSize(1024);
           init_data.SetData(reinterpret_cast<const AP4_Byte*>(decPssh.data()),
                             static_cast<AP4_Size>(decPssh.size()));
@@ -533,9 +536,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       }
 
       CCdmSession& session{m_cdmSessions[ses]};
-      std::string defaultKid{sessionPsshset.defaultKID_};
-      const uint8_t* defkid{
-          defaultKid.empty() ? nullptr : reinterpret_cast<const uint8_t*>(defaultKid.data())};
+      std::vector<uint8_t> defaultKid = sessionPsshset.defaultKID_;
 
       if (addDefaultKID && ses == 1 && session.m_cencSingleSampleDecrypter)
       {
@@ -548,12 +549,12 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       if (m_decrypter && !defaultKid.empty())
       {
-        std::string hexKid{StringUtils::ToHexadecimal(defaultKid)};
+        std::string hexKid{StringUtils::ToHexadecimal(reinterpret_cast<char*>(defaultKid.data()))};
         LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", hexKid.c_str());
 
         for (size_t i{1}; i < ses; ++i)
         {
-          if (m_decrypter->HasLicenseKey(m_cdmSessions[i].m_cencSingleSampleDecrypter, defkid))
+          if (m_decrypter->HasLicenseKey(m_cdmSessions[i].m_cencSingleSampleDecrypter, defaultKid))
           {
             session.m_cencSingleSampleDecrypter = m_cdmSessions[i].m_cencSingleSampleDecrypter;
             session.m_sharedCencSsd = true;
@@ -587,7 +588,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
                                                                 : sessionPsshset.m_cryptoMode)) !=
                0))
       {
-        m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defkid,
+        m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defaultKid,
                                      sessionPsshset.media_, session.m_decrypterCaps);
 
         if (session.m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_INVALID)

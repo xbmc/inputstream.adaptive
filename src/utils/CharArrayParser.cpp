@@ -19,7 +19,7 @@ void UTILS::CCharArrayParser::Reset()
   m_position = 0;
 }
 
-void UTILS::CCharArrayParser::Reset(const char* data, int limit)
+void UTILS::CCharArrayParser::Reset(const uint8_t* data, int limit)
 {
   m_data = data;
   m_limit = limit;
@@ -152,14 +152,14 @@ std::string UTILS::CCharArrayParser::ReadNextString(int length)
     LOG::LogF(LOGERROR, "{} - No data to read");
     return "";
   }
-  std::string str(m_data + m_position, length);
+  std::string str(reinterpret_cast<const char*>(m_data + m_position), length);
   m_position += length;
   if (m_position > m_limit)
     LOG::LogF(LOGERROR, "{} - Position out of range");
   return str;
 }
 
-bool UTILS::CCharArrayParser::ReadNextArray(int length, char* data)
+bool UTILS::CCharArrayParser::ReadNextArray(int length, std::vector<uint8_t>& data)
 {
   if (!m_data)
   {
@@ -171,8 +171,7 @@ bool UTILS::CCharArrayParser::ReadNextArray(int length, char* data)
     LOG::LogF(LOGERROR, "{} - Position out of range");
     return false;
   }
-  std::strncpy(data, m_data + m_position, length);
-  data[length] = '\0';
+  data.insert(data.end(), m_data + m_position, m_data + m_position + length);
   return true;
 }
 
@@ -202,7 +201,7 @@ bool UTILS::CCharArrayParser::ReadNextLine(std::string& line)
     m_position += 3;
   }
 
-  line.assign(m_data + m_position, lineLimit - m_position);
+  line.assign(reinterpret_cast<const char*>(m_data + m_position), lineLimit - m_position);
   m_position = lineLimit;
 
   if (m_data[m_position] == '\r')

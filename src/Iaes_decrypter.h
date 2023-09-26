@@ -19,7 +19,7 @@ class IAESDecrypter
 public:
   virtual ~IAESDecrypter() {};
 
-  virtual void decrypt(const AP4_UI08* aes_key,
+  virtual void decrypt(const std::vector<uint8_t>& aes_key,
                        const AP4_UI08* aes_iv,
                        const AP4_UI08* src,
                        std::vector<uint8_t>& dst,

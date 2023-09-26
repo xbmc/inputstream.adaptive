@@ -23,9 +23,9 @@ namespace UTILS
 std::string AnnexbToHvcc(const char* b16Data);
 std::string AnnexbToAvc(const char* b16Data);
 std::string AvcToAnnexb(const std::string& avc);
-std::string ConvertKIDtoWVKID(std::string_view kid);
-std::string ConvertKIDtoUUID(std::string_view kid);
-bool CreateISMlicense(std::string_view key,
+std::vector<uint8_t> ConvertKIDtoWVKID(const std::vector<uint8_t>& kid);
+std::vector<uint8_t> ConvertKIDtoUUID(const std::vector<uint8_t>& kid);
+bool CreateISMlicense(std::vector<uint8_t> key,
                       std::string_view licenseData,
                       std::vector<uint8_t>& initData);
 void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std::string& header);

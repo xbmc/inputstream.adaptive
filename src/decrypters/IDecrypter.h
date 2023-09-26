@@ -87,7 +87,7 @@ public:
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
       AP4_DataBuffer& pssh,
       const char* optionalKeyParameter,
-      std::string_view defaultKeyId,
+      const std::vector<uint8_t>& defaultKeyId,
       bool skipSessionMessage,
       CryptoMode cryptoMode) = 0;
 
@@ -105,7 +105,7 @@ public:
    * \param caps The capabilities object to be populated
    */
   virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                               const uint8_t* keyId,
+                               const std::vector<uint8_t>& keyId,
                                uint32_t media,
                                IDecrypter::DecrypterCapabilites& caps) = 0;
 
@@ -116,7 +116,7 @@ public:
    * \return True if the KeyID has a license otherwise false
    */
   virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                             const uint8_t* keyId) = 0;
+                             const std::vector<uint8_t>& keyId) = 0;
 
   /**
    * \brief Check if the decrypter has been initialised (OpenDRMSystem called)

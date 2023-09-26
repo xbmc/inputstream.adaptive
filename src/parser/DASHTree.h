@@ -74,7 +74,9 @@ protected:
 
   void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate* segTpl);
 
-  bool ParseTagContentProtection(pugi::xml_node nodeCP, std::string& pssh, std::string& kid);
+  bool ParseTagContentProtection(pugi::xml_node nodeCP,
+                                 std::vector<uint8_t>& pssh,
+                                 std::vector<uint8_t>& kid);
 
   bool ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 
@@ -126,8 +128,8 @@ protected:
   {
     std::string idUri;
     std::string value;
-    std::string kid;
-    std::string pssh;
+    std::vector<uint8_t> kid;
+    std::vector<uint8_t> pssh;
   };
 };
 } // namespace adaptive
