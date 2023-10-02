@@ -12,9 +12,8 @@
 
 namespace DRM
 {
-class CDrmFactory
+namespace FACTORY
 {
-public:
-  IDecrypter* GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem);
-};
+IDecrypter* GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem);
+}
 } // namespace DRM

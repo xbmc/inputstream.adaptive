@@ -19,7 +19,7 @@
 
 using namespace DRM;
 
-IDecrypter* CDrmFactory::GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem)
+IDecrypter* DRM::FACTORY::GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem)
 {
   if (keySystem == STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE)
   {
