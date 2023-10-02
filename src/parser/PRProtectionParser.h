@@ -9,6 +9,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "test/KodiStubs.h"
@@ -40,12 +41,31 @@ public:
 
   std::string_view GetKID() const { return m_KID; }
   std::string_view GetLicenseURL() const { return m_licenseURL; }
-  std::string_view GetPSSH() const { return m_PSSH; }
+  std::vector<uint8_t> GetPSSH() const { return m_PSSH; }
 
 private:
   std::string m_KID;
   std::string m_licenseURL;
-  std::string m_PSSH;
+  std::vector<uint8_t> m_PSSH;
+};
+
+// \brief Parse PSSH data format (ref. https://w3c.github.io/encrypted-media/format-registry/initdata/cenc.html#common-system)
+class ATTR_DLL_LOCAL CPsshParser
+{
+public:
+  bool Parse(const std::vector<uint8_t>& data);
+
+  const std::vector<uint8_t>& GetSystemId() const { return m_systemId; }
+  const std::vector<std::string>& GetKeyIds() const { return m_keyIds; }
+  const std::vector<uint8_t>& GetData() const { return m_data; }
+
+private:
+  const uint8_t m_boxTypePssh[4]{'p', 's', 's', 'h'};
+  uint8_t m_version{0};
+  uint32_t m_flags{0};
+  std::vector<uint8_t> m_systemId;
+  std::vector<std::string> m_keyIds;
+  std::vector<uint8_t> m_data;
 };
 
 } // namespace adaptive

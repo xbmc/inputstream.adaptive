@@ -47,7 +47,7 @@ public:
   void setPropertyByteArray(const std::string &propertyName, const std::vector<char> &value) const;
 
   CJNIMediaDrmKeyRequest getKeyRequest(const std::vector<char> &scope,
-    const std::vector<char> &init, const std::string &mimeType, int keyType,
+    const std::vector<uint8_t> &init, const std::string &mimeType, int keyType,
     const std::map<std::string, std::string> &optionalParameters) const;
   std::vector<char> provideKeyResponse(const std::vector<char> &scope, const std::vector<char> &response) const;
 

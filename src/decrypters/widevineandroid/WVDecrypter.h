@@ -89,7 +89,7 @@ public:
 
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
       AP4_DataBuffer& pssh,
-      const char* optionalKeyParameter,
+      std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
@@ -97,12 +97,12 @@ public:
   virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
 
   virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                               const uint8_t* keyId,
+                               std::string_view keyId,
                                uint32_t media,
                                IDecrypter::DecrypterCapabilites& caps) override;
 
   virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                             const uint8_t* keyId) override;
+                             std::string_view keyId) override;
 
   virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override;
 

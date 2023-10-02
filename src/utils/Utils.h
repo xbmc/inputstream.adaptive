@@ -36,6 +36,14 @@ void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std:
  */
 uint64_t GetTimestamp();
 
+/*!
+ * \brief Add zero-pad on the left side of data when the data size is less than pad size
+ * \param data The data
+ * \param padSize The length of padding
+ * \return The padded data
+ */
+std::vector<uint8_t> ZeroPadding(const std::vector<uint8_t>& data, const size_t padSize);
+
 namespace CODEC
 {
 constexpr const char* NAME_UNKNOWN = "unk"; // Kodi codec name for unknown codec

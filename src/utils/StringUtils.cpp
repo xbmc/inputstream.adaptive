@@ -273,3 +273,21 @@ uint32_t UTILS::STRING::HexStrToUint(std::string_view hexValue)
   ss >> val;
   return val;
 }
+
+std::vector<uint8_t> UTILS::STRING::ToVecUint8(std::string_view str)
+{
+  std::vector<uint8_t> val;
+  val.assign(str.begin(), str.end());
+  return val;
+}
+
+std::string UTILS::STRING::ToHexadecimal(std::string_view str)
+{
+  std::ostringstream ss;
+  ss << std::hex;
+  for (unsigned char ch : str)
+  {
+    ss << std::setw(2) << std::setfill('0') << static_cast<unsigned long>(ch);
+  }
+  return ss.str();
+}

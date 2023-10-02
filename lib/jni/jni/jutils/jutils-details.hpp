@@ -163,6 +163,12 @@ struct jcast_helper<jhstring, std::string>
     static jhstring cast(const std::string &v);
 };
 
+template<>
+struct jcast_helper<jhbyteArray, std::vector<uint8_t>>
+{
+    static jhbyteArray cast(const std::vector<uint8_t>& v);
+};
+
 template <>
 struct jcast_helper<jhbyteArray, std::vector<char> >
 {

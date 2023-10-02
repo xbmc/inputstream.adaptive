@@ -121,15 +121,17 @@ namespace adaptive
   uint16_t AdaptiveTree::InsertPsshSet(PLAYLIST::StreamType streamType,
                                        PLAYLIST::CPeriod* period,
                                        PLAYLIST::CAdaptationSet* adp,
-                                       std::string_view pssh,
+                                       const std::vector<uint8_t>& pssh,
                                        std::string_view defaultKID,
+                                       std::string_view kidUrl /* = "" */,
                                        std::string_view iv /* = "" */)
   {
-    if (!pssh.empty())
+    if (!pssh.empty() || !kidUrl.empty())
     {
       CPeriod::PSSHSet psshSet;
       psshSet.pssh_ = pssh;
       psshSet.defaultKID_ = defaultKID;
+      psshSet.m_kidUrl = kidUrl;
       psshSet.iv = iv;
       psshSet.m_cryptoMode = m_cryptoMode;
       psshSet.adaptation_set_ = adp;

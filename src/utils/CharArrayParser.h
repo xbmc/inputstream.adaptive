@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace UTILS
 {
@@ -33,31 +34,31 @@ public:
    * \param data The data
    * \param limit The limit of length of the data
    */
-  void Reset(const char* data, int limit);
+  void Reset(const uint8_t* data, size_t limit);
 
   /*!
    * \brief Return the number of chars yet to be read
    */
-  int CharsLeft();
+  size_t CharsLeft();
 
   /*!
    * \brief Returns the current offset in the array
    */
-  int GetPosition();
+  size_t GetPosition();
 
   /*!
    * \brief Set the reading offset in the array
    * \param position The new offset position
    * \return True if success, otherwise false
    */
-  bool SetPosition(int position);
+  bool SetPosition(size_t position);
 
   /*!
    * \brief Skip a specified number of chars
    * \param nChars The number of chars
    * \return True if success, otherwise false
    */
-  bool SkipChars(int nChars);
+  bool SkipChars(size_t nChars);
 
   /*!
    * \brief Reads the next unsigned char (it is assumed that the caller has
@@ -107,7 +108,7 @@ public:
    * \param length The length to be read
    * \return The string value
    */
-  std::string ReadNextString(int length);
+  std::string ReadNextString(size_t length);
 
   /*!
    * \brief Reads the next chars array of specified length (it is assumed that
@@ -116,29 +117,24 @@ public:
    * \param data[OUT] The data read
    * \return True if success, otherwise false
    */
-  bool ReadNextArray(int length, char* data);
-
-  /*!
-   * \brief Reads a line of text.
-   * A line is considered to be terminated by any one of a carriage return ('\\r'),
-   * a line feed ('\\n'), or a carriage return followed by a line feed ('\\r\\n'),
-   * this method discards leading UTF-8 byte order marks, if present.
-   * \param line [OUT] The line read without line-termination characters
-   * \return True if read, otherwise false if the end of the data has already
-   *         been reached
-   */
-  bool ReadNextLine(std::string& line);
+  bool ReadNextArray(size_t length, std::vector<uint8_t>& data);
 
   /*!
    * \brief Get the current data
    * \return The char pointer to the current data
    */
-  const char* GetData() { return m_data; };
+  const uint8_t* GetData() { return m_data; };
+
+  /*!
+   * \brief Get the data from current position
+   * \return The char pointer from the current data position
+   */
+  const uint8_t* GetDataPos() { return m_data + m_position; }
 
 private:
-  const char* m_data{nullptr};
-  int m_position{0};
-  int m_limit{0};
+  const uint8_t* m_data{nullptr};
+  size_t m_position{0};
+  size_t m_limit{0};
 };
 
 } // namespace UTILS

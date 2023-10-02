@@ -141,7 +141,7 @@ bool CWVDecrypterA::OpenDRMSystem(const char* licenseURL,
 
 Adaptive_CencSingleSampleDecrypter* CWVDecrypterA::CreateSingleSampleDecrypter(
     AP4_DataBuffer& pssh,
-    const char* optionalKeyParameter,
+    std::string_view optionalKeyParameter,
     std::string_view defaultKeyId,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
@@ -178,9 +178,9 @@ void CWVDecrypterA::DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecryp
 }
 
 void CWVDecrypterA::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                   const uint8_t* keyId,
-                                   uint32_t media,
-                                   IDecrypter::DecrypterCapabilites& caps)
+                                    std::string_view keyId,
+                                    uint32_t media,
+                                    IDecrypter::DecrypterCapabilites& caps)
 {
   if (decrypter)
     static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->GetCapabilities(keyId, media, caps);
@@ -189,7 +189,7 @@ void CWVDecrypterA::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypte
 }
 
 bool CWVDecrypterA::HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                 const uint8_t* keyId)
+                                  std::string_view keyId)
 {
   if (decrypter)
     return static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->HasLicenseKey(keyId);
@@ -201,9 +201,8 @@ std::string CWVDecrypterA::GetChallengeB64Data(Adaptive_CencSingleSampleDecrypte
   if (!decrypter)
     return "";
 
-  std::vector<char> challengeData =
-      static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->GetChallengeData();
-  return BASE64::Encode(challengeData.data(), challengeData.size());
+  const std::vector<char> data = static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->GetChallengeData();
+  return BASE64::Encode(data);
 }
 
 void CWVDecrypterA::OnMediaDrmEvent(const CJNIMediaDrm& mediaDrm,

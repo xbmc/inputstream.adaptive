@@ -45,6 +45,23 @@ jhstring jcast_helper<jhstring, std::string>::cast(const std::string &s)
     return jhstring(ret);
 }
 
+jhbyteArray jcast_helper<jhbyteArray, std::vector<uint8_t>>::cast(const std::vector<uint8_t>& s)
+{
+    JNIEnv* env = xbmc_jnienv();
+    jbyteArray ret = NULL;
+    if (!s.empty())
+    {
+      char* pArray;
+      ret = env->NewByteArray(s.size());
+      if ((pArray = (char*)env->GetPrimitiveArrayCritical(ret, NULL)))
+      {
+        memcpy(pArray, s.data(), s.size());
+        env->ReleasePrimitiveArrayCritical(ret, pArray, 0);
+      }
+    }
+    return jhbyteArray(ret);
+}
+
 jhbyteArray jcast_helper<jhbyteArray, std::vector<char> >::cast(const std::vector<char> &s)
 {
   JNIEnv *env = xbmc_jnienv();

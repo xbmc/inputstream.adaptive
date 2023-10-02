@@ -125,7 +125,7 @@ CWVCencSingleSampleDecrypter::~CWVCencSingleSampleDecrypter()
   m_wvCdmAdapter.removessd(this);
 }
 
-void CWVCencSingleSampleDecrypter::GetCapabilities(const uint8_t* key,
+void CWVCencSingleSampleDecrypter::GetCapabilities(std::string_view keyId,
                                                    uint32_t media,
                                                    IDecrypter::DecrypterCapabilites& caps)
 {
@@ -172,8 +172,7 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(const uint8_t* key,
   if ((caps.flags & IDecrypter::DecrypterCapabilites::SSD_SUPPORTS_DECODING) != 0)
   {
     AP4_UI32 poolId(AddPool());
-    m_fragmentPool[poolId].m_key =
-        key ? key : reinterpret_cast<const uint8_t*>(m_keys.front().m_keyId.data());
+    m_fragmentPool[poolId].m_key = STRING::ToVecUint8(keyId.empty() ? m_keys.front().m_keyId : keyId);
     m_fragmentPool[poolId].m_cryptoInfo.m_mode = m_EncryptionMode;
 
     AP4_DataBuffer in;
@@ -502,7 +501,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
 
       if (response.size() >= 3 && blocks[3][0] == 'B')
       {
-        response = BASE64::Decode(response);
+        response = BASE64::DecodeToStr(response);
         dataPos = 3;
       }
 
@@ -550,7 +549,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
 
         if (blocks[3][dataPos - 1] == 'B')
         {
-          respData = BASE64::Decode(respData);
+          respData = BASE64::DecodeToStr(respData);
         }
 
         m_wvCdmAdapter.GetCdmAdapter()->UpdateSession(
@@ -589,7 +588,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     }
     else if (blocks[3][0] == 'B' && blocks[3].size() == 1)
     {
-      std::string decRespData{BASE64::Decode(response)};
+      std::string decRespData{BASE64::DecodeToStr(response)};
 
       m_wvCdmAdapter.GetCdmAdapter()->UpdateSession(
           ++m_promiseId, m_strSession.data(), m_strSession.size(),
@@ -632,17 +631,21 @@ void CWVCencSingleSampleDecrypter::AddSessionKey(const uint8_t* data,
   res->status = static_cast<cdm::KeyStatus>(status);
 }
 
-bool CWVCencSingleSampleDecrypter::HasKeyId(const uint8_t* keyid)
+bool CWVCencSingleSampleDecrypter::HasKeyId(std::string_view keyid)
 {
-  if (keyid)
-    for (std::vector<WVSKEY>::const_iterator kb(m_keys.begin()), ke(m_keys.end()); kb != ke; ++kb)
-      if (kb->m_keyId.size() == 16 && memcmp(kb->m_keyId.c_str(), keyid, 16) == 0)
+  if (!keyid.empty())
+  {
+    for (const WVSKEY& key : m_keys)
+    {
+      if (key.m_keyId == keyid)
         return true;
+    }
+  }
   return false;
 }
 
 AP4_Result CWVCencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 poolId,
-                                                         const AP4_UI08* key,
+                                                         const std::vector<uint8_t>& keyId,
                                                          const AP4_UI08 nalLengthSize,
                                                          AP4_DataBuffer& annexbSpsPps,
                                                          AP4_UI32 flags,
@@ -651,7 +654,7 @@ AP4_Result CWVCencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 poolId,
   if (poolId >= m_fragmentPool.size())
     return AP4_ERROR_OUT_OF_RANGE;
 
-  m_fragmentPool[poolId].m_key = key;
+  m_fragmentPool[poolId].m_key = keyId;
   m_fragmentPool[poolId].m_nalLengthSize = nalLengthSize;
   m_fragmentPool[poolId].m_annexbSpsPps.SetData(annexbSpsPps.GetData(), annexbSpsPps.GetDataSize());
   m_fragmentPool[poolId].m_decrypterFlags = flags;
@@ -677,14 +680,15 @@ AP4_UI32 CWVCencSingleSampleDecrypter::AddPool()
 void CWVCencSingleSampleDecrypter::RemovePool(AP4_UI32 poolId)
 {
   m_fragmentPool[poolId].m_nalLengthSize = 99;
-  m_fragmentPool[poolId].m_key = nullptr;
+  m_fragmentPool[poolId].m_key.clear();
 }
 
-void CWVCencSingleSampleDecrypter::LogDecryptError(const cdm::Status status, const AP4_UI08* key)
+void CWVCencSingleSampleDecrypter::LogDecryptError(const cdm::Status status,
+                                                   const std::vector<uint8_t>& keyId)
 {
   char buf[36];
   buf[32] = 0;
-  AP4_FormatHex(key, 16, buf);
+  AP4_FormatHex(keyId.data(), keyId.size(), buf);
   LOG::LogF(LOGDEBUG, "Decrypt failed with error: %d and key: %s", status, buf);
 }
 
@@ -740,8 +744,8 @@ void CWVCencSingleSampleDecrypter::SetInput(cdm::InputBuffer_2& cdmInputBuffer,
   cdmInputBuffer.num_subsamples = subsampleCount;
   cdmInputBuffer.iv = iv;
   cdmInputBuffer.iv_size = 16; //Always 16, see AP4_CencSingleSampleDecrypter declaration.
-  cdmInputBuffer.key_id = fragInfo.m_key;
-  cdmInputBuffer.key_id_size = 16;
+  cdmInputBuffer.key_id = fragInfo.m_key.data();
+  cdmInputBuffer.key_id_size = static_cast<uint32_t>(fragInfo.m_key.size());
   cdmInputBuffer.subsamples = subsamples.data();
   cdmInputBuffer.encryption_scheme = media::ToCdmEncryptionScheme(fragInfo.m_cryptoInfo.m_mode);
   cdmInputBuffer.timestamp = 0;
@@ -795,7 +799,7 @@ AP4_Result CWVCencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 poolId,
       dataOut.AppendData(reinterpret_cast<const AP4_Byte*>(bytesOfEncryptedData),
                          subsampleCount * sizeof(AP4_UI32));
       dataOut.AppendData(reinterpret_cast<const AP4_Byte*>(iv), 16);
-      dataOut.AppendData(reinterpret_cast<const AP4_Byte*>(fragInfo.m_key), 16);
+      dataOut.AppendData(fragInfo.m_key.data(), static_cast<AP4_Size>(fragInfo.m_key.size()));
     }
     else
     {
@@ -887,7 +891,7 @@ AP4_Result CWVCencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 poolId,
     return AP4_SUCCESS;
   }
 
-  if (!fragInfo.m_key)
+  if (fragInfo.m_key.empty())
   {
     LOG::LogF(LOGDEBUG, "No Key");
     return AP4_ERROR_INVALID_PARAMETERS;

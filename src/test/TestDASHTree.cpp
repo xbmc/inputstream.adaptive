@@ -8,6 +8,7 @@
 
 #include "TestHelper.h"
 
+#include "../utils/Base64Utils.h"
 #include "../utils/PropertiesUtils.h"
 #include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
@@ -395,11 +396,13 @@ TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
 {
   OpenTestFile("mpd/pssh_default_kid.mpd");
 
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].pssh_, "ABCDEFGH");
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].defaultKID_.length(), 16);
+  const std::vector<uint8_t> pssh1 = BASE64::Decode("AAAANHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABQIARIQblodJidXR9eARuql0dNLWg==");
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].pssh_, pssh1);
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].defaultKID_.size(), 16);
 
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].pssh_, "HGFEDCBA");
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].defaultKID_.length(), 16);
+  const std::vector<uint8_t> pssh2 = BASE64::Decode("AAAANHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABQIARIQnrQFDeRLSAKTLifXUIPiZg==");
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].pssh_, pssh2);
+  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].defaultKID_.size(), 16);
 }
 
 TEST_F(DASHTreeAdaptiveStreamTest, subtitles)

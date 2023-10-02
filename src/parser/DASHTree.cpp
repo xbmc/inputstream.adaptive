@@ -9,6 +9,7 @@
 #include "DASHTree.h"
 
 #include "oscompat.h"
+#include "utils/Base64Utils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
 #include "utils/Utils.h"
@@ -602,12 +603,11 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   if (nodeAdp.child("ContentProtection"))
   {
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
-    std::string pssh{PSSH_FROM_FILE};
+    std::vector<uint8_t> pssh;
     std::string kid;
 
     // If a custom init PSSH is provided, should mean that a certain content protection tag
-    // is missing, in this case we ignore the content protection tags and we add a PSSH marked
-    // PSSH_FROM_FILE to allow initialization of DRM with the specified PSSH data provided
+    // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
     if (m_isCustomInitPssh || ParseTagContentProtection(nodeAdp, pssh, kid))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
@@ -952,12 +952,11 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   if (nodeRepr.child("ContentProtection"))
   {
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
-    std::string pssh{PSSH_FROM_FILE};
+    std::vector<uint8_t> pssh;
     std::string kid;
 
     // If a custom init PSSH is provided, should mean that a certain content protection tag
-    // is missing, in this case we ignore the content protection tags and we add a PSSH marked
-    // PSSH_FROM_FILE to allow initialization of DRM with the specified PSSH data provided
+    // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
     if (m_isCustomInitPssh || ParseTagContentProtection(nodeRepr, pssh, kid))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
@@ -1249,7 +1248,7 @@ void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemp
 }
 
 bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
-                                                    std::string& pssh,
+                                                    std::vector<uint8_t>& pssh,
                                                     std::string& kid)
 {
   std::optional<ProtectionScheme> commonProtScheme;
@@ -1290,7 +1289,7 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
       {
         std::string childName = node.name();
 
-        if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:selectedPssh> or <selectedPssh> ...
+        if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:pssh> or <pssh> ...
         {
           protScheme.pssh = node.child_value();
         }
@@ -1335,7 +1334,7 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
   }
 
   if (!selectedPssh.empty())
-    pssh = selectedPssh;
+    pssh = BASE64::Decode(selectedPssh);
 
   if (!selectedKid.empty())
   {

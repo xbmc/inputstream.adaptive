@@ -25,10 +25,10 @@ using namespace UTILS;
 using namespace kodi::tools;
 
 CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
-                                                           AP4_DataBuffer& pssh,
-                                                           const char* optionalKeyParameter,
-                                                           std::string_view defaultKeyId,
-                                                           CWVDecrypterA* host)
+                                                             AP4_DataBuffer& pssh,
+                                                             std::string_view optionalKeyParameter,
+                                                             std::string_view defaultKeyId,
+                                                             CWVDecrypterA* host)
   : m_mediaDrm(drm),
     m_isProvisioningRequested(false),
     m_isKeyUpdateRequested(false),
@@ -65,8 +65,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
     memcpy(atom + 12, m_mediaDrm.GetKeySystem(), 16);
     memset(atom + 28, 0, 4);
 
-    m_pssh.insert(m_pssh.begin(), reinterpret_cast<char*>(atom),
-                  reinterpret_cast<char*>(atom + sizeof(atom)));
+    m_pssh.insert(m_pssh.begin(), atom, atom + sizeof(atom));
 
     m_pssh[3] = static_cast<uint8_t>(m_pssh.size());
     m_pssh[2] = static_cast<uint8_t>(m_pssh.size() >> 8);
@@ -76,7 +75,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
   }
   m_initialPssh = m_pssh;
 
-  if (optionalKeyParameter)
+  if (!optionalKeyParameter.empty())
     m_optParams["PRCustomData"] = optionalKeyParameter;
 
   /*
@@ -84,7 +83,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
   xbmc_jnienv()->ExceptionClear();
   if (pui.size() > 0)
   {
-    std::string encoded{BASE64::Encode(pui.data(), pui.size())};
+    std::string encoded = BASE64::Encode(pui);
     m_optParams["CDMID"] = encoded;
   }
   */
@@ -169,16 +168,16 @@ std::vector<char> CWVCencSingleSampleDecrypterA::GetChallengeData()
   return m_keyRequestData;
 }
 
-bool CWVCencSingleSampleDecrypterA::HasLicenseKey(const uint8_t* keyId)
+bool CWVCencSingleSampleDecrypterA::HasLicenseKey(std::string_view keyId)
 {
   // true = one session for all streams, false = one sessions per stream
   // false fixes pixaltion issues on some devices when manifest has multiple encrypted streams
   return true;
 }
 
-void CWVCencSingleSampleDecrypterA::GetCapabilities(const uint8_t* keyId,
-                                                   uint32_t media,
-                                                   IDecrypter::DecrypterCapabilites& caps)
+void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
+                                                    uint32_t media,
+                                                    IDecrypter::DecrypterCapabilites& caps)
 {
   caps = {IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH |
               IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED,
@@ -343,7 +342,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   {
     if (insPos > 0 && blocks[0][insPos - 1] == 'B')
     {
-      std::string msgEncoded{BASE64::Encode(keyRequestData.data(), keyRequestData.size())};
+      std::string msgEncoded = BASE64::Encode(keyRequestData);
       msgEncoded = STRING::URLEncode(msgEncoded);
       blocks[0].replace(insPos - 1, 6, msgEncoded);
     }
@@ -420,7 +419,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
       {
         if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
         {
-          std::string msgEncoded{BASE64::Encode(keyRequestData.data(), keyRequestData.size())};
+          std::string msgEncoded = BASE64::Encode(keyRequestData);
           if (blocks[2][insPos - 1] == 'B')
           {
             msgEncoded = STRING::URLEncode(msgEncoded);
@@ -464,7 +463,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
         {
           if (blocks[2][sidPos - 1] == 'B' || blocks[2][sidPos - 1] == 'b')
           {
-            std::string msgEncoded{BASE64::Encode(m_sessionId.data(), m_sessionId.size())};
+            std::string msgEncoded = BASE64::Encode(m_sessionId);
             if (blocks[2][sidPos - 1] == 'B')
             {
               msgEncoded = STRING::URLEncode(msgEncoded);
@@ -512,7 +511,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
 
       if (psshPos != std::string::npos)
       {
-        std::string msgEncoded{BASE64::Encode(m_initialPssh.data(), m_initialPssh.size())};
+        std::string msgEncoded = BASE64::Encode(m_initialPssh);
         if (blocks[2][psshPos - 1] == 'B')
         {
           msgEncoded = STRING::URLEncode(msgEncoded);
@@ -523,7 +522,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
 
       if (fullDecode)
       {
-        std::string msgEncoded{BASE64::Encode(blocks[2])};
+        std::string msgEncoded = BASE64::Encode(blocks[2]);
         if (fullDecode == 'B')
         {
           msgEncoded = STRING::URLEncode(msgEncoded);
@@ -607,7 +606,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
 
       if (response.size() >= 3 && blocks[3][0] == 'B')
       {
-        response = BASE64::Decode(response);
+        response = BASE64::DecodeToStr(response);
         dataPos = 3;
       }
 
@@ -654,7 +653,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
 
         if (blocks[3][dataPos - 1] == 'B')
         {
-          response = BASE64::Decode(response);
+          response = BASE64::DecodeToStr(response);
         }
       }
       else
@@ -686,7 +685,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
     }
     else if (blocks[3][0] == 'B' && blocks[3].size() == 1)
     {
-      response = BASE64::Decode(response);
+      response = BASE64::DecodeToStr(response);
     }
     else
     {
@@ -712,16 +711,16 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
 }
 
 AP4_Result CWVCencSingleSampleDecrypterA::SetFragmentInfo(AP4_UI32 poolId,
-                                                         const AP4_UI08* key,
-                                                         const AP4_UI08 nalLengthSize,
-                                                         AP4_DataBuffer& annexbSpsPps,
-                                                         AP4_UI32 flags,
-                                                         CryptoInfo cryptoInfo)
+                                                          const std::vector<uint8_t>& keyId,
+                                                          const AP4_UI08 nalLengthSize,
+                                                          AP4_DataBuffer& annexbSpsPps,
+                                                          AP4_UI32 flags,
+                                                          CryptoInfo cryptoInfo)
 {
   if (poolId >= m_fragmentPool.size())
     return AP4_ERROR_OUT_OF_RANGE;
 
-  m_fragmentPool[poolId].m_key = key;
+  m_fragmentPool[poolId].m_key = keyId;
   m_fragmentPool[poolId].m_nalLengthSize = nalLengthSize;
   m_fragmentPool[poolId].m_annexbSpsPps.SetData(annexbSpsPps.GetData(), annexbSpsPps.GetDataSize());
   m_fragmentPool[poolId].m_decrypterFlags = flags;
@@ -749,7 +748,7 @@ AP4_UI32 CWVCencSingleSampleDecrypterA::AddPool()
 void CWVCencSingleSampleDecrypterA::RemovePool(AP4_UI32 poolId)
 {
   m_fragmentPool[poolId].m_nalLengthSize = 99;
-  m_fragmentPool[poolId].m_key = nullptr;
+  m_fragmentPool[poolId].m_key.clear();
 }
 
 AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
@@ -791,7 +790,7 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
       dataOut.AppendData(reinterpret_cast<const AP4_Byte*>(bytesOfEncryptedData),
                          subsampleCount * sizeof(AP4_UI32));
       dataOut.AppendData(reinterpret_cast<const AP4_Byte*>(iv), 16);
-      dataOut.AppendData(reinterpret_cast<const AP4_Byte*>(fragInfo.m_key), 16);
+      dataOut.AppendData(fragInfo.m_key.data(), static_cast<AP4_Size>(fragInfo.m_key.size()));
     }
     else
     {

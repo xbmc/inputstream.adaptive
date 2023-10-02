@@ -19,24 +19,24 @@ void UTILS::CCharArrayParser::Reset()
   m_position = 0;
 }
 
-void UTILS::CCharArrayParser::Reset(const char* data, int limit)
+void UTILS::CCharArrayParser::Reset(const uint8_t* data, size_t limit)
 {
   m_data = data;
   m_limit = limit;
   m_position = 0;
 }
 
-int UTILS::CCharArrayParser::CharsLeft()
+size_t UTILS::CCharArrayParser::CharsLeft()
 {
   return m_limit - m_position;
 }
 
-int UTILS::CCharArrayParser::GetPosition()
+size_t UTILS::CCharArrayParser::GetPosition()
 {
   return m_position;
 }
 
-bool UTILS::CCharArrayParser::SetPosition(int position)
+bool UTILS::CCharArrayParser::SetPosition(size_t position)
 {
   if (position >= 0 && position <= m_limit)
     m_position = position;
@@ -48,7 +48,7 @@ bool UTILS::CCharArrayParser::SetPosition(int position)
   return true;
 }
 
-bool UTILS::CCharArrayParser::SkipChars(int nChars)
+bool UTILS::CCharArrayParser::SkipChars(size_t nChars)
 {
   return SetPosition(m_position + nChars);
 }
@@ -145,21 +145,21 @@ uint64_t UTILS::CCharArrayParser::ReadNextUnsignedInt64()
          (static_cast<uint64_t>(m_data[m_position - 1]) & 0xFF);
 }
 
-std::string UTILS::CCharArrayParser::ReadNextString(int length)
+std::string UTILS::CCharArrayParser::ReadNextString(size_t length)
 {
   if (!m_data)
   {
     LOG::LogF(LOGERROR, "{} - No data to read");
     return "";
   }
-  std::string str(m_data + m_position, length);
+  std::string str(reinterpret_cast<const char*>(m_data + m_position), length);
   m_position += length;
   if (m_position > m_limit)
     LOG::LogF(LOGERROR, "{} - Position out of range");
   return str;
 }
 
-bool UTILS::CCharArrayParser::ReadNextArray(int length, char* data)
+bool UTILS::CCharArrayParser::ReadNextArray(size_t length, std::vector<uint8_t>& data)
 {
   if (!m_data)
   {
@@ -171,48 +171,7 @@ bool UTILS::CCharArrayParser::ReadNextArray(int length, char* data)
     LOG::LogF(LOGERROR, "{} - Position out of range");
     return false;
   }
-  std::strncpy(data, m_data + m_position, length);
-  data[length] = '\0';
-  return true;
-}
-
-bool UTILS::CCharArrayParser::ReadNextLine(std::string& line)
-{
-  if (!m_data)
-  {
-    LOG::LogF(LOGERROR, "{} - No data to read");
-    return false;
-  }
-  if (CharsLeft() == 0)
-  {
-    line.clear();
-    return false;
-  }
-
-  int lineLimit = m_position;
-  while (lineLimit < m_limit && !(m_data[lineLimit] == '\n' || m_data[lineLimit] == '\r'))
-  {
-    lineLimit++;
-  }
-
-  if (lineLimit - m_position >= 3 && m_data[m_position] == '\xEF' &&
-      m_data[m_position + 1] == '\xBB' && m_data[m_position + 2] == '\xBF')
-  {
-    // There's a UTF-8 byte order mark at the start of the line. Discard it.
-    m_position += 3;
-  }
-
-  line.assign(m_data + m_position, lineLimit - m_position);
-  m_position = lineLimit;
-
-  if (m_data[m_position] == '\r')
-  {
-    m_position++;
-  }
-  if (m_data[m_position] == '\n')
-  {
-    m_position++;
-  }
-
+  data.insert(data.end(), m_data + m_position, m_data + m_position + length);
+  m_position += length;
   return true;
 }

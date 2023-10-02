@@ -81,7 +81,7 @@ private:
   AP4_DataBuffer m_encrypted;
   AP4_DataBuffer m_sampleData;
   CodecHandler* m_codecHandler{nullptr};
-  const AP4_UI08* m_defaultKey{nullptr};
+  std::vector<uint8_t> m_defaultKey;
   AP4_ProtectedSampleDescription* m_protectedDesc{nullptr};
   Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor;
   CAdaptiveCencSampleDecrypter* m_decrypter{nullptr};

@@ -41,7 +41,7 @@ constexpr unsigned char BASE64_TABLE[] = {
 // clang-format on
 } // namespace
 
-void UTILS::BASE64::Encode(const char* input, const size_t length, std::string& output)
+void UTILS::BASE64::Encode(const uint8_t* input, const size_t length, std::string& output)
 {
   if (input == nullptr || length == 0)
     return;
@@ -74,33 +74,35 @@ void UTILS::BASE64::Encode(const char* input, const size_t length, std::string& 
   }
 }
 
-std::string UTILS::BASE64::Encode(const unsigned char* input, const size_t length)
-{
-  std::string output;
-  Encode(reinterpret_cast<const char*>(input), length, output);
-  return output;
-}
-
-std::string UTILS::BASE64::Encode(const char* input, const size_t length)
+std::string UTILS::BASE64::Encode(const uint8_t* input, const size_t length)
 {
   std::string output;
   Encode(input, length, output);
   return output;
 }
 
-void UTILS::BASE64::Encode(const std::string& input, std::string& output)
-{
-  Encode(input.c_str(), input.size(), output);
-}
-
-std::string UTILS::BASE64::Encode(const std::string& input)
+std::string UTILS::BASE64::Encode(const std::vector<uint8_t>& input)
 {
   std::string output;
-  Encode(input, output);
+  Encode(input.data(), input.size(), output);
   return output;
 }
 
-void UTILS::BASE64::Decode(const char* input, const size_t length, std::string& output)
+std::string UTILS::BASE64::Encode(const std::vector<char>& input)
+{
+  std::string output;
+  Encode(reinterpret_cast<const uint8_t*>(input.data()), input.size(), output);
+  return output;
+}
+
+std::string UTILS::BASE64::Encode(const std::string& inputStr)
+{
+  std::string output;
+  Encode(reinterpret_cast<const uint8_t*>(inputStr.data()), inputStr.size(), output);
+  return output;
+}
+
+void UTILS::BASE64::Decode(const char* input, const size_t length, std::vector<uint8_t>& output)
 {
   if (!input)
     return;
@@ -185,21 +187,16 @@ void UTILS::BASE64::Decode(const char* input, const size_t length, std::string& 
   }
 }
 
-std::string UTILS::BASE64::Decode(const char* input, const size_t length)
+std::vector<uint8_t> UTILS::BASE64::Decode(std::string_view input)
 {
-  std::string output;
-  Decode(input, length, output);
-  return output;
+  std::vector<uint8_t> data;
+  Decode(input.data(), input.size(), data);
+  return data;
 }
 
-void UTILS::BASE64::Decode(std::string_view input, std::string& output)
+std::string UTILS::BASE64::DecodeToStr(std::string_view input)
 {
+  std::vector<uint8_t> output;
   Decode(input.data(), input.size(), output);
-}
-
-std::string UTILS::BASE64::Decode(std::string_view input)
-{
-  std::string output;
-  Decode(input.data(), input.size(), output);
-  return output;
+  return {output.begin(), output.end()};
 }

@@ -180,5 +180,21 @@ std::string ToLower(std::string str);
  */
 uint32_t HexStrToUint(std::string_view hexValue);
 
+/*!
+ * \brief Convert a string in to a vector of uint8_t
+ * \param str The string to be converted
+ * \return The converted data
+ */
+std::vector<uint8_t> ToVecUint8(std::string_view str);
+
+/*!
+ * \brief Convert each character in the string to its hexadecimal
+ *        representation and return the concatenated result.
+ *        Example: "abc" -> "616263"
+ * \param str The string to be converted
+ * \return The string on its hexadecimal representation
+ */
+std::string ToHexadecimal(std::string_view str);
+
 } // namespace STRING
 } // namespace UTILS
