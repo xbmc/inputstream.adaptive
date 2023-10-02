@@ -94,9 +94,12 @@ void CJNIMediaDrm::setPropertyByteArray(const std::string &propertyName, const s
     jcast<jhstring>(propertyName), jcast<jhbyteArray, std::vector<char> >(value));
 }
 
-CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scope, 
-  const std::vector<char> &init, const std::string &mimeType, int keyType,
-  const std::map<std::string, std::string> &optionalParameters) const
+CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(
+    const std::vector<char>& scope,
+    const std::vector<uint8_t>& init,
+    const std::string& mimeType,
+    int keyType,
+    const std::map<std::string, std::string>& optionalParameters) const
 {
   JNIEnv *env = xbmc_jnienv();
 
@@ -107,7 +110,7 @@ CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(const std::vector<char> &scop
   CJNIMediaDrmKeyRequest result =
     call_method<jhobject>(m_object,
       "getKeyRequest", "([B[BLjava/lang/String;ILjava/util/HashMap;)Landroid/media/MediaDrm$KeyRequest;",
-      jcast<jhbyteArray, std::vector<char> >(scope), jcast<jhbyteArray, std::vector<char> >(init),
+      jcast<jhbyteArray, std::vector<char>>(scope), jcast<jhbyteArray, std::vector<uint8_t>>(init),
       jcast<jhstring>(mimeType), keyType, hashMap.get_raw());
 
   return result;

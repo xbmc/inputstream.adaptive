@@ -243,7 +243,7 @@ bool UTILS::CreateISMlicense(std::string_view key,
     return false;
   }
 
-  std::string decLicData = BASE64::Decode(licenseData);
+  std::string decLicData = BASE64::DecodeToStr(licenseData);
   size_t origLicenseSize = decLicData.size();
 
   const uint8_t* kid{reinterpret_cast<const uint8_t*>(std::strstr(decLicData.data(), "{KID}"))};
@@ -326,6 +326,16 @@ uint64_t UTILS::GetTimestamp()
   std::chrono::seconds unix_timestamp = std::chrono::seconds(std::time(NULL));
   using dCast = std::chrono::duration<std::uint64_t>;
   return std::chrono::duration_cast<dCast>(std::chrono::milliseconds(unix_timestamp)).count();
+}
+
+std::vector<uint8_t> UTILS::ZeroPadding(const std::vector<uint8_t>& data, const size_t padSize)
+{
+  if (data.size() >= padSize || data.empty())
+    return data;
+
+  std::vector<uint8_t> paddedData(padSize, 0);
+  std::copy(data.cbegin(), data.cend(), paddedData.begin() + (padSize - data.size()));
+  return paddedData;
 }
 
 std::string UTILS::CODEC::FourCCToString(const uint32_t fourcc)

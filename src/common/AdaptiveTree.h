@@ -178,8 +178,9 @@ public:
   uint16_t InsertPsshSet(PLAYLIST::StreamType streamType,
                          PLAYLIST::CPeriod* period,
                          PLAYLIST::CAdaptationSet* adp,
-                         std::string_view pssh,
+                         const std::vector<uint8_t>& pssh,
                          std::string_view defaultKID,
+                         std::string_view kidUrl = "",
                          std::string_view iv = "");
 
   PLAYLIST::CAdaptationSet* GetAdaptationSet(size_t pos) const

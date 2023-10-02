@@ -74,7 +74,9 @@ protected:
 
   void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate* segTpl);
 
-  bool ParseTagContentProtection(pugi::xml_node nodeCP, std::string& pssh, std::string& kid);
+  bool ParseTagContentProtection(pugi::xml_node nodeCP,
+                                 std::vector<uint8_t>& pssh,
+                                 std::string& kid);
 
   bool ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 

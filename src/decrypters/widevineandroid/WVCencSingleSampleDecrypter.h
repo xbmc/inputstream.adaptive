@@ -11,6 +11,7 @@
 #include "common/AdaptiveCencSampleDecrypter.h"
 
 #include <map>
+#include <string_view>
 
 #include <bento4/Ap4.h>
 
@@ -22,20 +23,20 @@ class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypterA : public Adaptive_CencSingleS
 public:
   // methods
   CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
-                               AP4_DataBuffer& pssh,
-                               const char* optionalKeyParameter,
-                               std::string_view defaultKeyId,
-                               CWVDecrypterA* host);
+                                AP4_DataBuffer& pssh,
+                                std::string_view optionalKeyParameter,
+                                std::string_view defaultKeyId,
+                                CWVDecrypterA* host);
   virtual ~CWVCencSingleSampleDecrypterA();
 
   bool StartSession(bool skipSessionMessage) { return KeyUpdateRequest(true, skipSessionMessage); };
   const std::vector<char>& GetSessionIdRaw() { return m_sessionId; };
   virtual const char* GetSessionId() override;
   std::vector<char> GetChallengeData();
-  virtual bool HasLicenseKey(const uint8_t* keyId);
+  virtual bool HasLicenseKey(std::string_view keyId);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
-                                     const AP4_UI08* key,
+                                     const std::vector<uint8_t>& keyId,
                                      const AP4_UI08 nalLengthSize,
                                      AP4_DataBuffer& annexbSpsPps,
                                      AP4_UI32 flags,
@@ -60,7 +61,7 @@ public:
       // array of <subsample_count> integers. NULL if subsample_count is 0
       const AP4_UI32* bytesOfEncryptedData) override;
 
-  void GetCapabilities(const uint8_t* keyId,
+  void GetCapabilities(std::string_view keyId,
                        uint32_t media,
                        DRM::IDecrypter::DecrypterCapabilites& caps);
 
@@ -73,8 +74,8 @@ private:
   bool SendSessionMessage(const std::vector<char>& keyRequestData);
 
   CWVCdmAdapterA& m_mediaDrm;
-  std::vector<char> m_pssh;
-  std::vector<char> m_initialPssh;
+  std::vector<uint8_t> m_pssh;
+  std::vector<uint8_t> m_initialPssh;
   std::map<std::string, std::string> m_optParams;
   CWVDecrypterA* m_host;
 
@@ -90,7 +91,7 @@ private:
 
   struct FINFO
   {
-    const AP4_UI08* m_key;
+    std::vector<uint8_t> m_key;
     AP4_UI08 m_nalLengthSize;
     AP4_UI16 m_decrypterFlags;
     AP4_DataBuffer m_annexbSpsPps;

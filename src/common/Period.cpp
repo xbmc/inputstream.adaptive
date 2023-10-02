@@ -47,17 +47,24 @@ uint16_t PLAYLIST::CPeriod::InsertPSSHSet(PSSHSet* psshSet)
 {
   if (psshSet)
   {
-    // Find the psshSet by skipping the first one of the list (empty)
-    // note that PSSHSet struct has a custom comparator for std::find
-    auto itPssh = std::find(m_psshSets.begin() + 1, m_psshSets.end(), *psshSet);
+    auto itPssh = m_psshSets.end();
 
-    if (itPssh == m_psshSets.end())
-      itPssh = m_psshSets.insert(m_psshSets.end(), *psshSet);
-    else // Found
+    if (psshSet->m_kidUrl.empty())
     {
-      // If the existing is not used replace it with current one
-      if (itPssh->m_usageCount == 0)
-        *itPssh = *psshSet;
+      // Find the psshSet by skipping the first one of the list (for unencrypted streams)
+      // note that PSSHSet struct has a custom comparator for std::find
+      itPssh = std::find(m_psshSets.begin() + 1, m_psshSets.end(), *psshSet);
+    }
+
+    if (itPssh != m_psshSets.end() && itPssh->m_usageCount == 0)
+    {
+      // If the existing psshSet is not used, replace it with the new one
+      *itPssh = *psshSet;
+    }
+    else
+    {
+      // Add a new PsshSet
+      itPssh = m_psshSets.insert(m_psshSets.end(), *psshSet);
     }
 
     itPssh->m_usageCount++;

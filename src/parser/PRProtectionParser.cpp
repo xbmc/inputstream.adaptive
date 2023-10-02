@@ -16,6 +16,8 @@
 #include "utils/log.h"
 #include "pugixml.hpp"
 
+#include <cstring>
+
 using namespace pugi;
 using namespace UTILS;
 
@@ -33,12 +35,12 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
   if (prHeader.empty())
     return false;
 
-  std::string headerData = BASE64::Decode(prHeader);
+  const std::vector<uint8_t> headerData = BASE64::Decode(prHeader);
   m_PSSH = headerData;
 
   // Parse header object data
   CCharArrayParser charParser;
-  charParser.Reset(headerData.c_str(), static_cast<int>(headerData.size()));
+  charParser.Reset(headerData.data(), headerData.size());
 
   if (!charParser.SkipChars(4))
   {
@@ -139,7 +141,7 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
 
   if (!kidBase64.empty())
   {
-    std::string kid = BASE64::Decode(kidBase64);
+    std::string kid = BASE64::DecodeToStr(kidBase64);
     if (kid.size() == 16)
     {
       m_KID = ConvertKIDtoWVKID(kid);
@@ -150,6 +152,61 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
 
   xml_node nodeLAURL = nodeDATA.child("LA_URL");
   m_licenseURL = nodeLAURL.child_value();
+
+  return true;
+}
+
+bool adaptive::CPsshParser::Parse(const std::vector<uint8_t>& data)
+{
+  CCharArrayParser charParser;
+  charParser.Reset(data.data(), data.size());
+
+  // BMFF box header (4byte size + 4byte type)
+  if (charParser.CharsLeft() < 8)
+    return false;
+  const uint32_t boxSize = charParser.ReadNextUnsignedInt();
+
+  if (std::memcmp(charParser.GetDataPos(), m_boxTypePssh, 4) != 0)
+  {
+    LOG::LogF(LOGERROR, "Wrong PSSH box type.");
+    return false;
+  }
+  charParser.SkipChars(4);
+
+  // Box header
+  if (charParser.CharsLeft() < 4)
+    return false;
+  const uint32_t header = charParser.ReadNextUnsignedInt();
+
+  m_version = (header >> 24) & 0x000000FF;
+  m_flags = header & 0x00FFFFFF;
+
+  // SystemID
+  if (charParser.CharsLeft() < 16)
+    return false;
+  charParser.ReadNextArray(16, m_systemId);
+
+  if (m_version == 1)
+  {
+    // KeyIDs
+    if (charParser.CharsLeft() < 4)
+      return false;
+    uint32_t kidCount = charParser.ReadNextUnsignedInt();
+    while (kidCount > 0)
+    {
+      if (charParser.CharsLeft() < 16)
+        return false;
+      std::string kid = charParser.ReadNextString(16);
+      m_keyIds.emplace_back(kid);
+      kidCount--;
+    }
+  }
+  // Data
+  if (charParser.CharsLeft() < 4)
+    return false;
+  const uint32_t dataSize = charParser.ReadNextUnsignedInt();
+  if (!charParser.ReadNextArray(dataSize, m_data))
+    return false;
 
   return true;
 }

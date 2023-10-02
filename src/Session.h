@@ -10,6 +10,7 @@
 
 #include "Stream.h"
 #include "common/AdaptiveStream.h"
+#include "common/Period.h"
 #include "decrypters/IDecrypter.h"
 #include "utils/PropertiesUtils.h"
 
@@ -363,6 +364,10 @@ protected:
   /*! \brief Destroy the decrypter module instance
    */
   void DisposeDecrypter();
+
+  bool ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,
+                                   AP4_DataBuffer& init_data,
+                                   std::string keySystem);
 
 private:
   const UTILS::PROPERTIES::KodiProperties m_kodiProps;
