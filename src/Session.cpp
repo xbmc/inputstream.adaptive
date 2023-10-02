@@ -11,6 +11,7 @@
 #include "aes_decrypter.h"
 #include "common/AdaptiveTreeFactory.h"
 #include "common/Chooser.h"
+#include "decrypters/DrmFactory.h"
 #include "samplereader/ADTSSampleReader.h"
 #include "samplereader/FragmentedSampleReader.h"
 #include "samplereader/SubtitleSampleReader.h"
@@ -95,7 +96,7 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
     return;
   }
 
-  m_decrypter = m_factory.GetDecrypter(GetCryptoKeySystem());
+  m_decrypter = DRM::FACTORY::GetDecrypter(GetCryptoKeySystem());
   if (!m_decrypter)
     return;
 

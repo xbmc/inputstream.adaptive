@@ -10,7 +10,6 @@
 
 #include "Stream.h"
 #include "common/AdaptiveStream.h"
-#include "decrypters/DrmFactory.h"
 #include "decrypters/IDecrypter.h"
 #include "utils/PropertiesUtils.h"
 
@@ -372,7 +371,6 @@ private:
   AP4_DataBuffer m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   DRM::IDecrypter* m_decrypter{nullptr};
-  DRM::CDrmFactory m_factory;
 
   struct CCdmSession
   {
