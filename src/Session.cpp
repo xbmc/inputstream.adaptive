@@ -409,7 +409,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
 
-      if (m_kodiProps.m_manifestType == PROPERTIES::ManifestType::ISM)
+      if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING)
       {
         if (m_kodiProps.m_licenseType == "com.widevine.alpha")
         {
