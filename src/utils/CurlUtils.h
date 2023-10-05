@@ -12,7 +12,6 @@
 #include "test/KodiStubs.h"
 #else
 #include <kodi/AddonBase.h>
-//! @Todo: forward CFile?
 #include <kodi/Filesystem.h>
 #endif
 
