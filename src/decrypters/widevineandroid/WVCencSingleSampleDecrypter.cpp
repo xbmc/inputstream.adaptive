@@ -222,7 +222,8 @@ bool CWVCencSingleSampleDecrypterA::ProvisionRequest()
   file.AddHeader("Content-Type", "application/json");
   file.AddHeader("postdata", reqData.c_str());
 
-  if (!file.Open())
+  int statusCode = file.Open();
+  if (statusCode == -1 || statusCode >= 400)
   {
     LOG::Log(LOGERROR, "Provisioning server returned failure");
     return false;
@@ -542,7 +543,8 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
     file.AddHeader("postdata", encData.c_str());
   }
 
-  if (!file.Open())
+  int statusCode = file.Open();
+  if (statusCode == -1 || statusCode >= 400)
   {
     LOG::Log(LOGERROR, "License server returned failure");
     return false;
