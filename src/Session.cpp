@@ -736,8 +736,8 @@ void CSession::UpdateStream(CStream& stream)
 
   if (!rep->GetCodecPrivateData().empty())
   {
-    std::string annexb;
-    const std::string* extraData(&annexb);
+    std::vector<uint8_t> annexb;
+    const std::vector<uint8_t>* extraData(&annexb);
 
     const DRM::IDecrypter::DecrypterCapabilites& caps{GetDecrypterCaps(rep->m_psshSetPos)};
 
@@ -751,8 +751,7 @@ void CSession::UpdateStream(CStream& stream)
     {
       extraData = &rep->GetCodecPrivateData();
     }
-    stream.m_info.SetExtraData(reinterpret_cast<const uint8_t*>(extraData->c_str()),
-                               extraData->size());
+    stream.m_info.SetExtraData(extraData->data(), extraData->size());
   }
 
   stream.m_info.SetCodecFourCC(0);
@@ -1452,12 +1451,11 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
   if (repr->GetContainerType() == ContainerType::MP4 && !repr->HasInitSegment())
   {
     AP4_SampleDescription* sampleDesc;
-    const std::string& extradata = repr->GetCodecPrivateData();
+    const std::vector<uint8_t>& extradata = repr->GetCodecPrivateData();
 
     if (stream->m_info.GetCodecName() == CODEC::NAME_H264)
     {
-      AP4_MemoryByteStream ms{reinterpret_cast<const uint8_t*>(extradata.data()),
-                              static_cast<const AP4_Size>(extradata.size())};
+      AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
       AP4_AvccAtom* atom =
           AP4_AvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
       sampleDesc = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->m_info.GetWidth(),
@@ -1465,8 +1463,7 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
     }
     else if (stream->m_info.GetCodecName() == CODEC::NAME_HEVC)
     {
-      AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
-                              static_cast<const AP4_Size>(extradata.size())};
+      AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
       AP4_HvccAtom* atom =
           AP4_HvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
       sampleDesc = new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->m_info.GetWidth(),
@@ -1474,8 +1471,7 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
     }
     else if (stream->m_info.GetCodecName() == CODEC::NAME_AV1)
     {
-      AP4_MemoryByteStream ms{reinterpret_cast<const AP4_UI08*>(extradata.data()),
-                              static_cast<AP4_Size>(extradata.size())};
+      AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
       AP4_Av1cAtom* atom =
           AP4_Av1cAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
       sampleDesc = new AP4_Av1SampleDescription(AP4_SAMPLE_FORMAT_AV01, stream->m_info.GetWidth(),

@@ -21,16 +21,18 @@
 using namespace UTILS;
 using namespace kodi::tools;
 
-std::string UTILS::AnnexbToHvcc(const char* b16Data)
+std::vector<uint8_t> UTILS::AnnexbToHvcc(const char* b16Data)
 {
   size_t sz = strlen(b16Data) >> 1;
   size_t szRun(sz);
-  std::string result;
+  std::vector<uint8_t> result;
 
   if (sz > 1024)
     return result;
 
-  uint8_t buffer[1024], *data(buffer);
+  std::vector<uint8_t> buffer(szRun);
+  uint8_t* data = buffer.data();
+
   while (szRun--)
   {
     *data = (STRING::ToHexNibble(*b16Data) << 4) + STRING::ToHexNibble(*(b16Data + 1));
@@ -40,13 +42,12 @@ std::string UTILS::AnnexbToHvcc(const char* b16Data)
 
   if (sz <= 6 || buffer[0] != 0 || buffer[1] != 0 || buffer[2] != 0 || buffer[3] != 1)
   {
-    result = std::string(reinterpret_cast<const char*>(buffer), sz);
-    return result;
+    return buffer;
   }
 
-  data = buffer + 4;
+  data = buffer.data() + 4;
   uint8_t* nalPos[4] = {data, nullptr, nullptr, nullptr};
-  uint8_t* end = buffer + sz;
+  uint8_t* end = buffer.data() + sz;
 
   while (data + 4 <= end && (data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] != 1))
   {
@@ -77,7 +78,7 @@ std::string UTILS::AnnexbToHvcc(const char* b16Data)
   {
     sz = 22 + sz - 12 + 16;
     result.resize(sz, 0); // Unknown HVCC fields
-    data = reinterpret_cast<uint8_t*>(&result[22]);
+    data = result.data() + 22;
     *data = 3, ++data; //numSequences;
     for (unsigned int i(0); i < 3; ++i)
     {
@@ -85,38 +86,39 @@ std::string UTILS::AnnexbToHvcc(const char* b16Data)
       data[0] = 0, data[1] = 1, data += 2; //count nals
       uint16_t nalSz = static_cast<uint16_t>(nalPos[i + 1] - nalPos[i] - 4);
       data[0] = nalSz >> 8, data[1] = nalSz & 0xFF, data += 2; //count nals
-      memcpy(data, nalPos[i], nalSz), data += nalSz;
+      std::memcpy(data, nalPos[i], nalSz), data += nalSz;
     }
   }
   return result;
 }
 
-std::string UTILS::AnnexbToAvc(const char* b16Data)
+std::vector<uint8_t> UTILS::AnnexbToAvc(const char* b16Data)
 {
-  size_t sz = strlen(b16Data) >> 1;
-  size_t szRun(sz);
-  std::string result;
+  size_t sz = std::strlen(b16Data) >> 1;
+  size_t szRun = sz;
+  std::vector<uint8_t> result;
 
   if (sz > 1024)
     return result;
 
-  uint8_t buffer[1024], *data(buffer);
+  std::vector<uint8_t> buffer(szRun);
+  uint8_t* bufferData = buffer.data();
+
   while (szRun--)
   {
-    *data = (STRING::ToHexNibble(*b16Data) << 4) + STRING::ToHexNibble(*(b16Data + 1));
+    *bufferData = (STRING::ToHexNibble(*b16Data) << 4) + STRING::ToHexNibble(*(b16Data + 1));
     b16Data += 2;
-    ++data;
+    ++bufferData;
   }
 
   if (sz <= 6 || buffer[0] != 0 || buffer[1] != 0 || buffer[2] != 0 || buffer[3] != 1)
   {
-    result = std::string(reinterpret_cast<const char*>(buffer), sz);
-    return result;
+    return buffer;
   }
 
-  uint8_t *sps = 0, *pps = 0, *end = buffer + sz;
+  uint8_t *sps = 0, *pps = 0, *end = buffer.data() + sz;
 
-  sps = pps = buffer + 4;
+  sps = pps = buffer.data() + 4;
 
   while (pps + 4 <= end && (pps[0] != 0 || pps[1] != 0 || pps[2] != 0 || pps[3] != 1))
   {
@@ -133,59 +135,61 @@ std::string UTILS::AnnexbToAvc(const char* b16Data)
   size_t pos(0);
 
   result[pos++] = 1;
-  result[pos++] = static_cast<char>(sps[1]);
-  result[pos++] = static_cast<char>(sps[2]);
-  result[pos++] = static_cast<char>(sps[3]);
-  result[pos++] =
-      static_cast<char>(0xFFU); //6 bits reserved(111111) + 2 bits nal size length - 1 (11)
-  result[pos++] = static_cast<char>(0xe1U); //3 bits reserved (111) + 5 bits number of sps (00001)
+  result[pos++] = sps[1];
+  result[pos++] = sps[2];
+  result[pos++] = sps[3];
+  result[pos++] = 0xFFU; //6 bits reserved(111111) + 2 bits nal size length - 1 (11)
+  result[pos++] = 0xe1U; //3 bits reserved (111) + 5 bits number of sps (00001)
 
   sz = pps - sps - 4;
-  result[pos++] = static_cast<const char>(sz >> 8);
-  result[pos++] = static_cast<const char>(sz & 0xFF);
-  result.replace(pos, sz, reinterpret_cast<const char*>(sps), sz);
-  pos += sz;
+  result[pos++] = static_cast<uint8_t>(sz >> 8);
+  result[pos++] = static_cast<uint8_t>(sz & 0xFF);
+  for (size_t i = 0; i < sz; ++i)
+  {
+    result[pos++] = sps[i];
+  }
 
   result[pos++] = 1;
   sz = end - pps;
-  result[pos++] = static_cast<const char>(sz >> 8);
-  result[pos++] = static_cast<const char>(sz & 0xFF);
-  result.replace(pos, sz, reinterpret_cast<const char*>(pps), sz);
-  pos += sz;
+  result[pos++] = static_cast<uint8_t>(sz >> 8);
+  result[pos++] = static_cast<uint8_t>(sz & 0xFF);
+  for (size_t i = 0; i < sz; ++i)
+  {
+    result[pos++] = pps[i];
+  }
 
   return result;
 }
 
-std::string UTILS::AvcToAnnexb(const std::string& avc)
+std::vector<uint8_t> UTILS::AvcToAnnexb(const std::vector<uint8_t>& avc)
 {
   if (avc.size() < 8)
-    return "";
+    return {};
 
   // check if's already annexb, avc starts with 1
   if (avc[0] == 0)
     return avc;
 
-  const uint8_t* avc_data(reinterpret_cast<const uint8_t*>(avc.data()));
-  size_t avc_data_size(avc.size());
-
   // calculate size
-  uint8_t buffer[1024];
-  uint8_t buffer_size(4);
+  std::vector<uint8_t> buffer(1024); //! @todo: fixed size should be removed
+  uint8_t buffer_size = 4;
   buffer[0] = buffer[1] = buffer[2] = 0;
   buffer[3] = 1;
 
   //skip avc header
-  avc_data += 6;
+  size_t avc_data_size = avc.size();
+  const uint8_t* avc_data = avc.data() + 6;
   avc_data_size -= 6;
+
   //sizeof SPS
-  std::uint16_t sz(*avc_data);
+  uint16_t sz = *avc_data;
   ++avc_data;
   --avc_data_size;
   sz = (sz << 8) | *avc_data;
   ++avc_data;
   --avc_data_size;
   //SPS
-  memcpy(buffer + buffer_size, avc_data, sz);
+  memcpy(buffer.data() + buffer_size, avc_data, sz);
   buffer_size += sz, avc_data_size -= sz, avc_data += sz;
 
   // Number PPS
@@ -202,10 +206,12 @@ std::string UTILS::AvcToAnnexb(const std::string& avc)
     ppssz = (ppssz << 8) | *avc_data;
     ++avc_data;
     --avc_data_size;
-    memcpy(buffer + buffer_size, avc_data, ppssz), buffer_size += ppssz, avc_data_size -= ppssz,
-        avc_data += ppssz;
+    std::memcpy(buffer.data() + buffer_size, avc_data, ppssz);
+    buffer_size += ppssz;
+    avc_data_size -= ppssz;
+    avc_data += ppssz;
   }
-  return std::string(reinterpret_cast<char*>(buffer), buffer_size);
+  return {buffer.begin(), buffer.begin() + buffer_size};
 }
 
 std::string UTILS::ConvertKIDtoWVKID(std::string_view kid)

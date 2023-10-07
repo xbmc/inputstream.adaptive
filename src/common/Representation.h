@@ -91,8 +91,8 @@ public:
   const std::set<std::string>& GetCodecs() { return m_codecs; }
 
   // ISA custom attribute
-  std::string& GetCodecPrivateData() { return m_codecPrivateData; }
-  void SetCodecPrivateData(std::string_view codecPrivateData)
+  const std::vector<uint8_t>& GetCodecPrivateData() const { return m_codecPrivateData; }
+  void SetCodecPrivateData(const std::vector<uint8_t>& codecPrivateData)
   {
     m_codecPrivateData = codecPrivateData;
   }
@@ -268,7 +268,7 @@ protected:
   std::string m_baseUrl;
 
   std::set<std::string> m_codecs;
-  std::string m_codecPrivateData;
+  std::vector<uint8_t> m_codecPrivateData;
 
   uint32_t m_bandwidth{0}; // as bit/s
 
