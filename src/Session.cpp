@@ -316,12 +316,10 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
     }
   }
 
-  AP4_DataBuffer init_data;
-  init_data.SetBufferSize(1024);
+  std::vector<uint8_t> initData;
 
   // Set the provided PSSH
-  std::vector<uint8_t> decPsshData = BASE64::Decode(psshData);
-  init_data.SetData(decPsshData.data(), static_cast<AP4_Size>(decPsshData.size()));
+  initData = BASE64::Decode(psshData);
 
   // Decode the provided KID
   std::string decKid{BASE64::DecodeToStr(kidData)};
@@ -331,9 +329,9 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   std::string hexKid{StringUtils::ToHexadecimal(decKid)};
   LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
 
-  if (m_decrypter && init_data.GetDataSize() >= 4 &&
+  if (m_decrypter && initData.size() >= 4 &&
       (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-           init_data, "", decKid, true, CryptoMode::AES_CTR)) != 0)
+           initData, "", decKid, true, CryptoMode::AES_CTR)) != 0)
   {
     session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
     sessionId = session.m_cdmSessionStr;
@@ -402,7 +400,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     // cdmSession 0 is reserved for unencrypted streams
     for (size_t ses{1}; ses < m_cdmSessions.size(); ++ses)
     {
-      AP4_DataBuffer init_data;
+      std::vector<uint8_t> initData;
       std::string drmOptionalKeyParam;
 
       CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
@@ -426,9 +424,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
             LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming, based on "
                                "license data property");
           }
-          std::vector<uint8_t> init_data_v;
-          CreateISMlicense(sessionPsshset.defaultKID_, licenseData, init_data_v);
-          init_data.SetData(init_data_v.data(), static_cast<AP4_Size>(init_data_v.size()));
+          CreateISMlicense(sessionPsshset.defaultKID_, licenseData, initData);
         }
         else if (m_kodiProps.m_licenseType == "com.microsoft.playready")
         {
@@ -451,22 +447,20 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         // This can allow to initialize a DRM that could be also not specified
         // as supported in the manifest (e.g. missing DASH ContentProtection tags)
         LOG::Log(LOGDEBUG, "License data: Use PSSH data provided by the license data property");
-        std::vector<uint8_t> licenseData = BASE64::Decode(m_kodiProps.m_licenseData);
-        init_data.SetData(licenseData.data(), static_cast<AP4_Size>(licenseData.size()));
+        initData = BASE64::Decode(m_kodiProps.m_licenseData);
       }
 
-      if (init_data.GetDataSize() == 0)
+      if (initData.size() == 0)
       {
         if (!sessionPsshset.pssh_.empty())
         {
           // Use the PSSH provided by manifest
-          init_data.SetData(sessionPsshset.pssh_.data(),
-                            static_cast<AP4_Size>(sessionPsshset.pssh_.size()));
+          initData = sessionPsshset.pssh_;
         }
         else
         {
           // Try extract the PSSH/KID from the stream
-          if (!ExtractStreamProtectionData(sessionPsshset, init_data, keySystem))
+          if (!ExtractStreamProtectionData(sessionPsshset, initData, keySystem))
             LOG::Log(LOGERROR, "License data: Cannot extract PSSH/KID data from the stream");
         }
       }
@@ -516,10 +510,10 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         }
       }
 
-      if (m_decrypter && init_data.GetDataSize() >= 4 &&
+      if (m_decrypter && initData.size() >= 4 &&
           (session.m_cencSingleSampleDecrypter ||
            (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-                init_data, drmOptionalKeyParam, defaultKid, false,
+                initData, drmOptionalKeyParam, defaultKid, false,
                 sessionPsshset.m_cryptoMode == CryptoMode::NONE ? CryptoMode::AES_CTR
                                                                 : sessionPsshset.m_cryptoMode)) !=
                0))
@@ -1519,7 +1513,7 @@ AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
 }
 
 bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,
-                                           AP4_DataBuffer& init_data,
+                                           std::vector<uint8_t>& initData,
                                            std::string keySystem)
 {
   keySystem = STRING::ToHexadecimal(keySystem);
@@ -1541,11 +1535,13 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
   }
   AP4_Array<AP4_PsshAtom>& pssh{movie->GetPsshAtoms()};
 
-  for (unsigned int i = 0; init_data.GetDataSize() == 0 && i < pssh.ItemCount(); i++)
+  for (unsigned int i = 0; initData.size() == 0 && i < pssh.ItemCount(); i++)
   {
     if (std::memcmp(pssh[i].GetSystemId(), keySystem.c_str(), 16) == 0)
     {
-      init_data.AppendData(pssh[i].GetData().GetData(), pssh[i].GetData().GetDataSize());
+      const AP4_DataBuffer& dataBuf = pssh[i].GetData();
+      initData.insert(initData.end(), dataBuf.GetData(), dataBuf.GetData() + dataBuf.GetDataSize());
+
       if (sessionPsshset.defaultKID_.empty())
       {
         if (pssh[i].GetKid(0))
@@ -1586,5 +1582,5 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
   }
 
   stream.Disable();
-  return init_data.GetDataSize() > 0;
+  return initData.size() > 0;
 }

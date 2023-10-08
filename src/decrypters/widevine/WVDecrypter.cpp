@@ -94,7 +94,7 @@ bool CWVDecrypter::OpenDRMSystem(const char* licenseURL,
 }
 
 Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
-    AP4_DataBuffer& pssh,
+    std::vector<uint8_t>& pssh,
     std::string_view optionalKeyParameter,
     std::string_view defaultKeyId,
     bool skipSessionMessage,

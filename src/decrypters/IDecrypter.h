@@ -85,7 +85,7 @@ public:
    * \return The single sample decrypter if successfully created
    */
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      AP4_DataBuffer& pssh,
+      std::vector<uint8_t>& pssh,
       std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
       bool skipSessionMessage,

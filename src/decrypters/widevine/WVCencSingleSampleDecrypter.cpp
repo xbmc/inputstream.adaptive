@@ -41,7 +41,7 @@ void CWVCencSingleSampleDecrypter::SetSession(const char* session,
 }
 
 CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
-                                                           AP4_DataBuffer& pssh,
+                                                           std::vector<uint8_t>& pssh,
                                                            std::string_view defaultKeyId,
                                                            bool skipSessionMessage,
                                                            CryptoMode cryptoMode,
@@ -59,10 +59,10 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
 {
   SetParentIsOwner(false);
 
-  if (pssh.GetDataSize() > 4096)
+  if (pssh.size() > 4096)
   {
-    LOG::LogF(LOGERROR, "PSSH init data with length %u seems not to be cenc init data",
-              pssh.GetDataSize());
+    LOG::LogF(LOGERROR, "PSSH init data with length %zu seems not to be cenc init data",
+              pssh.size());
     return;
   }
 
@@ -73,35 +73,42 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
     std::string debugFilePath =
         FILESYS::PathCombine(m_host->GetProfilePath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
 
-    std::string data{reinterpret_cast<const char*>(pssh.GetData()), pssh.GetDataSize()};
+    std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
     UTILS::FILESYS::SaveFile(debugFilePath, data, true);
   }
 
-  if (memcmp(pssh.GetData() + 4, "pssh", 4) != 0)
+  // No cenc init data with PSSH box format, create one
+  if (memcmp(pssh.data() + 4, "pssh", 4) != 0)
   {
-    unsigned int buf_size = 32 + pssh.GetDataSize();
-    uint8_t buf[4096 + 32];
-
     // This will request a new session and initializes session_id and message members in cdm_adapter.
     // message will be used to create a license request in the step after CreateSession call.
     // Initialization data is the widevine cdm pssh code in google proto style found in mpd schemeIdUri
-    static uint8_t proto[] = {0x00, 0x00, 0x00, 0x63, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00,
-                              0x00, 0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8,
-                              0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x00};
 
-    proto[2] = static_cast<uint8_t>((buf_size >> 8) & 0xFF);
-    proto[3] = static_cast<uint8_t>(buf_size & 0xFF);
-    proto[30] = static_cast<uint8_t>((pssh.GetDataSize() >> 8) & 0xFF);
-    proto[31] = static_cast<uint8_t>(pssh.GetDataSize());
+    // PSSH box version 0 (no kid's)
+    static const uint8_t atomHeader[12] = {0x00, 0x00, 0x00, 0x00, 0x70, 0x73,
+                                           0x73, 0x68, 0x00, 0x00, 0x00, 0x00};
 
-    memcpy(buf, proto, sizeof(proto));
-    memcpy(&buf[32], pssh.GetData(), pssh.GetDataSize());
-    m_pssh.SetData(buf, buf_size);
+    static const uint8_t widevineSystemId[16] = {0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce,
+                                                 0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed};
+
+    std::vector<uint8_t> psshAtom;
+    psshAtom.assign(atomHeader, atomHeader + 12); // PSSH Box header
+    psshAtom.insert(psshAtom.end(), widevineSystemId, widevineSystemId + 16); // System ID
+    // Add data size bytes
+    psshAtom.resize(30, 0); // 2 zero bytes
+    psshAtom.emplace_back(static_cast<uint8_t>((pssh.size()) >> 8));
+    psshAtom.emplace_back(static_cast<uint8_t>(pssh.size()));
+
+    psshAtom.insert(psshAtom.end(), pssh.begin(), pssh.end()); // Data
+    // Update box size
+    psshAtom[2] = static_cast<uint8_t>(psshAtom.size() >> 8);
+    psshAtom[3] = static_cast<uint8_t>(psshAtom.size());
+    m_pssh = psshAtom;
   }
 
-  drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(
-      m_promiseId++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc,
-      reinterpret_cast<const uint8_t*>(m_pssh.GetData()), m_pssh.GetDataSize());
+  drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(m_promiseId++, cdm::SessionType::kTemporary,
+                                                       cdm::InitDataType::kCenc, m_pssh.data(),
+                                                       static_cast<uint32_t>(m_pssh.size()));
 
   int retrycount = 0;
   while (m_strSession.empty() && ++retrycount < 100)

@@ -366,7 +366,7 @@ protected:
   void DisposeDecrypter();
 
   bool ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,
-                                   AP4_DataBuffer& init_data,
+                                   std::vector<uint8_t>& initData,
                                    std::string keySystem);
 
 private:

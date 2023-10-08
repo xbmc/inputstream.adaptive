@@ -32,7 +32,7 @@ public:
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      AP4_DataBuffer& pssh,
+      std::vector<uint8_t>& pssh,
       std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
       bool skipSessionMessage,
