@@ -15,6 +15,7 @@
 #include "utils/StringUtils.h"
 #include "utils/log.h"
 
+using namespace adaptive;
 using namespace PLAYLIST;
 using namespace UTILS;
 
@@ -22,9 +23,11 @@ adaptive::AdaptiveTree* PLAYLIST_FACTORY::CreateAdaptiveTree(
     const UTILS::PROPERTIES::KodiProperties& kodiProps,
     const UTILS::CURL::HTTPResponse& manifestResp)
 {
+  TreeType type = TreeType::UNKNOWN;
+
   // Add-on can override manifest type
   //! @todo: deprecated, to be removed on next Kodi release
-  PROPERTIES::ManifestType manifestType = kodiProps.m_manifestType;
+  PROPERTIES::ManifestType manifestTypeProp = kodiProps.m_manifestType;
 
   // Detect the manifest type
   if (kodiProps.m_manifestType == PROPERTIES::ManifestType::UNKNOWN)
@@ -33,78 +36,84 @@ adaptive::AdaptiveTree* PLAYLIST_FACTORY::CreateAdaptiveTree(
     if (STRING::KeyExists(manifestResp.headers, "content-type"))
       contentType = manifestResp.headers.at("content-type");
 
-    manifestType = InferManifestType(manifestResp.effectiveUrl, contentType, manifestResp.data);
+    type = InferManifestType(manifestResp.effectiveUrl, contentType, manifestResp.data);
+  }
+  else
+  {
+    if (manifestTypeProp == PROPERTIES::ManifestType::MPD)
+      type = TreeType::DASH;
+    else if (manifestTypeProp == PROPERTIES::ManifestType::HLS)
+      type = TreeType::HLS;
+    else if (manifestTypeProp == PROPERTIES::ManifestType::ISM)
+      type = TreeType::SMOOTH_STREAMING;
   }
 
-  if (manifestType == PROPERTIES::ManifestType::UNKNOWN)
+  switch (type)
   {
-    LOG::LogF(LOGERROR,
-              "Cannot detect the manifest type.\n"
-              "Check if the content-type header is correctly provided in the manifest response.");
-    return nullptr;
-  }
-
-  switch (manifestType)
-  {
-    case PROPERTIES::ManifestType::MPD:
-      return new adaptive::CDashTree();
+    case TreeType::DASH:
+      return new CDashTree();
       break;
-    case PROPERTIES::ManifestType::ISM:
-      return new adaptive::CSmoothTree();
+    case TreeType::HLS:
+      return new CHLSTree();
       break;
-    case PROPERTIES::ManifestType::HLS:
-      return new adaptive::CHLSTree();
+    case TreeType::SMOOTH_STREAMING:
+      return new CSmoothTree();
+      break;
+    case TreeType::UNKNOWN:
+      LOG::LogF(LOGERROR,
+                "Cannot detect the manifest type.\n"
+                "Check if the content-type header is correctly provided in the manifest response.");
       break;
     default:
-      LOG::LogF(LOGFATAL, "Manifest type %i not handled", manifestType);
+      LOG::LogF(LOGFATAL, "Manifest type %i not handled", type);
   };
 
   return nullptr;
 }
 
-UTILS::PROPERTIES::ManifestType PLAYLIST_FACTORY::InferManifestType(std::string_view url,
-                                                                    std::string_view contentType,
-                                                                    std::string_view data)
+adaptive::TreeType PLAYLIST_FACTORY::InferManifestType(std::string_view url,
+                                                       std::string_view contentType,
+                                                       std::string_view data)
 {
   // Try detect manifest type by using mime type specified by the server
   if (contentType == "application/dash+xml")
-    return PROPERTIES::ManifestType::MPD;
+    return TreeType::DASH;
   else if (contentType == "vnd.apple.mpegurl" || contentType == "application/vnd.apple.mpegurl" ||
            contentType == "application/x-mpegURL")
-    return PROPERTIES::ManifestType::HLS;
+    return TreeType::HLS;
   else if (contentType == "application/vnd.ms-sstr+xml")
-    return PROPERTIES::ManifestType::ISM;
+    return TreeType::SMOOTH_STREAMING;
 
   // Try detect manifest type by checking file extension
   std::string ext = STRING::ToLower(FILESYS::GetFileExtension(url.data()));
   if (ext == "mpd")
-    return PROPERTIES::ManifestType::MPD;
+    return TreeType::DASH;
   else if (ext == "m3u8")
-    return PROPERTIES::ManifestType::HLS;
+    return TreeType::HLS;
   else if (ext == "ism/manifest" || ext == "isml/manifest" || ext == "ism" || ext == "isml")
-    return PROPERTIES::ManifestType::ISM;
+    return TreeType::SMOOTH_STREAMING;
 
   // Usually we could fall here if add-ons use a proxy to manipulate manifests without providing the
   // appropriate content-type header in the proxy HTTP response and by using also a custom address,
   // then as last resort we try detect the manifest type by parsing manifest data
-  if (!data.empty())
+  if (data.size() > 1)
   {
     // Try check if we have the optional BOM for UTF16 BE / LE data
     // in this case always assumes as Smooth Streaming manifest
     if ((data[0] == '\xFE' && data[1] == '\xFF') || (data[0] == '\xFF' && data[1] == '\xFE'))
     {
-      return PROPERTIES::ManifestType::ISM;
+      return TreeType::SMOOTH_STREAMING;
     }
 
     // Since the data may be very large, limit the parsing to the first 200 characters
     std::string_view dataSnippet = data.substr(0, 200);
     if (dataSnippet.find("<MPD") != std::string::npos)
-      return PROPERTIES::ManifestType::MPD;
+      return TreeType::DASH;
     else if (dataSnippet.find("#EXTM3U") != std::string::npos)
-      return PROPERTIES::ManifestType::HLS;
+      return TreeType::HLS;
     else if (dataSnippet.find("SmoothStreamingMedia") != std::string::npos)
-      return PROPERTIES::ManifestType::ISM;
+      return TreeType::SMOOTH_STREAMING;
   }
 
-  return PROPERTIES::ManifestType::UNKNOWN;
+  return TreeType::UNKNOWN;
 }

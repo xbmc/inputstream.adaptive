@@ -37,10 +37,6 @@ namespace CHOOSER
 {
 class IRepresentationChooser;
 }
-namespace PLAYLIST
-{
-enum class TreeType;
-}
 
 namespace adaptive
 {

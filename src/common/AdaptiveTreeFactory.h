@@ -10,7 +10,13 @@
 
 #include "utils/CurlUtils.h"
 #include "utils/PropertiesUtils.h"
-#include "AdaptiveTree.h"
+
+// forward
+namespace adaptive
+{
+enum class TreeType;
+class AdaptiveTree;
+}
 
 namespace PLAYLIST_FACTORY
 {
@@ -30,8 +36,8 @@ adaptive::AdaptiveTree* CreateAdaptiveTree(const UTILS::PROPERTIES::KodiProperti
  * \param data The manifest data
  * \return The manifest type
  */
-UTILS::PROPERTIES::ManifestType InferManifestType(std::string_view url,
-                                                  std::string_view contentType,
-                                                  std::string_view data);
+adaptive::TreeType InferManifestType(std::string_view url,
+                                     std::string_view contentType,
+                                     std::string_view data);
 
 } // namespace PLAYLIST_FACTORY
