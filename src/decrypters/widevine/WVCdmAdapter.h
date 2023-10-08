@@ -20,7 +20,7 @@ class CWVCencSingleSampleDecrypter;
 class ATTR_DLL_LOCAL CWVCdmAdapter : public media::CdmAdapterClient
 {
 public:
-  CWVCdmAdapter(const char* licenseURL,
+  CWVCdmAdapter(std::string_view licenseURL,
                 const std::vector<uint8_t>& serverCert,
                 const uint8_t config,
                 CWVDecrypter* host);

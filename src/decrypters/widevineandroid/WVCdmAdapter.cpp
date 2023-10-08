@@ -18,7 +18,7 @@ using namespace DRM;
 using namespace jni;
 
 CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
-                               const char* licenseURL,
+                               std::string_view licenseURL,
                                const std::vector<uint8_t>& serverCert,
                                CJNIMediaDrmOnEventListener* listener,
                                CWVDecrypterA* host)

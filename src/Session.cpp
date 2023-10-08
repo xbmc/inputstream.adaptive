@@ -308,7 +308,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
 
   if (!m_decrypter->IsInitialised())
   {
-    if (!m_decrypter->OpenDRMSystem(m_kodiProps.m_licenseKey.c_str(), m_serverCertificate,
+    if (!m_decrypter->OpenDRMSystem(m_kodiProps.m_licenseKey, m_serverCertificate,
                                     m_drmConfig))
     {
       LOG::LogF(LOGERROR, "OpenDRMSystem failed");
@@ -383,7 +383,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
     if (!m_decrypter->IsInitialised())
     {
-      if (!m_decrypter->OpenDRMSystem(licenseKey.c_str(), m_serverCertificate, m_drmConfig))
+      if (!m_decrypter->OpenDRMSystem(licenseKey, m_serverCertificate, m_drmConfig))
       {
         LOG::Log(LOGERROR, "OpenDRMSystem failed");
         return false;

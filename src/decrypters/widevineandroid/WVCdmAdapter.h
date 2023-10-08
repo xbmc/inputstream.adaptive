@@ -26,7 +26,7 @@ class ATTR_DLL_LOCAL CWVCdmAdapterA
 {
 public:
   CWVCdmAdapterA(WV_KEYSYSTEM ks,
-                 const char* licenseURL,
+                 std::string_view licenseURL,
                  const std::vector<uint8_t>& serverCert,
                  jni::CJNIMediaDrmOnEventListener* listener,
                  CWVDecrypterA* host);

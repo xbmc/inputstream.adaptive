@@ -71,7 +71,7 @@ public:
    * \param config Flags to be passed to the decrypter
    * \return true on success 
    */
-  virtual bool OpenDRMSystem(const char* licenseURL,
+  virtual bool OpenDRMSystem(std::string_view licenseURL,
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) = 0;
   

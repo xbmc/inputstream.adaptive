@@ -126,7 +126,7 @@ std::string CWVDecrypterA::SelectKeySytem(std::string_view keySystem)
   return "";
 }
 
-bool CWVDecrypterA::OpenDRMSystem(const char* licenseURL,
+bool CWVDecrypterA::OpenDRMSystem(std::string_view licenseURL,
                                   const std::vector<uint8_t>& serverCertificate,
                                   const uint8_t config)
 {
