@@ -104,7 +104,7 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
     return;
   }
 
-  key_system = m_decrypter->SelectKeySytem(m_kodiProps.m_licenseType.c_str());
+  key_system = m_decrypter->SelectKeySytem(m_kodiProps.m_licenseType);
   m_decrypter->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
   m_decrypter->SetProfilePath(m_profilePath);
   m_decrypter->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));

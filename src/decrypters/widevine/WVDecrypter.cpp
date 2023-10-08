@@ -76,12 +76,12 @@ bool CWVDecrypter::Initialize()
   return true;
 }
 
-const char* CWVDecrypter::SelectKeySytem(const char* keySystem)
+std::string CWVDecrypter::SelectKeySytem(std::string_view keySystem)
 {
-  if (strcmp(keySystem, "com.widevine.alpha"))
-    return nullptr;
+  if (keySystem == "com.widevine.alpha")
+    return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
 
-  return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+  return "";
 }
 
 bool CWVDecrypter::OpenDRMSystem(const char* licenseURL,

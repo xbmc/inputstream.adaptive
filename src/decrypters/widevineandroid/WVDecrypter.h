@@ -81,7 +81,7 @@ public:
   }
 #endif
 
-  virtual const char* SelectKeySytem(const char* keySystem) override;
+  virtual std::string SelectKeySytem(std::string_view keySystem) override;
 
   virtual bool OpenDRMSystem(const char* licenseURL,
                              const std::vector<uint8_t>& serverCertificate,

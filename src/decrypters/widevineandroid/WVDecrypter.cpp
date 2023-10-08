@@ -104,26 +104,26 @@ void CWVDecrypterA::SetProfilePath(const std::string& profilePath)
   kodi::vfs::CreateDirectory(m_strProfilePath.c_str());
 }
 
-const char* CWVDecrypterA::SelectKeySytem(const char* keySystem)
+std::string CWVDecrypterA::SelectKeySytem(std::string_view keySystem)
 {
-  LOG::Log(LOGDEBUG, "Key system request: %s", keySystem);
-  if (strcmp(keySystem, "com.widevine.alpha") == 0)
+  LOG::Log(LOGDEBUG, "Key system request: %s", keySystem.data());
+  if (keySystem == "com.widevine.alpha")
   {
     m_keySystem = WIDEVINE;
     return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
   }
-  else if (strcmp(keySystem, "com.huawei.wiseplay") == 0)
+  else if (keySystem == "com.huawei.wiseplay")
   {
     m_keySystem = WISEPLAY;
     return "urn:uuid:3D5E6D35-9B9A-41E8-B843-DD3C6E72C42C";
   }
-  else if (strcmp(keySystem, "com.microsoft.playready") == 0)
+  else if (keySystem == "com.microsoft.playready")
   {
     m_keySystem = PLAYREADY;
     return "urn:uuid:9A04F079-9840-4286-AB92-E65BE0885F95";
   }
-  else
-    return nullptr;
+
+  return "";
 }
 
 bool CWVDecrypterA::OpenDRMSystem(const char* licenseURL,
