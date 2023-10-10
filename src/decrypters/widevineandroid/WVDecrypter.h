@@ -84,7 +84,7 @@ public:
   virtual const char* SelectKeySytem(const char* keySystem) override;
 
   virtual bool OpenDRMSystem(const char* licenseURL,
-                             const AP4_DataBuffer& serverCertificate,
+                             const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
 
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(

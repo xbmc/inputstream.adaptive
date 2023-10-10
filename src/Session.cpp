@@ -66,9 +66,7 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
 
   if (!kodiProps.m_serverCertificate.empty())
   {
-    std::string decCert{BASE64::DecodeToStr(kodiProps.m_serverCertificate)};
-    m_serverCertificate.SetData(reinterpret_cast<const AP4_Byte*>(decCert.data()),
-                                static_cast<AP4_Size>(decCert.size()));
+    m_serverCertificate = BASE64::Decode(kodiProps.m_serverCertificate);
   }
 }
 

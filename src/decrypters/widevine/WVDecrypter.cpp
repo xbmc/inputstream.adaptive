@@ -85,7 +85,7 @@ const char* CWVDecrypter::SelectKeySytem(const char* keySystem)
 }
 
 bool CWVDecrypter::OpenDRMSystem(const char* licenseURL,
-                                 const AP4_DataBuffer& serverCertificate,
+                                 const std::vector<uint8_t>& serverCertificate,
                                  const uint8_t config)
 {
   m_WVCdmAdapter = new CWVCdmAdapter(licenseURL, serverCertificate, config, this);

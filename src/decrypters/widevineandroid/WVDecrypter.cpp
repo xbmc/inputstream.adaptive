@@ -127,8 +127,8 @@ const char* CWVDecrypterA::SelectKeySytem(const char* keySystem)
 }
 
 bool CWVDecrypterA::OpenDRMSystem(const char* licenseURL,
-                                 const AP4_DataBuffer& serverCertificate,
-                                 const uint8_t config)
+                                  const std::vector<uint8_t>& serverCertificate,
+                                  const uint8_t config)
 {
   if (m_keySystem == NONE)
     return false;
