@@ -455,7 +455,8 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   serverCertRequest = m_challenge.GetDataSize() == 2;
   m_challenge.SetDataSize(0);
 
-  if (!file.Open())
+  int statusCode = file.Open();
+  if (statusCode == -1 || statusCode >= 400)
   {
     LOG::Log(LOGERROR, "License server returned failure");
     return false;
