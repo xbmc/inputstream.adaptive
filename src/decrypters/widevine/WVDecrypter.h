@@ -27,12 +27,12 @@ public:
 
   virtual bool Initialize() override;
 
-  virtual const char* SelectKeySytem(const char* keySystem) override;
-  virtual bool OpenDRMSystem(const char* licenseURL,
-                             const AP4_DataBuffer& serverCertificate,
+  virtual std::string SelectKeySytem(std::string_view keySystem) override;
+  virtual bool OpenDRMSystem(std::string_view licenseURL,
+                             const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      AP4_DataBuffer& pssh,
+      std::vector<uint8_t>& pssh,
       std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
       bool skipSessionMessage,

@@ -25,7 +25,7 @@ using namespace UTILS;
 using namespace kodi::tools;
 
 CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
-                                                             AP4_DataBuffer& pssh,
+                                                             std::vector<uint8_t>& pssh,
                                                              std::string_view optionalKeyParameter,
                                                              std::string_view defaultKeyId,
                                                              CWVDecrypterA* host)
@@ -39,10 +39,10 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
 {
   SetParentIsOwner(false);
 
-  if (pssh.GetDataSize() > 65535)
+  if (pssh.size() > 65535)
   {
-    LOG::LogF(LOGERROR, "PSSH init data with length %u seems not to be cenc init data",
-              pssh.GetDataSize());
+    LOG::LogF(LOGERROR, "PSSH init data with length %zu seems not to be cenc init data",
+              pssh.size());
     return;
   }
 
@@ -50,28 +50,31 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
   {
     std::string debugFilePath =
         FILESYS::PathCombine(m_host->GetProfilePath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
-    std::string data{reinterpret_cast<const char*>(pssh.GetData()), pssh.GetDataSize()};
+    std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
     FILESYS::SaveFile(debugFilePath, data, true);
   }
 
-  m_pssh.assign(pssh.GetData(), pssh.GetData() + pssh.GetDataSize());
-
-  if (memcmp(pssh.GetData() + 4, "pssh", 4) != 0)
+  m_pssh = pssh;
+  // No cenc init data with PSSH box format, create one
+  if (memcmp(pssh.data() + 4, "pssh", 4) != 0)
   {
-    const uint8_t atomHeader[] = {0x00, 0x00, 0x00, 0x00, 0x70, 0x73,
-                                  0x73, 0x68, 0x00, 0x00, 0x00, 0x00};
-    uint8_t atom[32];
-    memcpy(atom, atomHeader, 12);
-    memcpy(atom + 12, m_mediaDrm.GetKeySystem(), 16);
-    memset(atom + 28, 0, 4);
+    // PSSH box version 0 (no kid's)
+    static const uint8_t atomHeader[12] = {0x00, 0x00, 0x00, 0x00, 0x70, 0x73,
+                                           0x73, 0x68, 0x00, 0x00, 0x00, 0x00};
 
-    m_pssh.insert(m_pssh.begin(), atom, atom + sizeof(atom));
+    std::vector<uint8_t> psshAtom;
+    psshAtom.assign(atomHeader, atomHeader + 12); // PSSH Box header
+    psshAtom.insert(psshAtom.end(), m_mediaDrm.GetKeySystem(), m_mediaDrm.GetKeySystem() + 16); // System ID
+    // Add data size bytes
+    psshAtom.resize(30, 0); // 2 zero bytes
+    psshAtom.emplace_back(static_cast<uint8_t>((m_pssh.size()) >> 8));
+    psshAtom.emplace_back(static_cast<uint8_t>(m_pssh.size()));
 
-    m_pssh[3] = static_cast<uint8_t>(m_pssh.size());
-    m_pssh[2] = static_cast<uint8_t>(m_pssh.size() >> 8);
-
-    m_pssh[sizeof(atom) - 1] = static_cast<uint8_t>(m_pssh.size()) - sizeof(atom);
-    m_pssh[sizeof(atom) - 2] = static_cast<uint8_t>((m_pssh.size() - sizeof(atom)) >> 8);
+    psshAtom.insert(psshAtom.end(), m_pssh.begin(), m_pssh.end()); // Data
+    // Update box size
+    psshAtom[2] = static_cast<uint8_t>(psshAtom.size() >> 8);
+    psshAtom[3] = static_cast<uint8_t>(psshAtom.size());
+    m_pssh = psshAtom;
   }
   m_initialPssh = m_pssh;
 

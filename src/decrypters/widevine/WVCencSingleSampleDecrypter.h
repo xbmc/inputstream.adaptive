@@ -31,7 +31,7 @@ class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypter : public Adaptive_CencSingleSa
 public:
   // methods
   CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
-                               AP4_DataBuffer& pssh,
+                               std::vector<uint8_t>& pssh,
                                std::string_view defaultKeyId,
                                bool skipSessionMessage,
                                CryptoMode cryptoMode,
@@ -91,7 +91,7 @@ private:
 
   CWVCdmAdapter& m_wvCdmAdapter;
   std::string m_strSession;
-  AP4_DataBuffer m_pssh;
+  std::vector<uint8_t> m_pssh;
   AP4_DataBuffer m_challenge;
   std::string m_defaultKeyId;
   struct WVSKEY

@@ -62,7 +62,7 @@ public:
    * \param keySystem The URN to be matched
    * \return Supported URN if type matches to capabilities, otherwise null
    */
-  virtual const char* SelectKeySytem(const char* keySystem) = 0;
+  virtual std::string SelectKeySytem(std::string_view keySystem) = 0;
 
   /**
    * \brief Initialise the DRM system
@@ -71,8 +71,8 @@ public:
    * \param config Flags to be passed to the decrypter
    * \return true on success 
    */
-  virtual bool OpenDRMSystem(const char* licenseURL,
-                             const AP4_DataBuffer& serverCertificate,
+  virtual bool OpenDRMSystem(std::string_view licenseURL,
+                             const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) = 0;
   
   /**
@@ -85,7 +85,7 @@ public:
    * \return The single sample decrypter if successfully created
    */
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      AP4_DataBuffer& pssh,
+      std::vector<uint8_t>& pssh,
       std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
       bool skipSessionMessage,

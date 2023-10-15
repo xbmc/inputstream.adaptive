@@ -20,9 +20,9 @@
 namespace UTILS
 {
 
-std::string AnnexbToHvcc(const char* b16Data);
-std::string AnnexbToAvc(const char* b16Data);
-std::string AvcToAnnexb(const std::string& avc);
+std::vector<uint8_t> AnnexbToHvcc(const char* b16Data);
+std::vector<uint8_t> AnnexbToAvc(const char* b16Data);
+std::vector<uint8_t> AvcToAnnexb(const std::vector<uint8_t>& avc);
 std::string ConvertKIDtoWVKID(std::string_view kid);
 std::string ConvertKIDtoUUID(std::string_view kid);
 bool CreateISMlicense(std::string_view key,

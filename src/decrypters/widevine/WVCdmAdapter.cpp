@@ -25,10 +25,10 @@ namespace
 #endif
 } // unnamed namespace
 
-CWVCdmAdapter::CWVCdmAdapter(const char* licenseURL,
-               const AP4_DataBuffer& serverCert,
-               const uint8_t config,
-               CWVDecrypter* host)
+CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
+                             const std::vector<uint8_t>& serverCert,
+                             const uint8_t config,
+                             CWVDecrypter* host)
   : m_licenseUrl(licenseURL), m_host(host), m_codecInstance(nullptr)
 {
   std::string strLibPath = m_host->GetLibraryPath();
@@ -77,8 +77,8 @@ CWVCdmAdapter::CWVCdmAdapter(const char* licenseURL,
     return;
   }
 
-  if (serverCert.GetDataSize())
-    wv_adapter->SetServerCertificate(0, serverCert.GetData(), serverCert.GetDataSize());
+  if (!serverCert.empty())
+    wv_adapter->SetServerCertificate(0, serverCert.data(), serverCert.size());
 
   // For backward compatibility: If no | is found in URL, use the most common working config
   if (m_licenseUrl.find('|') == std::string::npos)

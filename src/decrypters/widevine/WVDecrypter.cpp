@@ -76,16 +76,16 @@ bool CWVDecrypter::Initialize()
   return true;
 }
 
-const char* CWVDecrypter::SelectKeySytem(const char* keySystem)
+std::string CWVDecrypter::SelectKeySytem(std::string_view keySystem)
 {
-  if (strcmp(keySystem, "com.widevine.alpha"))
-    return nullptr;
+  if (keySystem == "com.widevine.alpha")
+    return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
 
-  return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+  return "";
 }
 
-bool CWVDecrypter::OpenDRMSystem(const char* licenseURL,
-                                 const AP4_DataBuffer& serverCertificate,
+bool CWVDecrypter::OpenDRMSystem(std::string_view licenseURL,
+                                 const std::vector<uint8_t>& serverCertificate,
                                  const uint8_t config)
 {
   m_WVCdmAdapter = new CWVCdmAdapter(licenseURL, serverCertificate, config, this);
@@ -94,7 +94,7 @@ bool CWVDecrypter::OpenDRMSystem(const char* licenseURL,
 }
 
 Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
-    AP4_DataBuffer& pssh,
+    std::vector<uint8_t>& pssh,
     std::string_view optionalKeyParameter,
     std::string_view defaultKeyId,
     bool skipSessionMessage,

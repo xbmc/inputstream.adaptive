@@ -18,10 +18,10 @@ using namespace DRM;
 using namespace jni;
 
 CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
-                             const char* licenseURL,
-                             const AP4_DataBuffer& serverCert,
-                             CJNIMediaDrmOnEventListener* listener,
-                             CWVDecrypterA* host)
+                               std::string_view licenseURL,
+                               const std::vector<uint8_t>& serverCert,
+                               CJNIMediaDrmOnEventListener* listener,
+                               CWVDecrypterA* host)
   : m_keySystem(ks), m_mediaDrm(0), m_licenseUrl(licenseURL), m_host(host)
 {
   std::string strBasePath = m_host->GetProfilePath();
@@ -79,7 +79,7 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
     return;
   }
 
-  std::vector<char> strDeviceId = m_mediaDrm->getPropertyByteArray("deviceUniqueId");
+  std::vector<uint8_t> strDeviceId = m_mediaDrm->getPropertyByteArray("deviceUniqueId");
   xbmc_jnienv()->ExceptionClear();
   std::string strSecurityLevel = m_mediaDrm->getPropertyString("securityLevel");
   xbmc_jnienv()->ExceptionClear();
@@ -90,10 +90,10 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
   if (m_keySystem == WIDEVINE)
   {
     //m_mediaDrm->setPropertyString("sessionSharing", "enable");
-    if (serverCert.GetDataSize())
-      m_mediaDrm->setPropertyByteArray(
-          "serviceCertificate",
-          std::vector<char>(serverCert.GetData(), serverCert.GetData() + serverCert.GetDataSize()));
+    if (!serverCert.empty())
+    {
+      m_mediaDrm->setPropertyByteArray("serviceCertificate", serverCert);
+    }
     else
       LoadServiceCertificate();
 
@@ -108,7 +108,7 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
   }
 
   LOG::Log(LOGDEBUG,
-           "MediaDrm initialized (Device unique ID size: %ld, System ID: %s, Security level: %s)",
+           "MediaDrm initialized (Device unique ID size: %zu, System ID: %s, Security level: %s)",
            strDeviceId.size(), strSystemId.c_str(), strSecurityLevel.c_str());
 
   if (m_licenseUrl.find('|') == std::string::npos)
@@ -141,7 +141,7 @@ CWVCdmAdapterA::~CWVCdmAdapterA()
 void CWVCdmAdapterA::LoadServiceCertificate()
 {
   std::string filename = m_strBasePath + "service_certificate";
-  char* data(nullptr);
+  uint8_t* data(nullptr);
   size_t sz(0);
   FILE* f = fopen(filename.c_str(), "rb");
 
@@ -150,7 +150,7 @@ void CWVCdmAdapterA::LoadServiceCertificate()
     fseek(f, 0L, SEEK_END);
     sz = ftell(f);
     fseek(f, 0L, SEEK_SET);
-    if (sz > 8 && (data = (char*)malloc(sz)))
+    if (sz > 8 && (data = (uint8_t*)malloc(sz)))
       fread(data, 1, sz, f);
     fclose(f);
   }
@@ -163,7 +163,7 @@ void CWVCdmAdapterA::LoadServiceCertificate()
 
     if (certTime < nowTime && nowTime - certTime < 86400)
       m_mediaDrm->setPropertyByteArray("serviceCertificate",
-                                       std::vector<char>(data + 8, data + sz));
+                                       std::vector<uint8_t>(data + 8, data + sz));
     else
       free(data), data = nullptr;
   }
@@ -181,7 +181,7 @@ void CWVCdmAdapterA::LoadServiceCertificate()
 
 void CWVCdmAdapterA::SaveServiceCertificate()
 {
-  std::vector<char> sc = m_mediaDrm->getPropertyByteArray("serviceCertificate");
+  const std::vector<uint8_t> sc = m_mediaDrm->getPropertyByteArray("serviceCertificate");
   if (xbmc_jnienv()->ExceptionCheck())
   {
     LOG::LogF(LOGWARNING, "Exception retrieving Service Certificate");
@@ -202,7 +202,7 @@ void CWVCdmAdapterA::SaveServiceCertificate()
     auto now = std::chrono::system_clock::now();
     uint64_t nowTime =
         std::chrono::time_point_cast<std::chrono::seconds>(now).time_since_epoch().count();
-    fwrite((char*)&nowTime, 1, sizeof(uint64_t), f);
+    fwrite((uint8_t*)&nowTime, 1, sizeof(uint64_t), f);
     fwrite(sc.data(), 1, sc.size(), f);
     fclose(f);
   }

@@ -366,14 +366,14 @@ protected:
   void DisposeDecrypter();
 
   bool ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,
-                                   AP4_DataBuffer& init_data,
+                                   std::vector<uint8_t>& initData,
                                    std::string keySystem);
 
 private:
   const UTILS::PROPERTIES::KodiProperties m_kodiProps;
   std::string m_manifestUrl;
   std::string m_profilePath;
-  AP4_DataBuffer m_serverCertificate;
+  std::vector<uint8_t> m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   DRM::IDecrypter* m_decrypter{nullptr};
 

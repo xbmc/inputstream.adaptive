@@ -23,7 +23,7 @@ class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypterA : public Adaptive_CencSingleS
 public:
   // methods
   CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
-                                AP4_DataBuffer& pssh,
+                                std::vector<uint8_t>& pssh,
                                 std::string_view optionalKeyParameter,
                                 std::string_view defaultKeyId,
                                 CWVDecrypterA* host);

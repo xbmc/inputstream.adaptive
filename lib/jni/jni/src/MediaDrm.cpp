@@ -61,14 +61,14 @@ std::string CJNIMediaDrm::getPropertyString(const std::string &propertyName) con
     jcast<jhstring>(propertyName)));
 }
 
-std::vector<char> CJNIMediaDrm::getPropertyByteArray(const std::string &propertyName) const
+std::vector<uint8_t> CJNIMediaDrm::getPropertyByteArray(const std::string &propertyName) const
 {
   JNIEnv *env = xbmc_jnienv();
   jhbyteArray array = call_method<jhbyteArray>(m_object,
     "getPropertyByteArray", "(Ljava/lang/String;)[B",
       jcast<jhstring>(propertyName));
 
-  std::vector<char> result;
+  std::vector<uint8_t> result;
 
   if (!env->ExceptionCheck())
   {
@@ -86,12 +86,11 @@ void CJNIMediaDrm::setPropertyString(const std::string &propertyName, const std:
     jcast<jhstring>(propertyName), jcast<jhstring>(value));
 }
 
-void CJNIMediaDrm::setPropertyByteArray(const std::string &propertyName, const std::vector<char> &value) const
+void CJNIMediaDrm::setPropertyByteArray(const std::string &propertyName, const std::vector<uint8_t> &value) const
 {
-  JNIEnv *env = xbmc_jnienv();
-  call_method<void>(m_object,
-    "setPropertyByteArray", "(Ljava/lang/String;[B)V",
-    jcast<jhstring>(propertyName), jcast<jhbyteArray, std::vector<char> >(value));
+  JNIEnv* env = xbmc_jnienv();
+  call_method<void>(m_object, "setPropertyByteArray", "(Ljava/lang/String;[B)V",
+                    jcast<jhstring>(propertyName), jcast<jhbyteArray, std::vector<uint8_t>>(value));
 }
 
 CJNIMediaDrmKeyRequest CJNIMediaDrm::getKeyRequest(

@@ -356,7 +356,7 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
 
     esds |= (sidx << 7);
 
-    std::string codecPrivateData;
+    std::vector<uint8_t> codecPrivateData;
     codecPrivateData.resize(2);
     codecPrivateData[0] = esds >> 8;
     codecPrivateData[1] = esds & 0xFF;
