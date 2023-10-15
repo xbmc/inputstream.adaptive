@@ -35,7 +35,7 @@ protected:
 TEST_F(UtilsTest, DetermineBaseDomain)
 {
   std::string url = "https://foo.bar/mpd/test.mpd";
-  EXPECT_EQ(URL::GetDomainUrl(url), "https://foo.bar");
+  EXPECT_EQ(URL::GetBaseDomain(url), "https://foo.bar");
 }
 
 TEST_F(UtilsTest, JoinUrls)

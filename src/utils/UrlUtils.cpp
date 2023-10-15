@@ -209,7 +209,7 @@ void UTILS::URL::AppendParameters(std::string& url, std::string params)
   url += params;
 }
 
-std::string UTILS::URL::GetDomainUrl(std::string url)
+std::string UTILS::URL::GetBaseDomain(std::string url)
 {
   if (IsUrlAbsolute(url))
   {
@@ -269,7 +269,7 @@ std::string UTILS::URL::Join(std::string baseUrl, std::string relativeUrl)
   {
     skipRemovingSegs = false;
     relativeUrl.erase(0, 1);
-    std::string domain = GetDomainUrl(baseUrl);
+    std::string domain = GetBaseDomain(baseUrl);
     if (!domain.empty())
       baseUrl = domain + "/";
   }
