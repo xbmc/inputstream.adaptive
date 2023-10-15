@@ -13,6 +13,11 @@
 
 #include <chrono>
 #include <thread>
+#include <sys/stat.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #define DCHECK(condition) assert(condition)
 
@@ -48,6 +53,11 @@ uint64_t gtc()
 }
 
 namespace {
+#ifdef _WIN32
+const char PATH_SEPARATOR = '\\';
+#else
+const char PATH_SEPARATOR = '/';
+#endif
 
 void* GetCdmHost(int host_interface_version, void* user_data)
 {
@@ -67,6 +77,68 @@ void* GetCdmHost(int host_interface_version, void* user_data)
     default:
       return nullptr;
   }
+}
+
+bool ExistsDir(const char* path)
+{
+  struct stat info;
+  if (stat(path, &info) != 0)
+    return false;
+  else if (info.st_mode & S_IFDIR)
+    return true;
+  return false;
+}
+
+// \brief Create a full directory path
+bool CreateDirs(const char* path)
+{
+  const char* p;
+  bool ret = true;
+  // Skip Windows drive letter.
+#ifdef _WIN32
+  p = std::strchr(path, ':');
+  if (p != NULL)
+    p++;
+  else
+  {
+#endif
+    p = path;
+#ifdef _WIN32
+  }
+#endif
+  // Iterate each folder in the path
+  while ((p = std::strchr(p, PATH_SEPARATOR)) != NULL)
+  {
+    // Skip empty elements. Could be a Windows UNC path or just multiple separators
+    if (p != path && *(p - 1) == PATH_SEPARATOR)
+    {
+      p++;
+      continue;
+    }
+    std::string currPath(path, p - path);
+    p++;
+#ifdef _WIN32
+    std::wstring currPathW(currPath.begin(), currPath.end());
+    if (CreateDirectory(currPathW.c_str(), NULL) == FALSE)
+    {
+      if (GetLastError() != ERROR_ALREADY_EXISTS)
+      {
+        ret = false;
+        break;
+      }
+    }
+#else
+    if (mkdir(currPath.c_str(), 0774) != 0)
+    {
+      if (errno != EEXIST)
+      {
+        ret = false;
+        break;
+      }
+    }
+#endif
+  }
+  return ret;
 }
 
 }  // namespace
@@ -643,12 +715,13 @@ void CdmFileIoImpl::Open(const char* file_name, uint32_t file_name_size)
 {
   if (!opened_)
   {
-  opened_ = true;
-  base_path_ += std::string(file_name, file_name_size);
-  client_->OnOpenComplete(cdm::FileIOClient::Status::kSuccess);
+    opened_ = true;
+    m_filepath.assign(file_name, file_name_size);
+    m_filepath = base_path_ + m_filepath;
+    client_->OnOpenComplete(cdm::FileIOClient::Status::kSuccess);
   }
   else
-  client_->OnOpenComplete(cdm::FileIOClient::Status::kInUse);
+    client_->OnOpenComplete(cdm::FileIOClient::Status::kInUse);
 }
 
 void CdmFileIoImpl::Read()
@@ -659,7 +732,7 @@ void CdmFileIoImpl::Read()
   free(reinterpret_cast<void*>(data_buffer_));
   data_buffer_ = nullptr;
 
-  file_descriptor_ = fopen(base_path_.c_str(), "rb");
+  file_descriptor_ = fopen(m_filepath.c_str(), "rb");
 
   if (file_descriptor_)
   {
@@ -679,14 +752,25 @@ void CdmFileIoImpl::Read()
 
 void CdmFileIoImpl::Write(const uint8_t* data, uint32_t data_size)
 {
-  cdm::FileIOClient::Status status(cdm::FileIOClient::Status::kError);
-  file_descriptor_ = fopen(base_path_.c_str(), "wb");
+  if (!ExistsDir(base_path_.c_str()) && !CreateDirs(base_path_.c_str()))
+  {
+    LOG::LogF(LOGERROR, "Cannot create directory: %s", base_path_.c_str());
+    client_->OnWriteComplete(cdm::FileIOClient::Status::kError);
+    return;
+  }
+
+  cdm::FileIOClient::Status status = cdm::FileIOClient::Status::kError;
+
+  file_descriptor_ = fopen(m_filepath.c_str(), "wb");
 
   if (file_descriptor_)
   {
     if (fwrite(data, 1, data_size, file_descriptor_) == data_size)
+    {
       status = cdm::FileIOClient::Status::kSuccess;
+    }
   }
+
   client_->OnWriteComplete(status);
 }
 
