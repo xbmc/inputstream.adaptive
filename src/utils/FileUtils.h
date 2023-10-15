@@ -16,6 +16,11 @@ namespace UTILS
 {
 namespace FILESYS
 {
+#ifdef WIN32
+constexpr char SEPARATOR = '\\';
+#else
+constexpr char SEPARATOR = '/';
+#endif
 
 /*!
  * \brief Save the data into a file

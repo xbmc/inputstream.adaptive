@@ -41,15 +41,13 @@ std::string UTILS::FILESYS::PathCombine(std::string path, std::string filePath)
   if (path.empty())
     return filePath;
 
-  const char separator = path[1] == ':' && std::isalpha(path[0]) ? '\\' : '/';
-
-  if (path.back() == separator)
+  if (path.back() == SEPARATOR)
     path.pop_back();
 
-  if (filePath.front() == separator)
+  if (filePath.front() == SEPARATOR)
     filePath.erase(0, 1);
 
-  return path + separator + filePath;
+  return path + SEPARATOR + filePath;
 }
 
 std::string UTILS::FILESYS::GetAddonUserPath()
