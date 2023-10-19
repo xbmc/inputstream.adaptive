@@ -179,7 +179,7 @@ std::string UTILS::URL::RemoveParameters(std::string url, bool removeFilenamePar
   return url;
 }
 
-void UTILS::URL::AppendParameters(std::string& url, std::string params)
+void UTILS::URL::AppendParameters(std::string& url, std::string_view params)
 {
   if (params.empty())
     return;
@@ -189,10 +189,7 @@ void UTILS::URL::AppendParameters(std::string& url, std::string params)
   else
     url += "&";
 
-  if (params.front() == '&' || params.front() == '?')
-    params.erase(params.begin());
-
-  url += params;
+  url += params.substr(params.front() == '&' || params.front() == '?' ? 1 : 0);
 }
 
 std::string UTILS::URL::GetDomainUrl(std::string url)

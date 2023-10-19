@@ -65,7 +65,7 @@ std::string RemoveParameters(std::string url, bool removeFilenameParam = true);
  *  \param url URL where append the parameters
  *  \param params Params to be appended
  */
-void AppendParameters(std::string& url, std::string params);
+void AppendParameters(std::string& url, std::string_view params);
 
 /*! \brief Get the domain URL from an URL
  *  \param url An URL
