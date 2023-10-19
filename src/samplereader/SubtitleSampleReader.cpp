@@ -10,14 +10,17 @@
 
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
 
 using namespace UTILS;
 
-CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
+CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
                                              AP4_UI32 streamId,
-                                             std::string_view codecInternalName)
+                                             std::string_view codecInternalName,
+                                             std::string_view streamParams,
+                                             const std::map<std::string, std::string>& streamHeaders)
   : m_streamId{streamId}
 {
   // Single subtitle file
@@ -31,8 +34,13 @@ CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
     return;
   }
 
+  // Append stream parameters, only if not already provided
+  if (url.find('?') == std::string::npos)
+    URL::AppendParameters(url, streamParams);
+
   // Download the file
   CURL::CUrl curl(url);
+  curl.AddHeaders(streamHeaders);
   int statusCode = curl.Open(true);
   if (statusCode == -1)
   {
