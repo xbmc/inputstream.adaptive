@@ -17,6 +17,13 @@
 #endif
 #endif
 
+#if _WIN32
+#include <SdkDdkVer.h>
+#if WDK_NTDDI_VERSION >= NTDDI_WIN10_VB // Windows SDK higher than Windows 20H2
+#include "mediafoundation/MFDecrypter.h"
+#endif
+#endif
+
 using namespace DRM;
 
 IDecrypter* DRM::FACTORY::GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem)
@@ -32,8 +39,15 @@ IDecrypter* DRM::FACTORY::GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem)
 #endif
 #endif
   }
-  else if (keySystem == STREAM_CRYPTO_KEY_SYSTEM_PLAYREADY ||
-           keySystem == STREAM_CRYPTO_KEY_SYSTEM_WISEPLAY)
+  else if (keySystem == STREAM_CRYPTO_KEY_SYSTEM_PLAYREADY)
+  {
+#if ANDROID
+    return new CWVDecrypterA();
+#elif _WIN32 && WDK_NTDDI_VERSION >= NTDDI_WIN10_VB
+    return new CMFDecrypter();
+#endif
+  } 
+  else if (keySystem == STREAM_CRYPTO_KEY_SYSTEM_WISEPLAY)
   {
 #if ANDROID
     return new CWVDecrypterA();
