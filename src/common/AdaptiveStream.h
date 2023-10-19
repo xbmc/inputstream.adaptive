@@ -85,6 +85,9 @@ namespace adaptive
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
     bool StreamChanged() { return stream_changed_; }
 
+    std::string GetStreamParams() const { return m_streamParams; }
+    std::map<std::string, std::string> GetStreamHeaders() const { return m_streamHeaders; }
+
   protected:
     // Info to execute the download
     struct DownloadInfo

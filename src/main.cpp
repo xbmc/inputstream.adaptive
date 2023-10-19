@@ -312,7 +312,8 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::SUBTITLESTREAM)
   {
     stream->SetReader(std::make_unique<CSubtitleSampleReader>(
-        rep->url_, streamid, stream->m_info.GetCodecInternalName()));
+        rep->url_, streamid, stream->m_info.GetCodecInternalName(),
+        stream->m_adStream.GetStreamParams(), stream->m_adStream.GetStreamHeaders()));
     return stream->GetReader()->GetInformation(stream->m_info);
   }
 
