@@ -30,7 +30,7 @@ AP4_Result CADTSSampleReader::ReadSample()
   if (ReadPacket())
   {
     uint64_t pts{GetPts()};
-    if (pts == PTS_UNSET)
+    if (pts == ADTSReader::ADTS_PTS_UNSET)
       m_pts = STREAM_NOPTS_VALUE;
     else
       m_pts = (pts * 100) / 9;

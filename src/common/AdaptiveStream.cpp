@@ -9,7 +9,7 @@
 #include "AdaptiveStream.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
-#include "WebmReader.h"
+#include "demuxers/WebmReader.h"
 #endif
 #include "oscompat.h"
 #include "utils/CurlUtils.h"

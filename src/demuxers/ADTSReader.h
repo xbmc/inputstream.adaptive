@@ -112,8 +112,9 @@ public:
   const AP4_Byte *GetPacketData() const { return m_frameParser.getData(); };
   const AP4_Size GetPacketSize() const { return m_frameParser.getDataSize(); };
 
-private:
   static const uint64_t ADTS_PTS_UNSET = 0x1ffffffffULL;
+
+private:
   AP4_ByteStream *m_stream;
   ID3TAG m_id3TagParser;
   ADTSFrame m_frameParser;

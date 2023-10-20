@@ -6,10 +6,9 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "ADTSReader.h"
 #include "AdaptiveByteStream.h"
-#include "TSReader.h"
 #include "SampleReader.h"
+#include "demuxers/ADTSReader.h"
 
 class ATTR_DLL_LOCAL CADTSSampleReader : public ISampleReader, public ADTSReader
 {

@@ -7,8 +7,8 @@
  */
 
 #include "AdaptiveByteStream.h"
-#include "WebmReader.h"
 #include "SampleReader.h"
+#include "demuxers/WebmReader.h"
 
 class ATTR_DLL_LOCAL CWebmSampleReader : public ISampleReader, public WebmReader
 {
