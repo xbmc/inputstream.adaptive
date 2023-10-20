@@ -94,8 +94,8 @@ public:
     // Custom comparator for std::find
     bool operator==(const PSSHSet& other) const
     {
-      return m_usageCount == 0 || (media_ == other.media_ && pssh_ == other.pssh_ &&
-                                   defaultKID_ == other.defaultKID_ && iv == other.iv);
+      return media_ == other.media_ && pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ &&
+             iv == other.iv;
     }
 
     //! @todo: create getter/setters
@@ -110,10 +110,9 @@ public:
     CAdaptationSet* adaptation_set_{nullptr};
   };
 
-  uint16_t InsertPSSHSet(PSSHSet* pssh);
-  void InsertPSSHSet(uint16_t pssh_set) { m_psshSets[pssh_set].m_usageCount++; }
+  uint16_t InsertPSSHSet(const PSSHSet& pssh);
   void RemovePSSHSet(uint16_t pssh_set);
-  void DecrasePSSHSetUsageCount(uint16_t pssh_set) { m_psshSets[pssh_set].m_usageCount--; }
+  void DecrasePSSHSetUsageCount(uint16_t pssh_set);
   std::vector<PSSHSet>& GetPSSHSets() { return m_psshSets; }
 
   // Make use of PLAYLIST::StreamType flags
