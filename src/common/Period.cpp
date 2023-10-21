@@ -86,7 +86,7 @@ void PLAYLIST::CPeriod::RemovePSSHSet(uint16_t pssh_set)
   }
 }
 
-void PLAYLIST::CPeriod::DecrasePSSHSetUsageCount(uint16_t pssh_set)
+void PLAYLIST::CPeriod::DecreasePSSHSetUsageCount(uint16_t pssh_set)
 {
   PSSHSet& psshSet = m_psshSets[pssh_set];
   if (psshSet.m_usageCount > 0)

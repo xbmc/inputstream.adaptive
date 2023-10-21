@@ -99,7 +99,7 @@ namespace adaptive
   {
     for (auto& segment : repr->SegmentTimeline().GetData())
     {
-      period->DecrasePSSHSetUsageCount(segment.pssh_set_);
+      period->DecreasePSSHSetUsageCount(segment.pssh_set_);
     }
 
     repr->SegmentTimeline().Clear();

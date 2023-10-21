@@ -112,7 +112,7 @@ public:
 
   uint16_t InsertPSSHSet(const PSSHSet& pssh);
   void RemovePSSHSet(uint16_t pssh_set);
-  void DecrasePSSHSetUsageCount(uint16_t pssh_set);
+  void DecreasePSSHSetUsageCount(uint16_t pssh_set);
   std::vector<PSSHSet>& GetPSSHSets() { return m_psshSets; }
 
   // Make use of PLAYLIST::StreamType flags
