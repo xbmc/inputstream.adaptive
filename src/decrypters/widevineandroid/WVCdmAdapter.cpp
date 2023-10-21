@@ -9,6 +9,8 @@
 #include "WVCdmAdapter.h"
 
 #include "WVDecrypter.h"
+#include "decrypters/Helpers.h"
+#include "utils/FileUtils.h"
 #include "utils/log.h"
 
 #include <jni/src/UUID.h>
@@ -24,33 +26,35 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
                                CWVDecrypterA* host)
   : m_keySystem(ks), m_mediaDrm(0), m_licenseUrl(licenseURL), m_host(host)
 {
-  std::string strBasePath = m_host->GetProfilePath();
-  char cSep = strBasePath.back();
-  strBasePath += ks == WIDEVINE ? "widevine" : ks == PLAYREADY ? "playready" : "wiseplay";
-  strBasePath += cSep;
-  kodi::vfs::CreateDirectory(strBasePath.c_str());
-
-  //Build up a CDM path to store decrypter specific stuff. Each domain gets it own path
-  const char* bspos(strchr(m_licenseUrl.c_str(), ':'));
-  if (!bspos || bspos[1] != '/' || bspos[2] != '/' || !(bspos = strchr(bspos + 3, '/')))
+  if (licenseURL.empty())
   {
-    LOG::Log(LOGERROR, "Unable to find protocol inside license URL");
+    LOG::LogF(LOGERROR, "No license URL path specified");
     return;
   }
-  if (bspos - m_licenseUrl.c_str() > 256)
-  {
-    LOG::Log(LOGERROR, "Length of license URL exeeds max. size of 256");
-    return;
-  }
-  char buffer[1024];
-  buffer[(bspos - m_licenseUrl.c_str()) * 2] = 0;
-  AP4_FormatHex(reinterpret_cast<const uint8_t*>(m_licenseUrl.c_str()),
-                bspos - m_licenseUrl.c_str(), buffer);
 
-  strBasePath += buffer;
-  strBasePath += cSep;
-  kodi::vfs::CreateDirectory(strBasePath.c_str());
-  m_strBasePath = strBasePath;
+  std::string drmName;
+  if (ks == WIDEVINE)
+    drmName = "widevine";
+  else if (ks == PLAYREADY)
+    drmName = "playready";
+  else if (ks == WISEPLAY)
+    drmName = "wiseplay";
+  else
+    drmName = "undefined";
+
+  // The license url come from license_key kodi property
+  // we have to kept only the url without the parameters specified after pipe "|" char
+  std::string licUrl = m_licenseUrl;
+  const size_t urlPipePos = licUrl.find('|');
+  if (urlPipePos != std::string::npos)
+    licUrl.erase(urlPipePos);
+
+  // Build up a CDM path to store decrypter specific stuff, each domain gets it own path
+  // the domain name is hashed to generate a short folder name
+  std::string basePath = FILESYS::PathCombine(m_host->GetProfilePath(), drmName);
+  basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
+  basePath += FILESYS::SEPARATOR;
+  m_strBasePath = basePath;
 
   int64_t mostSigBits(0), leastSigBits(0);
   const uint8_t* keySystem = GetKeySystem();

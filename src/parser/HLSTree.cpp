@@ -358,7 +358,7 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
           // Try find the container type on the representation according to the file extension
           std::string url = URL::RemoveParameters(line);
           // Remove domain on absolute url, to not confuse top-level domain as extension
-          url = url.substr(URL::GetDomainUrl(url).size());
+          url = url.substr(URL::GetBaseDomain(url).size());
 
           std::string extension;
           size_t extPos = url.rfind('.');

@@ -6,13 +6,18 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "utils/log.h"
+#include "WVCdmAdapter.h"
+
 #include "CdmFixedBuffer.h"
 #include "WVCencSingleSampleDecrypter.h"
-#include "WVCdmAdapter.h"
 #include "WVDecrypter.h"
+#include "decrypters/Helpers.h"
+#include "utils/FileUtils.h"
+#include "utils/log.h"
 
 #include <kodi/Filesystem.h>
+
+using namespace UTILS;
 
 namespace
 {
@@ -39,35 +44,27 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
   }
   strLibPath += LIBRARY_FILENAME;
 
-  std::string strBasePath = m_host->GetProfilePath();
-  char cSep = strBasePath.back();
-  strBasePath += "widevine";
-  strBasePath += cSep;
-  kodi::vfs::CreateDirectory(strBasePath.c_str());
-
-  //Build up a CDM path to store decrypter specific stuff. Each domain gets it own path
-  const char* bspos(strchr(m_licenseUrl.c_str(), ':'));
-  if (!bspos || bspos[1] != '/' || bspos[2] != '/' || !(bspos = strchr(bspos + 3, '/')))
+  if (licenseURL.empty())
   {
-    LOG::LogF(LOGERROR, "Unable to find protocol inside license URL");
+    LOG::LogF(LOGERROR, "No license URL path specified");
     return;
   }
-  if (bspos - m_licenseUrl.c_str() > 256)
-  {
-    LOG::Log(LOGERROR, "Length of license URL domain exeeds max. size of 256");
-    return;
-  }
-  char buffer[1024];
-  buffer[(bspos - m_licenseUrl.c_str()) * 2] = 0;
-  AP4_FormatHex(reinterpret_cast<const uint8_t*>(m_licenseUrl.c_str()),
-                bspos - m_licenseUrl.c_str(), buffer);
 
-  strBasePath += buffer;
-  strBasePath += cSep;
-  kodi::vfs::CreateDirectory(strBasePath.c_str());
+  // The license url come from license_key kodi property
+  // we have to kept only the url without the parameters specified after pipe "|" char
+  std::string licUrl = m_licenseUrl;
+  const size_t urlPipePos = licUrl.find('|');
+  if (urlPipePos != std::string::npos)
+    licUrl.erase(urlPipePos);
+
+  // Build up a CDM path to store decrypter specific stuff, each domain gets it own path
+  // the domain name is hashed to generate a short folder name
+  std::string basePath = FILESYS::PathCombine(m_host->GetProfilePath(), "widevine");
+  basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
+  basePath += FILESYS::SEPARATOR;
 
   wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter(
-      "com.widevine.alpha", strLibPath, strBasePath,
+      "com.widevine.alpha", strLibPath, basePath,
       media::CdmConfig(false, (config & DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE) != 0),
       dynamic_cast<media::CdmAdapterClient*>(this)));
   if (!wv_adapter->valid())

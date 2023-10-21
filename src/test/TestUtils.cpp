@@ -34,8 +34,17 @@ protected:
 
 TEST_F(UtilsTest, DetermineBaseDomain)
 {
-  std::string url = "https://foo.bar/mpd/test.mpd";
-  EXPECT_EQ(URL::GetDomainUrl(url), "https://foo.bar");
+  std::string url = "https://www.foo.bar/mpd/test.mpd";
+  EXPECT_EQ(URL::GetBaseDomain(url), "https://www.foo.bar");
+
+  url = "https://www.foo.bar/mpd/test.mpd?ping=pong";
+  EXPECT_EQ(URL::GetBaseDomain(url), "https://www.foo.bar");
+
+  url = "https://www.foo.bar:1234";
+  EXPECT_EQ(URL::GetBaseDomain(url), "https://www.foo.bar");
+
+  url = "https://www.foo.bar:1234/mpd/test.mpd?ping=pong";
+  EXPECT_EQ(URL::GetBaseDomain(url), "https://www.foo.bar");
 }
 
 TEST_F(UtilsTest, JoinUrls)

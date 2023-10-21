@@ -1,9 +1,11 @@
 set(SOURCES
   DrmFactory.cpp
+  Helpers.cpp
 )
 
 set(HEADERS
   DrmFactory.h
+  Helpers.h
   IDecrypter.h
 )
 

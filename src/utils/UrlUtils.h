@@ -74,11 +74,11 @@ std::string GetUrlPath(std::string url);
  */
 void AppendParameters(std::string& url, std::string params);
 
-/*! \brief Get the domain URL from an URL
+/*! \brief Get the base domain of an URL
  *  \param url An URL
- *  \return The domain URL if found, otherwise empty string
+ *  \return The base domain URL if found, otherwise empty string
  */
-std::string GetDomainUrl(std::string url);
+std::string GetBaseDomain(std::string url);
 
 /*! 
  * \brief Combine two URLs as per RFC 3986 specification.
