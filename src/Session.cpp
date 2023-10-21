@@ -450,7 +450,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         initData = BASE64::Decode(m_kodiProps.m_licenseData);
       }
 
-      if (initData.size() == 0)
+      if (initData.empty())
       {
         if (!sessionPsshset.pssh_.empty())
         {
@@ -1516,7 +1516,9 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
                                            std::vector<uint8_t>& initData,
                                            std::string keySystem)
 {
-  keySystem = STRING::ToHexadecimal(keySystem);
+  std::vector<uint8_t> keySystemBytes;
+  STRING::ToHexBytes(keySystem, keySystemBytes);
+
   auto initialRepr = m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_);
 
   CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps};
@@ -1537,7 +1539,7 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
 
   for (unsigned int i = 0; initData.size() == 0 && i < pssh.ItemCount(); i++)
   {
-    if (std::memcmp(pssh[i].GetSystemId(), keySystem.c_str(), 16) == 0)
+    if (std::memcmp(pssh[i].GetSystemId(), keySystemBytes.data(), 16) == 0)
     {
       const AP4_DataBuffer& dataBuf = pssh[i].GetData();
       initData.insert(initData.end(), dataBuf.GetData(), dataBuf.GetData() + dataBuf.GetDataSize());
@@ -1582,5 +1584,5 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
   }
 
   stream.Disable();
-  return initData.size() > 0;
+  return !initData.empty();
 }

@@ -99,7 +99,7 @@ namespace adaptive
   {
     for (auto& segment : repr->SegmentTimeline().GetData())
     {
-      period->DecrasePSSHSetUsageCount(segment.pssh_set_);
+      period->DecreasePSSHSetUsageCount(segment.pssh_set_);
     }
 
     repr->SegmentTimeline().Clear();
@@ -126,29 +126,24 @@ namespace adaptive
                                        std::string_view kidUrl /* = "" */,
                                        std::string_view iv /* = "" */)
   {
-    if (!pssh.empty() || !kidUrl.empty())
-    {
-      CPeriod::PSSHSet psshSet;
-      psshSet.pssh_ = pssh;
-      psshSet.defaultKID_ = defaultKID;
-      psshSet.m_kidUrl = kidUrl;
-      psshSet.iv = iv;
-      psshSet.m_cryptoMode = m_cryptoMode;
-      psshSet.adaptation_set_ = adp;
+    CPeriod::PSSHSet psshSet;
+    psshSet.pssh_ = pssh;
+    psshSet.defaultKID_ = defaultKID;
+    psshSet.m_kidUrl = kidUrl;
+    psshSet.iv = iv;
+    psshSet.m_cryptoMode = m_cryptoMode;
+    psshSet.adaptation_set_ = adp;
 
-      if (streamType == StreamType::VIDEO)
-        psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO;
-      else if (streamType == StreamType::VIDEO_AUDIO)
-        psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO | CPeriod::PSSHSet::MEDIA_AUDIO;
-      else if (streamType == StreamType::AUDIO)
-        psshSet.media_ = CPeriod::PSSHSet::MEDIA_AUDIO;
-      else
-        psshSet.media_ = CPeriod::PSSHSet::MEDIA_UNSPECIFIED;
-
-      return period->InsertPSSHSet(&psshSet);
-    }
+    if (streamType == StreamType::VIDEO)
+      psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO;
+    else if (streamType == StreamType::VIDEO_AUDIO)
+      psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO | CPeriod::PSSHSet::MEDIA_AUDIO;
+    else if (streamType == StreamType::AUDIO)
+      psshSet.media_ = CPeriod::PSSHSet::MEDIA_AUDIO;
     else
-      return period->InsertPSSHSet(nullptr);
+      psshSet.media_ = CPeriod::PSSHSet::MEDIA_UNSPECIFIED;
+
+    return period->InsertPSSHSet(psshSet);
   }
 
   void AdaptiveTree::SortTree()

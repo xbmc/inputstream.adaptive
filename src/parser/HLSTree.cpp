@@ -331,6 +331,15 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
 
         uint64_t duration = static_cast<uint64_t>(STRING::ToFloat(tagValue) * rep->GetTimescale());
         newSegment->m_duration = duration;
+
+        if (currentEncryptionType == EncryptionType::AES128 && psshSetPos == PSSHSET_POS_DEFAULT)
+        {
+          if (!m_currentKidUrl.empty())
+          {
+            psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
+                                       m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+          }
+        }
         newSegment->pssh_set_ = psshSetPos;
 
         currentSegStartPts += duration;
@@ -405,18 +414,6 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
         }
 
         newSegment->url = line;
-
-        if (currentEncryptionType == EncryptionType::AES128)
-        {
-          if (psshSetPos == PSSHSET_POS_DEFAULT)
-          {
-            psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
-                                       m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-            newSegment->pssh_set_ = psshSetPos;
-          }
-          else
-            period->InsertPSSHSet(newSegment->pssh_set_);
-        }
 
         newSegments.GetData().emplace_back(*newSegment);
         newSegment.reset();

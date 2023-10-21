@@ -181,6 +181,14 @@ std::string ToLower(std::string str);
 uint32_t HexStrToUint(std::string_view hexValue);
 
 /*!
+ * \brief Convert a string value to hex bytes.
+ * \param str The string to be converted
+ * \param bytes[OUT] The converted string to hex bytes
+ * \return True if has success, otherwise false.
+ */
+bool ToHexBytes(const std::string& str, std::vector<uint8_t>& bytes);
+
+/*!
  * \brief Convert a string in to a vector of uint8_t
  * \param str The string to be converted
  * \return The converted data

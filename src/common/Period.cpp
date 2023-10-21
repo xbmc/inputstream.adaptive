@@ -43,40 +43,31 @@ void PLAYLIST::CPeriod::CopyHLSData(const CPeriod* other)
   m_isSecureDecoderNeeded = other->m_isSecureDecoderNeeded;
 }
 
-uint16_t PLAYLIST::CPeriod::InsertPSSHSet(PSSHSet* psshSet)
+uint16_t PLAYLIST::CPeriod::InsertPSSHSet(const PSSHSet& psshSet)
 {
-  if (psshSet)
+  auto itPssh = m_psshSets.end();
+
+  if (psshSet.m_kidUrl.empty())
   {
-    auto itPssh = m_psshSets.end();
+    // Find the psshSet by skipping the first one of the list (for unencrypted streams)
+    // note that PSSHSet struct has a custom comparator for std::find
+    itPssh = std::find(m_psshSets.begin() + 1, m_psshSets.end(), psshSet);
+  }
 
-    if (psshSet->m_kidUrl.empty())
-    {
-      // Find the psshSet by skipping the first one of the list (for unencrypted streams)
-      // note that PSSHSet struct has a custom comparator for std::find
-      itPssh = std::find(m_psshSets.begin() + 1, m_psshSets.end(), *psshSet);
-    }
-
-    if (itPssh != m_psshSets.end() && itPssh->m_usageCount == 0)
-    {
-      // If the existing psshSet is not used, replace it with the new one
-      *itPssh = *psshSet;
-    }
-    else
-    {
-      // Add a new PsshSet
-      itPssh = m_psshSets.insert(m_psshSets.end(), *psshSet);
-    }
-
-    itPssh->m_usageCount++;
-
-    return static_cast<uint16_t>(itPssh - m_psshSets.begin());
+  if (itPssh != m_psshSets.end() && itPssh->m_usageCount == 0)
+  {
+    // If the existing psshSet is not used, replace it with the new one
+    *itPssh = psshSet;
   }
   else
   {
-    // Increase the usage of first empty psshSet
-    m_psshSets[0].m_usageCount++;
-    return PSSHSET_POS_DEFAULT;
+    // Add a new PsshSet
+    itPssh = m_psshSets.insert(m_psshSets.end(), psshSet);
   }
+
+  itPssh->m_usageCount++;
+
+  return static_cast<uint16_t>(itPssh - m_psshSets.begin());
 }
 
 void PLAYLIST::CPeriod::RemovePSSHSet(uint16_t pssh_set)
@@ -93,6 +84,13 @@ void PLAYLIST::CPeriod::RemovePSSHSet(uint16_t pssh_set)
         itRepr++;
     }
   }
+}
+
+void PLAYLIST::CPeriod::DecreasePSSHSetUsageCount(uint16_t pssh_set)
+{
+  PSSHSet& psshSet = m_psshSets[pssh_set];
+  if (psshSet.m_usageCount > 0)
+    psshSet.m_usageCount--;
 }
 
 void PLAYLIST::CPeriod::AddAdaptationSet(std::unique_ptr<CAdaptationSet>& adaptationSet)
