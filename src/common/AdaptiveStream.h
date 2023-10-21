@@ -98,6 +98,9 @@ class AdaptiveStream;
     */
     bool IsRequiredCreateMovieAtom();
 
+    std::string GetStreamParams() const { return m_streamParams; }
+    std::map<std::string, std::string> GetStreamHeaders() const { return m_streamHeaders; }
+
   protected:
     virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep,
                                  const std::vector<uint8_t>& buffer);
