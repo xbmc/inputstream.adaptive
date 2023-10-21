@@ -11,6 +11,7 @@
 #include "../Session.h"
 #include "../utils/FFmpeg.h"
 #include "../utils/MemUtils.h"
+#include "../utils/UrlUtils.h"
 #include "../utils/log.h"
 
 #include <kodi/Filesystem.h>
@@ -27,15 +28,27 @@ struct SubtitlePacketExtraData
 };
 } // unnamed namespace
 
-CSubtitleSampleReader::CSubtitleSampleReader(const std::string& url,
-                                           AP4_UI32 streamId,
-                                           const std::string& codecInternalName)
+CSubtitleSampleReader::CSubtitleSampleReader(
+    std::string url,
+    AP4_UI32 streamId,
+    const std::string& codecInternalName,
+    std::string_view streamParams,
+    const std::map<std::string, std::string>& streamHeaders)
   : m_streamId{streamId}
 {
+  // Append stream parameters, only if not already provided
+  if (url.find('?') == std::string::npos)
+    URL::AppendParameters(url, streamParams);
+
   // open the file
   kodi::vfs::CFile file;
   if (!file.CURLCreate(url))
     return;
+
+  for (auto& header : streamHeaders)
+  {
+    file.CURLAddOption(ADDON_CURL_OPTION_HEADER, header.first, header.second);
+  }
 
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
   file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip");

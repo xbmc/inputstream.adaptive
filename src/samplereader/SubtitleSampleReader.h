@@ -13,13 +13,16 @@
 #include "SampleReader.h"
 
 #include <memory>
+#include <string_view>
 
 class ATTR_DLL_LOCAL CSubtitleSampleReader : public ISampleReader
 {
 public:
-  CSubtitleSampleReader(const std::string& url,
-                       AP4_UI32 streamId,
-                       const std::string& codecInternalName);
+  CSubtitleSampleReader(std::string url,
+                        AP4_UI32 streamId,
+                        const std::string& codecInternalName,
+                        std::string_view streamParams,
+                        const std::map<std::string, std::string>& streamHeaders);
 
   CSubtitleSampleReader(SESSION::CStream* stream,
                        AP4_UI32 streamId,
