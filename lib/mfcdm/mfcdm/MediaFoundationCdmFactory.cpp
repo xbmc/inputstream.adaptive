@@ -10,53 +10,45 @@
 
 #include "MediaFoundationCdmModule.h"
 #include "MediaFoundationCdm.h"
-#include "Log.h"
-
 #include "utils/ScopedPropVariant.h"
-
-#include <utility>
-#include <iostream>
+#include "utils/Wide.h"
+#include "Log.h"
 
 #include <propsys.h>
 #include <propvarutil.h>
-#include <mferror.h>
 
-static void InitPropVariantFromBSTR(const wchar_t* str, PROPVARIANT* propvariant) {
-    propvariant->vt = VT_BSTR;
-    propvariant->bstrVal = SysAllocString(str);
-}
+using namespace UTILS;
 
-static std::wstring ConvertUtf8ToWide(const std::string& str)
+static void InitPropVariantFromBSTR(const wchar_t* str, PROPVARIANT* propVariant)
 {
-    const int count =
-        MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), nullptr, 0);
-    std::wstring wstr(count, 0);
-    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), wstr.data(),
-                        count);
-    return wstr;
+    propVariant->vt = VT_BSTR;
+    propVariant->bstrVal = SysAllocString(str);
 }
 
-MediaFoundationCdmFactory::MediaFoundationCdmFactory(std::string key_system)
-    : m_keySystem(std::move(key_system))
+MediaFoundationCdmFactory::MediaFoundationCdmFactory(std::string_view keySystem)
+  : m_keySystem(keySystem)
 {
 }
 
 bool MediaFoundationCdmFactory::Initialize()
 {
-    const winrt::com_ptr<IMFMediaEngineClassFactory4> class_factory = winrt::create_instance<IMFMediaEngineClassFactory4>(
-      CLSID_MFMediaEngineClassFactory, CLSCTX_INPROC_SERVER);
-    const std::wstring key_system_str = ConvertUtf8ToWide(m_keySystem);
+    const winrt::com_ptr<IMFMediaEngineClassFactory4> classFactory = winrt::create_instance<IMFMediaEngineClassFactory4>(
+          CLSID_MFMediaEngineClassFactory, CLSCTX_INPROC_SERVER);
+    const std::wstring keySystemWide = ConvertUtf8ToWide(m_keySystem);
 
-    return SUCCEEDED(class_factory->CreateContentDecryptionModuleFactory(
-      key_system_str.c_str(), IID_PPV_ARGS(&m_cdmFactory)));
+    return SUCCEEDED(classFactory->CreateContentDecryptionModuleFactory(
+      keySystemWide.c_str(), IID_PPV_ARGS(&m_cdmFactory)));
 }
 
-bool MediaFoundationCdmFactory::IsTypeSupported(const std::string &key_system) const {
-    return m_cdmFactory->IsTypeSupported(ConvertUtf8ToWide(key_system).c_str(), nullptr);
+bool MediaFoundationCdmFactory::IsTypeSupported(std::string_view keySystem) const
+{
+    return m_cdmFactory->IsTypeSupported(ConvertUtf8ToWide(keySystem).c_str(), nullptr);
 }
 
-// Returns a property store similar to EME MediaKeySystemMediaCapability.
-bool CreateVideoCapability(const media::CdmConfig& cdm_config,
+/*!
+ * \brief Returns a property store similar to EME MediaKeySystemMediaCapability.
+ */
+bool CreateVideoCapability(const MediaFoundationCdmConfig& cdm_config,
                            winrt::com_ptr<IPropertyStore>& video_capability)
 {
     winrt::com_ptr<IPropertyStore> temp_video_capability;
@@ -66,21 +58,24 @@ bool CreateVideoCapability(const media::CdmConfig& cdm_config,
       return false;
     }
 
-    ScopedPropVariant robustness;
-    if (cdm_config.use_hw_secure_codecs) {
-        PROPVARIANT* ptr = robustness.Receive();
-        ptr->vt = VT_BSTR;
-        ptr->bstrVal = SysAllocString(L"HW_SECURE_ALL");
+    if (cdm_config.use_hw_secure_codecs) 
+    {
+        ScopedPropVariant robustness;
+        robustness->vt = VT_BSTR;
+        robustness->bstrVal = SysAllocString(L"HW_SECURE_ALL");
         temp_video_capability->SetValue(MF_EME_ROBUSTNESS, robustness.get());
     }
+
     video_capability = temp_video_capability;
+    return true;
 }
 
 /*!
+ * \brief Creates a IPropertyStore for CDM based on cdm config settings.
  * \link https://github.com/chromium/chromium/blob/ea198b54e3f6b0cfdd6bacbb01c2307fd1797b63/media/cdm/win/media_foundation_cdm_util.cc#L68
  * \link https://github.com/microsoft/media-foundation/blob/969f38b9fff9892f5d75bc353c72d213da807739/samples/MediaEngineEMEUWPSample/src/media/eme/MediaKeySystemConfiguration.cpp#L74
  */
-bool BuildCdmAccessConfigurations(const media::CdmConfig& cdm_config,
+bool BuildCdmAccessConfigurations(const MediaFoundationCdmConfig& cdmConfig,
                                   winrt::com_ptr<IPropertyStore>& properties)
 {
     winrt::com_ptr<IPropertyStore> temp_configurations;
@@ -90,13 +85,10 @@ bool BuildCdmAccessConfigurations(const media::CdmConfig& cdm_config,
         return false;
     }
 
-    PROPVARIANT* receive;
-
     // Add an empty audio capability.
     ScopedPropVariant audio_capabilities;
-    PROPVARIANT* var_to_set = audio_capabilities.Receive();
-    var_to_set->vt = VT_VARIANT | VT_VECTOR;
-    var_to_set->capropvar.cElems = 0;
+    audio_capabilities->vt = VT_VARIANT | VT_VECTOR;
+    audio_capabilities->capropvar.cElems = 0;
     if (FAILED(temp_configurations->SetValue(MF_EME_AUDIOCAPABILITIES,
                                              audio_capabilities.get())))
     {
@@ -106,31 +98,30 @@ bool BuildCdmAccessConfigurations(const media::CdmConfig& cdm_config,
 
     // Add a video capability.
     winrt::com_ptr<IPropertyStore> video_capability;
-    if (!CreateVideoCapability(cdm_config, video_capability))
+    if (!CreateVideoCapability(cdmConfig, video_capability))
         return false;
 
-    ScopedPropVariant video_config;
-    auto* video_config_ptr = video_config.Receive();
-    video_config_ptr->vt = VT_UNKNOWN;
-    video_config_ptr->punkVal = video_capability.detach();
+    ScopedPropVariant videoConfig;
+    videoConfig->vt = VT_UNKNOWN;
+    videoConfig->punkVal = video_capability.detach();
 
-    ScopedPropVariant video_capabilities;
-    var_to_set = video_capabilities.Receive();
-    var_to_set->vt = VT_VARIANT | VT_VECTOR;
-    var_to_set->capropvar.cElems = 1;
-    var_to_set->capropvar.pElems =
-            static_cast<PROPVARIANT*>(CoTaskMemAlloc(sizeof(PROPVARIANT)));
-    if (!var_to_set->capropvar.pElems)
-        throw std::bad_alloc();
+    ScopedPropVariant videoCapabilities;
+    videoCapabilities->vt = VT_VARIANT | VT_VECTOR;
+    videoCapabilities->capropvar.cElems = 1;
+    videoCapabilities->capropvar.pElems = static_cast<PROPVARIANT*>(CoTaskMemAlloc(sizeof(PROPVARIANT)));
+    if (!videoCapabilities->capropvar.pElems)
+    {
+        Log(MFCDM::MFLOG_ERROR, "Failed to allocate video capability array.");
+        return false;
+    }
 
-    if (FAILED(PropVariantCopy(var_to_set->capropvar.pElems, video_config.ptr())))
+    if (FAILED(PropVariantCopy(videoCapabilities->capropvar.pElems, videoConfig.ptr())))
     {
         Log(MFCDM::MFLOG_ERROR, "Failed to set copy video config into video capabilities.");
         return false;
     }
 
-    if (FAILED(
-            temp_configurations->SetValue(MF_EME_VIDEOCAPABILITIES, video_capabilities.get())))
+    if (FAILED(temp_configurations->SetValue(MF_EME_VIDEOCAPABILITIES, videoCapabilities.get())))
     {
         Log(MFCDM::MFLOG_ERROR, "Failed to set persisted state.");
         return false;
@@ -138,16 +129,14 @@ bool BuildCdmAccessConfigurations(const media::CdmConfig& cdm_config,
 
     // Persistent state
     ScopedPropVariant persisted_state;
-
-    if (FAILED(InitPropVariantFromUInt32(cdm_config.allow_persistent_state
+    if (FAILED(InitPropVariantFromUInt32(cdmConfig.allow_persistent_state
                                                 ? MF_MEDIAKEYS_REQUIREMENT_REQUIRED
-                                                : MF_MEDIAKEYS_REQUIREMENT_NOT_ALLOWED,
-                                            persisted_state.Receive())))
+                                                : MF_MEDIAKEYS_REQUIREMENT_NOT_ALLOWED, 
+                                         persisted_state.ptr())))
     {
         Log(MFCDM::MFLOG_ERROR, "Failed to create prop variant for persistent state.");
         return false;
     }
-
 
     if (FAILED(temp_configurations->SetValue(MF_EME_PERSISTEDSTATE, persisted_state.get())))
     {
@@ -157,20 +146,19 @@ bool BuildCdmAccessConfigurations(const media::CdmConfig& cdm_config,
 
     // Distinctive ID
     ScopedPropVariant allow_distinctive_identifier;
-
-    if (FAILED(InitPropVariantFromUInt32(cdm_config.allow_distinctive_identifier
+    if (FAILED(InitPropVariantFromUInt32(cdmConfig.allow_distinctive_identifier
                                                 ? MF_MEDIAKEYS_REQUIREMENT_REQUIRED
                                                 : MF_MEDIAKEYS_REQUIREMENT_NOT_ALLOWED,
-                                            allow_distinctive_identifier.Receive())))
+                                         allow_distinctive_identifier.ptr())))
     {
         Log(MFCDM::MFLOG_ERROR, "Failed to create prop variant for distinctive identifier.");
         return false;
     }
 
     if (FAILED(temp_configurations->SetValue(MF_EME_DISTINCTIVEID,
-                                                allow_distinctive_identifier.get())))
+                                             allow_distinctive_identifier.get())))
     {
-        Log(MFCDM::MFLOG_ERROR, "Failed to set DISTINCTIVE id.");
+        Log(MFCDM::MFLOG_ERROR, "Failed to set distinctive identifier.");
         return false;
     }
 
@@ -178,8 +166,9 @@ bool BuildCdmAccessConfigurations(const media::CdmConfig& cdm_config,
     return true;
 }
 
-bool BuildCdmProperties(const std::filesystem::path& store_path,
-                           winrt::com_ptr<IPropertyStore>& properties) {
+bool BuildCdmProperties(const std::filesystem::path& storePath,
+                        winrt::com_ptr<IPropertyStore>& properties)
+{
     winrt::com_ptr<IPropertyStore> temp_properties;
     if (FAILED(PSCreateMemoryPropertyStore(IID_PPV_ARGS(&temp_properties))))
     {
@@ -187,10 +176,10 @@ bool BuildCdmProperties(const std::filesystem::path& store_path,
         return false;
     }
 
-    ScopedPropVariant store_path_var;
-    InitPropVariantFromBSTR(store_path.wstring().c_str(), store_path_var.Receive());
+    ScopedPropVariant storePathVar;
+    InitPropVariantFromBSTR(storePath.wstring().c_str(), storePathVar.ptr());
 
-    if (FAILED(temp_properties->SetValue(MF_EME_CDM_STOREPATH, store_path_var.get())))
+    if (FAILED(temp_properties->SetValue(MF_EME_CDM_STOREPATH, storePathVar.get())))
     {
         Log(MFCDM::MFLOG_ERROR, "Failed to set CDM Storage Path.");
         return false;
@@ -200,45 +189,54 @@ bool BuildCdmProperties(const std::filesystem::path& store_path,
     return true;
 }
 
-bool MediaFoundationCdmFactory::CreateMfCdm(const media::CdmConfig& cdm_config,
-                                               const std::filesystem::path& cdm_path,
-                                               std::unique_ptr<MediaFoundationCdmModule>& mf_cdm) const
+bool MediaFoundationCdmFactory::CreateMfCdm(const MediaFoundationCdmConfig& cdmConfig,
+                                            const std::filesystem::path& cdmPath,
+                                            std::unique_ptr<MediaFoundationCdmModule>& mfCdm) const
 {
     const auto key_system_str = ConvertUtf8ToWide(m_keySystem);
     if (!m_cdmFactory->IsTypeSupported(key_system_str.c_str(), nullptr))
     {
-        Log(MFCDM::MFLOG_ERROR, "%s not supported by MF CdmFactory", m_keySystem);
+        Log(MFCDM::MFLOG_ERROR, "%s is not supported by MF CdmFactory", m_keySystem);
         return false;
     }
 
-    if (!std::filesystem::create_directory(cdm_path) && !std::filesystem::exists(cdm_path))
+    winrt::com_ptr<IPropertyStore> cdmConfigProp;
+    if (!BuildCdmAccessConfigurations(cdmConfig, cdmConfigProp))
+    {
+        Log(MFCDM::MFLOG_ERROR, "Failed to build cdm access configuration.");
         return false;
+    }
 
-    winrt::com_ptr<IMFContentDecryptionModuleAccess> cdm_access;
-
-    winrt::com_ptr<IPropertyStore> property_store;
-    if (!BuildCdmAccessConfigurations(cdm_config, property_store))
-        return false;
-
-    IPropertyStore* configurations[] = {property_store.get()};
+    winrt::com_ptr<IMFContentDecryptionModuleAccess> cdmAccess;
+    IPropertyStore* configurations[] = {cdmConfigProp.get()};
     if (FAILED(m_cdmFactory->CreateContentDecryptionModuleAccess(
-            key_system_str.c_str(), configurations, ARRAYSIZE(configurations), cdm_access.put())))
+               key_system_str.c_str(), configurations, ARRAYSIZE(configurations), cdmAccess.put())))
     {
         Log(MFCDM::MFLOG_ERROR, "Failed to create module access.");
         return false;
     }
-
-    winrt::com_ptr<IPropertyStore> cdm_properties;
-    if (!BuildCdmProperties(cdm_path, cdm_properties))
+  
+    // Ensure path exists to the cdm path.
+    if (!std::filesystem::create_directory(cdmPath) && !std::filesystem::exists(cdmPath))
+    {
+        Log(MFCDM::MFLOG_ERROR, "CDM Path %s doesn't exist.", cdmPath.string());
         return false;
+    }
+
+    winrt::com_ptr<IPropertyStore> cdmProperties;
+    if (!BuildCdmProperties(cdmPath, cdmProperties))
+    {
+        Log(MFCDM::MFLOG_ERROR, "Failed to build cdm properties.");
+        return false;
+    }
 
     winrt::com_ptr<IMFContentDecryptionModule> cdm;
-    if (FAILED(cdm_access->CreateContentDecryptionModule(cdm_properties.get(), cdm.put())))
+    if (FAILED(cdmAccess->CreateContentDecryptionModule(cdmProperties.get(), cdm.put())))
     {
         Log(MFCDM::MFLOG_ERROR, "Failed to create cdm module.");
         return false;
     }
 
-    mf_cdm = std::make_unique<MediaFoundationCdmModule>(cdm);
+    mfCdm = std::make_unique<MediaFoundationCdmModule>(cdm);
     return true;
 }

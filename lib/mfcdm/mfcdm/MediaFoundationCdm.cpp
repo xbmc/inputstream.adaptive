@@ -8,19 +8,19 @@
 
 #include "MediaFoundationCdm.h"
 
-#include "Log.h"
 #include "MediaFoundationCdmFactory.h"
 #include "MediaFoundationCdmModule.h"
 #include "MediaFoundationCdmSession.h"
+#include "Log.h"
 
 #include "utils/PMPHostWrapper.h"
 
+MediaFoundationCdm::MediaFoundationCdm() = default;
 MediaFoundationCdm::~MediaFoundationCdm() = default;
 
-bool MediaFoundationCdm::Initialize(const std::string &keySystem,
-                                    const std::string &basePath,
-                                    const media::CdmConfig &cdmConfig,
-                                    media::CdmAdapterClient* client)
+bool MediaFoundationCdm::Initialize(const MediaFoundationCdmConfig& cdmConfig,
+                                    std::string_view keySystem,
+                                    std::string_view basePath)
 {
     bool ret = true;
 
@@ -52,8 +52,6 @@ bool MediaFoundationCdm::Initialize(const std::string &keySystem,
     Log(MFCDM::MFLOG_DEBUG, "MF CDM created.");
 
     SetupPMPServer();
-
-    m_client = client;
     return true;
 }
 
@@ -82,32 +80,36 @@ void MediaFoundationCdm::SetupPMPServer() const
     m_module->SetPMPHostApp(spIMFPMPHostApp.get());
 }
 
-void MediaFoundationCdm::SetServerCertificate(uint32_t promise_id,
-                                              const uint8_t* serverCertificateData,
+bool MediaFoundationCdm::SetServerCertificate(const uint8_t* serverCertificateData,
                                               uint32_t serverCertificateDataSize) const
 {
     m_module->SetServerCertificate(serverCertificateData, serverCertificateDataSize);
+    return true;
 }
 
-void MediaFoundationCdm::CreateSessionAndGenerateRequest(uint32_t promise_id, cdm::SessionType sessionType,
-                                                         cdm::InitDataType initDataType, const uint8_t *init_data,
-                                                         uint32_t init_data_size)
+bool MediaFoundationCdm::CreateSessionAndGenerateRequest(SessionType sessionType,
+                                                         InitDataType initDataType,
+                                                         const std::vector<uint8_t>& initData,
+                                                         SessionClient* client)
 {
-    auto session = std::make_unique<MediaFoundationCdmSession>();
+    auto session = std::make_unique<MediaFoundationCdmSession>(client);
 
-    if (!session->Initialize(sessionType, m_module.get()))
+    if (!session->Initialize(m_module.get(), sessionType))
     {
-        Log(MFCDM::MFLOG_ERROR, "Failed to create session.");
-        return;
+        return false;
     }
 
     int session_token = next_session_token_++;
-    session->GenerateRequest(initDataType, init_data, init_data_size);
+    if (!session->GenerateRequest(initDataType, initData))
+    {
+        return false;
+    }
 
     m_cdm_sessions.emplace(session_token, std::move(session));
+    return true;
 }
 
-void MediaFoundationCdm::LoadSession(cdm::SessionType session_type,
+void MediaFoundationCdm::LoadSession(SessionType session_type,
                                      const std::string &session_id)
 {
 

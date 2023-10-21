@@ -1,47 +1,78 @@
-// Copyright (c) 2013 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+/*
+ *  Copyright (C) 2023 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
 #pragma once
 
 #include <propidl.h>
 #include <cassert>
 
+namespace UTILS
+{
+
 /*!
- * \brief A MS PROPVARIANT that is automatically initialized and cleared upon respective
- * construction and destruction of this class.
+ * \brief A MS PROPVARIANT that is automatically initialized and cleared
+ * upon respective construction and destruction of this class.
 */
-class ScopedPropVariant {
+class ScopedPropVariant
+{
 public:
-    ScopedPropVariant() { PropVariantInit(&pv_); }
+  ScopedPropVariant() { PropVariantInit(&pv_); }
 
-    ScopedPropVariant(const ScopedPropVariant&) = delete;
-    ScopedPropVariant& operator=(const ScopedPropVariant&) = delete;
+  ScopedPropVariant(const ScopedPropVariant&) = delete;
+  ScopedPropVariant& operator=(const ScopedPropVariant&) = delete;
 
-    ~ScopedPropVariant() { Reset(); }
+  ~ScopedPropVariant() { Reset(); }
 
-    /*!
-     *  \brief Returns a pointer to the underlying PROPVARIANT.
-     *  Example: Use as an out param in a function call.
+  /*!
+     * \brief Clears the instance & prepares it for re-use (e.g., via Receive).
      */
-    PROPVARIANT* Receive() {
-        assert(pv_.vt == VT_EMPTY);
-        return &pv_;
-    }
+  void Reset()
+  {
+    if (pv_.vt == VT_EMPTY)
+      return;
 
-    /*!
-     * \brief Clears the instance to prepare it for re-use (e.g., via Receive).
+    HRESULT result = PropVariantClear(&pv_);
+    assert(result == S_OK);
+  }
+
+  inline PROPVARIANT* operator->() { return &pv_; }
+
+  const PROPVARIANT& get() const
+  {
+    assert(pv_.vt == VT_EMPTY);
+    return pv_;
+  }
+
+  /*!
+     * \brief Returns a pointer to the underlying PROPVARIANT.
+     * Example: Use as an out param in a function call.
      */
-    void Reset() {
-        if (pv_.vt != VT_EMPTY) {
-            HRESULT result = PropVariantClear(&pv_);
-            assert(result == S_OK);
-        }
-    }
+  PROPVARIANT* ptr()
+  {
+    assert(pv_.vt == VT_EMPTY);
+    return &pv_;
+  }
 
-    [[nodiscard]] const PROPVARIANT& get() const { return pv_; }
-    [[nodiscard]] const PROPVARIANT* ptr() const { return &pv_; }
+  PROPVARIANT release() noexcept
+  {
+    PROPVARIANT value(pv_);
+    PropVariantInit(&pv_);
+    return value;
+  }
+
+  const PROPVARIANT* ptr() const
+  {
+    assert(pv_.vt == VT_EMPTY);
+    return &pv_;
+  }
 
 private:
-    PROPVARIANT pv_;
+  PROPVARIANT pv_;
 };
+
+} // namespace UTILS

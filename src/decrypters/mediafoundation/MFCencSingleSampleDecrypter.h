@@ -10,7 +10,8 @@
 
 #include "../../common/AdaptiveCencSampleDecrypter.h"
 #include "../IDecrypter.h"
-#include "cdm/media/cdm/api/content_decryption_module.h"
+
+#include <mfcdm/MediaFoundationCdmTypes.h>
 
 #include <list>
 #include <mutex>
@@ -19,14 +20,10 @@
 class CMFDecrypter;
 class CWVCdmAdapter;
 
-namespace media
-{
-class CdmVideoFrame;
-}
-
 using namespace DRM;
 
-class ATTR_DLL_LOCAL CMFCencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter
+class ATTR_DLL_LOCAL CMFCencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter,
+                                                    public SessionClient
 {
 public:
   // methods
@@ -35,7 +32,7 @@ public:
                                std::string_view defaultKeyId,
                                bool skipSessionMessage,
                                CryptoMode cryptoMode);
-  virtual ~CMFCencSingleSampleDecrypter();
+  ~CMFCencSingleSampleDecrypter() override;
 
   void GetCapabilities(std::string_view key,
                        uint32_t media,
@@ -45,7 +42,9 @@ public:
   void CloseSessionId();
   AP4_DataBuffer GetChallengeData();
 
-  void SetSession(const char* session, uint32_t sessionSize, const uint8_t* data, size_t dataSize);
+  void OnSessionMessage(std::string_view session,
+                        const std::vector<uint8_t>& message,
+                        std::string_view destinationUrl) override;
 
   void AddSessionKey(const uint8_t* data, size_t dataSize, uint32_t status);
   bool HasKeyId(std::string_view keyid);
@@ -100,7 +99,7 @@ private:
   {
     bool operator==(WVSKEY const& other) const { return m_keyId == other.m_keyId; };
     std::string m_keyId;
-    cdm::KeyStatus status;
+    KeyStatus status;
   };
   std::vector<WVSKEY> m_keys;
 
@@ -120,8 +119,8 @@ private:
     CryptoInfo m_cryptoInfo;
   };
   std::vector<FINFO> m_fragmentPool;
-  void LogDecryptError(const cdm::Status status, const AP4_UI08* key);
-  void SetCdmSubsamples(std::vector<cdm::SubsampleEntry>& subsamples, bool isCbc);
+  //void LogDecryptError(const cdm::Status status, const AP4_UI08* key);
+  //void SetCdmSubsamples(std::vector<cdm::SubsampleEntry>& subsamples, bool isCbc);
   void RepackSubsampleData(AP4_DataBuffer& dataIn,
                            AP4_DataBuffer& dataOut,
                            size_t& startPos,
@@ -134,19 +133,19 @@ private:
                            const unsigned int subsamplePos,
                            const AP4_UI16* bytesOfCleartextData,
                            const AP4_UI32* bytesOfEncryptedData);
-  void SetInput(cdm::InputBuffer_2& cdmInputBuffer,
-                const AP4_DataBuffer& inputData,
-                const unsigned int subsampleCount,
-                const uint8_t* iv,
-                const FINFO& fragInfo,
-                const std::vector<cdm::SubsampleEntry>& subsamples);
+  //void SetInput(cdm::InputBuffer_2& cdmInputBuffer,
+  //              const AP4_DataBuffer& inputData,
+  //              const unsigned int subsampleCount,
+  //              const uint8_t* iv,
+  //              const FINFO& fragInfo,
+  //              const std::vector<cdm::SubsampleEntry>& subsamples);
   uint32_t m_promiseId;
   bool m_isDrained;
 
-  std::list<media::CdmVideoFrame> m_videoFrames;
+  //std::list<media::CdmVideoFrame> m_videoFrames;
   std::mutex m_renewalLock;
   CryptoMode m_EncryptionMode;
 
-  std::optional<cdm::VideoDecoderConfig_3> m_currentVideoDecConfig;
+  //std::optional<cdm::VideoDecoderConfig_3> m_currentVideoDecConfig;
 
 };

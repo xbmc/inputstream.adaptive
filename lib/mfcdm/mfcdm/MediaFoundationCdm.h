@@ -9,52 +9,45 @@
 #pragma once
 
 #include "MediaFoundationSession.h"
+#include "MediaFoundationCdmConfig.h"
+#include "MediaFoundationCdmTypes.h"
 
 #include <string>
 #include <map>
 #include <memory>
-
-#include "cdm/media/base/cdm_config.h"
-#include "cdm/media/cdm/api/content_decryption_module.h"
-#include "cdm/media/cdm/cdm_adapter.h"
+#include <vector>
 
 class MediaFoundationCdmSession;
-class MediaFoundationCdmFactory;
 class MediaFoundationCdmModule;
 
 class MediaFoundationCdm {
 public:
+    MediaFoundationCdm();
     ~MediaFoundationCdm();
 
     bool IsInitialized() const { return m_module != nullptr; }
 
-    bool Initialize(const std::string& keySystem,
-                    const std::string &basePath,
-                    const media::CdmConfig &cdmConfig,
-                    media::CdmAdapterClient* client);
+    bool Initialize(const MediaFoundationCdmConfig& cdmConfig,
+                    std::string_view keySystem,
+                    std::string_view basePath);
 
-    void SetServerCertificate(uint32_t promise_id,
-                              const uint8_t* serverCertificateData,
+    bool SetServerCertificate(const uint8_t* serverCertificateData,
                               uint32_t serverCertificateDataSize) const;
 
-    void CreateSessionAndGenerateRequest(uint32_t promise_id,
-                                         cdm::SessionType sessionType,
-                                         cdm::InitDataType initDataType,
-                                         const uint8_t* init_data,
-                                         uint32_t init_data_size);
+    bool CreateSessionAndGenerateRequest(SessionType sessionType,
+                                         InitDataType initDataType,
+                                         const std::vector<uint8_t>& initData,
+                                         SessionClient* client);
 
-    void LoadSession(cdm::SessionType session_type, const std::string& session_id);
-
+    void LoadSession(SessionType session_type, const std::string& session_id);
     void UpdateSession(const std::string& session_id);
+
 private:
     void SetupPMPServer() const;
 
     MediaFoundationSession m_session;
-
-    std::unique_ptr<MediaFoundationCdmModule> m_module{nullptr};
+    std::unique_ptr<MediaFoundationCdmModule> m_module;
 
     int next_session_token_{0};
     std::map<int, std::unique_ptr<MediaFoundationCdmSession>> m_cdm_sessions;
-
-    media::CdmAdapterClient* m_client{nullptr};
 };

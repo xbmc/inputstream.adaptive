@@ -33,31 +33,34 @@ public:
     }
 
     IFACEMETHODIMP ActivateClassById(LPCWSTR id, IStream* stream, REFIID riid, void** activated_class) override {
-        HRESULT ret;
+        HRESULT ret = S_OK;
 
         wchar_t guid[MAX_PATH] = {};
-        StringFromGUID2(riid, guid, std::size(guid));
+        StringFromGUID2(riid, guid, MAX_PATH);
 
         winrt::com_ptr<IMFAttributes> creation_attributes;
         ret = MFCreateAttributes(creation_attributes.put(), 3);
         if (FAILED(ret))
             return ret;
+
         ret = creation_attributes->SetString(GUID_ClassName, id);
         if (FAILED(ret))
             return ret;
 
         if (stream) {
-            STATSTG statstg;
-            ret = stream->Stat(&statstg, STATFLAG_NOOPEN | STATFLAG_NONAME);
+            STATSTG statStg;
+
+            ret = stream->Stat(&statStg, STATFLAG_NOOPEN | STATFLAG_NONAME);
             if (FAILED(ret))
               return ret;
 
-            std::vector<uint8_t> stream_blob(statstg.cbSize.LowPart);
-            unsigned long read_size = 0;
+            std::vector<uint8_t> stream_blob(statStg.cbSize.LowPart);
+            ULONG read_size = 0;
 
-            ret = stream->Read(&stream_blob[0], stream_blob.size(), &read_size);
+            ret = stream->Read(&stream_blob[0], static_cast<ULONG>(stream_blob.size()), &read_size);
             if (FAILED(ret))
               return ret;
+
             ret = creation_attributes->SetBlob(GUID_ObjectStream, &stream_blob[0], read_size);
             if (FAILED(ret))
               return ret;
@@ -68,21 +71,25 @@ public:
         ret = CreateStreamOnHGlobal(nullptr, TRUE, output_stream.put());
         if (FAILED(ret))
             return ret;
+
         ret = MFSerializeAttributesToStream(creation_attributes.get(), 0, output_stream.get());
         if (FAILED(ret))
             return ret;
+
         ret = output_stream->Seek({}, STREAM_SEEK_SET, nullptr);
         if (FAILED(ret))
             return ret;
 
         winrt::com_ptr<IMFActivate> activator;
         ret = m_spIMFPMPHost->CreateObjectByCLSID(CLSID_EMEStoreActivate, output_stream.get(),
-                                            IID_PPV_ARGS(&activator));
+                                                  IID_PPV_ARGS(&activator));
         if (FAILED(ret))
             return ret;
+
         ret = activator->ActivateObject(riid, activated_class);
         if (FAILED(ret))
             return ret;
+
         return S_OK;
     }
 private:

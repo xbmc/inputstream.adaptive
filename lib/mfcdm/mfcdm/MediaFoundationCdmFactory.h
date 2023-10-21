@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "MediaFoundationCdmConfig.h"
+
 #include <string>
 #include <memory>
 #include <filesystem>
@@ -18,20 +20,18 @@
 #include <mfapi.h>
 #include <mfcontentdecryptionmodule.h>
 
-#include <cdm/media/base/cdm_config.h>
-
 class MediaFoundationCdmModule;
 
 class MediaFoundationCdmFactory {
 public:
-    explicit MediaFoundationCdmFactory(std::string key_system);
+    explicit MediaFoundationCdmFactory(std::string_view keySystem);
     bool Initialize();
 
-    bool IsTypeSupported(const std::string& key_system) const;
+    bool IsTypeSupported(std::string_view keySystem) const;
 
-    bool CreateMfCdm(const media::CdmConfig& cdm_config,
-                     const std::filesystem::path& cdm_path,
-                     std::unique_ptr<MediaFoundationCdmModule>& mf_cdm) const;
+    bool CreateMfCdm(const MediaFoundationCdmConfig& cdmConfig,
+                     const std::filesystem::path& cdmPath,
+                     std::unique_ptr<MediaFoundationCdmModule>& mfCdm) const;
 
 private:
     std::string m_keySystem;

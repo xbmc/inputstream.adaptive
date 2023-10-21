@@ -8,21 +8,31 @@
 
 #pragma once
 
+#include "MediaFoundationCdmTypes.h"
+
 #include <unknwn.h>
 #include <winrt/base.h>
 
 #include <mfapi.h>
 #include <mfcontentdecryptionmodule.h>
 
-#include <cdm/media/cdm/api/content_decryption_module.h>
-
 class MediaFoundationCdmModule;
 
 class MediaFoundationCdmSession {
 public:
-  bool Initialize(cdm::SessionType session_type, MediaFoundationCdmModule* mf_cdm);
-  void GenerateRequest(cdm::InitDataType init_data_type,
-                       const uint8_t* init_data, uint32_t init_data_size);
+  MediaFoundationCdmSession(SessionClient* client);
+
+  bool Initialize(MediaFoundationCdmModule* mfCdm, SessionType sessionType);
+
+  bool GenerateRequest(InitDataType initDataType, const std::vector<uint8_t>& initData);
+  bool Update(const std::vector<uint8_t>& response);
+
+  std::string GetSessionId() const;
+
 private:
-    winrt::com_ptr<IMFContentDecryptionModuleSession> mfCdmSession;
+
+  void OnSessionMessage(const std::vector<uint8_t>& message, std::string_view destinationUrl) const;
+
+  winrt::com_ptr<IMFContentDecryptionModuleSession> mfCdmSession;
+  SessionClient* m_client;
 };

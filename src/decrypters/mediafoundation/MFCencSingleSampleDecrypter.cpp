@@ -15,6 +15,7 @@
 #include "../../utils/StringUtils.h"
 #include "../../utils/Utils.h"
 #include "../../utils/log.h"
+#include "pugixml.hpp"
 
 #include "MFDecrypter.h"
 #include "mfcdm/MediaFoundationCdm.h"
@@ -22,20 +23,9 @@
 #include <mutex>
 #include <thread>
 
+using namespace pugi;
 using namespace kodi::tools;
 using namespace UTILS;
-
-void CMFCencSingleSampleDecrypter::SetSession(const char* session,
-                                              uint32_t sessionSize,
-                                              const uint8_t* data,
-                                              size_t dataSize)
-{
-  std::lock_guard<std::mutex> lock(m_renewalLock);
-
-  m_strSession = std::string(session, sessionSize);
-  m_challenge.SetData(data, dataSize);
-  LOG::LogF(LOGDEBUG, "Opened widevine session ID: %s", m_strSession.c_str());
-}
 
 CMFCencSingleSampleDecrypter::CMFCencSingleSampleDecrypter(CMFDecrypter& host,
                                                            std::vector<uint8_t>& pssh,
@@ -69,7 +59,7 @@ CMFCencSingleSampleDecrypter::CMFCencSingleSampleDecrypter(CMFDecrypter& host,
         FILESYS::PathCombine(m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.init");
 
     std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
-    UTILS::FILESYS::SaveFile(debugFilePath, data, true);
+    FILESYS::SaveFile(debugFilePath, data, true);
   }
 
   // No cenc init data with PSSH box format, create one
@@ -97,9 +87,7 @@ CMFCencSingleSampleDecrypter::CMFCencSingleSampleDecrypter(CMFDecrypter& host,
     m_pssh = psshAtom;
   }
 
-  m_host.GetCdm()->CreateSessionAndGenerateRequest(
-      m_promiseId++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, 
-    m_pssh.data(), m_pssh.size());
+  m_host.GetCdm()->CreateSessionAndGenerateRequest(MFTemporary, MFCenc, m_pssh, this);
 
   int retryCount = 0;
   while (m_strSession.empty() && ++retryCount < 100)
@@ -116,6 +104,42 @@ CMFCencSingleSampleDecrypter::CMFCencSingleSampleDecrypter(CMFDecrypter& host,
 
   while (m_challenge.GetDataSize() > 0 && SendSessionMessage())
     ;
+}
+
+void CMFCencSingleSampleDecrypter::OnSessionMessage(std::string_view session,
+                                                    const std::vector<uint8_t>& message,
+                                                    std::string_view destinationUrl)
+{
+  xml_document doc;
+
+  // Load wide string XML
+  xml_parse_result parseRes = doc.load_buffer(message.data(), message.size());
+  if (parseRes.status != status_ok)
+  {
+    LOG::LogF(LOGERROR, "Failed to parse PlayReady session message", parseRes.status);
+    return;
+  }
+
+  if (m_host.IsDebugSaveLicense())
+  {
+    std::string debugFilePath =
+        FILESYS::PathCombine(m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.message");
+
+    doc.save_file(debugFilePath.c_str());
+  }
+
+  xml_node nodeKeyMessage = doc.child("PlayReadyKeyMessage");
+  if (!nodeKeyMessage)
+  {
+    LOG::LogF(LOGERROR, "Failed to get Playready's <PlayReadyKeyMessage> tag element.");
+    return;
+  }
+
+  std::lock_guard<std::mutex> lock(m_renewalLock);
+
+  m_strSession = session;
+  //m_challenge.SetData(message.data(), message.size());
+  LOG::LogF(LOGDEBUG, "Opened playready session ID: %s", m_strSession.c_str());
 }
 
 CMFCencSingleSampleDecrypter::~CMFCencSingleSampleDecrypter()
@@ -157,7 +181,7 @@ void CMFCencSingleSampleDecrypter::CloseSessionId()
 {
   if (!m_strSession.empty())
   {
-    LOG::LogF(LOGDEBUG, "Closing widevine session ID: %s", m_strSession.c_str());
+    LOG::LogF(LOGDEBUG, "Closing MF session ID: %s", m_strSession.c_str());
     //m_wvCdmAdapter.GetCdmAdapter()->CloseSession(++m_promiseId, m_strSession.data(),
     //                                             m_strSession.size());
 
@@ -199,7 +223,7 @@ bool CMFCencSingleSampleDecrypter::SendSessionMessage()
         m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.challenge");
     std::string data{reinterpret_cast<const char*>(m_challenge.GetData()),
                      m_challenge.GetDataSize()};
-    UTILS::FILESYS::SaveFile(debugFilePath, data, true);
+    FILESYS::SaveFile(debugFilePath, data, true);
   }
 
   //Process placeholder in GET String
@@ -449,7 +473,7 @@ void CMFCencSingleSampleDecrypter::AddSessionKey(const uint8_t* data,
   key.m_keyId = std::string((const char*)data, dataSize);
   if ((res = std::find(m_keys.begin(), m_keys.end(), key)) == m_keys.end())
     res = m_keys.insert(res, key);
-  res->status = static_cast<cdm::KeyStatus>(status);
+  res->status = static_cast<KeyStatus>(status);
 }
 
 bool CMFCencSingleSampleDecrypter::HasKeyId(std::string_view keyid)
@@ -504,28 +528,6 @@ void CMFCencSingleSampleDecrypter::RemovePool(AP4_UI32 poolId)
   m_fragmentPool[poolId].m_key.clear();
 }
 
-void CMFCencSingleSampleDecrypter::LogDecryptError(const cdm::Status status, const AP4_UI08* key)
-{
-  char buf[36];
-  buf[32] = 0;
-  AP4_FormatHex(key, 16, buf);
-  LOG::LogF(LOGDEBUG, "Decrypt failed with error: %d and key: %s", status, buf);
-}
-
-void CMFCencSingleSampleDecrypter::SetCdmSubsamples(std::vector<cdm::SubsampleEntry>& subsamples,
-                                                    bool isCbc)
-{
-  if (isCbc)
-  {
-    subsamples.resize(1);
-    subsamples[0] = {0, m_decryptIn.GetDataSize()};
-  }
-  else
-  {
-    subsamples.push_back({0, m_decryptIn.GetDataSize()});
-  }
-}
-
 void CMFCencSingleSampleDecrypter::RepackSubsampleData(AP4_DataBuffer& dataIn,
                                                        AP4_DataBuffer& dataOut,
                                                        size_t& pos,
@@ -550,27 +552,6 @@ void CMFCencSingleSampleDecrypter::UnpackSubsampleData(AP4_DataBuffer& dataIn,
   pos += bytesOfCleartextData[subsamplePos];
   m_decryptIn.AppendData(dataIn.GetData() + pos, bytesOfEncryptedData[subsamplePos]);
   pos += bytesOfEncryptedData[subsamplePos];
-}
-
-void CMFCencSingleSampleDecrypter::SetInput(cdm::InputBuffer_2& cdmInputBuffer,
-                                            const AP4_DataBuffer& inputData,
-                                            const unsigned int subsampleCount,
-                                            const uint8_t* iv,
-                                            const FINFO& fragInfo,
-                                            const std::vector<cdm::SubsampleEntry>& subsamples)
-{
-  cdmInputBuffer.data = inputData.GetData();
-  cdmInputBuffer.data_size = inputData.GetDataSize();
-  cdmInputBuffer.num_subsamples = subsampleCount;
-  cdmInputBuffer.iv = iv;
-  cdmInputBuffer.iv_size = 16; //Always 16, see AP4_CencSingleSampleDecrypter declaration.
-  cdmInputBuffer.key_id = fragInfo.m_key.data();
-  cdmInputBuffer.key_id_size = 16;
-  cdmInputBuffer.subsamples = subsamples.data();
-  //cdmInputBuffer.encryption_scheme = media::ToCdmEncryptionScheme(fragInfo.m_cryptoInfo.m_mode);
-  cdmInputBuffer.timestamp = 0;
-  cdmInputBuffer.pattern = {fragInfo.m_cryptoInfo.m_cryptBlocks,
-                            fragInfo.m_cryptoInfo.m_skipBlocks};
 }
 
 /*----------------------------------------------------------------------
@@ -619,7 +600,7 @@ void CMFCencSingleSampleDecrypter::AddKeyId(std::string_view keyId)
 {
   WVSKEY key;
   key.m_keyId = keyId;
-  key.status = cdm::KeyStatus::kUsable;
+  key.status = MFKeyUsable;
 
   if (std::find(m_keys.begin(), m_keys.end(), key) == m_keys.end())
   {

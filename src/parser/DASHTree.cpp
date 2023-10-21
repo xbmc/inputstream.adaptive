@@ -1298,6 +1298,7 @@ bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
           PRProtectionParser parser;
           if (parser.ParseHeader(node.child_value()))
             protScheme.kid = parser.GetKID();
+          protScheme.pssh = node.child_value();
         }
       }
       protectionSchemes.emplace_back(protScheme);

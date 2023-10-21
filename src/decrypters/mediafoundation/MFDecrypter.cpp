@@ -4,8 +4,6 @@
 #include "../../utils/log.h"
 
 #include <mfcdm/MediaFoundationCdm.h>
-#include <mfcdm/MediaFoundationCdmSession.h>
-#include <mfcdm/MediaFoundationCdmModule.h>
 
 #include <kodi/Filesystem.h>
 #include <mfcdm/Log.h>
@@ -57,7 +55,7 @@ CMFDecrypter::~CMFDecrypter()
 bool CMFDecrypter::Initialize()
 {
   m_cdm = new MediaFoundationCdm();
-  return m_cdm != NULL;
+  return m_cdm != nullptr;
 }
 
 std::string CMFDecrypter::SelectKeySytem(std::string_view keySystem)
@@ -80,8 +78,8 @@ bool CMFDecrypter::OpenDRMSystem(std::string_view licenseURL,
     return false;
   }
 
-  return m_cdm->Initialize("com.microsoft.playready.recommendation", m_strProfilePath, {true, true},
-                           nullptr);
+  return m_cdm->Initialize({true, true}, "com.microsoft.playready.recommendation",
+                           m_strProfilePath);
 }
 
 Adaptive_CencSingleSampleDecrypter* CMFDecrypter::CreateSingleSampleDecrypter(

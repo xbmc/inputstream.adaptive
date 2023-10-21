@@ -3,6 +3,8 @@ project(mfcdm_library)
 
 add_library(mfcdm_library STATIC
   mfcdm/MediaFoundationCdm.h
+  mfcdm/MediaFoundationCdmConfig.h
+  mfcdm/MediaFoundationCdmTypes.h
   mfcdm/MediaFoundationCdm.cpp
   mfcdm/MediaFoundationCdmFactory.cpp
   mfcdm/MediaFoundationCdmSession.cpp
