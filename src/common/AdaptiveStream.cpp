@@ -887,7 +887,7 @@ bool AdaptiveStream::ensureSegment()
       }
 
       // If the representation has been changed, segments may have to be generated (DASH)
-      if (newRep->SegmentTimeline().IsEmpty() && !newRep->IsSubtitleFileStream())
+      if (newRep->SegmentTimeline().IsEmpty())
         GenerateSidxSegments(newRep);
 
       if (!newRep->IsPrepared() && tree_.SecondsSinceRepUpdate(newRep) > 1)
@@ -1033,9 +1033,6 @@ bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
 
 uint64_t AdaptiveStream::getMaxTimeMs()
 {
-  if (current_rep_->IsSubtitleFileStream())
-    return 0;
-
   if (current_rep_->SegmentTimeline().IsEmpty())
     return 0;
 
