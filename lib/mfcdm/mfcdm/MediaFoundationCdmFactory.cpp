@@ -34,7 +34,7 @@ bool MediaFoundationCdmFactory::Initialize()
 {
     const winrt::com_ptr<IMFMediaEngineClassFactory4> classFactory = winrt::create_instance<IMFMediaEngineClassFactory4>(
           CLSID_MFMediaEngineClassFactory, CLSCTX_INPROC_SERVER);
-    const std::wstring keySystemWide = ConvertUtf8ToWide(m_keySystem);
+    const std::wstring keySystemWide = WIDE::ConvertUtf8ToWide(m_keySystem);
 
     return SUCCEEDED(classFactory->CreateContentDecryptionModuleFactory(
       keySystemWide.c_str(), IID_PPV_ARGS(&m_cdmFactory)));
@@ -42,7 +42,7 @@ bool MediaFoundationCdmFactory::Initialize()
 
 bool MediaFoundationCdmFactory::IsTypeSupported(std::string_view keySystem) const
 {
-    return m_cdmFactory->IsTypeSupported(ConvertUtf8ToWide(keySystem).c_str(), nullptr);
+    return m_cdmFactory->IsTypeSupported(WIDE::ConvertUtf8ToWide(keySystem).c_str(), nullptr);
 }
 
 /*!
@@ -130,7 +130,7 @@ bool BuildCdmAccessConfigurations(const MediaFoundationCdmConfig& cdmConfig,
     // Persistent state
     ScopedPropVariant persisted_state;
     if (FAILED(InitPropVariantFromUInt32(cdmConfig.allow_persistent_state
-                                                ? MF_MEDIAKEYS_REQUIREMENT_REQUIRED
+                                                ? MF_MEDIAKEYS_REQUIREMENT_OPTIONAL
                                                 : MF_MEDIAKEYS_REQUIREMENT_NOT_ALLOWED, 
                                          persisted_state.ptr())))
     {
@@ -147,7 +147,7 @@ bool BuildCdmAccessConfigurations(const MediaFoundationCdmConfig& cdmConfig,
     // Distinctive ID
     ScopedPropVariant allow_distinctive_identifier;
     if (FAILED(InitPropVariantFromUInt32(cdmConfig.allow_distinctive_identifier
-                                                ? MF_MEDIAKEYS_REQUIREMENT_REQUIRED
+                                                ? MF_MEDIAKEYS_REQUIREMENT_OPTIONAL
                                                 : MF_MEDIAKEYS_REQUIREMENT_NOT_ALLOWED,
                                          allow_distinctive_identifier.ptr())))
     {
@@ -193,7 +193,7 @@ bool MediaFoundationCdmFactory::CreateMfCdm(const MediaFoundationCdmConfig& cdmC
                                             const std::filesystem::path& cdmPath,
                                             std::unique_ptr<MediaFoundationCdmModule>& mfCdm) const
 {
-    const auto key_system_str = ConvertUtf8ToWide(m_keySystem);
+    const auto key_system_str = WIDE::ConvertUtf8ToWide(m_keySystem);
     if (!m_cdmFactory->IsTypeSupported(key_system_str.c_str(), nullptr))
     {
         Log(MFCDM::MFLOG_ERROR, "%s is not supported by MF CdmFactory", m_keySystem);

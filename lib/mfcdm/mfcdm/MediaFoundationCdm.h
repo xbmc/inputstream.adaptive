@@ -40,14 +40,17 @@ public:
                                          SessionClient* client);
 
     void LoadSession(SessionType session_type, const std::string& session_id);
-    void UpdateSession(const std::string& session_id);
+    bool UpdateSession(const std::string& session_id, const std::vector<uint8_t>& response);
 
 private:
     void SetupPMPServer() const;
+    MediaFoundationCdmSession* GetSession(const std::string& sessionId) const;
+    void OnNewSessionId(int sessionToken, std::string_view sessionId);
 
     MediaFoundationSession m_session;
     std::unique_ptr<MediaFoundationCdmModule> m_module;
 
-    int next_session_token_{0};
-    std::map<int, std::unique_ptr<MediaFoundationCdmSession>> m_cdm_sessions;
+    int m_nextSessionToken = 0;
+    std::map<int, std::shared_ptr<MediaFoundationCdmSession>> m_pendingSessions;
+    std::map<std::string, std::shared_ptr<MediaFoundationCdmSession>> m_sessions;
 };

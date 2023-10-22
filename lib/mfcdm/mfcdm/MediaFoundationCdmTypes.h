@@ -6,11 +6,12 @@
  *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
-
-#pragma once
 
 enum SessionType : uint32_t
 {
@@ -28,8 +29,26 @@ enum InitDataType : uint32_t
 enum KeyStatus : uint32_t
 {
   MFKeyUsable = 0,
-  MFKeyExpired = 1,
-  MFKeyError = 2
+  MFKeyDownScaled = 1,
+  MFKeyPending = 2,
+  MFKeyExpired = 3,
+  MFKeyReleased = 4,
+  MFKeyRestricted = 5, 
+  MFKeyError = 6
+};
+
+struct KeyInfo
+{
+  KeyInfo(std::vector<uint8_t> keyId, KeyStatus status)
+    : keyId(std::move(keyId)),
+      status(status)
+  {
+    
+  }
+  std::vector<uint8_t> keyId;
+  KeyStatus status;
+
+  bool operator==(KeyInfo const& other) const { return keyId == other.keyId; }
 };
 
 class SessionClient
@@ -37,7 +56,10 @@ class SessionClient
 public:
   virtual ~SessionClient() = default;
 
-  virtual void OnSessionMessage(std::string_view session,
+  virtual void OnSessionMessage(std::string_view sessionId,
                                 const std::vector<uint8_t>& message,
                                 std::string_view destinationUrl) = 0;
+
+  virtual void OnKeyChange(std::string_view sessionId,
+                           std::vector<std::unique_ptr<KeyInfo>> keys) = 0;
 };

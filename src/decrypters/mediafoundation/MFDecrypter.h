@@ -79,12 +79,13 @@ public:
 
   MediaFoundationCdm* GetCdm() const { return m_cdm; }
 
+  std::string GetLicenseKey() const { return m_strLicenseKey; }
+
 private:
   MediaFoundationCdm* m_cdm;
   CMFCencSingleSampleDecrypter* m_decodingDecrypter;
-
   std::string m_strProfilePath;
   std::string m_strLibraryPath;
-
+  std::string m_strLicenseKey;
   bool m_isDebugSaveLicense;
 };

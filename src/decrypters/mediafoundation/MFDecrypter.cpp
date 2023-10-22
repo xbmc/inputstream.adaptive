@@ -78,6 +78,8 @@ bool CMFDecrypter::OpenDRMSystem(std::string_view licenseURL,
     return false;
   }
 
+  m_strLicenseKey = licenseURL;
+
   return m_cdm->Initialize({true, true}, "com.microsoft.playready.recommendation",
                            m_strProfilePath);
 }

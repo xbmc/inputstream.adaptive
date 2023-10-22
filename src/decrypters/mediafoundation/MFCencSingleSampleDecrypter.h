@@ -14,6 +14,7 @@
 #include <mfcdm/MediaFoundationCdmTypes.h>
 
 #include <list>
+#include <map>
 #include <mutex>
 #include <optional>
 
@@ -45,9 +46,9 @@ public:
   void OnSessionMessage(std::string_view session,
                         const std::vector<uint8_t>& message,
                         std::string_view destinationUrl) override;
+  void OnKeyChange(std::string_view sessionId, std::vector<std::unique_ptr<KeyInfo>> keys) override;
 
-  void AddSessionKey(const uint8_t* data, size_t dataSize, uint32_t status);
-  bool HasKeyId(std::string_view keyid);
+  bool HasKeyId(std::string_view keyId);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
                                      const std::vector<uint8_t>& keyId,
@@ -86,22 +87,17 @@ public:
   void AddKeyId(std::string_view keyId) override;
 
 private:
-  void CheckLicenseRenewal();
-  bool SendSessionMessage();
+  void ParsePlayReadyMessage(const std::vector<uint8_t>& message,
+                             std::string& challenge,
+                             std::map<std::string, std::string>& headers);
 
   CMFDecrypter& m_host;
 
-  std::string m_strSession;
+  std::string sessionId;
   std::vector<uint8_t> m_pssh;
   AP4_DataBuffer m_challenge;
   std::string m_defaultKeyId;
-  struct WVSKEY
-  {
-    bool operator==(WVSKEY const& other) const { return m_keyId == other.m_keyId; };
-    std::string m_keyId;
-    KeyStatus status;
-  };
-  std::vector<WVSKEY> m_keys;
+  std::vector<std::unique_ptr<KeyInfo>> m_keys;
 
   AP4_UI16 m_hdcpVersion;
   int m_hdcpLimit;
@@ -143,7 +139,6 @@ private:
   bool m_isDrained;
 
   //std::list<media::CdmVideoFrame> m_videoFrames;
-  std::mutex m_renewalLock;
   CryptoMode m_EncryptionMode;
 
   //std::optional<cdm::VideoDecoderConfig_3> m_currentVideoDecConfig;

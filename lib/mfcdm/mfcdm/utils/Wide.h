@@ -8,10 +8,14 @@
 
 #include <string>
 
-#include <stringapiset.h>
+#define NOGDI // Ignore useless header that creates useless macros
+#include <windows.h>
 
 namespace UTILS
 {
+
+  namespace WIDE
+  {
 
   static std::wstring ConvertUtf8ToWide(std::string_view str)
   {
@@ -28,8 +32,8 @@ namespace UTILS
 
   static std::string ConvertWideToUTF8(std::wstring_view wstr)
   {
-    const int charCount =
-        WideCharToMultiByte(CP_UTF8, 0, wstr.data(), static_cast<int>(wstr.length()), nullptr, 0, nullptr, nullptr);
+    const int charCount = WideCharToMultiByte(
+        CP_UTF8, 0, wstr.data(), static_cast<int>(wstr.length()), nullptr, 0, nullptr, nullptr);
     if (charCount <= 0)
       return {};
 
@@ -38,5 +42,7 @@ namespace UTILS
                         charCount, nullptr, nullptr);
     return str;
   }
+
+  } //namespace WIDE
 
 } //namespace UTILS

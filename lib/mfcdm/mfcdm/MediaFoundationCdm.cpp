@@ -11,9 +11,10 @@
 #include "MediaFoundationCdmFactory.h"
 #include "MediaFoundationCdmModule.h"
 #include "MediaFoundationCdmSession.h"
+#include "utils/PMPHostWrapper.h"
 #include "Log.h"
 
-#include "utils/PMPHostWrapper.h"
+#include <functional>
 
 MediaFoundationCdm::MediaFoundationCdm() = default;
 MediaFoundationCdm::~MediaFoundationCdm() = default;
@@ -92,34 +93,67 @@ bool MediaFoundationCdm::CreateSessionAndGenerateRequest(SessionType sessionType
                                                          const std::vector<uint8_t>& initData,
                                                          SessionClient* client)
 {
-    auto session = std::make_unique<MediaFoundationCdmSession>(client);
+    auto session = std::make_shared<MediaFoundationCdmSession>(client);
 
     if (!session->Initialize(m_module.get(), sessionType))
     {
         return false;
     }
 
-    int session_token = next_session_token_++;
-    if (!session->GenerateRequest(initDataType, initData))
+    // when session id is identified, callback is ran.
+    // this meant to be able to access UpdateSession()
+    // inside MF callback because then session id is known.
+    int sessionToken = m_nextSessionToken++;
+    m_pendingSessions.emplace(sessionToken, session);
+    
+    if (!session->GenerateRequest(initDataType, initData, 
+        std::bind(&MediaFoundationCdm::OnNewSessionId, this, sessionToken, std::placeholders::_1)))
     {
         return false;
     }
-
-    m_cdm_sessions.emplace(session_token, std::move(session));
     return true;
 }
 
-void MediaFoundationCdm::LoadSession(SessionType session_type,
-                                     const std::string &session_id)
+void MediaFoundationCdm::LoadSession(SessionType sessionType, const std::string& sessionId)
 {
-
+   
 }
 
-void MediaFoundationCdm::UpdateSession(const std::string &session_id)
+bool MediaFoundationCdm::UpdateSession(const std::string& sessionId,
+                                       const std::vector<uint8_t>& response)
 {
+    if (!m_module)
+        return false;
 
+    auto* session = GetSession(sessionId);
+    if (!session)
+    {
+        Log(MFCDM::MFLOG_ERROR, "Couldn't find session in created sessions.");
+        return false;
+    }
+
+    return session->Update(response);
 }
 
+void MediaFoundationCdm::OnNewSessionId(int sessionToken, std::string_view sessionId)
+{
+    auto itr = m_pendingSessions.find(sessionToken);
+    assert(itr != m_pendingSessions.end());
 
+    auto session = std::move(itr->second);
+    assert(session);
+  
+    m_pendingSessions.erase(itr);
 
+    m_sessions.emplace(sessionId, std::move(session));
+}
+
+MediaFoundationCdmSession* MediaFoundationCdm::GetSession(const std::string& sessionId) const
+{
+    auto itr = m_sessions.find(sessionId);
+    if (itr == m_sessions.end())
+        return nullptr;
+
+    return itr->second.get();
+}
 

@@ -8,17 +8,18 @@
 
 #include "MFCencSingleSampleDecrypter.h"
 
-#include "../../utils/Base64Utils.h"
-#include "../../utils/CurlUtils.h"
-#include "../../utils/DigestMD5Utils.h"
-#include "../../utils/FileUtils.h"
-#include "../../utils/StringUtils.h"
-#include "../../utils/Utils.h"
-#include "../../utils/log.h"
+#include "MFDecrypter.h"
+#include "utils/Base64Utils.h"
+#include "utils/CurlUtils.h"
+#include "utils/DigestMD5Utils.h"
+#include "utils/FileUtils.h"
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
+#include "utils/log.h"
+#include "utils/XMLUtils.h"
 #include "pugixml.hpp"
 
-#include "MFDecrypter.h"
-#include "mfcdm/MediaFoundationCdm.h"
+#include <mfcdm/MediaFoundationCdm.h>
 
 #include <mutex>
 #include <thread>
@@ -51,12 +52,10 @@ CMFCencSingleSampleDecrypter::CMFCencSingleSampleDecrypter(CMFDecrypter& host,
     return;
   }
 
-  //m_wvCdmAdapter.insertssd(this);
-
   if (m_host.IsDebugSaveLicense())
   {
-    std::string debugFilePath =
-        FILESYS::PathCombine(m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.init");
+    const std::string debugFilePath =
+          FILESYS::PathCombine(m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.init");
 
     std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
     FILESYS::SaveFile(debugFilePath, data, true);
@@ -89,26 +88,21 @@ CMFCencSingleSampleDecrypter::CMFCencSingleSampleDecrypter(CMFDecrypter& host,
 
   m_host.GetCdm()->CreateSessionAndGenerateRequest(MFTemporary, MFCenc, m_pssh, this);
 
-  int retryCount = 0;
-  while (m_strSession.empty() && ++retryCount < 100)
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-  if (m_strSession.empty())
+  if (sessionId.empty())
   {
     LOG::LogF(LOGERROR, "Cannot perform License update, no session available");
     return;
   }
 
-  if (skipSessionMessage)
-    return;
-
-  while (m_challenge.GetDataSize() > 0 && SendSessionMessage())
-    ;
 }
 
-void CMFCencSingleSampleDecrypter::OnSessionMessage(std::string_view session,
-                                                    const std::vector<uint8_t>& message,
-                                                    std::string_view destinationUrl)
+CMFCencSingleSampleDecrypter::~CMFCencSingleSampleDecrypter()
+{
+}
+
+void CMFCencSingleSampleDecrypter::ParsePlayReadyMessage(const std::vector<uint8_t>& message, 
+                                                         std::string& challenge, 
+                                                         std::map<std::string, std::string>& headers)
 {
   xml_document doc;
 
@@ -116,305 +110,143 @@ void CMFCencSingleSampleDecrypter::OnSessionMessage(std::string_view session,
   xml_parse_result parseRes = doc.load_buffer(message.data(), message.size());
   if (parseRes.status != status_ok)
   {
-    LOG::LogF(LOGERROR, "Failed to parse PlayReady session message", parseRes.status);
+    LOG::LogF(LOGERROR, "Failed to parse PlayReady session message %i", parseRes.status);
     return;
   }
 
   if (m_host.IsDebugSaveLicense())
   {
-    std::string debugFilePath =
-        FILESYS::PathCombine(m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.message");
-
+    const std::string debugFilePath = FILESYS::PathCombine(
+          m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.message");
+  
     doc.save_file(debugFilePath.c_str());
   }
 
-  xml_node nodeKeyMessage = doc.child("PlayReadyKeyMessage");
-  if (!nodeKeyMessage)
+  xml_node nodeAcquisition = doc.first_element_by_path("PlayReadyKeyMessage/LicenseAcquisition");
+  if (!nodeAcquisition)
   {
-    LOG::LogF(LOGERROR, "Failed to get Playready's <PlayReadyKeyMessage> tag element.");
+    LOG::LogF(LOGERROR, "Failed to get Playready's <LicenseAcquisition> tag element.");
     return;
   }
 
-  std::lock_guard<std::mutex> lock(m_renewalLock);
-
-  m_strSession = session;
-  //m_challenge.SetData(message.data(), message.size());
-  LOG::LogF(LOGDEBUG, "Opened playready session ID: %s", m_strSession.c_str());
-}
-
-CMFCencSingleSampleDecrypter::~CMFCencSingleSampleDecrypter()
-{
-  //m_wvCdmAdapter.removessd(this);
-}
-
-void CMFCencSingleSampleDecrypter::GetCapabilities(std::string_view key,
-                                                   uint32_t media,
-                                                   IDecrypter::DecrypterCapabilites& caps)
-{
-  caps = {0, m_hdcpVersion, m_hdcpLimit};
-
-  if (m_strSession.empty())
+  xml_node nodeChallenge = nodeAcquisition.child("Challenge");
+  if (!nodeChallenge)
   {
-    LOG::LogF(LOGDEBUG, "Session empty");
+    LOG::LogF(LOGERROR, "Failed to get Playready's <Challenge> tag element.");
     return;
   }
 
-  caps.flags = IDecrypter::DecrypterCapabilites::SSD_SUPPORTS_DECODING;
-
-  if (m_keys.empty())
+  std::string encodingType; 
+  encodingType = XML::GetAttrib(nodeChallenge, "encoding");
+  if (encodingType != "base64encoded")
   {
-    LOG::LogF(LOGDEBUG, "Keys empty");
+    LOG::LogF(LOGERROR, "Unknown challenge encoding %s", encodingType);
     return;
   }
 
-  if (!caps.hdcpLimit)
-    caps.hdcpLimit = m_resolutionLimit;
+  challenge = BASE64::DecodeToStr(nodeChallenge.child_value());
 
-}
+  LOG::LogF(LOGDEBUG, "Challenge: encoding %s size %i", encodingType, challenge.size());
 
-const char* CMFCencSingleSampleDecrypter::GetSessionId()
-{
-  return m_strSession.empty() ? nullptr : m_strSession.c_str();
-}
-
-void CMFCencSingleSampleDecrypter::CloseSessionId()
-{
-  if (!m_strSession.empty())
+  if (xml_node nodeHeaders = nodeAcquisition.child("HttpHeaders"))
   {
-    LOG::LogF(LOGDEBUG, "Closing MF session ID: %s", m_strSession.c_str());
-    //m_wvCdmAdapter.GetCdmAdapter()->CloseSession(++m_promiseId, m_strSession.data(),
-    //                                             m_strSession.size());
-
-    LOG::LogF(LOGDEBUG, "MF session ID %s closed", m_strSession.c_str());
-    m_strSession.clear();
+    for (xml_node nodeHeader : nodeHeaders.children("HttpHeader"))
+    {
+      std::string name = nodeHeader.child_value("name");
+      std::string value = nodeHeader.child_value("value");
+      headers.insert({name, value});
+    }
   }
+
+  LOG::LogF(LOGDEBUG, "HttpHeaders: size %i", headers.size());
 }
 
-AP4_DataBuffer CMFCencSingleSampleDecrypter::GetChallengeData()
+void CMFCencSingleSampleDecrypter::OnSessionMessage(std::string_view session,
+                                                    const std::vector<uint8_t>& message,
+                                                    std::string_view messageDestinationUrl)
 {
-  return m_challenge;
-}
+  std::string challenge;
+  std::map<std::string, std::string> playReadyHeaders;
 
-void CMFCencSingleSampleDecrypter::CheckLicenseRenewal()
-{
-  {
-    std::lock_guard<std::mutex> lock(m_renewalLock);
-    if (!m_challenge.GetDataSize())
-      return;
-  }
-  SendSessionMessage();
-}
+  ParsePlayReadyMessage(message, challenge,
+                        playReadyHeaders);
 
-bool CMFCencSingleSampleDecrypter::SendSessionMessage()
-{
-  // StringUtils::Split(m_wvCdmAdapter.GetLicenseURL(), '|')
-  std::vector<std::string> blocks{};
+  sessionId = session;
+  m_challenge.SetData(reinterpret_cast<const AP4_Byte*>(challenge.data()),
+                      static_cast<AP4_Size>(challenge.size()));
 
-  if (blocks.size() != 4)
-  {
-    LOG::LogF(LOGERROR, "Wrong \"|\" blocks in license URL. Four blocks (req | header | body | "
-                        "response) are expected in license URL");
-    return false;
-  }
+  LOG::LogF(LOGDEBUG, "Playready message session ID: %s", sessionId.c_str());
 
   if (m_host.IsDebugSaveLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
         m_host.GetProfilePath(), "9A04F079-9840-4286-AB92-E65BE0885F95.challenge");
-    std::string data{reinterpret_cast<const char*>(m_challenge.GetData()),
-                     m_challenge.GetDataSize()};
-    FILESYS::SaveFile(debugFilePath, data, true);
+
+    FILESYS::SaveFile(debugFilePath, challenge, true);
   }
 
-  //Process placeholder in GET String
-  std::string::size_type insPos(blocks[0].find("{SSM}"));
-  if (insPos != std::string::npos)
+  std::vector<std::string> blocks;
+  if (!m_host.GetLicenseKey().empty())
   {
-    if (insPos > 0 && blocks[0][insPos - 1] == 'B')
+    blocks = StringUtils::Split(m_host.GetLicenseKey(), '|');
+    if (blocks.size() != 4)
     {
-      std::string msgEncoded{BASE64::Encode(m_challenge.GetData(), m_challenge.GetDataSize())};
-      msgEncoded = STRING::URLEncode(msgEncoded);
-      blocks[0].replace(insPos - 1, 6, msgEncoded);
-    }
-    else
-    {
-      LOG::Log(LOGERROR, "Unsupported License request template (command)");
-      return false;
+      LOG::LogF(LOGERROR, "Wrong \"|\" blocks in license URL. Four blocks (req | header | body | "
+                          "response) are expected in license URL");
+      return;
     }
   }
 
-  insPos = blocks[0].find("{HASH}");
-  if (insPos != std::string::npos)
+  std::string destinationUrl;
+  if (!blocks.empty())
   {
-    DIGEST::MD5 md5;
-    md5.Update(m_challenge.GetData(), m_challenge.GetDataSize());
-    md5.Finalize();
-    blocks[0].replace(insPos, 6, md5.HexDigest());
+    destinationUrl = blocks[0];
+  }
+  else
+  {
+    destinationUrl = messageDestinationUrl;
   }
 
-  CURL::CUrl file{blocks[0].c_str()};
+  CURL::CUrl file(destinationUrl);
   file.AddHeader("Expect", "");
 
-  std::string response;
-  std::string resLimit;
-  std::string contentType;
-  char buf[2048];
-  bool serverCertRequest;
+  for (const auto& header: playReadyHeaders)
+  {
+    file.AddHeader(header.first, header.second);
+  }
 
   //Process headers
-  std::vector<std::string> headers{StringUtils::Split(blocks[1], '&')};
-  for (std::string& headerStr : headers)
+  if(!blocks.empty())
   {
-    std::vector<std::string> header{StringUtils::Split(headerStr, '=')};
-    if (!header.empty())
+    std::vector<std::string> headers{StringUtils::Split(blocks[1], '&')};
+    for (std::string& headerStr : headers)
     {
-      StringUtils::Trim(header[0]);
-      std::string value;
-      if (header.size() > 1)
+      std::vector<std::string> header{StringUtils::Split(headerStr, '=')};
+      if (!header.empty())
       {
-        StringUtils::Trim(header[1]);
-        value = STRING::URLDecode(header[1]);
+        StringUtils::Trim(header[0]);
+        std::string value;
+        if (header.size() > 1)
+        {
+          StringUtils::Trim(header[1]);
+          value = STRING::URLDecode(header[1]);
+        }
+        file.AddHeader(header[0].c_str(), value.c_str());
       }
-      file.AddHeader(header[0].c_str(), value.c_str());
-    }
+    } 
   }
 
-  //Process body
-  if (!blocks[2].empty())
-  {
-    if (blocks[2][0] == '%')
-      blocks[2] = STRING::URLDecode(blocks[2]);
+  std::string encData{BASE64::Encode(challenge)};
+  file.AddHeader("postdata", encData);
 
-    insPos = blocks[2].find("{SSM}");
-    if (insPos != std::string::npos)
-    {
-      std::string::size_type sidPos(blocks[2].find("{SID}"));
-      std::string::size_type kidPos(blocks[2].find("{KID}"));
-
-      char fullDecode = 0;
-      if (insPos > 1 && sidPos > 1 && kidPos > 1 && (blocks[2][0] == 'b' || blocks[2][0] == 'B') &&
-          blocks[2][1] == '{')
-      {
-        fullDecode = blocks[2][0];
-        blocks[2] = blocks[2].substr(2, blocks[2].size() - 3);
-        insPos -= 2;
-        if (kidPos != std::string::npos)
-          kidPos -= 2;
-        if (sidPos != std::string::npos)
-          sidPos -= 2;
-      }
-
-      size_t size_written(0);
-
-      if (insPos > 0)
-      {
-        if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
-        {
-          std::string msgEncoded{BASE64::Encode(m_challenge.GetData(), m_challenge.GetDataSize())};
-          if (blocks[2][insPos - 1] == 'B')
-          {
-            msgEncoded = STRING::URLEncode(msgEncoded);
-          }
-          blocks[2].replace(insPos - 1, 6, msgEncoded);
-          size_written = msgEncoded.size();
-        }
-        else if (blocks[2][insPos - 1] == 'D')
-        {
-          std::string msgEncoded{
-              STRING::ToDecimal(m_challenge.GetData(), m_challenge.GetDataSize())};
-          blocks[2].replace(insPos - 1, 6, msgEncoded);
-          size_written = msgEncoded.size();
-        }
-        else
-        {
-          blocks[2].replace(insPos - 1, 6, reinterpret_cast<const char*>(m_challenge.GetData()),
-                            m_challenge.GetDataSize());
-          size_written = m_challenge.GetDataSize();
-        }
-      }
-      else
-      {
-        LOG::Log(LOGERROR, "Unsupported License request template (body / ?{SSM})");
-        return false;
-      }
-
-      if (sidPos != std::string::npos && insPos < sidPos)
-        sidPos += size_written, sidPos -= 6;
-
-      if (kidPos != std::string::npos && insPos < kidPos)
-        kidPos += size_written, kidPos -= 6;
-
-      size_written = 0;
-
-      if (sidPos != std::string::npos)
-      {
-        if (sidPos > 0)
-        {
-          if (blocks[2][sidPos - 1] == 'B' || blocks[2][sidPos - 1] == 'b')
-          {
-            std::string msgEncoded{BASE64::Encode(m_strSession)};
-
-            if (blocks[2][sidPos - 1] == 'B')
-            {
-              msgEncoded = STRING::URLEncode(msgEncoded);
-            }
-
-            blocks[2].replace(sidPos - 1, 6, msgEncoded);
-            size_written = msgEncoded.size();
-          }
-          else
-          {
-            blocks[2].replace(sidPos - 1, 6, m_strSession.data(), m_strSession.size());
-            size_written = m_strSession.size();
-          }
-        }
-        else
-        {
-          LOG::LogF(LOGERROR, "Unsupported License request template (body / ?{SID})");
-          return false;
-        }
-      }
-
-      if (kidPos != std::string::npos)
-      {
-        if (sidPos < kidPos)
-          kidPos += size_written, kidPos -= 6;
-
-        if (blocks[2][kidPos - 1] == 'H')
-        {
-          std::string keyIdUUID{StringUtils::ToHexadecimal(m_defaultKeyId)};
-          blocks[2].replace(kidPos - 1, 6, keyIdUUID.c_str(), 32);
-        }
-        else
-        {
-          std::string kidUUID{ConvertKIDtoUUID(m_defaultKeyId)};
-          blocks[2].replace(kidPos, 5, kidUUID.c_str(), 36);
-        }
-      }
-
-      if (fullDecode)
-      {
-        std::string msgEncoded{BASE64::Encode(blocks[2])};
-        if (fullDecode == 'B')
-        {
-          msgEncoded = STRING::URLEncode(msgEncoded);
-        }
-        blocks[2] = msgEncoded;
-      }
-    }
-
-    std::string encData{BASE64::Encode(blocks[2])};
-    file.AddHeader("postdata", encData.c_str());
-  }
-
-  serverCertRequest = m_challenge.GetDataSize() == 2;
-  m_challenge.SetDataSize(0);
-
-  if (!file.Open())
+  int statusCode = file.Open();
+  if (statusCode == -1 || statusCode >= 400)
   {
     LOG::Log(LOGERROR, "License server returned failure");
-    return false;
+    return;
   }
+
+  std::string response;
 
   CURL::ReadStatus downloadStatus = CURL::ReadStatus::CHUNK_READ;
   while (downloadStatus == CURL::ReadStatus::CHUNK_READ)
@@ -422,20 +254,10 @@ bool CMFCencSingleSampleDecrypter::SendSessionMessage()
     downloadStatus = file.Read(response);
   }
 
-  resLimit = file.GetResponseHeader("X-Limit-Video");
-  contentType = file.GetResponseHeader("Content-Type");
-
-  if (!resLimit.empty())
-  {
-    std::string::size_type posMax = resLimit.find("max="); // log/check this
-    if (posMax != std::string::npos)
-      m_resolutionLimit = std::atoi(resLimit.data() + (posMax + 4));
-  }
-
   if (downloadStatus == CURL::ReadStatus::ERROR)
   {
     LOG::LogF(LOGERROR, "Could not read full SessionMessage response");
-    return false;
+    return;
   }
 
   if (m_host.IsDebugSaveLicense())
@@ -445,44 +267,79 @@ bool CMFCencSingleSampleDecrypter::SendSessionMessage()
     FILESYS::SaveFile(debugFilePath, response, true);
   }
 
-  if (serverCertRequest && contentType.find("application/octet-stream") == std::string::npos)
-    serverCertRequest = false;
+  m_host.GetCdm()->UpdateSession(
+    sessionId, std::vector<uint8_t>(response.data(), response.data() + response.size()));
+}
 
-  //m_wvCdmAdapter.GetCdmAdapter()->UpdateSession(
-  //    ++m_promiseId, m_strSession.data(), m_strSession.size(),
-  //    reinterpret_cast<const uint8_t*>(response.data()), response.size());
+void CMFCencSingleSampleDecrypter::OnKeyChange(std::string_view sessionId,
+                                               std::vector<std::unique_ptr<KeyInfo>> keys)
+{
+  LOG::LogF(LOGDEBUG, "Received %i keys", keys.size());
+  for (const auto& key : keys)
+  {
+    char buf[36];
+    buf[32] = 0;
+    AP4_FormatHex(key->keyId.data(), key->keyId.size(), buf);
+
+    LOG::LogF(LOGDEBUG, "Key: %s status: %i", buf, key->status);
+  }
+  m_keys = std::move(keys);
+}
+
+void CMFCencSingleSampleDecrypter::GetCapabilities(std::string_view key,
+                                                   uint32_t media,
+                                                   IDecrypter::DecrypterCapabilites& caps)
+{
+  caps = {IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH |
+              IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED,
+          0, m_hdcpLimit};
+
+  if (sessionId.empty())
+  {
+    LOG::LogF(LOGDEBUG, "Session empty");
+    return;
+  }
 
   if (m_keys.empty())
   {
-    LOG::LogF(LOGERROR, "License update not successful (no keys)");
-    CloseSessionId();
-    return false;
+    LOG::LogF(LOGDEBUG, "Keys empty");
+    return;
   }
 
-  LOG::Log(LOGDEBUG, "License update successful");
-  return true;
+  if (!caps.hdcpLimit)
+    caps.hdcpLimit = m_resolutionLimit;
 }
 
-void CMFCencSingleSampleDecrypter::AddSessionKey(const uint8_t* data,
-                                                 size_t dataSize,
-                                                 uint32_t status)
+const char* CMFCencSingleSampleDecrypter::GetSessionId()
 {
-  WVSKEY key;
-  std::vector<WVSKEY>::iterator res;
-
-  key.m_keyId = std::string((const char*)data, dataSize);
-  if ((res = std::find(m_keys.begin(), m_keys.end(), key)) == m_keys.end())
-    res = m_keys.insert(res, key);
-  res->status = static_cast<KeyStatus>(status);
+  return sessionId.empty() ? nullptr : sessionId.c_str();
 }
 
-bool CMFCencSingleSampleDecrypter::HasKeyId(std::string_view keyid)
+void CMFCencSingleSampleDecrypter::CloseSessionId()
 {
-  if (!keyid.empty())
+  if (!sessionId.empty())
   {
-    for (const WVSKEY& key : m_keys)
+    LOG::LogF(LOGDEBUG, "Closing MF session ID: %s", sessionId.c_str());
+    //m_wvCdmAdapter.GetCdmAdapter()->CloseSession(++m_promiseId, sessionId.data(),
+    //                                             sessionId.size());
+
+    LOG::LogF(LOGDEBUG, "MF session ID %s closed", sessionId.c_str());
+    sessionId.clear();
+  }
+}
+
+AP4_DataBuffer CMFCencSingleSampleDecrypter::GetChallengeData()
+{
+  return m_challenge;
+}
+
+bool CMFCencSingleSampleDecrypter::HasKeyId(std::string_view keyId)
+{
+  if (!keyId.empty())
+  {
+    for (const std::unique_ptr<KeyInfo>& key : m_keys)
     {
-      if (key.m_keyId == keyid)
+      if (key->keyId == STRING::ToVecUint8(keyId))
         return true;
     }
   }
@@ -598,12 +455,11 @@ void CMFCencSingleSampleDecrypter::SetDefaultKeyId(std::string_view keyId)
 
 void CMFCencSingleSampleDecrypter::AddKeyId(std::string_view keyId)
 {
-  WVSKEY key;
-  key.m_keyId = keyId;
-  key.status = MFKeyUsable;
+  std::unique_ptr<KeyInfo> key = std::make_unique<KeyInfo>(
+    std::vector<uint8_t>(keyId.data(), keyId.data() + keyId.size()), MFKeyUsable);
 
   if (std::find(m_keys.begin(), m_keys.end(), key) == m_keys.end())
   {
-    m_keys.push_back(key);
+    m_keys.push_back(std::move(key));
   }
 }
