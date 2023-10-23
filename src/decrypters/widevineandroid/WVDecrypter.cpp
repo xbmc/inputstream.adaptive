@@ -180,7 +180,7 @@ void CWVDecrypterA::DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecryp
 void CWVDecrypterA::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
                                     std::string_view keyId,
                                     uint32_t media,
-                                    IDecrypter::DecrypterCapabilites& caps)
+                                    DecrypterCapabilites& caps)
 {
   if (decrypter)
     static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->GetCapabilities(keyId, media, caps);

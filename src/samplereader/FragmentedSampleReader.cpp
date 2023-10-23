@@ -9,16 +9,17 @@
 #include "FragmentedSampleReader.h"
 
 #include "AdaptiveByteStream.h"
-#include "codechandler/AudioCodecHandler.h"
 #include "codechandler/AV1CodecHandler.h"
 #include "codechandler/AVCCodecHandler.h"
+#include "codechandler/AudioCodecHandler.h"
+#include "codechandler/CodecHandler.h"
 #include "codechandler/HEVCCodecHandler.h"
 #include "codechandler/TTMLCodecHandler.h"
 #include "codechandler/VP9CodecHandler.h"
 #include "codechandler/WebVTTCodecHandler.h"
-#include "utils/log.h"
 #include "utils/CharArrayParser.h"
 #include "utils/Utils.h"
+#include "utils/log.h"
 
 using namespace UTILS;
 
@@ -32,14 +33,22 @@ constexpr uint8_t SMOOTHSTREAM_TFRFBOX_UUID[] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0
 CFragmentedSampleReader::CFragmentedSampleReader(AP4_ByteStream* input,
                                                  AP4_Movie* movie,
                                                  AP4_Track* track,
-                                                 AP4_UI32 streamId,
-                                                 Adaptive_CencSingleSampleDecrypter* ssd,
-                                                 const DRM::IDecrypter::DecrypterCapabilites& dcaps)
+                                                 AP4_UI32 streamId)
   : AP4_LinearReader{*movie, input},
     m_track{track},
-    m_streamId{streamId},
-    m_decrypterCaps{dcaps},
-    m_singleSampleDecryptor{ssd}
+    m_streamId{streamId}
+{
+}
+
+CFragmentedSampleReader::~CFragmentedSampleReader()
+{
+  if (m_singleSampleDecryptor)
+    m_singleSampleDecryptor->RemovePool(m_poolId);
+  delete m_decrypter;
+  delete m_codecHandler;
+}
+
+bool CFragmentedSampleReader::Initialize()
 {
   EnableTrack(m_track->GetId());
 
@@ -65,9 +74,6 @@ CFragmentedSampleReader::CFragmentedSampleReader(AP4_ByteStream* input,
     }
   }
 
-  if (m_singleSampleDecryptor)
-    m_poolId = m_singleSampleDecryptor->AddPool();
-
   m_timeBaseExt = STREAM_TIME_BASE;
   m_timeBaseInt = m_track->GetMediaTimeScale();
   if (m_timeBaseInt == 0)
@@ -88,16 +94,22 @@ CFragmentedSampleReader::CFragmentedSampleReader(AP4_ByteStream* input,
       break;
   }
 
-  //We need this to fill extradata
-  UpdateSampleDescription();
+  return true;
 }
 
-CFragmentedSampleReader::~CFragmentedSampleReader()
+void CFragmentedSampleReader::SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
+                                           const DRM::DecrypterCapabilites& dcaps)
 {
-  if (m_singleSampleDecryptor)
-    m_singleSampleDecryptor->RemovePool(m_poolId);
-  delete m_decrypter;
-  delete m_codecHandler;
+  if (ssd)
+  {
+    m_poolId = ssd->AddPool();
+    m_singleSampleDecryptor = ssd;
+  }
+  
+  m_decrypterCaps = dcaps;
+
+  // We need this to fill extradata
+  UpdateSampleDescription();
 }
 
 AP4_Result CFragmentedSampleReader::Start(bool& bStarted)
@@ -121,7 +133,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
   {
     bool useDecryptingDecoder =
         m_protectedDesc &&
-        (m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH) != 0;
+        (m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_SECURE_PATH) != 0;
     bool decrypterPresent{m_decrypter != nullptr};
     if (AP4_FAILED(result = ReadNextSample(m_track->GetId(), m_sample,
                                            (m_decrypter || useDecryptingDecoder) ? m_encrypted
@@ -221,7 +233,7 @@ uint64_t CFragmentedSampleReader::GetDuration() const
 
 bool CFragmentedSampleReader::IsEncrypted() const
 {
-  return (m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH) != 0 &&
+  return (m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_SECURE_PATH) != 0 &&
          m_decrypter != nullptr;
 }
 
@@ -301,7 +313,7 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
   {
     // For prefixed initialization (usually ISM) we don't yet know the
     // proper track id, let's find it now
-    if (m_track->GetId() == TRACKID_UNKNOWN)
+    if (m_track->GetId() == AP4_TRACK_ID_UNKNOWN)
     {
       m_track->SetId(ids[0]);
       LOG::LogF(LOGDEBUG, "Track ID changed from UNKNOWN to %u", ids[0]);
@@ -484,7 +496,7 @@ void CFragmentedSampleReader::UpdateSampleDescription()
     }
   }
 
-  if ((m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) != 0)
+  if ((m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) != 0)
     m_codecHandler->ExtraDataToAnnexB();
 }
 

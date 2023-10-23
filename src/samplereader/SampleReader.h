@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "common/AdaptiveDecrypter.h"
 #include "utils/CryptoUtils.h"
 
 #include <bento4/Ap4.h>
@@ -21,6 +20,12 @@
 #endif
 
 #include <future>
+
+class Adaptive_CencSingleSampleDecrypter;
+namespace DRM
+{
+struct DecrypterCapabilites;
+}
 
 class ATTR_DLL_LOCAL SampleReaderObserver
 {
@@ -36,6 +41,8 @@ class ATTR_DLL_LOCAL ISampleReader
 public:
   virtual ~ISampleReader() = default;
   virtual bool Initialize() { return true; };
+  virtual void SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
+                            const DRM::DecrypterCapabilites& dcaps){};
   virtual bool EOS() const = 0;
   virtual uint64_t DTS() const = 0;
   virtual uint64_t PTS() const = 0;

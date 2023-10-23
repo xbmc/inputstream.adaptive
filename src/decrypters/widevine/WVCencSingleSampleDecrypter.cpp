@@ -134,7 +134,7 @@ CWVCencSingleSampleDecrypter::~CWVCencSingleSampleDecrypter()
 
 void CWVCencSingleSampleDecrypter::GetCapabilities(std::string_view keyId,
                                                    uint32_t media,
-                                                   IDecrypter::DecrypterCapabilites& caps)
+                                                   DecrypterCapabilites& caps)
 {
   caps = {0, m_hdcpVersion, m_hdcpLimit};
 
@@ -144,7 +144,7 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(std::string_view keyId,
     return;
   }
 
-  caps.flags = IDecrypter::DecrypterCapabilites::SSD_SUPPORTS_DECODING;
+  caps.flags = DecrypterCapabilites::SSD_SUPPORTS_DECODING;
 
   if (m_keys.empty())
   {
@@ -155,12 +155,12 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(std::string_view keyId,
   if (!caps.hdcpLimit)
     caps.hdcpLimit = m_resolutionLimit;
 
-  /*if (media == IDecrypter::DecrypterCapabilites::SSD_MEDIA_VIDEO)
-    caps.flags |= (IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH | IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
-  caps.flags |= IDecrypter::DecrypterCapabilites::SSD_SINGLE_DECRYPT;
+  /*if (media == DecrypterCapabilites::SSD_MEDIA_VIDEO)
+    caps.flags |= (DecrypterCapabilites::SSD_SECURE_PATH | DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
+  caps.flags |= DecrypterCapabilites::SSD_SINGLE_DECRYPT;
   return;*/
 
-  //caps.flags |= (IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH | IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
+  //caps.flags |= (DecrypterCapabilites::SSD_SECURE_PATH | DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
   //return;
 
   /*for (auto k : m_keys)
@@ -168,15 +168,15 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(std::string_view keyId,
     {
       if (k.status != 0)
       {
-        if (media == IDecrypter::DecrypterCapabilites::SSD_MEDIA_VIDEO)
-          caps.flags |= (IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH | IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
+        if (media == DecrypterCapabilites::SSD_MEDIA_VIDEO)
+          caps.flags |= (DecrypterCapabilites::SSD_SECURE_PATH | DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
         else
-          caps.flags = IDecrypter::DecrypterCapabilites::SSD_INVALID;
+          caps.flags = DecrypterCapabilites::SSD_INVALID;
       }
       break;
     }
     */
-  if ((caps.flags & IDecrypter::DecrypterCapabilites::SSD_SUPPORTS_DECODING) != 0)
+  if ((caps.flags & DecrypterCapabilites::SSD_SUPPORTS_DECODING) != 0)
   {
     AP4_UI32 poolId(AddPool());
     m_fragmentPool[poolId].m_key = STRING::ToVecUint8(keyId.empty() ? m_keys.front().m_keyId : keyId);
@@ -197,16 +197,16 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(std::string_view keyId,
       if (DecryptSampleData(poolId, in, out, iv, 1, clearBytes, encryptedBytes) != AP4_SUCCESS)
       {
         LOG::LogF(LOGDEBUG, "Single decrypt failed, secure path only");
-        if (media == IDecrypter::DecrypterCapabilites::SSD_MEDIA_VIDEO)
-          caps.flags |= (IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH |
-                         IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
+        if (media == DecrypterCapabilites::SSD_MEDIA_VIDEO)
+          caps.flags |= (DecrypterCapabilites::SSD_SECURE_PATH |
+                         DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
         else
-          caps.flags = IDecrypter::DecrypterCapabilites::SSD_INVALID;
+          caps.flags = DecrypterCapabilites::SSD_INVALID;
       }
       else
       {
         LOG::LogF(LOGDEBUG, "Single decrypt possible");
-        caps.flags |= IDecrypter::DecrypterCapabilites::SSD_SINGLE_DECRYPT;
+        caps.flags |= DecrypterCapabilites::SSD_SINGLE_DECRYPT;
         caps.hdcpVersion = 99;
         caps.hdcpLimit = m_resolutionLimit;
       }
@@ -214,8 +214,8 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(std::string_view keyId,
     catch (const std::exception& e)
     {
       LOG::LogF(LOGDEBUG, "Decrypt error, assuming secure path: %s", e.what());
-      caps.flags |= (IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH |
-                     IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
+      caps.flags |= (DecrypterCapabilites::SSD_SECURE_PATH |
+                     DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
     }
     RemovePool(poolId);
   }
@@ -781,7 +781,7 @@ AP4_Result CWVCencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 poolId,
   FINFO& fragInfo(m_fragmentPool[poolId]);
 
   if (fragInfo.m_decrypterFlags &
-      IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH) //we can not decrypt only
+      DecrypterCapabilites::SSD_SECURE_PATH) //we can not decrypt only
   {
     if (fragInfo.m_nalLengthSize > 4)
     {

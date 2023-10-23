@@ -9,14 +9,10 @@
 #include "Session.h"
 
 #include "aes_decrypter.h"
+#include "common/AdaptiveDecrypter.h"
 #include "common/AdaptiveTreeFactory.h"
 #include "common/Chooser.h"
 #include "decrypters/DrmFactory.h"
-#include "samplereader/ADTSSampleReader.h"
-#include "samplereader/FragmentedSampleReader.h"
-#include "samplereader/SubtitleSampleReader.h"
-#include "samplereader/TSSampleReader.h"
-#include "samplereader/WebmSampleReader.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/SettingsUtils.h"
@@ -236,7 +232,7 @@ void CSession::CheckHDCP()
   if (m_cdmSessions.empty())
     return;
 
-  std::vector<DRM::IDecrypter::DecrypterCapabilites> decrypterCaps;
+  std::vector<DRM::DecrypterCapabilites> decrypterCaps;
 
   for (const auto& cdmsession : m_cdmSessions)
   {
@@ -256,7 +252,7 @@ void CSession::CheckHDCP()
     {
       CRepresentation* repr = (*itRepr).get();
 
-      const DRM::IDecrypter::DecrypterCapabilites& ssd_caps = decrypterCaps[repr->m_psshSetPos];
+      const DRM::DecrypterCapabilites& ssd_caps = decrypterCaps[repr->m_psshSetPos];
 
       if (repr->GetHdcpVersion() > ssd_caps.hdcpVersion ||
           (ssd_caps.hdcpLimit > 0 && repr->GetWidth() * repr->GetHeight() > ssd_caps.hdcpLimit))
@@ -523,18 +519,18 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defaultKid,
                                      sessionPsshset.media_, session.m_decrypterCaps);
 
-        if (session.m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_INVALID)
+        if (session.m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_INVALID)
         {
           m_adaptiveTree->m_currentPeriod->RemovePSSHSet(static_cast<std::uint16_t>(ses));
         }
-        else if (session.m_decrypterCaps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH)
+        else if (session.m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_SECURE_PATH)
         {
           session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
           isSecureVideoSession = true;
 
           if (m_settingNoSecureDecoder && !m_kodiProps.m_isLicenseForceSecureDecoder &&
               !m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded())
-            session.m_decrypterCaps.flags &= ~DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_DECODER;
+            session.m_decrypterCaps.flags &= ~DRM::DecrypterCapabilites::SSD_SECURE_DECODER;
         }
       }
       else
@@ -733,9 +729,9 @@ void CSession::UpdateStream(CStream& stream)
     std::vector<uint8_t> annexb;
     const std::vector<uint8_t>* extraData(&annexb);
 
-    const DRM::IDecrypter::DecrypterCapabilites& caps{GetDecrypterCaps(rep->m_psshSetPos)};
+    const DRM::DecrypterCapabilites& caps{GetDecrypterCaps(rep->m_psshSetPos)};
 
-    if ((caps.flags & DRM::IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) &&
+    if ((caps.flags & DRM::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) &&
         stream.m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
     {
       LOG::Log(LOGDEBUG, "UpdateStream: Convert avc -> annexb");
@@ -1269,16 +1265,6 @@ void CSession::OnSegmentChangedRead(CStream* stream)
   }
 }
 
-const AP4_UI08* CSession::GetDefaultKeyId(const uint16_t index) const
-{
-  static const AP4_UI08 default_key[16]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-  if (m_adaptiveTree->m_currentPeriod->GetPSSHSets()[index].defaultKID_.size() == 16)
-    return reinterpret_cast<const AP4_UI08*>(
-        m_adaptiveTree->m_currentPeriod->GetPSSHSets()[index].defaultKID_.data());
-
-  return default_key;
-}
-
 Adaptive_CencSingleSampleDecrypter* CSession::GetSingleSampleDecrypter(std::string sessionId)
 {
   for (std::vector<CCdmSession>::iterator b(m_cdmSessions.begin() + 1), e(m_cdmSessions.end());
@@ -1436,82 +1422,6 @@ bool CSession::SeekChapter(int ch)
     return true;
   }
   return false;
-}
-
-AP4_Movie* CSession::CreateMovieAtom(CStream* stream)
-{
-  CRepresentation* repr = stream->m_adStream.getRepresentation();
-
-  if (repr->GetContainerType() == ContainerType::MP4 && !repr->HasInitSegment())
-  {
-    AP4_SampleDescription* sampleDesc;
-    const std::vector<uint8_t>& extradata = repr->GetCodecPrivateData();
-
-    if (stream->m_info.GetCodecName() == CODEC::NAME_H264)
-    {
-      AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
-      AP4_AvccAtom* atom =
-          AP4_AvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
-      sampleDesc = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, stream->m_info.GetWidth(),
-                                                stream->m_info.GetHeight(), 0, nullptr, atom);
-    }
-    else if (stream->m_info.GetCodecName() == CODEC::NAME_HEVC)
-    {
-      AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
-      AP4_HvccAtom* atom =
-          AP4_HvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
-      sampleDesc = new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, stream->m_info.GetWidth(),
-                                                 stream->m_info.GetHeight(), 0, nullptr, atom);
-    }
-    else if (stream->m_info.GetCodecName() == CODEC::NAME_AV1)
-    {
-      AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
-      AP4_Av1cAtom* atom =
-          AP4_Av1cAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
-      sampleDesc = new AP4_Av1SampleDescription(AP4_SAMPLE_FORMAT_AV01, stream->m_info.GetWidth(),
-                                                stream->m_info.GetHeight(), 0, nullptr, atom);
-    }
-    else if (stream->m_info.GetCodecName() == CODEC::NAME_SRT)
-    {
-      sampleDesc = new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES,
-                                             AP4_SAMPLE_FORMAT_STPP, 0);
-    }
-    else
-    {
-      // Codecs like audio types, will have unknown SampleDescription, because to create an appropriate
-      // audio SampleDescription atom require different code rework. This means also that CFragmentedSampleReader
-      // will use a generic CodecHandler instead of AudioCodecHandler, because will be not able do determine the codec
-      LOG::LogF(
-          LOGDEBUG,
-          "Created sample description atom of unknown type for codec \"%s\" because unhandled",
-          stream->m_info.GetCodecName().c_str());
-      sampleDesc = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
-    }
-
-    if (repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT)
-    {
-      AP4_ContainerAtom schi{AP4_ATOM_TYPE_SCHI};
-      schi.AddChild(
-          new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8, GetDefaultKeyId(repr->GetPsshSetPos())));
-      sampleDesc = new AP4_ProtectedSampleDescription(
-          0, sampleDesc, 0, AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
-    }
-
-    AP4_SyntheticSampleTable* sampleTable{new AP4_SyntheticSampleTable()};
-    sampleTable->AddSampleDescription(sampleDesc);
-
-    // Note: AP4_Movie ptr will be deleted from AP4_File destructor of CStream
-    AP4_Movie* movie{new AP4_Movie()};
-    movie->AddTrack(new AP4_Track(static_cast<AP4_Track::Type>(stream->m_adStream.GetTrackType()),
-                                  sampleTable, CFragmentedSampleReader::TRACKID_UNKNOWN,
-                                  repr->GetTimescale(), 0, repr->GetTimescale(), 0, "", 0, 0));
-    // Create MOOV Atom to allow bento4 to handle stream as fragmented MP4
-    AP4_MoovAtom* moov{new AP4_MoovAtom()};
-    moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
-    movie->SetMoovAtom(moov);
-    return movie;
-  }
-  return nullptr;
 }
 
 bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,

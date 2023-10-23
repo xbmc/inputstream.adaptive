@@ -40,7 +40,7 @@ public:
 
   void GetCapabilities(std::string_view keyId,
                        uint32_t media,
-                       IDecrypter::DecrypterCapabilites& caps);
+                       DecrypterCapabilites& caps);
   virtual const char* GetSessionId() override;
   void CloseSessionId();
   AP4_DataBuffer GetChallengeData();

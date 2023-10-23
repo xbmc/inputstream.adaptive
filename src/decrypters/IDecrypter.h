@@ -19,34 +19,34 @@ enum class CryptoMode;
 
 namespace DRM
 {
+struct DecrypterCapabilites
+{
+  static const uint32_t SSD_SUPPORTS_DECODING = 1;
+  static const uint32_t SSD_SECURE_PATH = 2;
+  static const uint32_t SSD_ANNEXB_REQUIRED = 4;
+  static const uint32_t SSD_HDCP_RESTRICTED = 8;
+  static const uint32_t SSD_SINGLE_DECRYPT = 16;
+  static const uint32_t SSD_SECURE_DECODER = 32;
+  static const uint32_t SSD_INVALID = 64;
+
+  static const uint32_t SSD_MEDIA_VIDEO = 1;
+  static const uint32_t SSD_MEDIA_AUDIO = 2;
+
+  uint16_t flags{0};
+
+  /* The following 2 fields are set as followed:
+     - If licenseresponse return hdcp information, hdcpversion is 0 and
+       hdcplimit either 0 (if hdcp is supported) or given value (if hdcpversion is not supported)
+     - if no hdcp information is passed in licenseresponse, we set hdcpversion to the value we support
+       manifest / representation have to check if they are allowed to be played.
+  */
+  uint16_t hdcpVersion{0}; //The HDCP version streams has to be restricted 0,10,20,21,22.....
+  int hdcpLimit{0}; // If set (> 0) streams that are greater than the multiplication of "Width x Height" cannot be played.
+};
+
 class IDecrypter
 {
 public:
-  struct DecrypterCapabilites
-  {
-    static const uint32_t SSD_SUPPORTS_DECODING = 1;
-    static const uint32_t SSD_SECURE_PATH = 2;
-    static const uint32_t SSD_ANNEXB_REQUIRED = 4;
-    static const uint32_t SSD_HDCP_RESTRICTED = 8;
-    static const uint32_t SSD_SINGLE_DECRYPT = 16;
-    static const uint32_t SSD_SECURE_DECODER = 32;
-    static const uint32_t SSD_INVALID = 64;
-
-    static const uint32_t SSD_MEDIA_VIDEO = 1;
-    static const uint32_t SSD_MEDIA_AUDIO = 2;
-
-    uint16_t flags;
-
-    /* The following 2 fields are set as followed:
-      - If licenseresponse return hdcp information, hdcpversion is 0 and
-      hdcplimit either 0 (if hdcp is supported) or given value (if hdcpversion is not supported)
-      - if no hdcp information is passed in licenseresponse, we set hdcpversion to the value we support
-      manifest / representation have to check if they are allowed to be played.
-      */
-    uint16_t hdcpVersion; //The HDCP version streams has to be restricted 0,10,20,21,22.....
-    int hdcpLimit; // If set (> 0) streams that are greater than the multiplication of "Width x Height" cannot be played.
-  };
-
   static const uint8_t CONFIG_PERSISTENTSTORAGE = 1;
 
   virtual ~IDecrypter(){};
@@ -107,7 +107,7 @@ public:
   virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
                                std::string_view keyId,
                                uint32_t media,
-                               IDecrypter::DecrypterCapabilites& caps) = 0;
+                               DecrypterCapabilites& caps) = 0;
 
   /**
    * \brief Check if the supplied KeyID has a license in the decrypter

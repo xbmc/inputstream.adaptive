@@ -63,7 +63,7 @@ public:
 
   void GetCapabilities(std::string_view keyId,
                        uint32_t media,
-                       DRM::IDecrypter::DecrypterCapabilites& caps);
+                       DRM::DecrypterCapabilites& caps);
 
   void RequestNewKeys() { m_isKeyUpdateRequested = true; };
 

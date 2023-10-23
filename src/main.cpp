@@ -9,11 +9,7 @@
 #include "main.h"
 
 #include "Stream.h"
-#include "samplereader/ADTSSampleReader.h"
-#include "samplereader/FragmentedSampleReader.h"
-#include "samplereader/SubtitleSampleReader.h"
-#include "samplereader/TSSampleReader.h"
-#include "samplereader/WebmSampleReader.h"
+#include "samplereader/SampleReaderFactory.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
 
@@ -158,13 +154,13 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
       cryptoSession.SetSessionId(sessionId);
 
       if (m_session->GetDecrypterCaps(cdmId).flags &
-          DRM::IDecrypter::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
+          DRM::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
         stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_DECODE);
       else
         stream->m_info.SetFeatures(0);
 
       cryptoSession.SetFlags((m_session->GetDecrypterCaps(cdmId).flags &
-                          DRM::IDecrypter::DecrypterCapabilites::SSD_SECURE_DECODER)
+                          DRM::DecrypterCapabilites::SSD_SECURE_DECODER)
                              ? STREAM_CRYPTO_FLAG_SECURE_DECODER
                              : 0);
       stream->m_info.SetCryptoSession(cryptoSession);
@@ -269,123 +265,34 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     return false;
   }
 
-  if (rep->IsSubtitleFileStream())
-  {
-    stream->SetReader(std::make_unique<CSubtitleSampleReader>(
-        rep->GetBaseUrl(), streamid, stream->m_info.GetCodecInternalName(),
-        stream->m_adStream.GetStreamParams(), stream->m_adStream.GetStreamHeaders()));
-    return stream->GetReader()->GetInformation(stream->m_info);
-  }
-
   m_session->PrepareStream(stream, needRefetch);
 
   stream->m_adStream.start_stream();
+  stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
 
   ContainerType reprContainerType = rep->GetContainerType();
+  uint32_t mask = (1U << stream->m_info.GetStreamType()) | m_session->GetIncludedStreamMask();
+  auto reader = ADP::CreateStreamReader(reprContainerType, stream, static_cast<uint32_t>(streamid), mask);
 
-  if (reprContainerType == ContainerType::TEXT)
+  if (!reader)
   {
-    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
-    stream->SetReader(std::make_unique<CSubtitleSampleReader>(
-        stream, streamid, stream->m_info.GetCodecInternalName()));
-  }
-  else if (reprContainerType == ContainerType::TS)
-  {
-    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
-
-    uint32_t mask{(1U << stream->m_info.GetStreamType()) | m_session->GetIncludedStreamMask()};
-    stream->SetReader(std::make_unique<CTSSampleReader>(
-        stream->GetAdByteStream(), stream->m_info.GetStreamType(), streamid, mask));
-
-    if (stream->GetReader()->Initialize())
-    {
-      m_session->OnSegmentChanged(&stream->m_adStream);
-    }
-    else if (stream->m_adStream.GetStreamType() == StreamType::AUDIO)
-    {
-      // If TSSampleReader fail, try fallback to ADTS
-      //! @todo: we should have an appropriate file type check
-      //! e.g. with HLS we determine the container type from file extension
-      //! in the url address, but .ts file could have ADTS
-      LOG::LogF(LOGWARNING, "Cannot initialize TS sample reader, fallback to ADTS sample reader");
-      rep->SetContainerType(ContainerType::ADTS);
-
-      stream->GetAdByteStream()->Seek(0); // Seek because bytes are consumed from previous reader
-      stream->SetReader(std::make_unique<CADTSSampleReader>(stream->GetAdByteStream(), streamid));
-    }
-    else
-    {
-      stream->Disable();
-      return false;
-    }
-  }
-  else if (reprContainerType == ContainerType::ADTS)
-  {
-    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
-    stream->SetReader(std::make_unique<CADTSSampleReader>(stream->GetAdByteStream(), streamid));
-  }
-  else if (reprContainerType == ContainerType::WEBM)
-  {
-    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
-    stream->SetReader(std::make_unique<CWebmSampleReader>(stream->GetAdByteStream(), streamid));
-    if (!stream->GetReader()->Initialize())
-    {
-      stream->Disable();
-      return false;
-    }
-  }
-  else if (reprContainerType == ContainerType::MP4)
-  {
-    AP4_Movie* movie{nullptr};
-    if (stream->m_adStream.IsRequiredCreateMovieAtom())
-      movie = m_session->CreateMovieAtom(stream);
-
-    stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
-    // When "movie" is nullptr, AP4_File tries to extract it from the stream
-    stream->SetStreamFile(std::make_unique<AP4_File>(
-        *stream->GetAdByteStream(), AP4_DefaultAtomFactory::Instance_, true, movie));
-    movie = stream->GetStreamFile()->GetMovie();
-
-    if (!movie)
-    {
-      LOG::LogF(LOGERROR, "No MOOV atom in stream");
-      m_session->EnableStream(stream, false);
-      return false;
-    }
-
-    AP4_Track* track =
-        movie->GetTrack(static_cast<AP4_Track::Type>(stream->m_adStream.GetTrackType()));
-    if (!track)
-    {
-      if (stream->m_adStream.GetTrackType() == AP4_Track::TYPE_SUBTITLES)
-        track = movie->GetTrack(AP4_Track::TYPE_TEXT);
-      if (!track)
-      {
-        LOG::LogF(LOGERROR, "No suitable Track atom found in stream");
-        m_session->EnableStream(stream, false);
-        return false;
-      }
-    }
-
-    if (!track->GetSampleDescription(0))
-    {
-      LOG::LogF(LOGERROR, "No STSD atom in stream");
-      m_session->EnableStream(stream, false);
-      return false;
-    }
-
-    auto sampleDecrypter =
-        m_session->GetSingleSampleDecryptor(stream->m_adStream.getRepresentation()->m_psshSetPos);
-    auto caps = m_session->GetDecrypterCaps(stream->m_adStream.getRepresentation()->m_psshSetPos);
-
-    stream->SetReader(std::make_unique<CFragmentedSampleReader>(
-        stream->GetAdByteStream(), movie, track, streamid, sampleDecrypter, caps));
-  }
-  else
-  {
-    LOG::LogF(LOGWARNING, "Unhandled stream container for representation ID: %s", rep->GetId().data());
     m_session->EnableStream(stream, false);
     return false;
+  }
+
+  uint16_t psshSetPos = stream->m_adStream.getRepresentation()->m_psshSetPos;
+  reader->SetDecrypter(m_session->GetSingleSampleDecryptor(psshSetPos),
+                       m_session->GetDecrypterCaps(psshSetPos));
+
+  stream->SetReader(std::move(reader));
+
+  if (reprContainerType == ContainerType::TS)
+  {
+    // With TS streams the elapsed time would be calculated incorrectly as during the tree refresh,
+    // nextSegment would be deleted by the FreeSegments/newsegments swap. Do this now before the tree refresh.
+    // Also, when reopening a stream (switching reps) the elapsed time would be incorrectly set until the
+    // second segment plays, now force a correct calculation at the start of the stream.
+    m_session->OnSegmentChanged(&stream->m_adStream);
   }
 
   if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)

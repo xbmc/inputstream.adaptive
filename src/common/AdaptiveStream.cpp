@@ -594,7 +594,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
 
 bool AdaptiveStream::start_stream()
 {
-  if (!current_rep_)
+  if (!current_rep_ || current_rep_->IsSubtitleFileStream())
     return false;
 
   //! @todo: the assured_buffer_duration_ and max_buffer_duration_
@@ -639,7 +639,7 @@ bool AdaptiveStream::start_stream()
     thread_data_->signal_dl_.wait(lckdl);
   }
 
-  if (current_rep_->SegmentTimeline().IsEmpty() && !current_rep_->IsSubtitleFileStream())
+  if (current_rep_->SegmentTimeline().IsEmpty())
   {
     // GenerateSidxSegments assumes mutex_dl locked
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
