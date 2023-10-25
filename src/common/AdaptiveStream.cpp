@@ -9,7 +9,7 @@
 #include "AdaptiveStream.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
-#include "WebmReader.h"
+#include "demuxers/WebmReader.h"
 #endif
 #include "oscompat.h"
 #include "utils/CurlUtils.h"
@@ -594,7 +594,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
 
 bool AdaptiveStream::start_stream()
 {
-  if (!current_rep_)
+  if (!current_rep_ || current_rep_->IsSubtitleFileStream())
     return false;
 
   //! @todo: the assured_buffer_duration_ and max_buffer_duration_
@@ -639,7 +639,7 @@ bool AdaptiveStream::start_stream()
     thread_data_->signal_dl_.wait(lckdl);
   }
 
-  if (current_rep_->SegmentTimeline().IsEmpty() && !current_rep_->IsSubtitleFileStream())
+  if (current_rep_->SegmentTimeline().IsEmpty())
   {
     // GenerateSidxSegments assumes mutex_dl locked
     std::lock_guard<std::mutex> lck(thread_data_->mutex_dl_);
@@ -887,7 +887,7 @@ bool AdaptiveStream::ensureSegment()
       }
 
       // If the representation has been changed, segments may have to be generated (DASH)
-      if (newRep->SegmentTimeline().IsEmpty() && !newRep->IsSubtitleFileStream())
+      if (newRep->SegmentTimeline().IsEmpty())
         GenerateSidxSegments(newRep);
 
       if (!newRep->IsPrepared() && tree_.SecondsSinceRepUpdate(newRep) > 1)
@@ -1033,9 +1033,6 @@ bool AdaptiveStream::retrieveCurrentSegmentBufferSize(size_t& size)
 
 uint64_t AdaptiveStream::getMaxTimeMs()
 {
-  if (current_rep_->IsSubtitleFileStream())
-    return 0;
-
   if (current_rep_->SegmentTimeline().IsEmpty())
     return 0;
 

@@ -156,7 +156,7 @@ public:
    *  \param index The index (psshSet number) of the cdm session
    *  \return The single sample decrypter capabilities
    */
-  const DRM::IDecrypter::DecrypterCapabilites& GetDecrypterCaps(unsigned int index) const
+  const DRM::DecrypterCapabilites& GetDecrypterCaps(unsigned int index) const
   {
     return m_cdmSessions[index].m_decrypterCaps;
   };
@@ -229,13 +229,6 @@ public:
    *  \return ManifestType - MPD/ISM/HLS
    */
   UTILS::PROPERTIES::ManifestType GetManifestType() const { return m_kodiProps.m_manifestType; }
-
-  /*! \brief Get the default keyid for a pssh
-   *  \param index The psshset number to retrieve from
-   *  \return The default keyid
-   */
-  const AP4_UI08* GetDefaultKeyId(const uint16_t index) const;
-
 
   /*! \brief Get the mask of included streams
    *  \return A 32 uint with bits set of 'included' streams
@@ -379,7 +372,7 @@ private:
 
   struct CCdmSession
   {
-    DRM::IDecrypter::DecrypterCapabilites m_decrypterCaps{};
+    DRM::DecrypterCapabilites m_decrypterCaps;
     Adaptive_CencSingleSampleDecrypter* m_cencSingleSampleDecrypter{nullptr};
     const char* m_cdmSessionStr{nullptr};
     bool m_sharedCencSsd{false};

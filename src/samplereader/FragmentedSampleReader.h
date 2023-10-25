@@ -8,12 +8,12 @@
 
 #pragma once
 
-#include "codechandler/CodecHandler.h"
-#include "common/AdaptiveCencSampleDecrypter.h"
-#include "common/AdaptiveDecrypter.h"
-#include "decrypters/IDecrypter.h"
-#include "utils/log.h"
 #include "SampleReader.h"
+#include "common/AdaptiveCencSampleDecrypter.h"
+#include "decrypters/IDecrypter.h"
+
+// forwards
+class CodecHandler;
 
 class ATTR_DLL_LOCAL CFragmentedSampleReader : public ISampleReader, public AP4_LinearReader
 {
@@ -21,11 +21,13 @@ public:
   CFragmentedSampleReader(AP4_ByteStream* input,
                          AP4_Movie* movie,
                          AP4_Track* track,
-                         AP4_UI32 streamId,
-                         Adaptive_CencSingleSampleDecrypter* ssd,
-                         const DRM::IDecrypter::DecrypterCapabilites& dcaps);
+                         AP4_UI32 streamId);
 
   ~CFragmentedSampleReader();
+
+  virtual bool Initialize() override;
+  virtual void SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
+                            const DRM::DecrypterCapabilites& dcaps) override;
 
   AP4_Result Start(bool& bStarted) override;
   AP4_Result ReadSample() override;
@@ -49,8 +51,6 @@ public:
   uint32_t GetTimeScale() const override { return m_track->GetMediaTimeScale(); }
   CryptoInfo GetReaderCryptoInfo() const override { return m_readerCryptoInfo; }
 
-  static const AP4_UI32 TRACKID_UNKNOWN = -1;
-
 protected:
   AP4_Result ProcessMoof(AP4_ContainerAtom* moof,
                          AP4_Position moof_offset,
@@ -65,7 +65,7 @@ private:
   AP4_UI32 m_poolId{0};
   AP4_UI32 m_streamId;
   AP4_UI32 m_sampleDescIndex{1};
-  DRM::IDecrypter::DecrypterCapabilites m_decrypterCaps;
+  DRM::DecrypterCapabilites m_decrypterCaps;
   unsigned int m_failCount{0};
   bool m_bSampleDescChanged{false};
   bool m_eos{false};
@@ -75,15 +75,15 @@ private:
   int64_t m_ptsDiff{0};
   uint64_t m_startPts{STREAM_NOPTS_VALUE};
   AP4_UI64 m_ptsOffs{~0ULL};
-  uint64_t m_timeBaseExt;
-  uint64_t m_timeBaseInt;
+  uint64_t m_timeBaseExt{0};
+  uint64_t m_timeBaseInt{0};
   AP4_Sample m_sample;
   AP4_DataBuffer m_encrypted;
   AP4_DataBuffer m_sampleData;
   CodecHandler* m_codecHandler{nullptr};
   std::vector<uint8_t> m_defaultKey;
   AP4_ProtectedSampleDescription* m_protectedDesc{nullptr};
-  Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor;
+  Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor{nullptr};
   CAdaptiveCencSampleDecrypter* m_decrypter{nullptr};
   CryptoInfo m_readerCryptoInfo{};
 };

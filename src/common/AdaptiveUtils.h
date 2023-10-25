@@ -15,11 +15,16 @@
 
 #include "utils/log.h"
 
-#ifdef INPUTSTREAM_TEST_BUILD
-#include "test/KodiStubs.h"
-#else
-#include <kodi/AddonBase.h>
-#endif
+// forwards
+class AP4_Movie;
+namespace adaptive
+{
+class AdaptiveStream;
+}
+namespace kodi::addon
+{
+class InputstreamInfo;
+}
 
 namespace PLAYLIST
 {
@@ -109,8 +114,17 @@ bool ParseRangeValues(std::string_view range,
                       uint64_t& second,
                       char separator = '@');
 
+/*!
+ * \brief Create a Movie atom based on stream properties and info.
+ * \param adStream The adaptive stream
+ * \param streamInfo The stream info
+ * \return The Movie atom
+ */
+AP4_Movie* CreateMovieAtom(adaptive::AdaptiveStream& adStream,
+                           kodi::addon::InputstreamInfo& streamInfo);
+
 template<typename T>
-class ATTR_DLL_LOCAL CSpinCache
+class CSpinCache
 {
 public:
   /*!

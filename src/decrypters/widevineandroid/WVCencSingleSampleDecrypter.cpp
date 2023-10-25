@@ -180,11 +180,10 @@ bool CWVCencSingleSampleDecrypterA::HasLicenseKey(std::string_view keyId)
 
 void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
                                                     uint32_t media,
-                                                    IDecrypter::DecrypterCapabilites& caps)
+                                                    DecrypterCapabilites& caps)
 {
-  caps = {IDecrypter::DecrypterCapabilites::SSD_SECURE_PATH |
-              IDecrypter::DecrypterCapabilites::SSD_ANNEXB_REQUIRED,
-          0, m_hdcpLimit};
+  caps = {DecrypterCapabilites::SSD_SECURE_PATH | DecrypterCapabilites::SSD_ANNEXB_REQUIRED, 0,
+          m_hdcpLimit};
 
   if (caps.hdcpLimit == 0)
     caps.hdcpLimit = m_resolutionLimit;
@@ -192,7 +191,7 @@ void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
   if (m_mediaDrm.GetMediaDrm()->getPropertyString("securityLevel") == "L1")
   {
     caps.hdcpLimit = m_resolutionLimit; //No restriction
-    caps.flags |= IDecrypter::DecrypterCapabilites::SSD_SECURE_DECODER;
+    caps.flags |= DecrypterCapabilites::SSD_SECURE_DECODER;
   }
   LOG::LogF(LOGDEBUG, "hdcpLimit: %i", caps.hdcpLimit);
 

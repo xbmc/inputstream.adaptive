@@ -99,7 +99,7 @@ public:
   virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
                                std::string_view keyId,
                                uint32_t media,
-                               IDecrypter::DecrypterCapabilites& caps) override;
+                               DecrypterCapabilites& caps) override;
 
   virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
                              std::string_view keyId) override;

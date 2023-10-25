@@ -7,8 +7,8 @@
  */
 
 #include "AdaptiveByteStream.h"
-#include "TSReader.h"
 #include "SampleReader.h"
+#include "demuxers/TSReader.h"
 
 class ATTR_DLL_LOCAL CTSSampleReader : public ISampleReader, public TSReader
 {

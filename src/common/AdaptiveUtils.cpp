@@ -8,8 +8,21 @@
 
 #include "AdaptiveUtils.h"
 
+#include "AdaptiveStream.h"
+#include "utils/Utils.h"
+
+#include <cinttypes>
 #include <cstdio> // sscanf
-#include <inttypes.h>
+
+#include <bento4/Ap4.h>
+
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "test/KodiStubs.h"
+#else
+#include <kodi/AddonBase.h>
+#endif
+
+using namespace UTILS;
 
 std::string_view PLAYLIST::StreamTypeToString(const StreamType streamType)
 {
@@ -55,4 +68,83 @@ bool PLAYLIST::ParseRangeValues(std::string_view range,
     return true;
 
   return false;
+}
+
+AP4_Movie* PLAYLIST::CreateMovieAtom(adaptive::AdaptiveStream& adStream,
+                                     kodi::addon::InputstreamInfo& streamInfo)
+{
+  CRepresentation* repr = adStream.getRepresentation();
+  const std::vector<uint8_t>& extradata = repr->GetCodecPrivateData();
+  const std::string codecName = streamInfo.GetCodecName();
+  AP4_SampleDescription* sampleDesc;
+
+  if (codecName == CODEC::NAME_H264)
+  {
+    AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
+    AP4_AvccAtom* atom =
+        AP4_AvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
+    sampleDesc = new AP4_AvcSampleDescription(AP4_SAMPLE_FORMAT_AVC1, streamInfo.GetWidth(),
+                                              streamInfo.GetHeight(), 0, nullptr, atom);
+  }
+  else if (codecName == CODEC::NAME_HEVC)
+  {
+    AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
+    AP4_HvccAtom* atom =
+        AP4_HvccAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
+    sampleDesc = new AP4_HevcSampleDescription(AP4_SAMPLE_FORMAT_HEV1, streamInfo.GetWidth(),
+                                               streamInfo.GetHeight(), 0, nullptr, atom);
+  }
+  else if (codecName == CODEC::NAME_AV1)
+  {
+    AP4_MemoryByteStream ms{extradata.data(), static_cast<const AP4_Size>(extradata.size())};
+    AP4_Av1cAtom* atom =
+        AP4_Av1cAtom::Create(static_cast<AP4_Size>(AP4_ATOM_HEADER_SIZE + extradata.size()), ms);
+    sampleDesc = new AP4_Av1SampleDescription(AP4_SAMPLE_FORMAT_AV01, streamInfo.GetWidth(),
+                                              streamInfo.GetHeight(), 0, nullptr, atom);
+  }
+  else if (codecName == CODEC::NAME_SRT)
+  {
+    sampleDesc =
+        new AP4_SampleDescription(AP4_SampleDescription::TYPE_SUBTITLES, AP4_SAMPLE_FORMAT_STPP, 0);
+  }
+  else
+  {
+    // Codecs like audio types, will have unknown SampleDescription, because to create an appropriate
+    // audio SampleDescription atom require different code rework. This means also that CFragmentedSampleReader
+    // will use a generic CodecHandler instead of AudioCodecHandler, because will be not able do determine the codec
+    LOG::LogF(LOGDEBUG,
+              "Created sample description atom of unknown type for codec \"%s\" because unhandled",
+              codecName.data());
+    sampleDesc = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
+  }
+
+  if (repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT)
+  {
+    const PLAYLIST::CPeriod::PSSHSet& psshSet =
+        adStream.getPeriod()->GetPSSHSets()[repr->GetPsshSetPos()];
+
+    const AP4_UI08* kid = nullptr;
+    if (psshSet.defaultKID_.empty())
+      kid = DEFAULT_KEYID;
+    else
+      kid = reinterpret_cast<const AP4_UI08*>(psshSet.defaultKID_.data());
+
+    AP4_ContainerAtom schi{AP4_ATOM_TYPE_SCHI};
+    schi.AddChild(new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8, kid));
+    sampleDesc = new AP4_ProtectedSampleDescription(0, sampleDesc, 0,
+                                                    AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
+  }
+
+  AP4_SyntheticSampleTable* sampleTable{new AP4_SyntheticSampleTable()};
+  sampleTable->AddSampleDescription(sampleDesc);
+
+  AP4_Movie* movie{new AP4_Movie()};
+  movie->AddTrack(new AP4_Track(static_cast<AP4_Track::Type>(adStream.GetTrackType()), sampleTable,
+                                AP4_TRACK_ID_UNKNOWN, repr->GetTimescale(), 0, repr->GetTimescale(),
+                                0, "", 0, 0));
+  // Create MOOV Atom to allow bento4 to handle stream as fragmented MP4
+  AP4_MoovAtom* moov{new AP4_MoovAtom()};
+  moov->AddChild(new AP4_ContainerAtom(AP4_ATOM_TYPE_MVEX));
+  movie->SetMoovAtom(moov);
+  return movie;
 }

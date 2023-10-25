@@ -85,7 +85,13 @@ namespace kodi
 {
 namespace addon
 {
-class InputstreamInfo;
+class InputstreamInfo
+{
+public:
+  std::string GetCodecName() const { return ""; }
+  unsigned int GetWidth() const { return 1920; }
+  unsigned int GetHeight() const { return 1080; }
+};
 
 inline std::string GetAddonInfo(const std::string& id)
 {
