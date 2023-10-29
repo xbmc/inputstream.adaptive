@@ -27,7 +27,7 @@ public:
   CRepresentationChooserDefault();
   ~CRepresentationChooserDefault() override {}
 
-  virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
+  virtual void Initialize(const ADP::KODI_PROPS::ChooserProps& props) override;
   virtual void SetSecureSession(const bool isSecureSession) override;
   virtual void PostInit() override;
 

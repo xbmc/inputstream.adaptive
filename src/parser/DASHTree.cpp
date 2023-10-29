@@ -8,6 +8,10 @@
 
 #include "DASHTree.h"
 
+#include "CompKodiProps.h"
+#include "PRProtectionParser.h"
+#include "SrvBroker.h"
+#include "kodi/tools/StringUtils.h"
 #include "oscompat.h"
 #include "utils/Base64Utils.h"
 #include "utils/StringUtils.h"
@@ -15,8 +19,7 @@
 #include "utils/Utils.h"
 #include "utils/XMLUtils.h"
 #include "utils/log.h"
-#include "PRProtectionParser.h"
-#include "kodi/tools/StringUtils.h"
+
 #include "pugixml.hpp"
 
 #include <algorithm> // max
@@ -92,13 +95,12 @@ adaptive::CDashTree::CDashTree(const CDashTree& left) : AdaptiveTree(left)
   m_isCustomInitPssh = left.m_isCustomInitPssh;
 }
 
-void adaptive::CDashTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                                    CHOOSER::IRepresentationChooser* reprChooser,
+void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
                                     std::string_view supportedKeySystem,
                                     std::string_view manifestUpdParams)
 {
-  AdaptiveTree::Configure(kodiProps, reprChooser, supportedKeySystem, manifestUpdParams);
-  m_isCustomInitPssh = !kodiProps.m_licenseData.empty();
+  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdParams);
+  m_isCustomInitPssh = !CSrvBroker::GetKodiProps()->GetLicenseData().empty();
 }
 
 bool adaptive::CDashTree::Open(std::string_view url,

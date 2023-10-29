@@ -21,7 +21,7 @@ public:
   CRepresentationChooserFixedRes();
   ~CRepresentationChooserFixedRes() override {}
 
-  void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
+  void Initialize(const ADP::KODI_PROPS::ChooserProps& props) override;
 
   void PostInit() override;
 

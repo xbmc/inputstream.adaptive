@@ -24,7 +24,7 @@
 class ATTR_DLL_LOCAL AESDecrypter : public IAESDecrypter
 {
 public:
-  AESDecrypter(const std::string& licenseKey) : m_licenseKey(licenseKey){};
+  AESDecrypter(std::string_view licenseKey) : m_licenseKey(licenseKey) {}
   virtual ~AESDecrypter() = default;
 
   void decrypt(const AP4_UI08* aes_key,

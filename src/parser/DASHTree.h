@@ -32,8 +32,7 @@ public:
   CDashTree() : AdaptiveTree() {}
   CDashTree(const CDashTree& left);
 
-  void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                 CHOOSER::IRepresentationChooser* reprChooser,
+  void Configure(CHOOSER::IRepresentationChooser* reprChooser,
                  std::string_view supportedKeySystem,
                  std::string_view manifestUpdParams) override;
 

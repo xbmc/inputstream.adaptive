@@ -7,8 +7,11 @@
  */
 
 #include "AdaptiveTree.h"
-#include "Chooser.h"
 
+#include "Chooser.h"
+#include "CompKodiProps.h"
+#include "CompSettings.h"
+#include "SrvBroker.h"
 #include "common/AdaptiveUtils.h"
 #include "utils/FileUtils.h"
 #include "utils/StringUtils.h"
@@ -41,31 +44,34 @@ namespace adaptive
     m_pathSaveManifest = left.m_pathSaveManifest;
   }
 
-  void AdaptiveTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                               CHOOSER::IRepresentationChooser* reprChooser,
+  void AdaptiveTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
                                std::string_view supportedKeySystem,
                                std::string_view manifestUpdParams)
   {
     m_reprChooser = reprChooser;
     m_supportedKeySystem = supportedKeySystem;
 
-    if (kodi::addon::GetSettingBoolean("debug.save.manifest"))
+    auto srvBroker = CSrvBroker::GetInstance();
+
+    if (srvBroker->GetSettings()->IsDebugManifest())
     {
       m_pathSaveManifest = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), "manifests");
       // Delete previously saved manifest files
       FILESYS::RemoveDirectory(m_pathSaveManifest, false);
     }
 
-    m_manifestParams = kodiProps.m_manifestParams;
-    m_manifestHeaders = kodiProps.m_manifestHeaders;
+    m_manifestParams = srvBroker->GetKodiProps()->GetManifestParams();
+    m_manifestHeaders = srvBroker->GetKodiProps()->GetManifestHeaders();
     m_manifestUpdParams = manifestUpdParams;
 
     // Convenience way to share common addon settings we avoid
     // calling the API many times to improve parsing performance
+    /*
     m_settings.m_bufferAssuredDuration =
         static_cast<uint32_t>(kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION"));
     m_settings.m_bufferMaxDuration =
         static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
+    */
   }
 
   void AdaptiveTree::Uninitialize()
@@ -75,15 +81,16 @@ namespace adaptive
     m_updThread.Stop();
   }
 
-  void AdaptiveTree::PostOpen(const UTILS::PROPERTIES::KodiProperties& kodiProps)
+  void AdaptiveTree::PostOpen()
   {
     SortTree();
 
     // A manifest can provide live delay value, if not so we use our default
     // value of 16 secs, this is needed to ensure an appropriate playback,
     // an add-on can override the delay to try fix edge use cases
-    if (kodiProps.m_liveDelay >= 16)
-      m_liveDelay = kodiProps.m_liveDelay;
+    uint64_t liveDelay = CSrvBroker::GetKodiProps()->GetLiveDelay();
+    if (liveDelay >= 16)
+      m_liveDelay = liveDelay;
     else if (m_liveDelay < 16)
       m_liveDelay = 16;
 

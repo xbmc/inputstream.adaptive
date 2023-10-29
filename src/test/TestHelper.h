@@ -16,7 +16,6 @@
 #include "../parser/HLSTree.h"
 #include "../parser/SmoothTree.h"
 #include "../utils/log.h"
-#include "../utils/PropertiesUtils.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -50,7 +49,7 @@ public:
   CTestRepresentationChooserDefault() : CHOOSER::CRepresentationChooserDefault() {}
   ~CTestRepresentationChooserDefault() override {}
 
-  void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override
+  void Initialize(const ADP::KODI_PROPS::ChooserProps& props) override
   {
   }
 };
@@ -60,9 +59,8 @@ class TestAdaptiveStream : public adaptive::AdaptiveStream
 public:
   TestAdaptiveStream(adaptive::AdaptiveTree& tree,
                      PLAYLIST::CAdaptationSet* adp,
-                     PLAYLIST::CRepresentation* initialRepr,
-                     const UTILS::PROPERTIES::KodiProperties& kodiProps)
-    : adaptive::AdaptiveStream(tree, adp, initialRepr, kodiProps)
+                     PLAYLIST::CRepresentation* initialRepr)
+    : adaptive::AdaptiveStream(tree, adp, initialRepr)
   {
   }
 

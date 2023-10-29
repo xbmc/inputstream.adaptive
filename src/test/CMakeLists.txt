@@ -36,12 +36,13 @@ add_executable(${BINARY}
     ../common/SegmentList.cpp
     ../common/SegTemplate.cpp
     ../oscompat.cpp
+    ../SrvBroker.cpp
+    ../CompSettings.cpp
+    ../CompKodiProps.cpp
     ../utils/Base64Utils.cpp
     ../utils/CharArrayParser.cpp
     ../utils/CurlUtils.cpp
     ../utils/FileUtils.cpp
-    ../utils/PropertiesUtils.cpp
-    ../utils/SettingsUtils.cpp
     ../utils/StringUtils.cpp
     ../utils/UrlUtils.cpp
     ../utils/Utils.cpp

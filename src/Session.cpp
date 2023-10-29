@@ -8,6 +8,9 @@
 
 #include "Session.h"
 
+#include "CompKodiProps.h"
+#include "CompSettings.h"
+#include "SrvBroker.h"
 #include "aes_decrypter.h"
 #include "common/AdaptiveDecrypter.h"
 #include "common/AdaptiveTreeFactory.h"
@@ -15,7 +18,6 @@
 #include "decrypters/DrmFactory.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
-#include "utils/SettingsUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
 #include "utils/Utils.h"
@@ -30,19 +32,12 @@ using namespace PLAYLIST;
 using namespace SESSION;
 using namespace UTILS;
 
-CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
-                   const std::string& manifestUrl,
+CSession::CSession(const std::string& manifestUrl,
                    const std::string& profilePath)
-  : m_kodiProps(kodiProps),
-    m_manifestUrl(manifestUrl),
-    m_profilePath(profilePath),
-    m_reprChooser(CHOOSER::CreateRepresentationChooser(kodiProps))
+  : m_manifestUrl(manifestUrl),
+    m_profilePath(profilePath)
 {
-  m_settingNoSecureDecoder = kodi::addon::GetSettingBoolean("NOSECUREDECODER");
-  LOG::Log(LOGDEBUG, "Setting NOSECUREDECODER value: %d", m_settingNoSecureDecoder);
-
-  m_settingIsHdcpOverride = kodi::addon::GetSettingBoolean("HDCPOVERRIDE");
-  LOG::Log(LOGDEBUG, "Ignore HDCP status setting value: %i", m_settingIsHdcpOverride);
+  m_reprChooser = CHOOSER::CreateRepresentationChooser();
 
   switch (kodi::addon::GetSettingInt("MEDIATYPE"))
   {
@@ -60,9 +55,11 @@ CSession::CSession(const PROPERTIES::KodiProperties& kodiProps,
       m_mediaTypeMask = static_cast<uint8_t>(~0);
   }
 
-  if (!kodiProps.m_serverCertificate.empty())
+  std::string_view serverCertificate = CSrvBroker::GetKodiProps()->GetServerCertificate();
+
+  if (!serverCertificate.empty())
   {
-    m_serverCertificate = BASE64::Decode(kodiProps.m_serverCertificate);
+    m_serverCertificate = BASE64::Decode(serverCertificate);
   }
 }
 
@@ -102,7 +99,7 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
     return;
   }
 
-  key_system = m_decrypter->SelectKeySytem(m_kodiProps.m_licenseType);
+  key_system = m_decrypter->SelectKeySytem(CSrvBroker::GetKodiProps()->GetLicenseType());
   m_decrypter->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
   m_decrypter->SetProfilePath(m_profilePath);
   m_decrypter->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
@@ -141,19 +138,24 @@ void CSession::DisposeDecrypter()
 
 bool CSession::Initialize()
 {
+  const auto kodiProps = CSrvBroker::GetKodiProps();
+  // Set the DRM configuration flags
+  if (kodiProps->IsLicensePersistentStorage())
+    m_drmConfig |= DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE;
+
   // Get URN's wich are supported by this addon
   std::string supportedKeySystem;
-  if (!m_kodiProps.m_licenseType.empty())
+  if (!kodiProps->GetLicenseType().empty())
   {
     SetSupportedDecrypterURN(supportedKeySystem);
     LOG::Log(LOGDEBUG, "Supported URN: %s", supportedKeySystem.c_str());
   }
 
-  std::map<std::string, std::string> manifestHeaders = m_kodiProps.m_manifestHeaders;
+  std::map<std::string, std::string> manifestHeaders = kodiProps->GetManifestHeaders();
   bool isSessionOpened{false};
 
   // Preinitialize the DRM, if pre-initialisation data are provided
-  if (!m_kodiProps.m_drmPreInitData.empty())
+  if (!kodiProps->GetDrmPreInitData().empty())
   {
     std::string challengeB64;
     std::string sessionId;
@@ -171,14 +173,14 @@ bool CSession::Initialize()
   }
 
   std::string manifestUrl = m_manifestUrl;
-  std::string manifestUpdateParam = m_kodiProps.m_manifestUpdParams;
+  std::string manifestUpdateParam = kodiProps->GetManifestUpdParams();
 
   if (manifestUpdateParam.empty())
   {
     //! @todo: In the next version of kodi, remove this hack of adding the $START_NUMBER$ parameter
     //!        to the manifest url which is forcibly cut and copied to the manifest update request url,
     //!        this seem used by YouTube addon only, adaptations are relatively simple
-    manifestUpdateParam = m_kodiProps.m_manifestUpdateParam;
+    manifestUpdateParam = kodiProps->GetManifestUpdParam();
     if (manifestUpdateParam.empty() && STRING::Contains(manifestUrl, "$START_NUMBER$"))
     {
       LOG::Log(LOGWARNING,
@@ -206,11 +208,11 @@ bool CSession::Initialize()
   // We set the download speed to calculate the initial network bandwidth
   m_reprChooser->SetDownloadSpeed(manifestResp.downloadSpeed);
 
-  m_adaptiveTree = PLAYLIST_FACTORY::CreateAdaptiveTree(m_kodiProps, manifestResp);
+  m_adaptiveTree = PLAYLIST_FACTORY::CreateAdaptiveTree(manifestResp);
   if (!m_adaptiveTree)
     return false;
 
-  m_adaptiveTree->Configure(m_kodiProps, m_reprChooser, supportedKeySystem, manifestUpdateParam);
+  m_adaptiveTree->Configure(m_reprChooser, supportedKeySystem, manifestUpdateParam);
 
   if (!m_adaptiveTree->Open(manifestResp.effectiveUrl, manifestResp.headers, manifestResp.data))
   {
@@ -218,7 +220,7 @@ bool CSession::Initialize()
     return false;
   }
 
-  m_adaptiveTree->PostOpen(m_kodiProps);
+  m_adaptiveTree->PostOpen();
 
   bool isPeriodInit = InitializePeriod(isSessionOpened);
   m_reprChooser->PostInit();
@@ -271,14 +273,15 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
                                 std::string& sessionId,
                                 bool& isSessionOpened)
 {
-  std::string psshData;
-  std::string kidData;
+  std::string_view preInitData = CSrvBroker::GetKodiProps()->GetDrmPreInitData();
+  std::string_view psshData;
+  std::string_view kidData;
   // Parse the PSSH/KID data
-  std::string::size_type posSplitter(m_kodiProps.m_drmPreInitData.find("|"));
+  size_t posSplitter = preInitData.find("|");
   if (posSplitter != std::string::npos)
   {
-    psshData = m_kodiProps.m_drmPreInitData.substr(0, posSplitter);
-    kidData = m_kodiProps.m_drmPreInitData.substr(posSplitter + 1);
+    psshData = preInitData.substr(0, posSplitter);
+    kidData = preInitData.substr(posSplitter + 1);
   }
 
   if (psshData.empty() || kidData.empty())
@@ -292,9 +295,11 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   // Try to initialize an SingleSampleDecryptor
   LOG::LogF(LOGDEBUG, "Entering encryption section");
 
-  if (m_kodiProps.m_licenseKey.empty())
+  std::string_view licenseKey = CSrvBroker::GetKodiProps()->GetLicenseKey();
+
+  if (licenseKey.empty())
   {
-    LOG::LogF(LOGERROR, "Invalid license_key");
+    LOG::LogF(LOGERROR, "Kodi property \"inputstream.adaptive.license_key\" value is not set");
     return false;
   }
 
@@ -306,8 +311,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
 
   if (!m_decrypter->IsInitialised())
   {
-    if (!m_decrypter->OpenDRMSystem(m_kodiProps.m_licenseKey, m_serverCertificate,
-                                    m_drmConfig))
+    if (!m_decrypter->OpenDRMSystem(licenseKey, m_serverCertificate, m_drmConfig))
     {
       LOG::LogF(LOGERROR, "OpenDRMSystem failed");
       return false;
@@ -360,7 +364,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
   if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() !=
       EncryptionState::UNENCRYPTED)
   {
-    std::string licenseKey{m_kodiProps.m_licenseKey};
+    std::string_view licenseKey = CSrvBroker::GetKodiProps()->GetLicenseKey();
 
     if (licenseKey.empty())
       licenseKey = m_adaptiveTree->GetLicenseUrl();
@@ -403,15 +407,17 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
 
+      std::string_view licenseData = CSrvBroker::GetKodiProps()->GetLicenseData();
+
       if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING)
       {
-        if (m_kodiProps.m_licenseType == "com.widevine.alpha")
+        std::string_view licenseType = CSrvBroker::GetKodiProps()->GetLicenseType();
+        if (licenseType == "com.widevine.alpha")
         {
           // Create SmoothStreaming Widevine PSSH data
           //! @todo: CreateISMlicense accept placeholders {KID} and {UUID} but its not wiki documented
           //! we should continue allow create custom pssh with placeholders?
           //! see also todo's below
-          std::string licenseData = m_kodiProps.m_licenseData;
           if (licenseData.empty())
           {
             LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming");
@@ -424,7 +430,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           }
           CreateISMlicense(sessionPsshset.defaultKID_, licenseData, initData);
         }
-        else if (m_kodiProps.m_licenseType == "com.microsoft.playready")
+        else if (licenseType == "com.microsoft.playready")
         {
           // Use licenseData property to set data for the "PRCustomData" PlayReady DRM parameter
           //! @todo: we are allowing to send custom data to the DRM for the license request
@@ -436,16 +442,16 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           //! As first decoupling things and allowing to have a way to set DRM optional parameters in a extensible way
           //! for future other use cases, and not limited to Playready only.
           //! To take in account that license_data property is also used on DASH parser to bypass ContentProtection tags.
-          drmOptionalKeyParam = m_kodiProps.m_licenseData;
+          drmOptionalKeyParam = licenseData;
         }
       }
-      else if (!m_kodiProps.m_licenseData.empty())
+      else if (!licenseData.empty())
       {
         // Custom license PSSH data provided from property
         // This can allow to initialize a DRM that could be also not specified
         // as supported in the manifest (e.g. missing DASH ContentProtection tags)
         LOG::Log(LOGDEBUG, "License data: Use PSSH data provided by the license data property");
-        initData = BASE64::Decode(m_kodiProps.m_licenseData);
+        initData = BASE64::Decode(licenseData);
       }
 
       if (initData.empty())
@@ -528,9 +534,15 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
           isSecureVideoSession = true;
 
-          if (m_settingNoSecureDecoder && !m_kodiProps.m_isLicenseForceSecureDecoder &&
+          bool isDisableSecureDecoder = CSrvBroker::GetSettings()->IsDisableSecureDecoder();
+          if (isDisableSecureDecoder)
+            LOG::Log(LOGDEBUG, "Secure video session, with setting configured to try disable secure decoder");
+
+          if (isDisableSecureDecoder && !CSrvBroker::GetKodiProps()->IsLicenseForceSecDecoder() &&
               !m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded())
+          {
             session.m_decrypterCaps.flags &= ~DRM::DecrypterCapabilites::SSD_SECURE_DECODER;
+          }
         }
       }
       else
@@ -544,7 +556,11 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     }
   }
 
-  if (!m_settingIsHdcpOverride)
+  bool isHdcpOverride = CSrvBroker::GetSettings()->IsHdcpOverride();
+  if (isHdcpOverride)
+    LOG::Log(LOGDEBUG, "Ignore HDCP status is enabled");
+
+  if (!isHdcpOverride)
     CheckHDCP();
 
   m_reprChooser->SetSecureSession(isSecureVideoSession);
@@ -600,7 +616,13 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 
   uint32_t adpIndex{0};
   CAdaptationSet* adp{nullptr};
-  SETTINGS::StreamSelection streamSelectionMode{m_reprChooser->GetStreamSelectionMode()};
+  CHOOSER::StreamSelection streamSelectionMode = m_reprChooser->GetStreamSelectionMode();
+  //! @todo: GetAudioLangOrig property should be reworked to allow override or set
+  //! manifest a/v and subtitles streams attributes such as default/original etc..
+  //! since Kodi stream flags dont have always the same meaning of manifest attributes
+  //! and some video services dont follow exactly the specs so can lead to wrong Kodi flags sets.
+  //! An idea is add/move these override of attributes on post manifest parsing.
+  std::string audioLanguageOrig = CSrvBroker::GetKodiProps()->GetAudioLangOrig();
 
   while ((adp = m_adaptiveTree->GetAdaptationSet(adpIndex++)))
   {
@@ -609,9 +631,9 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 
     bool isManualStreamSelection;
     if (adp->GetStreamType() == StreamType::VIDEO)
-      isManualStreamSelection = streamSelectionMode != SETTINGS::StreamSelection::AUTO;
+      isManualStreamSelection = streamSelectionMode != CHOOSER::StreamSelection::AUTO;
     else
-      isManualStreamSelection = streamSelectionMode == SETTINGS::StreamSelection::MANUAL;
+      isManualStreamSelection = streamSelectionMode == CHOOSER::StreamSelection::MANUAL;
 
     // Get the default initial stream repr. based on "adaptive repr. chooser"
     auto defaultRepr{m_reprChooser->GetRepresentation(adp)};
@@ -628,7 +650,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
         CRepresentation* currentRepr = adp->GetRepresentations()[i].get();
         bool isDefaultRepr{currentRepr == defaultRepr};
 
-        AddStream(adp, currentRepr, isDefaultRepr, uniqueId);
+        AddStream(adp, currentRepr, isDefaultRepr, uniqueId, audioLanguageOrig);
       }
     }
     else
@@ -638,7 +660,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
       uint32_t uniqueId{adpIndex};
       uniqueId |= reprIndex << 16;
 
-      AddStream(adp, defaultRepr, true, uniqueId);
+      AddStream(adp, defaultRepr, true, uniqueId, audioLanguageOrig);
     }
   }
 
@@ -648,9 +670,10 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
                          PLAYLIST::CRepresentation* initialRepr,
                          bool isDefaultRepr,
-                         uint32_t uniqueId)
+                         uint32_t uniqueId,
+                         std::string_view audioLanguageOrig)
 {
-  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr, m_kodiProps));
+  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr));
 
   CStream& stream{*m_streams.back()};
 
@@ -673,8 +696,8 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
         flags |= INPUTSTREAM_FLAG_VISUAL_IMPAIRED;
       if (adp->IsDefault())
         flags |= INPUTSTREAM_FLAG_DEFAULT;
-      if (adp->IsOriginal() || (!m_kodiProps.m_audioLanguageOrig.empty() &&
-                                adp->GetLanguage() == m_kodiProps.m_audioLanguageOrig))
+      if (adp->IsOriginal() || (!audioLanguageOrig.empty() &&
+                                adp->GetLanguage() == audioLanguageOrig))
       {
         flags |= INPUTSTREAM_FLAG_ORIGINAL;
       }
@@ -1292,13 +1315,12 @@ uint32_t CSession::GetIncludedStreamMask() const
 
 STREAM_CRYPTO_KEY_SYSTEM CSession::GetCryptoKeySystem() const
 {
-  if (m_kodiProps.m_licenseType == "com.widevine.alpha")
+  std::string_view licenseType = CSrvBroker::GetKodiProps()->GetLicenseType();
+  if (licenseType == "com.widevine.alpha")
     return STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE;
-#if STREAMCRYPTO_VERSION_LEVEL >= 1
-  else if (m_kodiProps.m_licenseType == "com.huawei.wiseplay")
+  else if (licenseType == "com.huawei.wiseplay")
     return STREAM_CRYPTO_KEY_SYSTEM_WISEPLAY;
-#endif
-  else if (m_kodiProps.m_licenseType == "com.microsoft.playready")
+  else if (licenseType == "com.microsoft.playready")
     return STREAM_CRYPTO_KEY_SYSTEM_PLAYREADY;
   else
     return STREAM_CRYPTO_KEY_SYSTEM_NONE;
@@ -1433,7 +1455,7 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
 
   auto initialRepr = m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_);
 
-  CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr, m_kodiProps};
+  CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr};
 
   stream.m_isEnabled = true;
   stream.m_adStream.start_stream();

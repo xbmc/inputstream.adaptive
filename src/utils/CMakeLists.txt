@@ -4,9 +4,7 @@ set(SOURCES
   CurlUtils.cpp
   DigestMD5Utils.cpp
   FileUtils.cpp
-  PropertiesUtils.cpp
   StringUtils.cpp
-  SettingsUtils.cpp
   UrlUtils.cpp
   Utils.cpp
   XMLUtils.cpp
@@ -20,8 +18,6 @@ set(HEADERS
   DigestMD5Utils.h
   FileUtils.h
   log.h
-  PropertiesUtils.h
-  SettingsUtils.h
   StringUtils.h
   UrlUtils.h
   Utils.h

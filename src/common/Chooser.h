@@ -8,16 +8,27 @@
 
 #pragma once
 
-#include "utils/PropertiesUtils.h"
-#include "utils/SettingsUtils.h"
 #include "AdaptiveTree.h"
 
 #include <map>
 #include <string_view>
 #include <utility>
 
+// forward
+namespace ADP::KODI_PROPS
+{
+struct ChooserProps;
+}
+
 namespace CHOOSER
 {
+enum class StreamSelection
+{
+  AUTO,
+  MANUAL,
+  MANUAL_VIDEO_ONLY
+};
+
 /*!
  * \brief Defines the behaviours on which the quality of streams is chosen
  */
@@ -33,7 +44,7 @@ public:
    *        DRM data can be read only with PostInit callback)
    * \param m_kodiProps The Kodi properties
    */
-  virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) {}
+  virtual void Initialize(const ADP::KODI_PROPS::ChooserProps& props) {}
 
   /*!
    * \brief Post initialization, will be called after the session initialization
@@ -66,10 +77,7 @@ public:
    *        in playback.
    * \return The stream selection mode
    */
-  virtual UTILS::SETTINGS::StreamSelection GetStreamSelectionMode()
-  {
-    return UTILS::SETTINGS::StreamSelection::AUTO;
-  }
+  virtual StreamSelection GetStreamSelectionMode() { return StreamSelection::AUTO; }
 
   /*!
    * \brief Called at each DRM initialization to set if the secure session is currently being used.
@@ -121,7 +129,6 @@ private:
   bool m_isAdjustRefreshRate{false};
 };
 
-IRepresentationChooser* CreateRepresentationChooser(
-    const UTILS::PROPERTIES::KodiProperties& kodiProps);
+IRepresentationChooser* CreateRepresentationChooser();
 
 } // namespace CHOOSER

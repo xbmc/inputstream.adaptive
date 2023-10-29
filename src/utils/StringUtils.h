@@ -9,6 +9,7 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <set>
 #include <string>
 #include <string_view>
@@ -24,6 +25,25 @@ template<typename T, typename Key>
 bool KeyExists(const T& container, const Key& key)
 {
   return container.find(key) != std::end(container);
+}
+
+/*!
+ * \brief Get map value of the specified key
+ * \param map The map where find the value
+ * \param key The key to find
+ * \param val[OUT] The value that match to the specified key, if found
+ * \return True if found, otherwise false.
+ */
+template<typename T, typename TValue>
+bool GetMapValue(const std::map<T, TValue>& map, const T& key, TValue& val)
+{
+  auto mapIt = map.find(key);
+  if (mapIt != map.cend())
+  {
+    val = mapIt->second;
+    return true;
+  }
+  return false;
 }
 
 /*!

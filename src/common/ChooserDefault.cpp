@@ -8,9 +8,11 @@
 
 #include "ChooserDefault.h"
 
-#include "utils/SettingsUtils.h"
-#include "utils/log.h"
+#include "CompKodiProps.h"
+#include "CompSettings.h"
 #include "ReprSelector.h"
+#include "SrvBroker.h"
+#include "utils/log.h"
 
 #include <algorithm>
 #include <cmath>
@@ -19,7 +21,6 @@
 
 using namespace CHOOSER;
 using namespace PLAYLIST;
-using namespace UTILS;
 
 namespace
 {
@@ -33,30 +34,21 @@ CRepresentationChooserDefault::CRepresentationChooserDefault()
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Default");
 }
 
-void CRepresentationChooserDefault::Initialize(const UTILS::PROPERTIES::ChooserProps& props)
+void CRepresentationChooserDefault::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
-  std::pair<int, int> res;
-  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.max"), res))
-  {
-    m_screenResMax = res;
-  }
-  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.secure.max"),
-                                     res))
-  {
-    m_screenResSecureMax = res;
-  }
+  auto settings = CSrvBroker::GetSettings();
 
-  m_bandwidthInitAuto = kodi::addon::GetSettingBoolean("adaptivestream.bandwidth.init.auto");
-  m_bandwidthInit =
-      static_cast<uint32_t>(kodi::addon::GetSettingInt("adaptivestream.bandwidth.init") * 1000);
+  m_screenResMax = settings->GetResMax();
+  m_screenResSecureMax = settings->GetResSecureMax();
 
-  m_bandwidthMin =
-      static_cast<uint32_t>(kodi::addon::GetSettingInt("adaptivestream.bandwidth.min") * 1000);
-  m_bandwidthMax =
-      static_cast<uint32_t>(kodi::addon::GetSettingInt("adaptivestream.bandwidth.max") * 1000);
+  m_bandwidthInitAuto = settings->IsBandwidthInitAuto();
+  m_bandwidthInit = settings->GetBandwidthInit();
 
-  m_ignoreScreenRes = kodi::addon::GetSettingBoolean("overrides.ignore.screen.res");
-  m_ignoreScreenResChange = kodi::addon::GetSettingBoolean("overrides.ignore.screen.res.change");
+  m_bandwidthMin = settings->GetBandwidthMin();
+  m_bandwidthMax = settings->GetBandwidthMax();
+
+  m_ignoreScreenRes = settings->IsIgnoreScreenRes();
+  m_ignoreScreenResChange = settings->IsIgnoreScreenResChange();
 
   // Override settings with Kodi/video add-on properties
 

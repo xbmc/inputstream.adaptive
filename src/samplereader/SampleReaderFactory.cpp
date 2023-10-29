@@ -33,8 +33,7 @@ std::unique_ptr<ISampleReader> ADP::CreateStreamReader(PLAYLIST::ContainerType& 
     if (repr->IsSubtitleFileStream())
     {
       reader = std::make_unique<CSubtitleSampleReader>(
-          repr->GetBaseUrl(), streamId, stream->m_info.GetCodecInternalName(),
-          stream->m_adStream.GetStreamParams(), stream->m_adStream.GetStreamHeaders());
+          repr->GetBaseUrl(), streamId, stream->m_info.GetCodecInternalName());
     }
     else
     {

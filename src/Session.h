@@ -12,7 +12,6 @@
 #include "common/AdaptiveStream.h"
 #include "common/Period.h"
 #include "decrypters/IDecrypter.h"
-#include "utils/PropertiesUtils.h"
 
 #include <bento4/Ap4.h>
 #include <kodi/tools/DllHelper.h>
@@ -28,15 +27,9 @@ namespace SESSION
 class ATTR_DLL_LOCAL CSession : public adaptive::AdaptiveStreamObserver
 {
 public:
-  CSession(const UTILS::PROPERTIES::KodiProperties& properties,
-           const std::string& manifestUrl,
+  CSession(const std::string& manifestUrl,
            const std::string& profilePath);
   virtual ~CSession();
-
-  /*! \brief Set the DRM configuration flags
-   *  \param config Flags to be passed to the decrypter
-   */
-  void SetDrmConfig(const std::uint8_t config) { m_drmConfig = config; }
 
   /*! \brief Initialize the session
    *  \return True if has success, false otherwise
@@ -87,7 +80,8 @@ public:
   void AddStream(PLAYLIST::CAdaptationSet* adp,
                  PLAYLIST::CRepresentation* repr,
                  bool isDefaultRepr,
-                 uint32_t uniqueId);
+                 uint32_t uniqueId,
+                 std::string_view audioLanguageOrig);
 
   /*! \brief Update stream's InputstreamInfo
    *  \param stream The stream to update
@@ -225,11 +219,6 @@ public:
    */
   bool IsLive() const { return m_adaptiveTree->IsLive(); };
 
-  /*! \brief Get the type of manifest being played
-   *  \return ManifestType - MPD/ISM/HLS
-   */
-  UTILS::PROPERTIES::ManifestType GetManifestType() const { return m_kodiProps.m_manifestType; }
-
   /*! \brief Get the mask of included streams
    *  \return A 32 uint with bits set of 'included' streams
    */
@@ -363,7 +352,6 @@ protected:
                                    std::string keySystem);
 
 private:
-  const UTILS::PROPERTIES::KodiProperties m_kodiProps;
   std::string m_manifestUrl;
   std::string m_profilePath;
   std::vector<uint8_t> m_serverCertificate;
@@ -391,7 +379,5 @@ private:
   double m_chapterSeekTime{0.0}; // In seconds
   uint8_t m_mediaTypeMask{0};
   uint8_t m_drmConfig{0};
-  bool m_settingNoSecureDecoder{false};
-  bool m_settingIsHdcpOverride{false};
 };
 } // namespace SESSION

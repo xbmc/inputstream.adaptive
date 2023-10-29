@@ -8,6 +8,8 @@
 
 #include "SubtitleSampleReader.h"
 
+#include "CompKodiProps.h"
+#include "SrvBroker.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
@@ -18,9 +20,7 @@ using namespace UTILS;
 
 CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
                                              AP4_UI32 streamId,
-                                             std::string_view codecInternalName,
-                                             std::string_view streamParams,
-                                             const std::map<std::string, std::string>& streamHeaders)
+                                             std::string_view codecInternalName)
   : m_streamId{streamId}
 {
   // Single subtitle file
@@ -34,13 +34,15 @@ CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
     return;
   }
 
+  auto kodiProps = CSrvBroker::GetKodiProps();
+
   // Append stream parameters, only if not already provided
   if (url.find('?') == std::string::npos)
-    URL::AppendParameters(url, streamParams);
+    URL::AppendParameters(url, kodiProps->GetStreamParams());
 
   // Download the file
   CURL::CUrl curl(url);
-  curl.AddHeaders(streamHeaders);
+  curl.AddHeaders(kodiProps->GetStreamHeaders());
   int statusCode = curl.Open(true);
   if (statusCode == -1)
   {

@@ -3,6 +3,9 @@ set(SOURCES
   main.cpp
   oscompat.cpp
   Session.cpp
+  SrvBroker.cpp
+  CompKodiProps.cpp
+  CompSettings.cpp
   Stream.cpp
   aes_decrypter.cpp
 )
@@ -12,6 +15,9 @@ set(HEADERS
   main.h
   oscompat.h
   Session.h
+  SrvBroker.h
+  CompKodiProps.h
+  CompSettings.h
   Stream.h
   aes_decrypter.h
   Iaes_decrypter.h

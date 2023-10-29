@@ -21,14 +21,11 @@ namespace CHOOSER
     CRepresentationChooserTest();
     ~CRepresentationChooserTest() override {}
 
-    virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
+    virtual void Initialize(const ADP::KODI_PROPS::ChooserProps& props) override;
 
     virtual void PostInit() override;
 
-    virtual UTILS::SETTINGS::StreamSelection GetStreamSelectionMode() override
-    {
-      return m_streamSelectionMode;
-    }
+    virtual StreamSelection GetStreamSelectionMode() override { return m_streamSelectionMode; }
 
     PLAYLIST::CRepresentation* GetNextRepresentation(
         PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep) override;
@@ -41,7 +38,7 @@ namespace CHOOSER
     };
 
     TestMode m_testMode{TestMode::NONE};
-    UTILS::SETTINGS::StreamSelection m_streamSelectionMode{UTILS::SETTINGS::StreamSelection::AUTO};
+    StreamSelection m_streamSelectionMode = StreamSelection::AUTO;
     int m_segmentsElapsed{1};
     int m_segmentsLimit{1};
   };
