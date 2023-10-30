@@ -101,7 +101,7 @@ bool AVCCodecHandler::ExtraDataToAnnexB()
   return false;
 }
 
-void AVCCodecHandler::UpdatePPSId(AP4_DataBuffer const& buffer)
+void AVCCodecHandler::UpdatePPSId(const AP4_DataBuffer& buffer)
 {
   if (!m_needSliceInfo)
     return;
