@@ -318,13 +318,6 @@ public:
    */
   void OnStreamChange(adaptive::AdaptiveStream* adStream) override;
 
-  /*!
-   * \brief Create a Movie (MOOV) atom from scratch based on manifest info.
-   * \param stream The stream where to get the info
-   * \return The Movie atom if success, otherwise nullptr
-   */
-  AP4_Movie* CreateMovieAtom(CStream* stream);
-
 protected:
   /*!
    * \brief Event raised when the current segment is changed and
