@@ -15,6 +15,7 @@
 #include "codechandler/TTMLCodecHandler.h"
 #include "codechandler/WebVTTCodecHandler.h"
 #include "common/AdaptiveStream.h"
+#include "common/Representation.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"

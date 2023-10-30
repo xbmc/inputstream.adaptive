@@ -57,7 +57,7 @@ public:
 class TestAdaptiveStream : public adaptive::AdaptiveStream
 {
 public:
-  TestAdaptiveStream(adaptive::AdaptiveTree& tree,
+  TestAdaptiveStream(adaptive::AdaptiveTree* tree,
                      PLAYLIST::CAdaptationSet* adp,
                      PLAYLIST::CRepresentation* initialRepr)
     : adaptive::AdaptiveStream(tree, adp, initialRepr)

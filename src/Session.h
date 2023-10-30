@@ -10,7 +10,7 @@
 
 #include "Stream.h"
 #include "common/AdaptiveStream.h"
-#include "common/Period.h"
+#include "common/AdaptiveTree.h"
 #include "decrypters/IDecrypter.h"
 
 #include <bento4/Ap4.h>

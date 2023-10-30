@@ -673,7 +673,7 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
                          uint32_t uniqueId,
                          std::string_view audioLanguageOrig)
 {
-  m_streams.push_back(std::make_unique<CStream>(*m_adaptiveTree, adp, initialRepr));
+  m_streams.push_back(std::make_unique<CStream>(m_adaptiveTree, adp, initialRepr));
 
   CStream& stream{*m_streams.back()};
 
@@ -1455,7 +1455,7 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
 
   auto initialRepr = m_reprChooser->GetRepresentation(sessionPsshset.adaptation_set_);
 
-  CStream stream{*m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr};
+  CStream stream{m_adaptiveTree, sessionPsshset.adaptation_set_, initialRepr};
 
   stream.m_isEnabled = true;
   stream.m_adStream.start_stream();

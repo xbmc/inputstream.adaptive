@@ -8,6 +8,7 @@
 
 #include "AdaptiveStream.h"
 
+#include "AdaptiveTree.h"
 #ifndef INPUTSTREAM_TEST_BUILD
 #include "demuxers/WebmReader.h"
 #endif
@@ -35,13 +36,13 @@ using namespace UTILS;
 
 uint32_t AdaptiveStream::globalClsId = 0;
 
-AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
+AdaptiveStream::AdaptiveStream(AdaptiveTree* tree,
                                PLAYLIST::CAdaptationSet* adp,
                                PLAYLIST::CRepresentation* initialRepr)
   : thread_data_(nullptr),
-    tree_(tree),
+    m_tree(tree),
     observer_(nullptr),
-    current_period_(tree_.m_currentPeriod),
+    current_period_(m_tree->m_currentPeriod),
     current_adp_(adp),
     current_rep_(initialRepr),
     segment_read_pos_(0),
@@ -175,10 +176,10 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
 
             std::vector<uint8_t>& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
 
-            tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
-                                downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
-                                bufferData.data(), bytesRead, segmentBuffer, segmentBuffer.size(),
-                                isLastChunk);
+            m_tree->OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
+                                  downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
+                                  bufferData.data(), bytesRead, segmentBuffer, segmentBuffer.size(),
+                                  isLastChunk);
           }
           thread_data_->signal_rw_.notify_all();
         }
@@ -210,7 +211,7 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
       // by causing side effects in the average bandwidth so we ignore them.
       static const size_t minSize{512 * 1024}; // 512 Kbyte
       if (totalBytesRead > minSize)
-        tree_.GetRepChooser()->SetDownloadSpeed(downloadSpeed);
+        m_tree->GetRepChooser()->SetDownloadSpeed(downloadSpeed);
 
       LOG::Log(LOGDEBUG, "[AS-%u] Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
                clsId, url.c_str(), totalBytesRead, downloadSpeed);
@@ -378,13 +379,13 @@ void AdaptiveStream::worker()
 
       //! @todo: for live content we should calculate max attempts and sleep timing
       //! based on segment duration / playlist updates timing
-      size_t maxAttempts = tree_.IsLive() ? 10 : 6;
-      std::chrono::milliseconds msSleep = tree_.IsLive() ? 1000ms : 500ms;
+      size_t maxAttempts = m_tree->IsLive() ? 10 : 6;
+      std::chrono::milliseconds msSleep = m_tree->IsLive() ? 1000ms : 500ms;
 
       //! @todo: Some streaming software offers subtitle tracks with missing fragments, usually live tv
       //! When a programme is broadcasted that has subtitles, subtitles fragments are offered,
       //! Ensure we continue with the next segment after one retry on errors
-      if (current_adp_->GetStreamType() == StreamType::SUBTITLE && tree_.IsLive())
+      if (current_adp_->GetStreamType() == StreamType::SUBTITLE && m_tree->IsLive())
         maxAttempts = 2;
 
       size_t downloadAttempts = 1;
@@ -427,7 +428,7 @@ void AdaptiveStream::worker()
 int AdaptiveStream::SecondsSinceUpdate() const
 {
   const std::chrono::time_point<std::chrono::system_clock>& tPoint(
-      lastUpdated_ > tree_.GetLastUpdated() ? lastUpdated_ : tree_.GetLastUpdated());
+      lastUpdated_ > m_tree->GetLastUpdated() ? lastUpdated_ : m_tree->GetLastUpdated());
   return static_cast<int>(
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - tPoint)
           .count());
@@ -435,13 +436,13 @@ int AdaptiveStream::SecondsSinceUpdate() const
 
 void AdaptiveStream::OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTimescale)
 {
-  tree_.InsertLiveSegment(current_period_, current_adp_, current_rep_, getSegmentPos(), ts,
-                          duration, mediaTimescale);
+  m_tree->InsertLiveSegment(current_period_, current_adp_, current_rep_, getSegmentPos(), ts,
+                            duration, mediaTimescale);
 }
 
 bool adaptive::AdaptiveStream::IsRequiredCreateMovieAtom()
 {
-  return tree_.GetTreeType() == TreeType::SMOOTH_STREAMING;
+  return m_tree->GetTreeType() == TreeType::SMOOTH_STREAMING;
 }
 
 bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
@@ -655,20 +656,20 @@ bool AdaptiveStream::start_stream()
 
   if (!current_rep_->current_segment_)
   {
-    if (!play_timeshift_buffer_ && tree_.IsLive() &&
-        current_rep_->SegmentTimeline().GetSize() > 1 && tree_.m_periods.size() == 1)
+    if (!play_timeshift_buffer_ && m_tree->IsLive() &&
+        current_rep_->SegmentTimeline().GetSize() > 1 && m_tree->m_periods.size() == 1)
     {
       if (!last_rep_)
       {
         std::size_t pos;
-        if (tree_.IsLive() || tree_.available_time_ >= tree_.stream_start_)
+        if (m_tree->IsLive() || m_tree->available_time_ >= m_tree->stream_start_)
         {
           pos = current_rep_->SegmentTimeline().GetSize() - 1;
         }
         else
         {
           pos = static_cast<size_t>(
-              ((tree_.stream_start_ - tree_.available_time_) * current_rep_->GetTimescale()) /
+              ((m_tree->stream_start_ - m_tree->available_time_) * current_rep_->GetTimescale()) /
               current_rep_->GetDuration());
           if (pos == 0)
             pos = 1;
@@ -677,7 +678,7 @@ bool AdaptiveStream::start_stream()
                           current_rep_->get_segment(pos - 1)->startPTS_);
         size_t segmentPos{0};
         size_t segPosDelay =
-            static_cast<size_t>((tree_.m_liveDelay * current_rep_->GetTimescale()) / duration);
+            static_cast<size_t>((m_tree->m_liveDelay * current_rep_->GetTimescale()) / duration);
 
         if (pos > segPosDelay)
         {
@@ -804,11 +805,11 @@ bool AdaptiveStream::ensureSegment()
       return false;
 
     // lock live segment updates
-    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
+    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
-    if (tree_.HasManifestUpdatesSegs() && SecondsSinceUpdate() > 1)
+    if (m_tree->HasManifestUpdatesSegs() && SecondsSinceUpdate() > 1)
     {
-      tree_.RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->GetStreamType());
+      m_tree->RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->GetStreamType());
       lastUpdated_ = std::chrono::system_clock::now();
     }
 
@@ -886,17 +887,16 @@ bool AdaptiveStream::ensureSegment()
         if (isLastSegment)
           newRep = prevRep;
         else
-          newRep = tree_.GetRepChooser()->GetNextRepresentation(current_adp_, prevRep);
+          newRep = m_tree->GetRepChooser()->GetNextRepresentation(current_adp_, prevRep);
       }
 
       // If the representation has been changed, segments may have to be generated (DASH)
       if (newRep->SegmentTimeline().IsEmpty())
         GenerateSidxSegments(newRep);
 
-      if (!newRep->IsPrepared() && tree_.SecondsSinceRepUpdate(newRep) > 1)
+      if (!newRep->IsPrepared() && m_tree->SecondsSinceRepUpdate(newRep) > 1)
       {
-        tree_.prepareRepresentation(
-          current_period_, current_adp_, newRep, tree_.IsLive());
+        m_tree->prepareRepresentation(current_period_, current_adp_, newRep, m_tree->IsLive());
       }
 
       // Add to the buffer next future segment
@@ -935,8 +935,8 @@ bool AdaptiveStream::ensureSegment()
         return false;
       }
     }
-    else if ((tree_.HasManifestUpdates() || tree_.HasManifestUpdatesSegs()) &&
-             current_period_ == tree_.m_periods.back().get())
+    else if ((m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) &&
+             current_period_ == m_tree->m_periods.back().get())
     {
       if (!current_rep_->IsWaitForSegment())
       {
@@ -1110,7 +1110,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   if (current_rep_->IsSubtitleFileStream())
     return true;
 
-  std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
+  std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
   uint64_t sec_in_ts = static_cast<uint64_t>(seek_seconds * current_rep_->GetTimescale());
 
@@ -1183,11 +1183,16 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   return false;
 }
 
+size_t adaptive::AdaptiveStream::getSegmentPos()
+{
+  return current_rep_->getCurrentSegmentPos();
+}
+
 bool AdaptiveStream::waitingForSegment(bool checkTime) const
 {
-  if ((tree_.HasManifestUpdates() || tree_.HasManifestUpdatesSegs()) && state_ == RUNNING)
+  if ((m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) && state_ == RUNNING)
   {
-    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(tree_.GetTreeUpdMutex());
+    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
     if (current_rep_ && current_rep_->IsWaitForSegment())
     {
