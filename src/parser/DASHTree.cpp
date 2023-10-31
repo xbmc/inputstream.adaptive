@@ -155,9 +155,14 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
   ParseTagMPDAttribs(nodeMPD);
 
   // Parse <MPD> <Location> tag
-  std::string_view locationText = nodeMPD.child("Location").child_value();
-  if (!locationText.empty() && URL::IsValidUrl(locationText.data()))
-    location_ = locationText;
+  std::string_view locationUrl = nodeMPD.child("Location").child_value();
+  if (!locationUrl.empty())
+  {
+    if (URL::IsUrlRelative(locationUrl))
+      location_ = URL::Join(URL::GetBaseDomain(base_url_), locationUrl.data());
+    else
+      location_ = locationUrl;
+  }
 
   // Parse <MPD> <UTCTiming> tags
   //! @todo: needed implementation
