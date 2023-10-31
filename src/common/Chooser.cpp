@@ -15,6 +15,7 @@
 #include "ChooserTest.h"
 #include "CompKodiProps.h"
 #include "CompSettings.h"
+#include "Representation.h"
 #include "SrvBroker.h"
 #include "utils/log.h"
 

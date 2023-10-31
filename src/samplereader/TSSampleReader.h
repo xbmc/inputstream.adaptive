@@ -6,9 +6,11 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "AdaptiveByteStream.h"
 #include "SampleReader.h"
 #include "demuxers/TSReader.h"
+
+// forwards
+class CAdaptiveByteStream;
 
 class ATTR_DLL_LOCAL CTSSampleReader : public ISampleReader, public TSReader
 {

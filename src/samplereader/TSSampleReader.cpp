@@ -8,6 +8,8 @@
 
 #include "TSSampleReader.h"
 
+#include "AdaptiveByteStream.h"
+
 CTSSampleReader::CTSSampleReader(AP4_ByteStream* input,
                                INPUTSTREAM_TYPE type,
                                AP4_UI32 streamId,

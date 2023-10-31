@@ -11,7 +11,6 @@
 #include "AdaptiveUtils.h"
 #include "CommonSegAttribs.h"
 #include "SegTemplate.h"
-#include "SegmentList.h"
 #include "utils/CryptoUtils.h"
 
 #ifdef INPUTSTREAM_TEST_BUILD

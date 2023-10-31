@@ -8,11 +8,9 @@
 
 #include "CommonAttribs.h"
 
-#include "utils/StringUtils.h"
-#include "Period.h"
+#include "AdaptiveUtils.h"
 
 using namespace PLAYLIST;
-using namespace UTILS;
 
 PLAYLIST::CCommonAttribs::CCommonAttribs(CCommonAttribs* parent /* = nullptr */)
 {

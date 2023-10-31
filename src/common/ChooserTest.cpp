@@ -8,9 +8,11 @@
 
 #include "ChooserTest.h"
 
+#include "AdaptationSet.h"
 #include "CompKodiProps.h"
 #include "CompSettings.h"
 #include "ReprSelector.h"
+#include "Representation.h"
 #include "SrvBroker.h"
 #include "utils/log.h"
 

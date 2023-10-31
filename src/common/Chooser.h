@@ -8,13 +8,21 @@
 
 #pragma once
 
-#include "AdaptiveTree.h"
-
-#include <map>
 #include <string_view>
-#include <utility>
 
-// forward
+#ifdef INPUTSTREAM_TEST_BUILD
+#include "test/KodiStubs.h"
+#else
+#include <kodi/AddonBase.h>
+#endif
+
+// forwards
+namespace PLAYLIST
+{
+class CRepresentation;
+class CAdaptationSet;
+}
+
 namespace ADP::KODI_PROPS
 {
 struct ChooserProps;

@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "AdaptiveUtils.h"
 #include "CommonAttribs.h"
 #include "CommonSegAttribs.h"
 #include "Period.h"

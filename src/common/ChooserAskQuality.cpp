@@ -8,8 +8,10 @@
 
 #include "ChooserAskQuality.h"
 
+#include "AdaptationSet.h"
 #include "CompKodiProps.h"
 #include "ReprSelector.h"
+#include "Representation.h"
 #include "SrvBroker.h"
 #include "kodi/tools/StringUtils.h"
 #include "utils/StringUtils.h"

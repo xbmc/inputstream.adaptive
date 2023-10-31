@@ -6,9 +6,11 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "AdaptiveByteStream.h"
 #include "SampleReader.h"
 #include "demuxers/WebmReader.h"
+
+// forwards
+class CAdaptiveByteStream;
 
 class ATTR_DLL_LOCAL CWebmSampleReader : public ISampleReader, public WebmReader
 {

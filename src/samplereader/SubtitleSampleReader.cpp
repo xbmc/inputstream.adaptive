@@ -10,6 +10,11 @@
 
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
+#include "Stream.h"
+#include "AdaptiveByteStream.h"
+#include "codechandler/TTMLCodecHandler.h"
+#include "codechandler/WebVTTCodecHandler.h"
+#include "common/AdaptiveStream.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"

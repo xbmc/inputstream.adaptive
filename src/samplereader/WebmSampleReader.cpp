@@ -8,6 +8,8 @@
 
 #include "WebmSampleReader.h"
 
+#include "AdaptiveByteStream.h"
+
 CWebmSampleReader::CWebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
   : WebmReader{input},
     m_streamId{streamId},

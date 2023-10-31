@@ -8,6 +8,9 @@
 
 #include "ReprSelector.h"
 
+#include "AdaptationSet.h"
+#include "Representation.h"
+
 #include <algorithm>
 #include <vector>
 

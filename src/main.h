@@ -13,6 +13,9 @@
 #include <kodi/addon-instance/Inputstream.h>
 #include <kodi/addon-instance/VideoCodec.h>
 
+#include <map>
+#include <memory>
+
 /*******************************************************/
 /*                     InputStream                     */
 /*******************************************************/
