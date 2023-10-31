@@ -9,7 +9,6 @@
 #pragma once
 
 #include "utils/CurlUtils.h"
-#include "utils/PropertiesUtils.h"
 
 // forward
 namespace adaptive
@@ -26,8 +25,7 @@ namespace PLAYLIST_FACTORY
  * \param manifestResp The HTTP manifest response data
  * \return The adaptive tree pointer, or nullptr when the manifest cannot be identified
  */
-adaptive::AdaptiveTree* CreateAdaptiveTree(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                                           const UTILS::CURL::HTTPResponse& manifestResp);
+adaptive::AdaptiveTree* CreateAdaptiveTree(const UTILS::CURL::HTTPResponse& manifestResp);
 
 /*!
  * \brief Try detect the manifest type based on data provided.

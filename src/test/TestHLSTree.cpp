@@ -7,8 +7,8 @@
  */
 
 #include "TestHelper.h"
-
-#include "../utils/PropertiesUtils.h"
+#include "../CompKodiProps.h"
+#include "../SrvBroker.h"
 
 #include <gtest/gtest.h>
 
@@ -48,6 +48,8 @@ protected:
   {
     testHelper::testFile = filePath;
 
+    CSrvBroker::GetInstance()->Init({});
+
     // Download the manifest
     UTILS::CURL::HTTPResponse resp;
     if (!testHelper::DownloadFile(url, {}, {}, resp))
@@ -56,11 +58,12 @@ protected:
       exit(1);
     }
 
-    m_reprChooser->Initialize(m_kodiProps.m_chooserProps);
+    ADP::KODI_PROPS::ChooserProps chooserProps;
+    m_reprChooser->Initialize(chooserProps);
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_kodiProps, m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED", "");
+    tree->Configure(m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED", "");
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
@@ -68,7 +71,7 @@ protected:
       LOG::Log(LOGERROR, "Cannot open \"%s\" HLS manifest.", url.c_str());
       exit(1);
     }
-    tree->PostOpen(m_kodiProps);
+    tree->PostOpen();
     tree->m_currentAdpSet = tree->m_periods[0]->GetAdaptationSets()[0].get();
     tree->m_currentRepr = tree->m_currentAdpSet->GetRepresentations()[0].get();
   }
@@ -88,7 +91,6 @@ protected:
 
   adaptive::CHLSTree* tree;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
-  UTILS::PROPERTIES::KodiProperties m_kodiProps;
 };
 
 

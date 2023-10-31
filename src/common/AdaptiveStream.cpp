@@ -11,11 +11,14 @@
 #ifndef INPUTSTREAM_TEST_BUILD
 #include "demuxers/WebmReader.h"
 #endif
+#include "Chooser.h"
+#include "CompKodiProps.h"
+#include "SrvBroker.h"
+#include "kodi/tools/StringUtils.h"
 #include "oscompat.h"
 #include "utils/CurlUtils.h"
 #include "utils/UrlUtils.h"
 #include "utils/log.h"
-#include "Chooser.h"
 
 #include <algorithm>
 #include <cmath>
@@ -23,7 +26,6 @@
 #include <iostream>
 
 #include <bento4/Ap4.h>
-#include "kodi/tools/StringUtils.h"
 
 using namespace adaptive;
 using namespace std::chrono_literals;
@@ -35,25 +37,26 @@ uint32_t AdaptiveStream::globalClsId = 0;
 
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                PLAYLIST::CAdaptationSet* adp,
-                               PLAYLIST::CRepresentation* initialRepr,
-                               const UTILS::PROPERTIES::KodiProperties& kodiProps)
+                               PLAYLIST::CRepresentation* initialRepr)
   : thread_data_(nullptr),
     tree_(tree),
     observer_(nullptr),
     current_period_(tree_.m_currentPeriod),
     current_adp_(adp),
     current_rep_(initialRepr),
-    m_streamParams(kodiProps.m_streamParams),
-    m_streamHeaders(kodiProps.m_streamHeaders),
     segment_read_pos_(0),
     currentPTSOffset_(0),
     absolutePTSOffset_(0),
     lastUpdated_(std::chrono::system_clock::now()),
     m_fixateInitialization(false),
     m_segmentFileOffset(0),
-    play_timeshift_buffer_(kodiProps.m_playTimeshiftBuffer),
     last_rep_(0)
 {
+  auto kodiProps = CSrvBroker::GetKodiProps();
+  m_streamParams = kodiProps->GetStreamParams();
+  m_streamHeaders = kodiProps->GetStreamHeaders();
+  play_timeshift_buffer_ = kodiProps->IsPlayTimeshift();
+
   current_rep_->current_segment_ = nullptr;
 
   // Set the class id for debug purpose

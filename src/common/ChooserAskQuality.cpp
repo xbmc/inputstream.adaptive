@@ -8,11 +8,13 @@
 
 #include "ChooserAskQuality.h"
 
+#include "CompKodiProps.h"
+#include "ReprSelector.h"
+#include "SrvBroker.h"
+#include "kodi/tools/StringUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
-#include "ReprSelector.h"
-#include "kodi/tools/StringUtils.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
 #include <kodi/gui/dialogs/Select.h>
@@ -46,7 +48,7 @@ CRepresentationChooserAskQuality::CRepresentationChooserAskQuality()
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Ask quality");
 }
 
-void CRepresentationChooserAskQuality::Initialize(const UTILS::PROPERTIES::ChooserProps& props)
+void CRepresentationChooserAskQuality::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
 }
 

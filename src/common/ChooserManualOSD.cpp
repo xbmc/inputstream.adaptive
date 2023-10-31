@@ -8,45 +8,41 @@
 
 #include "ChooserManualOSD.h"
 
-#include "utils/SettingsUtils.h"
-#include "utils/log.h"
+#include "CompKodiProps.h"
+#include "CompSettings.h"
 #include "ReprSelector.h"
+#include "SrvBroker.h"
+#include "utils/log.h"
 
+using namespace ADP;
 using namespace CHOOSER;
 using namespace PLAYLIST;
-using namespace UTILS;
 
 CRepresentationChooserManualOSD::CRepresentationChooserManualOSD()
 {
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Manual OSD");
 }
 
-void CRepresentationChooserManualOSD::Initialize(const UTILS::PROPERTIES::ChooserProps& props)
+void CRepresentationChooserManualOSD::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
-  std::string manualSelMode{kodi::addon::GetSettingString("adaptivestream.streamselection.mode")};
+  auto settings = CSrvBroker::GetSettings();
 
-  if (manualSelMode == "manual-v")
-    m_streamSelectionMode = SETTINGS::StreamSelection::MANUAL_VIDEO_ONLY;
+  SETTINGS::StreamSelMode manualSelMode = settings->GetStreamSelMode();
+
+  if (manualSelMode == SETTINGS::StreamSelMode::MANUAL_VIDEO)
+    m_streamSelectionMode = StreamSelection::MANUAL_VIDEO_ONLY;
   else
-    m_streamSelectionMode = SETTINGS::StreamSelection::MANUAL;
+    m_streamSelectionMode = StreamSelection::MANUAL;
 
-  std::pair<int, int> res;
-  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.max"), res))
-  {
-    m_screenResMax = res;
-  }
-  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.secure.max"),
-                                     res))
-  {
-    m_screenResSecureMax = res;
-  }
+  m_screenResMax = settings->GetResMax();
+  m_screenResSecureMax = settings->GetResSecureMax();
 
   LOG::Log(LOGDEBUG,
            "[Repr. chooser] Configuration\n"
-           "Stream manual selection mode: %s\n"
+           "Stream manual selection mode: %i\n"
            "Resolution max: %ix%i\n"
            "Resolution max for secure decoder: %ix%i",
-           manualSelMode.c_str(), m_screenResMax.first, m_screenResMax.second,
+           manualSelMode, m_screenResMax.first, m_screenResMax.second,
            m_screenResSecureMax.first, m_screenResSecureMax.second);
 }
 

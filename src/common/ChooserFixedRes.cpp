@@ -8,31 +8,26 @@
 
 #include "ChooserFixedRes.h"
 
-#include "utils/SettingsUtils.h"
-#include "utils/log.h"
+#include "CompKodiProps.h"
+#include "CompSettings.h"
 #include "ReprSelector.h"
+#include "SrvBroker.h"
+#include "utils/log.h"
 
 using namespace CHOOSER;
 using namespace PLAYLIST;
-using namespace UTILS;
 
 CRepresentationChooserFixedRes::CRepresentationChooserFixedRes()
 {
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Fixed resolution");
 }
 
-void CRepresentationChooserFixedRes::Initialize(const UTILS::PROPERTIES::ChooserProps& props)
+void CRepresentationChooserFixedRes::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
-  std::pair<int, int> res;
-  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.max"), res))
-  {
-    m_screenResMax = res;
-  }
-  if (SETTINGS::ParseResolutionLimit(kodi::addon::GetSettingString("adaptivestream.res.secure.max"),
-                                     res))
-  {
-    m_screenResSecureMax = res;
-  }
+  auto settings = CSrvBroker::GetSettings();
+
+  m_screenResMax = settings->GetResMax();
+  m_screenResSecureMax = settings->GetResSecureMax();
 
   // Override settings with Kodi/video add-on properties
 

@@ -30,8 +30,7 @@ public:
 
   virtual CHLSTree* Clone() const override { return new CHLSTree{*this}; }
 
-  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                         CHOOSER::IRepresentationChooser* reprChooser,
+  virtual void Configure(CHOOSER::IRepresentationChooser* reprChooser,
                          std::string_view supportedKeySystem,
                          std::string_view manifestUpdateParam) override;
 

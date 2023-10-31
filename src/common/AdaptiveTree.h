@@ -9,7 +9,6 @@
 #pragma once
 
 #include "utils/CryptoUtils.h"
-#include "utils/PropertiesUtils.h"
 #include "AdaptationSet.h"
 #include "Period.h"
 #include "Representation.h"
@@ -90,8 +89,7 @@ public:
    * \param kodiProps The Kodi properties
    * \param manifestUpdParams Parameters to be add to manifest request url, depends on manifest implementation
    */
-  virtual void Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                         CHOOSER::IRepresentationChooser* reprChooser,
+  virtual void Configure(CHOOSER::IRepresentationChooser* reprChooser,
                          std::string_view supportedKeySystem,
                          std::string_view manifestUpdParams);
 
@@ -114,7 +112,7 @@ public:
    * \brief Performs tasks after opening the manifest
    * \param kodiProps The Kodi properties
    */
-  virtual void PostOpen(const UTILS::PROPERTIES::KodiProperties& kodiProps);
+  virtual void PostOpen();
 
   virtual PLAYLIST::PrepareRepStatus prepareRepresentation(PLAYLIST::CPeriod* period,
                                                            PLAYLIST::CAdaptationSet* adp,

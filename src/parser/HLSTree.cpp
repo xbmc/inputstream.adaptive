@@ -8,7 +8,9 @@
 
 #include "HLSTree.h"
 
+#include "CompKodiProps.h"
 #include "PRProtectionParser.h"
+#include "SrvBroker.h"
 #include "aes_decrypter.h"
 #include "kodi/tools/StringUtils.h"
 #include "utils/Base64Utils.h"
@@ -137,13 +139,12 @@ adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
   m_decrypter = std::make_unique<AESDecrypter>(left.m_decrypter->getLicenseKey());
 }
 
-void adaptive::CHLSTree::Configure(const UTILS::PROPERTIES::KodiProperties& kodiProps,
-                                   CHOOSER::IRepresentationChooser* reprChooser,
+void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
                                    std::string_view supportedKeySystem,
                                    std::string_view manifestUpdateParam)
 {
-  AdaptiveTree::Configure(kodiProps, reprChooser, supportedKeySystem, manifestUpdateParam);
-  m_decrypter = std::make_unique<AESDecrypter>(kodiProps.m_licenseKey);
+  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdateParam);
+  m_decrypter = std::make_unique<AESDecrypter>(CSrvBroker::GetKodiProps()->GetLicenseKey());
 }
 
 bool adaptive::CHLSTree::Open(std::string_view url,

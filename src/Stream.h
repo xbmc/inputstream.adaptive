@@ -22,12 +22,11 @@ class ATTR_DLL_LOCAL CStream
 public:
   CStream(adaptive::AdaptiveTree& tree,
           PLAYLIST::CAdaptationSet* adp,
-          PLAYLIST::CRepresentation* initialRepr,
-          const UTILS::PROPERTIES::KodiProperties& kodiProps)
+          PLAYLIST::CRepresentation* initialRepr)
     : m_isEnabled{false},
       m_isEncrypted{false},
       m_mainId{0},
-      m_adStream{tree, adp, initialRepr, kodiProps},
+      m_adStream{tree, adp, initialRepr},
       m_hasSegmentChanged{false},
       m_isValid{true} {};
 

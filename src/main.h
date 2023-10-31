@@ -9,7 +9,6 @@
 #pragma once
 
 #include "Session.h"
-#include "utils/PropertiesUtils.h"
 
 #include <kodi/addon-instance/Inputstream.h>
 #include <kodi/addon-instance/VideoCodec.h>
@@ -55,7 +54,6 @@ public:
 
 private:
   std::shared_ptr<SESSION::CSession> m_session{nullptr};
-  UTILS::PROPERTIES::KodiProperties m_kodiProps;
   int m_currentVideoWidth{0};
   int m_currentVideoHeight{0};
   int m_currentVideoMaxWidth{0};

@@ -22,14 +22,11 @@ public:
   CRepresentationChooserManualOSD();
   ~CRepresentationChooserManualOSD() override {}
 
-  virtual void Initialize(const UTILS::PROPERTIES::ChooserProps& props) override;
+  virtual void Initialize(const ADP::KODI_PROPS::ChooserProps& props) override;
 
   virtual void PostInit() override;
 
-  virtual UTILS::SETTINGS::StreamSelection GetStreamSelectionMode() override
-  {
-    return m_streamSelectionMode;
-  }
+  virtual StreamSelection GetStreamSelectionMode() override { return m_streamSelectionMode; }
 
   PLAYLIST::CRepresentation* GetNextRepresentation(PLAYLIST::CAdaptationSet* adp,
                                                    PLAYLIST::CRepresentation* currentRep) override;
@@ -37,7 +34,7 @@ public:
 protected:
   void RefreshResolution();
 
-  UTILS::SETTINGS::StreamSelection m_streamSelectionMode{UTILS::SETTINGS::StreamSelection::AUTO};
+  StreamSelection m_streamSelectionMode = StreamSelection::AUTO;
 
   int m_screenWidth{0};
   int m_screenHeight{0};

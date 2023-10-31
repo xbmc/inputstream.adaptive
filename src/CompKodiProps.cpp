@@ -1,21 +1,20 @@
 /*
- *  Copyright (C) 2022 Team Kodi
+ *  Copyright (C) 2023 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *  See LICENSES/README.md for more information.
  */
 
-#include "PropertiesUtils.h"
-
-#include "SettingsUtils.h"
-#include "StringUtils.h"
-#include "Utils.h"
-#include "log.h"
+#include "CompKodiProps.h"
+#include "CompSettings.h"
+#include "utils/StringUtils.h"
+#include "utils/Utils.h"
+#include "utils/log.h"
 
 #include <string_view>
 
-using namespace UTILS::PROPERTIES;
+using namespace UTILS;
 
 namespace
 {
@@ -48,39 +47,36 @@ constexpr std::string_view PROP_CHOOSER_RES_SECURE_MAX = "inputstream.adaptive.c
 // clang-format on
 } // unnamed namespace
 
-KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
-    const std::map<std::string, std::string> properties)
+ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std::string>& props)
 {
-  KodiProperties props;
-
-  for (auto& prop : properties)
+  for (const auto& prop : props)
   {
     bool logPropValRedacted{false};
 
     if (prop.first == PROP_LICENSE_TYPE)
     {
-      props.m_licenseType = prop.second;
+      m_licenseType = prop.second;
     }
     else if (prop.first == PROP_LICENSE_KEY)
     {
-      props.m_licenseKey = prop.second;
+      m_licenseKey = prop.second;
       logPropValRedacted = true;
     }
     else if (prop.first == PROP_LICENSE_DATA)
     {
-      props.m_licenseData = prop.second;
+      m_licenseData = prop.second;
       logPropValRedacted = true;
     }
     else if (prop.first == PROP_LICENSE_FLAGS)
     {
       if (prop.second.find("persistent_storage") != std::string::npos)
-        props.m_isLicensePersistentStorage = true;
+        m_isLicensePersistentStorage = true;
       if (prop.second.find("force_secure_decoder") != std::string::npos)
-        props.m_isLicenseForceSecureDecoder = true;
+        m_isLicenseForceSecureDecoder = true;
     }
     else if (prop.first == PROP_SERVER_CERT)
     {
-      props.m_serverCertificate = prop.second;
+      m_serverCertificate = prop.second;
       logPropValRedacted = true;
     }
     else if (prop.first == PROP_MANIFEST_TYPE) //! @todo: deprecated, to be removed on next Kodi release
@@ -94,15 +90,16 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
           "to learn more about it.");
 
       if (STRING::CompareNoCase(prop.second, "MPD"))
-        props.m_manifestType = ManifestType::MPD;
+        m_manifestType = ManifestType::MPD;
       else if (STRING::CompareNoCase(prop.second, "ISM"))
-        props.m_manifestType = ManifestType::ISM;
+        m_manifestType = ManifestType::ISM;
       else if (STRING::CompareNoCase(prop.second, "HLS"))
-        props.m_manifestType = ManifestType::HLS;
+        m_manifestType = ManifestType::HLS;
       else
         LOG::LogF(LOGERROR, "Manifest type \"%s\" is not supported", prop.second.c_str());
     }
-    else if (prop.first == PROP_MANIFEST_UPD_PARAM) //! @todo: deprecated, to be removed on next Kodi release
+    else if (prop.first ==
+             PROP_MANIFEST_UPD_PARAM) //! @todo: deprecated, to be removed on next Kodi release
     {
       LOG::Log(
           LOGWARNING,
@@ -115,7 +112,7 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
                            "streaming contents please open an Issue to the GitHub repository.");
       }
       else
-        props.m_manifestUpdateParam = prop.second;
+        m_manifestUpdateParam = prop.second;
     }
     else if (prop.first == PROP_MANIFEST_UPD_PARAMS)
     {
@@ -124,62 +121,62 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
       if (prop.second == "full")
         LOG::Log(LOGERROR, "The parameter \"full\" is not supported.");
       else
-        props.m_manifestUpdParams = prop.second;
+        m_manifestUpdParams = prop.second;
     }
     else if (prop.first == PROP_MANIFEST_PARAMS)
     {
-      props.m_manifestParams = prop.second;
+      m_manifestParams = prop.second;
     }
     else if (prop.first == PROP_MANIFEST_HEADERS)
     {
-      ParseHeaderString(props.m_manifestHeaders, prop.second);
+      ParseHeaderString(m_manifestHeaders, prop.second);
     }
     else if (prop.first == PROP_STREAM_PARAMS)
     {
-      props.m_streamParams = prop.second;
+      m_streamParams = prop.second;
     }
     else if (prop.first == PROP_STREAM_HEADERS)
     {
-      ParseHeaderString(props.m_streamHeaders, prop.second);
+      ParseHeaderString(m_streamHeaders, prop.second);
     }
     else if (prop.first == PROP_AUDIO_LANG_ORIG)
     {
-      props.m_audioLanguageOrig = prop.second;
+      m_audioLanguageOrig = prop.second;
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
-      props.m_playTimeshiftBuffer = STRING::CompareNoCase(prop.second, "true");
+      m_playTimeshiftBuffer = STRING::CompareNoCase(prop.second, "true");
     }
     else if (prop.first == PROP_LIVE_DELAY)
     {
-      props.m_liveDelay = STRING::ToUint64(prop.second);
+      m_liveDelay = STRING::ToUint64(prop.second);
     }
     else if (prop.first == PROP_PRE_INIT_DATA)
     {
-      props.m_drmPreInitData = prop.second;
+      m_drmPreInitData = prop.second;
       logPropValRedacted = true;
     }
     else if (prop.first == PROP_STREAM_SELECTION_TYPE)
     {
-      props.m_streamSelectionType = prop.second;
+      m_chooserProps.m_chooserType = prop.second;
     }
     else if (prop.first == PROP_CHOOSER_BANDWIDTH_MAX)
     {
-      props.m_chooserProps.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
+      m_chooserProps.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
     }
     else if (prop.first == PROP_CHOOSER_RES_MAX)
     {
       std::pair<int, int> res;
-      if (SETTINGS::ParseResolutionLimit(prop.second, res))
-        props.m_chooserProps.m_resolutionMax = res;
+      if (STRING::GetMapValue(ADP::SETTINGS::RES_CONV_LIST, prop.second, res))
+        m_chooserProps.m_resolutionMax = res;
       else
         LOG::Log(LOGERROR, "Resolution not valid on \"%s\" property.", prop.first.c_str());
     }
     else if (prop.first == PROP_CHOOSER_RES_SECURE_MAX)
     {
       std::pair<int, int> res;
-      if (SETTINGS::ParseResolutionLimit(prop.second, res))
-        props.m_chooserProps.m_resolutionSecureMax = res;
+      if (STRING::GetMapValue(ADP::SETTINGS::RES_CONV_LIST, prop.second, res))
+        m_chooserProps.m_resolutionSecureMax = res;
       else
         LOG::Log(LOGERROR, "Resolution not valid on \"%s\" property.", prop.first.c_str());
     }
@@ -192,6 +189,4 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     LOG::Log(LOGDEBUG, "Property found \"%s\" value: %s", prop.first.c_str(),
              logPropValRedacted ? "[redacted]" : prop.second.c_str());
   }
-
-  return props;
 }

@@ -8,12 +8,15 @@
 
 #include "Chooser.h"
 
-#include "utils/log.h"
 #include "ChooserAskQuality.h"
 #include "ChooserDefault.h"
 #include "ChooserFixedRes.h"
 #include "ChooserManualOSD.h"
 #include "ChooserTest.h"
+#include "CompKodiProps.h"
+#include "CompSettings.h"
+#include "SrvBroker.h"
+#include "utils/log.h"
 
 #ifndef INPUTSTREAM_TEST_BUILD
 #include <kodi/gui/General.h>
@@ -21,6 +24,7 @@
 
 #include <vector>
 
+using namespace ADP;
 using namespace CHOOSER;
 using namespace PLAYLIST;
 
@@ -44,27 +48,28 @@ IRepresentationChooser* GetReprChooser(std::string_view type)
 }
 } // unnamed namespace
 
-IRepresentationChooser* CHOOSER::CreateRepresentationChooser(
-    const UTILS::PROPERTIES::KodiProperties& kodiProps)
+IRepresentationChooser* CHOOSER::CreateRepresentationChooser()
 {
   IRepresentationChooser* reprChooser{nullptr};
 
-  // An add-on can override user settings
-  if (!kodiProps.m_streamSelectionType.empty())
+  const KODI_PROPS::ChooserProps& props = CSrvBroker::GetKodiProps()->GetChooserProps();
+
+  // An add-on can override XML settings by using Kodi properties
+  if (!props.m_chooserType.empty())
   {
-    reprChooser = GetReprChooser(kodiProps.m_streamSelectionType);
+    reprChooser = GetReprChooser(props.m_chooserType);
     if (!reprChooser)
-      LOG::Log(LOGERROR, "Stream selection type \"%s\" not exist. Fallback to user settings");
+      LOG::Log(LOGERROR, "Stream selection type \"%s\" not exist. Fallback to XML settings");
   }
 
   if (!reprChooser)
-    reprChooser = GetReprChooser(kodi::addon::GetSettingString("adaptivestream.type"));
+    reprChooser = GetReprChooser(CSrvBroker::GetSettings()->GetChooserType());
 
   // Safe check for wrong settings, fallback to default
   if (!reprChooser)
     reprChooser = new CRepresentationChooserDefault();
 
-  reprChooser->Initialize(kodiProps.m_chooserProps);
+  reprChooser->Initialize(props);
 
   return reprChooser;
 }

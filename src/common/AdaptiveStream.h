@@ -37,8 +37,7 @@ class AdaptiveStream;
   public:
     AdaptiveStream(AdaptiveTree& tree,
                    PLAYLIST::CAdaptationSet* adpSet,
-                   PLAYLIST::CRepresentation* initialRepr,
-                   const UTILS::PROPERTIES::KodiProperties& kodiProps);
+                   PLAYLIST::CRepresentation* initialRepr);
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     void Reset();
@@ -97,9 +96,6 @@ class AdaptiveStream;
     * \return True if its required to create Movie (MOOV) atom, otherwise false
     */
     bool IsRequiredCreateMovieAtom();
-
-    std::string GetStreamParams() const { return m_streamParams; }
-    std::map<std::string, std::string> GetStreamHeaders() const { return m_streamHeaders; }
 
   protected:
     virtual bool parseIndexRange(PLAYLIST::CRepresentation* rep,

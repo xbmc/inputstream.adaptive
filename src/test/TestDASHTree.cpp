@@ -9,9 +9,10 @@
 #include "TestHelper.h"
 
 #include "../utils/Base64Utils.h"
-#include "../utils/PropertiesUtils.h"
 #include "../utils/UrlUtils.h"
 #include "../utils/Utils.h"
+#include "../SrvBroker.h"
+#include "../CompKodiProps.h"
 
 #include <gtest/gtest.h>
 
@@ -52,6 +53,8 @@ protected:
   {
     testHelper::testFile = filePath;
 
+    CSrvBroker::GetInstance()->Init(m_kodiProps);
+
     // Download the manifest
     UTILS::CURL::HTTPResponse resp;
     if (!testHelper::DownloadFile(url, {}, {}, resp))
@@ -60,11 +63,12 @@ protected:
       exit(1);
     }
 
-    m_reprChooser->Initialize(m_kodiProps.m_chooserProps);
+    ADP::KODI_PROPS::ChooserProps chooserProps;
+    m_reprChooser->Initialize(chooserProps);
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_kodiProps, m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED",
+    tree->Configure(m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED",
                     manifestUpdParams);
 
     // Parse the manifest
@@ -73,12 +77,18 @@ protected:
       LOG::Log(LOGERROR, "Cannot open \"%s\" DASH manifest.", url.c_str());
       exit(1);
     }
-    tree->PostOpen(m_kodiProps);
+    tree->PostOpen();
+  }
+
+  // To set custom Kodi properties, must be called before OpenTestFile method
+  void SetKodiProps(bool isPlayTimeshift)
+  {
+    m_kodiProps.emplace("inputstream.adaptive.play_timeshift_buffer", isPlayTimeshift ? "true" : "false");
   }
 
   DASHTestTree* tree;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
-  UTILS::PROPERTIES::KodiProperties m_kodiProps;
+  std::map<std::string, std::string> m_kodiProps;
 };
 
 class DASHTreeAdaptiveStreamTest : public DASHTreeTest
@@ -102,22 +112,18 @@ protected:
     testStream = newStream;
   }
 
-  TestAdaptiveStream* NewStream(PLAYLIST::CAdaptationSet* adp, bool playTimeshiftBuffer = true)
+  TestAdaptiveStream* NewStream(PLAYLIST::CAdaptationSet* adp)
   {
-    return NewStream(adp, nullptr, playTimeshiftBuffer);
+    return NewStream(adp, nullptr);
   }
 
-  TestAdaptiveStream* NewStream(PLAYLIST::CAdaptationSet* adp,
-                                PLAYLIST::CRepresentation* repr, bool playTimeshiftBuffer = true)
+  TestAdaptiveStream* NewStream(PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* repr)
   {
     PLAYLIST::CRepresentation* initialRepr = repr;
     if (!repr)
       initialRepr = tree->GetRepChooser()->GetRepresentation(adp);
 
-    UTILS::PROPERTIES::KodiProperties kodiProps;
-    kodiProps.m_playTimeshiftBuffer = playTimeshiftBuffer;
-
-    return new TestAdaptiveStream(*tree, adp, initialRepr, kodiProps);
+    return new TestAdaptiveStream(*tree, adp, initialRepr);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,
@@ -175,6 +181,8 @@ TEST_F(DASHTreeTest, CalculateBaseURLFromBaseURLTag)
 
 TEST_F(DASHTreeAdaptiveStreamTest, CalculateBaseURLWithNoSlashOutsidePeriod)
 {
+  SetKodiProps(true);
+
   // BaseURL outside period with no trailing slash
   OpenTestFile("mpd/segtpl_baseurl_noslash_outside.mpd", "https://bit.ly/abcd");
 
@@ -325,6 +333,7 @@ TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 
 TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
 {
+  SetKodiProps(true);
   OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd");
   SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
 
@@ -515,6 +524,7 @@ TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
 
 TEST_F(DASHTreeAdaptiveStreamTest, CalculateRedirectSegTpl)
 {
+  SetKodiProps(true);
   testHelper::effectiveUrl = "https://foo.bar/mpd/stream.mpd";
   OpenTestFile("mpd/segtpl.mpd", "https://bit.ly/abcd.mpd");
 
@@ -536,6 +546,7 @@ TEST_F(DASHTreeAdaptiveStreamTest, CalculateRedirectSegTpl)
 
 TEST_F(DASHTreeAdaptiveStreamTest, CalculateReprensentationBaseURL)
 {
+  SetKodiProps(true);
   OpenTestFile("mpd/rep_base_url.mpd", "https://bit.ly/mpd/abcd.mpd");
 
   auto& adpSets = tree->m_periods[0]->GetAdaptationSets();

@@ -8,6 +8,8 @@
 
 #include "main.h"
 
+#include "CompKodiProps.h"
+#include "SrvBroker.h"
 #include "Stream.h"
 #include "samplereader/SampleReaderFactory.h"
 #include "utils/Utils.h"
@@ -40,17 +42,13 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
   LOG::Log(LOGDEBUG, "Open()");
 
   std::string url = props.GetURL();
-  m_kodiProps = PROPERTIES::ParseKodiProperties(props.GetProperties());
 
-  std::uint8_t drmConfig{0};
-  if (m_kodiProps.m_isLicensePersistentStorage)
-    drmConfig |= DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE;
+  CSrvBroker::GetInstance()->Init(props.GetProperties());
 
-  m_session = std::make_shared<CSession>(m_kodiProps, url, props.GetProfileFolder());
+  m_session = std::make_shared<CSession>(url, props.GetProfileFolder());
   m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight, m_currentVideoMaxWidth,
                                 m_currentVideoMaxHeight);
 
-  m_session->SetDrmConfig(drmConfig);
   if (!m_session->Initialize())
   {
     m_session = nullptr;

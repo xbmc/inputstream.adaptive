@@ -8,29 +8,33 @@
 
 #include "ChooserTest.h"
 
-#include "utils/SettingsUtils.h"
-#include "utils/log.h"
+#include "CompKodiProps.h"
+#include "CompSettings.h"
 #include "ReprSelector.h"
+#include "SrvBroker.h"
+#include "utils/log.h"
 
+using namespace ADP;
 using namespace CHOOSER;
 using namespace PLAYLIST;
-using namespace UTILS;
 
 CRepresentationChooserTest::CRepresentationChooserTest()
 {
   LOG::Log(LOGDEBUG, "[Repr. chooser] Type: Test");
 }
 
-void CRepresentationChooserTest::Initialize(const UTILS::PROPERTIES::ChooserProps& props)
+void CRepresentationChooserTest::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
-  std::string manualSelMode{kodi::addon::GetSettingString("adaptivestream.streamselection.mode")};
+  auto settings = CSrvBroker::GetSettings();
 
-  if (manualSelMode == "manual-v")
-    m_streamSelectionMode = SETTINGS::StreamSelection::MANUAL_VIDEO_ONLY;
+  SETTINGS::StreamSelMode manualSelMode = settings->GetStreamSelMode();
+
+  if (manualSelMode == SETTINGS::StreamSelMode::MANUAL_VIDEO)
+    m_streamSelectionMode = StreamSelection::MANUAL_VIDEO_ONLY;
   else
-    m_streamSelectionMode = SETTINGS::StreamSelection::MANUAL;
+    m_streamSelectionMode = StreamSelection::MANUAL;
 
-  std::string testMode{kodi::addon::GetSettingString("adaptivestream.test.mode")};
+  std::string testMode = settings->GetChooserTestMode();
 
   if (testMode == "switch-segments")
     m_testMode = TestMode::SWITCH_SEGMENTS;
@@ -41,7 +45,7 @@ void CRepresentationChooserTest::Initialize(const UTILS::PROPERTIES::ChooserProp
 
   if (m_testMode == TestMode::SWITCH_SEGMENTS)
   {
-    m_segmentsLimit = kodi::addon::GetSettingInt("adaptivestream.test.segments");
+    m_segmentsLimit = settings->GetChooserTestSegs();
     logDetails = kodi::tools::StringUtils::Format("Segments: %i", m_segmentsLimit);
   }
 
