@@ -151,13 +151,10 @@ class MasterParser : public ElementParser {
 
   // Hash functor for hashing Id enums for storage in std::unordered_map.
   struct IdHash : StdHashId {
-    // Type aliases for conforming to the std::hash interface.
-    using argument_type = Id;
-    using result_type = StdHashId::result_type;
-
     // Returns the hash of the given id.
-    result_type operator()(argument_type id) const {
-      return StdHashId::operator()(static_cast<StdHashId::argument_type>(id));
+    size_t operator()(Id id) const
+    {
+      return StdHashId::operator()(static_cast<std::underlying_type<Id>::type>(id));
     }
   };
 
