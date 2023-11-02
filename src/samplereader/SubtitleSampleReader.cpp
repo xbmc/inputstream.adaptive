@@ -10,6 +10,12 @@
 
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
+#include "Stream.h"
+#include "AdaptiveByteStream.h"
+#include "codechandler/TTMLCodecHandler.h"
+#include "codechandler/WebVTTCodecHandler.h"
+#include "common/AdaptiveStream.h"
+#include "common/Representation.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
@@ -38,11 +44,11 @@ CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
 
   // Append stream parameters, only if not already provided
   if (url.find('?') == std::string::npos)
-    URL::AppendParameters(url, kodiProps->GetStreamParams());
+    URL::AppendParameters(url, kodiProps.GetStreamParams());
 
   // Download the file
   CURL::CUrl curl(url);
-  curl.AddHeaders(kodiProps->GetStreamHeaders());
+  curl.AddHeaders(kodiProps.GetStreamHeaders());
   int statusCode = curl.Open(true);
   if (statusCode == -1)
   {

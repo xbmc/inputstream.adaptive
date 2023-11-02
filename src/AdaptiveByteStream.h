@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include "common/AdaptiveStream.h"
-
 #include <bento4/Ap4.h>
 
 #ifdef INPUTSTREAM_TEST_BUILD
@@ -17,6 +15,12 @@
 #else
 #include <kodi/AddonBase.h>
 #endif
+
+// forwards
+namespace adaptive
+{
+class AdaptiveStream;
+}
 
 class ATTR_DLL_LOCAL CAdaptiveByteStream : public AP4_ByteStream
 {
@@ -37,9 +41,9 @@ public:
   // AP4_Referenceable methods
   void AddReference() override{};
   void Release() override{};
-  bool waitingForSegment() const { return m_adStream->waitingForSegment(); }
-  void FixateInitialization(bool on) { m_adStream->FixateInitialization(on); }
-  void SetSegmentFileOffset(uint64_t offset) { m_adStream->SetSegmentFileOffset(offset); }
+  bool waitingForSegment() const;
+  void FixateInitialization(bool on);
+  void SetSegmentFileOffset(uint64_t offset);
 
 protected:
   adaptive::AdaptiveStream* m_adStream;

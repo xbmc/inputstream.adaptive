@@ -10,6 +10,7 @@
 
 #include "Stream.h"
 #include "common/AdaptiveUtils.h"
+#include "common/Representation.h"
 #include "samplereader/ADTSSampleReader.h"
 #include "samplereader/FragmentedSampleReader.h"
 #include "samplereader/SubtitleSampleReader.h"

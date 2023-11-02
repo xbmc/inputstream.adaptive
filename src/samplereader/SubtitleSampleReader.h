@@ -6,14 +6,23 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "codechandler/TTMLCodecHandler.h"
-#include "codechandler/WebVTTCodecHandler.h"
-#include "common/AdaptiveStream.h"
-#include "Stream.h"
 #include "SampleReader.h"
+
+#include "codechandler/CodecHandler.h"
 
 #include <memory>
 #include <string_view>
+
+// forwards
+class CAdaptiveByteStream;
+namespace SESSION
+{
+class CStream;
+}
+namespace adaptive
+{
+class AdaptiveStream;
+}
 
 class ATTR_DLL_LOCAL CSubtitleSampleReader : public ISampleReader
 {

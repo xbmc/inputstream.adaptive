@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include "AdaptiveTree.h"
-
+#include "AdaptiveUtils.h"
+#include "Segment.h"
 #include "samplereader/SampleReader.h"
 
 #include <atomic>
@@ -19,11 +19,18 @@
 #include <string>
 #include <thread>
 
+namespace PLAYLIST
+{
+class CAdaptationSet;
+class CPeriod;
+class CRepresentation;
+}
+
 namespace adaptive
 {
 // forward
 class AdaptiveStream;
-
+class AdaptiveTree;
 
   class ATTR_DLL_LOCAL AdaptiveStreamObserver
   {
@@ -35,7 +42,7 @@ class AdaptiveStream;
   class ATTR_DLL_LOCAL AdaptiveStream : public SampleReaderObserver
   {
   public:
-    AdaptiveStream(AdaptiveTree& tree,
+    AdaptiveStream(AdaptiveTree* tree,
                    PLAYLIST::CAdaptationSet* adpSet,
                    PLAYLIST::CRepresentation* initialRepr);
     virtual ~AdaptiveStream();
@@ -80,7 +87,7 @@ class AdaptiveStream;
     PLAYLIST::CPeriod* getPeriod() { return current_period_; };
     PLAYLIST::CAdaptationSet* getAdaptationSet() { return current_adp_; };
     PLAYLIST::CRepresentation* getRepresentation() { return current_rep_; };
-    size_t getSegmentPos() { return current_rep_->getCurrentSegmentPos(); };
+    size_t getSegmentPos();
     uint64_t GetCurrentPTSOffset() { return currentPTSOffset_; };
     uint64_t GetAbsolutePTSOffset() { return absolutePTSOffset_; };
     bool waitingForSegment(bool checkTime = false) const;
@@ -218,7 +225,7 @@ class AdaptiveStream;
     };
     THREADDATA *thread_data_;
 
-    AdaptiveTree &tree_;
+    AdaptiveTree* m_tree;
     AdaptiveStreamObserver *observer_;
     // Active configuration
     PLAYLIST::CPeriod* current_period_;

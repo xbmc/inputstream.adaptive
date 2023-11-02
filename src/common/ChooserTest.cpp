@@ -8,9 +8,11 @@
 
 #include "ChooserTest.h"
 
+#include "AdaptationSet.h"
 #include "CompKodiProps.h"
 #include "CompSettings.h"
 #include "ReprSelector.h"
+#include "Representation.h"
 #include "SrvBroker.h"
 #include "utils/log.h"
 
@@ -25,16 +27,16 @@ CRepresentationChooserTest::CRepresentationChooserTest()
 
 void CRepresentationChooserTest::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
-  auto settings = CSrvBroker::GetSettings();
+  auto& settings = CSrvBroker::GetSettings();
 
-  SETTINGS::StreamSelMode manualSelMode = settings->GetStreamSelMode();
+  SETTINGS::StreamSelMode manualSelMode = settings.GetStreamSelMode();
 
   if (manualSelMode == SETTINGS::StreamSelMode::MANUAL_VIDEO)
     m_streamSelectionMode = StreamSelection::MANUAL_VIDEO_ONLY;
   else
     m_streamSelectionMode = StreamSelection::MANUAL;
 
-  std::string testMode = settings->GetChooserTestMode();
+  std::string testMode = settings.GetChooserTestMode();
 
   if (testMode == "switch-segments")
     m_testMode = TestMode::SWITCH_SEGMENTS;
@@ -45,7 +47,7 @@ void CRepresentationChooserTest::Initialize(const ADP::KODI_PROPS::ChooserProps&
 
   if (m_testMode == TestMode::SWITCH_SEGMENTS)
   {
-    m_segmentsLimit = settings->GetChooserTestSegs();
+    m_segmentsLimit = settings.GetChooserTestSegs();
     logDetails = kodi::tools::StringUtils::Format("Segments: %i", m_segmentsLimit);
   }
 

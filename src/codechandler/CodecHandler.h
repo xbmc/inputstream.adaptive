@@ -24,7 +24,7 @@ public:
     : m_sampleDescription(sd), m_naluLengthSize(0), m_pictureId(0), m_pictureIdPrev(0xFF){};
   virtual ~CodecHandler(){};
 
-  virtual void UpdatePPSId(AP4_DataBuffer const&){};
+  virtual void UpdatePPSId(const AP4_DataBuffer& buffer) {}
 
   /*!
    * \brief Query the codec handler to get stream info. It can provide info that are missing

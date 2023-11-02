@@ -21,7 +21,7 @@ constexpr AP4_UI32 AP4_AC3_SYNC_PATTERN = 0x0B77;
 constexpr AP4_UI32 AP4_AC4_SYNC_MASK = 0xFFF0;
 constexpr AP4_UI32 AP4_AC4_SYNC_PATTERN = 0x0AC40;
 
-enum class ATTR_DLL_LOCAL AdtsType
+enum class AdtsType
 {
   NONE,
   AAC,

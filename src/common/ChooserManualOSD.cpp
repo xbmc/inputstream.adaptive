@@ -8,9 +8,11 @@
 
 #include "ChooserManualOSD.h"
 
+#include "AdaptationSet.h"
 #include "CompKodiProps.h"
 #include "CompSettings.h"
 #include "ReprSelector.h"
+#include "Representation.h"
 #include "SrvBroker.h"
 #include "utils/log.h"
 
@@ -25,17 +27,17 @@ CRepresentationChooserManualOSD::CRepresentationChooserManualOSD()
 
 void CRepresentationChooserManualOSD::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
-  auto settings = CSrvBroker::GetSettings();
+  auto& settings = CSrvBroker::GetSettings();
 
-  SETTINGS::StreamSelMode manualSelMode = settings->GetStreamSelMode();
+  SETTINGS::StreamSelMode manualSelMode = settings.GetStreamSelMode();
 
   if (manualSelMode == SETTINGS::StreamSelMode::MANUAL_VIDEO)
     m_streamSelectionMode = StreamSelection::MANUAL_VIDEO_ONLY;
   else
     m_streamSelectionMode = StreamSelection::MANUAL;
 
-  m_screenResMax = settings->GetResMax();
-  m_screenResSecureMax = settings->GetResSecureMax();
+  m_screenResMax = settings.GetResMax();
+  m_screenResSecureMax = settings.GetResSecureMax();
 
   LOG::Log(LOGDEBUG,
            "[Repr. chooser] Configuration\n"

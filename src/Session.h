@@ -10,7 +10,7 @@
 
 #include "Stream.h"
 #include "common/AdaptiveStream.h"
-#include "common/Period.h"
+#include "common/AdaptiveTree.h"
 #include "decrypters/IDecrypter.h"
 
 #include <bento4/Ap4.h>
@@ -317,13 +317,6 @@ public:
    *  \param adStream The adaptive stream on which the stream has changed
    */
   void OnStreamChange(adaptive::AdaptiveStream* adStream) override;
-
-  /*!
-   * \brief Create a Movie (MOOV) atom from scratch based on manifest info.
-   * \param stream The stream where to get the info
-   * \return The Movie atom if success, otherwise nullptr
-   */
-  AP4_Movie* CreateMovieAtom(CStream* stream);
 
 protected:
   /*!

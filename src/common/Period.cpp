@@ -7,8 +7,8 @@
  */
 
 #include "Period.h"
+
 #include "AdaptationSet.h"
-#include "AdaptiveUtils.h"
 #include "Representation.h"
 
 using namespace PLAYLIST;

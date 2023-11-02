@@ -8,9 +8,6 @@
 
 #pragma once
 
-#include "AdaptiveUtils.h"
-#include "SegmentList.h"
-
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "test/KodiStubs.h"
 #else
@@ -20,6 +17,11 @@
 #include <optional>
 #include <string>
 #include <string_view>
+
+namespace PLAYLIST
+{
+enum class ContainerType;
+}
 
 namespace PLAYLIST
 {

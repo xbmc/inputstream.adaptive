@@ -114,9 +114,9 @@ bool TestAdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
       if (bytesRead == 0) // EOF
         break;
 
-      tree_.OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
-                          downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
-                          bufferData, bytesRead, segmentBuffer, segmentBuffer.size(), false);
+      m_tree->OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
+                            downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
+                            bufferData, bytesRead, segmentBuffer, segmentBuffer.size(), false);
 
       totalByteRead += bytesRead;
     }

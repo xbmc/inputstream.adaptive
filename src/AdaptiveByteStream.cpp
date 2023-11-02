@@ -8,6 +8,8 @@
 
 #include "AdaptiveByteStream.h"
 
+#include "common/AdaptiveStream.h"
+
 // AP4_ByteStream methods
 AP4_Result CAdaptiveByteStream::ReadPartial(void* buffer, AP4_Size bytesToRead, AP4_Size& bytesRead)
 {
@@ -46,4 +48,19 @@ AP4_Result CAdaptiveByteStream::GetSegmentSize(size_t& size)
     return AP4_SUCCESS;
   }
   return AP4_ERROR_EOS;
+}
+
+bool CAdaptiveByteStream::waitingForSegment() const
+{
+  return m_adStream->waitingForSegment();
+}
+
+void CAdaptiveByteStream::FixateInitialization(bool on)
+{
+  m_adStream->FixateInitialization(on);
+}
+
+void CAdaptiveByteStream::SetSegmentFileOffset(uint64_t offset)
+{
+  m_adStream->SetSegmentFileOffset(offset);
 }

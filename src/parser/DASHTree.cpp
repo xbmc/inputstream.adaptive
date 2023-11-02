@@ -11,16 +11,14 @@
 #include "CompKodiProps.h"
 #include "PRProtectionParser.h"
 #include "SrvBroker.h"
-#include "kodi/tools/StringUtils.h"
-#include "oscompat.h"
+#include "common/Period.h"
 #include "utils/Base64Utils.h"
+#include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
 #include "utils/Utils.h"
 #include "utils/XMLUtils.h"
 #include "utils/log.h"
-
-#include "pugixml.hpp"
 
 #include <algorithm> // max
 #include <cmath>
@@ -28,6 +26,8 @@
 #include <numeric> // accumulate
 #include <string>
 #include <thread>
+
+#include <pugixml.hpp>
 
 using namespace pugi;
 using namespace kodi::tools;
@@ -100,7 +100,7 @@ void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser
                                     std::string_view manifestUpdParams)
 {
   AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdParams);
-  m_isCustomInitPssh = !CSrvBroker::GetKodiProps()->GetLicenseData().empty();
+  m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetLicenseData().empty();
 }
 
 bool adaptive::CDashTree::Open(std::string_view url,

@@ -12,14 +12,10 @@
 #include "SrvBroker.h"
 #include "Stream.h"
 #include "samplereader/SampleReaderFactory.h"
-#include "utils/Utils.h"
 #include "utils/log.h"
-
-#include <stdarg.h> // va_list, va_start, va_arg, va_end
 
 using namespace PLAYLIST;
 using namespace SESSION;
-using namespace UTILS;
 
 CInputStreamAdaptive::CInputStreamAdaptive(const kodi::addon::IInstanceInfo& instance)
   : CInstanceInputStream(instance)

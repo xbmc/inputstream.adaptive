@@ -8,14 +8,18 @@
 
 #pragma once
 
-#include "AdaptationSet.h"
-#include "Representation.h"
-
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "test/KodiStubs.h"
 #else
 #include <kodi/AddonBase.h>
 #endif
+
+// forwards
+namespace PLAYLIST
+{
+class CAdaptationSet;
+class CRepresentation;
+}
 
 namespace CHOOSER
 {

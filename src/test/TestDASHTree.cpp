@@ -123,7 +123,7 @@ protected:
     if (!repr)
       initialRepr = tree->GetRepChooser()->GetRepresentation(adp);
 
-    return new TestAdaptiveStream(*tree, adp, initialRepr);
+    return new TestAdaptiveStream(tree, adp, initialRepr);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,

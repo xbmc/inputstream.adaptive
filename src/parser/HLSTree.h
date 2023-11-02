@@ -13,8 +13,6 @@
 #include "common/AdaptiveUtils.h"
 #include "utils/CurlUtils.h"
 
-#include <map>
-
 namespace adaptive
 {
 

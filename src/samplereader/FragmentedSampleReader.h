@@ -9,10 +9,10 @@
 #pragma once
 
 #include "SampleReader.h"
-#include "common/AdaptiveCencSampleDecrypter.h"
 #include "decrypters/IDecrypter.h"
 
 // forwards
+class CAdaptiveCencSampleDecrypter;
 class CodecHandler;
 
 class ATTR_DLL_LOCAL CFragmentedSampleReader : public ISampleReader, public AP4_LinearReader

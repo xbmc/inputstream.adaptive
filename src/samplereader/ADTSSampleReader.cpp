@@ -8,6 +8,8 @@
 
 #include "ADTSSampleReader.h"
 
+#include "AdaptiveByteStream.h"
+
 CADTSSampleReader::CADTSSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
   : ADTSReader{input},
     m_streamId{streamId},

@@ -28,7 +28,7 @@ adaptive::AdaptiveTree* PLAYLIST_FACTORY::CreateAdaptiveTree(
 
   // Add-on can override manifest type
   //! @todo: deprecated, to be removed on next Kodi release
-  ADP::KODI_PROPS::ManifestType manifestTypeProp = CSrvBroker::GetKodiProps()->GetManifestType();
+  ADP::KODI_PROPS::ManifestType manifestTypeProp = CSrvBroker::GetKodiProps().GetManifestType();
 
   // Detect the manifest type
   if (manifestTypeProp == ADP::KODI_PROPS::ManifestType::UNKNOWN)

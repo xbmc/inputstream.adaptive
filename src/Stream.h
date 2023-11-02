@@ -20,7 +20,7 @@ namespace SESSION
 class ATTR_DLL_LOCAL CStream
 {
 public:
-  CStream(adaptive::AdaptiveTree& tree,
+  CStream(adaptive::AdaptiveTree* tree,
           PLAYLIST::CAdaptationSet* adp,
           PLAYLIST::CRepresentation* initialRepr)
     : m_isEnabled{false},

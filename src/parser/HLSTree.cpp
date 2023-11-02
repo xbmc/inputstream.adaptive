@@ -144,7 +144,7 @@ void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
                                    std::string_view manifestUpdateParam)
 {
   AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdateParam);
-  m_decrypter = std::make_unique<AESDecrypter>(CSrvBroker::GetKodiProps()->GetLicenseKey());
+  m_decrypter = std::make_unique<AESDecrypter>(CSrvBroker::GetKodiProps().GetLicenseKey());
 }
 
 bool adaptive::CHLSTree::Open(std::string_view url,
@@ -781,7 +781,7 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
   {
     //! @todo: we are downloading two times the same manifest
     //! media playlist parsing code could be reused
-    
+
     std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
     period->SetTimescale(1000000);
 
