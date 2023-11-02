@@ -1,3 +1,18 @@
+v21.3.1 (2023-11-02)
+- [Dash] Add support to Location tag with relative url
+- [HLS] Implemented EXT-X-KEY URI parsing with base64 data support
+- [HLS] Improved PSSH parsing
+- Fix mishandled license failure after refactor
+- Fix missing http requests params and headers when downloading subtitle streams
+- Fix crash when playback fails to start
+- [Widevine] No more empty folders will be created under the cdm folder
+- Changes on how to implement custom manifest/license, search note for <addon_name> on Wiki: https://github.com/xbmc/inputstream.adaptive/wiki/How-to-provide-custom-manifest-and-license
+- Code cleanup to PSSH/KID extraction
+- Code cleanup to handle data as uint8_t instead of string
+- Code cleanup through implementation sample reader factory
+- Code cleanup through implementation service broker
+- Enabled multiprocess builds for VS
+
 v21.3.0 (2023-09-22)
 - Massive refactoring of decrypters (thanks @glennguy)
 - Fix missing headers to manifest request (fix HTTP error 403)
