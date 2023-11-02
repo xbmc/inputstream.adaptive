@@ -55,7 +55,7 @@ CSession::CSession(const std::string& manifestUrl,
       m_mediaTypeMask = static_cast<uint8_t>(~0);
   }
 
-  std::string_view serverCertificate = CSrvBroker::GetKodiProps()->GetServerCertificate();
+  std::string_view serverCertificate = CSrvBroker::GetKodiProps().GetServerCertificate();
 
   if (!serverCertificate.empty())
   {
@@ -99,7 +99,7 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
     return;
   }
 
-  key_system = m_decrypter->SelectKeySytem(CSrvBroker::GetKodiProps()->GetLicenseType());
+  key_system = m_decrypter->SelectKeySytem(CSrvBroker::GetKodiProps().GetLicenseType());
   m_decrypter->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
   m_decrypter->SetProfilePath(m_profilePath);
   m_decrypter->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
@@ -138,24 +138,24 @@ void CSession::DisposeDecrypter()
 
 bool CSession::Initialize()
 {
-  const auto kodiProps = CSrvBroker::GetKodiProps();
+  const auto& kodiProps = CSrvBroker::GetKodiProps();
   // Set the DRM configuration flags
-  if (kodiProps->IsLicensePersistentStorage())
+  if (kodiProps.IsLicensePersistentStorage())
     m_drmConfig |= DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE;
 
   // Get URN's wich are supported by this addon
   std::string supportedKeySystem;
-  if (!kodiProps->GetLicenseType().empty())
+  if (!kodiProps.GetLicenseType().empty())
   {
     SetSupportedDecrypterURN(supportedKeySystem);
     LOG::Log(LOGDEBUG, "Supported URN: %s", supportedKeySystem.c_str());
   }
 
-  std::map<std::string, std::string> manifestHeaders = kodiProps->GetManifestHeaders();
+  std::map<std::string, std::string> manifestHeaders = kodiProps.GetManifestHeaders();
   bool isSessionOpened{false};
 
   // Preinitialize the DRM, if pre-initialisation data are provided
-  if (!kodiProps->GetDrmPreInitData().empty())
+  if (!kodiProps.GetDrmPreInitData().empty())
   {
     std::string challengeB64;
     std::string sessionId;
@@ -173,14 +173,14 @@ bool CSession::Initialize()
   }
 
   std::string manifestUrl = m_manifestUrl;
-  std::string manifestUpdateParam = kodiProps->GetManifestUpdParams();
+  std::string manifestUpdateParam = kodiProps.GetManifestUpdParams();
 
   if (manifestUpdateParam.empty())
   {
     //! @todo: In the next version of kodi, remove this hack of adding the $START_NUMBER$ parameter
     //!        to the manifest url which is forcibly cut and copied to the manifest update request url,
     //!        this seem used by YouTube addon only, adaptations are relatively simple
-    manifestUpdateParam = kodiProps->GetManifestUpdParam();
+    manifestUpdateParam = kodiProps.GetManifestUpdParam();
     if (manifestUpdateParam.empty() && STRING::Contains(manifestUrl, "$START_NUMBER$"))
     {
       LOG::Log(LOGWARNING,
@@ -273,7 +273,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
                                 std::string& sessionId,
                                 bool& isSessionOpened)
 {
-  std::string_view preInitData = CSrvBroker::GetKodiProps()->GetDrmPreInitData();
+  std::string_view preInitData = CSrvBroker::GetKodiProps().GetDrmPreInitData();
   std::string_view psshData;
   std::string_view kidData;
   // Parse the PSSH/KID data
@@ -295,7 +295,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   // Try to initialize an SingleSampleDecryptor
   LOG::LogF(LOGDEBUG, "Entering encryption section");
 
-  std::string_view licenseKey = CSrvBroker::GetKodiProps()->GetLicenseKey();
+  std::string_view licenseKey = CSrvBroker::GetKodiProps().GetLicenseKey();
 
   if (licenseKey.empty())
   {
@@ -364,7 +364,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
   if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() !=
       EncryptionState::UNENCRYPTED)
   {
-    std::string_view licenseKey = CSrvBroker::GetKodiProps()->GetLicenseKey();
+    std::string_view licenseKey = CSrvBroker::GetKodiProps().GetLicenseKey();
 
     if (licenseKey.empty())
       licenseKey = m_adaptiveTree->GetLicenseUrl();
@@ -407,11 +407,11 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
 
-      std::string_view licenseData = CSrvBroker::GetKodiProps()->GetLicenseData();
+      std::string_view licenseData = CSrvBroker::GetKodiProps().GetLicenseData();
 
       if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING)
       {
-        std::string_view licenseType = CSrvBroker::GetKodiProps()->GetLicenseType();
+        std::string_view licenseType = CSrvBroker::GetKodiProps().GetLicenseType();
         if (licenseType == "com.widevine.alpha")
         {
           // Create SmoothStreaming Widevine PSSH data
@@ -534,11 +534,11 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
           isSecureVideoSession = true;
 
-          bool isDisableSecureDecoder = CSrvBroker::GetSettings()->IsDisableSecureDecoder();
+          bool isDisableSecureDecoder = CSrvBroker::GetSettings().IsDisableSecureDecoder();
           if (isDisableSecureDecoder)
             LOG::Log(LOGDEBUG, "Secure video session, with setting configured to try disable secure decoder");
 
-          if (isDisableSecureDecoder && !CSrvBroker::GetKodiProps()->IsLicenseForceSecDecoder() &&
+          if (isDisableSecureDecoder && !CSrvBroker::GetKodiProps().IsLicenseForceSecDecoder() &&
               !m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded())
           {
             session.m_decrypterCaps.flags &= ~DRM::DecrypterCapabilites::SSD_SECURE_DECODER;
@@ -556,7 +556,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     }
   }
 
-  bool isHdcpOverride = CSrvBroker::GetSettings()->IsHdcpOverride();
+  bool isHdcpOverride = CSrvBroker::GetSettings().IsHdcpOverride();
   if (isHdcpOverride)
     LOG::Log(LOGDEBUG, "Ignore HDCP status is enabled");
 
@@ -622,7 +622,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
   //! since Kodi stream flags dont have always the same meaning of manifest attributes
   //! and some video services dont follow exactly the specs so can lead to wrong Kodi flags sets.
   //! An idea is add/move these override of attributes on post manifest parsing.
-  std::string audioLanguageOrig = CSrvBroker::GetKodiProps()->GetAudioLangOrig();
+  std::string audioLanguageOrig = CSrvBroker::GetKodiProps().GetAudioLangOrig();
 
   while ((adp = m_adaptiveTree->GetAdaptationSet(adpIndex++)))
   {
@@ -1315,7 +1315,7 @@ uint32_t CSession::GetIncludedStreamMask() const
 
 STREAM_CRYPTO_KEY_SYSTEM CSession::GetCryptoKeySystem() const
 {
-  std::string_view licenseType = CSrvBroker::GetKodiProps()->GetLicenseType();
+  std::string_view licenseType = CSrvBroker::GetKodiProps().GetLicenseType();
   if (licenseType == "com.widevine.alpha")
     return STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE;
   else if (licenseType == "com.huawei.wiseplay")

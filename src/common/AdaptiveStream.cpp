@@ -53,10 +53,10 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree* tree,
     m_segmentFileOffset(0),
     last_rep_(0)
 {
-  auto kodiProps = CSrvBroker::GetKodiProps();
-  m_streamParams = kodiProps->GetStreamParams();
-  m_streamHeaders = kodiProps->GetStreamHeaders();
-  play_timeshift_buffer_ = kodiProps->IsPlayTimeshift();
+  auto& kodiProps = CSrvBroker::GetKodiProps();
+  m_streamParams = kodiProps.GetStreamParams();
+  m_streamHeaders = kodiProps.GetStreamHeaders();
+  play_timeshift_buffer_ = kodiProps.IsPlayTimeshift();
 
   current_rep_->current_segment_ = nullptr;
 
@@ -612,7 +612,7 @@ bool AdaptiveStream::start_stream()
    * Adaptive/custom buffering code disabled
    * currently cause a bad memory management especially for 4k content
    * too much buffer length leads to filling the RAM and cause kodi to crash
-   * required to implement a way to determine the max length of the buffer 
+   * required to implement a way to determine the max length of the buffer
    * by taking in account also the device RAM
    *
   assured_buffer_length_ = current_rep_->assured_buffer_duration_;
@@ -1165,7 +1165,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
     else if (!preceeding)
     {
       // restart stream if it has 'finished', e.g in the case of subtitles
-      // where there may be a few or only one segment for the period and 
+      // where there may be a few or only one segment for the period and
       // the stream is now in EOS state (all data already passed to Kodi)
       if (state_ == STOPPED)
       {
@@ -1265,7 +1265,7 @@ bool AdaptiveStream::GenerateSidxSegments(PLAYLIST::CRepresentation* rep)
 
 void AdaptiveStream::Stop()
 {
-  if (current_rep_) 
+  if (current_rep_)
   {
     current_rep_->SetIsEnabled(false);
   }

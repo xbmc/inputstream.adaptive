@@ -13,8 +13,11 @@
 
 using namespace ADP;
 
+CSrvBroker::CSrvBroker() = default;
+CSrvBroker::~CSrvBroker() = default;
+
 void CSrvBroker::Init(const std::map<std::string, std::string>& kodiProps)
 {
-  m_compKodiProps = std::make_shared<KODI_PROPS::CCompKodiProps>(kodiProps);
-  m_compSettings = std::make_shared<SETTINGS::CCompSettings>();
+  m_compKodiProps = std::make_unique<KODI_PROPS::CCompKodiProps>(kodiProps);
+  m_compSettings = std::make_unique<SETTINGS::CCompSettings>();
 }

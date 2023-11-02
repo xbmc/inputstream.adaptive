@@ -53,7 +53,7 @@ IRepresentationChooser* CHOOSER::CreateRepresentationChooser()
 {
   IRepresentationChooser* reprChooser{nullptr};
 
-  const KODI_PROPS::ChooserProps& props = CSrvBroker::GetKodiProps()->GetChooserProps();
+  const KODI_PROPS::ChooserProps& props = CSrvBroker::GetKodiProps().GetChooserProps();
 
   // An add-on can override XML settings by using Kodi properties
   if (!props.m_chooserType.empty())
@@ -64,7 +64,7 @@ IRepresentationChooser* CHOOSER::CreateRepresentationChooser()
   }
 
   if (!reprChooser)
-    reprChooser = GetReprChooser(CSrvBroker::GetSettings()->GetChooserType());
+    reprChooser = GetReprChooser(CSrvBroker::GetSettings().GetChooserType());
 
   // Safe check for wrong settings, fallback to default
   if (!reprChooser)
@@ -96,7 +96,7 @@ void CHOOSER::IRepresentationChooser::SetScreenResolution(const int width,
   // Use case: User chooses to upscale Kodi GUI from TV instead of Kodi engine.
   // In this case "Adjust refresh rate" setting can be enabled and then
   // the GUI resolution will be lower than the max allowed resolution.
-  // 
+  //
   // For example we can have the GUI at 1080p and when playback starts can be
   // auto-switched to 4k, but to allow Kodi do this we have to provide the
   // stream resolution that match the max allowed screen resolution.

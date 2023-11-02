@@ -51,23 +51,23 @@ public:
   /*
    * \brief Get Kodi properties component, to read Kodi (Listitem / playlist files "STRM") properties.
    */
-  static std::shared_ptr<ADP::KODI_PROPS::CCompKodiProps> GetKodiProps()
+  static ADP::KODI_PROPS::CCompKodiProps& GetKodiProps()
   {
-    return GetInstance()->m_compKodiProps;
+    return *GetInstance()->m_compKodiProps;
   }
 
   /*
    * \brief Get settings component, to manage add-on XML settings.
    */
-  static std::shared_ptr<ADP::SETTINGS::CCompSettings> GetSettings()
+  static ADP::SETTINGS::CCompSettings& GetSettings()
   {
-    return GetInstance()->m_compSettings;
+    return *GetInstance()->m_compSettings;
   }
 
 private:
-  CSrvBroker() = default;
-  ~CSrvBroker() = default;
+  CSrvBroker();
+  ~CSrvBroker();
 
-  std::shared_ptr<ADP::KODI_PROPS::CCompKodiProps> m_compKodiProps;
-  std::shared_ptr<ADP::SETTINGS::CCompSettings> m_compSettings;
+  std::unique_ptr<ADP::KODI_PROPS::CCompKodiProps> m_compKodiProps;
+  std::unique_ptr<ADP::SETTINGS::CCompSettings> m_compSettings;
 };

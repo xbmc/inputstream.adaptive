@@ -53,15 +53,15 @@ namespace adaptive
 
     auto srvBroker = CSrvBroker::GetInstance();
 
-    if (srvBroker->GetSettings()->IsDebugManifest())
+    if (srvBroker->GetSettings().IsDebugManifest())
     {
       m_pathSaveManifest = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), "manifests");
       // Delete previously saved manifest files
       FILESYS::RemoveDirectory(m_pathSaveManifest, false);
     }
 
-    m_manifestParams = srvBroker->GetKodiProps()->GetManifestParams();
-    m_manifestHeaders = srvBroker->GetKodiProps()->GetManifestHeaders();
+    m_manifestParams = srvBroker->GetKodiProps().GetManifestParams();
+    m_manifestHeaders = srvBroker->GetKodiProps().GetManifestHeaders();
     m_manifestUpdParams = manifestUpdParams;
 
     // Convenience way to share common addon settings we avoid
@@ -88,7 +88,7 @@ namespace adaptive
     // A manifest can provide live delay value, if not so we use our default
     // value of 16 secs, this is needed to ensure an appropriate playback,
     // an add-on can override the delay to try fix edge use cases
-    uint64_t liveDelay = CSrvBroker::GetKodiProps()->GetLiveDelay();
+    uint64_t liveDelay = CSrvBroker::GetKodiProps().GetLiveDelay();
     if (liveDelay >= 16)
       m_liveDelay = liveDelay;
     else if (m_liveDelay < 16)

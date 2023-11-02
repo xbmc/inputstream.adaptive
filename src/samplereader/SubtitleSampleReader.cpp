@@ -44,11 +44,11 @@ CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
 
   // Append stream parameters, only if not already provided
   if (url.find('?') == std::string::npos)
-    URL::AppendParameters(url, kodiProps->GetStreamParams());
+    URL::AppendParameters(url, kodiProps.GetStreamParams());
 
   // Download the file
   CURL::CUrl curl(url);
-  curl.AddHeaders(kodiProps->GetStreamHeaders());
+  curl.AddHeaders(kodiProps.GetStreamHeaders());
   int statusCode = curl.Open(true);
   if (statusCode == -1)
   {

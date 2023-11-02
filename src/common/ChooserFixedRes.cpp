@@ -26,10 +26,10 @@ CRepresentationChooserFixedRes::CRepresentationChooserFixedRes()
 
 void CRepresentationChooserFixedRes::Initialize(const ADP::KODI_PROPS::ChooserProps& props)
 {
-  auto settings = CSrvBroker::GetSettings();
+  auto& settings = CSrvBroker::GetSettings();
 
-  m_screenResMax = settings->GetResMax();
-  m_screenResSecureMax = settings->GetResSecureMax();
+  m_screenResMax = settings.GetResMax();
+  m_screenResSecureMax = settings.GetResSecureMax();
 
   // Override settings with Kodi/video add-on properties
 

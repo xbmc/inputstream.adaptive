@@ -100,7 +100,7 @@ void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser
                                     std::string_view manifestUpdParams)
 {
   AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdParams);
-  m_isCustomInitPssh = !CSrvBroker::GetKodiProps()->GetLicenseData().empty();
+  m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetLicenseData().empty();
 }
 
 bool adaptive::CDashTree::Open(std::string_view url,
