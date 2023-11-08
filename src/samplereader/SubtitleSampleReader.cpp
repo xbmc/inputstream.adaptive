@@ -40,7 +40,8 @@ bool CSubtitleSampleReader::Initialize(SESSION::CStream* stream)
     // Single subtitle file (for entire video duration)
     if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
       m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, true);
-    else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
+    else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML) ||
+             STRING::Contains(codecInternalName, CODEC::FOURCC_STPP))
       m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
     else
     {
@@ -58,7 +59,8 @@ bool CSubtitleSampleReader::Initialize(SESSION::CStream* stream)
 
     if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
       m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
-    else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
+    else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML) ||
+             STRING::Contains(codecInternalName, CODEC::FOURCC_STPP))
       m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
     else
     {
