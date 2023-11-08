@@ -22,24 +22,55 @@
 #include "utils/Utils.h"
 #include "utils/log.h"
 
+using namespace PLAYLIST;
 using namespace UTILS;
 
-CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
-                                             AP4_UI32 streamId,
-                                             std::string_view codecInternalName)
-  : m_streamId{streamId}
+CSubtitleSampleReader::CSubtitleSampleReader(AP4_UI32 streamId) : m_streamId{streamId}
 {
-  // Single subtitle file
-  if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
-    m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, true);
-  else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
-    m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
+}
+
+bool CSubtitleSampleReader::Initialize(SESSION::CStream* stream)
+{
+
+  std::string codecInternalName = stream->m_info.GetCodecInternalName();
+  const CRepresentation* repr = stream->m_adStream.getRepresentation();
+
+  if (repr->IsSubtitleFileStream())
+  {
+    // Single subtitle file (for entire video duration)
+    if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
+      m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, true);
+    else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
+      m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
+    else
+    {
+      LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
+      return false;
+    }
+
+    return InitializeFile(repr->GetBaseUrl());
+  }
   else
   {
-    LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
-    return;
-  }
+    // Segmented subtitle
+    m_adByteStream = stream->GetAdByteStream();
+    m_adStream = &stream->m_adStream;
 
+    if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
+      m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
+    else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
+      m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
+    else
+    {
+      LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
+      return false;
+    }
+    return true;
+  }
+}
+
+bool CSubtitleSampleReader::InitializeFile(std::string url)
+{
   auto kodiProps = CSrvBroker::GetKodiProps();
 
   // Append stream parameters, only if not already provided
@@ -53,12 +84,12 @@ CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
   if (statusCode == -1)
   {
     LOG::Log(LOGERROR, "Download failed, internal error: %s", url.c_str());
-    return;
+    return false;
   }
   else if (statusCode >= 400)
   {
     LOG::Log(LOGERROR, "Download failed, HTTP error %d: %s", statusCode, url.c_str());
-    return;
+    return false;
   }
 
   std::string data;
@@ -66,7 +97,7 @@ CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
   if (curl.Read(data) != CURL::ReadStatus::IS_EOF)
   {
     LOG::Log(LOGERROR, "Download failed: %s", statusCode, url.c_str());
-    return;
+    return false;
   }
 
   if (!data.empty())
@@ -74,20 +105,7 @@ CSubtitleSampleReader::CSubtitleSampleReader(std::string url,
     AP4_DataBuffer buffer{data.c_str(), static_cast<AP4_Size>(data.size())};
     m_codecHandler->Transform(0, 0, buffer, 1000);
   }
-}
-
-CSubtitleSampleReader::CSubtitleSampleReader(SESSION::CStream* stream,
-                                             AP4_UI32 streamId,
-                                             std::string_view codecInternalName)
-  : m_streamId{streamId}, m_adByteStream{stream->GetAdByteStream()}, m_adStream{&stream->m_adStream}
-{
-  // Segmented subtitle
-  if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
-    m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
-  else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML))
-    m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
-  else
-    LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
+  return true;
 }
 
 AP4_Result CSubtitleSampleReader::Start(bool& bStarted)

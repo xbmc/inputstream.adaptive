@@ -27,14 +27,9 @@ class AdaptiveStream;
 class ATTR_DLL_LOCAL CSubtitleSampleReader : public ISampleReader
 {
 public:
-  CSubtitleSampleReader(std::string url,
-                        AP4_UI32 streamId,
-                        std::string_view codecInternalName);
+  CSubtitleSampleReader(AP4_UI32 streamId);
 
-  CSubtitleSampleReader(SESSION::CStream* stream,
-                        AP4_UI32 streamId,
-                        std::string_view codecInternalName);
-
+  virtual bool Initialize(SESSION::CStream* stream) override;
   bool IsStarted() const override { return m_started; }
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_pts; }
@@ -56,6 +51,8 @@ public:
   bool IsEncrypted() const override { return false; }
 
 private:
+  bool InitializeFile(std::string url);
+
   uint64_t m_pts{0};
   uint64_t m_ptsOffset{0};
   uint64_t m_ptsDiff{0};

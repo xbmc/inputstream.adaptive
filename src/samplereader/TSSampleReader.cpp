@@ -22,7 +22,7 @@ CTSSampleReader::CTSSampleReader(AP4_ByteStream* input,
   m_typeMap[type] = streamId;
 }
 
-bool CTSSampleReader::Initialize()
+bool CTSSampleReader::Initialize(SESSION::CStream* stream)
 {
   if (TSReader::Initialize())
   {
