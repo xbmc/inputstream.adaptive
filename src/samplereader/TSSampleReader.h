@@ -20,7 +20,7 @@ public:
                   AP4_UI32 streamId,
                   uint32_t requiredMask);
 
-  bool Initialize() override;
+  bool Initialize(SESSION::CStream* stream) override;
   void AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override;
   void SetStreamType(INPUTSTREAM_TYPE type, uint32_t sid) override;
   bool RemoveStreamType(INPUTSTREAM_TYPE type) override;

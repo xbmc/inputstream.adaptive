@@ -25,7 +25,7 @@ public:
 
   ~CFragmentedSampleReader();
 
-  virtual bool Initialize() override;
+  virtual bool Initialize(SESSION::CStream* stream) override;
   virtual void SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
                             const DRM::DecrypterCapabilites& dcaps) override;
 

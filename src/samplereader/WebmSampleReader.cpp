@@ -15,7 +15,7 @@ CWebmSampleReader::CWebmSampleReader(AP4_ByteStream* input, AP4_UI32 streamId)
     m_streamId{streamId},
     m_adByteStream{dynamic_cast<CAdaptiveByteStream*>(input)} {};
 
-bool CWebmSampleReader::Initialize()
+bool CWebmSampleReader::Initialize(SESSION::CStream* stream)
 {
   m_adByteStream->FixateInitialization(true);
   bool ret = WebmReader::Initialize();

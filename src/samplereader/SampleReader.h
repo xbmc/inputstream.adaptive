@@ -26,6 +26,10 @@ namespace DRM
 {
 struct DecrypterCapabilites;
 }
+namespace SESSION
+{
+class CStream;
+}
 
 class ATTR_DLL_LOCAL SampleReaderObserver
 {
@@ -40,7 +44,7 @@ class ATTR_DLL_LOCAL ISampleReader
 {
 public:
   virtual ~ISampleReader() = default;
-  virtual bool Initialize() { return true; };
+  virtual bool Initialize(SESSION::CStream* stream) { return true; }
   virtual void SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
                             const DRM::DecrypterCapabilites& dcaps){};
   virtual bool EOS() const = 0;

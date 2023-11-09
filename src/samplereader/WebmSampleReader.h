@@ -21,7 +21,7 @@ public:
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_dts; }
   uint64_t PTS() const override { return m_pts; }
-  bool Initialize() override;
+  bool Initialize(SESSION::CStream* stream) override;
   AP4_Result Start(bool& bStarted) override;
   AP4_Result ReadSample() override;
   void Reset(bool bEOS) override;

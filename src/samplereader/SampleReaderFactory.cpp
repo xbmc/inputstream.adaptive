@@ -30,17 +30,7 @@ std::unique_ptr<ISampleReader> ADP::CreateStreamReader(PLAYLIST::ContainerType& 
 
   if (containerType == ContainerType::TEXT)
   {
-    const CRepresentation* repr = stream->m_adStream.getRepresentation();
-    if (repr->IsSubtitleFileStream())
-    {
-      reader = std::make_unique<CSubtitleSampleReader>(
-          repr->GetBaseUrl(), streamId, stream->m_info.GetCodecInternalName());
-    }
-    else
-    {
-      reader = std::make_unique<CSubtitleSampleReader>(stream, streamId,
-                                                       stream->m_info.GetCodecInternalName());
-    }
+    reader = std::make_unique<CSubtitleSampleReader>(streamId);
   }
   else if (containerType == ContainerType::TS)
   {
@@ -104,7 +94,7 @@ std::unique_ptr<ISampleReader> ADP::CreateStreamReader(PLAYLIST::ContainerType& 
     return nullptr;
   }
 
-  if (!reader->Initialize())
+  if (!reader->Initialize(stream))
   {
     if (containerType == ContainerType::TS &&
         stream->m_adStream.GetStreamType() == StreamType::AUDIO)
@@ -120,7 +110,7 @@ std::unique_ptr<ISampleReader> ADP::CreateStreamReader(PLAYLIST::ContainerType& 
 
       stream->GetAdByteStream()->Seek(0); // Seek because bytes are consumed from previous reader
       reader = std::make_unique<CADTSSampleReader>(stream->GetAdByteStream(), streamId);
-      if (!reader->Initialize())
+      if (!reader->Initialize(stream))
         reader.reset();
     }
     else

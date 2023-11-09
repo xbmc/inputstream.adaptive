@@ -49,7 +49,7 @@ CFragmentedSampleReader::~CFragmentedSampleReader()
   delete m_codecHandler;
 }
 
-bool CFragmentedSampleReader::Initialize()
+bool CFragmentedSampleReader::Initialize(SESSION::CStream* stream)
 {
   EnableTrack(m_track->GetId());
 
