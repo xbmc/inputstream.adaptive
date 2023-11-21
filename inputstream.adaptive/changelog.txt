@@ -1,3 +1,7 @@
+v21.4.0 (2023-11-21)
+- Restored TTML stpp mime type support
+- Fix crashes when a subtitle format is not supported
+
 v21.3.1 (2023-11-02)
 - [Dash] Add support to Location tag with relative url
 - [HLS] Implemented EXT-X-KEY URI parsing with base64 data support
