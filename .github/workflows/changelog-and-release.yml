@@ -24,7 +24,7 @@ on:
       update_news:
         description: 'Update news in addon.xml.in? [true|false]'
         required: true
-        default: 'true'
+        default: 'false'
       add_date:
         description: 'Add date to version number in changelog and news. ie. "v1.0.1 (2021-7-17)" [true|false]'
         required: true
