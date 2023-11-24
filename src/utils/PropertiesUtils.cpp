@@ -22,6 +22,15 @@ namespace
 // clang-format off
 constexpr std::string_view PROP_LICENSE_TYPE = "inputstream.adaptive.license_type";
 constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key";
+// PROP_LICENSE_URL and PROP_LICENSE_URL_APPEND has been added as workaround for Kodi PVR API bug
+// where limit property values to max 1024 chars, if exceeds the string is truncated.
+// Since some services provide license urls that exceeds 1024 chars,
+// PROP_LICENSE_KEY dont have enough space also because include other parameters
+// so we provide two properties allow set an url split into two 1024-character parts
+// see: https://github.com/xbmc/xbmc/issues/23903#issuecomment-1755264854
+// this problem should be fixed on Kodi 22
+constexpr std::string_view PROP_LICENSE_URL = "inputstream.adaptive.license_url";
+constexpr std::string_view PROP_LICENSE_URL_APPEND = "inputstream.adaptive.license_url_append";
 constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_data";
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
@@ -52,6 +61,7 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     const std::map<std::string, std::string> properties)
 {
   KodiProperties props;
+  std::string licenseUrl;
 
   for (auto& prop : properties)
   {
@@ -64,6 +74,17 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
     else if (prop.first == PROP_LICENSE_KEY)
     {
       props.m_licenseKey = prop.second;
+      logPropValRedacted = true;
+    }
+    else if (prop.first == PROP_LICENSE_URL)
+    {
+      // If PROP_LICENSE_URL_APPEND is parsed before this one, we need to append it
+      licenseUrl = prop.second + licenseUrl;
+      logPropValRedacted = true;
+    }
+    else if (prop.first == PROP_LICENSE_URL_APPEND)
+    {
+      licenseUrl += prop.second;
       logPropValRedacted = true;
     }
     else if (prop.first == PROP_LICENSE_DATA)
@@ -170,6 +191,16 @@ KodiProperties UTILS::PROPERTIES::ParseKodiProperties(
 
     LOG::Log(LOGDEBUG, "Property found \"%s\" value: %s", prop.first.c_str(),
              logPropValRedacted ? "[redacted]" : prop.second.c_str());
+  }
+
+  if (!licenseUrl.empty())
+  {
+    // PROP_LICENSE_URL replace the license url contained into PROP_LICENSE_KEY
+    const size_t pipePos = props.m_licenseKey.find('|');
+    if (pipePos == std::string::npos)
+      props.m_licenseKey = licenseUrl;
+    else
+      props.m_licenseKey.replace(0, pipePos, licenseUrl);
   }
 
   return props;
