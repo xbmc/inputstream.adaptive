@@ -79,6 +79,17 @@ uint64_t PLAYLIST::CSegmentTemplate::GetStartNumber() const
   return 1; // Default value
 }
 
+uint64_t PLAYLIST::CSegmentTemplate::GetEndNumber() const
+{
+  if (m_endNumber.has_value())
+    return *m_endNumber;
+
+  if (m_parentSegTemplate)
+    return m_parentSegTemplate->GetEndNumber();
+
+  return 0; // Default value
+}
+
 bool PLAYLIST::CSegmentTemplate::HasVariableTime() const
 {
   return m_media.find("$Time") != std::string::npos;

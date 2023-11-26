@@ -48,6 +48,14 @@ public:
   uint64_t GetStartNumber() const;
   void SetStartNumber(uint64_t startNumber) { m_startNumber = startNumber; }
 
+  /*!
+   * \brief Get the optional segment end number. Use HasEndNumber method to know if the value is set.
+   * \return The segment end number or the default value (0).
+   */
+  uint64_t GetEndNumber() const;
+  void SetEndNumber(uint64_t endNumber) { m_endNumber = endNumber; }
+  bool HasEndNumber() const { return m_endNumber.has_value(); }
+
   bool HasVariableTime() const;
   
   CSegment MakeInitSegment();
@@ -66,6 +74,7 @@ private:
   std::optional<uint32_t> m_timescale;
   std::optional<uint32_t> m_duration;
   std::optional<uint64_t> m_startNumber;
+  std::optional<uint64_t> m_endNumber;
 
   CSegmentTemplate* m_parentSegTemplate{nullptr};
 };

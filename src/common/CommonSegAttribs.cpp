@@ -30,3 +30,20 @@ bool PLAYLIST::CCommonSegAttribs::HasSegmentList()
   return m_segmentList.has_value() ||
          (m_parentCommonSegAttribs && m_parentCommonSegAttribs->m_segmentList.has_value());
 }
+
+uint64_t PLAYLIST::CCommonSegAttribs::GetSegmentEndNr()
+{
+  if (m_segEndNr.has_value())
+    return *m_segEndNr;
+
+  if (m_parentCommonSegAttribs)
+    return m_parentCommonSegAttribs->GetSegmentEndNr();
+
+  return 0; // Default value
+}
+
+bool PLAYLIST::CCommonSegAttribs::HasSegmentEndNr()
+{
+  return m_segEndNr.has_value() ||
+         (m_parentCommonSegAttribs && m_parentCommonSegAttribs->HasSegmentEndNr());
+}

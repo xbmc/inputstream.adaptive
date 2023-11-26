@@ -237,10 +237,7 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
   double timeShiftBufferDepth{0};
   std::string timeShiftBufferDepthStr;
   if (XML::QueryAttrib(nodeMPD, "timeShiftBufferDepth", timeShiftBufferDepthStr))
-  {
     timeShiftBufferDepth = XML::ParseDuration(timeShiftBufferDepthStr);
-    m_isLive = true;
-  }
 
   std::string availabilityStartTimeStr;
   if (XML::QueryAttrib(nodeMPD, "availabilityStartTime", availabilityStartTimeStr))
@@ -475,15 +472,16 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   if (nodeAudioCh)
     adpSet->SetAudioChannels(ParseAudioChannelConfig(nodeAudioCh));
 
-  // Parse <SupplementalProperty> child tag
-  xml_node nodeSupplProp = nodeAdp.child("SupplementalProperty");
-  if (nodeSupplProp)
+  // Parse <SupplementalProperty> child tags
+  for (xml_node nodeSP : nodeAdp.children("SupplementalProperty"))
   {
-    std::string_view schemeIdUri = XML::GetAttrib(nodeSupplProp, "schemeIdUri");
-    std::string_view value = XML::GetAttrib(nodeSupplProp, "value");
+    std::string_view schemeIdUri = XML::GetAttrib(nodeSP, "schemeIdUri");
+    std::string_view value = XML::GetAttrib(nodeSP, "value");
 
     if (schemeIdUri == "urn:mpeg:dash:adaptation-set-switching:2016")
       adpSet->AddSwitchingIds(value);
+    else if (schemeIdUri == "http://dashif.org/guidelines/last-segment-number")
+      adpSet->SetSegmentEndNr(STRING::ToUint64(value));
   }
 
   // Parse <BaseURL> tag (just first, multi BaseURL not supported yet)
@@ -1010,6 +1008,10 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       if (channels > 0)
         repr->SetAudioChannels(channels);
     }
+    else if (schemeIdUri == "http://dashif.org/guidelines/last-segment-number")
+    {
+      repr->SetSegmentEndNr(STRING::ToUint64(value));
+    }
   }
 
   // For subtitles that are not as ISOBMFF format and where there is no timeline for segments
@@ -1034,13 +1036,26 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         segTemplate->GetTimescale() > 0 &&
         (segTemplate->GetDuration() > 0 || adpSet->HasSegmentTimelineDuration()))
     {
-      size_t segmentsCount = adpSet->SegmentTimelineDuration().GetSize();
-      if (segmentsCount == 0)
+      size_t segmentsCount{0};
+
+      if (adpSet->HasSegmentTimelineDuration())
       {
-        double lengthSecs =
-            static_cast<double>(segTemplate->GetDuration()) / segTemplate->GetTimescale();
-        segmentsCount =
-            static_cast<size_t>(std::ceil(static_cast<double>(reprTotalTimeSecs) / lengthSecs));
+        segmentsCount = adpSet->SegmentTimelineDuration().GetSize();
+      }
+      else
+      {
+        // If signalled use the value of the last segment number
+        if (segTemplate->HasEndNumber())
+          segmentsCount = segTemplate->GetEndNumber();
+        else if (repr->HasSegmentEndNr())
+          segmentsCount = repr->GetSegmentEndNr();
+        else // Calculate the number of segments
+        {
+          double lengthSecs =
+              static_cast<double>(segTemplate->GetDuration()) / segTemplate->GetTimescale();
+          segmentsCount =
+              static_cast<size_t>(std::ceil(static_cast<double>(reprTotalTimeSecs) / lengthSecs));
+        }
       }
 
       if (segmentsCount < 65536) // SIDX atom is limited to 65535 references (fragments)
@@ -1248,6 +1263,10 @@ void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemp
   uint32_t startNumber;
   if (XML::QueryAttrib(node, "startNumber", startNumber))
     segTpl->SetStartNumber(startNumber);
+
+  uint64_t endNumber;
+  if (XML::QueryAttrib(node, "endNumber", endNumber))
+    segTpl->SetEndNumber(endNumber);
 
   std::string initialization;
   if (XML::QueryAttrib(node, "initialization", initialization))

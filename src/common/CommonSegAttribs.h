@@ -26,9 +26,18 @@ public:
   void SetSegmentList(const CSegmentList& segmentList) { m_segmentList = segmentList; }
   bool HasSegmentList();
 
+  /*!
+   * \brief Get the optional segment end number. Use HasSegmentEndNr method to know if the value is set.
+   * \return The segment end number or the default value (0).
+   */
+  uint64_t GetSegmentEndNr();
+  void SetSegmentEndNr(const uint64_t segNumber) { m_segEndNr = segNumber; }
+  bool HasSegmentEndNr();
+
 protected:
   CCommonSegAttribs* m_parentCommonSegAttribs{nullptr};
   std::optional<CSegmentList> m_segmentList;
+  std::optional<uint64_t> m_segEndNr;
 };
 
 } // namespace PLAYLIST
