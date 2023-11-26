@@ -20,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -195,6 +196,7 @@ public:
     // Same content of "media" property but with placeholder $RepresentationID$ and $Bandwidth$ filled
     std::string media_url;
     unsigned int timescale, duration;
+    std::optional<uint64_t> m_segEndNumber;
   };
 
   struct Representation
@@ -248,6 +250,7 @@ public:
     ContainerType containerType_;
     SegmentTemplate segtpl_;
     uint64_t startNumber_;
+    std::optional<uint64_t> m_segEndNumber;
     uint64_t nextPts_;
     //SegmentList
     uint64_t ptsOffset_;
@@ -343,6 +346,7 @@ public:
     std::vector<Representation*> representations_;
     SPINCACHE<uint32_t> segment_durations_;
     SegmentTemplate segtpl_;
+    std::optional<uint64_t> m_segEndNumber;
 
     const uint32_t get_segment_duration(size_t pos)
     {

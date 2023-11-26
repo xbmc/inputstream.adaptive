@@ -94,6 +94,8 @@ static uint64_t ParseSegmentTemplate(const char** attr,
       tpl.media = (const char*)*(attr + 1);
     else if (strcmp((const char*)*attr, "startNumber") == 0)
       startNumber = atoi((const char*)*(attr + 1));
+    else if (strcmp((const char*)*attr, "endNumber") == 0)
+      tpl.m_segEndNumber = STRING::ToUint64(static_cast<const char*>(*(attr + 1)));
     else if (strcmp((const char*)*attr, "initialization") == 0)
       tpl.initialization = (const char*)*(attr + 1);
     attr += 2;
@@ -496,6 +498,25 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
                 dash->current_hasRepURN_ = true;
             }
           }
+          else if (strcmp(el, "SupplementalProperty") == 0)
+          {
+            const char *schemeIdUri(0), *value(0);
+
+            for (; *attr;)
+            {
+              if (strcmp((const char*)*attr, "schemeIdUri") == 0)
+                schemeIdUri = (const char*)*(attr + 1);
+              else if (strcmp((const char*)*attr, "value") == 0)
+                value = (const char*)*(attr + 1);
+              attr += 2;
+            }
+
+            if (schemeIdUri && value)
+            {
+              if (strcmp(schemeIdUri, "http://dashif.org/guidelines/last-segment-number") == 0)
+                dash->current_representation_->m_segEndNumber = STRING::ToUint64(value);
+            }
+          }
         }
         else if (dash->currentNode_ & (MPDNODE_SEGMENTTEMPLATE | MPDNODE_SEGMENTLIST))
         {
@@ -598,6 +619,8 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           {
             if (strcmp(schemeIdUri, "urn:mpeg:dash:adaptation-set-switching:2016") == 0)
               dash->current_adaptationset_->switching_ids_ = StringUtils::Split(value, ',');
+            else if (strcmp(schemeIdUri, "http://dashif.org/guidelines/last-segment-number") == 0)
+              dash->current_adaptationset_->m_segEndNumber = STRING::ToUint64(value);
           }
         }
         else if (dash->currentNode_ & MPDNODE_BASEURL)
@@ -666,6 +689,7 @@ static void XMLCALL start(void* data, const char* el, const char** attr)
           dash->current_representation_->aspect_ = dash->adpaspect_;
           dash->current_representation_->containerType_ = dash->adpContainerType_;
           dash->current_representation_->base_url_ = dash->current_adaptationset_->base_url_;
+          dash->current_representation_->m_segEndNumber = dash->current_adaptationset_->m_segEndNumber;
           dash->current_representation_->assured_buffer_duration_ =
               dash->m_settings.m_bufferAssuredDuration;
           dash->current_representation_->max_buffer_duration_ =
@@ -1251,9 +1275,17 @@ static void XMLCALL end(void* data, const char* el)
                 size_t countSegs{dash->current_adaptationset_->segment_durations_.data.size()};
                 if (countSegs == 0)
                 {
-                  countSegs =
-                      static_cast<size_t>(std::ceil(static_cast<double>(overallSeconds) /
-                                          (static_cast<double>(tpl.duration) / tpl.timescale)));
+                  // If signalled use the value of the last segment number
+                  if (tpl.m_segEndNumber.has_value())
+                    countSegs = *tpl.m_segEndNumber;
+                  if (dash->current_representation_->m_segEndNumber.has_value())
+                    countSegs = *dash->current_representation_->m_segEndNumber;
+                  else // Calculate the number of segments
+                  {
+                    countSegs = static_cast<size_t>(
+                        std::ceil(static_cast<double>(overallSeconds) /
+                                  (static_cast<double>(tpl.duration) / tpl.timescale)));
+                  }
                 }
 
                 if (countSegs < 65536)
