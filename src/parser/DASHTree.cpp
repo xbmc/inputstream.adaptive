@@ -1278,7 +1278,7 @@ static void XMLCALL end(void* data, const char* el)
                   // If signalled use the value of the last segment number
                   if (tpl.m_segEndNumber.has_value())
                     countSegs = *tpl.m_segEndNumber;
-                  if (dash->current_representation_->m_segEndNumber.has_value())
+                  else if (dash->current_representation_->m_segEndNumber.has_value())
                     countSegs = *dash->current_representation_->m_segEndNumber;
                   else // Calculate the number of segments
                   {
