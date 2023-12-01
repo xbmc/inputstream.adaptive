@@ -1137,11 +1137,14 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
 
     // Find the codec string from a variant that references it
     const Variant* varFound = FindVariantByAudioGroupId(r.m_groupId, pl.m_variants);
-    std::string codecStr = CODEC::FOURCC_MP4A; // Fallback
+    std::string codecStr;
     if (varFound)
       codecStr = GetAudioCodec(varFound->m_codecs);
     else
       LOG::LogF(LOGERROR, "Cannot find variant for AUDIO GROUP-ID: %s", r.m_groupId.c_str());
+
+    if (codecStr.empty())
+      codecStr = CODEC::FOURCC_MP4A; // Fallback
 
     newRepr->AddCodecs(codecStr);
     newAdpSet->AddCodecs(codecStr);
