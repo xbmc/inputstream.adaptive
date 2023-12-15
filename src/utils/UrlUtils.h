@@ -61,6 +61,15 @@ std::string GetParameters(std::string& url);
 std::string RemoveParameters(std::string url);
 
 /*!
+ * \brief Get the path part of an url,
+ *        e.g. https://sample.com/part1/part2?test become /part1/
+ * \param url An URL
+ * \param includeFilePart If true, keep the file name of the path
+ * \return The path
+ */
+std::string GetPath(std::string url, bool includeFilePart);
+
+/*!
  * \brief Get the url path, by removing file part and parameters
  *        e.g. https://sample.com/part1/part2?test become https://sample.com/part1/
  * \param url An URL
