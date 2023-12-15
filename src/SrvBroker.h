@@ -19,6 +19,10 @@
 #include <string>
 
 // forward
+namespace ADP::RESOURCES
+{
+class CCompResources;
+}
 namespace ADP::SETTINGS
 {
 class CCompSettings;
@@ -57,6 +61,14 @@ public:
   }
 
   /*
+   * \brief Get resources component, for shared resources.
+   */
+  static ADP::RESOURCES::CCompResources& GetResources()
+  {
+    return *GetInstance()->m_compResources;
+  }
+
+  /*
    * \brief Get settings component, to manage add-on XML settings.
    */
   static ADP::SETTINGS::CCompSettings& GetSettings()
@@ -69,5 +81,6 @@ private:
   ~CSrvBroker();
 
   std::unique_ptr<ADP::KODI_PROPS::CCompKodiProps> m_compKodiProps;
+  std::unique_ptr<ADP::RESOURCES::CCompResources> m_compResources;
   std::unique_ptr<ADP::SETTINGS::CCompSettings> m_compSettings;
 };
