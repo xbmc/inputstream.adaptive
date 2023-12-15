@@ -48,6 +48,8 @@ constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.pl
 constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
+constexpr std::string_view PROP_INTERNAL_COOKIES = "inputstream.adaptive.internal_cookies";
+
 // Chooser's properties
 constexpr std::string_view PROP_STREAM_SELECTION_TYPE = "inputstream.adaptive.stream_selection_type";
 constexpr std::string_view PROP_CHOOSER_BANDWIDTH_MAX = "inputstream.adaptive.chooser_bandwidth_max";
@@ -201,6 +203,10 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
         m_chooserProps.m_resolutionSecureMax = res;
       else
         LOG::Log(LOGERROR, "Resolution not valid on \"%s\" property.", prop.first.c_str());
+    }
+    else if (prop.first == PROP_INTERNAL_COOKIES)
+    {
+      m_isInternalCookies = STRING::CompareNoCase(prop.second, "true");
     }
     else
     {

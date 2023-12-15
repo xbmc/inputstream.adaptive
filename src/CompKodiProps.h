@@ -86,6 +86,9 @@ public:
    */
   std::string_view GetDrmPreInitData() const { return m_drmPreInitData; }
 
+  // \brief Defines if cookies are internally handled by InputStream Adaptive add-on
+  bool IsInternalCookies() const { return m_isInternalCookies; }
+
   // \brief Specifies the chooser properties that will override XML settings
   const ChooserProps& GetChooserProps() const { return m_chooserProps; }
 
@@ -107,6 +110,7 @@ private:
   bool m_playTimeshiftBuffer{false};
   uint64_t m_liveDelay{0};
   std::string m_drmPreInitData;
+  bool m_isInternalCookies{false};
   ChooserProps m_chooserProps;
 };
 

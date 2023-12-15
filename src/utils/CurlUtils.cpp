@@ -14,6 +14,7 @@
 #include "log.h"
 
 #include "CompResources.h"
+#include "CompKodiProps.h"
 #include "SrvBroker.h"
 
 using namespace UTILS;
@@ -191,14 +192,17 @@ UTILS::CURL::CUrl::CUrl(std::string_view url)
     // Add session cookies
     // NOTE: if kodi property inputstream.adaptive.stream_headers is set with "cookie" header
     // the cookies set by the property will replace these
-    m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "cookie", GetCookies(url));
+    if (CSrvBroker::GetKodiProps().IsInternalCookies())
+      m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "cookie", GetCookies(url));
   }
 }
 
 UTILS::CURL::CUrl::~CUrl()
 {
   std::vector<std::string> cookies = GetResponseHeaders("set-cookie");
-  StoreCookies(GetEffectiveUrl(), cookies);
+  if (CSrvBroker::GetKodiProps().IsInternalCookies())
+    StoreCookies(GetEffectiveUrl(), cookies);
+
   m_file.Close();
 }
 
