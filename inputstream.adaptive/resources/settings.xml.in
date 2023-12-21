@@ -81,7 +81,7 @@
           <level>0</level>
           <default>4000</default>
           <constraints>
-            <minimum>500</minimum>
+            <minimum>50</minimum>
             <step>1</step>
             <maximum>1000000</maximum>
           </constraints>
