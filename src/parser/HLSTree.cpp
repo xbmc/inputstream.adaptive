@@ -196,10 +196,6 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
   {
     // Download child manifest playlist
 
-    // Since we assume Live content by default we enable manifest update by segment,
-    // this setting can be changed by parsing manifest below
-    m_updateInterval = 0;
-
     std::string manifestUrl = rep->GetSourceUrl();
     URL::AppendParameters(manifestUrl, m_manifestParams);
 
@@ -524,6 +520,9 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       LOG::LogF(LOGERROR, "Non-compliant HLS manifest, #EXTM3U tag not found.");
       return PrepareRepStatus::FAILURE;
     }
+
+    if (m_isLive && m_updateInterval == NO_VALUE)
+      m_updateInterval = 0; // Refresh at each segment
 
     FreeSegments(period, rep);
 
