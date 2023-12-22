@@ -17,6 +17,7 @@ set(HEADERS
   Session.h
   SrvBroker.h
   CompKodiProps.h
+  CompResources.h
   CompSettings.h
   Stream.h
   aes_decrypter.h

@@ -224,5 +224,12 @@ std::vector<uint8_t> ToVecUint8(std::string_view str);
  */
 std::string ToHexadecimal(std::string_view str);
 
+/*!
+ * \brief Trim a string with remove of not wanted spaces at begin and end of string.
+ * \param value The string to be trimmed
+ * \return The string trimmed
+ */
+std::string Trim(std::string value);
+
 } // namespace STRING
 } // namespace UTILS

@@ -305,3 +305,9 @@ std::string UTILS::STRING::ToHexadecimal(std::string_view str)
   }
   return ss.str();
 }
+
+std::string UTILS::STRING::Trim(std::string value)
+{
+  StringUtils::Trim(value);
+  return value;
+}

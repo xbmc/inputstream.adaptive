@@ -15,6 +15,7 @@
 #include <kodi/Filesystem.h>
 #endif
 
+#include <iostream>
 #include <map>
 #include <string>
 #include <string_view>
@@ -59,6 +60,8 @@ public:
   * \return The header value, or empty if none
   */
   std::string GetResponseHeader(std::string_view name);
+
+  std::vector<std::string> GetResponseHeaders(std::string_view name);
 
  /*!
   * \brief Get the last used url (after following redirects).
@@ -117,7 +120,21 @@ struct HTTPResponse
   double downloadSpeed{0}; // Download speed in byte/s
 };
 
- /*!
+struct Cookie
+{
+  std::string m_name;
+  std::string m_value;
+  std::string m_domain;
+  std::string m_path;
+  uint64_t m_expires{0}; // expire timestamp
+
+  bool operator==(const Cookie& other) const
+  {
+    return m_name == other.m_name && m_domain == other.m_domain;
+  }
+};
+
+/*!
   * \brief Helper method to download a file.
   * \param url Url of the file to download
   * \param reqHeaders Headers to use for the HTTP request
@@ -133,3 +150,16 @@ bool DownloadFile(std::string_view url,
 
 } // namespace CURL
 } // namespace UTILS
+
+// Embedded Cookie hash specialization
+namespace std
+{
+template<>
+struct hash<UTILS::CURL::Cookie>
+{
+  size_t operator()(const UTILS::CURL::Cookie& cookie) const
+  {
+    return hash<string>()(cookie.m_name + cookie.m_domain);
+  }
+};
+} // namespace std
