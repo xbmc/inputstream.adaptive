@@ -234,17 +234,17 @@ PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::C
       // if we move forward within the loop code
       std::streampos currentStreamPos = streamData.tellg();
 
-      std::string tagName;
-      std::string tagValue;
-      ParseTagNameValue(line, tagName, tagValue);
-
       // Find the extended M3U file initialization tag
       if (!isExtM3Uformat)
       {
-        if (tagName == "#EXTM3U")
+        if (STRING::StartsWith(line, "#EXTM3U"))
           isExtM3Uformat = true;
         continue;
       }
+
+      std::string tagName;
+      std::string tagValue;
+      ParseTagNameValue(line, tagName, tagValue);
 
       if (tagName == "#EXT-X-KEY")
       {
