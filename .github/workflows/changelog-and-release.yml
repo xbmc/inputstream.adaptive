@@ -16,7 +16,7 @@ on:
       version_type:
         description: 'Create a ''minor'' or ''micro'' release?'
         required: true
-        default: 'minor'
+        default: 'micro'
       changelog_text:
         description: 'Input the changes you''d like to add to the changelogs. Your text should be encapsulated in "''s with line feeds represented by literal \n''s. ie. "This is the first change\nThis is the second change"'
         required: true
@@ -24,7 +24,7 @@ on:
       update_news:
         description: 'Update news in addon.xml.in? [true|false]'
         required: true
-        default: 'true'
+        default: 'false'
       add_date:
         description: 'Add date to version number in changelog and news. ie. "v1.0.1 (2021-7-17)" [true|false]'
         required: true
