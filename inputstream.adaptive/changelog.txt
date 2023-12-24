@@ -1,3 +1,8 @@
+v20.3.15 (2023-12-24)
+- New properties license_url / license_url_append, workaround for PVR playlist bug, see wiki
+- [Dash] Implemented support to last segment signal
+- [Settings] Lowered the minimum threshold for initial bandwidth to 50kbps
+
 v20.3.14 (2023-11-02)
 - Fix missing http requests params and headers when downloading subtitle streams
 
