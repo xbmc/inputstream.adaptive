@@ -4,6 +4,7 @@ set(SOURCES
   CurlUtils.cpp
   DigestMD5Utils.cpp
   FileUtils.cpp
+  JsonUtils.cpp
   StringUtils.cpp
   UrlUtils.cpp
   Utils.cpp
@@ -17,6 +18,7 @@ set(HEADERS
   CurlUtils.h
   DigestMD5Utils.h
   FileUtils.h
+  JsonUtils.h
   log.h
   StringUtils.h
   UrlUtils.h

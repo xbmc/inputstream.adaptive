@@ -12,6 +12,12 @@
 
 namespace DRM
 {
+/*!
+  * \brief Test if there is a compatible DRM that support the specified key system.
+  * \return True if DRM supported, otherwise false.
+  */
+bool IsKeySystemDRMSupported(std::string_view ks);
+
 namespace FACTORY
 {
 IDecrypter* GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem);
