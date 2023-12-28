@@ -10,6 +10,8 @@
 
 #include "log.h"
 
+#include <regex>
+
 using namespace UTILS::BASE64;
 
 namespace
@@ -40,6 +42,17 @@ constexpr unsigned char BASE64_TABLE[] = {
 };
 // clang-format on
 } // namespace
+
+bool UTILS::BASE64::IsBase64(const std::string& str)
+{
+  // Check if the string length is a multiple of 4
+  if (str.size() % 4 == 0)
+  {
+    static const std::regex base64Regex("^[A-Za-z0-9+/]*={0,2}$");
+    return std::regex_match(str, base64Regex);
+  }
+  return false;
+}
 
 void UTILS::BASE64::Encode(const uint8_t* input, const size_t length, std::string& output)
 {

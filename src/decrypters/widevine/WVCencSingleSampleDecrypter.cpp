@@ -303,7 +303,9 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     md5.Finalize();
     blocks[0].replace(insPos, 6, md5.HexDigest());
   }
-
+  LOG::LogF(LOGERROR, "licenza url: %s", blocks[0].c_str());
+  LOG::LogF(LOGERROR, "licenza key: %s", m_wvCdmAdapter.GetLicenseURL().c_str());
+  
   CURL::CUrl file{blocks[0].c_str()};
   file.AddHeader("Expect", "");
 
@@ -477,6 +479,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
 
   resLimit = file.GetResponseHeader("X-Limit-Video");
   contentType = file.GetResponseHeader("Content-Type");
+  LOG::LogF(LOGERROR, "contentType: %s", contentType.c_str());
 
   if (!resLimit.empty())
   {
@@ -490,7 +493,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     LOG::LogF(LOGERROR, "Could not read full SessionMessage response");
     return false;
   }
-
+  LOG::LogF(LOGERROR, "lic response: %s", response.c_str());
   if (m_host->IsDebugSaveLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(

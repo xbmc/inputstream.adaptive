@@ -21,8 +21,22 @@ namespace STRING
 {
 
 // \brief Template function to check if a key exists in a container e.g. <map>
-template<typename T, typename Key>
-bool KeyExists(const T& container, const Key& key)
+template<typename T>
+bool KeyExists(const T& container, const std::string_view& key)
+{
+  return container.find(key.data()) != std::end(container);
+}
+
+// \brief Template function to check if a key exists in a container e.g. <map>
+template<typename T>
+bool KeyExists(const T& container, const std::string& key)
+{
+  return container.find(key) != std::end(container);
+}
+
+// \brief Template function to check if a key exists in a container e.g. <map>
+template<typename T>
+bool KeyExists(const T& container, const char* key)
 {
   return container.find(key) != std::end(container);
 }

@@ -65,6 +65,8 @@ public:
   virtual const char* GetProfilePath() const override { return m_strProfilePath.c_str(); }
   virtual const bool IsDebugSaveLicense() const override { return m_isDebugSaveLicense; }
 
+  static bool IsKeySystemSupported(std::string_view ks);
+
 private:
   CWVCdmAdapter* m_WVCdmAdapter;
   CWVCencSingleSampleDecrypter* m_decodingDecrypter;
