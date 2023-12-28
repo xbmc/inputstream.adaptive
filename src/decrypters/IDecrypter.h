@@ -170,21 +170,10 @@ public:
   virtual void SetLibraryPath(std::string_view libraryPath) = 0;
 
   /**
-   * \brief Set whether to enable saving of license challenge/response data for debugging
-   * \param isDebugSaveLicense True to save data, otherwise false
-   */
-  virtual void SetDebugSaveLicense(bool isDebugSaveLicense) = 0;
-
-  /**
    * \brief Get the auxillary library path
    * \return The auxillary library path
    */
   virtual std::string_view GetLibraryPath() const = 0;
 
-  /**
-   * \brief Get whether to enable saving of license challenge/response data for debugging
-   * \return True to save data, otherwise false
-   */
-  virtual const bool IsDebugSaveLicense() const = 0;
 };
 }; // namespace DRM

@@ -98,7 +98,6 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
 
   key_system = m_decrypter->SelectKeySytem(CSrvBroker::GetKodiProps().GetLicenseType());
   m_decrypter->SetLibraryPath(decrypterPath);
-  m_decrypter->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
 }
 
 void CSession::DisposeSampleDecrypter()

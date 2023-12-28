@@ -8,6 +8,8 @@
 
 #include "WVCencSingleSampleDecrypter.h"
 
+#include "CompSettings.h"
+#include "SrvBroker.h"
 #include "WVCdmAdapter.h"
 #include "WVDecrypter.h"
 #include "jsmn.h"
@@ -46,7 +48,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
     return;
   }
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(m_host->GetLibraryPath().data(),
                                                      "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
@@ -332,7 +334,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
     return false;
   }
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
         m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
@@ -533,7 +535,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
         blocks[2] = msgEncoded;
       }
 
-      if (m_host->IsDebugSaveLicense())
+      if (CSrvBroker::GetSettings().IsDebugLicense())
       {
         std::string debugFilePath = FILESYS::PathCombine(
             m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata");
@@ -594,7 +596,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
     }
   }
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
         m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");

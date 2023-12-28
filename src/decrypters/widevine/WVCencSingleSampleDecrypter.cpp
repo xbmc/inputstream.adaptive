@@ -8,6 +8,8 @@
 
 #include "WVCencSingleSampleDecrypter.h"
 
+#include "CompSettings.h"
+#include "SrvBroker.h"
 #include "CdmDecryptedBlock.h"
 #include "CdmFixedBuffer.h"
 #include "CdmTypeConversion.h"
@@ -68,7 +70,7 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
 
   m_wvCdmAdapter.insertssd(this);
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(m_host->GetLibraryPath().data(),
                                                      "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
@@ -269,7 +271,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     return false;
   }
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
         m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
@@ -491,7 +493,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     return false;
   }
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
         m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
