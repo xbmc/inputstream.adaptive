@@ -10,6 +10,7 @@
 
 #include "WVCdmAdapter.h"
 #include "WVCencSingleSampleDecrypter.h"
+#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/FileUtils.h"
 #include "utils/StringUtils.h"
@@ -202,4 +203,9 @@ void CWVDecrypter::ReleaseBuffer(void* instance, void* buffer)
 {
   if (instance)
     static_cast<kodi::addon::CInstanceVideoCodec*>(instance)->ReleaseFrameBuffer(buffer);
+}
+
+bool CWVDecrypter::IsKeySystemSupported(std::string_view ks)
+{
+  return ks == DRM::KS_WIDEVINE;
 }

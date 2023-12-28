@@ -35,6 +35,7 @@ add_executable(${BINARY}
     ../common/SegmentBase.cpp
     ../common/SegmentList.cpp
     ../common/SegTemplate.cpp
+    ../decrypters/Helpers.cpp
     ../oscompat.cpp
     ../SrvBroker.cpp
     ../CompSettings.cpp
@@ -42,14 +43,16 @@ add_executable(${BINARY}
     ../utils/Base64Utils.cpp
     ../utils/CharArrayParser.cpp
     ../utils/CurlUtils.cpp
+    ../utils/DigestMD5Utils.cpp
     ../utils/FileUtils.cpp
+    ../utils/JsonUtils.cpp
     ../utils/StringUtils.cpp
     ../utils/UrlUtils.cpp
     ../utils/Utils.cpp
     ../utils/XMLUtils.cpp
     )
 
-target_link_libraries(${BINARY} PRIVATE ${BENTO4_LIBRARIES} ${PUGIXML_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(${BINARY} PRIVATE ${BENTO4_LIBRARIES} ${PUGIXML_LIBRARIES} ${RAPIDJSON_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})
 
 set(TEST_DATA_DIR "${CMAKE_SOURCE_DIR}/src/test/manifests")
 add_test(NAME manifest_tests COMMAND ${BINARY} "${TEST_DATA_DIR}")

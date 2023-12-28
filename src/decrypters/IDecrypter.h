@@ -43,7 +43,31 @@ struct DecrypterCapabilites
   uint16_t hdcpVersion{0}; //The HDCP version streams has to be restricted 0,10,20,21,22.....
   int hdcpLimit{0}; // If set (> 0) streams that are greater than the multiplication of "Width x Height" cannot be played.
 };
+/*
+struct DrmConfig
+{
+  struct License
+  {
+    enum class Wrapper
+    {
+      AUTO, // Try auto-detect wrappers
+      NONE, // Implicit for binary data
+      BASE64,
+      JSON,
+      XML
+    };
 
+    // Define each wrapper used to wrap the license data,
+    // on multiple wrappers e.g. BASE64+JSON the order in which the wrappers are added
+    // defines the order in which the data will be unwrapped
+    std::vector<Wrapper> m_wrappers;
+    // Wrapper params
+    std::map<std::string, std::string> m_wrapperParams;
+  };
+
+  License m_license;
+};
+*/
 class IDecrypter
 {
 public:

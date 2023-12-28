@@ -58,6 +58,8 @@ public:
   virtual void ReleaseBuffer(void* instance, void* buffer);
   virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
 
+  static bool IsKeySystemSupported(std::string_view ks);
+
 private:
   CWVCdmAdapter* m_WVCdmAdapter;
   CWVCencSingleSampleDecrypter* m_decodingDecrypter;

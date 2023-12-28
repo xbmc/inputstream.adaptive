@@ -58,6 +58,39 @@ struct ManifestConfig
   bool hlsFixDiscontSequence{false};
 };
 
+struct DrmCfg
+{
+  struct License
+  {
+    // Multiple wrappers e.g. "base64+json", the name order defines the order
+    // in which data will be unwrapped, (1) base64 --> (2) json
+    std::string m_wrapper;
+    std::map<std::string, std::string> m_wrapperParams;
+
+    //! @todo: To be removed at same time of deprecated DRM properties, this is an old hack used to traverse all
+    //! JSON objects to find a specific key name in a dict (the new implementation use absolute JSON paths)
+    bool m_isJsonPathTraverse{false}; // todo<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    std::string m_serverCertificate; // Encoded as base64, same of inputstream.adaptive.server_certificate
+
+    std::string m_serverUrl;
+    std::map<std::string, std::string> m_reqHeaders; // todo: make it optional, if not set get headers from manifest  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    std::string m_reqParams;
+    std::string m_reqData; // Encoded as base64, if set will be executed an HTTP POST request with provided data
+  };
+
+  License m_license; // The license configuration
+
+  bool m_isPersistentStorage{false}; // same of inputstream.adaptive.license_flags
+  bool m_isSecureDecoderForced{false}; // same of inputstream.adaptive.license_flags
+  
+  std::string m_streamsPsshData; // Encoded as base64, same of inputstream.adaptive.license_data
+  std::string m_preInitData; // Encoded as base64, same of 
+
+  // todo <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+  std::optional<int> m_priority;
+};
+
 class ATTR_DLL_LOCAL CCompKodiProps
 {
 public:
@@ -111,8 +144,16 @@ public:
   // \brief Specifies the manifest configuration
   const ManifestConfig& GetManifestConfig() const { return m_manifestConfig; }
 
+  // \brief Get DRM configuration for specified keysystem, if not found will return default values
+  const DrmCfg& GetDrmConfig(const std::string& keySystem) { return m_drmConfigs[keySystem]; }
+
+  const std::map<std::string, DrmCfg>& GetDrmConfigs() const { return m_drmConfigs; }
+
 private:
   void ParseManifestConfig(const std::string& data);
+  void ParseLegacyDrm(const std::map<std::string, std::string>& props);
+  bool ParseDrm(std::string data);
+  bool ParseDrmLicense(std::string data);
 
   std::string m_licenseType;
   std::string m_licenseKey;
@@ -134,6 +175,8 @@ private:
   bool m_isInternalCookies{false};
   ChooserProps m_chooserProps;
   ManifestConfig m_manifestConfig;
+  // DRM configurations by CDM key system
+  std::map<std::string, DrmCfg> m_drmConfigs;
 };
 
 } // namespace KODI_PROPS

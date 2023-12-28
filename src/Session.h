@@ -46,7 +46,7 @@ public:
    *  \param isSessionOpened [OUT] Will be true if the DRM session has been opened
    *  \return True if has success, false otherwise
    */
-  bool PreInitializeDRM(std::string& challengeB64, std::string& sessionId, bool& isSessionOpened);
+  bool PreInitializeDRM(std::string_view preInitData, std::string& challengeB64, std::string& sessionId, bool& isSessionOpened);
 
   /*! \brief Initialize the DRM
    *  \param addDefaultKID Set True to add the default KID to the first session
