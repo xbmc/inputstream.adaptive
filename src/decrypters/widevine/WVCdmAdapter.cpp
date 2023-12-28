@@ -41,7 +41,7 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
     LOG::LogF(LOGERROR, "Widevine CDM library path not specified");
     return;
   }
-  std::string cdmPath = FILESYS::PathCombine(m_host->GetLibraryPath().data(), LIBRARY_FILENAME);
+  std::string cdmPath = FILESYS::PathCombine(m_host->GetLibraryPath(), LIBRARY_FILENAME);
 
   if (licenseURL.empty())
   {

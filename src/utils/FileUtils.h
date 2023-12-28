@@ -37,7 +37,7 @@ bool SaveFile(const std::string filePath, const std::string& data, bool overwrit
  * \param filePath The path to be combined, like filename or another path.
  * \return The combined path.
  */
-std::string PathCombine(std::string path, std::string filePath);
+std::string PathCombine(std::string_view path, std::string_view filePath);
 
 /*!
  * \brief Get the user-related data folder of the addon.

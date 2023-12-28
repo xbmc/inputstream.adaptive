@@ -50,8 +50,8 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string debugFilePath = FILESYS::PathCombine(m_host->GetLibraryPath().data(),
-                                                     "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
+    std::string debugFilePath =
+        FILESYS::PathCombine(m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
     std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
     FILESYS::SaveFile(debugFilePath, data, true);
   }
@@ -337,7 +337,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
+        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
     UTILS::FILESYS::SaveFile(debugFilePath, keyRequestData.data(), true);
   }
 
@@ -538,7 +538,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
       if (CSrvBroker::GetSettings().IsDebugLicense())
       {
         std::string debugFilePath = FILESYS::PathCombine(
-            m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata");
+            m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata");
         UTILS::FILESYS::SaveFile(debugFilePath, blocks[2], true);
       }
     }
@@ -599,7 +599,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetLibraryPath().data(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
+        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
     UTILS::FILESYS::SaveFile(debugFilePath, response, true);
   }
 

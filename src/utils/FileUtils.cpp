@@ -36,18 +36,21 @@ bool UTILS::FILESYS::SaveFile(const std::string filePath, const std::string& dat
   return isWritten;
 }
 
-std::string UTILS::FILESYS::PathCombine(std::string path, std::string filePath)
+std::string UTILS::FILESYS::PathCombine(std::string_view path, std::string_view filePath)
 {
   if (path.empty())
-    return filePath;
+    return std::string(filePath);
 
   if (path.back() == SEPARATOR)
-    path.pop_back();
+    path.remove_suffix(1);
 
   if (filePath.front() == SEPARATOR)
-    filePath.erase(0, 1);
+    filePath.remove_prefix(1);
 
-  return path + SEPARATOR + filePath;
+  std::string cPath{path};
+  cPath += SEPARATOR;
+  cPath += filePath;
+  return cPath;
 }
 
 std::string UTILS::FILESYS::GetAddonUserPath()
