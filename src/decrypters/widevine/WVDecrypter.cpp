@@ -186,15 +186,9 @@ void CWVDecrypter::ResetVideo()
     m_decodingDecrypter->ResetVideo();
 }
 
-void CWVDecrypter::SetLibraryPath(const char* libraryPath)
+void CWVDecrypter::SetLibraryPath(std::string_view libraryPath)
 {
-  m_strLibraryPath = libraryPath;
-
-  const char* pathSep{libraryPath[0] && libraryPath[1] == ':' && isalpha(libraryPath[0]) ? "\\"
-                                                                                         : "/"};
-
-  if (m_strLibraryPath.size() && m_strLibraryPath.back() != pathSep[0])
-    m_strLibraryPath += pathSep;
+  m_libraryPath = libraryPath;
 }
 
 void CWVDecrypter::SetProfilePath(const std::string& profilePath)

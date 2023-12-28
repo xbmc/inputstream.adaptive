@@ -167,7 +167,7 @@ public:
    * \brief Set the auxillary library path
    * \param libraryPath Filesystem path for the decrypter to locate any needed files such as CDMs
    */
-  virtual void SetLibraryPath(const char* libraryPath) = 0;
+  virtual void SetLibraryPath(std::string_view libraryPath) = 0;
 
   /**
    * \brief Set the path to inputstream.adaptive's user/profile directory
@@ -185,7 +185,7 @@ public:
    * \brief Get the auxillary library path
    * \return The auxillary library path
    */
-  virtual const char* GetLibraryPath() const = 0;
+  virtual std::string_view GetLibraryPath() const = 0;
 
   /**
    * \brief Get the path to inputstream.adaptive's user/profile directory

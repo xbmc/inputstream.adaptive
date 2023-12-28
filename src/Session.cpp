@@ -82,10 +82,10 @@ CSession::~CSession()
 
 void CSession::SetSupportedDecrypterURN(std::string& key_system)
 {
-  std::string specialpath = kodi::addon::GetSettingString("DECRYPTERPATH");
-  if (specialpath.empty())
+  std::string decrypterPath = CSrvBroker::GetSettings().GetDecrypterPath();
+  if (decrypterPath.empty())
   {
-    LOG::Log(LOGDEBUG, "DECRYPTERPATH not specified in settings.xml");
+    LOG::Log(LOGWARNING, "Decrypter path not set in the add-on settings");
     return;
   }
 
@@ -100,7 +100,7 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
   }
 
   key_system = m_decrypter->SelectKeySytem(CSrvBroker::GetKodiProps().GetLicenseType());
-  m_decrypter->SetLibraryPath(kodi::vfs::TranslateSpecialProtocol(specialpath).c_str());
+  m_decrypter->SetLibraryPath(decrypterPath);
   m_decrypter->SetProfilePath(m_profilePath);
   m_decrypter->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
 }

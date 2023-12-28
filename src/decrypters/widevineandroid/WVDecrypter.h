@@ -129,13 +129,13 @@ public:
   virtual void ResetVideo() override {}
 
   virtual void SetProfilePath(const std::string& profilePath) override;
-  virtual void SetLibraryPath(const char* libraryPath) override{};
+  virtual void SetLibraryPath(std::string_view libraryPath) override {}
   virtual void SetDebugSaveLicense(bool isDebugSaveLicense) override
   {
     m_isDebugSaveLicense = isDebugSaveLicense;
   }
 
-  virtual const char* GetLibraryPath() const override { return ""; }
+  virtual std::string_view GetLibraryPath() const override { return ""; }
   virtual const char* GetProfilePath() const override { return m_strProfilePath.c_str(); }
   virtual const bool IsDebugSaveLicense() const override { return m_isDebugSaveLicense; }
 
