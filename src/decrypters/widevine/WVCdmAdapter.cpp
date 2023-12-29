@@ -58,7 +58,7 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
 
   // Build up a CDM path to store decrypter specific stuff, each domain gets it own path
   // the domain name is hashed to generate a short folder name
-  std::string basePath = FILESYS::PathCombine(m_host->GetProfilePath(), "widevine");
+  std::string basePath = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), "widevine");
   basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
   basePath += FILESYS::SEPARATOR;
 

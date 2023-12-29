@@ -32,10 +32,7 @@ using namespace PLAYLIST;
 using namespace SESSION;
 using namespace UTILS;
 
-CSession::CSession(const std::string& manifestUrl,
-                   const std::string& profilePath)
-  : m_manifestUrl(manifestUrl),
-    m_profilePath(profilePath)
+CSession::CSession(const std::string& manifestUrl) : m_manifestUrl(manifestUrl)
 {
   m_reprChooser = CHOOSER::CreateRepresentationChooser();
 
@@ -101,7 +98,6 @@ void CSession::SetSupportedDecrypterURN(std::string& key_system)
 
   key_system = m_decrypter->SelectKeySytem(CSrvBroker::GetKodiProps().GetLicenseType());
   m_decrypter->SetLibraryPath(decrypterPath);
-  m_decrypter->SetProfilePath(m_profilePath);
   m_decrypter->SetDebugSaveLicense(kodi::addon::GetSettingBoolean("debug.save.license"));
 }
 

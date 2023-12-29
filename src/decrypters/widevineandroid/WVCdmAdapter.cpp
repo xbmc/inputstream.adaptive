@@ -51,7 +51,7 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
 
   // Build up a CDM path to store decrypter specific stuff, each domain gets it own path
   // the domain name is hashed to generate a short folder name
-  std::string basePath = FILESYS::PathCombine(m_host->GetProfilePath(), drmName);
+  std::string basePath = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), drmName);
   basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
   basePath += FILESYS::SEPARATOR;
   m_strBasePath = basePath;

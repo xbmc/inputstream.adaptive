@@ -41,7 +41,7 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 
   CSrvBroker::GetInstance()->Init(props.GetProperties());
 
-  m_session = std::make_shared<CSession>(url, props.GetProfileFolder());
+  m_session = std::make_shared<CSession>(url);
   m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight, m_currentVideoMaxWidth,
                                 m_currentVideoMaxHeight);
 

@@ -170,12 +170,6 @@ public:
   virtual void SetLibraryPath(std::string_view libraryPath) = 0;
 
   /**
-   * \brief Set the path to inputstream.adaptive's user/profile directory
-   * \param profilePath The path to inputstream.adaptive's user/profile directory
-   */
-  virtual void SetProfilePath(const std::string& profilePath) = 0;
-
-  /**
    * \brief Set whether to enable saving of license challenge/response data for debugging
    * \param isDebugSaveLicense True to save data, otherwise false
    */
@@ -186,12 +180,6 @@ public:
    * \return The auxillary library path
    */
   virtual std::string_view GetLibraryPath() const = 0;
-
-  /**
-   * \brief Get the path to inputstream.adaptive's user/profile directory
-   * \return The path to inputstream.adaptive's user/profile directory
-   */
-  virtual const char* GetProfilePath() const = 0;
 
   /**
    * \brief Get whether to enable saving of license challenge/response data for debugging

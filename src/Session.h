@@ -27,8 +27,7 @@ namespace SESSION
 class ATTR_DLL_LOCAL CSession : public adaptive::AdaptiveStreamObserver
 {
 public:
-  CSession(const std::string& manifestUrl,
-           const std::string& profilePath);
+  CSession(const std::string& manifestUrl);
   virtual ~CSession();
 
   /*! \brief Initialize the session
@@ -346,7 +345,6 @@ protected:
 
 private:
   std::string m_manifestUrl;
-  std::string m_profilePath;
   std::vector<uint8_t> m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   DRM::IDecrypter* m_decrypter{nullptr};
