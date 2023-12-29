@@ -199,9 +199,8 @@ UTILS::CURL::CUrl::CUrl(std::string_view url)
 
 UTILS::CURL::CUrl::~CUrl()
 {
-  std::vector<std::string> cookies = GetResponseHeaders("set-cookie");
   if (CSrvBroker::GetKodiProps().IsInternalCookies())
-    StoreCookies(GetEffectiveUrl(), cookies);
+    StoreCookies(GetEffectiveUrl(), GetResponseHeaders("set-cookie"));
 
   m_file.Close();
 }
