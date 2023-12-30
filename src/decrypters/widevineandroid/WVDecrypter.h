@@ -128,16 +128,8 @@ public:
 
   virtual void ResetVideo() override {}
 
-  virtual void SetProfilePath(const std::string& profilePath) override;
-  virtual void SetLibraryPath(const char* libraryPath) override{};
-  virtual void SetDebugSaveLicense(bool isDebugSaveLicense) override
-  {
-    m_isDebugSaveLicense = isDebugSaveLicense;
-  }
-
-  virtual const char* GetLibraryPath() const override { return ""; }
-  virtual const char* GetProfilePath() const override { return m_strProfilePath.c_str(); }
-  virtual const bool IsDebugSaveLicense() const override { return m_isDebugSaveLicense; }
+  virtual void SetLibraryPath(std::string_view libraryPath) override {}
+  virtual std::string_view GetLibraryPath() const override { return ""; }
 
   virtual void OnMediaDrmEvent(const CJNIMediaDrm& mediaDrm,
                                const std::vector<char>& sessionId,
@@ -154,8 +146,6 @@ private:
   std::vector<CWVCencSingleSampleDecrypterA*> m_decrypterList;
   std::mutex m_decrypterListMutex;
   std::string m_retvalHelper;
-  std::string m_strProfilePath;
-  bool m_isDebugSaveLicense;
 #ifdef DRMTHREAD
   std::mutex m_jniMutex;
   std::condition_variable m_jniCondition;

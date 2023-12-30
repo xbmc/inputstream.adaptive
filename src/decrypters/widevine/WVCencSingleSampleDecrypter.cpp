@@ -8,6 +8,8 @@
 
 #include "WVCencSingleSampleDecrypter.h"
 
+#include "CompSettings.h"
+#include "SrvBroker.h"
 #include "CdmDecryptedBlock.h"
 #include "CdmFixedBuffer.h"
 #include "CdmTypeConversion.h"
@@ -68,10 +70,10 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
 
   m_wvCdmAdapter.insertssd(this);
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string debugFilePath =
-        FILESYS::PathCombine(m_host->GetProfilePath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
+    std::string debugFilePath = FILESYS::PathCombine(m_host->GetLibraryPath(),
+                                                     "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
 
     std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
     UTILS::FILESYS::SaveFile(debugFilePath, data, true);
@@ -269,10 +271,10 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     return false;
   }
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetProfilePath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
+        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
     std::string data{reinterpret_cast<const char*>(m_challenge.GetData()),
                      m_challenge.GetDataSize()};
     UTILS::FILESYS::SaveFile(debugFilePath, data, true);
@@ -491,10 +493,10 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     return false;
   }
 
-  if (m_host->IsDebugSaveLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetProfilePath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
+        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
     FILESYS::SaveFile(debugFilePath, response, true);
   }
 

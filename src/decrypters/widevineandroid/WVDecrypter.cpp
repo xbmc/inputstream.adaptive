@@ -82,28 +82,6 @@ void JNIThread(JavaVM* vm)
 }
 #endif
 
-void CWVDecrypterA::SetProfilePath(const std::string& profilePath)
-{
-  m_strProfilePath = profilePath;
-
-  const char* pathSep{profilePath[0] && profilePath[1] == ':' && isalpha(profilePath[0]) ? "\\"
-                                                                                         : "/"};
-
-  if (m_strProfilePath.size() && m_strProfilePath.back() != pathSep[0])
-    m_strProfilePath += pathSep;
-
-  //let us make cdm userdata out of the addonpath and share them between addons
-  m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 2));
-  m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 1));
-  m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 1) +
-                          1);
-
-  kodi::vfs::CreateDirectory(m_strProfilePath.c_str());
-  m_strProfilePath += "cdm";
-  m_strProfilePath += pathSep;
-  kodi::vfs::CreateDirectory(m_strProfilePath.c_str());
-}
-
 std::string CWVDecrypterA::SelectKeySytem(std::string_view keySystem)
 {
   LOG::Log(LOGDEBUG, "Key system request: %s", keySystem.data());

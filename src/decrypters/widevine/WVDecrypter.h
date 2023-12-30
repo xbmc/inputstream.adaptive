@@ -53,23 +53,14 @@ public:
   virtual VIDEOCODEC_RETVAL VideoFrameDataToPicture(kodi::addon::CInstanceVideoCodec* codecInstance,
                                                     VIDEOCODEC_PICTURE* picture) override;
   virtual void ResetVideo() override;
-  virtual void SetLibraryPath(const char* libraryPath) override;
-  virtual void SetProfilePath(const std::string& profilePath) override;
-  virtual void SetDebugSaveLicense(bool isDebugSaveLicense) override
-  {
-    m_isDebugSaveLicense = isDebugSaveLicense;
-  }
+  virtual void SetLibraryPath(std::string_view libraryPath) override;
   virtual bool GetBuffer(void* instance, VIDEOCODEC_PICTURE& picture);
   virtual void ReleaseBuffer(void* instance, void* buffer);
-  virtual const char* GetLibraryPath() const override { return m_strLibraryPath.c_str(); }
-  virtual const char* GetProfilePath() const override { return m_strProfilePath.c_str(); }
-  virtual const bool IsDebugSaveLicense() const override { return m_isDebugSaveLicense; }
+  virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
 
 private:
   CWVCdmAdapter* m_WVCdmAdapter;
   CWVCencSingleSampleDecrypter* m_decodingDecrypter;
-  std::string m_strProfilePath;
-  std::string m_strLibraryPath;
-  bool m_isDebugSaveLicense;
+  std::string m_libraryPath;
   void* m_hdlLibLoader{nullptr}; // Aarch64 loader library handle
 };

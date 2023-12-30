@@ -36,13 +36,12 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
                              CWVDecrypter* host)
   : m_licenseUrl(licenseURL), m_host(host), m_codecInstance(nullptr)
 {
-  std::string strLibPath = m_host->GetLibraryPath();
-  if (strLibPath.empty())
+  if (m_host->GetLibraryPath().empty())
   {
-    LOG::LogF(LOGERROR, "No Widevine library path specified in settings");
+    LOG::LogF(LOGERROR, "Widevine CDM library path not specified");
     return;
   }
-  strLibPath += LIBRARY_FILENAME;
+  std::string cdmPath = FILESYS::PathCombine(m_host->GetLibraryPath(), LIBRARY_FILENAME);
 
   if (licenseURL.empty())
   {
@@ -59,17 +58,17 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
 
   // Build up a CDM path to store decrypter specific stuff, each domain gets it own path
   // the domain name is hashed to generate a short folder name
-  std::string basePath = FILESYS::PathCombine(m_host->GetProfilePath(), "widevine");
+  std::string basePath = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), "widevine");
   basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
   basePath += FILESYS::SEPARATOR;
 
   wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter(
-      "com.widevine.alpha", strLibPath, basePath,
+      "com.widevine.alpha", cdmPath, basePath,
       media::CdmConfig(false, (config & DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE) != 0),
       dynamic_cast<media::CdmAdapterClient*>(this)));
   if (!wv_adapter->valid())
   {
-    LOG::Log(LOGERROR, "Unable to load widevine shared library (%s)", strLibPath.c_str());
+    LOG::Log(LOGERROR, "Unable to load widevine shared library (%s)", cdmPath.c_str());
     wv_adapter = nullptr;
     return;
   }

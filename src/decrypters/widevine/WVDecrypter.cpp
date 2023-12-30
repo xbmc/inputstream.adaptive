@@ -186,37 +186,9 @@ void CWVDecrypter::ResetVideo()
     m_decodingDecrypter->ResetVideo();
 }
 
-void CWVDecrypter::SetLibraryPath(const char* libraryPath)
+void CWVDecrypter::SetLibraryPath(std::string_view libraryPath)
 {
-  m_strLibraryPath = libraryPath;
-
-  const char* pathSep{libraryPath[0] && libraryPath[1] == ':' && isalpha(libraryPath[0]) ? "\\"
-                                                                                         : "/"};
-
-  if (m_strLibraryPath.size() && m_strLibraryPath.back() != pathSep[0])
-    m_strLibraryPath += pathSep;
-}
-
-void CWVDecrypter::SetProfilePath(const std::string& profilePath)
-{
-  m_strProfilePath = profilePath;
-
-  const char* pathSep{profilePath[0] && profilePath[1] == ':' && isalpha(profilePath[0]) ? "\\"
-                                                                                         : "/"};
-
-  if (m_strProfilePath.size() && m_strProfilePath.back() != pathSep[0])
-    m_strProfilePath += pathSep;
-
-  //let us make cdm userdata out of the addonpath and share them between addons
-  m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 2));
-  m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 1));
-  m_strProfilePath.resize(m_strProfilePath.find_last_of(pathSep[0], m_strProfilePath.length() - 1) +
-                          1);
-
-  kodi::vfs::CreateDirectory(m_strProfilePath.c_str());
-  m_strProfilePath += "cdm";
-  m_strProfilePath += pathSep;
-  kodi::vfs::CreateDirectory(m_strProfilePath.c_str());
+  m_libraryPath = libraryPath;
 }
 
 bool CWVDecrypter::GetBuffer(void* instance, VIDEOCODEC_PICTURE& picture)

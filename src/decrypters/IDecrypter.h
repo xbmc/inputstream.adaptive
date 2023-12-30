@@ -167,36 +167,13 @@ public:
    * \brief Set the auxillary library path
    * \param libraryPath Filesystem path for the decrypter to locate any needed files such as CDMs
    */
-  virtual void SetLibraryPath(const char* libraryPath) = 0;
-
-  /**
-   * \brief Set the path to inputstream.adaptive's user/profile directory
-   * \param profilePath The path to inputstream.adaptive's user/profile directory
-   */
-  virtual void SetProfilePath(const std::string& profilePath) = 0;
-
-  /**
-   * \brief Set whether to enable saving of license challenge/response data for debugging
-   * \param isDebugSaveLicense True to save data, otherwise false
-   */
-  virtual void SetDebugSaveLicense(bool isDebugSaveLicense) = 0;
+  virtual void SetLibraryPath(std::string_view libraryPath) = 0;
 
   /**
    * \brief Get the auxillary library path
    * \return The auxillary library path
    */
-  virtual const char* GetLibraryPath() const = 0;
+  virtual std::string_view GetLibraryPath() const = 0;
 
-  /**
-   * \brief Get the path to inputstream.adaptive's user/profile directory
-   * \return The path to inputstream.adaptive's user/profile directory
-   */
-  virtual const char* GetProfilePath() const = 0;
-
-  /**
-   * \brief Get whether to enable saving of license challenge/response data for debugging
-   * \return True to save data, otherwise false
-   */
-  virtual const bool IsDebugSaveLicense() const = 0;
 };
 }; // namespace DRM
