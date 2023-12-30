@@ -757,9 +757,9 @@ void adaptive::CHLSTree::RefreshLiveSegments()
         refreshList.emplace_back(std::make_tuple(adpSet.get(), repr.get()));
     }
   }
-  for (auto& itemList : refreshList)
+  for (auto& [adpSet, repr] : refreshList)
   {
-    prepareRepresentation(m_currentPeriod, std::get<0>(itemList), std::get<1>(itemList), true);
+    prepareRepresentation(m_currentPeriod, adpSet, repr, true);
   }
 }
 
