@@ -31,7 +31,7 @@ bool isUrl(std::string url,
   if (url.empty())
     return false;
 
-  if (validateLenght && url.size() >= 2083)
+  if (validateLenght && url.size() > 8000) // Minimum length recommended by RFC 9110, section 4.1
     return false;
 
   if (!allowFragments && url.find('#') != std::string::npos)
