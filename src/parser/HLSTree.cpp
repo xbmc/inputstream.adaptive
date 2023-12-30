@@ -754,7 +754,7 @@ void adaptive::CHLSTree::RefreshLiveSegments()
     for (auto& repr : adpSet->GetRepresentations())
     {
       if (repr->IsEnabled())
-        refreshList.emplace_back(std::make_tuple(adpSet.get(), repr.get()));
+        refreshList.emplace_back(adpSet.get(), repr.get());
     }
   }
   for (auto& [adpSet, repr] : refreshList)
