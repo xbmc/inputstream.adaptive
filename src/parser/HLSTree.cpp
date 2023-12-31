@@ -60,7 +60,7 @@ static std::string getVideoCodec(const std::string& codecs)
 {
   if (codecs.empty())
     return "h264";
-  else if (codecs.find("avc1.") != std::string::npos)
+  else if (codecs.find("avc") != std::string::npos)
     return "h264";
   else if (codecs.find("hvc1.") != std::string::npos)
     return "hvc1";
