@@ -60,7 +60,7 @@ static std::string getVideoCodec(const std::string& codecs)
 {
   if (codecs.empty())
     return "h264";
-  else if (codecs.find("avc1.") != std::string::npos)
+  else if (codecs.find("avc") != std::string::npos)
     return "h264";
   else if (codecs.find("hvc1.") != std::string::npos)
     return "hvc1";
@@ -550,7 +550,8 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
                 rep->containerType_ = CONTAINERTYPE_TS;
               else if (strncmp(line.c_str() + ext, ".aac", 4) == 0)
                 rep->containerType_ = CONTAINERTYPE_ADTS;
-              else if (strncmp(line.c_str() + ext, ".mp4", 4) == 0)
+              else if (strncmp(line.c_str() + ext, ".mp4", 4) == 0 ||
+                       strncmp(line.c_str() + ext, ".m4s", 4) == 0)
                 rep->containerType_ = CONTAINERTYPE_MP4;
               else if (strncmp(line.c_str() + ext, ".vtt", 4) == 0 ||
                        strncmp(line.c_str() + ext, ".webvtt", 7) == 0)
