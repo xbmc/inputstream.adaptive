@@ -1,3 +1,8 @@
+v20.3.16 (2024-01-07)
+- Increased url length limits, fix some Dash manifests
+- [HLS] Fix video playback of some streams with avc codec
+- [HLS] Add support to m4s segment files
+
 v20.3.15 (2023-12-24)
 - New properties license_url / license_url_append, workaround for PVR playlist bug, see wiki
 - [Dash] Implemented support to last segment signal
