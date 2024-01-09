@@ -224,7 +224,6 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       return false;
   }
 
-  bool needRefetch = false; //Make sure that Kodi fetches changes
   stream->m_isEnabled = true;
 
   CRepresentation* rep = stream->m_adStream.getRepresentation();
@@ -259,7 +258,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     return false;
   }
 
-  m_session->PrepareStream(stream, needRefetch);
+  m_session->PrepareStream(stream);
 
   stream->m_adStream.start_stream();
   stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
@@ -309,7 +308,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     }
   }
   m_session->EnableStream(stream, true);
-  return stream->GetReader()->GetInformation(stream->m_info) || needRefetch;
+  return stream->GetReader()->GetInformation(stream->m_info);
 }
 
 
