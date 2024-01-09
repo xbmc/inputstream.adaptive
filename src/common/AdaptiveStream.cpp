@@ -809,7 +809,7 @@ bool AdaptiveStream::ensureSegment()
 
     if (m_tree->HasManifestUpdatesSegs() && SecondsSinceUpdate() > 1)
     {
-      m_tree->RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->GetStreamType());
+      m_tree->RefreshSegments(current_period_, current_adp_, current_rep_);
       lastUpdated_ = std::chrono::system_clock::now();
     }
 

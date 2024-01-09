@@ -715,8 +715,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
 //Called each time before we switch to a new segment
 void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
                                          PLAYLIST::CAdaptationSet* adp,
-                                         PLAYLIST::CRepresentation* rep,
-                                         PLAYLIST::StreamType type)
+                                         PLAYLIST::CRepresentation* rep)
 {
   if (rep->IsIncludedStream())
     return;
