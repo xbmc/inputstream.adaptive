@@ -1019,7 +1019,7 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       rend.m_language = attribs["LANGUAGE"];
       if (streamType == StreamType::AUDIO)
       {
-        rend.m_channels = STRING::ToUint32(attribs["CHANNELS"]);
+        rend.m_channels = STRING::ToUint32(attribs["CHANNELS"], 2);
         if (STRING::Contains(attribs["CHANNELS"], "/JOC"))
           rend.m_features |= REND_FEATURE_EC3_JOC;
       }
