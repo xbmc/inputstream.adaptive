@@ -1375,6 +1375,18 @@ void adaptive::CHLSTree::AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPerio
   repr->SetScaling();
 
   newAdpSet->AddRepresentation(repr);
+
+  // Ensure that we dont have already an existing adaptation set with same attributes,
+  // usually should happens when we have more EXT-X-STREAM-INF with audio included to video
+  // and we need to keep just one
+  CAdaptationSet* foundAdpSet =
+      CAdaptationSet::FindMergeable(period->GetAdaptationSets(), newAdpSet.get());
+
+  if (foundAdpSet && foundAdpSet->GetRepresentations().size() == 1)
+  {
+    if (foundAdpSet->GetRepresentations()[0]->IsIncludedStream())
+      return; // Repr. with included audio already exists
+  }
   period->AddAdaptationSet(newAdpSet);
 }
 
