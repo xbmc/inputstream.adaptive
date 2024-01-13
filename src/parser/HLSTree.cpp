@@ -882,7 +882,7 @@ void HLSTree::OnDataArrived(uint64_t segNum,
       if (pssh.defaultKID_.empty())
       {
       RETRY:
-        std::map<std::string, std::string> headers;
+        std::map<std::string, std::string> headers = m_manifestHeaders;
         std::vector<std::string> keyParts{StringUtils::Split(m_decrypter->getLicenseKey(), '|')};
         std::string url = pssh.pssh_.c_str();
 
