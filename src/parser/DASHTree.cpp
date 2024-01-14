@@ -1548,10 +1548,9 @@ bool adaptive::CDashTree::DownloadManifestUpd(std::string_view url,
 
 void adaptive::CDashTree::RefreshSegments(PLAYLIST::CPeriod* period,
                                           PLAYLIST::CAdaptationSet* adp,
-                                          PLAYLIST::CRepresentation* rep,
-                                          PLAYLIST::StreamType type)
+                                          PLAYLIST::CRepresentation* rep)
 {
-  if (type == StreamType::VIDEO || type == StreamType::AUDIO)
+  if (adp->GetStreamType() == StreamType::VIDEO || adp->GetStreamType() == StreamType::AUDIO)
   {
     m_updThread.ResetStartTime();
     RefreshLiveSegments();

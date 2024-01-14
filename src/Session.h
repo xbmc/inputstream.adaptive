@@ -87,12 +87,11 @@ public:
    */
   void UpdateStream(CStream& stream);
 
-  /*! \brief Update stream's InputstreamInfo
-   *  \param stream The stream to prepare
-   *  \param needRefetch [OUT] Set to true if stream info has changed
+  /*!
+   * \brief Update stream's InputstreamInfo
+   * \param stream The stream to prepare
    */
-  void PrepareStream(CStream* stream, bool& needRefetch);
-
+  void PrepareStream(CStream* stream);
 
   /*! \brief Get a stream by index (starting at 1)
    *  \param sid The one-indexed stream id

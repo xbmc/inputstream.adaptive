@@ -52,8 +52,7 @@ public:
 
   virtual void RefreshSegments(PLAYLIST::CPeriod* period,
                                PLAYLIST::CAdaptationSet* adp,
-                               PLAYLIST::CRepresentation* rep,
-                               PLAYLIST::StreamType type) override;
+                               PLAYLIST::CRepresentation* rep) override;
 
 protected:
   // \brief Rendition features

@@ -715,8 +715,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
 //Called each time before we switch to a new segment
 void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
                                          PLAYLIST::CAdaptationSet* adp,
-                                         PLAYLIST::CRepresentation* rep,
-                                         PLAYLIST::StreamType type)
+                                         PLAYLIST::CRepresentation* rep)
 {
   if (rep->IsIncludedStream())
     return;
@@ -754,12 +753,12 @@ void adaptive::CHLSTree::RefreshLiveSegments()
     for (auto& repr : adpSet->GetRepresentations())
     {
       if (repr->IsEnabled())
-        refreshList.emplace_back(std::make_tuple(adpSet.get(), repr.get()));
+        refreshList.emplace_back(adpSet.get(), repr.get());
     }
   }
-  for (auto& itemList : refreshList)
+  for (auto& [adpSet, repr] : refreshList)
   {
-    prepareRepresentation(m_currentPeriod, std::get<0>(itemList), std::get<1>(itemList), true);
+    prepareRepresentation(m_currentPeriod, adpSet, repr, true);
   }
 }
 
@@ -1020,7 +1019,7 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       rend.m_language = attribs["LANGUAGE"];
       if (streamType == StreamType::AUDIO)
       {
-        rend.m_channels = STRING::ToUint32(attribs["CHANNELS"]);
+        rend.m_channels = STRING::ToUint32(attribs["CHANNELS"], 2);
         if (STRING::Contains(attribs["CHANNELS"], "/JOC"))
           rend.m_features |= REND_FEATURE_EC3_JOC;
       }
@@ -1376,6 +1375,18 @@ void adaptive::CHLSTree::AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPerio
   repr->SetScaling();
 
   newAdpSet->AddRepresentation(repr);
+
+  // Ensure that we dont have already an existing adaptation set with same attributes,
+  // usually should happens when we have more EXT-X-STREAM-INF with audio included to video
+  // and we need to keep just one
+  CAdaptationSet* foundAdpSet =
+      CAdaptationSet::FindMergeable(period->GetAdaptationSets(), newAdpSet.get());
+
+  if (foundAdpSet && foundAdpSet->GetRepresentations().size() == 1)
+  {
+    if (foundAdpSet->GetRepresentations()[0]->IsIncludedStream())
+      return; // Repr. with included audio already exists
+  }
   period->AddAdaptationSet(newAdpSet);
 }
 

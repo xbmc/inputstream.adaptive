@@ -902,9 +902,8 @@ void CSession::UpdateStream(CStream& stream)
   stream.m_info.SetCodecInternalName(codecStr);
 }
 
-void CSession::PrepareStream(CStream* stream, bool& needRefetch)
+void CSession::PrepareStream(CStream* stream)
 {
-  needRefetch = false;
   CRepresentation* repr = stream->m_adStream.getRepresentation();
 
   switch (m_adaptiveTree->prepareRepresentation(stream->m_adStream.getPeriod(),
@@ -918,7 +917,6 @@ void CSession::PrepareStream(CStream* stream, bool& needRefetch)
       [[fallthrough]];
     case PrepareRepStatus::DRMUNCHANGED:
       stream->m_isEncrypted = repr->m_psshSetPos != PSSHSET_POS_DEFAULT;
-      needRefetch = true;
       break;
     default:
       break;

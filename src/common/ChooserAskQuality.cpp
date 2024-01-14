@@ -103,17 +103,13 @@ PLAYLIST::CRepresentation* CRepresentationChooserAskQuality::GetNextRepresentati
         if (fps > 0 && repr->GetFrameRateScale() > 0)
           fps /= repr->GetFrameRateScale();
 
-        std::string quality;
+        std::string quality = "(";
+        if (repr->GetWidth() > 0 && repr->GetHeight() > 0)
+          quality += StringUtils::Format("%ix%i, ", repr->GetWidth(), repr->GetHeight());
         if (fps > 0)
-        {
-          quality = StringUtils::Format("(%ix%i, %s fps, %u Kbps)", repr->GetWidth(), repr->GetHeight(),
-                                        CovertFpsToString(fps).c_str(), repr->GetBandwidth() / 1000);
-        }
-        else
-        {
-          quality = StringUtils::Format("(%ix%i, %u Kbps)", repr->GetWidth(), repr->GetHeight(),
-                                        repr->GetBandwidth() / 1000);
-        }
+          quality += StringUtils::Format("%s fps, ", CovertFpsToString(fps).c_str());
+
+        quality += StringUtils::Format("%u Kbps)", repr->GetBandwidth() / 1000);
         STRING::ReplaceFirst(entryName, "{quality}", quality);
 
         if (repr == bestRep)

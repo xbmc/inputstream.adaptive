@@ -809,7 +809,7 @@ bool AdaptiveStream::ensureSegment()
 
     if (m_tree->HasManifestUpdatesSegs() && SecondsSinceUpdate() > 1)
     {
-      m_tree->RefreshSegments(current_period_, current_adp_, current_rep_, current_adp_->GetStreamType());
+      m_tree->RefreshSegments(current_period_, current_adp_, current_rep_);
       lastUpdated_ = std::chrono::system_clock::now();
     }
 
@@ -1212,12 +1212,14 @@ void AdaptiveStream::FixateInitialization(bool on)
 
 bool AdaptiveStream::GenerateSidxSegments(PLAYLIST::CRepresentation* rep)
 {
-  if (rep->GetContainerType() != ContainerType::MP4 &&
-      rep->GetContainerType() != ContainerType::WEBM)
+  const ContainerType containerType = rep->GetContainerType();
+  if (containerType == ContainerType::NOTYPE)
+    return false;
+  else if (containerType != ContainerType::MP4 && containerType != ContainerType::WEBM)
   {
     LOG::LogF(LOGERROR,
               "[AS-%u] Cannot generate segments from SIDX on repr id \"%s\" with container \"%i\"",
-              clsId, rep->GetId().data(), static_cast<int>(rep->GetContainerType()));
+              clsId, rep->GetId().data(), static_cast<int>(containerType));
     return false;
   }
 

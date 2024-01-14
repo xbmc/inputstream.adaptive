@@ -139,8 +139,7 @@ public:
 
   virtual void RefreshSegments(PLAYLIST::CPeriod* period,
                                PLAYLIST::CAdaptationSet* adp,
-                               PLAYLIST::CRepresentation* rep,
-                               PLAYLIST::StreamType type)
+                               PLAYLIST::CRepresentation* rep)
   {
   }
 
