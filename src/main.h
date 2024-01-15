@@ -65,6 +65,9 @@ private:
   bool m_checkChapterSeek = false;
   int m_failedSeekTime = ~0;
   std::string m_chapterName;
+  // The last PTS of the segment package fed to kodi.
+  // NO_PTS_VALUE only when playback starts or a new period starts
+  std::atomic<uint64_t> m_lastPts{PLAYLIST::NO_PTS_VALUE};
 
   void UnlinkIncludedStreams(SESSION::CStream* stream);
 };

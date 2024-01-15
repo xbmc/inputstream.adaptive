@@ -48,7 +48,7 @@ class AdaptiveTree;
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     void Reset();
-    bool start_stream();
+    bool start_stream(uint64_t startPts =0);
     /*!
      * \brief Disable current representation, wait the current download is finished and stop downloads.
      */
