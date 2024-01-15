@@ -58,8 +58,7 @@ public:
   virtual bool TimeSeek(uint64_t pts, bool preceeding) = 0;
   virtual void SetPTSOffset(uint64_t offset) = 0;
   virtual int64_t GetPTSDiff() const = 0;
-  virtual void SetStartPTS(uint64_t pts) = 0;
-  virtual uint64_t GetStartPTS() const = 0;
+  virtual void SetPTSDiff(uint64_t pts) {}
 
   /*!
    * \brief Read info about fragment on current segment (fMP4)

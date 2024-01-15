@@ -44,8 +44,6 @@ public:
   bool GetInformation(kodi::addon::InputstreamInfo& info) override;
   bool TimeSeek(uint64_t pts, bool preceeding) override;
   void SetPTSOffset(uint64_t offset) override;
-  uint64_t GetStartPTS() const override { return m_startPts; }
-  void SetStartPTS(uint64_t pts) override { m_startPts = pts; }
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
   bool GetFragmentInfo(uint64_t& duration) override;
   uint32_t GetTimeScale() const override { return m_track->GetMediaTimeScale(); }
@@ -73,7 +71,6 @@ private:
   int64_t m_dts{0};
   int64_t m_pts{0};
   int64_t m_ptsDiff{0};
-  uint64_t m_startPts{STREAM_NOPTS_VALUE};
   AP4_UI64 m_ptsOffs{~0ULL};
   uint64_t m_timeBaseExt{0};
   uint64_t m_timeBaseInt{0};
