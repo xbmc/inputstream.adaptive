@@ -852,7 +852,7 @@ bool WV_CencSingleSampleDecrypter::SendSessionMessage()
   if (serverCertRequest && contentType.find("application/octet-stream") == std::string::npos)
     serverCertRequest = false;
 
-  if (!blocks[3].empty() && !serverCertRequest)
+  if (!blocks[3].empty() && blocks[3][0] != 'R' && !serverCertRequest)
   {
     if (blocks[3][0] == 'J' || (blocks[3].size() > 1 && blocks[3][0] == 'B' && blocks[3][1] == 'J'))
     {
