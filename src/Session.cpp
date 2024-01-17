@@ -1094,26 +1094,21 @@ uint64_t CSession::GetTimeshiftBufferStart()
 void CSession::StartReader(
     CStream* stream, uint64_t seekTime, int64_t ptsDiff, bool preceeding, bool timing)
 {
-  bool bReset = true;
   ISampleReader* streamReader = stream->GetReader();
-  if (timing)
-  {
-    seekTime += stream->m_adStream.GetAbsolutePTSOffset();
-  }
-  else
-  {
-    seekTime -= ptsDiff;
-    streamReader->SetStartPTS(GetTimingStartPTS());
-  }
-
-  stream->m_adStream.seek_time(static_cast<double>(seekTime / STREAM_TIME_BASE), preceeding,
-                               bReset);
-
   if (!streamReader)
   {
     LOG::LogF(LOGERROR, "Cannot get the stream reader");
     return;
   }
+
+  bool bReset = true;
+  if (timing)
+    seekTime += stream->m_adStream.GetAbsolutePTSOffset();
+  else
+    seekTime -= ptsDiff;
+
+  stream->m_adStream.seek_time(static_cast<double>(seekTime / STREAM_TIME_BASE), preceeding,
+                               bReset);
 
   if (bReset)
     streamReader->Reset(false);
@@ -1133,7 +1128,6 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
 {
   CStream* res{nullptr};
   CStream* waiting{nullptr};
-  CStream* timingStream{GetTimingStream()};
 
   for (auto& stream : m_streams)
   {
@@ -1154,16 +1148,6 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
       }
       else if (!streamReader->EOS())
       {
-        // Once the start PTS has been acquired for the timing stream, set this value
-        // to the other stream readers
-        if (timingStream && stream.get() != timingStream &&
-            timingStream->GetReader()->GetStartPTS() != STREAM_NOPTS_VALUE &&
-            streamReader->GetStartPTS() == STREAM_NOPTS_VALUE)
-        {
-          // want this to be the internal data's (not segment's) pts of 
-          // the first segment in period
-          streamReader->SetStartPTS(GetTimingStartPTS());
-        }
         if (AP4_SUCCEEDED(streamReader->Start(isStarted)))
         {
           if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
@@ -1295,6 +1279,8 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
       // will seek to the correct location/segment
       if (!streamReader->IsStarted())
         StartReader(stream.get(), seekTimeCorrected, ptsDiff, preceeding, false);
+
+      streamReader->SetPTSDiff(ptsDiff);
 
       double seekSecs{static_cast<double>(seekTimeCorrected - streamReader->GetPTSDiff()) /
                       STREAM_TIME_BASE};
@@ -1474,16 +1460,6 @@ int64_t CSession::GetChapterPos(int ch) const
   }
 
   return sum / STREAM_TIME_BASE;
-}
-
-uint64_t CSession::GetTimingStartPTS() const
-{
-  if (CStream* timing = GetTimingStream())
-  {
-    return timing->GetReader()->GetStartPTS();
-  }
-  else
-    return 0;
 }
 
 uint64_t CSession::GetChapterStartTime() const

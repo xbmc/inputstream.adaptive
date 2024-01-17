@@ -35,7 +35,6 @@ public:
 
   uint64_t GetDts() const { return m_pkt.dts == PTS_UNSET ? PTS_UNSET : m_pkt.dts; }
   uint64_t GetPts() const { return m_pkt.pts == PTS_UNSET ? PTS_UNSET : m_pkt.pts; }
-  uint64_t GetStartPts() const { return m_startPts; }
   uint64_t GetDuration() const { return m_pkt.duration; }
   const AP4_Byte *GetPacketData() const { return m_pkt.data; };
   const AP4_Size GetPacketSize() const { return m_pkt.size; };
@@ -54,7 +53,6 @@ private:
   AP4_Position m_startPos;
   uint32_t m_requiredMask;
   uint32_t m_typeMask;
-  uint64_t m_startPts;
 
   struct TSINFO
   {
