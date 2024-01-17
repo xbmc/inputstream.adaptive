@@ -603,8 +603,9 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
     UTILS::FILESYS::SaveFile(debugFilePath, response, true);
   }
 
-  if (!blocks[3].empty() && (keyRequestData.size() > 2 ||
-                             contentType.find("application/octet-stream") == std::string::npos))
+  if (!blocks[3].empty() && blocks[3][0] != 'R' &&
+      (keyRequestData.size() > 2 ||
+       contentType.find("application/octet-stream") == std::string::npos))
   {
     if (blocks[3][0] == 'J' || (blocks[3].size() > 1 && blocks[3][0] == 'B' && blocks[3][1] == 'J'))
     {
