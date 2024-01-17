@@ -123,8 +123,6 @@ AP4_Result CSubtitleSampleReader::Start(bool& bStarted)
     return AP4_SUCCESS;
 
   m_started = true;
-  m_pts = GetStartPTS();
-  m_ptsDiff = GetStartPTS();
   return AP4_SUCCESS;
 }
 
@@ -133,7 +131,7 @@ AP4_Result CSubtitleSampleReader::ReadSample()
   if (m_codecHandler->ReadNextSample(m_sample,
                                      m_sampleData)) // Read the sample data from a file url
   {
-    m_pts = (m_sample.GetCts() * 1000) + GetStartPTS();
+    m_pts = m_sample.GetCts() * 1000;
     return AP4_SUCCESS;
   }
   else if (m_adByteStream) // Read the sample data from a segment file stream (e.g. HLS)
@@ -170,13 +168,12 @@ AP4_Result CSubtitleSampleReader::ReadSample()
           auto currentSegment = rep->current_segment_;
           if (currentSegment)
           {
-            m_codecHandler->Transform(currentSegment->startPTS_ + GetStartPTS(),
+            m_codecHandler->Transform(currentSegment->startPTS_,
                                       static_cast<AP4_UI32>(currentSegment->m_duration), segData,
                                       1000);
             if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
             {
               m_pts = m_sample.GetCts();
-              m_ptsDiff = m_pts - m_ptsOffset;
               return AP4_SUCCESS;
             }
           }
@@ -232,4 +229,12 @@ bool CSubtitleSampleReader::TimeSeek(uint64_t pts, bool preceeding)
       return AP4_SUCCEEDED(ReadSample());
     return false;
   }
+}
+
+void CSubtitleSampleReader::SetPTSDiff(uint64_t pts)
+{
+  // Its needed set the PTS diff from the timing stream
+  // to allow sync segmented subtitles for cases like
+  // HLS with multiple periods
+  m_ptsDiff = pts;
 }

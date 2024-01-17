@@ -49,7 +49,7 @@ void DebugLog(int level, char* msg)
 } // unnamed namespace
 
 TSReader::TSReader(AP4_ByteStream* stream, uint32_t requiredMask)
-  : m_stream(stream), m_requiredMask(requiredMask), m_typeMask(0), m_startPts{STREAM_NOPTS_VALUE}
+  : m_stream(stream), m_requiredMask(requiredMask), m_typeMask(0)
 {
   // Uncomment to debug TSDemux library
   // TSDemux::DBGAll();
@@ -66,7 +66,6 @@ bool TSReader::Initialize()
     m_AVContext = nullptr;
     return false;
   }
-  m_startPts = GetPts();
   return true;
 }
 

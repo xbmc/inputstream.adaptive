@@ -24,12 +24,7 @@ CTSSampleReader::CTSSampleReader(AP4_ByteStream* input,
 
 bool CTSSampleReader::Initialize(SESSION::CStream* stream)
 {
-  if (TSReader::Initialize())
-  {
-    SetStartPTS(((TSReader::GetStartPts() * 100) / 9) - GetPTSDiff());
-    return true;
-  }
-  return false;
+  return TSReader::Initialize();
 }
 
 void CTSSampleReader::AddStreamType(INPUTSTREAM_TYPE type, uint32_t sid)

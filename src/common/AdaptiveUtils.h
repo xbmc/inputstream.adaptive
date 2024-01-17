@@ -41,6 +41,9 @@ constexpr uint64_t NO_PTS_VALUE = std::numeric_limits<uint64_t>::max();
 // Marker for undefined value
 constexpr uint64_t NO_VALUE = std::numeric_limits<uint64_t>::max();
 
+// Kodi VideoPlayer internal buffer
+constexpr uint64_t KODI_VP_BUFFER_SECS = 8;
+
 enum class EncryptionState
 {
   UNENCRYPTED,

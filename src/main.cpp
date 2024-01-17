@@ -260,7 +260,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
   m_session->PrepareStream(stream);
 
-  stream->m_adStream.start_stream();
+  stream->m_adStream.start_stream(m_lastPts);
   stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
 
   ContainerType reprContainerType = rep->GetContainerType();
@@ -342,6 +342,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 
     if (m_session->CheckChange())
     {
+      m_lastPts = PLAYLIST::NO_PTS_VALUE;
       p = AllocateDemuxPacket(0);
       p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
       LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
@@ -380,6 +381,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 
       if (srHaveData)
       {
+        m_lastPts = sr->PTS();
         p->dts = static_cast<double>(sr->DTS());
         p->pts = static_cast<double>(sr->PTS());
         p->duration = static_cast<double>(sr->GetDuration());
@@ -405,6 +407,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
   if (m_session->SeekChapter(m_session->GetChapter() + 1))
   {
     m_checkChapterSeek = true;
+    m_lastPts = PLAYLIST::NO_PTS_VALUE;
     for (unsigned int i(1);
          i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
       EnableStream(i + m_session->GetPeriodId() * 1000, false);
