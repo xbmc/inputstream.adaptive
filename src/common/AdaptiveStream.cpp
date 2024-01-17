@@ -27,12 +27,16 @@
 #endif
 #include "kodi/tools/StringUtils.h"
 
+#include <kodi/addon-instance/inputstream/TimingConstants.h>
+
 using namespace adaptive;
 using namespace std::chrono_literals;
 using namespace kodi::tools;
 using namespace UTILS;
 
 const size_t AdaptiveStream::MAXSEGMENTBUFFER = 10;
+// Kodi VideoPlayer internal buffer
+constexpr uint64_t KODI_VP_BUFFER_SECS = 8;
 
 AdaptiveStream::AdaptiveStream(AdaptiveTree& tree,
                                AdaptiveTree::AdaptationSet* adp,
@@ -514,7 +518,7 @@ bool AdaptiveStream::write_data(const void* buffer,
   return true;
 }
 
-bool AdaptiveStream::start_stream()
+bool AdaptiveStream::start_stream(uint64_t startPts)
 {
   if (!current_rep_)
     return false;
@@ -567,6 +571,25 @@ bool AdaptiveStream::start_stream()
       state_ = STOPPED;
       return false;
     }
+  }
+
+  // For subtitles only: subs can be turned off while in playback, this means that the stream will be disabled and resetted,
+  // the current segment is now invalidated / inconsistent state because when subs will be turn on again, more time may have elapsed
+  // and so the pts is changed. Therefore we need to search the first segment related to the current pts,
+  // and start reading segments from this position.
+  if (startPts != NO_PTS_VALUE && startPts != 0 && current_adp_->type_ == AdaptiveTree::SUBTITLE)
+  {
+    uint64_t seekSecs = startPts / STREAM_TIME_BASE;
+    // Kodi VideoPlayer have an internal buffer that should be of about 8 secs,
+    // therefore images displayed on screen should be 8 secs backward from this "startPts" value,
+    // we try to avoid creating missing subtitles on screen due to this time (buffer) lag
+    // by substracting these 8 secs from the start pts.
+    // This is a kind of workaround since kodi dont provide a pts as starting point when it call OpenStream.
+    if (seekSecs > KODI_VP_BUFFER_SECS)
+      seekSecs -= KODI_VP_BUFFER_SECS;
+
+    bool needReset;
+    seek_time(static_cast<double>(seekSecs), false, needReset);
   }
 
   if (!current_rep_->current_segment_)

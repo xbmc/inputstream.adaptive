@@ -41,6 +41,7 @@ class IRepresentationChooser;
 namespace adaptive
 {
 
+constexpr uint64_t NO_PTS_VALUE = std::numeric_limits<uint64_t>::max();
 
 template<typename T>
 struct ATTR_DLL_LOCAL SPINCACHE

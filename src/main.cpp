@@ -322,7 +322,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   // We load fragments on PrepareTime for HLS manifests and have to reevaluate the start-segment
   //if (m_session->GetManifestType() == PROPERTIES::ManifestType::HLS)
   //  stream->m_adStream.restart_stream();
-  stream->m_adStream.start_stream();
+  stream->m_adStream.start_stream(m_lastPts);
 
   if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_TEXT)
   {
@@ -467,6 +467,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 
     if (m_session->CheckChange())
     {
+      m_lastPts = adaptive::NO_PTS_VALUE;
       p = AllocateDemuxPacket(0);
       p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
       LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
@@ -505,6 +506,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 
       if (srHaveData)
       {
+        m_lastPts = sr->PTS();
         p->dts = static_cast<double>(sr->DTS());
         p->pts = static_cast<double>(sr->PTS());
         p->duration = static_cast<double>(sr->GetDuration());
@@ -533,6 +535,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
   if (m_session->SeekChapter(m_session->GetChapter() + 1))
   {
     m_checkChapterSeek = true;
+    m_lastPts = adaptive::NO_PTS_VALUE;
     for (unsigned int i(1);
          i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
       EnableStream(i + m_session->GetPeriodId() * 1000, false);
