@@ -36,10 +36,10 @@ public:
                     const std::map<std::string, std::string>& headers,
                     const std::string& data) override;
 
-  virtual PLAYLIST::PrepareRepStatus prepareRepresentation(PLAYLIST::CPeriod* period,
-                                                            PLAYLIST::CAdaptationSet* adp,
-                                                            PLAYLIST::CRepresentation* rep,
-                                                            bool update = false) override;
+  virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
+                                     PLAYLIST::CAdaptationSet* adp,
+                                     PLAYLIST::CRepresentation* rep,
+                                     bool& isDrmChanged) override;
 
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
@@ -113,6 +113,22 @@ protected:
                                      const std::map<std::string, std::string>& reqHeaders,
                                      const std::vector<std::string>& respHeaders,
                                      UTILS::CURL::HTTPResponse& resp);
+
+  bool DownloadChildManifest(PLAYLIST::CAdaptationSet* adp,
+                             PLAYLIST::CRepresentation* rep,
+                             UTILS::CURL::HTTPResponse& resp);
+
+  bool ParseChildManifest(const std::string& data,
+                          std::string_view sourceUrl,
+                          PLAYLIST::CPeriod* period,
+                          PLAYLIST::CAdaptationSet* adp,
+                          PLAYLIST::CRepresentation* rep,
+                          bool& isDrmChanged);
+
+  void PrepareSegments(PLAYLIST::CPeriod* period,
+                       PLAYLIST::CAdaptationSet* adp,
+                       PLAYLIST::CRepresentation* rep,
+                       uint64_t segPosition);
 
   virtual void RefreshLiveSegments() override;
 

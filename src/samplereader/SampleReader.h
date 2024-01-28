@@ -47,7 +47,16 @@ public:
   virtual bool Initialize(SESSION::CStream* stream) { return true; }
   virtual void SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
                             const DRM::DecrypterCapabilites& dcaps){};
+  /*!
+   * \brief Defines if the end of the stream is reached
+   */
   virtual bool EOS() const = 0;
+  /*!
+   * \brief Defines if the sample reader is ready to process data,
+   *        may be needed for streams that do not need to pause kodi VP buffer
+   *        when there are no segments such as subtitles
+   */
+  virtual bool IsReady() { return true; }
   virtual uint64_t DTS() const = 0;
   virtual uint64_t PTS() const = 0;
   virtual uint64_t DTSorPTS() const { return DTS() < PTS() ? DTS() : PTS(); };

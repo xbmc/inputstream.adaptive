@@ -136,11 +136,6 @@ public:
     m_isSubtitleFileStream = isSubtitleFileStream;
   }
 
-  // Currently used for HLS only
-  bool IsPrepared() const { return m_isPrepared; }
-  // Currently used for HLS only
-  void SetIsPrepared(bool isPrepared) { m_isPrepared = isPrepared; }
-
   bool IsEnabled() const { return m_isEnabled; }
   void SetIsEnabled(bool isEnabled) { m_isEnabled = isEnabled; }
 
@@ -150,6 +145,9 @@ public:
   // Define if it is a dummy representation for audio stream, that is embedded on the video stream
   bool IsIncludedStream() const { return m_isIncludedStream; }
   void SetIsIncludedStream(bool isIncludedStream) { m_isIncludedStream = isIncludedStream; }
+
+  bool IsNeedsUpdates() const { return m_isNeedsUpdates; }
+  void SetIsNeedsUpdates(bool isNeedsUpdates) { m_isNeedsUpdates = isNeedsUpdates; }
 
   void CopyHLSData(const CRepresentation* other);
 
@@ -259,9 +257,6 @@ public:
   uint32_t assured_buffer_duration_{0};
   uint32_t max_buffer_duration_{0};
 
-  //! @todo: used for HLS only, not reflect the right meaning
-  bool m_isDownloaded{false};
-
 protected:
   std::string m_id;
   std::string m_sourceUrl;
@@ -287,11 +282,11 @@ protected:
 
   bool m_isSubtitleFileStream{false};
 
-  bool m_isPrepared{false};
   bool m_isEnabled{false};
   bool m_isWaitForSegment{false};
 
   bool m_isIncludedStream{false};
+  bool m_isNeedsUpdates{true};
 };
 
 } // namespace PLAYLIST

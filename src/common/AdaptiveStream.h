@@ -231,6 +231,7 @@ class AdaptiveTree;
     PLAYLIST::CPeriod* current_period_;
     PLAYLIST::CAdaptationSet* current_adp_;
     PLAYLIST::CRepresentation* current_rep_;
+    PLAYLIST::CRepresentation* m_switchRep{nullptr};
 
     // Decrypter IV used to decrypt HLS segment
     // We need to store here because linked to representation

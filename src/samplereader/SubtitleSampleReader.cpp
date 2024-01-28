@@ -118,12 +118,21 @@ AP4_Result CSubtitleSampleReader::Start(bool& bStarted)
     return AP4_FAILURE;
   }
 
-  m_eos = false;
   if (m_started)
     return AP4_SUCCESS;
 
   m_started = true;
   return AP4_SUCCESS;
+}
+
+bool CSubtitleSampleReader::IsReady()
+{
+  // The reader is ready to process data when there is:
+  // 1) single subtitles file (there is no m_adByteStream)
+  // 2) segmented subtitles, and its not waiting for segments,
+  //    it need to wait for the next manifest live update to get new segments (like HLS)
+  return !m_adByteStream ||
+         (m_adByteStream && m_adStream && !m_adStream->getRepresentation()->IsWaitForSegment());
 }
 
 AP4_Result CSubtitleSampleReader::ReadSample()
@@ -134,10 +143,10 @@ AP4_Result CSubtitleSampleReader::ReadSample()
     m_pts = m_sample.GetCts() * 1000;
     return AP4_SUCCESS;
   }
-  else if (m_adByteStream) // Read the sample data from a segment file stream (e.g. HLS)
+  else if (m_adByteStream && m_adStream) // Read the sample data from a segment file stream (e.g. HLS)
   {
     // Get the next segment
-    if (m_adStream && m_adStream->ensureSegment())
+    if (m_adStream->ensureSegment())
     {
       size_t segSize;
       if (m_adStream->retrieveCurrentSegmentBufferSize(segSize))
@@ -188,7 +197,13 @@ AP4_Result CSubtitleSampleReader::ReadSample()
         LOG::LogF(LOGWARNING, "Failed to get subtitle segment buffer size");
       }
     }
+    else if (m_adStream->getRepresentation()->IsWaitForSegment())
+    {
+      // Wait for manifest live update to get next segment
+      return AP4_SUCCESS;
+    }
   }
+
   m_eos = true;
   return AP4_ERROR_EOS;
 }

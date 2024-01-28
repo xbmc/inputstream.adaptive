@@ -720,15 +720,34 @@ bool AdaptiveStream::start_stream(uint64_t startPts)
             current_rep_->get_segment(static_cast<size_t>(segmentId - current_rep_->GetStartNumber()));
       }
     }
+    else if (stream_changed_) // switching streams, align new stream segment no.
+    {
+      uint64_t segmentId = segment_buffers_[0]->segment_number;
+      if (segmentId >= current_rep_->GetStartNumber() + current_rep_->SegmentTimeline().GetSize())
+      {
+        segmentId = current_rep_->GetStartNumber() + current_rep_->SegmentTimeline().GetSize() - 1;
+      }
+      current_rep_->current_segment_ = current_rep_->get_segment(
+          static_cast<size_t>(segmentId - current_rep_->GetStartNumber()));
+    }
     else
+    {
       current_rep_->current_segment_ = nullptr; // start from beginning
+    }
   }
+
+  stream_changed_ = false;
 
   const CSegment* next_segment =
       current_rep_->get_next_segment(current_rep_->current_segment_);
 
   if (!next_segment)
   {
+    //! @todo: THIS MUST BE CHANGED - !! BUG !!
+    //! this will broken/stop playback on live streams when adaptive stream change stream quality (so representation)
+    //! and there are no new segments because not immediately available (despite child manifest updated),
+    //! because we cant be ensure next segment without wait the appropriate timing...imo its not the right place here.
+    //! Can be reproduced with HLS live and by using "Stream selection" setting to "Test" by switching per 1 segment
     absolute_position_ = ~0;
     state_ = STOPPED;
     return true;
@@ -772,11 +791,11 @@ bool AdaptiveStream::start_stream(uint64_t startPts)
     return false;
   }
 
-  currentPTSOffset_ = (next_segment->startPTS_ * current_rep_->timescale_ext_) /
-    current_rep_->timescale_int_;
+  currentPTSOffset_ =
+      (next_segment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
   absolutePTSOffset_ =
       (current_rep_->SegmentTimeline().Get(0)->startPTS_ * current_rep_->timescale_ext_) /
-    current_rep_->timescale_int_;
+      current_rep_->timescale_int_;
 
   if (state_ == RUNNING)
   {
@@ -838,7 +857,6 @@ bool AdaptiveStream::ensureSegment()
     if (m_fixateInitialization)
       return false;
 
-    stream_changed_ = false;
     CSegment* nextSegment{nullptr};
     last_rep_ = current_rep_;
 
@@ -849,16 +867,18 @@ bool AdaptiveStream::ensureSegment()
                   segment_buffers_.begin() + available_segment_buffers_);
       --valid_segment_buffers_;
       --available_segment_buffers_;
-      // Check if next segment use same representation of previous one
-      // if not, update the current representation
+      // Adaptive stream has changed quality (and so changed representation)
       if (segment_buffers_[0]->rep != current_rep_)
       {
         current_rep_->SetIsEnabled(false);
         current_rep_ = segment_buffers_[0]->rep;
         current_rep_->SetIsEnabled(true);
+        // When stream changed flag is signalled, kodi reopen the stream and AdaptiveStream::start_stream method
+        // will be called also to align the "current segment" for the current representation
         stream_changed_ = true;
       }
     }
+
     if (valid_segment_buffers_ > 0)
     {
       if (!segment_buffers_[0]->segment.IsInitialization())
@@ -910,20 +930,25 @@ bool AdaptiveStream::ensureSegment()
           newRep = prevRep;
         else
           newRep = m_tree->GetRepChooser()->GetNextRepresentation(current_adp_, prevRep);
+
+        if (newRep != prevRep) // Stream quality changed
+        {
+          // On manifests type like HLS we need also to get update segments
+          // because need to be downloaded/parsed from different child manifest files
+          bool isDrmChanged;
+          m_tree->PrepareRepresentation(current_period_, current_adp_, newRep, isDrmChanged);
+
+          // If the representation has been changed, segments may have to be generated (DASH)
+          if (newRep->SegmentTimeline().IsEmpty())
+            GenerateSidxSegments(newRep);
+        }
       }
 
-      // If the representation has been changed, segments may have to be generated (DASH)
-      if (newRep->SegmentTimeline().IsEmpty())
-        GenerateSidxSegments(newRep);
+      // Add to the buffer next segment (and the next following segments, if available)
 
-      if (!newRep->IsPrepared() && m_tree->SecondsSinceRepUpdate(newRep) > 1)
-      {
-        m_tree->prepareRepresentation(current_period_, current_adp_, newRep, m_tree->IsLive());
-      }
-
-      // Add to the buffer next future segment
-
+      // Align to new segment numeration (that could be changed if manifest update occurred with quality switching)
       size_t nextsegmentPos = static_cast<size_t>(nextsegno - newRep->GetStartNumber());
+
       if (nextsegmentPos + available_segment_buffers_ >= newRep->SegmentTimeline().GetSize())
       {
         nextsegmentPos = newRep->SegmentTimeline().GetSize() - available_segment_buffers_;
@@ -963,7 +988,8 @@ bool AdaptiveStream::ensureSegment()
       if (!current_rep_->IsWaitForSegment())
       {
         current_rep_->SetIsWaitForSegment(true);
-        LOG::LogF(LOGDEBUG, "[AS-%u] Begin WaitForSegment stream %s", clsId, current_rep_->GetId().data());
+        LOG::LogF(LOGDEBUG, "[AS-%u] Begin WaitForSegment stream id \"%s\"", clsId,
+                  current_rep_->GetId().data());
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
@@ -1212,17 +1238,22 @@ size_t adaptive::AdaptiveStream::getSegmentPos()
 
 bool AdaptiveStream::waitingForSegment(bool checkTime) const
 {
+  if (current_adp_->GetStreamType() == StreamType::SUBTITLE)
+    return false;
+
   if ((m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) && state_ == RUNNING)
   {
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
     if (current_rep_ && current_rep_->IsWaitForSegment())
     {
-      return !checkTime ||
-             (current_adp_->GetStreamType() != StreamType::VIDEO &&
-              current_adp_->GetStreamType() != StreamType::AUDIO) ||
-             SecondsSinceUpdate() < 1;
+      return !checkTime || (current_adp_->GetStreamType() != StreamType::VIDEO &&
+                            current_adp_->GetStreamType() != StreamType::AUDIO);
     }
+
+    // We can fall here when we are waiting for new segments, but the download it not started yet
+    // so return true only when checkTime is false, to avoid trigger EOS on sample reader and stop playback
+    return !checkTime;
   }
   return false;
 }
@@ -1289,16 +1320,15 @@ bool AdaptiveStream::GenerateSidxSegments(PLAYLIST::CRepresentation* rep)
 
 void AdaptiveStream::Stop()
 {
-  if (current_rep_)
-  {
-    current_rep_->SetIsEnabled(false);
-  }
-
   if (thread_data_)
   {
     thread_data_->Stop();
     StopWorker(STOPPED);
   }
+  // Disable representation only after stopped the worker
+  // otherwise if read some segments may invalidate this change
+  if (current_rep_)
+    current_rep_->SetIsEnabled(false);
 }
 
 void AdaptiveStream::clear()
