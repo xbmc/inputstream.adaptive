@@ -1552,7 +1552,6 @@ void adaptive::CDashTree::RefreshSegments(PLAYLIST::CPeriod* period,
 {
   if (adp->GetStreamType() == StreamType::VIDEO || adp->GetStreamType() == StreamType::AUDIO)
   {
-    m_updThread.ResetStartTime();
     RefreshLiveSegments();
   }
 }

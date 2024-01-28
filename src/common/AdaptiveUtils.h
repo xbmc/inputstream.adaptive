@@ -60,14 +60,6 @@ enum class EncryptionType
   UNKNOWN,
 };
 
-enum class PrepareRepStatus
-{
-  FAILURE,
-  OK,
-  DRMCHANGED,
-  DRMUNCHANGED,
-};
-
 enum class ContainerType
 {
   NOTYPE,

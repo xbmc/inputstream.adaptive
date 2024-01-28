@@ -904,22 +904,29 @@ void CSession::UpdateStream(CStream& stream)
 
 void CSession::PrepareStream(CStream* stream)
 {
+  if (m_adaptiveTree->GetTreeType() != adaptive::TreeType::HLS)
+    return;
+
   CRepresentation* repr = stream->m_adStream.getRepresentation();
 
-  switch (m_adaptiveTree->prepareRepresentation(stream->m_adStream.getPeriod(),
-                                                stream->m_adStream.getAdaptationSet(), repr))
+  if (stream->m_adStream.StreamChanged())
   {
-    case PrepareRepStatus::FAILURE:
-      return;
-    case PrepareRepStatus::DRMCHANGED:
-      if (!InitializeDRM())
-        return;
-      [[fallthrough]];
-    case PrepareRepStatus::DRMUNCHANGED:
-      stream->m_isEncrypted = repr->m_psshSetPos != PSSHSET_POS_DEFAULT;
-      break;
-    default:
-      break;
+    // For HLS case when stream (representation) quality has been changed
+    // its not needed to update again the child manifest by calling ParseChildManifest
+    // because its already been done by AdaptiveStream thread worker or AdaptiveStream::ensureSegment
+    stream->m_isEncrypted = repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT;
+    return;
+  }
+
+  bool isDrmChanged{false};
+  if (m_adaptiveTree->PrepareRepresentation(stream->m_adStream.getPeriod(),
+                                            stream->m_adStream.getAdaptationSet(), repr,
+                                            isDrmChanged))
+  {
+    if (isDrmChanged)
+      InitializeDRM();
+
+    stream->m_isEncrypted = repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT;
   }
 }
 
@@ -1039,7 +1046,7 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
         waiting = stream.get();
         break;
       }
-      else if (!streamReader->EOS())
+      else if (streamReader->IsReady() && !streamReader->EOS())
       {
         if (AP4_SUCCEEDED(streamReader->Start(isStarted)))
         {

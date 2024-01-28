@@ -173,442 +173,469 @@ bool adaptive::CHLSTree::Open(std::string_view url,
   return true;
 }
 
-PLAYLIST::PrepareRepStatus adaptive::CHLSTree::prepareRepresentation(PLAYLIST::CPeriod* period,
-                                                                     PLAYLIST::CAdaptationSet* adp,
-                                                                     PLAYLIST::CRepresentation* rep,
-                                                                     bool update)
+bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
+                                               PLAYLIST::CAdaptationSet* adp,
+                                               PLAYLIST::CRepresentation* rep,
+                                               bool& isDrmChanged)
+{
+  // Prepare child manifest only once time for VOD stream and always for live stream
+  if (!rep->IsNeedsUpdates())
+    return true;
+
+  //! @todo: on Live stream adaptive switching stream can happen very often in short time
+  //! and we could overload servers of manifest requests
+  //! should be limit updates by taking in account a timing per representation basis
+
+  UTILS::CURL::HTTPResponse resp;
+
+  if (!DownloadChildManifest(adp, rep, resp))
+    return false;
+
+  if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep,
+                         isDrmChanged))
+  {
+    // We dont set segment position to PrepareSegments because its adjusted on AdaptiveStream::start_stream
+    PrepareSegments(period, adp, rep, SEGMENT_NO_NUMBER);
+  }
+
+  return true;
+}
+
+bool adaptive::CHLSTree::DownloadChildManifest(PLAYLIST::CAdaptationSet* adp,
+                                               PLAYLIST::CRepresentation* rep,
+                                               UTILS::CURL::HTTPResponse& resp)
 {
   if (rep->GetSourceUrl().empty())
-    return PrepareRepStatus::FAILURE;
+  {
+    LOG::LogF(LOGERROR, "Cannot download child manifest, no source url on representation id \"%s\"",
+              rep->GetId().data());
+    return false;
+  }
 
-  CRepresentation* entryRep = rep;
-  uint64_t currentRepSegNumber = rep->getCurrentSegmentNumber();
+  std::string manifestUrl = rep->GetSourceUrl();
+  URL::AppendParameters(manifestUrl, m_manifestParams);
 
+  if (!DownloadManifestChild(manifestUrl, m_manifestHeaders, {}, resp))
+    return false;
+
+  SaveManifest(adp, resp.data, manifestUrl);
+  return true;
+}
+
+bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
+                                            std::string_view sourceUrl,
+                                            PLAYLIST::CPeriod* period,
+                                            PLAYLIST::CAdaptationSet* adp,
+                                            PLAYLIST::CRepresentation* rep,
+                                            bool& isDrmChanged)
+{
   size_t adpSetPos = GetPtrPosition(period->GetAdaptationSets(), adp);
   size_t reprPos = GetPtrPosition(adp->GetRepresentations(), rep);
 
   std::unique_ptr<CPeriod> periodLost;
 
-  PrepareRepStatus prepareStatus = PrepareRepStatus::OK;
-  UTILS::CURL::HTTPResponse resp;
+  rep->SetBaseUrl(sourceUrl);
 
-  if (!rep->m_isDownloaded)
+  EncryptionType currentEncryptionType = EncryptionType::CLEAR;
+
+  uint64_t currentSegStartPts{0};
+  uint64_t newStartNumber{0};
+
+  CSpinCache<CSegment> newSegments;
+  std::optional<CSegment> newSegment;
+
+  // Pssh set used between segments
+  uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
+
+  uint32_t discontCount{0};
+
+  bool isExtM3Uformat{false};
+
+  // Parse child playlist
+  std::stringstream streamData{data};
+
+  for (std::string line; STRING::GetLine(streamData, line);)
   {
-    // Download child manifest playlist
+    // Keep track of current line pos, can be used to go back to previous line
+    // if we move forward within the loop code
+    std::streampos currentStreamPos = streamData.tellg();
 
-    std::string manifestUrl = rep->GetSourceUrl();
-    URL::AppendParameters(manifestUrl, m_manifestParams);
-
-    if (!DownloadManifestChild(manifestUrl, m_manifestHeaders, {}, resp))
-      return PrepareRepStatus::FAILURE;
-
-    SaveManifest(adp, resp.data, manifestUrl);
-
-    rep->SetBaseUrl(URL::GetUrlPath(resp.effectiveUrl));
-
-    EncryptionType currentEncryptionType = EncryptionType::CLEAR;
-
-    uint64_t currentSegStartPts{0};
-    uint64_t newStartNumber{0};
-
-    CSpinCache<CSegment> newSegments;
-    std::optional<CSegment> newSegment;
-
-    // Pssh set used between segments
-    uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
-
-    uint32_t discontCount{0};
-
-    bool isExtM3Uformat{false};
-
-    // Parse child playlist
-    std::stringstream streamData{resp.data};
-
-    for (std::string line; STRING::GetLine(streamData, line);)
+    // Find the extended M3U file initialization tag
+    if (!isExtM3Uformat)
     {
-      // Keep track of current line pos, can be used to go back to previous line
-      // if we move forward within the loop code
-      std::streampos currentStreamPos = streamData.tellg();
+      if (STRING::StartsWith(line, "#EXTM3U"))
+        isExtM3Uformat = true;
+      continue;
+    }
 
-      // Find the extended M3U file initialization tag
-      if (!isExtM3Uformat)
+    std::string tagName;
+    std::string tagValue;
+    ParseTagNameValue(line, tagName, tagValue);
+
+    if (tagName == "#EXT-X-KEY")
+    {
+      auto attribs = ParseTagAttributes(tagValue);
+
+      switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
       {
-        if (STRING::StartsWith(line, "#EXTM3U"))
-          isExtM3Uformat = true;
-        continue;
-      }
+        case EncryptionType::UNKNOWN:
+        case EncryptionType::NOT_SUPPORTED:
+          period->SetEncryptionState(EncryptionState::ENCRYPTED);
+          break;
+        case EncryptionType::AES128:
+          currentEncryptionType = EncryptionType::AES128;
+          psshSetPos = PSSHSET_POS_DEFAULT;
+          break;
+        case EncryptionType::WIDEVINE:
+          currentEncryptionType = EncryptionType::WIDEVINE;
+          period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
 
-      std::string tagName;
-      std::string tagValue;
-      ParseTagNameValue(line, tagName, tagValue);
-
-      if (tagName == "#EXT-X-KEY")
-      {
-        auto attribs = ParseTagAttributes(tagValue);
-
-        switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
-        {
-          case EncryptionType::NOT_SUPPORTED:
-            period->SetEncryptionState(EncryptionState::ENCRYPTED);
-            return PrepareRepStatus::FAILURE;
-          case EncryptionType::AES128:
-            currentEncryptionType = EncryptionType::AES128;
-            psshSetPos = PSSHSET_POS_DEFAULT;
-            break;
-          case EncryptionType::WIDEVINE:
-            currentEncryptionType = EncryptionType::WIDEVINE;
-            period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-
-            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-                                              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-            if (period->GetPSSHSets()[rep->GetPsshSetPos()].m_usageCount == 1 ||
-                prepareStatus == PrepareRepStatus::DRMCHANGED)
-            {
-              prepareStatus = PrepareRepStatus::DRMCHANGED;
-            }
-            else
-              prepareStatus = PrepareRepStatus::DRMUNCHANGED;
-            break;
-          case EncryptionType::UNKNOWN:
-            LOG::LogF(LOGWARNING, "Unknown encryption type");
-            break;
-          default:
-            break;
-        }
-      }
-      else if (tagName == "#EXT-X-MAP")
-      {
-        auto attribs = ParseTagAttributes(tagValue);
-        CSegment segInit;
-
-        if (STRING::KeyExists(attribs, "BYTERANGE"))
-        {
-          if (ParseRangeValues(attribs["BYTERANGE"], segInit.range_end_, segInit.range_begin_))
-          {
-            segInit.range_end_ = segInit.range_begin_ + segInit.range_end_ - 1;
-          }
-        }
-
-        if (STRING::KeyExists(attribs, "URI"))
-        {
-          segInit.SetIsInitialization(true);
-          segInit.url = attribs["URI"];
-          segInit.startPTS_ = NO_PTS_VALUE;
-          segInit.pssh_set_ = PSSHSET_POS_DEFAULT;
-          rep->SetInitSegment(segInit);
-          rep->SetContainerType(ContainerType::MP4);
-        }
-      }
-      else if (tagName == "#EXT-X-MEDIA-SEQUENCE")
-      {
-        newStartNumber = STRING::ToUint64(tagValue);
-      }
-      else if (tagName == "#EXT-X-PLAYLIST-TYPE")
-      {
-        if (STRING::CompareNoCase(tagValue, "VOD"))
-        {
-          m_isLive = false;
-          m_updateInterval = NO_VALUE;
-        }
-      }
-      else if (tagName == "#EXT-X-TARGETDURATION")
-      {
-        // Use segment max duration as interval time to do a manifest update
-        // see: Reloading the Media Playlist file
-        // https://datatracker.ietf.org/doc/html/draft-pantos-http-live-streaming-16#section-6.3.4
-        uint64_t newIntervalSecs = STRING::ToUint64(tagValue) * 1000;
-        if (newIntervalSecs < m_updateInterval)
-          m_updateInterval = newIntervalSecs;
-      }
-      else if (tagName == "#EXTINF")
-      {
-        // Make a new segment
-        newSegment = CSegment();
-        newSegment->startPTS_ = currentSegStartPts;
-
-        uint64_t duration = static_cast<uint64_t>(STRING::ToFloat(tagValue) * rep->GetTimescale());
-        newSegment->m_duration = duration;
-
-        if (currentEncryptionType == EncryptionType::AES128 && psshSetPos == PSSHSET_POS_DEFAULT)
-        {
-          if (!m_currentKidUrl.empty())
-          {
-            psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
-                                       m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-          }
-        }
-        newSegment->pssh_set_ = psshSetPos;
-
-        currentSegStartPts += duration;
-      }
-      else if (tagName == "#EXT-X-BYTERANGE" && newSegment.has_value())
-      {
-        ParseRangeValues(tagValue, newSegment->range_end_, newSegment->range_begin_);
-
-        if (newSegment->range_begin_ == NO_VALUE)
-        {
-          if (newSegments.GetSize() > 0)
-            newSegment->range_begin_ = newSegments.Get(newSegments.GetSize() - 1)->range_end_ + 1;
-          else
-            newSegment->range_begin_ = 0;
-        }
-
-        newSegment->range_end_ += newSegment->range_begin_ - 1;
-      }
-      else if (newSegment.has_value() && !line.empty() && line[0] != '#')
-      {
-        // We fall here after a EXTINF (and possible EXT-X-BYTERANGE in the middle)
-
-        if (rep->GetContainerType() == ContainerType::NOTYPE)
-        {
-          // Try find the container type on the representation according to the file extension
-          std::string url = URL::RemoveParameters(line);
-          // Remove domain on absolute url, to not confuse top-level domain as extension
-          url = url.substr(URL::GetBaseDomain(url).size());
-
-          std::string extension;
-          size_t extPos = url.rfind('.');
-          if (extPos != std::string::npos)
-            extension = url.substr(extPos + 1);
-
-          ContainerType containerType = ContainerType::INVALID;
-
-          if (!extension.empty())
-          {
-            containerType = DetectContainerTypeFromExt(extension);
-
-            // Streams that have a media url encoded as a parameter of the url itself
-            // e.g. https://cdn-prod.tv/beacon?streamId=1&rp=https%3A%2F%2Ftest.com%2F167037ac3%2Findex_4_0.ts&sessionId=abc&assetId=OD
-            // cannot be detected in safe way, so we try fallback to common containers
-          }
-
-          if (containerType == ContainerType::INVALID)
-          {
-            switch (adp->GetStreamType())
-            {
-              case StreamType::VIDEO:
-              case StreamType::AUDIO:
-                LOG::LogF(LOGWARNING,
-                          "Cannot detect container type from media url, fallback to TS");
-                containerType = ContainerType::TS;
-                break;
-              case StreamType::SUBTITLE:
-                LOG::LogF(LOGWARNING,
-                          "Cannot detect container type from media url, fallback to TEXT");
-                containerType = ContainerType::TEXT;
-                break;
-              default:
-                break;
-            }
-          }
-          rep->SetContainerType(containerType);
-        }
-        else if (rep->GetContainerType() == ContainerType::INVALID)
-        {
-          // Skip EXTINF segment
-          newSegment.reset();
-          continue;
-        }
-
-        newSegment->url = line;
-
-        newSegments.GetData().emplace_back(*newSegment);
-        newSegment.reset();
-      }
-      else if (tagName == "#EXT-X-DISCONTINUITY-SEQUENCE")
-      {
-        m_discontSeq = STRING::ToUint32(tagValue);
-        if (!initial_sequence_.has_value())
-          initial_sequence_ = m_discontSeq;
-
-        m_hasDiscontSeq = true;
-        // make sure first period has a sequence on initial prepare
-        if (!update && m_discontSeq > 0 && m_periods.back()->GetSequence() == 0)
-          m_periods[0]->SetSequence(m_discontSeq);
-
-        for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
-        {
-          if (itPeriod->get()->GetSequence() < m_discontSeq)
-          {
-            if ((*itPeriod).get() != m_currentPeriod)
-            {
-              itPeriod = m_periods.erase(itPeriod);
-            }
-            else
-            {
-              // we end up here after pausing for some time
-              // remove from m_periods for now and reattach later
-              periodLost = std::move(*itPeriod); // Move out the period unique ptr
-              itPeriod = m_periods.erase(itPeriod); // Remove empty unique ptr state
-            }
-          }
-          else
-            itPeriod++;
-        }
-
-        period = m_periods[0].get();
-        adp = period->GetAdaptationSets()[adpSetPos].get();
-        rep = adp->GetRepresentations()[reprPos].get();
-      }
-      else if (tagName == "#EXT-X-DISCONTINUITY")
-      {
-        if (newSegments.IsEmpty())
-        {
-          LOG::Log(LOGDEBUG, "Ignored EXT-X-DISCONTINUITY tag, no segment");
-          continue;
-        }
-
-        period->SetSequence(m_discontSeq + discontCount);
-
-        uint64_t duration = currentSegStartPts - newSegments.Get(0)->startPTS_;
-        rep->SetDuration(duration);
-
-        if (adp->GetStreamType() != StreamType::SUBTITLE)
-        {
-          uint64_t periodDuration =
-              (rep->GetDuration() * m_periods[discontCount]->GetTimescale()) / rep->GetTimescale();
-          period->SetDuration(periodDuration);
-        }
-
-        FreeSegments(period, rep);
-        rep->SegmentTimeline().Swap(newSegments);
-        rep->SetStartNumber(newStartNumber);
-
-        if (m_periods.size() == ++discontCount)
-        {
-          auto newPeriod = CPeriod::MakeUniquePtr();
-          // CopyHLSData will copy also the init segment in the representations
-          // that must persist to next period until overrided by new EXT-X-MAP tag
-          newPeriod->CopyHLSData(m_currentPeriod);
-          period = newPeriod.get();
-          m_periods.push_back(std::move(newPeriod));
-        }
-        else
-        {
-          // Period(s) already created by a previously downloaded manifest child
-          period = m_periods[discontCount].get();
-        }
-
-        newStartNumber += rep->SegmentTimeline().GetSize();
-        adp = period->GetAdaptationSets()[adpSetPos].get();
-        // When we switch to a repr of another period we need to set current base url
-        CRepresentation* switchRep = adp->GetRepresentations()[reprPos].get();
-        switchRep->SetBaseUrl(rep->GetBaseUrl());
-        rep = switchRep;
-
-        currentSegStartPts = 0;
-
-        if (currentEncryptionType == EncryptionType::WIDEVINE)
-        {
           rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                             m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-          period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-        }
 
-        if (rep->HasInitSegment())
-          rep->SetContainerType(ContainerType::MP4);
+          if (period->GetPSSHSets()[rep->GetPsshSetPos()].m_usageCount == 1 || isDrmChanged)
+            isDrmChanged = true;
+          else
+            isDrmChanged = false;
+          break;
+        default:
+          break;
       }
-      else if (tagName == "#EXT-X-ENDLIST")
+    }
+    else if (tagName == "#EXT-X-MAP")
+    {
+      auto attribs = ParseTagAttributes(tagValue);
+      CSegment segInit;
+
+      if (STRING::KeyExists(attribs, "BYTERANGE"))
+      {
+        if (ParseRangeValues(attribs["BYTERANGE"], segInit.range_end_, segInit.range_begin_))
+        {
+          segInit.range_end_ = segInit.range_begin_ + segInit.range_end_ - 1;
+        }
+      }
+
+      if (STRING::KeyExists(attribs, "URI"))
+      {
+        segInit.SetIsInitialization(true);
+        segInit.url = attribs["URI"];
+        segInit.startPTS_ = NO_PTS_VALUE;
+        segInit.pssh_set_ = PSSHSET_POS_DEFAULT;
+        rep->SetInitSegment(segInit);
+        rep->SetContainerType(ContainerType::MP4);
+      }
+    }
+    else if (tagName == "#EXT-X-MEDIA-SEQUENCE")
+    {
+      newStartNumber = STRING::ToUint64(tagValue);
+    }
+    else if (tagName == "#EXT-X-PLAYLIST-TYPE")
+    {
+      if (STRING::CompareNoCase(tagValue, "VOD"))
       {
         m_isLive = false;
         m_updateInterval = NO_VALUE;
       }
     }
-
-    if (!isExtM3Uformat)
+    else if (tagName == "#EXT-X-TARGETDURATION")
     {
-      LOG::LogF(LOGERROR, "Non-compliant HLS manifest, #EXTM3U tag not found.");
-      return PrepareRepStatus::FAILURE;
+      // Use segment max duration as interval time to do a manifest update
+      // see: Reloading the Media Playlist file
+      // https://datatracker.ietf.org/doc/html/draft-pantos-http-live-streaming-16#section-6.3.4
+      uint64_t newIntervalSecs = STRING::ToUint64(tagValue) * 1000;
+      if (newIntervalSecs < m_updateInterval)
+        m_updateInterval = newIntervalSecs;
     }
-
-    if (m_isLive && m_updateInterval == NO_VALUE)
-      m_updateInterval = 0; // Refresh at each segment
-
-    FreeSegments(period, rep);
-
-    if (newSegments.IsEmpty())
+    else if (tagName == "#EXTINF")
     {
-      LOG::LogF(LOGERROR, "No segments parsed.");
-      return PrepareRepStatus::FAILURE;
+      // Make a new segment
+      newSegment = CSegment();
+      newSegment->startPTS_ = currentSegStartPts;
+
+      uint64_t duration = static_cast<uint64_t>(STRING::ToFloat(tagValue) * rep->GetTimescale());
+      newSegment->m_duration = duration;
+
+      if (currentEncryptionType == EncryptionType::AES128 && psshSetPos == PSSHSET_POS_DEFAULT)
+      {
+        if (!m_currentKidUrl.empty())
+        {
+          psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
+                                     m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+        }
+      }
+      newSegment->pssh_set_ = psshSetPos;
+
+      currentSegStartPts += duration;
     }
-
-    rep->SegmentTimeline().Swap(newSegments);
-    rep->SetStartNumber(newStartNumber);
-
-    uint64_t reprDuration{0};
-    if (rep->SegmentTimeline().Get(0))
-      reprDuration = currentSegStartPts - rep->SegmentTimeline().Get(0)->startPTS_;
-
-    rep->SetDuration(reprDuration);
-    period->SetSequence(m_discontSeq + discontCount);
-
-    uint64_t totalTimeSecs = 0;
-    if (discontCount > 0 || m_hasDiscontSeq)
+    else if (tagName == "#EXT-X-BYTERANGE" && newSegment.has_value())
     {
+      ParseRangeValues(tagValue, newSegment->range_end_, newSegment->range_begin_);
+
+      if (newSegment->range_begin_ == NO_VALUE)
+      {
+        if (newSegments.GetSize() > 0)
+          newSegment->range_begin_ = newSegments.Get(newSegments.GetSize() - 1)->range_end_ + 1;
+        else
+          newSegment->range_begin_ = 0;
+      }
+
+      newSegment->range_end_ += newSegment->range_begin_ - 1;
+    }
+    else if (newSegment.has_value() && !line.empty() && line[0] != '#')
+    {
+      // We fall here after a EXTINF (and possible EXT-X-BYTERANGE in the middle)
+
+      if (rep->GetContainerType() == ContainerType::NOTYPE)
+      {
+        // Try find the container type on the representation according to the file extension
+        std::string url = URL::RemoveParameters(line);
+        // Remove domain on absolute url, to not confuse top-level domain as extension
+        url = url.substr(URL::GetBaseDomain(url).size());
+
+        std::string extension;
+        size_t extPos = url.rfind('.');
+        if (extPos != std::string::npos)
+          extension = url.substr(extPos + 1);
+
+        ContainerType containerType = ContainerType::INVALID;
+
+        if (!extension.empty())
+        {
+          containerType = DetectContainerTypeFromExt(extension);
+
+          // Streams that have a media url encoded as a parameter of the url itself
+          // e.g. https://cdn-prod.tv/beacon?streamId=1&rp=https%3A%2F%2Ftest.com%2F167037ac3%2Findex_4_0.ts&sessionId=abc&assetId=OD
+          // cannot be detected in safe way, so we try fallback to common containers
+        }
+
+        if (containerType == ContainerType::INVALID)
+        {
+          switch (adp->GetStreamType())
+          {
+            case StreamType::VIDEO:
+            case StreamType::AUDIO:
+              LOG::LogF(LOGWARNING, "Cannot detect container type from media url, fallback to TS");
+              containerType = ContainerType::TS;
+              break;
+            case StreamType::SUBTITLE:
+              LOG::LogF(LOGWARNING,
+                        "Cannot detect container type from media url, fallback to TEXT");
+              containerType = ContainerType::TEXT;
+              break;
+            default:
+              break;
+          }
+        }
+        rep->SetContainerType(containerType);
+      }
+      else if (rep->GetContainerType() == ContainerType::INVALID)
+      {
+        // Skip EXTINF segment
+        newSegment.reset();
+        continue;
+      }
+
+      newSegment->url = line;
+
+      newSegments.GetData().emplace_back(*newSegment);
+      newSegment.reset();
+    }
+    else if (tagName == "#EXT-X-DISCONTINUITY-SEQUENCE")
+    {
+      m_discontSeq = STRING::ToUint32(tagValue);
+      if (!initial_sequence_.has_value())
+        initial_sequence_ = m_discontSeq;
+
+      m_hasDiscontSeq = true;
+      // make sure first period has a sequence on initial prepare
+      if (m_discontSeq > 0 && m_periods.back()->GetSequence() == 0)
+        m_periods[0]->SetSequence(m_discontSeq);
+
+        for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
+      {
+        if (itPeriod->get()->GetSequence() < m_discontSeq)
+        {
+          if ((*itPeriod).get() != m_currentPeriod)
+          {
+            itPeriod = m_periods.erase(itPeriod);
+          }
+          else
+          {
+            // we end up here after pausing for some time
+            // remove from m_periods for now and reattach later
+            periodLost = std::move(*itPeriod); // Move out the period unique ptr
+            itPeriod = m_periods.erase(itPeriod); // Remove empty unique ptr state
+          }
+        }
+        else
+          itPeriod++;
+      }
+
+      period = m_periods[0].get();
+      adp = period->GetAdaptationSets()[adpSetPos].get();
+      rep = adp->GetRepresentations()[reprPos].get();
+    }
+    else if (tagName == "#EXT-X-DISCONTINUITY")
+    {
+      if (newSegments.IsEmpty())
+      {
+        LOG::Log(LOGDEBUG, "Ignored EXT-X-DISCONTINUITY tag, no segment");
+        continue;
+      }
+
+      period->SetSequence(m_discontSeq + discontCount);
+
+      uint64_t duration = currentSegStartPts - newSegments.Get(0)->startPTS_;
+      rep->SetDuration(duration);
+
       if (adp->GetStreamType() != StreamType::SUBTITLE)
       {
         uint64_t periodDuration =
             (rep->GetDuration() * m_periods[discontCount]->GetTimescale()) / rep->GetTimescale();
-        m_periods[discontCount]->SetDuration(periodDuration);
+        period->SetDuration(periodDuration);
       }
 
-      for (auto& p : m_periods)
+      FreeSegments(period, rep);
+      rep->SegmentTimeline().Swap(newSegments);
+      rep->SetStartNumber(newStartNumber);
+
+      if (m_periods.size() == ++discontCount)
       {
-        totalTimeSecs += p->GetDuration() / p->GetTimescale();
-        if (!m_isLive)
-        {
-          auto& adpSet = p->GetAdaptationSets()[adpSetPos];
-          adpSet->GetRepresentations()[reprPos]->m_isDownloaded = true;
-        }
+        auto newPeriod = CPeriod::MakeUniquePtr();
+        // CopyHLSData will copy also the init segment in the representations
+        // that must persist to next period until overrided by new EXT-X-MAP tag
+        newPeriod->CopyHLSData(m_currentPeriod);
+        period = newPeriod.get();
+        m_periods.push_back(std::move(newPeriod));
       }
+      else
+      {
+        // Period(s) already created by a previously downloaded manifest child
+        period = m_periods[discontCount].get();
+      }
+
+      newStartNumber += rep->SegmentTimeline().GetSize();
+      adp = period->GetAdaptationSets()[adpSetPos].get();
+      // When we switch to a repr of another period we need to set current base url
+      CRepresentation* switchRep = adp->GetRepresentations()[reprPos].get();
+      switchRep->SetBaseUrl(rep->GetBaseUrl());
+      rep = switchRep;
+
+      currentSegStartPts = 0;
+
+      if (currentEncryptionType == EncryptionType::WIDEVINE)
+      {
+        rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
+                                          m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+        period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
+      }
+
+      if (rep->HasInitSegment())
+        rep->SetContainerType(ContainerType::MP4);
     }
-    else
+    else if (tagName == "#EXT-X-ENDLIST")
     {
-      totalTimeSecs = rep->GetDuration() / rep->GetTimescale();
-      if (!m_isLive)
-      {
-        rep->m_isDownloaded = true;
-      }
+      m_isLive = false;
+      m_updateInterval = NO_VALUE;
     }
-
-    if (adp->GetStreamType() != StreamType::SUBTITLE)
-      m_totalTimeSecs = totalTimeSecs;
   }
 
-  if (update)
+  if (!isExtM3Uformat)
   {
-    if (currentRepSegNumber == 0 || currentRepSegNumber < entryRep->GetStartNumber() ||
-        currentRepSegNumber == SEGMENT_NO_NUMBER)
-    {
-      entryRep->current_segment_ = nullptr;
-    }
-    else
-    {
-      if (currentRepSegNumber >= entryRep->GetStartNumber() + entryRep->SegmentTimeline().GetSize())
-      {
-        currentRepSegNumber =
-            entryRep->GetStartNumber() + entryRep->SegmentTimeline().GetSize() - 1;
-      }
+    LOG::LogF(LOGERROR, "Non-compliant HLS manifest, #EXTM3U tag not found.");
+    return false;
+  }
 
-      entryRep->current_segment_ = entryRep->get_segment(
-          static_cast<size_t>(currentRepSegNumber - entryRep->GetStartNumber()));
-    }
-    if (entryRep->IsWaitForSegment() && (entryRep->get_next_segment(entryRep->current_segment_) ||
-                                         m_currentPeriod != m_periods.back().get()))
+  if (m_isLive && m_updateInterval == NO_VALUE)
+    m_updateInterval = 0; // Refresh at each segment
+
+  FreeSegments(period, rep);
+
+  if (newSegments.IsEmpty())
+  {
+    LOG::LogF(LOGERROR, "No segments parsed.");
+    return false;
+  }
+
+  rep->SegmentTimeline().Swap(newSegments);
+  rep->SetStartNumber(newStartNumber);
+
+  uint64_t reprDuration{0};
+  if (rep->SegmentTimeline().Get(0))
+    reprDuration = currentSegStartPts - rep->SegmentTimeline().Get(0)->startPTS_;
+
+  rep->SetDuration(reprDuration);
+  period->SetSequence(m_discontSeq + discontCount);
+
+  uint64_t totalTimeSecs = 0;
+  if (discontCount > 0 || m_hasDiscontSeq)
+  {
+    if (adp->GetStreamType() != StreamType::SUBTITLE)
     {
-      entryRep->SetIsWaitForSegment(false);
+      uint64_t periodDuration =
+          (rep->GetDuration() * m_periods[discontCount]->GetTimescale()) / rep->GetTimescale();
+      m_periods[discontCount]->SetDuration(periodDuration);
+    }
+
+    for (auto& p : m_periods)
+    {
+      totalTimeSecs += p->GetDuration() / p->GetTimescale();
+      if (!m_isLive)
+      {
+        auto& adpSet = p->GetAdaptationSets()[adpSetPos];
+        adpSet->GetRepresentations()[reprPos]->SetIsNeedsUpdates(false);
+      }
     }
   }
   else
   {
-    entryRep->SetIsPrepared(true);
-    StartUpdateThread();
+    totalTimeSecs = rep->GetDuration() / rep->GetTimescale();
+    if (!m_isLive)
+      rep->SetIsNeedsUpdates(false);
   }
 
+  if (adp->GetStreamType() != StreamType::SUBTITLE)
+    m_totalTimeSecs = totalTimeSecs;
+  
+  // If you pause the video and after some time you want to continue the playback,
+  // its possible that we need to continue with this period (lost),
+  // or, that segments on current period (lost) cannot be downloaded because too old
+  // if so the stream will finish/ends and will start to switching/playing the next new period
   if (periodLost)
     m_periods.insert(m_periods.begin(), std::move(periodLost));
 
-  return prepareStatus;
+  StartUpdateThread();
+
+  return true;
+}
+
+void adaptive::CHLSTree::PrepareSegments(PLAYLIST::CPeriod* period,
+                                         PLAYLIST::CAdaptationSet* adp,
+                                         PLAYLIST::CRepresentation* rep,
+                                         uint64_t segPosition)
+{
+  if (segPosition == 0 || segPosition < rep->GetStartNumber() ||
+      segPosition == SEGMENT_NO_NUMBER)
+  {
+    rep->current_segment_ = nullptr;
+  }
+  else
+  {
+    if (segPosition >= rep->GetStartNumber() + rep->SegmentTimeline().GetSize())
+    {
+      segPosition = rep->GetStartNumber() + rep->SegmentTimeline().GetSize() - 1;
+    }
+
+    rep->current_segment_ =
+        rep->get_segment(static_cast<size_t>(segPosition - rep->GetStartNumber()));
+  }
+
+  if (rep->IsWaitForSegment() &&
+      (rep->get_next_segment(rep->current_segment_) || m_currentPeriod != m_periods.back().get()))
+  {
+    LOG::LogF(LOGDEBUG, "End WaitForSegment stream id \"%s\"", rep->GetId().data());
+    rep->SetIsWaitForSegment(false);
+  }
 }
 
 void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
@@ -720,8 +747,21 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
   if (rep->IsIncludedStream())
     return;
 
-  m_updThread.ResetStartTime();
-  prepareRepresentation(period, adp, rep, true);
+  bool isDrmChanged{false};
+  UTILS::CURL::HTTPResponse resp;
+
+  if (!DownloadChildManifest(adp, rep, resp))
+    return;
+
+  // Save the current segment position before parsing the manifest
+  // to allow find the right segment on updated playlist segments
+  const uint64_t segPosition = rep->getCurrentSegmentNumber();
+
+  if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep,
+                         isDrmChanged))
+  {
+    PrepareSegments(period, adp, rep, segPosition);
+  }
 }
 
 bool adaptive::CHLSTree::DownloadKey(std::string_view url,
@@ -758,7 +798,21 @@ void adaptive::CHLSTree::RefreshLiveSegments()
   }
   for (auto& [adpSet, repr] : refreshList)
   {
-    prepareRepresentation(m_currentPeriod, adpSet, repr, true);
+    bool isDrmChanged{false};
+    UTILS::CURL::HTTPResponse resp;
+
+    if (!DownloadChildManifest(adpSet, repr, resp))
+      continue;
+
+    // Save the current segment position before parsing the manifest
+    // to allow find the right segment on updated playlist segments
+    const uint64_t segPosition = repr->getCurrentSegmentNumber();
+
+    if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), m_currentPeriod, adpSet,
+                           repr, isDrmChanged))
+    {
+      PrepareSegments(m_currentPeriod, adpSet, repr, segPosition);
+    }
   }
 }
 

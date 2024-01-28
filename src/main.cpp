@@ -203,6 +203,11 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 bool CInputStreamAdaptive::OpenStream(int streamid)
 {
   LOG::Log(LOGDEBUG, "OpenStream(%d)", streamid);
+  // This method can be called when:
+  // - Stream first start
+  // - Chapter/period change
+  // - Automatic stream (representation) quality change (such as adaptive)
+  // - Manual stream (representation) quality change (from OSD)
 
   if (!m_session)
     return false;
@@ -225,6 +230,12 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
 
   stream->m_isEnabled = true;
+
+  //! @todo: for live with multiple periods (like HLS DISCONTINUITIES) for subtitle case
+  //! when the subtitle has been disabled from video start, and happens a period change,
+  //! kodi call OpenStream to the subtitle stream as if it were enabled, and disable it with EnableStream
+  //! just after it, this lead to log error "GenerateSidxSegments: [AS-x] Cannot generate segments from SIDX on repr..."
+  //! need to find a solution to avoid open the stream when previously disabled from previous period
 
   CRepresentation* rep = stream->m_adStream.getRepresentation();
 
@@ -342,10 +353,11 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 
     if (m_session->CheckChange())
     {
+      // Adaptive stream has switched stream (representation) quality
       m_lastPts = PLAYLIST::NO_PTS_VALUE;
       p = AllocateDemuxPacket(0);
       p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
-      LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
+      LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE (stream quality changed)");
       return p;
     }
 
@@ -404,8 +416,12 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     return p;
   }
 
+  // Ends here when GetNextSample fails due to sample reader in EOS state or stream disabled
+  // that could means, in case of multi-periods streams, that segments are ended
+  // in the current period and its needed to switch to the next period
   if (m_session->SeekChapter(m_session->GetChapter() + 1))
   {
+    // Switched to new period / chapter
     m_checkChapterSeek = true;
     m_lastPts = PLAYLIST::NO_PTS_VALUE;
     for (unsigned int i(1);
@@ -414,7 +430,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
     m_session->InitializePeriod();
     DEMUX_PACKET* p = AllocateDemuxPacket(0);
     p->iStreamId = DEMUX_SPECIALID_STREAMCHANGE;
-    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE");
+    LOG::Log(LOGDEBUG, "DEMUX_SPECIALID_STREAMCHANGE (chapter changed)");
     return p;
   }
   return NULL;

@@ -114,12 +114,16 @@ public:
    */
   virtual void PostOpen();
 
-  virtual PLAYLIST::PrepareRepStatus prepareRepresentation(PLAYLIST::CPeriod* period,
-                                                           PLAYLIST::CAdaptationSet* adp,
-                                                           PLAYLIST::CRepresentation* rep,
-                                                           bool update = false)
+  /*!
+   * \brief Prepare the representation data by downloading and parsing manifest
+   * \return True if has success, otherwise false
+   */
+  virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
+                                     PLAYLIST::CAdaptationSet* adp,
+                                     PLAYLIST::CRepresentation* rep,
+                                     bool& isDrmChanged)
   {
-    return PLAYLIST::PrepareRepStatus::OK;
+    return false;
   }
 
   virtual std::chrono::time_point<std::chrono::system_clock> GetRepLastUpdated(
