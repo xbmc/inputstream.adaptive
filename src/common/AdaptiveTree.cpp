@@ -416,9 +416,8 @@ namespace adaptive
       manifestHeaders[headerIt.first] = headerIt.second;
     }
 
-    // Append manifest parameters, only if not already provided (e.g. manifest update)
-    if (url.find('?') == std::string::npos)
-      URL::AppendParameters(url, m_manifestParams);
+    // Append manifest parameters
+    URL::AppendParameters(url, m_manifestParams);
 
     return download(url, manifestHeaders, data, respHeaders);
   }

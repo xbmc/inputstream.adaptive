@@ -241,9 +241,8 @@ bool AdaptiveStream::download(const DownloadInfo& downloadInfo,
   std::map<std::string, std::string> headers = m_streamHeaders;
   headers.insert(downloadInfo.m_addHeaders.begin(), downloadInfo.m_addHeaders.end());
 
-  // Append stream parameters, only if not already provided
-  if (url.find('?') == std::string::npos)
-    URL::AppendParameters(url, m_streamParams);
+  // Append stream parameters
+  URL::AppendParameters(url, m_streamParams);
 
   // Open the file
   kodi::vfs::CFile file;
