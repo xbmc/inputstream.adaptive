@@ -25,7 +25,7 @@ public:
   ~CRepresentationChooserManualOSD() override {}
 
   virtual void Initialize(const ADP::KODI_PROPS::ChooserProps& props) override;
-
+  virtual void SetSecureSession(const bool isSecureSession) override;
   virtual void PostInit() override;
 
   virtual StreamSelection GetStreamSelectionMode() override { return m_streamSelectionMode; }

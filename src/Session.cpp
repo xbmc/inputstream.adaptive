@@ -216,10 +216,9 @@ bool CSession::Initialize()
   }
 
   m_adaptiveTree->PostOpen();
-
-  bool isPeriodInit = InitializePeriod(isSessionOpened);
   m_reprChooser->PostInit();
-  return isPeriodInit;
+
+  return InitializePeriod(isSessionOpened);
 }
 
 void CSession::CheckHDCP()

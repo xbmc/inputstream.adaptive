@@ -66,6 +66,12 @@ void CRepresentationChooserManualOSD::RefreshResolution()
   }
 }
 
+void CRepresentationChooserManualOSD::SetSecureSession(const bool isSecureSession)
+{
+  m_isSecureSession = isSecureSession;
+  RefreshResolution();
+}
+
 void CRepresentationChooserManualOSD::PostInit()
 {
   RefreshResolution();
