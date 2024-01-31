@@ -75,9 +75,8 @@ bool CSubtitleSampleReader::InitializeFile(std::string url)
 {
   auto kodiProps = CSrvBroker::GetKodiProps();
 
-  // Append stream parameters, only if not already provided
-  if (url.find('?') == std::string::npos)
-    URL::AppendParameters(url, kodiProps.GetStreamParams());
+  // Append stream parameters
+  URL::AppendParameters(url, kodiProps.GetStreamParams());
 
   // Download the file
   CURL::CUrl curl(url);
