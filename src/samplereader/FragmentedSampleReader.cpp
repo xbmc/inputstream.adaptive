@@ -185,9 +185,6 @@ AP4_Result CFragmentedSampleReader::ReadSample()
 
   m_dts = (m_sample.GetDts() * m_timeBaseExt) / m_timeBaseInt;
   m_pts = (m_sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
-  
-  if (m_startPts == STREAM_NOPTS_VALUE)
-    SetStartPTS(m_pts - GetPTSDiff());
 
   m_codecHandler->UpdatePPSId(m_sampleData);
 

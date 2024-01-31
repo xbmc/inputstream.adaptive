@@ -292,20 +292,10 @@ public:
    */
   uint64_t GetChapterStartTime() const;
 
-  /*! \brief Get starting PTS of the timing stream
-   *  \return PTS at start of the timing stream
-   */
-  uint64_t GetTimingStartPTS() const;
-
   /*! \brief Get value of m_chapterSeekTime
    *  \return Time stored in m_chapterSeekTime
    */
   double GetChapterSeekTime() { return m_chapterSeekTime; };
-
-  /*! \brief Get the timing stream
-   *  \return Timing stream if exists
-   */
-  CStream* GetTimingStream() const { return m_timingStream; }
 
   /*! \brief Set m_chapterSeekTime back to 0
    */

@@ -37,10 +37,9 @@ public:
   void Reset(bool bEOS) override;
   bool GetInformation(kodi::addon::InputstreamInfo& info) override;
   bool TimeSeek(uint64_t pts, bool preceeding) override;
-  void SetPTSOffset(uint64_t offset) override { m_ptsOffset = offset; }
-  uint64_t GetStartPTS() const override { return m_startPts; }
-  void SetStartPTS(uint64_t pts) override { m_startPts = pts; }
+  void SetPTSOffset(uint64_t offset) override { }
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
+  void SetPTSDiff(uint64_t pts) override;
   bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
   uint32_t GetTimeScale() const override { return 1000; }
   AP4_UI32 GetStreamId() const override { return m_streamId; }
@@ -52,9 +51,7 @@ public:
 
 private:
   uint64_t m_pts{0};
-  uint64_t m_ptsOffset{0};
   uint64_t m_ptsDiff{0};
-  uint64_t m_startPts{STREAM_NOPTS_VALUE};
   AP4_UI32 m_streamId;
   bool m_eos{false};
   bool m_started{false};

@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 TSReader::TSReader(AP4_ByteStream* stream, uint32_t requiredMask)
-  : m_stream(stream), m_requiredMask(requiredMask), m_typeMask(0), m_startPts{STREAM_NOPTS_VALUE}
+  : m_stream(stream), m_requiredMask(requiredMask), m_typeMask(0)
 {
 }
 
@@ -25,7 +25,6 @@ bool TSReader::Initialize()
     m_AVContext = nullptr;
     return false;
   }
-  m_startPts = GetPts();
   return true;
 }
 

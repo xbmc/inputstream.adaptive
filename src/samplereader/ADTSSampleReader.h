@@ -29,8 +29,6 @@ public:
   }
   bool TimeSeek(uint64_t pts, bool preceeding) override;
   void SetPTSOffset(uint64_t offset) override { m_ptsOffs = offset; }
-  uint64_t GetStartPTS() const override { return m_startPts; }
-  void SetStartPTS(uint64_t pts) override { m_startPts = pts; }
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
   bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
   uint32_t GetTimeScale() const override { return 90000; }
@@ -47,6 +45,5 @@ private:
   uint64_t m_pts{0};
   int64_t m_ptsDiff{0};
   uint64_t m_ptsOffs{~0ULL};
-  uint64_t m_startPts{STREAM_NOPTS_VALUE};
   CAdaptiveByteStream* m_adByteStream;
 };
