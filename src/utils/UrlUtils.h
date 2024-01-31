@@ -61,7 +61,7 @@ std::string GetParameters(std::string& url);
  */
 std::string RemoveParameters(std::string url, bool removeFilenameParam = true);
 
-/*! \brief Append a string of parameters to an URL with/without pre-existents params
+/*! \brief Append a string of parameters to an URL without overwriting existing params values
  *  \param url URL where append the parameters
  *  \param params Params to be appended
  */

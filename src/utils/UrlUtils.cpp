@@ -184,12 +184,27 @@ void UTILS::URL::AppendParameters(std::string& url, std::string_view params)
   if (params.empty())
     return;
 
-  if (url.find_first_of('?') == std::string::npos)
-    url += "?";
-  else
-    url += "&";
+  params.remove_prefix(params.front() == '&' || params.front() == '?' ? 1 : 0);
+  size_t keyValDividerPos;
+  while ((keyValDividerPos = params.find('=')) != std::string::npos)
+  {
+    size_t ampersandPos = params.find('&');
+    std::string paramKey{params.substr(0, keyValDividerPos)};
 
-  url += params.substr(params.front() == '&' || params.front() == '?' ? 1 : 0);
+    // if param key is not in url add it
+    if (url.find('?' + paramKey + '=') == std::string::npos &&
+        url.find('&' + paramKey + '=') == std::string::npos)
+    {
+      url += url.find_first_of('?') == std::string::npos ? '?' : '&';
+      url += paramKey + '=';
+      url += params.substr(keyValDividerPos + 1, ampersandPos);
+    }
+
+    if (ampersandPos != std::string::npos)
+      params = params.substr(ampersandPos + 1);
+    else
+      break;
+  }
 }
 
 std::string UTILS::URL::GetDomainUrl(std::string url)

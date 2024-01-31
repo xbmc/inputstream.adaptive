@@ -36,9 +36,8 @@ CSubtitleSampleReader::CSubtitleSampleReader(
     const std::map<std::string, std::string>& streamHeaders)
   : m_streamId{streamId}
 {
-  // Append stream parameters, only if not already provided
-  if (url.find('?') == std::string::npos)
-    URL::AppendParameters(url, streamParams);
+  // Append stream parameters
+  URL::AppendParameters(url, streamParams);
 
   // open the file
   kodi::vfs::CFile file;
