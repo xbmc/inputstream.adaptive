@@ -5,23 +5,23 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2023-03-06 08:48+0000\n"
-"Last-Translator: Christian Gade <gade@kodi.tv>\n"
+"PO-Revision-Date: 2024-01-11 08:13+0000\n"
+"Last-Translator: Alexey <signfinder@gmail.com>\n"
 "Language-Team: Russian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/ru_ru/>\n"
 "Language: ru_ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Weblate 4.15.2\n"
+"X-Generator: Weblate 5.3\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream клиент для адаптивных трансляций"
+msgstr "Клиент InputStream для адаптивных потоков"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
-msgstr "InputStream клиент для адаптивных трансляций"
+msgstr "Клиент InputStream для адаптивных потоков. Поддерживаются такие распространенные потоковые протоколы, как MPEG-DASH, HLS и Microsoft Smooth Streaming.[CR][CR]Дополнение также поддерживает потоки, защищенные DRM, такие как Google Widevine, Microsoft PlayReady и другие.[CR][CR]Для получения документации посетите: https://github.com/xbmc/inputstream.adaptive"
 
 #. Category title
 msgctxt "#30100"
@@ -47,38 +47,38 @@ msgstr "Устанавливает ограничение скорости, ко
 #. Maximum video resolution non-protected videos
 msgctxt "#30110"
 msgid "Maximum resolution"
-msgstr ""
+msgstr "Максимальное разрешение"
 
 # empty string with id 30111
 #. Type of media streams that will be handled for the playback
 msgctxt "#30112"
 msgid "Type of media streams played"
-msgstr ""
+msgstr "Тип воспроизводимого медиапотока"
 
 #. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
 msgid "Maximum resolution for DRM videos"
-msgstr ""
+msgstr "Максимальное разрешение для DRM-видео"
 
 # empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore screen resolution"
-msgstr ""
+msgstr "Игнорировать разрешение экрана"
 
 #. Description of setting with label #30115
 msgctxt "#30116"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
-msgstr ""
+msgstr "Если включено, разрешение экрана (или размер окна в оконном режиме) больше не будет учитываться при выборе оптимального разрешения видеопотока при запуске и воспроизведении видео."
 
 msgctxt "#30117"
 msgid "Manual stream selection mode"
-msgstr ""
+msgstr "Режим выбора потока вручную"
 
 #. Description of setting with label #30117
 msgctxt "#30118"
 msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
-msgstr ""
+msgstr "Определяет доступный во время воспроизведения для ручного выбора в настройках Kodi OSD тип потоков."
 
 #. Category title
 msgctxt "#30120"
@@ -88,18 +88,18 @@ msgstr "Экспертные"
 # empty string with id 30121
 msgctxt "#30122"
 msgid "Try avoiding the use of secure decoder"
-msgstr ""
+msgstr "Старайтесь не использовать безопасный декодер"
 
 #. Description of setting with label #30122
 msgctxt "#30123"
 msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
-msgstr ""
+msgstr "На некоторых Android-устройствах, определяемых как Widevine L1, может работать некорректно и может привести к появлению черного экрана во время воспроизведения. В этом случае попробуйте включить его."
 
 # empty strings from id 30124 to 30155
 #. Item list value of setting with label #30117
 msgctxt "#30156"
 msgid "Audio / Video streams"
-msgstr ""
+msgstr "Аудио / Видео потоки"
 
 #. Item list value of setting with label #30112
 msgctxt "#30157"
@@ -119,213 +119,213 @@ msgstr "Видео"
 #. Item list value of setting with label #30117
 msgctxt "#30160"
 msgid "Video streams"
-msgstr ""
+msgstr "Видео потоки"
 
 #. Item list value of setting with label #30112
 msgctxt "#30161"
 msgid "Video / Subtitles"
-msgstr ""
+msgstr "Видео / Субтитры"
 
 #. Category group title
 msgctxt "#30162"
 msgid "Adaptive stream"
-msgstr ""
+msgstr "Адаптивный поток"
 
 # empty strings from id 30163 to 30165
 #. Category group title
 msgctxt "#30166"
 msgid "DRM Widevine"
-msgstr ""
+msgstr "УЦП Widevine"
 
 msgctxt "#30167"
 msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
-msgstr ""
+msgstr "ВНИМАНИЕ: Тестовая функция и может не работать должным образом или измениться в будущих версиях."
 
 msgctxt "#30168"
 msgid "Auto determines initial bandwidth"
-msgstr ""
+msgstr "Автоматическое определение начальной полосы пропускания"
 
 #. Description of setting with label #30168
 msgctxt "#30169"
 msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
-msgstr ""
+msgstr "Если включено, пропускная способность будет определяться по первой загрузке и может быть неточной. Если качество видео в начале воспроизведения слишком низкое, попробуйте отключить эту функцию."
 
 msgctxt "#30170"
 msgid "Initial bandwidth (Kbps)"
-msgstr ""
+msgstr "Начальная пропускная способность (Кбит/с)"
 
 #. Description of setting with label #30170
 msgctxt "#30171"
 msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
-msgstr ""
+msgstr "Определяет начальную полосу пропускания, если она не может быть определена автоматически. Это значение может быть отменено настройкой минимальной полосы пропускания."
 
 msgctxt "#30172"
 msgid "Ignore HDCP status"
-msgstr ""
+msgstr "Игнорировать статус HDCP"
 
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
-msgstr ""
+msgstr "Некоторые защищенные DRM HD / UHD видео могут воспроизводиться только когда статус HDCP игнорируется."
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
 msgid "Stream selection type"
-msgstr ""
+msgstr "Тип выбора потоков"
 
 #. Description of setting with label #30174
 msgctxt "#30175"
 msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
-msgstr ""
+msgstr "Установите, как будет выбираться качество аудио- и видеопотоков при воспроизведении. Эта настройка может быть переопределена используемым видеодополнением. Дополнительные сведения см. в Wiki."
 
 #. Item list value of setting with label #30174
 msgctxt "#30176"
 msgid "Adaptive (default)"
-msgstr ""
+msgstr "Адаптивный (по умолчанию)"
 
 #. Item list value of setting with label #30174
 msgctxt "#30177"
 msgid "Manual OSD"
-msgstr ""
+msgstr "Ручной режим экрана"
 
 #. Item list value of setting with label #30174
 msgctxt "#30178"
 msgid "Fixed resolution"
-msgstr ""
+msgstr "Фиксированное разрешение"
 
 #. Item list value of setting with label #30174
 msgctxt "#30179"
 msgid "Ask quality"
-msgstr ""
+msgstr "Спрашивать о качестве"
 
 #. Item list value of setting with label #30174
 msgctxt "#30180"
 msgid "Test"
-msgstr ""
+msgstr "Тест"
 
 # empty strings reserved for "stream selection types" from id 30181 to 30190
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
 msgid "Assured buffer duration (sec)"
-msgstr ""
+msgstr "Гарантированная длительность буфера (сек)"
 
 #. Max buffer length duration (seconds)
 msgctxt "#30201"
 msgid "Maximum buffer duration (sec)"
-msgstr ""
+msgstr "Максимальная длительность буфера (сек)"
 
 #. Ignore screen resolution change e.g. window resize
 msgctxt "#30202"
 msgid "Ignore screen resolution change"
-msgstr ""
+msgstr "Игнорировать изменение разрешения экрана"
 
 #. Description of setting with label #30202
 msgctxt "#30203"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
-msgstr ""
+msgstr "Если включено, разрешение экрана (или размер окна в оконном режиме) больше не будет учитываться при выборе оптимального разрешения видеопотока во время воспроизведения."
 
 #. Absolute path to the folder containing the DRM binary files
 msgctxt "#30204"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Путь к дешифратору"
 
 # empty strings from id 30205 to 30209
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30210"
 msgid "Auto"
-msgstr ""
+msgstr "Авто"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30211"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30212"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30213"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30214"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30215"
 msgid "2K"
-msgstr ""
+msgstr "2K"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30216"
 msgid "1440p"
-msgstr ""
+msgstr "1440p"
 
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30217"
 msgid "4K"
-msgstr ""
+msgstr "4K"
 
 # empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
 #. Dialog window to select the video stream
 msgctxt "#30231"
 msgid "Select video stream"
-msgstr ""
+msgstr "Выберите видеопоток"
 
 #. Description of each list item in #30231 dialog window
 #. Do not translate placeholders: {codec} {quality}
 msgctxt "#30232"
 msgid "Video stream {codec} {quality}"
-msgstr ""
+msgstr "Видеопоток {codec} {quality}"
 
 #. Enum setting to set the test mode
 msgctxt "#30233"
 msgid "Test mode"
-msgstr ""
+msgstr "Тестовый режим"
 
 #. Item list value of setting with label #30233
 msgctxt "#30234"
 msgid "Switch by segments"
-msgstr ""
+msgstr "Переключение между сегментами"
 
 #. Stand for stream segments, referred to setting with label #30234
 msgctxt "#30235"
 msgid "Segments"
-msgstr ""
+msgstr "Сегменты"
 
 #. Category group title
 msgctxt "#30236"
 msgid "Override settings"
-msgstr ""
+msgstr "Переопределить настройки"
 
 #. Category group title for debug settings
 msgctxt "#30237"
 msgid "Debug logging"
-msgstr ""
+msgstr "Журнал отладки"
 
 #. Debug setting to save stream manifests
 msgctxt "#30238"
 msgid "Save stream manifests"
-msgstr ""
+msgstr "Сохранять манифесты потоков"
 
 #. Description of setting with label #30238
 msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
-msgstr ""
+msgstr "Сохранять манифесты потока, загруженные во время воспроизведения, в папке пользовательских данных InputStream Adaptive."
 
 #. Debug setting to save license data
 msgctxt "#30240"
 msgid "Save license data"
-msgstr ""
+msgstr "Сохранять данные лицензии"
 
 #. Description of setting with label #30240
 msgctxt "#30241"
 msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
-msgstr ""
+msgstr "Сохранять данные лицензии, например: начальные данные, данные вызова и данные ответа, в папке \"cdm\" в каталоге данных Kodi."
 
 # The minimum bandwidth which should not be deceeded.
 #~ msgctxt "#30101"
