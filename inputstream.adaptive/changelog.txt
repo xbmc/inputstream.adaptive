@@ -1,3 +1,12 @@
+v20.3.17 (2024-02-03)
+- Allowed manifest URLs until to 8000 chars
+- Allowed inputstream.adaptive.stream_params to add params to URLs that already have params
+- Fix crash when playing some widevine videos (e.g. amazon)
+- Fix Response-Data template field on inputstream.adaptive.license_key to accept R for raw binary format
+- [HLS] Fix broken WebVTT subtitles with playlists having multiple discontinuities (D+)
+- [HLS] Fix broken WebVTT subtitles after disabled and re-enabled (D+)
+- Add support to LoongArch systems
+
 v20.3.16 (2024-01-07)
 - Increased url length limits, fix some Dash manifests
 - [HLS] Fix video playback of some streams with avc codec
