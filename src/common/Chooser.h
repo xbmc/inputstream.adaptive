@@ -48,14 +48,14 @@ public:
 
   /*!
    * \brief Initialize the representation chooser.
-   *        (Variables like current screen resolution and
-   *        DRM data can be read only with PostInit callback)
+   *        (Variables like current screen resolution can be read only with PostInit callback)
    * \param m_kodiProps The Kodi properties
    */
   virtual void Initialize(const ADP::KODI_PROPS::ChooserProps& props) {}
 
   /*!
-   * \brief Post initialization, will be called after the session initialization
+   * \brief Post initialization, will be called after the manifest has been opened,
+   *        but the DRM is not initialized yet, when done it will be called SetSecureSession method.
    */
   virtual void PostInit() {}
 
