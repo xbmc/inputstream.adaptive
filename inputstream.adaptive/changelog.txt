@@ -1,3 +1,19 @@
+v21.4.2 (2024-02-03)
+- Allowed manifest URLs until to 8000 chars
+- Allowed inputstream.adaptive.stream_params to add params to URLs that already have params
+- Fix crash when playing some widevine videos (e.g. amazon)
+- Fix video starting with lower resolution with Manual OSD stream selector
+- Fix Response-Data template field on inputstream.adaptive.license_key to accept R for raw binary format
+- [HLS] Fix stopping of live stream playback after some time
+- [HLS] Fix stopping playback after stream quality switching (not fully but improved a lot)
+- [HLS] Fix audio with 0 channels when a rendition has no CHANNELS info param
+- [HLS] On live streaming no more subtitles child manifest downloaded when disabled
+- [HLS] Fix broken WebVTT subtitles on live streaming due to not downloaded segments
+- [HLS] Fix broken WebVTT subtitles with playlists having multiple discontinuities (D+)
+- [HLS] Fix broken WebVTT subtitles after disabled and re-enabled (D+)
+- [HLS] Fix possible multiple included audio tracks shown on GUI that point to the same stream
+- Ask Quality stream selector will no longer display empty resolution when unavailable
+
 v21.4.1 (2023-12-24)
 - New properties license_url / license_url_append, workaround for PVR playlist bug, see wiki
 - New property internal_cookies, enable add-on to handle persistent cookies, see wiki
