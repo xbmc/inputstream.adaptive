@@ -1125,8 +1125,10 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
     {
       //check NAL / subsample
       const AP4_Byte *packet_in(data_in.GetData()), *packet_in_e(data_in.GetData() + data_in.GetDataSize());
-      AP4_UI16 *clrb_out(iv ? reinterpret_cast<AP4_UI16*>(data_out.UseData() + sizeof(subsample_count)) : nullptr);
-      unsigned int nalunitcount(0), nalunitsum(0), configSize(0);
+      unsigned int clrbPos = sizeof(subsample_count);
+      // unsigned int nalunitcount(0);
+      unsigned int nalunitsum(0);
+      // unsigned int configSize(0);
 
       while (packet_in < packet_in_e)
       {
@@ -1138,8 +1140,13 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
         {
           data_out.AppendData(fragInfo.annexb_sps_pps_.GetData(),
                               fragInfo.annexb_sps_pps_.GetDataSize());
-          if (clrb_out) *clrb_out += fragInfo.annexb_sps_pps_.GetDataSize();
-          configSize = fragInfo.annexb_sps_pps_.GetDataSize();
+          if (iv)
+          {
+            AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(data_out.UseData() + clrbPos);
+            *clrb_out += fragInfo.annexb_sps_pps_.GetDataSize();
+          }
+
+          // configSize = fragInfo.annexb_sps_pps_.GetDataSize();
           fragInfo.annexb_sps_pps_.SetDataSize(0);
         }
 
@@ -1148,8 +1155,14 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
         data_out.AppendData(annexbStartCode, 4);
         data_out.AppendData(packet_in, nalsize);
         packet_in += nalsize;
-        if (clrb_out) *clrb_out += (4 - fragInfo.nal_length_size_);
-        ++nalunitcount;
+        
+        if (iv)
+        {
+          AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(data_out.UseData() + clrbPos);
+          *clrb_out += (4 - fragInfo.nal_length_size_);
+        }
+
+        // ++nalunitcount;
 
         if (!iv)
         {
@@ -1163,7 +1176,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
             summedBytes += *bytes_of_cleartext_data + *bytes_of_encrypted_data;
             ++bytes_of_cleartext_data;
             ++bytes_of_encrypted_data;
-            ++clrb_out;
+            ++clrbPos;
             --subsample_count;
           } while (subsample_count && nalsize + fragInfo.nal_length_size_ + nalunitsum > summedBytes);
 
