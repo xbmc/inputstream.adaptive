@@ -197,7 +197,10 @@ void UTILS::URL::AppendParameters(std::string& url, std::string_view params)
     {
       url += url.find_first_of('?') == std::string::npos ? '?' : '&';
       url += paramKey + '=';
-      url += params.substr(keyValDividerPos + 1, ampersandPos);
+      if (ampersandPos != std::string::npos)
+        url += params.substr(keyValDividerPos + 1, ampersandPos - keyValDividerPos - 1);
+      else
+        url += params.substr(keyValDividerPos + 1);
     }
 
     if (ampersandPos != std::string::npos)
