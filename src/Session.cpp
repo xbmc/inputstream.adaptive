@@ -188,6 +188,8 @@ bool CSession::Initialize()
     }
   }
 
+  URL::AppendParameters(manifestUrl, kodiProps.GetManifestParams());
+
   CURL::HTTPResponse manifestResp;
   if (!CURL::DownloadFile(manifestUrl, manifestHeaders, {"etag", "last-modified"}, manifestResp))
     return false;
