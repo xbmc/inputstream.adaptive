@@ -190,6 +190,10 @@ void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
   if (caps.hdcpLimit == 0)
     caps.hdcpLimit = m_resolutionLimit;
 
+  // Note: Currently we check for L1 only, Kodi core at a later time have a separate check
+  // by calling requiresSecureDecoderComponent android MediaDrm API that use the mime type
+  // to determine if secure decoder is needed
+  // https://github.com/xbmc/xbmc/blob/Nexus/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAndroidMediaCodec.cpp#L639-L641
   if (m_mediaDrm.GetMediaDrm()->getPropertyString("securityLevel") == "L1")
   {
     caps.hdcpLimit = m_resolutionLimit; //No restriction
@@ -805,6 +809,8 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
       bytesOfCleartextData = &dummyClear;
       bytesOfEncryptedData = &dummyCipher;
     }
+
+    LOG::LogF(LOGERROR, "Has IV %s, subsampleCount %u", iv ? "yes" : "no", subsampleCount);
 
     if (fragInfo.m_nalLengthSize && (!iv || bytesOfCleartextData[0] > 0))
     {
