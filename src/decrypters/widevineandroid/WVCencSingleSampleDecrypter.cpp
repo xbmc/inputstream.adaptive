@@ -839,6 +839,7 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
           {
             AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(dataOut.UseData() + clrbPos);
             *clrb_out += fragInfo.m_annexbSpsPps.GetDataSize();
+            ++clrbPos;
           }
           // configSize = fragInfo.m_annexbSpsPps.GetDataSize();
           fragInfo.m_annexbSpsPps.SetDataSize(0);
@@ -854,6 +855,7 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
         {
           AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(dataOut.UseData() + clrbPos);
           *clrb_out += (4 - fragInfo.m_nalLengthSize);
+          ++clrbPos;
         }
         
         // ++nalUnitCount;
@@ -871,7 +873,7 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
             summedBytes += *bytesOfCleartextData + *bytesOfEncryptedData;
             ++bytesOfCleartextData;
             ++bytesOfEncryptedData;
-            ++clrbPos;
+            //++clrbPos;
             --subsampleCount;
           } while (subsampleCount && nalsize + fragInfo.m_nalLengthSize + nalUnitSum > summedBytes);
 
