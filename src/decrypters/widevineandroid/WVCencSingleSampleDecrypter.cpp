@@ -817,10 +817,12 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
       //check NAL / subsample
       const AP4_Byte* packetIn(dataIn.GetData());
       const AP4_Byte* packetInEnd(dataIn.GetData() + dataIn.GetDataSize());
-      unsigned int clrbPos = sizeof(subsampleCount);
-      // size_t nalUnitCount = 0; //! @todo: what is the point of this?
+      AP4_UI16* clrb_out(
+          iv ? reinterpret_cast<AP4_UI16*>(dataOut.UseData() + sizeof(subsampleCount))
+             : nullptr); //! @todo: what is the point of this?
+      size_t nalUnitCount = 0; //! @todo: what is the point of this?
       size_t nalUnitSum = 0;
-      // size_t configSize = 0; //! @todo:what is the point of this?
+      size_t configSize = 0; //! @todo:what is the point of this?
 
       while (packetIn < packetInEnd)
       {
@@ -835,12 +837,9 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
         {
           dataOut.AppendData(fragInfo.m_annexbSpsPps.GetData(),
                              fragInfo.m_annexbSpsPps.GetDataSize());
-          if (iv)
-          {
-            AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(dataOut.UseData() + clrbPos);
+          if (clrb_out)
             *clrb_out += fragInfo.m_annexbSpsPps.GetDataSize();
-          }
-          // configSize = fragInfo.m_annexbSpsPps.GetDataSize();
+          configSize = fragInfo.m_annexbSpsPps.GetDataSize();
           fragInfo.m_annexbSpsPps.SetDataSize(0);
         }
 
@@ -849,14 +848,9 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
         dataOut.AppendData(annexbStartCode, 4);
         dataOut.AppendData(packetIn, nalsize);
         packetIn += nalsize;
-
-        if (iv)
-        {
-          AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(dataOut.UseData() + clrbPos);
+        if (clrb_out)
           *clrb_out += (4 - fragInfo.m_nalLengthSize);
-        }
-        
-        // ++nalUnitCount;
+        ++nalUnitCount;
 
         if (!iv)
         {
@@ -871,7 +865,7 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
             summedBytes += *bytesOfCleartextData + *bytesOfEncryptedData;
             ++bytesOfCleartextData;
             ++bytesOfEncryptedData;
-            ++clrbPos;
+            ++clrb_out;
             --subsampleCount;
           } while (subsampleCount && nalsize + fragInfo.m_nalLengthSize + nalUnitSum > summedBytes);
 
