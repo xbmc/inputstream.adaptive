@@ -1164,7 +1164,9 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
     {
       //check NAL / subsample
       const AP4_Byte *packet_in(data_in.GetData()), *packet_in_e(data_in.GetData() + data_in.GetDataSize());
-      unsigned int clrbPos = sizeof(subsample_count);
+      // Byte position of "bytesOfCleartextData" where to set the size of the data,
+      // by default starts after the subsample count data (so the size of subsample_count data type)
+      size_t clrDataBytePos = sizeof(subsample_count);
       // unsigned int nalunitcount(0);
       unsigned int nalunitsum(0);
       // unsigned int configSize(0);
@@ -1181,7 +1183,8 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
                               fragInfo.annexb_sps_pps_.GetDataSize());
           if (iv)
           {
-            AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(data_out.UseData() + clrbPos);
+            // Update the byte containing the data size of current subsample referred to clear bytes array
+            AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(data_out.UseData() + clrDataBytePos);
             *clrb_out += fragInfo.annexb_sps_pps_.GetDataSize();
           }
           
@@ -1197,7 +1200,8 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
 
         if (iv)
         {
-          AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(data_out.UseData() + clrbPos);
+          // Update the byte containing the data size of current subsample referred to clear bytes array
+          AP4_UI16* clrb_out = reinterpret_cast<AP4_UI16*>(data_out.UseData() + clrDataBytePos);
           *clrb_out += (4 - fragInfo.nal_length_size_);
         }
 
@@ -1215,7 +1219,7 @@ AP4_Result WV_CencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 pool_id,
             summedBytes += *bytes_of_cleartext_data + *bytes_of_encrypted_data;
             ++bytes_of_cleartext_data;
             ++bytes_of_encrypted_data;
-            ++clrbPos;
+            clrDataBytePos += sizeof(AP4_UI16); // Move to the next clear data subsample byte position
             --subsample_count;
           } while (subsample_count && nalsize + fragInfo.nal_length_size_ + nalunitsum > summedBytes);
 
