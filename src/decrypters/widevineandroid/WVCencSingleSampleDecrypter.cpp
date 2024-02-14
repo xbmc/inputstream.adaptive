@@ -190,6 +190,9 @@ void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
   if (caps.hdcpLimit == 0)
     caps.hdcpLimit = m_resolutionLimit;
 
+  // Note: Currently we check for L1 only, Kodi core at later time check if secure decoder is needed
+  // by using requiresSecureDecoderComponent method of MediaDrm API
+  // https://github.com/xbmc/xbmc/blob/Nexus/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAndroidMediaCodec.cpp#L639-L641
   if (m_mediaDrm.GetMediaDrm()->getPropertyString("securityLevel") == "L1")
   {
     caps.hdcpLimit = m_resolutionLimit; //No restriction
