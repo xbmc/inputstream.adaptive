@@ -1058,65 +1058,55 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         }
       }
 
-      if (segmentsCount < 65536) // SIDX atom is limited to 65535 references (fragments)
+      uint64_t segStartNumber = repr->GetStartNumber();
+      uint64_t segStartPts = adpSet->GetStartPTS();
+
+      if (m_isLive && !segTemplate->HasVariableTime() && segTemplate->GetDuration() > 0)
       {
-        uint64_t segStartNumber = repr->GetStartNumber();
-        uint64_t segStartPts = adpSet->GetStartPTS();
-
-        if (m_isLive && !segTemplate->HasVariableTime() &&
-            segTemplate->GetDuration() > 0)
-        {
-          uint64_t sampleTime = period->GetStart() / 1000;
-          segStartNumber +=
-              static_cast<uint64_t>(static_cast<int64_t>(stream_start_ - available_time_ -
-                                                         reprTotalTimeSecs - sampleTime) *
-                                        segTemplate->GetTimescale() / segTemplate->GetDuration() +
-                                    1);
-        }
-        else if (segTemplate->GetDuration() == 0 && adpSet->HasSegmentTimelineDuration())
-        {
-          uint32_t duration =
-              static_cast<uint32_t>((reprTotalTimeSecs * segTemplate->GetTimescale()) /
-                                    adpSet->SegmentTimelineDuration().GetSize());
-          segTemplate->SetDuration(duration);
-        }
-
-        uint32_t segTplDuration = segTemplate->GetDuration();
-        // Reserve memory to speedup
-        repr->SegmentTimeline().GetData().reserve(segmentsCount);
-
-        CSegment seg;
-        seg.m_number = segStartNumber;
-        seg.startPTS_ = segStartPts;
-        seg.m_time = segStartPts;
-
-        for (size_t pos{0}; pos < segmentsCount; pos++)
-        {
-          uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(pos);
-          uint32_t duration = tlDuration ? *tlDuration : segTplDuration;
-          seg.m_duration = duration;
-          repr->SegmentTimeline().GetData().push_back(seg);
-
-          seg.m_number += 1;
-          seg.startPTS_ += duration;
-          seg.m_time += duration;
-        }
-
-        const CSegment& lastSeg = repr->SegmentTimeline().GetData().back();
-        uint64_t totalSegsDuration = lastSeg.startPTS_ + lastSeg.m_duration;
-
-        repr->nextPts_ = totalSegsDuration;
-
-        // If the duration of segments dont cover the interval duration for the manifest update
-        // then allow new segments to be inserted until the next manifest update
-        if (m_isLive && totalSegsDuration < m_minimumUpdatePeriod)
-          m_allowInsertLiveSegments = true;
+        uint64_t sampleTime = period->GetStart() / 1000;
+        segStartNumber += static_cast<uint64_t>(
+            static_cast<int64_t>(stream_start_ - available_time_ - reprTotalTimeSecs - sampleTime) *
+                segTemplate->GetTimescale() / segTemplate->GetDuration() +
+            1);
       }
-      else
+      else if (segTemplate->GetDuration() == 0 && adpSet->HasSegmentTimelineDuration())
       {
-        LOG::LogF(LOGWARNING,
-                  "Cannot generate segments timeline, the segment count exceeds SIDX atom limit.");
+        uint32_t duration =
+            static_cast<uint32_t>((reprTotalTimeSecs * segTemplate->GetTimescale()) /
+                                  adpSet->SegmentTimelineDuration().GetSize());
+        segTemplate->SetDuration(duration);
       }
+
+      uint32_t segTplDuration = segTemplate->GetDuration();
+      // Reserve memory to speedup
+      repr->SegmentTimeline().GetData().reserve(segmentsCount);
+
+      CSegment seg;
+      seg.m_number = segStartNumber;
+      seg.startPTS_ = segStartPts;
+      seg.m_time = segStartPts;
+
+      for (size_t pos{0}; pos < segmentsCount; pos++)
+      {
+        uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(pos);
+        uint32_t duration = tlDuration ? *tlDuration : segTplDuration;
+        seg.m_duration = duration;
+        repr->SegmentTimeline().GetData().push_back(seg);
+
+        seg.m_number += 1;
+        seg.startPTS_ += duration;
+        seg.m_time += duration;
+      }
+
+      const CSegment& lastSeg = repr->SegmentTimeline().GetData().back();
+      uint64_t totalSegsDuration = lastSeg.startPTS_ + lastSeg.m_duration;
+
+      repr->nextPts_ = totalSegsDuration;
+
+      // If the duration of segments dont cover the interval duration for the manifest update
+      // then allow new segments to be inserted until the next manifest update
+      if (m_isLive && totalSegsDuration < m_minimumUpdatePeriod)
+        m_allowInsertLiveSegments = true;
     }
   }
 
