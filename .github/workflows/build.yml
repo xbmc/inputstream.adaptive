@@ -19,13 +19,13 @@ jobs:
         - os: macos-11
     steps:
     - name: Checkout Kodi repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: xbmc/xbmc
         ref: master
         path: xbmc
     - name: Checkout inputstream.adaptive repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         path: ${{ env.app_id }}
     - name: Configure
