@@ -1,3 +1,7 @@
+v20.3.18 (2024-02-20)
+- [Widevine] Fix decrypter issue that was causing corrupted AVC videos
+- Fix inputstream.adaptive.stream_params which data could be corrupted
+
 v20.3.17 (2024-02-03)
 - Allowed manifest URLs until to 8000 chars
 - Allowed inputstream.adaptive.stream_params to add params to URLs that already have params
