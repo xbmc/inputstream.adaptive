@@ -93,7 +93,9 @@ jobs:
           then
             changes=$(xmlstarlet fo -R "$(find . -name addon.xml.in)" | xmlstarlet sel -t -v 'string(/addon/extension/news)' | awk -v RS= 'NR==1')
           fi
-          echo "changes=$changes" >> $GITHUB_OUTPUT
+          echo "changes=<<EOF" >> $GITHUB_OUTPUT
+          echo "$changes" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
           version=$(xmlstarlet fo -R "$(find . -name addon.xml.in)" | xmlstarlet sel -t -v 'string(/addon/@version)')
           echo "version=$version" >> $GITHUB_OUTPUT
           branch=$(echo ${GITHUB_REF#refs/heads/})
