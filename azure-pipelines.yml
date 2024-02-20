@@ -5,6 +5,7 @@ trigger:
   branches:
     include:
     - Nexus
+    - Omega
     - releases/*
   paths:
     include:
