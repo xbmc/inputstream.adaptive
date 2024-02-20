@@ -23,7 +23,7 @@ namespace
 {
 #if WIN32
   constexpr const char* LIBRARY_FILENAME = "widevinecdm.dll";
-#elif TARGET_DARWIN_EMBEDDED
+#elif TARGET_DARWIN
   constexpr const char* LIBRARY_FILENAME = "libwidevinecdm.dylib";
 #else
   constexpr const char* LIBRARY_FILENAME = "libwidevinecdm.so";
