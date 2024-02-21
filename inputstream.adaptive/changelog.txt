@@ -1,3 +1,11 @@
+v21.4.3 (2024-02-21)
+- [Dash] Fix broken playback on streams with widevine encrypted subs (not supported)
+- [Dash] Removed timeline segments limit based on SIDX max references
+- [Widevine] Fix decrypter issue that was causing corrupted AVC videos
+- [Widevine] Fix library loading on MacOs
+- Fix inputstream.adaptive.manifest_params which params was not applied to manifest request
+- Fix inputstream.adaptive.stream_params which data could be corrupted
+
 v21.4.2 (2024-02-03)
 - Allowed manifest URLs until to 8000 chars
 - Allowed inputstream.adaptive.stream_params to add params to URLs that already have params
