@@ -465,7 +465,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
   std::string isDefault;
   if (XML::QueryAttrib(nodeAdp, "default", isDefault)) // ISA custom attribute
-    adpSet->SetIsOriginal(isDefault == "true");
+    adpSet->SetIsDefault(isDefault == "true");
 
   // Parse <AudioChannelConfiguration> child tag
   xml_node nodeAudioCh = nodeAdp.child("AudioChannelConfiguration");
