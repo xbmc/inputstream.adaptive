@@ -44,12 +44,12 @@ jobs:
           fetch-depth: 0
           path: ${{ github.event.repository.name }}
 
-      # Checkout the required scripts from kodi-pvr/pvr-scripts into the 'scripts' directory
+      # Checkout the required scripts from xbmc/binary-addon-scripts into the 'scripts' directory
       - name: Checkout Scripts
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          repository: kodi-pvr/pvr-scripts
+          repository: xbmc/binary-addon-scripts
           path: scripts
 
       # Install all dependencies required by the following steps
