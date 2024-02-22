@@ -15,22 +15,6 @@ PLAYLIST::CCommonSegAttribs::CCommonSegAttribs(CCommonSegAttribs* parent /* = nu
   m_parentCommonSegAttribs = parent;
 }
 
-std::optional<CSegmentList>& PLAYLIST::CCommonSegAttribs::GetSegmentList()
-{
-  if (m_segmentList.has_value())
-    return m_segmentList;
-  if (m_parentCommonSegAttribs && m_parentCommonSegAttribs->m_segmentList.has_value())
-    return m_parentCommonSegAttribs->m_segmentList;
-
-  return m_segmentList; // Empty data
-}
-
-bool PLAYLIST::CCommonSegAttribs::HasSegmentList()
-{
-  return m_segmentList.has_value() ||
-         (m_parentCommonSegAttribs && m_parentCommonSegAttribs->m_segmentList.has_value());
-}
-
 uint64_t PLAYLIST::CCommonSegAttribs::GetSegmentEndNr()
 {
   if (m_segEndNr.has_value())

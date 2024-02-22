@@ -19,18 +19,16 @@ using namespace PLAYLIST;
 using namespace UTILS;
 using namespace kodi::tools;
 
-PLAYLIST::CSegmentTemplate::CSegmentTemplate(CSegmentTemplate* parent /* = nullptr */)
+PLAYLIST::CSegmentTemplate::CSegmentTemplate(const std::optional<CSegmentTemplate>& other)
 {
-  m_parentSegTemplate = parent;
+  if (other.has_value())
+    *this = *other;
 }
 
 std::string PLAYLIST::CSegmentTemplate::GetInitialization() const
 {
   if (!m_initialization.empty())
     return m_initialization;
-
-  if (m_parentSegTemplate)
-    return m_parentSegTemplate->GetInitialization();
 
   return ""; // Default value
 }
@@ -40,9 +38,6 @@ std::string PLAYLIST::CSegmentTemplate::GetMedia() const
   if (!m_media.empty())
     return m_media;
 
-  if (m_parentSegTemplate)
-    return m_parentSegTemplate->GetMedia();
-
   return ""; // Default value
 }
 
@@ -50,9 +45,6 @@ uint32_t PLAYLIST::CSegmentTemplate::GetTimescale() const
 {
   if (m_timescale.has_value())
     return *m_timescale;
-
-  if (m_parentSegTemplate)
-    return m_parentSegTemplate->GetTimescale();
 
   return 0; // Default value
 }
@@ -62,9 +54,6 @@ uint32_t PLAYLIST::CSegmentTemplate::GetDuration() const
   if (m_duration.has_value())
     return *m_duration;
 
-  if (m_parentSegTemplate)
-    return m_parentSegTemplate->GetDuration();
-
   return 0; // Default value
 }
 
@@ -73,9 +62,6 @@ uint64_t PLAYLIST::CSegmentTemplate::GetStartNumber() const
   if (m_startNumber.has_value())
     return *m_startNumber;
 
-  if (m_parentSegTemplate)
-    return m_parentSegTemplate->GetStartNumber();
-
   return 1; // Default value
 }
 
@@ -83,9 +69,6 @@ uint64_t PLAYLIST::CSegmentTemplate::GetEndNumber() const
 {
   if (m_endNumber.has_value())
     return *m_endNumber;
-
-  if (m_parentSegTemplate)
-    return m_parentSegTemplate->GetEndNumber();
 
   return 0; // Default value
 }

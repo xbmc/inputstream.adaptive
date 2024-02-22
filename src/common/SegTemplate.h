@@ -28,8 +28,9 @@ class CSegment;
 class ATTR_DLL_LOCAL CSegmentTemplate
 {
 public:
-  CSegmentTemplate(CSegmentTemplate* parent = nullptr);
-  ~CSegmentTemplate() {}
+  CSegmentTemplate() = default;
+  CSegmentTemplate(const std::optional<CSegmentTemplate>& other);
+  ~CSegmentTemplate() = default;
 
   std::string GetInitialization() const;
   void SetInitialization(std::string_view init) { m_initialization = init; }
@@ -75,8 +76,6 @@ private:
   std::optional<uint32_t> m_duration;
   std::optional<uint64_t> m_startNumber;
   std::optional<uint64_t> m_endNumber;
-
-  CSegmentTemplate* m_parentSegTemplate{nullptr};
 };
 
 } // namespace PLAYLIST

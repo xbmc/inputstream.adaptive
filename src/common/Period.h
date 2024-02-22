@@ -43,24 +43,45 @@ public:
   std::string GetBaseUrl() const { return m_baseUrl; }
   void SetBaseUrl(std::string_view baseUrl) { m_baseUrl = baseUrl; }
 
-  //! @todo: SetTimescale can be set/updated by period, adaptationSet and/or representation
-  //! maybe is possible improve how are updated these variables in a better way
-  uint32_t GetTimescale() const { return m_timescale; }
-  void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
-
   uint32_t GetSequence() const { return m_sequence; }
   void SetSequence(uint32_t sequence) { m_sequence = sequence; }
 
+  /*!
+   * \brief Get the start time, in ms.
+   * \return The start time value, otherwise NO_VALUE if not set.
+   */
   uint64_t GetStart() const { return m_start; }
+
+  /*!
+   * \brief Set the start time, in ms.
+   */
   void SetStart(uint64_t start) { m_start = start; }
 
   uint64_t GetStartPTS() const { return m_startPts; }
   void SetStartPTS(uint64_t startPts) { m_startPts = startPts; }
-  
-  // Could be set also by adaptation set or representation (in ms)
+
+  /*!
+   * \brief Get the duration, in timescale units.
+   * \return The duration value.
+   */
   uint64_t GetDuration() const { return m_duration; }
+
+  /*!
+   * \brief Set the duration, in timescale units.
+   */
   void SetDuration(uint64_t duration) { m_duration = duration; }
   
+  /*!
+   * \brief Get the timescale unit.
+   * \return The timescale unit, if not set default value is 1000.
+   */
+  uint32_t GetTimescale() const { return m_timescale; }
+
+  /*!
+   * \brief Set the timescale unit.
+   */
+  void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
+
   EncryptionState GetEncryptionState() const { return m_encryptionState; }
   void SetEncryptionState(EncryptionState encryptState) { m_encryptionState = encryptState; }
 
@@ -73,11 +94,6 @@ public:
 
   CSpinCache<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
   bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.IsEmpty(); }
-
-  std::optional<CSegmentTemplate>& GetSegmentTemplate() { return m_segmentTemplate; }
-  std::optional<CSegmentTemplate> GetSegmentTemplate() const { return m_segmentTemplate; }
-  void SetSegmentTemplate(const CSegmentTemplate& segTemplate) { m_segmentTemplate = segTemplate; }
-  bool HasSegmentTemplate() const { return m_segmentTemplate.has_value(); }
 
   void CopyHLSData(const CPeriod* other);
 
@@ -126,13 +142,12 @@ protected:
   std::string m_baseUrl;
   uint32_t m_timescale{1000};
   uint32_t m_sequence{0};
-  uint64_t m_start{0};
+  uint64_t m_start{NO_VALUE};
   uint64_t m_startPts{0};
   uint64_t m_duration{0};
   EncryptionState m_encryptionState{EncryptionState::UNENCRYPTED};
   bool m_isSecureDecoderNeeded{false};
   CSpinCache<uint32_t> m_segmentTimelineDuration;
-  std::optional<CSegmentTemplate> m_segmentTemplate;
 };
 
 } // namespace adaptive

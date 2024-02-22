@@ -8,23 +8,29 @@
 
 #pragma once
 
+#include "SegTemplate.h"
 #include "SegmentList.h"
 
 #include <optional>
 
 namespace PLAYLIST
 {
-// CCommonSegAttribs class provide attribute data
-// of class itself or when not set of the parent class (if any).
+// This class provide common place for shared members/methods
+// with the possibility to retrieve the value from the parent class, when needed.
 class ATTR_DLL_LOCAL CCommonSegAttribs
 {
 public:
   CCommonSegAttribs(CCommonSegAttribs* parent = nullptr);
   virtual ~CCommonSegAttribs() {}
 
-  std::optional<CSegmentList>& GetSegmentList();
+  std::optional<CSegmentList>& GetSegmentList() { return m_segmentList; }
   void SetSegmentList(const CSegmentList& segmentList) { m_segmentList = segmentList; }
-  bool HasSegmentList();
+  bool HasSegmentList() { return m_segmentList.has_value(); }
+
+  std::optional<CSegmentTemplate>& GetSegmentTemplate() { return m_segmentTemplate; }
+  std::optional<CSegmentTemplate> GetSegmentTemplate() const { return m_segmentTemplate; }
+  void SetSegmentTemplate(const CSegmentTemplate& segTemplate) { m_segmentTemplate = segTemplate; }
+  bool HasSegmentTemplate() const { return m_segmentTemplate.has_value(); }
 
   /*!
    * \brief Get the optional segment end number. Use HasSegmentEndNr method to know if the value is set.
@@ -37,6 +43,7 @@ public:
 protected:
   CCommonSegAttribs* m_parentCommonSegAttribs{nullptr};
   std::optional<CSegmentList> m_segmentList;
+  std::optional<CSegmentTemplate> m_segmentTemplate;
   std::optional<uint64_t> m_segEndNr;
 };
 

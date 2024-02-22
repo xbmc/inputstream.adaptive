@@ -39,7 +39,7 @@ public:
   uint64_t m_duration = 0; // If available gives the media duration of a segment (depends on type of stream e.g. HLS)
   uint16_t pssh_set_ = PSSHSET_POS_DEFAULT;
 
-  uint64_t m_time{0};
+  uint64_t m_time{0}; // The start time, in timescale units
   uint64_t m_number{0};
 
   /*!

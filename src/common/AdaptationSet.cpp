@@ -215,3 +215,25 @@ CAdaptationSet* PLAYLIST::CAdaptationSet::FindMergeable(
 
   return nullptr;
 }
+
+PLAYLIST::CAdaptationSet* PLAYLIST::CAdaptationSet::FindByStreamType(
+    std::vector<std::unique_ptr<CAdaptationSet>>& adpSets, StreamType type)
+{
+  auto itAdpSet = std::find_if(adpSets.cbegin(), adpSets.cend(),
+                               [&type](const std::unique_ptr<CAdaptationSet>& item)
+                               { return item->GetStreamType() == type; });
+  if (itAdpSet != adpSets.cend())
+    return (*itAdpSet).get();
+
+  return nullptr;
+}
+
+PLAYLIST::CAdaptationSet* PLAYLIST::CAdaptationSet::FindByFirstAVStream(
+  std::vector<std::unique_ptr<CAdaptationSet>>& adpSets)
+{
+  CAdaptationSet* adp = CAdaptationSet::FindByStreamType(adpSets, StreamType::VIDEO);
+  if (!adp)
+    adp = CAdaptationSet::FindByStreamType(adpSets, StreamType::AUDIO);
+
+  return adp;
+}
