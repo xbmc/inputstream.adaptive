@@ -107,23 +107,34 @@ public:
   CSpinCache<CSegment> SegmentTimeline() const { return m_segmentTimeline; }
   bool HasSegmentTimeline() { return !m_segmentTimeline.IsEmpty(); }
 
-  std::optional<CSegmentTemplate>& GetSegmentTemplate() { return m_segmentTemplate; }
-  std::optional<CSegmentTemplate> GetSegmentTemplate() const { return m_segmentTemplate; }
-  void SetSegmentTemplate(const CSegmentTemplate& segTemplate) { m_segmentTemplate = segTemplate; }
-  bool HasSegmentTemplate() const { return m_segmentTemplate.has_value(); }
-
   std::optional<CSegmentBase>& GetSegmentBase() { return m_segmentBase; }
   void SetSegmentBase(const CSegmentBase& segBase) { m_segmentBase = segBase; }
   bool HasSegmentBase() const { return m_segmentBase.has_value(); }
 
-  uint32_t GetTimescale() const { return m_timescale; }
-  void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
-
   uint64_t GetStartNumber() const { return m_startNumber; }
   void SetStartNumber(uint64_t startNumber) { m_startNumber = startNumber; }
 
+  /*!
+   * \brief Get the duration, in timescale units.
+   * \return The duration value.
+   */
   uint64_t GetDuration() const { return m_duration; }
+
+  /*!
+   * \brief Set the duration, in timescale units.
+   */
   void SetDuration(uint64_t duration) { m_duration = duration; }
+
+  /*!
+   * \brief Get the timescale unit.
+   * \return The timescale unit, otherwise 0 if not set.
+   */
+  uint32_t GetTimescale() const { return m_timescale; }
+
+  /*!
+   * \brief Set the timescale unit.
+   */
+  void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
 
   /*!
    * \brief Determines when the representation contains subtitles as single file
@@ -225,28 +236,7 @@ public:
   uint32_t timescale_ext_{0};
   uint32_t timescale_int_{0};
 
-  void SetScaling()
-  {
-    if (!m_timescale)
-    {
-      timescale_ext_ = timescale_int_ = 1;
-      return;
-    }
-
-    timescale_ext_ = 1000000;
-    timescale_int_ = m_timescale;
-
-    while (timescale_ext_ > 1)
-    {
-      if ((timescale_int_ / 10) * 10 == timescale_int_)
-      {
-        timescale_ext_ /= 10;
-        timescale_int_ /= 10;
-      }
-      else
-        break;
-    }
-  }
+  void SetScaling();
 
   std::chrono::time_point<std::chrono::system_clock> repLastUpdated_;
 
@@ -269,7 +259,6 @@ protected:
 
   uint16_t m_hdcpVersion{0}; // 0 if not set
 
-  std::optional<CSegmentTemplate> m_segmentTemplate;
   std::optional<CSegmentBase> m_segmentBase;
   std::optional<CSegment> m_initSegment;
 

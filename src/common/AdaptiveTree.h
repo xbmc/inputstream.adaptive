@@ -68,7 +68,7 @@ public:
   std::string base_url_;
   
   std::optional<uint32_t> initial_sequence_; // HLS only
-  uint64_t m_totalTimeSecs{0}; // Total playing time in seconds
+  uint64_t m_totalTimeSecs{0}; // Total playing time in seconds (can include all periods/chapters or timeshift)
   uint64_t stream_start_{0};
   uint64_t available_time_{0};
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge

@@ -188,56 +188,94 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
     ParseTagPeriod(node, mpdUrl);
   }
 
-  // Cleanup periods
-  bool hasTotalTimeSecs = m_totalTimeSecs > 0;
+  // For multi-periods streaming must be ensured the duration of each period:
+  // - If "duration" attribute is provided on each Period tag, do nothing
+  // - If "duration" attribute is missing, but "start" attribute, use this last one to calculate the duration
+  // - If both attributes are missing, try get the duration from a representation
+
+  uint64_t totalDuration{0}; // Calculated duration, in seconds
+  double mpdTotalDuration = m_mediaPresDuration; // MPD total duration, in seconds
+  if (mpdTotalDuration == 0)
+    mpdTotalDuration = m_timeShiftBufferDepth;
 
   for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
   {
     auto& period = *itPeriod;
-    if (hasTotalTimeSecs && period->GetDuration() == 0)
-    {
-      auto nextPeriod = itPeriod + 1;
-      if (nextPeriod == m_periods.end())
-      {
-        period->SetDuration(
-            ((m_totalTimeSecs * 1000 - period->GetStart()) * period->GetTimescale()) / 1000);
-      }
-      else
-      {
-        period->SetDuration(
-            (((*nextPeriod)->GetStart() - period->GetStart()) * period->GetTimescale()) / 1000);
-      }
-    }
-    if (period->GetAdaptationSets().empty())
-    {
-      if (hasTotalTimeSecs)
-        m_totalTimeSecs -= period->GetDuration() / period->GetTimescale();
 
-      itPeriod = m_periods.erase(itPeriod);
-    }
-    else
+    // Skip periods with duration already provided
+    if (period->GetDuration() > 0)
     {
-      if (!hasTotalTimeSecs)
-        m_totalTimeSecs += period->GetDuration() / period->GetTimescale();
-
-      itPeriod++;
+      ++itPeriod;
+      continue;
     }
+
+    auto nextPeriod = itPeriod + 1;
+    if (nextPeriod == m_periods.end()) // Next period, not found
+    {
+      if (period->GetStart() != NO_VALUE && mpdTotalDuration > 0)
+      {
+        period->SetDuration(static_cast<uint64_t>((mpdTotalDuration * 1000 - period->GetStart()) *
+                                                  period->GetTimescale() / 1000));
+      }
+      else // Try get duration / timescale from a representation
+      {
+        CAdaptationSet* adp = CAdaptationSet::FindByFirstAVStream(period->GetAdaptationSets());
+        if (adp)
+        {
+          auto& rep = adp->GetRepresentations()[0];
+          if (rep->GetDuration() > 0)
+          {
+            period->SetDuration(rep->GetDuration());
+            period->SetTimescale(rep->GetTimescale());
+            totalDuration += rep->GetDuration() / rep->GetTimescale();
+          }
+        }
+      }
+    }
+    else // Next period, found
+    {
+      if (period->GetStart() != NO_VALUE && (*nextPeriod)->GetStart() != NO_VALUE)
+      {
+        period->SetDuration(static_cast<uint64_t>((*nextPeriod)->GetStart() - period->GetStart()) *
+                            period->GetTimescale() / 1000);
+      }
+      else // Try get duration / timescale from a representation
+      {
+        CAdaptationSet* adp = CAdaptationSet::FindByFirstAVStream(period->GetAdaptationSets());
+        if (adp)
+        {
+          auto& rep = adp->GetRepresentations()[0];
+          if (rep->GetDuration() > 0)
+          {
+            period->SetDuration(rep->GetDuration());
+            period->SetTimescale(rep->GetTimescale());
+            totalDuration += rep->GetDuration() / rep->GetTimescale();
+          }
+        }
+      }
+    }
+
+    ++itPeriod;
   }
+
+  if (mpdTotalDuration > 0)
+    m_totalTimeSecs = static_cast<uint64_t>(mpdTotalDuration);
+  else
+    m_totalTimeSecs = totalDuration;
 
   return true;
 }
 
 void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
 {
-  double mediaPresDuration =
+  m_mediaPresDuration =
       XML::ParseDuration(XML::GetAttrib(nodeMPD, "mediaPresentationDuration"));
 
   m_isLive = XML::GetAttrib(nodeMPD, "type") == "dynamic";
 
-  double timeShiftBufferDepth{0};
   std::string timeShiftBufferDepthStr;
   if (XML::QueryAttrib(nodeMPD, "timeShiftBufferDepth", timeShiftBufferDepthStr))
-    timeShiftBufferDepth = XML::ParseDuration(timeShiftBufferDepthStr);
+    m_timeShiftBufferDepth = XML::ParseDuration(timeShiftBufferDepthStr);
 
   std::string availabilityStartTimeStr;
   if (XML::QueryAttrib(nodeMPD, "availabilityStartTime", availabilityStartTimeStr))
@@ -255,11 +293,6 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
     m_allowInsertLiveSegments = m_minimumUpdatePeriod == 0;
     m_updateInterval = static_cast<uint64_t>(duration * 1000);
   }
-
-  if (mediaPresDuration == 0)
-    m_totalTimeSecs = static_cast<uint64_t>(timeShiftBufferDepth);
-  else
-    m_totalTimeSecs = static_cast<uint64_t>(mediaPresDuration);
 }
 
 void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, std::string_view mpdUrl)
@@ -269,9 +302,13 @@ void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, std::string_
   period->SetSequence(m_periodCurrentSeq++);
 
   // Parse <Period> attributes
+
   period->SetId(XML::GetAttrib(nodePeriod, "id"));
-  period->SetStart(
-      static_cast<uint64_t>(XML::ParseDuration(XML::GetAttrib(nodePeriod, "start")) * 1000));
+
+  std::string_view start = XML::GetAttrib(nodePeriod, "start");
+  if (!start.empty())
+    period->SetStart(static_cast<uint64_t>(XML::ParseDuration(start) * 1000));
+
   period->SetDuration(
       static_cast<uint64_t>(XML::ParseDuration(XML::GetAttrib(nodePeriod, "duration")) * 1000));
 
@@ -307,15 +344,6 @@ void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, std::string_
                                                   segTemplate.GetTimescale());
 
       period->SetStartPTS(startPts);
-
-      if (period->GetDuration() == 0 && segTemplate.GetTimescale() > 0)
-      {
-        // Calculate total duration of segments
-        auto& segTLData = period->SegmentTimelineDuration().GetData();
-        uint32_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0);
-        period->SetDuration(sum);
-        period->SetTimescale(segTemplate.GetTimescale());
-      }
     }
 
     period->SetSegmentTemplate(segTemplate);
@@ -333,17 +361,11 @@ void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, std::string_
 
     uint64_t duration;
     if (XML::QueryAttrib(nodeSeglist, "duration", duration))
-    {
       segList.SetDuration(duration);
-      period->SetDuration(duration);
-    }
 
     uint32_t timescale;
     if (XML::QueryAttrib(nodeSeglist, "timescale", timescale))
-    {
       segList.SetTimescale(timescale);
-      period->SetTimescale(timescale);
-    }
 
     period->SetSegmentList(segList);
   }
@@ -500,75 +522,43 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
       adpSet->SetBaseUrl(URL::Join(period->GetBaseUrl(), baseUrlText));
   }
 
-  // Parse <SegmentDurations> tag
-  // No dash spec, looks like a custom Amazon video service implementation
-  xml_node nodeSegDur = nodeAdp.child("SegmentDurations");
-  if (nodeSegDur)
-  {
-    period->SetTimescale(XML::GetAttribUint32(nodeSegDur, "timescale", 1000));
-
-    // Parse <S> tags - e.g. <S d="90000"/>
-    // add all duration values as timeline segments
-    for (xml_node node : nodeSegDur.children("S"))
-    {
-      adpSet->SegmentTimelineDuration().GetData().emplace_back(XML::GetAttribUint32(node, "d"));
-    }
-  }
-
   // Parse <SegmentTemplate> tag
   xml_node nodeSegTpl = nodeAdp.child("SegmentTemplate");
-  if (nodeSegTpl)
+  if (nodeSegTpl || period->HasSegmentTemplate())
   {
-    CSegmentTemplate segTemplate;
-    if (period->HasSegmentTemplate())
-      segTemplate = *period->GetSegmentTemplate();
+    CSegmentTemplate segTemplate{period->GetSegmentTemplate()};
 
-    ParseSegmentTemplate(nodeSegTpl, &segTemplate);
-
-    // Parse <SegmentTemplate> <SegmentTimeline> child
-    xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
-    if (nodeSegTL)
+    if (nodeSegTpl)
     {
-      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration(),
-                                                  segTemplate.GetTimescale());
+      ParseSegmentTemplate(nodeSegTpl, &segTemplate);
 
-      adpSet->SetStartPTS(startPts);
-
-      if (period->GetDuration() == 0 && segTemplate.GetTimescale() > 0)
+      // Parse <SegmentTemplate> <SegmentTimeline> child
+      xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
+      if (nodeSegTL)
       {
-        // Calculate total duration of segments
-        auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
-        uint32_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0);
-        period->SetDuration(sum);
-        period->SetTimescale(segTemplate.GetTimescale());
+        uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration(),
+                                                    segTemplate.GetTimescale());
+
+        adpSet->SetStartPTS(startPts);
       }
     }
+
     adpSet->SetSegmentTemplate(segTemplate);
   }
-  else if (period->HasSegmentTemplate())
-    adpSet->SetSegmentTemplate(*period->GetSegmentTemplate());
 
   // Parse <SegmentList> tag
   xml_node nodeSeglist = nodeAdp.child("SegmentList");
   if (nodeSeglist)
   {
-    CSegmentList segList;
-    if (adpSet->HasSegmentList())
-      segList = *adpSet->GetSegmentList();
+    CSegmentList segList{adpSet->GetSegmentList()};
 
     uint64_t duration;
     if (XML::QueryAttrib(nodeSeglist, "duration", duration))
-    {
       segList.SetDuration(duration);
-      period->SetDuration(duration);
-    }
 
     uint32_t timescale;
     if (XML::QueryAttrib(nodeSeglist, "timescale", timescale))
-    {
       segList.SetTimescale(timescale);
-      period->SetTimescale(timescale);
-    }
 
     uint64_t presTimeOffset;
     if (XML::QueryAttrib(nodeSeglist, "presentationTimeOffset", presTimeOffset))
@@ -590,6 +580,25 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
       adpSet->SetStartPTS(startPts);
     }
   }
+
+  // Parse <SegmentDurations> tag
+  // No dash spec, looks like a custom Amazon video service implementation
+  // used to define the duration of each SegmentURL in the SegmentList
+  xml_node nodeSegDur = nodeAdp.child("SegmentDurations");
+  if (nodeSegDur)
+  {
+    uint64_t timescale;
+    if (XML::QueryAttrib(nodeSegDur, "timescale", timescale))
+      adpSet->SetSegDurationsTimescale(timescale);
+
+    // Parse <S> tags - e.g. <S d="90000"/>
+    // add all duration values as timeline segments
+    for (xml_node node : nodeSegDur.children("S"))
+    {
+      adpSet->SegmentTimelineDuration().GetData().emplace_back(XML::GetAttribUint32(node, "d"));
+    }
+  }
+
 
   // Parse <Representation> child tags
   for (xml_node node : nodeAdp.children("Representation"))
@@ -804,55 +813,46 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
   // Parse <SegmentTemplate> tag
   xml_node nodeSegTpl = nodeRepr.child("SegmentTemplate");
-  if (nodeSegTpl)
+  if (nodeSegTpl || adpSet->HasSegmentTemplate())
   {
-    CSegmentTemplate segTemplate;
-    if (adpSet->HasSegmentTemplate())
-      segTemplate = *adpSet->GetSegmentTemplate();
+    CSegmentTemplate segTemplate{adpSet->GetSegmentTemplate()};
 
-    ParseSegmentTemplate(nodeSegTpl, &segTemplate);
-
-    if (segTemplate.HasInitialization())
-      repr->SetInitSegment(segTemplate.MakeInitSegment());
-
-    // Parse <SegmentTemplate> <SegmentTimeline> child
-    xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
-    if (nodeSegTL)
+    if (nodeSegTpl)
     {
-      uint64_t totalTimeSecs{0};
-      if (repr->GetDuration() > 0 && repr->GetTimescale() > 0)
-        totalTimeSecs = repr->GetDuration() / repr->GetTimescale();
+      ParseSegmentTemplate(nodeSegTpl, &segTemplate);
 
-      uint64_t startPts =
-          ParseTagSegmentTimeline(nodeSegTL, repr->SegmentTimeline(), segTemplate.GetTimescale(),
-                                  totalTimeSecs, &segTemplate);
+      // Parse <SegmentTemplate> <SegmentTimeline> child
+      xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
+      if (nodeSegTL)
+      {
+        uint64_t startPts =
+            ParseTagSegmentTimeline(nodeSegTL, repr->SegmentTimeline(), segTemplate);
 
-      repr->nextPts_ = startPts;
+        repr->nextPts_ = startPts;
+      }
     }
-    repr->SetTimescale(segTemplate.GetTimescale());
-    repr->SetSegmentTemplate(segTemplate);
 
-    repr->SetStartNumber(segTemplate.GetStartNumber());
-  }
-  else if (adpSet->HasSegmentTemplate())
-  {
-    CSegmentTemplate segTemplate = *adpSet->GetSegmentTemplate();
-    repr->SetTimescale(segTemplate.GetTimescale());
-    repr->SetSegmentTemplate(segTemplate);
+    if (repr->HasSegmentTimeline())
+    {
+      auto& lastSeg = repr->SegmentTimeline().GetData().back();
+      uint64_t totalDuration = lastSeg.startPTS_ + lastSeg.m_duration;
+      repr->SetDuration(totalDuration);
+      repr->SetTimescale(segTemplate.GetTimescale());
+    }
 
-    repr->SetStartNumber(segTemplate.GetStartNumber());
+    repr->SetSegmentTemplate(segTemplate);
 
     if (segTemplate.HasInitialization())
       repr->SetInitSegment(segTemplate.MakeInitSegment());
+
+    repr->SetStartNumber(segTemplate.GetStartNumber());
   }
 
   // Parse <SegmentList> tag
   xml_node nodeSeglist = nodeRepr.child("SegmentList");
   if (nodeSeglist)
   {
-    CSegmentList segList;
-    if (repr->HasSegmentList())
-      segList = *repr->GetSegmentList();
+    CSegmentList segList{adpSet->GetSegmentList()};
 
     uint64_t duration;
     if (XML::QueryAttrib(nodeSeglist, "duration", duration))
@@ -871,12 +871,10 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       segList.SetStartNumber(startNumber);
 
     if (segList.GetStartNumber() > 0)
-      repr->SetStartNumber(segList.GetStartNumber());
-
-    if (segList.GetStartNumber() > 0)
     {
       repr->SetStartNumber(segList.GetStartNumber());
-
+      //! @todo: SetPresTimeOffset is used with a calculation with repr->GetDuration()
+      //! that at this point of code has no value, must be fixed
       segList.SetPresTimeOffset(segList.GetPresTimeOffset() +
                                 repr->GetStartNumber() * repr->GetDuration());
     }
@@ -896,16 +894,18 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       repr->SetInitSegment(segList.MakeInitSegment());
     }
 
-    if (segList.GetTimescale() > 0 && segList.GetDuration() > 0)
-    {
-      // Reserve memory to speedup
-      repr->SegmentTimeline().GetData().reserve(
-          EstimateSegmentsCount(segList.GetDuration(), segList.GetTimescale()));
-    }
+
+    // Reserve memory to speedup
+    repr->SegmentTimeline().GetData().reserve(
+        EstimateSegmentsCount(segList.GetDuration(), segList.GetTimescale()));
 
     // Parse <SegmentList> <SegmentURL> child tags
     size_t index{0};
     uint64_t previousStartPts{0};
+    // If <SegmentDurations> tag is present it could use a different timescale
+    bool isTsRescale = adpSet->GetSegDurationsTimescale() != NO_VALUE &&
+                       adpSet->GetSegDurationsTimescale() != segList.GetTimescale();
+
     for (xml_node node : nodeSeglist.children("SegmentURL"))
     {
       CSegment seg;
@@ -924,8 +924,21 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         seg.range_end_ = rangeEnd;
       }
 
-      uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(index);
-      uint64_t duration = tlDuration ? *tlDuration : segList.GetDuration();
+      uint64_t duration;
+      uint32_t* sdDuration = adpSet->SegmentTimelineDuration().Get(index); // <SegmentDurations> tag is present
+      if (sdDuration)
+      {
+        duration = *sdDuration;
+        if (isTsRescale)
+        {
+          duration =
+              static_cast<uint64_t>(static_cast<double>(duration) /
+                                    adpSet->GetSegDurationsTimescale() * segList.GetTimescale());
+        }
+      }
+      else
+        duration = segList.GetDuration();
+
       if (isTimelineEmpty)
         seg.startPTS_ = segList.GetPresTimeOffset();
       else
@@ -938,24 +951,12 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       repr->nextPts_ = seg.startPTS_;
     }
 
-    if (period->GetDuration() == 0 && segList.GetTimescale() > 0)
-    {
-      // Calculate total duration of segments
-      auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
-      uint32_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0);
+    // Calculate total duration of segments
+    auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
+    uint64_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0ULL);
 
-      if (segList.GetDuration() == 0)
-        segList.SetDuration(sum);
-
-      period->SetDuration(sum);
-      period->SetTimescale(segList.GetTimescale());
-    }
-
-    if (segList.GetDuration() > 0)
-      repr->SetDuration(segList.GetDuration());
-
-    if (segList.GetTimescale() > 0)
-      repr->SetTimescale(segList.GetTimescale());
+    repr->SetDuration(sum);
+    repr->SetTimescale(segList.GetTimescale());
 
     repr->SetSegmentList(segList);
   }
@@ -1039,18 +1040,60 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   // Generate timeline segments
-  if (repr->HasSegmentTemplate())
+  if (repr->HasSegmentTemplate() && !repr->HasSegmentTimeline())
   {
     auto& segTemplate = repr->GetSegmentTemplate();
 
-    uint64_t reprTotalTimeSecs = m_totalTimeSecs;
-    if (period->GetDuration() > 0)
-      reprTotalTimeSecs = period->GetDuration() / period->GetTimescale();
-
-    if (!segTemplate->GetMedia().empty() && reprTotalTimeSecs > 0 &&
-        segTemplate->GetTimescale() > 0 &&
-        (segTemplate->GetDuration() > 0 || adpSet->HasSegmentTimelineDuration()))
+    if (segTemplate->GetMedia().empty())
     {
+      LOG::LogF(LOGWARNING,
+                "Cannot generate segments timeline, SegmentTemplate has no media attribute.");
+    }
+    else if (segTemplate->GetTimescale() == 0)
+    {
+      LOG::LogF(LOGWARNING,
+                "Cannot generate segments timeline, SegmentTemplate has no timescale attribute.");
+    }
+    else if (segTemplate->GetDuration() == 0 && !adpSet->HasSegmentTimelineDuration())
+    {
+      // In the SegmentTemplate tag must be present the "duration" attribute or the SegmentTimeline tag
+      LOG::LogF(LOGWARNING,
+                "Cannot generate segments timeline, SegmentTemplate has no duration attribute.");
+    }
+    else
+    {
+      repr->SetTimescale(segTemplate->GetTimescale());
+
+      // Set the representation duration
+      if (period->GetDuration() > 0)
+      {
+        double durationSecs = static_cast<double>(period->GetDuration()) / period->GetTimescale();
+        repr->SetDuration(static_cast<uint64_t>(durationSecs * segTemplate->GetTimescale()));
+      }
+      else if (adpSet->HasSegmentTimelineDuration())
+      {
+        // Calculate total duration of segments from timeline
+        auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
+        repr->SetDuration(std::accumulate(segTLData.begin(), segTLData.end(), 0ULL));
+
+      }
+      else if (m_mediaPresDuration > 0)
+      {
+        // Note m_mediaPresDuration include the time of each period, use it may not be always correct
+        // maybe segment timeline generation code should be done after the full manifest parsing
+        // where we can determinate/calculate the duration of each period
+        repr->SetDuration(static_cast<uint64_t>(m_mediaPresDuration * segTemplate->GetTimescale()));
+      }
+      else if (m_timeShiftBufferDepth > 0)
+      {
+        repr->SetDuration(static_cast<uint64_t>(m_timeShiftBufferDepth * segTemplate->GetTimescale()));
+      }
+      else // Single segment
+      {
+        repr->SetDuration(segTemplate->GetDuration());
+      }
+
+      // Calculate total segments
       size_t segmentsCount{0};
 
       if (adpSet->HasSegmentTimelineDuration())
@@ -1066,45 +1109,46 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
           segmentsCount = repr->GetSegmentEndNr();
         else // Calculate the number of segments
         {
-          double lengthSecs =
-              static_cast<double>(segTemplate->GetDuration()) / segTemplate->GetTimescale();
-          segmentsCount =
-              static_cast<size_t>(std::ceil(static_cast<double>(reprTotalTimeSecs) / lengthSecs));
+          segmentsCount = static_cast<size_t>(
+              std::ceil(static_cast<double>(repr->GetDuration()) / segTemplate->GetDuration()));
         }
       }
 
       uint64_t segStartNumber = repr->GetStartNumber();
-      uint64_t segStartPts = adpSet->GetStartPTS();
-
+      //! @todo: In the following condition the "segTemplate->GetDuration() > 0"
+      //! could means "only for use cases that not provide SegmentTimeline tag"
+      //! if so should be changed with HasSegmentTimelineDuration
       if (m_isLive && !segTemplate->HasVariableTime() && segTemplate->GetDuration() > 0)
       {
-        uint64_t sampleTime = period->GetStart() / 1000;
-        segStartNumber += static_cast<uint64_t>(
-            static_cast<int64_t>(stream_start_ - available_time_ - reprTotalTimeSecs - sampleTime) *
-                segTemplate->GetTimescale() / segTemplate->GetDuration() +
-            1);
-      }
-      else if (segTemplate->GetDuration() == 0 && adpSet->HasSegmentTimelineDuration())
-      {
-        uint32_t duration =
-            static_cast<uint32_t>((reprTotalTimeSecs * segTemplate->GetTimescale()) /
-                                  adpSet->SegmentTimelineDuration().GetSize());
-        segTemplate->SetDuration(duration);
+        uint64_t sampleTime{0};
+        if (period->GetStart() != NO_VALUE)
+          sampleTime = period->GetStart() / 1000;
+
+        int64_t reprDurationSecs = repr->GetDuration() / repr->GetTimescale();
+        segStartNumber += (stream_start_ - available_time_ - reprDurationSecs - sampleTime) *
+                              segTemplate->GetTimescale() / segTemplate->GetDuration() +
+                          1;
       }
 
-      uint32_t segTplDuration = segTemplate->GetDuration();
+      // Get the default segment duration
+      uint64_t segDefDuration;
+      if (adpSet->HasSegmentTimelineDuration())
+        segDefDuration = repr->GetDuration() / adpSet->SegmentTimelineDuration().GetSize();
+      else
+        segDefDuration = segTemplate->GetDuration();
+
       // Reserve memory to speedup
       repr->SegmentTimeline().GetData().reserve(segmentsCount);
 
       CSegment seg;
       seg.m_number = segStartNumber;
-      seg.startPTS_ = segStartPts;
-      seg.m_time = segStartPts;
+      seg.startPTS_ = adpSet->GetStartPTS();
+      seg.m_time = adpSet->GetStartPTS();
 
       for (size_t pos{0}; pos < segmentsCount; pos++)
       {
         uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(pos);
-        uint32_t duration = tlDuration ? *tlDuration : segTplDuration;
+        uint64_t duration = tlDuration ? *tlDuration : segDefDuration;
         seg.m_duration = duration;
         repr->SegmentTimeline().GetData().push_back(seg);
 
@@ -1124,12 +1168,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         m_allowInsertLiveSegments = true;
     }
   }
-
-  // Sanitize period
-  if (period->GetTimescale() == 0)
-    period->SetTimescale(repr->GetTimescale());
-  if (period->GetDuration() == 0)
-    period->SetDuration(repr->GetDuration());
 
   // YouTube fix
   if (repr->GetStartNumber() > m_firstStartNumber)
@@ -1157,11 +1195,9 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
 
     if (SCTimeline.IsEmpty())
     {
-      if (duration > 0)
-      {
-        // Reserve memory to speedup
-        SCTimeline.GetData().reserve(EstimateSegmentsCount(duration, timescale));
-      }
+      // Reserve memory to speedup
+      SCTimeline.GetData().reserve(EstimateSegmentsCount(duration, timescale));
+
       startPts = time;
       nextPts = time;
     }
@@ -1187,14 +1223,10 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
 
 uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
                                                       CSpinCache<CSegment>& SCTimeline,
-                                                      uint32_t timescale /* = 1000 */,
-                                                      uint64_t totalTimeSecs /* = 0 */,
-                                                      CSegmentTemplate* segTemplate /* = nullptr */)
+                                                      CSegmentTemplate& segTemplate)
 {
   uint64_t startPts{0};
-  uint64_t startNumber{0};
-  if (segTemplate)
-    startNumber = segTemplate->GetStartNumber();
+  uint64_t startNumber = segTemplate.GetStartNumber();
 
   // Parse <S> tags - e.g. <S t="3600" d="900000" r="2398"/>
   uint64_t nextPts{0};
@@ -1212,13 +1244,8 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
       if (SCTimeline.IsEmpty())
       {
         // Reserve memory to speedup operations
-        if (segTemplate && segTemplate->GetDuration() > 0 && segTemplate->GetTimescale() > 0)
-        {
-          SCTimeline.GetData().reserve(EstimateSegmentsCount(
-              segTemplate->GetDuration(), segTemplate->GetTimescale(), totalTimeSecs));
-        }
-        else
-          SCTimeline.GetData().reserve(EstimateSegmentsCount(duration, timescale, totalTimeSecs));
+        SCTimeline.GetData().reserve(EstimateSegmentsCount(
+            duration > 0 ? duration : segTemplate.GetDuration(), segTemplate.GetTimescale()));
 
         seg.m_number = startNumber;
       }
@@ -1227,6 +1254,7 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
 
       seg.m_time = nextPts;
       seg.startPTS_ = nextPts;
+      seg.m_duration = duration;
 
       for (; repeat > 0; --repeat)
       {
@@ -1237,6 +1265,7 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
         seg.m_time = nextPts;
         seg.m_number += 1;
         seg.startPTS_ += duration;
+        seg.m_duration = duration;
       }
     }
     else
@@ -1482,18 +1511,17 @@ uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
   return channels;
 }
 
-size_t adaptive::CDashTree::EstimateSegmentsCount(uint64_t duration,
-                                                  uint32_t timescale,
-                                                  uint64_t totalTimeSecs /* = 0 */)
+size_t adaptive::CDashTree::EstimateSegmentsCount(uint64_t duration, uint32_t timescale) const
 {
+  if (timescale == 0)
+    timescale = 1;
+
   double lengthSecs{static_cast<double>(duration) / timescale};
   if (lengthSecs < 1)
     lengthSecs = 1;
 
-  if (totalTimeSecs == 0)
-    totalTimeSecs = std::max(m_totalTimeSecs, static_cast<uint64_t>(1));
-
-  return static_cast<size_t>(totalTimeSecs / lengthSecs);
+  double totalTimeSecs = std::max(m_mediaPresDuration, 1.0);
+  return std::max(static_cast<size_t>(totalTimeSecs / lengthSecs), static_cast<size_t>(1));
 }
 
 void adaptive::CDashTree::MergeAdpSets()
@@ -1667,7 +1695,8 @@ void adaptive::CDashTree::RefreshLiveSegments()
     if (itPeriod != m_periods.end())
       period = (*itPeriod).get();
 
-    if (!period && updPeriod->GetId().empty() && updPeriod->GetStart() == 0)
+    if (!period && updPeriod->GetId().empty() &&
+        (updPeriod->GetStart() == 0 || updPeriod->GetStart() == NO_VALUE))
     {
       // not found, fallback match based on position
       if (index < m_periods.size())

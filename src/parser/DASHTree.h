@@ -65,9 +65,7 @@ protected:
                                    uint32_t timescale = 1000);
   uint64_t ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
                                    PLAYLIST::CSpinCache<PLAYLIST::CSegment>& SCTimeline,
-                                   uint32_t timescale = 1000,
-                                   uint64_t totalTimeSecs = 0,
-                                   PLAYLIST::CSegmentTemplate* segTemplate = nullptr);
+                                   PLAYLIST::CSegmentTemplate& segTemplate);
 
   void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate* segTpl);
 
@@ -80,9 +78,9 @@ protected:
   uint32_t ParseAudioChannelConfig(pugi::xml_node node);
 
   /*
-   * \brief Estimate the count of segments on the period duration
+   * \brief Try estimate the count of segments on the MPD duration
    */
-  size_t EstimateSegmentsCount(uint64_t duration, uint32_t timescale, uint64_t totalTimeSecs = 0);
+  size_t EstimateSegmentsCount(uint64_t duration, uint32_t timescale) const;
 
   void MergeAdpSets();
 
@@ -114,6 +112,9 @@ protected:
 
   // Period sequence incremented to every new period added
   uint32_t m_periodCurrentSeq{0};
+
+  double m_timeShiftBufferDepth{0}; // MPD Timeshift buffer attribute value, in seconds
+  double m_mediaPresDuration{0}; // MPD Media presentation duration attribute value, in seconds (may be not provided)
 
   uint64_t m_minimumUpdatePeriod{0}; // in seconds
   bool m_allowInsertLiveSegments{false};

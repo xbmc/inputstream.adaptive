@@ -85,10 +85,17 @@ public:
   CSpinCache<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
   bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.IsEmpty(); }
 
-  std::optional<CSegmentTemplate>& GetSegmentTemplate() { return m_segmentTemplate; }
-  std::optional<CSegmentTemplate> GetSegmentTemplate() const { return m_segmentTemplate; }
-  void SetSegmentTemplate(const CSegmentTemplate& segTemplate) { m_segmentTemplate = segTemplate; }
-  bool HasSegmentTemplate() const { return m_segmentTemplate.has_value(); }
+  /*!
+   * \brief Get the timescale of segment durations tag.
+   * \return The timescale value if set, otherwise NO_VALUE.
+   */
+  uint64_t GetSegDurationsTimescale() const { return m_segDurationsTimescale; }
+
+  /*!
+   * \brief Set the timescale of segment durations tag.
+   * \param timescale The timescale value.
+   */
+  void SetSegDurationsTimescale(const uint64_t timescale) { m_segDurationsTimescale = timescale; }
 
   void AddRepresentation(std::unique_ptr<CRepresentation>& representation);
   std::vector<std::unique_ptr<CRepresentation>>& GetRepresentations() { return m_representations; }
@@ -139,6 +146,22 @@ public:
   static CAdaptationSet* FindMergeable(std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
                                        CAdaptationSet* adpSet);
 
+  /*!
+   * \brief Try find the first adpSet of specified type.
+   * \param adpSets The adaptation set list where to search
+   * \param type The type to search
+   * \return The adaptation set if found, otherwise nullptr
+   */
+  static CAdaptationSet* FindByStreamType(std::vector<std::unique_ptr<CAdaptationSet>>& adpSets,
+                                          StreamType type);
+
+  /*!
+   * \brief Try find the first video adpSet, if not found, try find the first audio adpSet.
+   * \param adpSets The adaptation set list where to search
+   * \return The adaptation set if found, otherwise nullptr
+   */
+  static CAdaptationSet* FindByFirstAVStream(std::vector<std::unique_ptr<CAdaptationSet>>& adpSets);
+
 protected:
   std::vector<std::unique_ptr<CRepresentation>> m_representations;
 
@@ -157,8 +180,7 @@ protected:
   std::vector<std::string> m_switchingIds;
 
   CSpinCache<uint32_t> m_segmentTimelineDuration;
-
-  std::optional<CSegmentTemplate> m_segmentTemplate;
+  uint64_t m_segDurationsTimescale{NO_VALUE};
 
   // Custom ISAdaptive attributes (used on DASH only)
   bool m_isImpaired{false};
