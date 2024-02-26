@@ -172,8 +172,22 @@ void TTML2SRT::ParseTagBody(pugi::xml_node nodeTT)
             // Parse additional style attributes of node and add them as another style stack
             StackStyle(ParseStyle(subTextNode));
 
-            // Span tag contain parts of text
-            AppendStyledText(subTextNode.child_value(), subText);
+            // Treats the data of the Span tag as PCDATA type, and so text as XML nodes
+            for (pugi::xml_node spanTextNode : subTextNode.children())
+            {
+              if (spanTextNode.type() == pugi::node_pcdata)
+              {
+                // It's a text part
+                AppendStyledText(spanTextNode.value(), subText);
+              }
+              else if (spanTextNode.type() == pugi::node_element)
+              {
+                if (STRING::Compare(spanTextNode.name(), "br"))
+                {
+                  subText += "<br/>";
+                }
+              }
+            }
 
             UnstackStyle();
             UnstackStyle();
