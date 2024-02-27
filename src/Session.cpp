@@ -1406,7 +1406,7 @@ bool CSession::SeekChapter(int ch)
   {
     CPeriod* nextPeriod = m_adaptiveTree->m_periods[ch].get();
     m_adaptiveTree->m_nextPeriod = nextPeriod;
-    LOG::LogF(LOGDEBUG, "Switching to new Period (id=%s, start=%ld, seq=%d)",
+    LOG::LogF(LOGDEBUG, "Switching to new Period (id=%s, start=%llu, seq=%u)",
               nextPeriod->GetId().data(), nextPeriod->GetStart(), nextPeriod->GetSequence());
 
     for (auto& stream : m_streams)
