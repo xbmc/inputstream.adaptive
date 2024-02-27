@@ -472,9 +472,6 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
       rep->SetTimescale(1000);
       rep->SetScaling();
 
-      rep->SegmentTimeline().GetData().reserve(cuepoints.size());
-      adpSet->SegmentTimelineDuration().GetData().reserve(cuepoints.size());
-
       for (const WebmReader::CUEPOINT& cue : cuepoints)
       {
         seg.startPTS_ = cue.pts;

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <algorithm>
+#include <deque>
 #include <limits>
 #include <string_view>
 #include <vector>
@@ -131,20 +132,14 @@ public:
   {
     if (pos == SEGMENT_NO_POS || m_data.empty())
       return nullptr;
-    size_t realPos = m_basePos + pos;
-    if (realPos >= m_data.size())
+
+    if (pos >= m_data.size())
     {
-      realPos -= m_data.size();
-      if (realPos == m_basePos)
-        return nullptr;
-      else if (realPos >= m_data.size())
-      {
-        LOG::LogF(LOGWARNING, "Requested data from out-of-range position %zu of %zu",
-                  realPos, m_data.size());
-        return nullptr;
-      }
+      LOG::LogF(LOGWARNING, "Position out-of-range (%zu of %zu)", pos, m_data.size());
+      return nullptr;
     }
-    return &m_data[realPos];
+
+    return &m_data[pos];
   }
 
   /*!
@@ -156,69 +151,75 @@ public:
   {
     if (pos == SEGMENT_NO_POS || m_data.empty())
       return nullptr;
-    size_t realPos = m_basePos + pos;
-    if (realPos >= m_data.size())
+
+    if (pos >= m_data.size())
     {
-      realPos -= m_data.size();
-      if (realPos == m_basePos)
-        return nullptr;
-      else if (realPos >= m_data.size())
-      {
-        LOG::LogF(LOGWARNING, "Requested data from out-of-range position %zu of %zu", realPos,
-                  m_data.size());
-        return nullptr;
-      }
+      LOG::LogF(LOGWARNING, "Position out-of-range (%zu of %zu)", pos, m_data.size());
+      return nullptr;
     }
-    return &m_data[realPos];
+
+    return &m_data[pos];
   }
 
   /*!
    * \brief Get index position of <T> value pointer
    * \param elem The <T> pointer to get the position
-   * \return The index position
+   * \return The index position, or SEGMENT_NO_POS if not found
    */
   const size_t GetPosition(const T* elem) const
   {
-    if (m_data.empty())
-      return 0;
+    for (size_t i = 0; i < m_data.size(); ++i)
+    {
+      if (&m_data[i] == elem)
+        return i;
+    }
 
-    size_t realPos = elem - &m_data[0];
-    if (realPos < m_basePos)
-      realPos += m_data.size() - m_basePos;
-    else
-      realPos -= m_basePos;
-    return realPos;
+    return SEGMENT_NO_POS;
   };
 
-  void Insert(const T& elem)
+  /*!
+   * \brief Append <T> value to the container, by increasing the count.
+   * \param elem The <T> value to append
+   */
+  void Append(const T& elem)
   {
-    m_data[m_basePos] = elem;
-    ++m_basePos;
-    if (m_basePos == m_data.size())
-      m_basePos = 0;
+    m_data.emplace_back(elem);
+    m_appendCount += 1;
   }
 
   void Swap(CSpinCache<T>& other)
   {
     m_data.swap(other.m_data);
-    std::swap(m_basePos, other.m_basePos);
+    std::swap(m_appendCount, other.m_appendCount);
   }
 
   void Clear()
   {
     m_data.clear();
-    m_basePos = 0;
+    m_appendCount = 0;
   }
 
   bool IsEmpty() const { return m_data.empty(); }
 
+  /*!
+   * \brief Get the number of the appended <T> elements.
+   * \return The number of appended elements.
+   */
+  size_t GetAppendCount() const { return m_appendCount; }
+
   size_t GetSize() const { return m_data.size(); }
 
-  std::vector<T>& GetData() { return m_data; }
+  /*!
+   * \brief Get the number of elements without taking into account those appended.
+   * \return The number of elements.
+   */
+  size_t GetInitialSize() const { return m_data.size() - m_appendCount; }
+
+  std::deque<T>& GetData() { return m_data; }
 
 private:
-  size_t m_basePos{0};
-  std::vector<T> m_data;
+  std::deque<T> m_data;
+  size_t m_appendCount{0}; // Number of appended elements
 };
 
 // \brief Get the position of a pointer within a vector of unique_ptr

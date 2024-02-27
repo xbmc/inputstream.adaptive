@@ -43,6 +43,10 @@ public:
   uint32_t GetTimescale() const;
   void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
 
+  /*!
+   * \brief Get the duration, in timescale unit.
+   * \return The duration value.
+   */
   uint32_t GetDuration() const;
   void SetDuration(uint32_t duration) { m_duration = duration; }
 

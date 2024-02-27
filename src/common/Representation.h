@@ -185,19 +185,31 @@ public:
   void SetInitSegment(CSegment initSegment) { m_initSegment = initSegment; }
   std::optional<CSegment>& GetInitSegment() { return m_initSegment; }
 
-
+  /*!
+   * \brief Get the next segment after the one specified.
+   * \return If found the segment pointer, otherwise nullptr.
+   */
   CSegment* get_next_segment(const CSegment* seg)
   {
     if (!seg || seg->IsInitialization())
       return m_segmentTimeline.Get(0);
 
-    size_t nextPos{m_segmentTimeline.GetPosition(seg) + 1};
+    const size_t segPos = m_segmentTimeline.GetPosition(seg);
+
+    if (segPos == SEGMENT_NO_POS)
+      return nullptr;
+
+    size_t nextPos = segPos + 1;
     if (nextPos == m_segmentTimeline.GetSize())
       return nullptr;
 
     return m_segmentTimeline.Get(nextPos);
   }
 
+  /*!
+   * \brief Get the segment from specified position.
+   * \return If found the segment pointer, otherwise nullptr.
+   */
   CSegment* get_segment(size_t pos)
   {
     if (pos == SEGMENT_NO_POS)
@@ -206,6 +218,10 @@ public:
     return m_segmentTimeline.Get(pos);
   }
 
+  /*!
+   * \brief Get the segment position.
+   * \return If found the position, otherwise SEGMENT_NO_POS.
+   */
   const size_t get_segment_pos(const CSegment* segment) const
   {
     if (!segment)
@@ -214,22 +230,44 @@ public:
     return m_segmentTimeline.IsEmpty() ? 0 : m_segmentTimeline.GetPosition(segment);
   }
 
+  /*!
+   * \brief Get the position of current segment.
+   * \return If found the position, otherwise SEGMENT_NO_POS.
+   */
   const size_t getCurrentSegmentPos() const { return get_segment_pos(current_segment_); }
 
+  /*!
+   * \brief Get the segment number of current segment.
+   * \return If found the number, otherwise SEGMENT_NO_NUMBER.
+   */
   const uint64_t getCurrentSegmentNumber() const
   {
     if (!current_segment_)
       return SEGMENT_NO_NUMBER;
 
-    return static_cast<uint64_t>(get_segment_pos(current_segment_)) + m_startNumber;
+    const size_t segPos = get_segment_pos(current_segment_);
+
+    if (segPos == SEGMENT_NO_POS)
+      return SEGMENT_NO_NUMBER;
+
+    return static_cast<uint64_t>(segPos) + m_startNumber;
   }
 
+  /*!
+   * \brief Get the segment number of specified segment.
+   * \return If found the number, otherwise SEGMENT_NO_NUMBER.
+   */
   const uint64_t getSegmentNumber(const CSegment* segment) const
   {
     if (!segment)
       return SEGMENT_NO_NUMBER;
 
-    return static_cast<uint64_t>(get_segment_pos(segment)) + m_startNumber;
+    const size_t segPos = get_segment_pos(current_segment_);
+
+    if (segPos == SEGMENT_NO_POS)
+      return SEGMENT_NO_NUMBER;
+
+    return static_cast<uint64_t>(segPos) + m_startNumber;
   }
 
 
