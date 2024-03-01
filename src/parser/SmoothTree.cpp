@@ -21,6 +21,11 @@ using namespace pugi;
 using namespace PLAYLIST;
 using namespace UTILS;
 
+adaptive::CSmoothTree::CSmoothTree() : AdaptiveTree()
+{
+  m_isTTMLTimeRelative = true;
+}
+
 adaptive::CSmoothTree::CSmoothTree(const CSmoothTree& left) : AdaptiveTree(left)
 {
 }

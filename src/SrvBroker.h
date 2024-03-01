@@ -31,6 +31,10 @@ namespace ADP::KODI_PROPS
 {
 class CCompKodiProps;
 }
+namespace adaptive
+{
+class AdaptiveTree;
+}
 
 /*
  * \brief Service broker is a singleton that give an easy access to the resources from anywhere in the code.
@@ -42,9 +46,15 @@ public:
   void operator=(const CSrvBroker&) = delete; // Not assignable
 
   /*
-   * \brief Initialize service broker components.
+   * \brief Initialize service broker components, on addon initialization.
    */
   void Init(const std::map<std::string, std::string>& kodiProps);
+
+  /*
+   * \brief Initialize service broker components, on session initialization.
+   * \param tree The adaptive tree
+   */
+  void InitStage2(adaptive::AdaptiveTree* tree);
 
   static CSrvBroker* GetInstance()
   {

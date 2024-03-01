@@ -220,6 +220,8 @@ bool CSession::Initialize()
   m_adaptiveTree->PostOpen();
   m_reprChooser->PostInit();
 
+  CSrvBroker::GetInstance()->InitStage2(m_adaptiveTree);
+
   return InitializePeriod(isSessionOpened);
 }
 

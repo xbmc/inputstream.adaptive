@@ -20,6 +20,12 @@
 #include <string>
 #include <unordered_set>
 
+// forwards
+namespace adaptive
+{
+class AdaptiveTree;
+}
+
 namespace ADP
 {
 namespace RESOURCES
@@ -29,6 +35,8 @@ class ATTR_DLL_LOCAL CCompResources
 public:
   CCompResources() = default;
   ~CCompResources() = default;
+
+  void InitStage2(adaptive::AdaptiveTree* tree) { m_tree = tree; }
 
   /*!
    * \brief Cookies that can be shared along with HTTP requests.
@@ -43,9 +51,16 @@ public:
 
   std::mutex& GetCookiesMutex() { return m_cookiesMutex; }
 
+  /*!
+   * \brief Get the manifest tree.
+   * \return The manifest tree.
+   */
+  const adaptive::AdaptiveTree& GetTree() const { return *m_tree; }
+
 private:
   std::unordered_set<UTILS::CURL::Cookie> m_cookies;
   std::mutex m_cookiesMutex;
+  adaptive::AdaptiveTree* m_tree{nullptr};
 };
 } // namespace RESOURCES
 } // namespace ADP
