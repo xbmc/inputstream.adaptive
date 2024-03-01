@@ -25,11 +25,20 @@ public:
   bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer& buf, AP4_UI64 timescale) override;
   bool ReadNextSample(AP4_Sample& sample, AP4_DataBuffer& buf) override;
   void SetPTSOffset(AP4_UI64 offset) override;
-  bool TimeSeek(AP4_UI64 seekPos) override { return m_ttml.TimeSeek(seekPos); };
-  void Reset() override { m_ttml.Reset(); }
+  bool TimeSeek(AP4_UI64 seekPos) override
+  {
+    m_lastPts = NO_PTS;
+    return m_ttml.TimeSeek(seekPos);
+  };
+  void Reset() override
+  {
+    m_lastPts = NO_PTS;
+    m_ttml.Reset();
+  }
 
 private:
   TTML2SRT m_ttml;
   AP4_UI64 m_ptsOffset{0};
   bool m_isTimeRelative;
+  uint64_t m_lastPts{NO_PTS};
 };

@@ -29,9 +29,17 @@ bool TTMLCodecHandler::ReadNextSample(AP4_Sample& sample, AP4_DataBuffer& buf)
   {
     buf.SetData(reinterpret_cast<const AP4_Byte*>(m_ttml.GetPreparedData()),
                 static_cast<const AP4_Size>(m_ttml.GetPreparedDataSize()));
-    sample.SetDts(pts + m_ptsOffset);
+
+    uint64_t adjustedPts = pts + m_ptsOffset;
+
+    if (m_lastPts != NO_PTS && adjustedPts <= m_lastPts)
+      adjustedPts = m_lastPts + 1;
+
+    sample.SetDts(adjustedPts);
     sample.SetCtsDelta(0);
     sample.SetDuration(dur);
+
+    m_lastPts = adjustedPts;
     return true;
   }
   else
