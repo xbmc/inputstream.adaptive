@@ -1036,12 +1036,11 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     }
   }
 
-  // For subtitles that are not as ISOBMFF format and where there is no timeline for segments
-  // we should treat them as a single subtitle file
   if (repr->GetContainerType() == ContainerType::TEXT && repr->GetMimeType() != "application/mp4" &&
-      !adpSet->HasSegmentTimelineDuration() && !repr->HasSegmentTimeline())
+      !repr->HasSegmentBase() && !repr->HasSegmentTemplate() && !repr->HasSegmentTimeline())
   {
-
+    // Raw unsegmented subtitles called "sidecar" is a single file specified in the <BaseURL> tag,
+    // must not have the MP4 ISOBMFF mime type or any other dash element.
     repr->SetIsSubtitleFileStream(true);
   }
 

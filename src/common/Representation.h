@@ -137,8 +137,8 @@ public:
   void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
 
   /*!
-   * \brief Determines when the representation contains subtitles as single file
-   *        for the entire duration of the video.
+   * \brief Determines if the representation contains a single "sidecar" file subtitle,
+   *        used for the entire duration of the video.
    * \return True if subtitles are as single file, otherwise false
    */
   bool IsSubtitleFileStream() const { return m_isSubtitleFileStream; }

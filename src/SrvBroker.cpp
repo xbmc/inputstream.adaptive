@@ -23,3 +23,8 @@ void CSrvBroker::Init(const std::map<std::string, std::string>& kodiProps)
   m_compResources = std::make_unique<RESOURCES::CCompResources>();
   m_compSettings = std::make_unique<SETTINGS::CCompSettings>();
 }
+
+void CSrvBroker::InitStage2(adaptive::AdaptiveTree* tree)
+{
+  m_compResources->InitStage2(tree);
+}

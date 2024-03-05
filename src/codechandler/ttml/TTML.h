@@ -9,7 +9,6 @@
 #pragma once
 
 #include <cinttypes>
-#include <deque>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -27,12 +26,14 @@ namespace pugi
 class xml_node;
 }
 
+constexpr uint64_t NO_PTS = ~0;
+
 class ATTR_DLL_LOCAL TTML2SRT
 {
 public:
-  TTML2SRT() {}
+  TTML2SRT(bool isFile) { m_isFile = isFile; }
 
-  bool Parse(const void* buffer, size_t bufferSize, uint64_t timescale, uint64_t ptsOffset);
+  bool Parse(const void* buffer, size_t bufferSize, uint64_t timescale);
 
   bool TimeSeek(uint64_t seekPos);
 
@@ -46,6 +47,7 @@ private:
   bool ParseData(const void* buffer, size_t bufferSize);
   void ParseTagHead(pugi::xml_node nodeHead);
   void ParseTagBody(pugi::xml_node nodeTT);
+  void ParseTagSpan(pugi::xml_node spanNode, std::string& subText);
 
   struct Style
   {
@@ -75,24 +77,22 @@ private:
 
   struct SubtitleData
   {
-    std::string id;
     uint64_t start{0};
     uint64_t end{0};
     std::string text;
   };
 
   size_t m_currSubPos{0};
-  std::deque<SubtitleData> m_subtitlesList;
+  std::vector<SubtitleData> m_subtitlesList;
 
   std::vector<Style> m_styles;
   std::vector<Style> m_styleStack;
 
   std::string m_preparedSubText;
-  std::string m_lastId;
 
   uint64_t m_timescale{0};
-  uint64_t m_ptsOffset{0};
-  uint64_t m_seekTime{0};
+  bool m_isFile;
+  uint64_t m_seekTime{NO_PTS};
   uint64_t m_tickRate{0};
   uint64_t m_frameRate{0};
 };

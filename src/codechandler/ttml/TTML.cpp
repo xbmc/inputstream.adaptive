@@ -18,30 +18,17 @@
 using namespace pugi;
 using namespace UTILS;
 
-bool TTML2SRT::Parse(const void* buffer, size_t bufferSize, uint64_t timescale, uint64_t ptsOffset)
+bool TTML2SRT::Parse(const void* buffer, size_t bufferSize, uint64_t timescale)
 {
   m_currSubPos = 0;
-  m_seekTime = 0;
+  m_seekTime = NO_PTS;
   m_subtitlesList.clear();
   m_timescale = timescale;
-  m_ptsOffset = ptsOffset;
   m_styles.clear();
   m_styleStack.resize(1); // Add empty style
 
   if (!ParseData(buffer, bufferSize))
     return false;
-
-  while (m_currSubPos < m_subtitlesList.size() && m_subtitlesList[m_currSubPos].id != m_lastId)
-  {
-    ++m_currSubPos;
-  }
-
-  if (m_currSubPos == m_subtitlesList.size())
-    m_currSubPos = 0;
-  else
-    ++m_currSubPos;
-
-  m_lastId.clear();
 
   return true;
 }
@@ -60,16 +47,20 @@ void TTML2SRT::Reset()
 
 bool TTML2SRT::Prepare(uint64_t& pts, uint32_t& duration)
 {
-  if (m_seekTime)
-  {
-    m_currSubPos = 0;
+  // Feed Kodi subtitle decoder with one subtitle at a time
 
+  if (m_isFile && m_seekTime != NO_PTS)
+  {
+    // For cases of single "sidecar" file's
+    // there is stored whole file in memory, so its needed to find the position
+    // of the first subtitle that fall into the seek time
+    m_currSubPos = 0;
     while (m_currSubPos < m_subtitlesList.size() && m_subtitlesList[m_currSubPos].end < m_seekTime)
     {
       m_currSubPos++;
     }
 
-    m_seekTime = 0;
+    m_seekTime = NO_PTS;
   }
 
   if (m_currSubPos >= m_subtitlesList.size())
@@ -81,7 +72,6 @@ bool TTML2SRT::Prepare(uint64_t& pts, uint32_t& duration)
   duration = static_cast<uint32_t>(sub.end - sub.start);
 
   m_preparedSubText = sub.text;
-  m_lastId = sub.id;
 
   return true;
 }
@@ -168,15 +158,7 @@ void TTML2SRT::ParseTagBody(pugi::xml_node nodeTT)
           // It's a XML tag
           if (STRING::Compare(subTextNode.name(), "span"))
           {
-            StackStyle(XML::GetAttrib(subTextNode, "style"));
-            // Parse additional style attributes of node and add them as another style stack
-            StackStyle(ParseStyle(subTextNode));
-
-            // Span tag contain parts of text
-            AppendStyledText(subTextNode.child_value(), subText);
-
-            UnstackStyle();
-            UnstackStyle();
+            ParseTagSpan(subTextNode, subText);
           }
           else if (STRING::Compare(subTextNode.name(), "br"))
           {
@@ -190,6 +172,37 @@ void TTML2SRT::ParseTagBody(pugi::xml_node nodeTT)
       StackSubtitle(id, beginTime, endTime, subText);
     }
   }
+}
+
+void TTML2SRT::ParseTagSpan(pugi::xml_node spanNode, std::string& subText)
+{
+  StackStyle(XML::GetAttrib(spanNode, "style"));
+  // Parse additional style attributes of node and add them as another style stack
+  StackStyle(ParseStyle(spanNode));
+
+  // Treats the data of the Span tag as PCDATA type, and so text as XML nodes
+  for (pugi::xml_node spanTextNode : spanNode.children())
+  {
+    if (spanTextNode.type() == pugi::node_pcdata)
+    {
+      // It's a text part
+      AppendStyledText(spanTextNode.value(), subText);
+    }
+    else if (spanTextNode.type() == pugi::node_element)
+    {
+      if (STRING::Compare(spanTextNode.name(), "span"))
+      {
+        ParseTagSpan(spanTextNode, subText);
+      }
+      else if (STRING::Compare(spanTextNode.name(), "br"))
+      {
+        subText += "<br/>";
+      }
+    }
+  }
+
+  UnstackStyle();
+  UnstackStyle();
 }
 
 void TTML2SRT::AppendStyledText(std::string_view textPart, std::string& subText)
@@ -339,22 +352,9 @@ void TTML2SRT::StackSubtitle(std::string_view id,
     return;
 
   SubtitleData newSub;
-  newSub.id = id.empty() ? beginTime : id;
   newSub.start = GetTime(beginTime);
   newSub.end = GetTime(endTime);
   newSub.text = text;
-
-  if (newSub.start < m_ptsOffset)
-  {
-    newSub.start += m_ptsOffset;
-    newSub.end += m_ptsOffset;
-  }
-  else if (m_subtitlesList.size() > 1 && (m_subtitlesList.end() - 2)->start > newSub.start)
-  {
-    // Fix wrong applied pts_offset
-    (m_subtitlesList.end() - 2)->start -= m_ptsOffset;
-    (m_subtitlesList.end() - 2)->end -= m_ptsOffset;
-  }
 
   m_subtitlesList.emplace_back(newSub);
 }

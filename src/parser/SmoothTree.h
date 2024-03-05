@@ -23,7 +23,7 @@ class PRProtectionParser;
 class ATTR_DLL_LOCAL CSmoothTree : public AdaptiveTree
 {
 public:
-  CSmoothTree() : AdaptiveTree() {}
+  CSmoothTree();
   CSmoothTree(const CSmoothTree& left);
 
   virtual TreeType GetTreeType() override { return TreeType::SMOOTH_STREAMING; }

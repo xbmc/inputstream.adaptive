@@ -279,6 +279,12 @@ public:
    */
   std::string_view GetLicenseUrl() { return m_licenseUrl; }
 
+  /*!
+   * \brief Specifies if TTML subtitle time is relative to sample time.
+   * \return True if relative to sample time, otherwise false.
+   */
+  bool IsTTMLTimeRelative() const { return m_isTTMLTimeRelative; }
+
 protected:
   /*!
    * \brief Save manifest data to a file for debugging purpose.
@@ -314,6 +320,8 @@ protected:
   std::string m_pathSaveManifest;
 
   std::string m_licenseUrl;
+
+  bool m_isTTMLTimeRelative{false};
 };
 
 } // namespace adaptive

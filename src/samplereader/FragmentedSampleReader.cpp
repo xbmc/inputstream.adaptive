@@ -477,7 +477,7 @@ void CFragmentedSampleReader::UpdateSampleDescription()
         m_codecHandler = new HEVCCodecHandler(desc);
         break;
       case AP4_SAMPLE_FORMAT_STPP:
-        m_codecHandler = new TTMLCodecHandler(desc);
+        m_codecHandler = new TTMLCodecHandler(desc, false);
         break;
       case AP4_SAMPLE_FORMAT_WVTT:
         m_codecHandler = new WebVTTCodecHandler(desc, false);

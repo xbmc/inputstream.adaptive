@@ -37,12 +37,12 @@ bool CSubtitleSampleReader::Initialize(SESSION::CStream* stream)
 
   if (repr->IsSubtitleFileStream())
   {
-    // Single subtitle file (for entire video duration)
+    // Single "sidecar" subtitle file (for entire video duration)
     if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
       m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, true);
     else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML) ||
              STRING::Contains(codecInternalName, CODEC::FOURCC_STPP))
-      m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
+      m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr, true);
     else
     {
       LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
@@ -61,7 +61,7 @@ bool CSubtitleSampleReader::Initialize(SESSION::CStream* stream)
       m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
     else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML) ||
              STRING::Contains(codecInternalName, CODEC::FOURCC_STPP))
-      m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr);
+      m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr, false);
     else
     {
       LOG::LogF(LOGERROR, "Codec \"%s\" not implemented", codecInternalName.data());
