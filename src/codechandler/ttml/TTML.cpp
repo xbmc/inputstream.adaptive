@@ -356,6 +356,28 @@ void TTML2SRT::StackSubtitle(std::string_view id,
   newSub.end = GetTime(endTime);
   newSub.text = text;
 
+  if (!m_subtitlesList.empty() && !newSub.text.empty())
+  {
+    // This is a workaround for Kodi overlapped subtitles rendering,
+    // when there are multiple lines of text provided by multiple "p" elements
+    // usually with same begin/end timings (overlapping)
+    // the subtitle renderer show on screen these lines of text in "reversed order"
+    // (last added on top, the first on bottom) that is the SRT behaviour,
+    // and causes the display of inverted sentences with TTML.
+    // So TTML multilines should be shown "as is" as it appears in the xml file.
+    // The workaround consists in to merge these lines with same begin/end timing,
+    // but can fail when the end time is different or if "p" elements come from different media segments.
+
+    //! @todo: a better solution should come from the libass library, but it is also possible that converting
+    //! TTML directly to ASS format (and use CDVDOverlayCodecSSA decoder) may solve the problem, need a test.
+    SubtitleData& lastSub = m_subtitlesList.back();
+    if (lastSub.start == newSub.start && lastSub.end == newSub.end)
+    {
+      lastSub.text += "<br/>" + newSub.text;
+      return;
+    }
+  }
+
   m_subtitlesList.emplace_back(newSub);
 }
 
