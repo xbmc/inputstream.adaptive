@@ -72,7 +72,7 @@ public:
   uint64_t stream_start_{0};
   uint64_t available_time_{0};
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
-  
+
   std::string m_supportedKeySystem;
   std::string location_;
 

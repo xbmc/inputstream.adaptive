@@ -40,6 +40,8 @@ public:
                     const std::map<std::string, std::string>& headers,
                     const std::string& data) override;
 
+  virtual void PostOpen() override;
+
   virtual void InsertLiveSegment(PLAYLIST::CPeriod* period,
                                  PLAYLIST::CAdaptationSet* adpSet,
                                  PLAYLIST::CRepresentation* repr,
@@ -61,8 +63,7 @@ protected:
                               PLAYLIST::CPeriod* period);
 
   uint64_t ParseTagSegmentTimeline(pugi::xml_node parentNode,
-                                   PLAYLIST::CSpinCache<uint32_t>& SCTimeline,
-                                   uint32_t timescale = 1000);
+                                   PLAYLIST::CSpinCache<uint32_t>& SCTimeline);
   uint64_t ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
                                    PLAYLIST::CSpinCache<PLAYLIST::CSegment>& SCTimeline,
                                    PLAYLIST::CSegmentTemplate& segTemplate);
@@ -76,11 +77,6 @@ protected:
   bool ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 
   uint32_t ParseAudioChannelConfig(pugi::xml_node node);
-
-  /*
-   * \brief Try estimate the count of segments on the MPD duration
-   */
-  size_t EstimateSegmentsCount(uint64_t duration, uint32_t timescale) const;
 
   void MergeAdpSets();
 

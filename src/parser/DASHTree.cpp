@@ -129,6 +129,20 @@ bool adaptive::CDashTree::Open(std::string_view url,
   return true;
 }
 
+void adaptive::CDashTree::PostOpen()
+{
+  AdaptiveTree::PostOpen();
+
+  // If live delay is lower than the manifest update period
+  // there are not enough segments to ensure playback, so allow insert live segments.
+  if (m_isLive && m_liveDelay <= m_minimumUpdatePeriod)
+    //! @todo: to investigate, its possible that the appropriate way is not enable
+    //! m_allowInsertLiveSegments right here, but add a more check to AdaptiveStream::ensureSegment
+    //! where when there are no more segments we try force request a manifest update,
+    //! and so if the manifest update dont provide new segments allow insert live segments.
+    m_allowInsertLiveSegments = true;
+}
+
 bool adaptive::CDashTree::ParseManifest(const std::string& data)
 {
   xml_document doc;
@@ -340,8 +354,7 @@ void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, std::string_
     xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
     if (nodeSegTL)
     {
-      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, period->SegmentTimelineDuration(),
-                                                  segTemplate.GetTimescale());
+      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, period->SegmentTimelineDuration());
 
       period->SetStartPTS(startPts);
     }
@@ -536,8 +549,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
       xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
       if (nodeSegTL)
       {
-        uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration(),
-                                                    segTemplate.GetTimescale());
+        uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration());
 
         adpSet->SetStartPTS(startPts);
       }
@@ -574,8 +586,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     xml_node nodeSegTL = nodeSeglist.child("SegmentTimeline");
     if (nodeSegTL)
     {
-      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration(),
-                                                  segList.GetTimescale());
+      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration());
 
       adpSet->SetStartPTS(startPts);
     }
@@ -894,11 +905,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       repr->SetInitSegment(segList.MakeInitSegment());
     }
 
-
-    // Reserve memory to speedup
-    repr->SegmentTimeline().GetData().reserve(
-        EstimateSegmentsCount(segList.GetDuration(), segList.GetTimescale()));
-
     // Parse <SegmentList> <SegmentURL> child tags
     size_t index{0};
     uint64_t previousStartPts{0};
@@ -1125,7 +1131,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
           sampleTime = period->GetStart() / 1000;
 
         int64_t reprDurationSecs = repr->GetDuration() / repr->GetTimescale();
-        segStartNumber += (stream_start_ - available_time_ - reprDurationSecs - sampleTime) *
+
+        segStartNumber += static_cast<int64_t>(stream_start_ - available_time_ - reprDurationSecs - sampleTime) *
                               segTemplate->GetTimescale() / segTemplate->GetDuration() +
                           1;
       }
@@ -1136,9 +1143,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         segDefDuration = repr->GetDuration() / adpSet->SegmentTimelineDuration().GetSize();
       else
         segDefDuration = segTemplate->GetDuration();
-
-      // Reserve memory to speedup
-      repr->SegmentTimeline().GetData().reserve(segmentsCount);
 
       CSegment seg;
       seg.m_number = segStartNumber;
@@ -1161,11 +1165,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       uint64_t totalSegsDuration = lastSeg.startPTS_ + lastSeg.m_duration;
 
       repr->nextPts_ = totalSegsDuration;
-
-      // If the duration of segments dont cover the interval duration for the manifest update
-      // then allow new segments to be inserted until the next manifest update
-      if (m_isLive && totalSegsDuration < m_minimumUpdatePeriod)
-        m_allowInsertLiveSegments = true;
     }
   }
 
@@ -1179,8 +1178,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 }
 
 uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
-                                                      CSpinCache<uint32_t>& SCTimeline,
-                                                      uint32_t timescale /* = 1000 */)
+                                                      CSpinCache<uint32_t>& SCTimeline)
 {
   uint64_t startPts{0};
   uint64_t nextPts{0};
@@ -1195,9 +1193,6 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
 
     if (SCTimeline.IsEmpty())
     {
-      // Reserve memory to speedup
-      SCTimeline.GetData().reserve(EstimateSegmentsCount(duration, timescale));
-
       startPts = time;
       nextPts = time;
     }
@@ -1242,13 +1237,7 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
     if (duration > 0 && repeat > 0)
     {
       if (SCTimeline.IsEmpty())
-      {
-        // Reserve memory to speedup operations
-        SCTimeline.GetData().reserve(EstimateSegmentsCount(
-            duration > 0 ? duration : segTemplate.GetDuration(), segTemplate.GetTimescale()));
-
         seg.m_number = startNumber;
-      }
       else
         seg.m_number = SCTimeline.GetData().back().m_number + 1;
 
@@ -1511,19 +1500,6 @@ uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
   return channels;
 }
 
-size_t adaptive::CDashTree::EstimateSegmentsCount(uint64_t duration, uint32_t timescale) const
-{
-  if (timescale == 0)
-    timescale = 1;
-
-  double lengthSecs{static_cast<double>(duration) / timescale};
-  if (lengthSecs < 1)
-    lengthSecs = 1;
-
-  double totalTimeSecs = std::max(m_mediaPresDuration, 1.0);
-  return std::max(static_cast<size_t>(totalTimeSecs / lengthSecs), static_cast<size_t>(1));
-}
-
 void adaptive::CDashTree::MergeAdpSets()
 {
   // NOTE: This method wipe out all properties of merged adaptation set
@@ -1706,7 +1682,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
     // new period, insert it
     if (!period)
     {
-      LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%ld)", updPeriod->GetId().data(),
+      LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%llu)", updPeriod->GetId().data(),
                 updPeriod->GetStart());
 
       updPeriod->SetSequence(m_periodCurrentSeq++);
@@ -1773,7 +1749,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
                     segment->url.clear();
 
                   updSegmentIt->startPTS_ += ptsOffset;
-                  repr->SegmentTimeline().Insert(*updSegmentIt);
+                  repr->SegmentTimeline().Append(*updSegmentIt);
 
                   updSegmentIt->url.clear();
 
@@ -1788,7 +1764,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
                 if ((repr->IsWaitForSegment()) && repr->get_next_segment(repr->current_segment_))
                 {
                   repr->SetIsWaitForSegment(false);
-                  LOG::LogF(LOGDEBUG, "End WaitForSegment stream %s", repr->GetId().data());
+                  LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
                 }
 
                 if (updSegmentIt == updReprSegTL.GetData().end())
@@ -1803,8 +1779,11 @@ void adaptive::CDashTree::RefreshLiveSegments()
                 //! @todo: check if first element or size differs
                 uint64_t segmentId = repr->getCurrentSegmentNumber();
 
-                if (repr->HasSegmentTimeline())
+                if (repr->HasSegmentTimeline()) //! @todo: this condition looks wrong, as is "else" conditions dont work
                 {
+                  //! @todo: force change start number with SetStartNumber looks wrong,
+                  //! at least on MPD updates that dont provide new segments
+
                   uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->m_time;
                   uint64_t misaligned = 0;
                   for (const auto& segment : repr->SegmentTimeline().GetData())
@@ -1854,32 +1833,50 @@ void adaptive::CDashTree::RefreshLiveSegments()
                   }
                 }
 
-                updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
-                if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
-                  repr->current_segment_ = nullptr;
+                if (updRepr->GetStartNumber() == repr->GetStartNumber() &&
+                    repr->SegmentTimeline().GetInitialSize() == updRepr->SegmentTimeline().GetSize())
+                {
+                  LOG::LogF(LOGDEBUG,
+                            "MPD update with no new segments (repr. id \"%s\", period id \"%s\")",
+                            repr->GetId().data(), period->GetId().data());
+                  m_allowInsertLiveSegments = true;
+                }
                 else
                 {
-                  if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
-                    segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
-                  repr->current_segment_ =
-                      repr->get_segment(static_cast<size_t>(segmentId - repr->GetStartNumber()));
+                  repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
+
+                  if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
+                    repr->current_segment_ = nullptr;
+                  else
+                  {
+                    if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
+                      segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
+                    repr->current_segment_ =
+                        repr->get_segment(static_cast<size_t>(segmentId - repr->GetStartNumber()));
+                  }
+
+                  if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
+                  {
+                    repr->SetIsWaitForSegment(false);
+                    LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
+                  }
+
+                  LOG::LogF(LOGDEBUG,
+                            "Full update without start number (repr. id \"%s\", current start: %llu, period id \"%s\")",
+                            updRepr->GetId().data(), repr->GetStartNumber(),
+                            period->GetId().data());
                 }
 
-                if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
-                  repr->SetIsWaitForSegment(false);
-
-                LOG::LogF(LOGDEBUG,
-                          "Full update without start number (repr. id: %s current start: %u)",
-                          updRepr->GetId().data(), repr->GetStartNumber());
                 m_totalTimeSecs = updateTree->m_totalTimeSecs;
               }
               else if (updRepr->GetStartNumber() > repr->GetStartNumber() ||
                         (updRepr->GetStartNumber() == repr->GetStartNumber() &&
-                        updRepr->SegmentTimeline().GetSize() > repr->SegmentTimeline().GetSize()))
+                        updRepr->SegmentTimeline().GetSize() > repr->SegmentTimeline().GetInitialSize()))
               {
+                //! @todo: the below code is the same of above, it may be unified or add explanations
                 uint64_t segmentId = repr->getCurrentSegmentNumber();
 
-                updRepr->SegmentTimeline().GetData().swap(repr->SegmentTimeline().GetData());
+                repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
                 repr->SetStartNumber(updRepr->GetStartNumber());
 
                 if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
@@ -1895,11 +1892,25 @@ void adaptive::CDashTree::RefreshLiveSegments()
                 if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
                 {
                   repr->SetIsWaitForSegment(false);
+                  LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
                 }
                 LOG::LogF(LOGDEBUG,
-                          "Full update with start number (repr. id: %s current start:%u)",
-                          updRepr->GetId().data(), repr->GetStartNumber());
+                          "Full update with start number (repr. id \"%s\", current start: %llu, period id \"%s\")",
+                          repr->GetId().data(), repr->GetStartNumber(), period->GetId().data());
                 m_totalTimeSecs = updateTree->m_totalTimeSecs;
+              }
+              else if (updRepr->GetStartNumber() == repr->GetStartNumber() &&
+                       updRepr->SegmentTimeline().GetSize() == repr->SegmentTimeline().GetInitialSize())
+              {
+                LOG::LogF(LOGDEBUG,
+                          "MPD update with no new segments (repr. id \"%s\", period id \"%s\")",
+                          repr->GetId().data(), period->GetId().data());
+                m_allowInsertLiveSegments = true;
+              }
+              else
+              {
+                LOG::LogF(LOGWARNING, "Unhandled manifest update (repr. id \"%s\", period id \"%s\"",
+                          repr->GetId().data(), period->GetId().data());
               }
             }
           }
@@ -1917,7 +1928,7 @@ void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                             uint64_t fragmentDuration,
                                             uint32_t movieTimescale)
 {
-  if (!m_allowInsertLiveSegments || HasManifestUpdatesSegs())
+  if (!m_allowInsertLiveSegments || HasManifestUpdatesSegs() || pos == SEGMENT_NO_POS)
     return;
 
   // Check if its the last frame we watch
@@ -1925,7 +1936,7 @@ void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   {
     if (pos == adpSet->SegmentTimelineDuration().GetSize() - 1)
     {
-      adpSet->SegmentTimelineDuration().Insert(
+      adpSet->SegmentTimelineDuration().Append(
           static_cast<std::uint32_t>(fragmentDuration * period->GetTimescale() / movieTimescale));
     }
     else
@@ -1968,7 +1979,7 @@ void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->SegmentTimeline().Insert(segCopy);
+    repr->SegmentTimeline().Append(segCopy);
   }
 }
 

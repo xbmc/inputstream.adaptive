@@ -194,9 +194,7 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
   // Default frequency 10000000 (10Khz)
   uint32_t timescale = XML::GetAttribUint32(nodeSI, "TimeScale", 10000000);
 
-  uint64_t chunks = XML::GetAttribUint32(nodeSI, "Chunks");
-  if (chunks > 0)
-    adpSet->SegmentTimelineDuration().GetData().reserve(static_cast<size_t>(chunks));
+  // uint64_t chunks = XML::GetAttribUint32(nodeSI, "Chunks");
 
   std::string_view url = XML::GetAttrib(nodeSI, "Url");
   if (!url.empty())
@@ -390,8 +388,6 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
     {
       for (auto& repr : adpSet->GetRepresentations())
       {
-        repr->SegmentTimeline().GetData().reserve(adpSet->SegmentTimelineDuration().GetSize());
-
         // Adjust PTS with the StreamIndex with lower PTS to sync streams during playback
         uint64_t nextStartPts = adpSet->GetStartPTS() - m_ptsBase;
         uint64_t index = 1;
@@ -421,7 +417,7 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                               uint64_t fragmentDuration,
                                               uint32_t mediaTimescale)
 {
-  if (!m_isLive)
+  if (!m_isLive || pos == SEGMENT_NO_POS)
     return;
 
   //! @todo: This old code is now wrong because InsertLiveSegment can be called many times
@@ -439,7 +435,7 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
     return;
   }
 
-  adpSet->SegmentTimelineDuration().Insert(
+  adpSet->SegmentTimelineDuration().Append(
       static_cast<std::uint32_t>(fragmentDuration * period->GetTimescale() / mediaTimescale));
 
   CSegment* segment = repr->SegmentTimeline().Get(pos);
@@ -467,6 +463,6 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->SegmentTimeline().Insert(segCopy);
+    repr->SegmentTimeline().Append(segCopy);
   }
 }

@@ -472,9 +472,6 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
       rep->SetTimescale(1000);
       rep->SetScaling();
 
-      rep->SegmentTimeline().GetData().reserve(cuepoints.size());
-      adpSet->SegmentTimelineDuration().GetData().reserve(cuepoints.size());
-
       for (const WebmReader::CUEPOINT& cue : cuepoints)
       {
         seg.startPTS_ = cue.pts;
@@ -952,20 +949,24 @@ bool AdaptiveStream::ensureSegment()
       {
         nextsegmentPos = newRep->SegmentTimeline().GetSize() - available_segment_buffers_;
       }
+
+      const size_t maxPos = newRep->SegmentTimeline().GetSize();
+
       for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_; ++updPos)
       {
-        const CSegment* futureSegment = newRep->get_segment(nextsegmentPos + updPos);
+        const size_t segPos = nextsegmentPos + updPos;
+        if (segPos == maxPos) // To avoid out-of-range log prints with get_segment
+          break;
+
+        const CSegment* futureSegment = newRep->get_segment(segPos);
 
         if (futureSegment)
         {
           segment_buffers_[updPos]->segment = *futureSegment;
-          segment_buffers_[updPos]->segment_number =
-              newRep->GetStartNumber() + nextsegmentPos + updPos;
+          segment_buffers_[updPos]->segment_number = newRep->GetStartNumber() + segPos;
           segment_buffers_[updPos]->rep = newRep;
           ++available_segment_buffers_;
         }
-        else
-          break;
       }
 
       thread_data_->signal_dl_.notify_one();
