@@ -890,6 +890,7 @@ void CSession::UpdateStream(CStream& stream)
   else if (streamType == StreamType::SUBTITLE)
   {
     if (CODEC::Contains(codecs, CODEC::FOURCC_TTML, codecStr) ||
+        CODEC::Contains(codecs, CODEC::FOURCC_DFXP, codecStr) ||
         CODEC::Contains(codecs, CODEC::FOURCC_STPP, codecStr))
       stream.m_info.SetCodecName(CODEC::NAME_SRT); // We convert it to SRT, Kodi dont support TTML yet
     else if (CODEC::Contains(codecs, CODEC::FOURCC_WVTT, codecStr))
