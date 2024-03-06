@@ -85,6 +85,7 @@ private:
 
   size_t m_currSubPos{0};
   std::vector<SubtitleData> m_subtitlesList;
+  SubtitleData m_lastSubFeed; // Last subtitle fed to Kodi demuxer
 
   std::vector<Style> m_styles;
   std::vector<Style> m_styleStack;

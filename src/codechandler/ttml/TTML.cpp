@@ -43,6 +43,7 @@ void TTML2SRT::Reset()
 {
   m_subtitlesList.clear();
   m_currSubPos = 0;
+  m_lastSubFeed = SubtitleData();
 }
 
 bool TTML2SRT::Prepare(uint64_t& pts, uint32_t& duration)
@@ -68,10 +69,19 @@ bool TTML2SRT::Prepare(uint64_t& pts, uint32_t& duration)
 
   SubtitleData& sub = m_subtitlesList[m_currSubPos++];
 
+  // Some segmented TTML repeat the last cue on the next segment packet(s)
+  // this causes a doubling of the text displayed on the screen, so skip it
+  if (sub.start == m_lastSubFeed.start && sub.end == m_lastSubFeed.end &&
+      sub.text == m_lastSubFeed.text)
+  {
+    return false;
+  }
+
   pts = sub.start;
   duration = static_cast<uint32_t>(sub.end - sub.start);
 
   m_preparedSubText = sub.text;
+  m_lastSubFeed = sub;
 
   return true;
 }
