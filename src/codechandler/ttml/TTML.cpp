@@ -95,7 +95,28 @@ bool TTML2SRT::ParseData(const void* buffer, size_t bufferSize)
   }
 
   m_tickRate = XML::GetAttribUint64(nodeTT, "ttp:tickRate");
-  m_frameRate = XML::GetAttribUint64(nodeTT, "ttp:frameRate");
+
+  uint64_t frameRate;
+  if (XML::QueryAttrib(nodeTT, "ttp:frameRate", frameRate))
+  {
+    m_frameRateNum = frameRate;
+    m_frameRateDen = 1;
+  }
+
+  std::string frameRateMulStr;
+  if (XML::QueryAttrib(nodeTT, "ttp:frameRateMultiplier", frameRateMulStr))
+  {
+    unsigned int num;
+    unsigned int den;
+    // Accepted formats: "n n" or "n\tn"
+    if (sscanf(frameRateMulStr.c_str(), "%u%*[\t ]%u", &num, &den) == 2)
+    {
+      m_frameRateNum = num;
+      m_frameRateDen = den;
+    }
+  }
+
+  XML::QueryAttrib(nodeTT, "ttp:subFrameRate", m_subFrameRate);
 
   ParseTagHead(nodeTT);
   ParseTagBody(nodeTT);
@@ -383,33 +404,117 @@ void TTML2SRT::StackSubtitle(std::string_view id,
 
 uint64_t TTML2SRT::GetTime(std::string_view timeExpr)
 {
-  uint64_t ret{0};
+  uint64_t ts{0};
+  unsigned long long h{0};
+  unsigned long long m{0};
+  unsigned long long s{0};
+  unsigned long long ms{0};
+  unsigned long long f{0};
+  unsigned long long sf{0};
+
+  // Tick metric, cannot be fractional
   if (timeExpr.back() == 't')
   {
-    ret = STRING::ToUint64(timeExpr) * m_timescale;
+    timeExpr.remove_suffix(1);
+    ts = STRING::ToUint64(timeExpr) * m_timescale;
     if (m_tickRate > 0)
-      ret /= m_tickRate;
+      ts /= m_tickRate;
   }
-  else
+  // Hours metric, can be fractional
+  else if (timeExpr.back() == 'h')
   {
-    unsigned int th, tm, ts, tf;
-    char del, ctf[4];
-    if (sscanf(timeExpr.data(), "%u:%u:%u%c%s", &th, &tm, &ts, &del, ctf) == 5)
+    timeExpr.remove_suffix(1);
+    ts = static_cast<uint64_t>(STRING::ToDouble(timeExpr) * m_timescale * 3600);
+  }
+  // Minutes metric, can be fractional
+  else if (timeExpr.back() == 'm')
+  {
+    timeExpr.remove_suffix(1);
+    ts = static_cast<uint64_t>(STRING::ToDouble(timeExpr) * m_timescale * 60);
+  }
+  // Milliseconds or secods metric
+  else if (timeExpr.back() == 's')
+  {
+    timeExpr.remove_suffix(1);
+    // Milliseconds metric, can be fractional but we work at 1ms
+    if (timeExpr.back() == 'm')
     {
-      sscanf(ctf, "%u", &tf);
-      if (strlen(ctf) == 2 && del == '.')
-        tf = tf * 10;
-      else if (strlen(ctf) == 2 && del == ':')
-      {
-        if (m_frameRate)
-          tf = static_cast<unsigned int>((tf * 1000) / m_frameRate);
-        else
-          tf = (tf * 1000 / 30);
-      }
-      ret = th * 3600 + tm * 60 + ts;
-      ret = ret * 1000 + tf;
-      ret = (ret * m_timescale) / 1000;
+      timeExpr.remove_suffix(1);
+      ts = STRING::ToUint64(timeExpr);
+    }
+    else // Seconds metric, can be fractional
+    {
+      ts = static_cast<uint64_t>(STRING::ToDouble(timeExpr) * m_timescale);
     }
   }
-  return ret;
+  // Frames metric, can be fractional
+  else if (timeExpr.back() == 'f')
+  {
+    timeExpr.remove_suffix(1);
+
+    if (sscanf(timeExpr.data(), "%llu.%llu", &f, &sf) != 2)
+    {
+      f = STRING::ToUint64(timeExpr);
+    }
+
+    if (m_frameRateNum == NO_VALUE)
+    {
+      LOG::LogF(LOGDEBUG, "Cue time indicates frames but no frame rate set, assuming 25 FPS");
+      m_frameRateNum = 25;
+      m_frameRateDen = 1;
+    }
+
+    ts = (m_timescale * f * m_frameRateDen) / m_frameRateNum;
+
+    if (sf > 0)
+    {
+      if (m_subFrameRate == NO_VALUE || m_subFrameRate == 0)
+      {
+        LOG::LogF(LOGDEBUG, "Cue time indicates sub-frames but no subFrameRate set, assuming 1");
+        m_subFrameRate = 1;
+      }
+      ts += (m_timescale * sf * m_frameRateDen / m_subFrameRate) / m_frameRateNum;
+    }
+  }
+  else if (sscanf(timeExpr.data(), "%llu:%llu:%llu.%llu", &h, &m, &s, &ms) == 4)
+  {
+    ts = (h * 3600 + m * 60 + s) * m_timescale + ms;
+  }
+  else if (sscanf(timeExpr.data(), "%llu:%llu:%llu:%llu.%llu", &h, &m, &s, &f, &sf) == 5)
+  {
+    ts = (h * 3600 + m * 60 + s) * m_timescale;
+
+    if (m_frameRateNum == NO_VALUE)
+    {
+      LOG::LogF(LOGDEBUG, "Cue time indicates frames but no frame rate set, assuming 25 FPS");
+      m_frameRateNum = 25;
+      m_frameRateDen = 1;
+    }
+    if (m_subFrameRate == NO_VALUE || m_subFrameRate == 0)
+    {
+      LOG::LogF(LOGDEBUG, "Cue time indicates sub-frames but no subFrameRate set, assuming 1");
+      m_subFrameRate = 1;
+    }
+
+    ts += (m_timescale * f * m_frameRateDen) / m_frameRateNum;
+    ts += (m_timescale * sf * m_frameRateDen / m_subFrameRate) / m_frameRateNum;
+  }
+  else if (sscanf(timeExpr.data(), "%llu:%llu:%llu:%llu", &h, &m, &s, &f) == 4)
+  {
+    ts = (h * 3600 + m * 60 + s) * m_timescale;
+
+    if (m_frameRateNum == NO_VALUE)
+    {
+      LOG::LogF(LOGDEBUG, "Cue time indicates frames but no frame rate set, assuming 25 FPS");
+      m_frameRateNum = 25;
+      m_frameRateDen = 1;
+    }
+
+    ts += (m_timescale * f * m_frameRateDen) / m_frameRateNum;
+  }
+  else if (sscanf(timeExpr.data(), "%llu:%llu:%llu", &h, &m, &s) == 3)
+  {
+    ts = (h * 3600 + m * 60 + s) * m_timescale;
+  }
+  return ts;
 }

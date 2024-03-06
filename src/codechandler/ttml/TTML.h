@@ -27,6 +27,7 @@ class xml_node;
 }
 
 constexpr uint64_t NO_PTS = ~0;
+constexpr uint64_t NO_VALUE = ~0;
 
 class ATTR_DLL_LOCAL TTML2SRT
 {
@@ -94,5 +95,7 @@ private:
   bool m_isFile;
   uint64_t m_seekTime{NO_PTS};
   uint64_t m_tickRate{0};
-  uint64_t m_frameRate{0};
+  uint64_t m_frameRateNum{NO_VALUE}; // Frame rate numerator
+  uint64_t m_frameRateDen{NO_VALUE}; // Frame rate denominator
+  uint64_t m_subFrameRate{NO_VALUE}; // Sub-frame rate
 };
