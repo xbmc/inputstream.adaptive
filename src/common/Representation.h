@@ -231,6 +231,19 @@ public:
   }
 
   /*!
+   * \brief Get the previous segment of the specified one.
+   * \return If found the segment, otherwise nullptr.
+   */
+  CSegment* GetPreviousSegment(const CSegment* segment)
+  {
+    size_t segPos = get_segment_pos(segment);
+    if (segPos != SEGMENT_NO_POS && segPos != 0)
+      return get_segment(segPos - 1);
+
+    return nullptr;
+  }
+
+  /*!
    * \brief Get the position of current segment.
    * \return If found the position, otherwise SEGMENT_NO_POS.
    */

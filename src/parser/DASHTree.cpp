@@ -1765,10 +1765,14 @@ void adaptive::CDashTree::RefreshLiveSegments()
                   {
                     if (misaligned)
                     {
-                      uint64_t ptsDiff = segment.m_time - (&segment - 1)->m_time;
-                      // our misalignment is small ( < 2%), let's decrement the start number
-                      if (misaligned < (ptsDiff * 2 / 100))
-                        repr->SetStartNumber(repr->GetStartNumber() - 1);
+                      CSegment* prevSeg = repr->GetPreviousSegment(&segment);
+                      if (prevSeg)
+                      {
+                        uint64_t ptsDiff = segment.m_time - prevSeg->m_time;
+                        // our misalignment is small ( < 2%), let's decrement the start number
+                        if (misaligned < (ptsDiff * 2 / 100))
+                          repr->SetStartNumber(repr->GetStartNumber() - 1);
+                      }
                       break;
                     }
                     if (segment.m_time == search_pts)
@@ -1780,7 +1784,10 @@ void adaptive::CDashTree::RefreshLiveSegments()
                         repr->SetStartNumber(repr->GetStartNumber() - 1);
                         break;
                       }
-                      misaligned = search_pts - (&segment - 1)->m_time;
+
+                      CSegment* prevSeg = repr->GetPreviousSegment(&segment);
+                      if (prevSeg)
+                        misaligned = search_pts - prevSeg->m_time;
                     }
                     else
                       repr->SetStartNumber(repr->GetStartNumber() + 1);
