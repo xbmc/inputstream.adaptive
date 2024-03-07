@@ -25,6 +25,14 @@ enum class ContainerType;
 
 namespace PLAYLIST
 {
+struct ProtectionScheme
+{
+  std::string idUri;
+  std::string value;
+  std::string kid;
+  std::string pssh;
+};
+
 // CCommonAttribs class provide attribute data
 // of class itself or when not set of the parent class (if any).
 class ATTR_DLL_LOCAL CCommonAttribs
@@ -60,6 +68,9 @@ public:
   uint32_t GetAudioChannels() const;
   void SetAudioChannels(uint32_t audioChannels) { m_audioChannels = audioChannels; }
 
+  bool HasProtectionSchemes() const { return !m_protSchemes.empty(); }
+  std::vector<ProtectionScheme>& ProtectionSchemes() { return m_protSchemes; }
+
 protected:
   CCommonAttribs* m_parentCommonAttributes{nullptr};
   std::string m_mimeType;
@@ -71,6 +82,7 @@ protected:
   uint32_t m_frameRateScale{0};
   uint32_t m_sampleRate{0};
   uint32_t m_audioChannels{0};
+  std::vector<ProtectionScheme> m_protSchemes;
 };
 
 } // namespace PLAYLIST
