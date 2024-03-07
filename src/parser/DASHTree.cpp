@@ -627,13 +627,6 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   // Parse <ContentProtection> child tags
   if (nodeAdp.child("ContentProtection"))
   {
-    if (adpSet->GetStreamType() == StreamType::SUBTITLE)
-    {
-      LOG::LogF(LOGWARNING, "Skipped AdaptationSet with id: \"%s\", encrypted subtitles not supported.",
-                adpSet->GetId().data());
-      return;
-    }
-
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
     std::vector<uint8_t> pssh;
     std::string kid;
@@ -970,14 +963,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   // Parse <ContentProtection> tags
   if (nodeRepr.child("ContentProtection"))
   {
-    if (adpSet->GetStreamType() == StreamType::SUBTITLE)
-    {
-      LOG::LogF(LOGWARNING,
-                "Skipped Representation with id: \"%s\", encrypted subtitles not supported.",
-                repr->GetId().data());
-      return;
-    }
-
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
     std::vector<uint8_t> pssh;
     std::string kid;
