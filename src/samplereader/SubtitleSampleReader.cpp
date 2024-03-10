@@ -60,6 +60,7 @@ bool CSubtitleSampleReader::Initialize(SESSION::CStream* stream)
     if (STRING::Contains(codecInternalName, CODEC::FOURCC_WVTT))
       m_codecHandler = std::make_unique<WebVTTCodecHandler>(nullptr, false);
     else if (STRING::Contains(codecInternalName, CODEC::FOURCC_TTML) ||
+             STRING::Contains(codecInternalName, CODEC::FOURCC_DFXP) ||
              STRING::Contains(codecInternalName, CODEC::FOURCC_STPP))
       m_codecHandler = std::make_unique<TTMLCodecHandler>(nullptr, false);
     else

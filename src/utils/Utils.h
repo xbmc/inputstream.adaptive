@@ -130,12 +130,13 @@ constexpr std::array AUDIO_FOURCC_LIST = {FOURCC_MP4A, FOURCC_AAC_, FOURCC_AACL,
 
 constexpr const char* FOURCC_WVTT = "wvtt"; // WebVTT
 constexpr const char* FOURCC_TTML = "ttml";
+constexpr const char* FOURCC_DFXP = "dfxp"; // TTML Smooth Streaming variant
 // TTML variant for XML type
 // In the complete codec description can be presented with or without name and profile
 // for example "stpp.ttml.im1t", or only "stpp"
 constexpr const char* FOURCC_STPP = "stpp";
 
-constexpr std::array SUBTITLES_FOURCC_LIST = {FOURCC_WVTT, FOURCC_TTML, FOURCC_STPP};
+constexpr std::array SUBTITLES_FOURCC_LIST = {FOURCC_WVTT, FOURCC_TTML, FOURCC_DFXP, FOURCC_STPP};
 
 /*!
  * \brief Make a FourCC code as unsigned integer value
