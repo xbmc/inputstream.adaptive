@@ -610,6 +610,13 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     }
   }
 
+  // Parse <ContentProtection> child tags
+  if (nodeAdp.child("ContentProtection"))
+  {
+    period->SetEncryptionState(EncryptionState::ENCRYPTED);
+    ParseTagContentProtection(nodeAdp, adpSet->ProtectionSchemes());
+    period->SetSecureDecodeNeeded(ParseTagContentProtectionSecDec(nodeAdp));
+  }
 
   // Parse <Representation> child tags
   for (xml_node node : nodeAdp.children("Representation"))
@@ -622,49 +629,6 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     LOG::LogF(LOGWARNING, "Skipped AdaptationSet with id: \"%s\", has no representations.",
               adpSet->GetId().data());
     return;
-  }
-
-  // Parse <ContentProtection> child tags
-  if (nodeAdp.child("ContentProtection"))
-  {
-    if (adpSet->GetStreamType() == StreamType::SUBTITLE)
-    {
-      LOG::LogF(LOGWARNING, "Skipped AdaptationSet with id: \"%s\", encrypted subtitles not supported.",
-                adpSet->GetId().data());
-      return;
-    }
-
-    period->SetEncryptionState(EncryptionState::ENCRYPTED);
-    std::vector<uint8_t> pssh;
-    std::string kid;
-
-    // If a custom init PSSH is provided, should mean that a certain content protection tag
-    // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
-    if (m_isCustomInitPssh || ParseTagContentProtection(nodeAdp, pssh, kid))
-    {
-      period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
-      uint16_t currentPsshSetPos =
-          InsertPsshSet(adpSet->GetStreamType(), period, adpSet.get(), pssh, kid);
-
-      if (currentPsshSetPos == PSSHSET_POS_INVALID)
-      {
-        LOG::LogF(LOGWARNING, "Skipped adaptation set with id: \"%s\", due to not valid PSSH.",
-                  adpSet->GetId().data());
-        return;
-      }
-
-      period->SetSecureDecodeNeeded(ParseTagContentProtectionSecDec(nodeAdp));
-
-      if (currentPsshSetPos != PSSHSET_POS_DEFAULT)
-      {
-        // Set PSSHSet of AdaptationSet to representations when its not set
-        for (auto& rep : adpSet->GetRepresentations())
-        {
-          if (rep->m_psshSetPos == PSSHSET_POS_DEFAULT)
-            rep->m_psshSetPos = currentPsshSetPos;
-        }
-      }
-    }
   }
 
   // Copy codecs in the adaptation set to make MergeAdpSets more effective
@@ -967,24 +931,22 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     repr->SetSegmentList(segList);
   }
 
-  // Parse <ContentProtection> tags
+  // Parse <ContentProtection> child tags
   if (nodeRepr.child("ContentProtection"))
   {
-    if (adpSet->GetStreamType() == StreamType::SUBTITLE)
-    {
-      LOG::LogF(LOGWARNING,
-                "Skipped Representation with id: \"%s\", encrypted subtitles not supported.",
-                repr->GetId().data());
-      return;
-    }
-
     period->SetEncryptionState(EncryptionState::ENCRYPTED);
+    ParseTagContentProtection(nodeRepr, repr->ProtectionSchemes());
+  }
+
+  // Store the protection data
+  if (adpSet->HasProtectionSchemes() || repr->HasProtectionSchemes())
+  {
     std::vector<uint8_t> pssh;
     std::string kid;
-
     // If a custom init PSSH is provided, should mean that a certain content protection tag
     // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
-    if (m_isCustomInitPssh || ParseTagContentProtection(nodeRepr, pssh, kid))
+    if (m_isCustomInitPssh ||
+        GetProtectionData(adpSet->ProtectionSchemes(), repr->ProtectionSchemes(), pssh, kid))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
 
@@ -1295,89 +1257,103 @@ void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemp
     segTpl->SetInitialization(initialization);
 }
 
-bool adaptive::CDashTree::ParseTagContentProtection(pugi::xml_node nodeParent,
-                                                    std::vector<uint8_t>& pssh,
-                                                    std::string& kid)
+void adaptive::CDashTree::ParseTagContentProtection(
+    pugi::xml_node nodeParent, std::vector<PLAYLIST::ProtectionScheme>& protSchemes)
 {
-  std::optional<ProtectionScheme> commonProtScheme;
-  std::vector<ProtectionScheme> protectionSchemes;
   // Parse each ContentProtection tag to collect encryption schemes
   for (xml_node nodeCP : nodeParent.children("ContentProtection"))
   {
     std::string_view schemeIdUri = XML::GetAttrib(nodeCP, "schemeIdUri");
 
-    if (schemeIdUri == "urn:mpeg:dash:mp4protection:2011")
+    ProtectionScheme protScheme;
+    protScheme.idUri = schemeIdUri;
+    protScheme.value = XML::GetAttrib(nodeCP, "value");
+
+    // Get optional default KID
+    // Parse first attribute that end with "... default_KID"
+    // e.g. cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"
+    xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
+    if (attrKID)
+      protScheme.kid = attrKID.value();
+
+    // Parse child tags
+    for (xml_node node : nodeCP.children())
     {
-      ProtectionScheme protScheme;
-      protScheme.idUri = schemeIdUri;
-      protScheme.value = XML::GetAttrib(nodeCP, "value");
+      std::string childName = node.name();
 
-      // Get optional default KID
-      // Parse first attribute that end with "... default_KID"
-      // e.g. cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"
-      xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
-      if (attrKID)
-        protScheme.kid = attrKID.value();
-
-      commonProtScheme = protScheme;
-    }
-    else
-    {
-      ProtectionScheme protScheme;
-      protScheme.idUri = schemeIdUri;
-      protScheme.value = XML::GetAttrib(nodeCP, "value");
-
-      // We try find default KID also from the other protection schemes
-      xml_attribute attrKID = XML::FirstAttributeNoPrefix(nodeCP, "default_KID");
-      if (attrKID)
-        protScheme.kid = attrKID.value();
-
-      // Parse child tags
-      for (xml_node node : nodeCP.children())
+      if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:pssh> or <pssh> ...
       {
-        std::string childName = node.name();
-
-        if (StringUtils::EndsWith(childName, "pssh")) // e.g. <cenc:pssh> or <pssh> ...
-        {
-          protScheme.pssh = node.child_value();
-        }
-        else if (childName == "mspr:pro" || childName == "pro")
-        {
-          PRProtectionParser parser;
-          if (parser.ParseHeader(node.child_value()))
-            protScheme.kid = parser.GetKID();
-        }
+        protScheme.pssh = node.child_value();
       }
-      protectionSchemes.emplace_back(protScheme);
+      else if (childName == "mspr:pro" || childName == "pro")
+      {
+        PRProtectionParser parser;
+        if (parser.ParseHeader(node.child_value()))
+          protScheme.kid = parser.GetKID();
+      }
+    }
+
+    protSchemes.emplace_back(protScheme);
+  }
+}
+
+bool adaptive::CDashTree::GetProtectionData(
+    const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
+    const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
+    std::vector<uint8_t>& pssh,
+    std::string& kid)
+{
+  // Try find a protection scheme compatible for the current systemid
+  const ProtectionScheme* protSelected = nullptr;
+  const ProtectionScheme* protCommon = nullptr;
+
+  for (const ProtectionScheme& protScheme : reprProtSchemes)
+  {
+    if (STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
+    {
+      protSelected = &protScheme;
+    }
+    else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
+    {
+      protCommon = &protScheme;
     }
   }
 
-  // Try find a protection scheme compatible for the current systemid
-  auto itProtScheme = std::find_if(protectionSchemes.cbegin(), protectionSchemes.cend(),
-                                   [&](const ProtectionScheme& item) {
-                                     return STRING::CompareNoCase(item.idUri, m_supportedKeySystem);
-                                   });
+  if (!protSelected || !protCommon)
+  {
+    for (const ProtectionScheme& protScheme : adpProtSchemes)
+    {
+      if (!protSelected && STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
+      {
+        protSelected = &protScheme;
+      }
+      else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
+      {
+        protCommon = &protScheme;
+      }
+    }
+  }
 
   bool isEncrypted{false};
   std::string selectedKid;
   std::string selectedPssh;
 
-  if (itProtScheme != protectionSchemes.cend())
+  if (protSelected)
   {
     isEncrypted = true;
-    selectedKid = itProtScheme->kid;
-    selectedPssh = itProtScheme->pssh;
+    selectedKid = protSelected->kid;
+    selectedPssh = protSelected->pssh;
   }
-  if (commonProtScheme.has_value())
+  if (protCommon)
   {
     isEncrypted = true;
     if (selectedKid.empty())
-      selectedKid = commonProtScheme->kid;
+      selectedKid = protCommon->kid;
 
     // Set crypto mode
-    if (commonProtScheme->value == "cenc")
+    if (protCommon->value == "cenc")
       m_cryptoMode = CryptoMode::AES_CTR;
-    else if (commonProtScheme->value == "cbcs")
+    else if (protCommon->value == "cbcs")
       m_cryptoMode = CryptoMode::AES_CBC;
   }
 

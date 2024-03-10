@@ -20,6 +20,10 @@ namespace pugi
 {
 class xml_node;
 }
+namespace PLAYLIST
+{
+struct ProtectionScheme;
+}
 
 namespace adaptive
 {
@@ -70,9 +74,21 @@ protected:
 
   void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate* segTpl);
 
-  bool ParseTagContentProtection(pugi::xml_node nodeCP,
-                                 std::vector<uint8_t>& pssh,
-                                 std::string& kid);
+  void ParseTagContentProtection(pugi::xml_node nodeParent,
+                                 std::vector<PLAYLIST::ProtectionScheme>& protectionSchemes);
+
+  /*!
+   * \brief Get the protection data for the representation
+   * \param adpProtSchemes The protection schemes of the adaptation set relative to the representation
+   * \param reprProtSchemes The protection schemes of the representation
+   * \param pssh[OUT] The PSSH (if any) that match the supported systemid
+   * \param kid[OUT] The KID (should be provided)
+   * \return True if a protection has been found, otherwise false
+   */
+  bool GetProtectionData(const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
+                         const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
+                         std::vector<uint8_t>& pssh,
+                         std::string& kid);
 
   bool ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 
@@ -116,13 +132,5 @@ protected:
   bool m_allowInsertLiveSegments{false};
   // Determines if a custom PSSH initialization license data is provided
   bool m_isCustomInitPssh{false};
-
-  struct ProtectionScheme
-  {
-    std::string idUri;
-    std::string value;
-    std::string kid;
-    std::string pssh;
-  };
 };
 } // namespace adaptive
