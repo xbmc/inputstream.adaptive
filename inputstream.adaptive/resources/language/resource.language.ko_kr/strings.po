@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2023-03-24 11:16+0000\n"
+"PO-Revision-Date: 2024-03-12 18:57+0000\n"
 "Last-Translator: Minho Park <parkmino@gmail.com>\n"
 "Language-Team: Korean <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/ko_kr/>\n"
 "Language: ko_kr\n"
@@ -13,15 +13,15 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Weblate 4.15.2\n"
+"X-Generator: Weblate 5.4\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr "가변 스트림을 위한 InputStream 클라이언트"
+msgstr "적응형 스트림을 위한 InputStream 클라이언트"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
-msgstr "가변 스트림을 위한 InputStream 클라이언트"
+msgstr "적응형 스트림을 위한 InputStream 클라이언트입니다. MPEG-DASH, HLS 및 Microsoft Smooth Streaming과 같은 일반적인 스트리밍 프로토콜이 지원됩니다.[CR][CR]추가 기능은 Google Widevine, Microsoft PlayReady 등과 같은 DRM 보호 스트림도 지원합니다.[CR][CR ]문서를 보려면 https://github.com/xbmc/inputstream.adaptive를 방문하세요"
 
 #. Category title
 msgctxt "#30100"
