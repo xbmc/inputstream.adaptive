@@ -737,7 +737,7 @@ bool AdaptiveStream::start_stream(uint64_t startPts)
   const CSegment* next_segment =
       current_rep_->get_next_segment(current_rep_->current_segment_);
 
-  if (!next_segment)
+  if (!next_segment && current_adp_->GetStreamType() != StreamType::SUBTITLE)
   {
     //! @todo: THIS MUST BE CHANGED - !! BUG !!
     //! this will broken/stop playback on live streams when adaptive stream change stream quality (so representation)
@@ -787,11 +787,14 @@ bool AdaptiveStream::start_stream(uint64_t startPts)
     return false;
   }
 
-  currentPTSOffset_ =
-      (next_segment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
-  absolutePTSOffset_ =
-      (current_rep_->SegmentTimeline().Get(0)->startPTS_ * current_rep_->timescale_ext_) /
-      current_rep_->timescale_int_;
+  if (next_segment)
+  {
+    currentPTSOffset_ =
+        (next_segment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+    absolutePTSOffset_ =
+        (current_rep_->SegmentTimeline().Get(0)->startPTS_ * current_rep_->timescale_ext_) /
+        current_rep_->timescale_int_;
+  }
 
   if (state_ == RUNNING)
   {
