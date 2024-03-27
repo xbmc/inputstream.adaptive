@@ -33,7 +33,7 @@
     <summary lang="hr_HR">InputStream klijent za prilagodljiva strujanja</summary>
     <summary lang="hu_HU">InputStream kliens az adaptív streamekhez</summary>
     <summary lang="it_IT">Client InputStream per flussi adattivi</summary>
-    <summary lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</summary>
+    <summary lang="ko_KR">적응형 스트림을 위한 InputStream 클라이언트</summary>
     <summary lang="lv_LV">InputStream klients adaptīvām straumēm</summary>
     <summary lang="nl_NL">InputStream client voor adaptive streams</summary>
     <summary lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</summary>
@@ -52,7 +52,7 @@
     <description lang="hr_HR">InputStream klijent za prilagodljiva strujanja</description>
     <description lang="hu_HU">InputStream kliens az adaptív streamekhez</description>
     <description lang="it_IT">Client InputStream per flussi adattivi. Sono supportati protocolli di streaming comuni come MPEG-DASH, HLS e Microsoft Smooth Streaming.[CR][CR]L&apos;add-on supporta anche flussi protetti da DRM, come Google Widevine, Microsoft PlayReady e altri.[CR][CR] ]Per la documentazione visita: https://github.com/xbmc/inputstream.adaptive</description>
-    <description lang="ko_KR">가변 스트림을 위한 InputStream 클라이언트</description>
+    <description lang="ko_KR">적응형 스트림을 위한 InputStream 클라이언트입니다. MPEG-DASH, HLS 및 Microsoft Smooth Streaming과 같은 일반적인 스트리밍 프로토콜이 지원됩니다.[CR][CR]추가 기능은 Google Widevine, Microsoft PlayReady 등과 같은 DRM 보호 스트림도 지원합니다.[CR][CR ]문서를 보려면 https://github.com/xbmc/inputstream.adaptive를 방문하세요</description>
     <description lang="lv_LV">InputStream klients adaptīvām straumēm</description>
     <description lang="pl_PL">Klient InputStream dla strumieni adaptacyjnych</description>
     <description lang="ru_RU">Клиент InputStream для адаптивных потоков. Поддерживаются такие распространенные потоковые протоколы, как MPEG-DASH, HLS и Microsoft Smooth Streaming.[CR][CR]Дополнение также поддерживает потоки, защищенные DRM, такие как Google Widevine, Microsoft PlayReady и другие.[CR][CR]Для получения документации посетите: https://github.com/xbmc/inputstream.adaptive</description>
