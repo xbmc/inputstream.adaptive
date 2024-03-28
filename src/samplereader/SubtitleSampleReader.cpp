@@ -180,7 +180,7 @@ AP4_Result CSubtitleSampleReader::ReadSample()
       LOG::LogF(LOGERROR, "Failed to get segment data from subtitle stream");
     }
   }
-  else if (m_adStream->getRepresentation()->IsWaitForSegment())
+  else if (m_adStream && m_adStream->getRepresentation()->IsWaitForSegment())
   {
     // Wait for manifest live update to get next segment
     return AP4_SUCCESS;
