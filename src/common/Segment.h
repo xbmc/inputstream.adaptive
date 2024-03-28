@@ -35,11 +35,12 @@ public:
   // Byte range end
   uint64_t range_end_ = NO_VALUE;
   std::string url;
-  uint64_t startPTS_ = NO_PTS_VALUE;
-  uint64_t m_duration = 0; // If available gives the media duration of a segment (depends on type of stream e.g. HLS)
+
+  uint64_t startPTS_ = NO_PTS_VALUE; // The start PTS, in timescale units
+  uint64_t m_endPts = NO_PTS_VALUE; // The end PTS, in timescale units
   uint16_t pssh_set_ = PSSHSET_POS_DEFAULT;
 
-  uint64_t m_time{0}; // The start time, in timescale units
+  uint64_t m_time{0}; // Timestamp
   uint64_t m_number{0};
 
   /*!

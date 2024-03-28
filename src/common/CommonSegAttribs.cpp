@@ -31,3 +31,10 @@ bool PLAYLIST::CCommonSegAttribs::HasSegmentEndNr()
   return m_segEndNr.has_value() ||
          (m_parentCommonSegAttribs && m_parentCommonSegAttribs->HasSegmentEndNr());
 }
+
+uint64_t PLAYLIST::CCommonSegAttribs::GetStartPTS() const
+{
+  if (m_startPts > 0 || !m_parentCommonSegAttribs)
+    return m_startPts;
+  return m_parentCommonSegAttribs->GetStartPTS();
+}

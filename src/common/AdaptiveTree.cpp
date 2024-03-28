@@ -175,6 +175,36 @@ namespace adaptive
       m_updThread.Initialize(this);
   }
 
+  bool AdaptiveTree::IsLastSegment(const PLAYLIST::CPeriod* segPeriod,
+                                   const PLAYLIST::CRepresentation* segRep,
+                                   const PLAYLIST::CSegment* segment) const
+  {
+    if (!segment || !segPeriod || !segRep)
+      return false;
+
+    if (IsLive())
+    {
+      if (segPeriod->GetDuration() > 0 && segPeriod->GetStart() != NO_VALUE)
+      {
+        const uint64_t pDurMs = segPeriod->GetDuration() * 1000 / segPeriod->GetTimescale();
+        const uint64_t pEndPtsMs = segPeriod->GetStart() + pDurMs;
+
+        const uint64_t segEndPtsMs = segment->m_endPts * 1000 / segRep->GetTimescale();
+
+        LOG::LogF(LOGDEBUG, "Check for last segment (period end PTS: %llu, segment end PTS: %llu)",
+                  pEndPtsMs, segEndPtsMs);
+
+        return segEndPtsMs >= pEndPtsMs;
+      }
+    }
+    else
+    {
+      const CSegment* lastSeg = segRep->SegmentTimeline().GetBack();
+      return segment == lastSeg;
+    }
+    return false;
+  }
+
   void AdaptiveTree::SaveManifest(const std::string& fileNameSuffix,
                                   const std::string& data,
                                   std::string_view info)

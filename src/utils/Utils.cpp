@@ -15,7 +15,6 @@
 #include <algorithm> // any_of
 #include <chrono>
 #include <cstring>
-#include <ctime>
 #include <stdio.h>
 
 using namespace UTILS;
@@ -329,9 +328,16 @@ void UTILS::ParseHeaderString(std::map<std::string, std::string>& headerMap,
 
 uint64_t UTILS::GetTimestamp()
 {
-  std::chrono::seconds unix_timestamp = std::chrono::seconds(std::time(NULL));
-  using dCast = std::chrono::duration<std::uint64_t>;
-  return std::chrono::duration_cast<dCast>(std::chrono::milliseconds(unix_timestamp)).count();
+  auto currentTime = std::chrono::system_clock::now();
+  auto epochTime = currentTime.time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::seconds>(epochTime).count();
+}
+
+uint64_t UTILS::GetTimestampMs()
+{
+  auto currentTime = std::chrono::system_clock::now();
+  auto epochTime = currentTime.time_since_epoch();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(epochTime).count();
 }
 
 std::vector<uint8_t> UTILS::ZeroPadding(const std::vector<uint8_t>& data, const size_t padSize)

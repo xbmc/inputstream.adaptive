@@ -120,7 +120,7 @@ private:
 
   virtual CDashTree* Clone() const override { return new DASHTestTree{*this}; }
 
-  uint64_t m_mockTime = 10000000L;
+  uint64_t m_mockTime = 10000000000;
   std::chrono::system_clock::time_point m_mock_time_chrono = std::chrono::system_clock::now();
 
   std::string m_manifestUpdUrl; // Temporarily stores the url where to request the manifest update

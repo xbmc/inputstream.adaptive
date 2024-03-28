@@ -44,9 +44,7 @@ public:
                     const std::map<std::string, std::string>& headers,
                     const std::string& data) override;
 
-  virtual void PostOpen() override;
-
-  virtual void InsertLiveSegment(PLAYLIST::CPeriod* period,
+  virtual bool InsertLiveSegment(PLAYLIST::CPeriod* period,
                                  PLAYLIST::CAdaptationSet* adpSet,
                                  PLAYLIST::CRepresentation* repr,
                                  size_t pos,
@@ -66,13 +64,10 @@ protected:
                               PLAYLIST::CAdaptationSet* adpSet,
                               PLAYLIST::CPeriod* period);
 
-  uint64_t ParseTagSegmentTimeline(pugi::xml_node parentNode,
-                                   PLAYLIST::CSpinCache<uint32_t>& SCTimeline);
-  uint64_t ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
-                                   PLAYLIST::CSpinCache<PLAYLIST::CSegment>& SCTimeline,
-                                   PLAYLIST::CSegmentTemplate& segTemplate);
+  void ParseTagSegmentTimeline(pugi::xml_node parentNode,
+                               PLAYLIST::CSpinCache<uint32_t>& SCTimeline);
 
-  void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate* segTpl);
+  void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate& segTpl);
 
   void ParseTagContentProtection(pugi::xml_node nodeParent,
                                  std::vector<PLAYLIST::ProtectionScheme>& protectionSchemes);
@@ -111,11 +106,9 @@ protected:
   virtual void RefreshLiveSegments() override;
 
   /*
-   * \brief Get the current timestamp, overridable method for test project
+   * \brief Get the current timestamp in ms, overridable method for test project
    */
   virtual uint64_t GetTimestamp();
-
-  uint64_t m_firstStartNumber{0};
 
   // The lower start number of segments
   uint64_t m_segmentsLowerStartNumber{0};
@@ -125,12 +118,14 @@ protected:
   // Period sequence incremented to every new period added
   uint32_t m_periodCurrentSeq{0};
 
-  double m_timeShiftBufferDepth{0}; // MPD Timeshift buffer attribute value, in seconds
-  double m_mediaPresDuration{0}; // MPD Media presentation duration attribute value, in seconds (may be not provided)
+  uint64_t m_timeShiftBufferDepth{0}; // MPD Timeshift buffer attribute value, in ms
+  uint64_t m_mediaPresDuration{0}; // MPD Media presentation duration attribute value, in ms (may be not provided)
 
   uint64_t m_minimumUpdatePeriod{0}; // in seconds
-  bool m_allowInsertLiveSegments{false};
+
   // Determines if a custom PSSH initialization license data is provided
   bool m_isCustomInitPssh{false};
+
+  bool m_isMpdUpdate = false;
 };
 } // namespace adaptive

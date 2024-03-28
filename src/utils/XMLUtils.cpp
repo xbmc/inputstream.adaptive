@@ -21,11 +21,13 @@ using namespace UTILS::XML;
 using namespace kodi::tools;
 using namespace pugi;
 
-uint64_t UTILS::XML::ParseDate(std::string_view timeStr,
-                               uint64_t fallback /* = std::numeric_limits<uint64_t>::max() */)
+double UTILS::XML::ParseDate(std::string_view timeStr,
+                             double fallback /* = std::numeric_limits<double>::max() */)
 {
   int year, mon, day, hour, minu, sec;
-  if (std::sscanf(timeStr.data(), "%d-%d-%dT%d:%d:%d", &year, &mon, &day, &hour, &minu, &sec) == 6)
+  int msec{0};
+  if (std::sscanf(timeStr.data(), "%d-%d-%dT%d:%d:%d.%dZ", &year, &mon, &day, &hour, &minu, &sec,
+                  &msec) >= 6)
   {
     tm tmd{0};
     tmd.tm_year = year - 1900;
@@ -34,7 +36,7 @@ uint64_t UTILS::XML::ParseDate(std::string_view timeStr,
     tmd.tm_hour = hour;
     tmd.tm_min = minu;
     tmd.tm_sec = sec;
-    return static_cast<uint64_t>(_mkgmtime(&tmd));
+    return static_cast<double>(_mkgmtime(&tmd)) + msec / 1000.0;
   }
   return fallback;
 }

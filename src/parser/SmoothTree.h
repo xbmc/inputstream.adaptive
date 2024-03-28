@@ -34,7 +34,7 @@ public:
 
   virtual CSmoothTree* Clone() const override { return new CSmoothTree{*this}; }
 
-  virtual void InsertLiveSegment(PLAYLIST::CPeriod* period,
+  virtual bool InsertLiveSegment(PLAYLIST::CPeriod* period,
                                  PLAYLIST::CAdaptationSet* adpSet,
                                  PLAYLIST::CRepresentation* repr,
                                  size_t pos,

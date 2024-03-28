@@ -53,12 +53,9 @@ public:
   uint64_t GetStart() const { return m_start; }
 
   /*!
-   * \brief Set the start time, in ms.
+   * \brief Set the start time in ms, or NO_VALUE for not set.
    */
   void SetStart(uint64_t start) { m_start = start; }
-
-  uint64_t GetStartPTS() const { return m_startPts; }
-  void SetStartPTS(uint64_t startPts) { m_startPts = startPts; }
 
   /*!
    * \brief Get the duration, in timescale units.
@@ -143,7 +140,6 @@ protected:
   uint32_t m_timescale{1000};
   uint32_t m_sequence{0};
   uint64_t m_start{NO_VALUE};
-  uint64_t m_startPts{0};
   uint64_t m_duration{0};
   EncryptionState m_encryptionState{EncryptionState::UNENCRYPTED};
   bool m_isSecureDecoderNeeded{false};

@@ -68,9 +68,9 @@ public:
   std::string base_url_;
   
   std::optional<uint32_t> initial_sequence_; // HLS only
-  uint64_t m_totalTimeSecs{0}; // Total playing time in seconds (can include all periods/chapters or timeshift)
-  uint64_t stream_start_{0};
-  uint64_t available_time_{0};
+  uint64_t m_totalTime{0}; // Total playing time in ms (can include all periods/chapters or timeshift)
+  uint64_t stream_start_{0}; // in ms
+  uint64_t available_time_{0}; // in ms
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
 
   std::string m_supportedKeySystem;
@@ -121,7 +121,8 @@ public:
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
                                      PLAYLIST::CRepresentation* rep,
-                                     bool& isDrmChanged)
+                                     bool& isDrmChanged,
+                                     uint64_t currentSegNumber)
   {
     return false;
   }
@@ -161,7 +162,7 @@ public:
    * \param fragmentDuration Fragment duration
    * \param movieTimescale Fragment movie timescale
    */
-  virtual void InsertLiveSegment(PLAYLIST::CPeriod* period,
+  virtual bool InsertLiveSegment(PLAYLIST::CPeriod* period,
                                  PLAYLIST::CAdaptationSet* adpSet,
                                  PLAYLIST::CRepresentation* repr,
                                  size_t pos,
@@ -169,6 +170,7 @@ public:
                                  uint64_t fragmentDuration,
                                  uint32_t movieTimescale)
   {
+    return false;
   }
 
   // Insert a PSSHSet to the specified Period and return the position
@@ -284,6 +286,17 @@ public:
    * \return True if relative to sample time, otherwise false.
    */
   bool IsTTMLTimeRelative() const { return m_isTTMLTimeRelative; }
+
+  /*!
+   * \brief Check if specified segment is the last of current period.
+   * \param segPeriod The period relative to the segment
+   * \param segRep The representation relative to the segment
+   * \param segment The segment.
+   * \return True if it is the last segment, otherwise false.
+   */
+  bool IsLastSegment(const PLAYLIST::CPeriod* segPeriod,
+                     const PLAYLIST::CRepresentation* segRep,
+                     const PLAYLIST::CSegment* segment) const;
 
 protected:
   /*!

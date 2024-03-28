@@ -58,9 +58,6 @@ public:
   uint64_t GetStartNumber() const { return m_startNumber; }
   void SetStartNumber(uint64_t startNumber) { m_startNumber = startNumber; }
 
-  uint64_t GetStartPTS() const { return m_startPts; }
-  void SetStartPTS(uint64_t startPts) { m_startPts = startPts; }
-
   void AddCodecs(std::string_view codecs);
   const std::set<std::string>& GetCodecs() { return m_codecs; }
 
@@ -170,7 +167,6 @@ protected:
   std::string m_group;
   std::string m_baseUrl;
   uint64_t m_startNumber{1};
-  uint64_t m_startPts{0};
   uint64_t m_duration{0};
 
   std::set<std::string> m_codecs;

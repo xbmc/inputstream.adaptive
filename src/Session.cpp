@@ -925,7 +925,7 @@ void CSession::PrepareStream(CStream* stream)
   bool isDrmChanged{false};
   if (m_adaptiveTree->PrepareRepresentation(stream->m_adStream.getPeriod(),
                                             stream->m_adStream.getAdaptationSet(), repr,
-                                            isDrmChanged))
+                                            isDrmChanged, SEGMENT_NO_NUMBER))
   {
     if (isDrmChanged)
       InitializeDRM();
@@ -1056,7 +1056,7 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
         {
           if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
           {
-            if (stream->m_adStream.waitingForSegment(true))
+            if (stream->m_adStream.waitingForSegment())
             {
               waiting = stream.get();
             }
@@ -1076,12 +1076,6 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
   }
   else if (res)
   {
-    if (res->m_hasSegmentChanged)
-    {
-      OnSegmentChangedRead(res);
-      res->m_hasSegmentChanged = false;
-    }
-
     ISampleReader* sr{res->GetReader()};
 
     if (sr->PTS() != STREAM_NOPTS_VALUE)
@@ -1242,7 +1236,6 @@ void CSession::OnSegmentChanged(adaptive::AdaptiveStream* adStream)
       else
         streamReader->SetPTSOffset(stream->m_adStream.GetCurrentPTSOffset());
 
-      stream->m_hasSegmentChanged = true;
       break;
     }
   }
@@ -1256,24 +1249,6 @@ void CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
     {
       UpdateStream(*stream);
       m_changed = true;
-    }
-  }
-}
-
-void CSession::OnSegmentChangedRead(CStream* stream)
-{
-  if (m_adaptiveTree->IsLive())
-  {
-    ISampleReader* sr = stream->GetReader();
-    uint64_t duration;
-
-    if (sr->GetFragmentInfo(duration))
-    {
-      adaptive::AdaptiveStream& adStream = stream->m_adStream;
-
-      m_adaptiveTree->InsertLiveSegment(adStream.getPeriod(), adStream.getAdaptationSet(),
-                                        adStream.getRepresentation(), adStream.getSegmentPos(),
-                                        0, duration, sr->GetTimeScale());
     }
   }
 }

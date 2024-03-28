@@ -193,7 +193,7 @@ TEST_F(DASHTreeAdaptiveStreamTest, CalculateBaseURLWithNoSlashOutsidePeriod)
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[0], "https://foo.bar/mpd/V300/init.mp4");
-  EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/mpd/V300/4999851.m4s");
+  EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/mpd/V300/4999850.m4s");
 }
 
 TEST_F(DASHTreeAdaptiveStreamTest, CalculateSegTplWithNoSlashes)
@@ -279,28 +279,26 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
 {
-  tree->SetNowTime(1617223929L);
+  tree->SetNowTime(1617223929000);
 
   OpenTestFile("mpd/segtpl_pto.mpd");
 
   auto& segments = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
-  EXPECT_EQ(segments.GetSize(), 450);
-  EXPECT_EQ(segments.Get(0)->m_number, 404305525);
-  EXPECT_EQ(segments.Get(449)->m_number, 404305974);
+  EXPECT_EQ(segments.GetSize(), 1);
+  EXPECT_EQ(segments.Get(0)->m_number, 404305524);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
 {
-  tree->SetNowTime(1617229334L);
+  tree->SetNowTime(1617229334000);
 
   OpenTestFile("mpd/segtpl_old_publish_time.mpd");
 
   auto& segments = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
-  EXPECT_EQ(segments.GetSize(), 30);
-  EXPECT_EQ(segments.Get(0)->m_number, 603272);
-  EXPECT_EQ(segments.Get(29)->m_number, 603301);
+  EXPECT_EQ(segments.GetSize(), 1);
+  EXPECT_EQ(segments.Get(0)->m_number, 603271);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
@@ -389,16 +387,6 @@ TEST_F(DASHTreeTest, isLiveManifestOnVODSegmentTimeline)
 {
   OpenTestFile("mpd/segtimeline_vod.mpd");
   EXPECT_EQ(tree->IsLive(), false);
-}
-
-TEST_F(DASHTreeTest, updateParameterLiveSegmentStartNumber)
-{
-  OpenTestFile("mpd/segtimeline_live_pd.mpd", "https://foo.bar/dash.mpd?foo=bar&baz=qux", {},
-               "?start_seq=$START_NUMBER$");
-
-  // The manifest file is not specified because we need only to check the url
-  std::string manifestUpdUrl = tree->RunManifestUpdate("");
-  EXPECT_EQ(manifestUpdUrl, "https://foo.bar/dash.mpd?start_seq=487063");
 }
 
 TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
@@ -535,13 +523,13 @@ TEST_F(DASHTreeAdaptiveStreamTest, CalculateRedirectSegTpl)
   ReadSegments(testStream, 16, 5);
 
   EXPECT_EQ(testHelper::downloadList[0], "https://foo.bar/mpd/V300/init.mp4");
-  EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/mpd/V300/4999851.m4s");
+  EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/mpd/V300/4999850.m4s");
 
   SetTestStream(NewStream(adpSets[1].get()));
   testStream->start_stream();
   ReadSegments(testStream, 16, 5);
   EXPECT_EQ(testHelper::downloadList[0], "https://foo.bar/A48/init.mp4");
-  EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/A48/4999851.m4s");
+  EXPECT_EQ(testHelper::downloadList[1], "https://foo.bar/A48/4999850.m4s");
 }
 
 TEST_F(DASHTreeAdaptiveStreamTest, CalculateReprensentationBaseURL)
@@ -611,14 +599,24 @@ TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
 {
   OpenTestFile("mpd/bad_segtimeline_1.mpd", "https://foo.bar/placeholders.mpd");
 
+  auto& repr = tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0];
+  // Set the last segment to the current segment to simulate reaching the last segment
+  repr->current_segment_ = &repr->SegmentTimeline().GetData().back();
+
+  EXPECT_EQ(repr->current_segment_->startPTS_, 95687379264);
+  EXPECT_EQ(repr->getCurrentSegmentPos(), 4);
+
   tree->RunManifestUpdate("mpd/bad_segtimeline_2.mpd");
-  EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 3);
+  EXPECT_EQ(repr->current_segment_->startPTS_, 95687381280);
+  EXPECT_EQ(repr->getCurrentSegmentPos(), 2);
 
   tree->RunManifestUpdate("mpd/bad_segtimeline_3.mpd");
-  EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 4);
+  EXPECT_EQ(repr->current_segment_->startPTS_, 95687382336);
+  EXPECT_EQ(repr->getCurrentSegmentPos(), 1);
 
   tree->RunManifestUpdate("mpd/bad_segtimeline_4.mpd");
-  EXPECT_EQ(tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetStartNumber(), 5);
+  EXPECT_EQ(repr->current_segment_->startPTS_, 95687382337);
+  EXPECT_EQ(repr->getCurrentSegmentPos(), 0);
 }
 
 TEST_F(DASHTreeTest, AdaptionSetSwitching)
@@ -683,12 +681,12 @@ TEST_F(DASHTreeTest, SegmentTemplateStartNumber)
   auto& rep1Timeline = adpSets[0]->GetRepresentations()[0]->SegmentTimeline();
   EXPECT_EQ(rep1Timeline.GetSize(), 144);
 
-  EXPECT_EQ(rep1Timeline.Get(0)->m_time, 0);
+  EXPECT_EQ(rep1Timeline.Get(0)->startPTS_, 0);
   EXPECT_EQ(rep1Timeline.Get(0)->m_number, 0);
 
-  EXPECT_EQ(rep1Timeline.Get(1)->m_time, 48000);
+  EXPECT_EQ(rep1Timeline.Get(1)->startPTS_, 48000);
   EXPECT_EQ(rep1Timeline.Get(1)->m_number, 1);
 
-  EXPECT_EQ(rep1Timeline.Get(143)->m_time, 6864000);
+  EXPECT_EQ(rep1Timeline.Get(143)->startPTS_, 6864000);
   EXPECT_EQ(rep1Timeline.Get(143)->m_number, 143);
 }

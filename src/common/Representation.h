@@ -230,6 +230,30 @@ public:
     return m_segmentTimeline.IsEmpty() ? 0 : m_segmentTimeline.GetPosition(segment);
   }
 
+  CSegment* GetSegmentByPts(const uint64_t startPts)
+  {
+    for (CSegment& segment : m_segmentTimeline.GetData())
+    {
+      // Search by >= is intended to allow minimizing problems with encoders
+      // that provide inconsistent timestamps between manifest updates
+      if (segment.startPTS_ >= startPts)
+        return &segment;
+    }
+    return nullptr;
+  }
+
+  CSegment* GetNextSegment(const CSegment& segment)
+  {
+    const uint64_t segStartPTS = segment.startPTS_;
+
+    for (CSegment& segment : m_segmentTimeline.GetData())
+    {
+      if (segment.startPTS_ > segStartPTS)
+        return &segment;
+    }
+    return nullptr;
+  }
+
   /*!
    * \brief Get the position of current segment.
    * \return If found the position, otherwise SEGMENT_NO_POS.
@@ -277,9 +301,6 @@ public:
   void SetScaling();
 
   std::chrono::time_point<std::chrono::system_clock> repLastUpdated_;
-
-  //! @todo: appears to be stored for convenience, a refactor could remove it
-  uint64_t nextPts_{0};
 
   //! @todo: to be reworked or deleted
   uint32_t assured_buffer_duration_{0};
