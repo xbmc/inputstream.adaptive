@@ -129,20 +129,6 @@ bool adaptive::CDashTree::Open(std::string_view url,
   return true;
 }
 
-void adaptive::CDashTree::PostOpen()
-{
-  AdaptiveTree::PostOpen();
-
-  // If live delay is lower than the manifest update period
-  // there are not enough segments to ensure playback, so allow insert live segments.
-  if (m_isLive && m_liveDelay <= m_minimumUpdatePeriod)
-    //! @todo: to investigate, its possible that the appropriate way is not enable
-    //! m_allowInsertLiveSegments right here, but add a more check to AdaptiveStream::ensureSegment
-    //! where when there are no more segments we try force request a manifest update,
-    //! and so if the manifest update dont provide new segments allow insert live segments.
-    m_allowInsertLiveSegments = true;
-}
-
 bool adaptive::CDashTree::ParseManifest(const std::string& data)
 {
   xml_document doc;
@@ -207,8 +193,8 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
   // - If "duration" attribute is missing, but "start" attribute, use this last one to calculate the duration
   // - If both attributes are missing, try get the duration from a representation
 
-  uint64_t totalDuration{0}; // Calculated duration, in seconds
-  double mpdTotalDuration = m_mediaPresDuration; // MPD total duration, in seconds
+  uint64_t totalDuration{0}; // Calculated duration, in ms
+  uint64_t mpdTotalDuration = m_mediaPresDuration; // MPD total duration, in ms
   if (mpdTotalDuration == 0)
     mpdTotalDuration = m_timeShiftBufferDepth;
 
@@ -226,22 +212,25 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
     auto nextPeriod = itPeriod + 1;
     if (nextPeriod == m_periods.end()) // Next period, not found
     {
-      if (period->GetStart() != NO_VALUE && mpdTotalDuration > 0)
+      if (!IsLive())
       {
-        period->SetDuration(static_cast<uint64_t>((mpdTotalDuration * 1000 - period->GetStart()) *
-                                                  period->GetTimescale() / 1000));
-      }
-      else // Try get duration / timescale from a representation
-      {
-        CAdaptationSet* adp = CAdaptationSet::FindByFirstAVStream(period->GetAdaptationSets());
-        if (adp)
+        if (period->GetStart() != NO_VALUE && mpdTotalDuration > 0)
         {
-          auto& rep = adp->GetRepresentations()[0];
-          if (rep->GetDuration() > 0)
+          uint64_t durMs = mpdTotalDuration - period->GetStart();
+          period->SetDuration(durMs * period->GetTimescale() / 1000);
+        }
+        else // Try get duration / timescale from a representation
+        {
+          CAdaptationSet* adp = CAdaptationSet::FindByFirstAVStream(period->GetAdaptationSets());
+          if (adp)
           {
-            period->SetDuration(rep->GetDuration());
-            period->SetTimescale(rep->GetTimescale());
-            totalDuration += rep->GetDuration() / rep->GetTimescale();
+            auto& rep = adp->GetRepresentations()[0];
+            if (rep->GetDuration() > 0)
+            {
+              uint64_t durMs = rep->GetDuration() * 1000 / rep->GetTimescale();
+              period->SetDuration(durMs * period->GetTimescale() / 1000);
+              totalDuration += durMs;
+            }
           }
         }
       }
@@ -250,8 +239,8 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
     {
       if (period->GetStart() != NO_VALUE && (*nextPeriod)->GetStart() != NO_VALUE)
       {
-        period->SetDuration(static_cast<uint64_t>((*nextPeriod)->GetStart() - period->GetStart()) *
-                            period->GetTimescale() / 1000);
+        uint64_t durMs = (*nextPeriod)->GetStart() - period->GetStart();
+        period->SetDuration(durMs * period->GetTimescale() / 1000);
       }
       else // Try get duration / timescale from a representation
       {
@@ -261,9 +250,9 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
           auto& rep = adp->GetRepresentations()[0];
           if (rep->GetDuration() > 0)
           {
-            period->SetDuration(rep->GetDuration());
-            period->SetTimescale(rep->GetTimescale());
-            totalDuration += rep->GetDuration() / rep->GetTimescale();
+            uint64_t durMs = rep->GetDuration() * 1000 / rep->GetTimescale();
+            period->SetDuration(durMs * period->GetTimescale() / 1000);
+            totalDuration += durMs;
           }
         }
       }
@@ -273,27 +262,28 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
   }
 
   if (mpdTotalDuration > 0)
-    m_totalTimeSecs = static_cast<uint64_t>(mpdTotalDuration);
+    m_totalTime = mpdTotalDuration;
   else
-    m_totalTimeSecs = totalDuration;
+    m_totalTime = totalDuration;
 
   return true;
 }
 
 void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
 {
-  m_mediaPresDuration =
-      XML::ParseDuration(XML::GetAttrib(nodeMPD, "mediaPresentationDuration"));
+  std::string mediaPresDuration;
+  if (XML::QueryAttrib(nodeMPD, "mediaPresentationDuration", mediaPresDuration))
+    m_mediaPresDuration = static_cast<uint64_t>(XML::ParseDuration(mediaPresDuration) * 1000);
 
   m_isLive = XML::GetAttrib(nodeMPD, "type") == "dynamic";
 
   std::string timeShiftBufferDepthStr;
   if (XML::QueryAttrib(nodeMPD, "timeShiftBufferDepth", timeShiftBufferDepthStr))
-    m_timeShiftBufferDepth = XML::ParseDuration(timeShiftBufferDepthStr);
+    m_timeShiftBufferDepth = static_cast<uint64_t>(XML::ParseDuration(timeShiftBufferDepthStr) * 1000);
 
   std::string availabilityStartTimeStr;
   if (XML::QueryAttrib(nodeMPD, "availabilityStartTime", availabilityStartTimeStr))
-    available_time_ = XML::ParseDate(availabilityStartTimeStr);
+    available_time_ = static_cast<uint64_t>(XML::ParseDate(availabilityStartTimeStr) * 1000);
 
   std::string suggestedPresentationDelayStr;
   if (XML::QueryAttrib(nodeMPD, "suggestedPresentationDelay", suggestedPresentationDelayStr))
@@ -304,7 +294,6 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
   {
     double duration = XML::ParseDuration(minimumUpdatePeriodStr);
     m_minimumUpdatePeriod = static_cast<uint64_t>(duration);
-    m_allowInsertLiveSegments = m_minimumUpdatePeriod == 0;
     m_updateInterval = static_cast<uint64_t>(duration * 1000);
   }
 }
@@ -348,16 +337,7 @@ void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, std::string_
   {
     CSegmentTemplate segTemplate;
 
-    ParseSegmentTemplate(nodeSegTpl, &segTemplate);
-
-    // Parse <SegmentTimeline> child
-    xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
-    if (nodeSegTL)
-    {
-      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, period->SegmentTimelineDuration());
-
-      period->SetStartPTS(startPts);
-    }
+    ParseSegmentTemplate(nodeSegTpl, segTemplate);
 
     period->SetSegmentTemplate(segTemplate);
   }
@@ -542,18 +522,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     CSegmentTemplate segTemplate{period->GetSegmentTemplate()};
 
     if (nodeSegTpl)
-    {
-      ParseSegmentTemplate(nodeSegTpl, &segTemplate);
-
-      // Parse <SegmentTemplate> <SegmentTimeline> child
-      xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
-      if (nodeSegTL)
-      {
-        uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration());
-
-        adpSet->SetStartPTS(startPts);
-      }
-    }
+      ParseSegmentTemplate(nodeSegTpl, segTemplate);
 
     adpSet->SetSegmentTemplate(segTemplate);
   }
@@ -586,9 +555,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     xml_node nodeSegTL = nodeSeglist.child("SegmentTimeline");
     if (nodeSegTL)
     {
-      uint64_t startPts = ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration());
-
-      adpSet->SetStartPTS(startPts);
+      ParseTagSegmentTimeline(nodeSegTL, adpSet->SegmentTimelineDuration());
     }
   }
 
@@ -793,27 +760,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     CSegmentTemplate segTemplate{adpSet->GetSegmentTemplate()};
 
     if (nodeSegTpl)
-    {
-      ParseSegmentTemplate(nodeSegTpl, &segTemplate);
-
-      // Parse <SegmentTemplate> <SegmentTimeline> child
-      xml_node nodeSegTL = nodeSegTpl.child("SegmentTimeline");
-      if (nodeSegTL)
-      {
-        uint64_t startPts =
-            ParseTagSegmentTimeline(nodeSegTL, repr->SegmentTimeline(), segTemplate);
-
-        repr->nextPts_ = startPts;
-      }
-    }
-
-    if (repr->HasSegmentTimeline())
-    {
-      auto& lastSeg = repr->SegmentTimeline().GetData().back();
-      uint64_t totalDuration = lastSeg.startPTS_ + lastSeg.m_duration;
-      repr->SetDuration(totalDuration);
-      repr->SetTimescale(segTemplate.GetTimescale());
-    }
+      ParseSegmentTemplate(nodeSegTpl, segTemplate);
 
     repr->SetSegmentTemplate(segTemplate);
 
@@ -846,13 +793,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       segList.SetStartNumber(startNumber);
 
     if (segList.GetStartNumber() > 0)
-    {
       repr->SetStartNumber(segList.GetStartNumber());
-      //! @todo: SetPresTimeOffset is used with a calculation with repr->GetDuration()
-      //! that at this point of code has no value, must be fixed
-      segList.SetPresTimeOffset(segList.GetPresTimeOffset() +
-                                repr->GetStartNumber() * repr->GetDuration());
-    }
 
     // Parse <SegmentList> <Initialization> child tag
     xml_node nodeInit = nodeSeglist.child("Initialization");
@@ -871,7 +812,9 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
     // Parse <SegmentList> <SegmentURL> child tags
     size_t index{0};
-    uint64_t previousStartPts{0};
+    uint64_t segStartPts{0};
+    uint64_t segNumber = segList.GetStartNumber();
+
     // If <SegmentDurations> tag is present it could use a different timescale
     bool isTsRescale = adpSet->GetSegDurationsTimescale() != NO_VALUE &&
                        adpSet->GetSegDurationsTimescale() != segList.GetTimescale();
@@ -883,8 +826,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       std::string media;
       if (XML::QueryAttrib(node, "media", media))
         seg.url = media;
-
-      bool isTimelineEmpty = repr->SegmentTimeline().IsEmpty();
 
       uint64_t rangeStart{0};
       uint64_t rangeEnd{0};
@@ -909,23 +850,36 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       else
         duration = segList.GetDuration();
 
-      if (isTimelineEmpty)
-        seg.startPTS_ = segList.GetPresTimeOffset();
-      else
-      {
-        seg.startPTS_ = repr->nextPts_ + duration;
-        index++;
-      }
+      seg.startPTS_ = segStartPts;
+      seg.m_endPts = seg.startPTS_ + duration;
+      seg.m_time = segStartPts;
+      seg.m_number = segNumber++;
 
       repr->SegmentTimeline().GetData().push_back(seg);
-      repr->nextPts_ = seg.startPTS_;
+
+      segStartPts += duration;
+      index++;
     }
 
-    // Calculate total duration of segments
-    auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
-    uint64_t sum = std::accumulate(segTLData.begin(), segTLData.end(), 0ULL);
+    // Determines total duration of segments
+    uint64_t totalDur;
+    if (adpSet->HasSegmentTimelineDuration())
+    {
+      auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
+      totalDur = std::accumulate(segTLData.begin(), segTLData.end(), 0ULL);
+      if (isTsRescale)
+      {
+        totalDur =
+            static_cast<uint64_t>(static_cast<double>(totalDur) /
+                                  adpSet->GetSegDurationsTimescale() * segList.GetTimescale());
+      }
+    }
+    else
+    {
+      totalDur = static_cast<uint64_t>(repr->SegmentTimeline().GetSize()) * segList.GetDuration();
+    }
 
-    repr->SetDuration(sum);
+    repr->SetDuration(totalDur);
     repr->SetTimescale(segList.GetTimescale());
 
     repr->SetSegmentList(segList);
@@ -1006,7 +960,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     repr->SetIsSubtitleFileStream(true);
   }
 
-  // Generate timeline segments
+  // Generate segments from SegmentTemplate
   if (repr->HasSegmentTemplate() && !repr->HasSegmentTimeline())
   {
     auto& segTemplate = repr->GetSegmentTemplate();
@@ -1021,7 +975,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       LOG::LogF(LOGWARNING,
                 "Cannot generate segments timeline, SegmentTemplate has no timescale attribute.");
     }
-    else if (segTemplate->GetDuration() == 0 && !adpSet->HasSegmentTimelineDuration())
+    else if (segTemplate->GetDuration() == 0 && !segTemplate->HasTimeline())
     {
       // In the SegmentTemplate tag must be present the "duration" attribute or the SegmentTimeline tag
       LOG::LogF(LOGWARNING,
@@ -1029,119 +983,119 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     }
     else
     {
-      repr->SetTimescale(segTemplate->GetTimescale());
+      uint64_t segNumber = segTemplate->GetStartNumber();
+      const uint32_t segTimescale = segTemplate->GetTimescale();
+      const uint64_t periodStartMs = period->GetStart() == NO_VALUE ? 0 : period->GetStart();
+      const uint64_t periodStartScaled = periodStartMs * segTemplate->GetTimescale() / 1000;
 
-      // Set the representation duration
-      if (period->GetDuration() > 0)
-      {
-        double durationSecs = static_cast<double>(period->GetDuration()) / period->GetTimescale();
-        repr->SetDuration(static_cast<uint64_t>(durationSecs * segTemplate->GetTimescale()));
-      }
-      else if (adpSet->HasSegmentTimelineDuration())
-      {
-        // Calculate total duration of segments from timeline
-        auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
-        repr->SetDuration(std::accumulate(segTLData.begin(), segTLData.end(), 0ULL));
+      //! @todo: PTO a/v sync to be implemented on session/demuxers
+      const bool hasPTO = segTemplate->HasPresTimeOffset();
 
-      }
-      else if (m_mediaPresDuration > 0)
+      if (segTemplate->HasTimeline()) // Generate segments from template timeline
       {
-        // Note m_mediaPresDuration include the time of each period, use it may not be always correct
-        // maybe segment timeline generation code should be done after the full manifest parsing
-        // where we can determinate/calculate the duration of each period
-        repr->SetDuration(static_cast<uint64_t>(m_mediaPresDuration * segTemplate->GetTimescale()));
-      }
-      else if (m_timeShiftBufferDepth > 0)
-      {
-        repr->SetDuration(static_cast<uint64_t>(m_timeShiftBufferDepth * segTemplate->GetTimescale()));
-      }
-      else // Single segment
-      {
-        repr->SetDuration(segTemplate->GetDuration());
-      }
+        uint64_t time{0};
+        uint64_t totalDuration{0};
 
-      // Calculate total segments
-      size_t segmentsCount{0};
+        for (const auto& tlElem : segTemplate->Timeline())
+        {
+          uint32_t repeat = tlElem.repeat;
+          if (tlElem.time > 0)
+            time = tlElem.time;
 
-      if (adpSet->HasSegmentTimelineDuration())
-      {
-        segmentsCount = adpSet->SegmentTimelineDuration().GetSize();
+          do
+          {
+            CSegment seg;
+            seg.startPTS_ = time;
+            // If no PTO, the "t" value on <SegmentTimeline><S> element should be relative to period start
+            if (!hasPTO)
+              seg.startPTS_ += periodStartScaled;
+            seg.m_endPts = seg.startPTS_ + tlElem.duration;
+            seg.m_number = segNumber++;
+            seg.m_time = time;
+
+            totalDuration += tlElem.duration;
+            repr->SegmentTimeline().GetData().emplace_back(seg);
+
+            time += tlElem.duration;
+          } while (repeat-- > 0);
+        }
+
+        repr->SetTimescale(segTimescale);
+        repr->SetDuration(totalDuration);
       }
-      else
+      else // Generate segments by using template
       {
-        // If signalled use the value of the last segment number
-        if (segTemplate->HasEndNumber())
+        // Determines number of segments to be generated
+        size_t segmentsCount{0};
+
+        if (segTemplate->HasEndNumber()) // If signalled use the value of the last segment number
           segmentsCount = segTemplate->GetEndNumber();
         else if (repr->HasSegmentEndNr())
           segmentsCount = repr->GetSegmentEndNr();
         else // Calculate the number of segments
         {
-          segmentsCount = static_cast<size_t>(
-              std::ceil(static_cast<double>(repr->GetDuration()) / segTemplate->GetDuration()));
+          double segTplDurSecs =
+              static_cast<double>(segTemplate->GetDuration()) / segTemplate->GetTimescale();
+          double periodDur = static_cast<double>(period->GetDuration()) / period->GetTimescale();
+
+          if (periodDur == 0)
+            periodDur = static_cast<double>(m_mediaPresDuration) / 1000;
+          if (periodDur == 0)
+            periodDur = segTplDurSecs;
+          if (periodDur == 0)
+          {
+            LOG::LogF(LOGERROR, "Cannot determine segments count, no duration for period id \"%s\"",
+                      period->GetId().data());
+          }
+          else
+          {
+            segmentsCount = static_cast<size_t>(std::round(periodDur / segTplDurSecs));
+          }
         }
+
+        const uint32_t segDuration = segTemplate->GetDuration();
+        uint64_t time = periodStartScaled;
+
+        // Determines live edge segment (first segment to be played)
+        // it should be done only to the streams (period / repr) to initiate playback
+        // and so not on the subsequent periods nor with the MPD updates
+        if (m_isLive && !m_isMpdUpdate && m_periods.empty())
+        {
+          const uint64_t startMs =
+              stream_start_ - available_time_ - m_timeShiftBufferDepth - periodStartMs;
+          const uint64_t scaledStart = startMs * segTemplate->GetTimescale() / 1000;
+
+          segNumber += scaledStart / segDuration;
+          time += scaledStart;
+        }
+
+        for (size_t i = 0; i < segmentsCount; ++i)
+        {
+          CSegment seg;
+          seg.startPTS_ = time;
+          seg.m_endPts = seg.startPTS_ + segDuration;
+          seg.m_number = segNumber++;
+          seg.m_time = time;
+
+          repr->SegmentTimeline().GetData().emplace_back(seg);
+
+          time = seg.m_endPts;
+        }
+
+        repr->SetTimescale(segTemplate->GetTimescale());
+        repr->SetDuration(static_cast<uint64_t>(segDuration) * segmentsCount);
       }
-
-      uint64_t segStartNumber = repr->GetStartNumber();
-      //! @todo: In the following condition the "segTemplate->GetDuration() > 0"
-      //! could means "only for use cases that not provide SegmentTimeline tag"
-      //! if so should be changed with HasSegmentTimelineDuration
-      if (m_isLive && !segTemplate->HasVariableTime() && segTemplate->GetDuration() > 0)
-      {
-        uint64_t sampleTime{0};
-        if (period->GetStart() != NO_VALUE)
-          sampleTime = period->GetStart() / 1000;
-
-        int64_t reprDurationSecs = repr->GetDuration() / repr->GetTimescale();
-
-        segStartNumber += static_cast<int64_t>(stream_start_ - available_time_ - reprDurationSecs - sampleTime) *
-                              segTemplate->GetTimescale() / segTemplate->GetDuration() +
-                          1;
-      }
-
-      // Get the default segment duration
-      uint64_t segDefDuration;
-      if (adpSet->HasSegmentTimelineDuration())
-        segDefDuration = repr->GetDuration() / adpSet->SegmentTimelineDuration().GetSize();
-      else
-        segDefDuration = segTemplate->GetDuration();
-
-      CSegment seg;
-      seg.m_number = segStartNumber;
-      seg.startPTS_ = adpSet->GetStartPTS();
-      seg.m_time = adpSet->GetStartPTS();
-
-      for (size_t pos{0}; pos < segmentsCount; pos++)
-      {
-        uint32_t* tlDuration = adpSet->SegmentTimelineDuration().Get(pos);
-        uint64_t duration = tlDuration ? *tlDuration : segDefDuration;
-        seg.m_duration = duration;
-        repr->SegmentTimeline().GetData().push_back(seg);
-
-        seg.m_number += 1;
-        seg.startPTS_ += duration;
-        seg.m_time += duration;
-      }
-
-      const CSegment& lastSeg = repr->SegmentTimeline().GetData().back();
-      uint64_t totalSegsDuration = lastSeg.startPTS_ + lastSeg.m_duration;
-
-      repr->nextPts_ = totalSegsDuration;
     }
   }
-
-  // YouTube fix
-  if (repr->GetStartNumber() > m_firstStartNumber)
-    m_firstStartNumber = repr->GetStartNumber();
 
   repr->SetScaling();
 
   adpSet->AddRepresentation(repr);
 }
 
-uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
-                                                      CSpinCache<uint32_t>& SCTimeline)
+void adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
+                                                  CSpinCache<uint32_t>& SCTimeline)
 {
-  uint64_t startPts{0};
   uint64_t nextPts{0};
 
   // Parse <S> tags - e.g. <S t="3600" d="900000" r="2398"/>
@@ -1154,7 +1108,6 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
 
     if (SCTimeline.IsEmpty())
     {
-      startPts = time;
       nextPts = time;
     }
     else if (time > 0)
@@ -1173,88 +1126,67 @@ uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
       }
     }
   }
-
-  return startPts;
 }
 
-uint64_t adaptive::CDashTree::ParseTagSegmentTimeline(xml_node nodeSegTL,
-                                                      CSpinCache<CSegment>& SCTimeline,
-                                                      CSegmentTemplate& segTemplate)
-{
-  uint64_t startPts{0};
-  uint64_t startNumber = segTemplate.GetStartNumber();
-
-  // Parse <S> tags - e.g. <S t="3600" d="900000" r="2398"/>
-  uint64_t nextPts{0};
-  for (xml_node node : nodeSegTL.children("S"))
-  {
-    XML::QueryAttrib(node, "t", nextPts);
-    uint32_t duration = XML::GetAttribUint32(node, "d");
-    uint32_t repeat = XML::GetAttribUint32(node, "r");
-    repeat += 1;
-
-    CSegment seg;
-
-    if (duration > 0 && repeat > 0)
-    {
-      if (SCTimeline.IsEmpty())
-        seg.m_number = startNumber;
-      else
-        seg.m_number = SCTimeline.GetData().back().m_number + 1;
-
-      seg.m_time = nextPts;
-      seg.startPTS_ = nextPts;
-      seg.m_duration = duration;
-
-      for (; repeat > 0; --repeat)
-      {
-        SCTimeline.GetData().push_back(seg);
-        startPts = seg.startPTS_;
-
-        nextPts += duration;
-        seg.m_time = nextPts;
-        seg.m_number += 1;
-        seg.startPTS_ += duration;
-        seg.m_duration = duration;
-      }
-    }
-    else
-    {
-      LOG::LogF(LOGDEBUG, "Missing duration / time on <S> child of <SegmentTimeline> tag.");
-    }
-  }
-
-  return startPts;
-}
-
-void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemplate* segTpl)
+void adaptive::CDashTree::ParseSegmentTemplate(pugi::xml_node node, CSegmentTemplate& segTpl)
 {
   uint32_t timescale;
   if (XML::QueryAttrib(node, "timescale", timescale))
-    segTpl->SetTimescale(timescale);
+    segTpl.SetTimescale(timescale);
 
-  if (segTpl->GetTimescale() == 0)
-    segTpl->SetTimescale(1); // if not specified defaults to seconds
+  if (segTpl.GetTimescale() == 0)
+    segTpl.SetTimescale(1); // if not specified defaults to seconds
 
   uint32_t duration;
   if (XML::QueryAttrib(node, "duration", duration))
-    segTpl->SetDuration(duration);
+    segTpl.SetDuration(duration);
 
   std::string media;
   if (XML::QueryAttrib(node, "media", media))
-    segTpl->SetMedia(media);
+    segTpl.SetMedia(media);
 
   uint32_t startNumber;
   if (XML::QueryAttrib(node, "startNumber", startNumber))
-    segTpl->SetStartNumber(startNumber);
+    segTpl.SetStartNumber(startNumber);
 
   uint64_t endNumber;
   if (XML::QueryAttrib(node, "endNumber", endNumber))
-    segTpl->SetEndNumber(endNumber);
+    segTpl.SetEndNumber(endNumber);
 
   std::string initialization;
   if (XML::QueryAttrib(node, "initialization", initialization))
-    segTpl->SetInitialization(initialization);
+    segTpl.SetInitialization(initialization);
+
+  uint64_t pto;
+  if (XML::QueryAttrib(node, "presentationTimeOffset", pto))
+    segTpl.SetPresTimeOffset(pto);
+
+  // Parse <SegmentTemplate> <SegmentTimeline> child
+  xml_node nodeSegTL = node.child("SegmentTimeline");
+  if (nodeSegTL)
+  {
+    // If a parent SegmentTemplate contains a SegmentTimeline, delete it
+    segTpl.Timeline().clear();
+
+    // Parse <SegmentTemplate><SegmentTimeline>, <S> elements
+    // e.g. <S t="3600" d="900000" r="2398"/>
+    for (xml_node node : nodeSegTL.children("S"))
+    {
+      CSegmentTemplate::TimelineElement tlElem;
+
+      XML::QueryAttrib(node, "t", tlElem.time);
+      XML::QueryAttrib(node, "d", tlElem.duration);
+      XML::QueryAttrib(node, "r", tlElem.repeat);
+
+      if (tlElem.duration == 0)
+      {
+        LOG::LogF(LOGDEBUG, "Skip <SegmentTimeline> <S> element, missing duration.");
+        continue;
+      }
+
+      segTpl.Timeline().emplace_back(tlElem);
+    }
+  }
 }
 
 void adaptive::CDashTree::ParseTagContentProtection(
@@ -1546,10 +1478,8 @@ void adaptive::CDashTree::RefreshLiveSegments()
 {
   lastUpdated_ = std::chrono::system_clock::now();
 
-  size_t numReplace = SEGMENT_NO_POS;
-  uint64_t nextStartNumber = SEGMENT_NO_NUMBER;
-
   std::unique_ptr<CDashTree> updateTree{std::move(Clone())};
+  updateTree->m_isMpdUpdate = true;
 
   // Custom manifest update url parameters
   std::string manifestParams = m_manifestUpdParams;
@@ -1564,46 +1494,19 @@ void adaptive::CDashTree::RefreshLiveSegments()
   else
     manifestUrl = location_;
 
-  // YouTube needs segment start number as parameter
-  bool urlHaveStartNumber = manifestParams.find("$START_NUMBER$") != std::string::npos;
-
-  if (urlHaveStartNumber)
+  if (manifestParams.find("$START_NUMBER$") != std::string::npos)
   {
-    for (auto& period : m_periods)
-    {
-      for (auto& adpSet : period->GetAdaptationSets())
-      {
-        for (auto& repr : adpSet->GetRepresentations())
-        {
-          if (repr->GetStartNumber() + repr->SegmentTimeline().GetSize() < nextStartNumber)
-            nextStartNumber = repr->GetStartNumber() + repr->SegmentTimeline().GetSize();
-
-          size_t posReplaceable = repr->getCurrentSegmentPos();
-          if (posReplaceable == SEGMENT_NO_POS)
-            posReplaceable = repr->SegmentTimeline().GetSize();
-          else
-            posReplaceable += 1;
-
-          if (posReplaceable < numReplace)
-            numReplace = posReplaceable;
-        }
-      }
-    }
-    LOG::LogF(LOGDEBUG, "Manifest URL start number param set to: %llu (numReplace: %zu)",
-              nextStartNumber, numReplace);
-
-    STRING::ReplaceFirst(manifestParams, "$START_NUMBER$", std::to_string(nextStartNumber));
+    // This was a old custom YouTube implementation no longer used
+    LOG::LogF(LOGERROR,
+              "The $START_NUMBER$ placeholder in the manifest parameters is no longer supported.");
   }
-  else
-  {
-    // Set header data based from previous manifest request
 
-    if (!m_manifestRespHeaders["etag"].empty())
-      m_manifestHeaders["If-None-Match"] = "\"" + m_manifestRespHeaders["etag"] + "\"";
+  // Set header data based from previous manifest request
+  if (!m_manifestRespHeaders["etag"].empty())
+    m_manifestHeaders["If-None-Match"] = "\"" + m_manifestRespHeaders["etag"] + "\"";
 
-    if (!m_manifestRespHeaders["last-modified"].empty())
-      m_manifestHeaders["If-Modified-Since"] = m_manifestRespHeaders["last-modified"];
-  }
+  if (!m_manifestRespHeaders["last-modified"].empty())
+    m_manifestHeaders["If-Modified-Since"] = m_manifestRespHeaders["last-modified"];
 
   URL::AppendParameters(manifestUrl, manifestParams);
 
@@ -1618,10 +1521,6 @@ void adaptive::CDashTree::RefreshLiveSegments()
   // Update local members for the next manifest update
   m_manifestRespHeaders = resp.headers;
   location_ = updateTree->location_;
-
-  // Youtube returns last smallest number in case the requested data is not available
-  if (urlHaveStartNumber && updateTree->m_firstStartNumber < nextStartNumber)
-    return;
 
   for (size_t index{0}; index < updateTree->m_periods.size(); index++)
   {
@@ -1638,7 +1537,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
       itPeriod =
           std::find_if(m_periods.begin(), m_periods.end(),
                         [&updPeriod](const std::unique_ptr<CPeriod>& item)
-                        { return item->GetStart() && item->GetStart() == updPeriod->GetStart(); });
+                        { return item->GetStart() != NO_VALUE && item->GetStart() == updPeriod->GetStart(); });
     }
 
     CPeriod* period{nullptr};
@@ -1646,8 +1545,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
     if (itPeriod != m_periods.end())
       period = (*itPeriod).get();
 
-    if (!period && updPeriod->GetId().empty() &&
-        (updPeriod->GetStart() == 0 || updPeriod->GetStart() == NO_VALUE))
+    if (!period && updPeriod->GetId().empty() && (updPeriod->GetStart() == NO_VALUE))
     {
       // not found, fallback match based on position
       if (index < m_periods.size())
@@ -1663,6 +1561,11 @@ void adaptive::CDashTree::RefreshLiveSegments()
       updPeriod->SetSequence(m_periodCurrentSeq++);
       m_periods.push_back(std::move(updPeriod));
       continue;
+    }
+    else // Update period data that may be added or changed
+    {
+      if (updPeriod->GetDuration() > 0)
+        period->SetDuration(updPeriod->GetDuration());
     }
 
     for (auto& updAdpSet : updPeriod->GetAdaptationSets())
@@ -1703,190 +1606,83 @@ void adaptive::CDashTree::RefreshLiveSegments()
 
             if (!repr->SegmentTimeline().IsEmpty())
             {
-              if (urlHaveStartNumber) // Partitial update
+              if (!repr->current_segment_) // Representation that should not be used for playback
               {
-                auto& updReprSegTL = updRepr->SegmentTimeline();
-
-                // Insert new segments
-                uint64_t ptsOffset = repr->nextPts_ - updReprSegTL.Get(0)->startPTS_;
-                size_t currentPos = repr->getCurrentSegmentPos();
-                size_t repFreeSegments{numReplace};
-
-                auto updSegmentIt(updReprSegTL.GetData().begin());
-                for (; updSegmentIt != updReprSegTL.GetData().end() && repFreeSegments != 0;
-                     updSegmentIt++)
-                {
-                  LOG::LogF(LOGDEBUG, "Insert representation (id: %s url: %s)",
-                            updRepr->GetId().data(), updSegmentIt->url.c_str());
-
-                  CSegment* segment = repr->SegmentTimeline().Get(0);
-                  if (segment)
-                    segment->url.clear();
-
-                  updSegmentIt->startPTS_ += ptsOffset;
-                  repr->SegmentTimeline().Append(*updSegmentIt);
-
-                  updSegmentIt->url.clear();
-
-                  repr->SetStartNumber(repr->GetStartNumber() + 1);
-                  repFreeSegments--;
-                }
-
-                // We have renewed the current segment
-                if (!repFreeSegments && numReplace == currentPos + 1)
-                  repr->current_segment_ = nullptr;
-
-                if ((repr->IsWaitForSegment()) && repr->get_next_segment(repr->current_segment_))
-                {
-                  repr->SetIsWaitForSegment(false);
-                  LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
-                }
-
-                if (updSegmentIt == updReprSegTL.GetData().end())
-                  repr->nextPts_ += updRepr->nextPts_;
-                else
-                  repr->nextPts_ += updSegmentIt->startPTS_;
+                repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
               }
-              else if (updRepr->GetStartNumber() <= 1)
+              else
               {
-                // Full update, be careful with start numbers!
+                bool hasUpdates{true};
 
-                //! @todo: check if first element or size differs
-                uint64_t segmentId = repr->getCurrentSegmentNumber();
-
-                if (repr->HasSegmentTimeline()) //! @todo: this condition looks wrong, as is "else" conditions dont work
-                {
-                  //! @todo: force change start number with SetStartNumber looks wrong,
-                  //! at least on MPD updates that dont provide new segments
-
-                  uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->m_time;
-                  uint64_t misaligned = 0;
-                  for (const auto& segment : repr->SegmentTimeline().GetData())
-                  {
-                    if (misaligned)
-                    {
-                      uint64_t ptsDiff = segment.m_time - (&segment - 1)->m_time;
-                      // our misalignment is small ( < 2%), let's decrement the start number
-                      if (misaligned < (ptsDiff * 2 / 100))
-                        repr->SetStartNumber(repr->GetStartNumber() - 1);
-                      break;
-                    }
-                    if (segment.m_time == search_pts)
-                      break;
-                    else if (segment.m_time > search_pts)
-                    {
-                      if (&repr->SegmentTimeline().GetData().front() == &segment)
-                      {
-                        repr->SetStartNumber(repr->GetStartNumber() - 1);
-                        break;
-                      }
-                      misaligned = search_pts - (&segment - 1)->m_time;
-                    }
-                    else
-                      repr->SetStartNumber(repr->GetStartNumber() + 1);
-                  }
-                }
-                else if (updRepr->SegmentTimeline().Get(0)->startPTS_ ==
-                          repr->SegmentTimeline().Get(0)->startPTS_)
-                {
-                  uint64_t search_re = updRepr->SegmentTimeline().Get(0)->m_number;
-                  for (const auto& segment : repr->SegmentTimeline().GetData())
-                  {
-                    if (segment.m_number >= search_re)
-                      break;
-                    repr->SetStartNumber(repr->GetStartNumber() + 1);
-                  }
-                }
-                else
-                {
-                  uint64_t search_pts = updRepr->SegmentTimeline().Get(0)->startPTS_;
-                  for (const auto& segment : repr->SegmentTimeline().GetData())
-                  {
-                    if (segment.startPTS_ >= search_pts)
-                      break;
-                    repr->SetStartNumber(repr->GetStartNumber() + 1);
-                  }
-                }
-
-                if (updRepr->GetStartNumber() == repr->GetStartNumber() &&
+                if (repr->GetStartNumber() == updRepr->GetStartNumber() &&
                     repr->SegmentTimeline().GetInitialSize() == updRepr->SegmentTimeline().GetSize())
                 {
+                  if (repr->HasSegmentTemplate() && !repr->GetSegmentTemplate()->HasTimeline())
+                  {
+                    hasUpdates = false;
+                  }
+                  else if (repr->SegmentTimeline().Get(0)->startPTS_ ==
+                           updRepr->SegmentTimeline().Get(0)->startPTS_)
+                  {
+                    hasUpdates = false;
+                  }
+                }
+                if (!hasUpdates)
+                {
                   LOG::LogF(LOGDEBUG,
-                            "MPD update with no new segments (repr. id \"%s\", period id \"%s\")",
+                            "MPD update - No new segments (repr. id \"%s\", period id \"%s\")",
                             repr->GetId().data(), period->GetId().data());
-                  m_allowInsertLiveSegments = true;
+                  continue;
+                }
+
+                CSegment* foundSeg{nullptr};
+                const uint64_t segStartPTS = repr->current_segment_->startPTS_;
+
+                for (CSegment& segment : updRepr->SegmentTimeline().GetData())
+                {
+                  if (segment.startPTS_ == segStartPTS)
+                  {
+                    foundSeg = &segment;
+                    break;
+                  }
+                  else if (segment.startPTS_ > segStartPTS)
+                  {
+                    // Can fall here if video is paused and current segment is too old,
+                    // or the video provider provide MPD updates that have misaligned PTS on segments,
+                    // so small PTS gaps that prevent to find the same segment
+                    foundSeg = &segment;
+                    LOG::LogF(LOGDEBUG,
+                              "MPD update - Misaligned PTS: current start PTS %llu, found %llu "
+                              "(repr. id \"%s\", period id \"%s\")",
+                              segStartPTS, segment.startPTS_, repr->GetId().data(),
+                              period->GetId().data());
+                    break;
+                  }
+                }
+
+                if (!foundSeg)
+                {
+                  LOG::LogF(LOGDEBUG,
+                            "MPD update - No segment found (repr. id \"%s\", period id \"%s\")",
+                            repr->GetId().data(), period->GetId().data());
                 }
                 else
                 {
                   repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
+                  repr->current_segment_ = foundSeg;
 
-                  if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
-                    repr->current_segment_ = nullptr;
-                  else
-                  {
-                    if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
-                      segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
-                    repr->current_segment_ =
-                        repr->get_segment(static_cast<size_t>(segmentId - repr->GetStartNumber()));
-                  }
-
-                  if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
-                  {
-                    repr->SetIsWaitForSegment(false);
-                    LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
-                  }
-
-                  LOG::LogF(LOGDEBUG,
-                            "Full update without start number (repr. id \"%s\", current start: %llu, period id \"%s\")",
-                            updRepr->GetId().data(), repr->GetStartNumber(),
-                            period->GetId().data());
+                  LOG::LogF(LOGDEBUG, "MPD update - Done (repr. id \"%s\", period id \"%s\")",
+                            updRepr->GetId().data(), period->GetId().data());
                 }
-
-                m_totalTimeSecs = updateTree->m_totalTimeSecs;
               }
-              else if (updRepr->GetStartNumber() > repr->GetStartNumber() ||
-                        (updRepr->GetStartNumber() == repr->GetStartNumber() &&
-                        updRepr->SegmentTimeline().GetSize() > repr->SegmentTimeline().GetInitialSize()))
+
+              if (repr->IsWaitForSegment() && (repr->get_next_segment(repr->current_segment_)))
               {
-                //! @todo: the below code is the same of above, it may be unified or add explanations
-                uint64_t segmentId = repr->getCurrentSegmentNumber();
-
-                repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
-                repr->SetStartNumber(updRepr->GetStartNumber());
-
-                if (segmentId == SEGMENT_NO_NUMBER || segmentId < repr->GetStartNumber())
-                  repr->current_segment_ = nullptr;
-                else
-                {
-                  if (segmentId >= repr->GetStartNumber() + repr->SegmentTimeline().GetSize())
-                    segmentId = repr->GetStartNumber() + repr->SegmentTimeline().GetSize() - 1;
-                  repr->current_segment_ =
-                      repr->get_segment(static_cast<size_t>(segmentId - repr->GetStartNumber()));
-                }
-
-                if (repr->IsWaitForSegment() && repr->get_next_segment(repr->current_segment_))
-                {
-                  repr->SetIsWaitForSegment(false);
-                  LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
-                }
-                LOG::LogF(LOGDEBUG,
-                          "Full update with start number (repr. id \"%s\", current start: %llu, period id \"%s\")",
-                          repr->GetId().data(), repr->GetStartNumber(), period->GetId().data());
-                m_totalTimeSecs = updateTree->m_totalTimeSecs;
+                repr->SetIsWaitForSegment(false);
+                LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
               }
-              else if (updRepr->GetStartNumber() == repr->GetStartNumber() &&
-                       updRepr->SegmentTimeline().GetSize() == repr->SegmentTimeline().GetInitialSize())
-              {
-                LOG::LogF(LOGDEBUG,
-                          "MPD update with no new segments (repr. id \"%s\", period id \"%s\")",
-                          repr->GetId().data(), period->GetId().data());
-                m_allowInsertLiveSegments = true;
-              }
-              else
-              {
-                LOG::LogF(LOGWARNING, "Unhandled manifest update (repr. id \"%s\", period id \"%s\"",
-                          repr->GetId().data(), period->GetId().data());
-              }
+
+              m_totalTime = updateTree->m_totalTime;
             }
           }
         }
@@ -1895,7 +1691,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
   }
 }
 
-void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
+bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                             PLAYLIST::CAdaptationSet* adpSet,
                                             PLAYLIST::CRepresentation* repr,
                                             size_t pos,
@@ -1903,9 +1699,22 @@ void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                             uint64_t fragmentDuration,
                                             uint32_t movieTimescale)
 {
-  if (!m_allowInsertLiveSegments || HasManifestUpdatesSegs() || pos == SEGMENT_NO_POS)
-    return;
+  //! @todo: seem this method should be used with manifests having SegmentTemplate without timeline only
+  //! if so the code should use the SegmentTemplate info to generate the next segment.
+  //! 
+  //! For now has been limited to manifests that have SegmentTemplate without timeline,
+  //! if in future there is no bad feedbacks from users, this can be cleaned up
+  //! Note: As dash specs SegmentList is no longer supported for live streaming.
 
+  if (HasManifestUpdatesSegs() || pos == SEGMENT_NO_POS || !repr->HasSegmentTemplate() ||
+      repr->GetSegmentTemplate()->HasTimeline())
+    return false;
+
+  /* 
+   * SegmentTimelineDuration is not used with SegmentTemplate,
+   * InsertLiveSegment is always called only when there is no more segments
+   * this could be removed
+   * 
   // Check if its the last frame we watch
   if (!adpSet->SegmentTimelineDuration().IsEmpty())
   {
@@ -1917,48 +1726,43 @@ void adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
     else
     {
       repr->expired_segments_++;
-      return;
+      return false;
     }
   }
   else if (pos != repr->SegmentTimeline().GetSize() - 1)
-    return;
+    return false;
+  */
 
-  // When a live manifest has very long duration validity (set by minimumUpdatePeriod)
-  // and segments dont cover the entire duration until minimumUpdatePeriod interval time
-  // we add new segments until the future manifest update
+  //! @todo: expired_segments_ should be reworked, see also other parsers
+  repr->expired_segments_++;
+
   CSegment* segment = repr->SegmentTimeline().Get(pos);
 
   if (!segment)
   {
     LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
               repr->GetId().data());
-    return;
+    return false;
   }
 
-  if (segment->HasByteRange())
-    return;
-
   CSegment segCopy = *segment;
-
-  LOG::LogF(LOGDEBUG,
-            "Scale fragment duration (duration: %llu, repr. timescale: %u, movie timescale: %u)",
-            fragmentDuration, repr->GetTimescale(), movieTimescale);
-  fragmentDuration = (fragmentDuration * repr->GetTimescale()) / movieTimescale;
-
-  segCopy.startPTS_ += fragmentDuration;
-  segCopy.m_time += fragmentDuration;
+  uint64_t dur = segCopy.m_endPts - segCopy.startPTS_;
+  segCopy.startPTS_ = segCopy.m_endPts;
+  segCopy.m_endPts = segCopy.startPTS_ + dur;
+  segCopy.m_time = segCopy.m_endPts;
   segCopy.m_number++;
 
-  LOG::LogF(LOGDEBUG, "Insert live segment to adptation set \"%s\" (PTS: %llu, number: %llu)",
+  LOG::LogF(LOGDEBUG, "Insert live segment to adptation set \"%s\" (Start PTS: %llu, number: %llu)",
             adpSet->GetId().data(), segCopy.startPTS_, segCopy.m_number);
 
   for (auto& repr : adpSet->GetRepresentations())
   {
     repr->SegmentTimeline().Append(segCopy);
   }
+  return true;
 }
 
 uint64_t adaptive::CDashTree::GetTimestamp()
 {
-  return UTILS::GetTimestamp();
+  return UTILS::GetTimestampMs();
 }

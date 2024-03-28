@@ -210,7 +210,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
 
   m_dts = (m_sample.GetDts() * m_timeBaseExt) / m_timeBaseInt;
   m_pts = (m_sample.GetCts() * m_timeBaseExt) / m_timeBaseInt;
-  
+
   m_codecHandler->UpdatePPSId(m_sampleData);
 
   return AP4_SUCCESS;
@@ -356,6 +356,9 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
 
     //Correct PTS
     AP4_Sample sample;
+    //! @todo: there is something wrong on pts calculation,
+    //! m_ptsOffs have a value in seconds and so the substraction "m_pts - m_ptsOffs" looks to be inconsistent.
+    //! This code is present also on the others sample readers, that need to be verified
     if (~m_ptsOffs)
     {
       if (AP4_SUCCEEDED(GetSample(m_track->GetId(), sample, 0)))

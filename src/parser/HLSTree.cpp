@@ -17,6 +17,7 @@
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
 #include "utils/Utils.h"
+#include "utils/XMLUtils.h"
 #include "utils/log.h"
 
 #include <algorithm>
@@ -29,6 +30,9 @@ using namespace kodi::tools;
 
 namespace
 {
+// Timescale for ms
+constexpr uint64_t TIMESCALE = 1000;
+
 // \brief Parse a tag (e.g. #EXT-X-VERSION:1) to extract name and value
 void ParseTagNameValue(const std::string& line, std::string& tagName, std::string& tagValue)
 {
@@ -176,7 +180,8 @@ bool adaptive::CHLSTree::Open(std::string_view url,
 bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
                                                PLAYLIST::CAdaptationSet* adp,
                                                PLAYLIST::CRepresentation* rep,
-                                               bool& isDrmChanged)
+                                               bool& isDrmChanged,
+                                               uint64_t currentSegNumber)
 {
   // Prepare child manifest only once time for VOD stream and always for live stream
   if (!rep->IsNeedsUpdates())
@@ -195,7 +200,7 @@ bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
                          isDrmChanged))
   {
     // We dont set segment position to PrepareSegments because its adjusted on AdaptiveStream::start_stream
-    PrepareSegments(period, adp, rep, SEGMENT_NO_NUMBER);
+    PrepareSegments(period, adp, rep, currentSegNumber);
   }
 
   return true;
@@ -238,7 +243,8 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
 
   EncryptionType currentEncryptionType = EncryptionType::CLEAR;
 
-  uint64_t currentSegStartPts{0};
+  uint64_t programDateTime{NO_VALUE}; // EXT-X-PROGRAM-DATE-TIME in ms or NO_VALUE
+  uint64_t currentSegNumber{0};
   uint64_t newStartNumber{0};
 
   CSpinCache<CSegment> newSegments;
@@ -328,6 +334,7 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
     else if (tagName == "#EXT-X-MEDIA-SEQUENCE")
     {
       newStartNumber = STRING::ToUint64(tagValue);
+      currentSegNumber = newStartNumber;
     }
     else if (tagName == "#EXT-X-PLAYLIST-TYPE")
     {
@@ -337,23 +344,43 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
         m_updateInterval = NO_VALUE;
       }
     }
+    else if (tagName == "#EXT-X-PROGRAM-DATE-TIME")
+    {
+      programDateTime = static_cast<uint64_t>(XML::ParseDate(tagValue, 0) * 1000);
+      // Set or update the period start, only from the first program date time value
+      if (newSegments.IsEmpty())
+        period->SetStart(programDateTime);
+    }
     else if (tagName == "#EXT-X-TARGETDURATION")
     {
       // Use segment max duration as interval time to do a manifest update
       // see: Reloading the Media Playlist file
       // https://datatracker.ietf.org/doc/html/draft-pantos-http-live-streaming-16#section-6.3.4
-      uint64_t newIntervalSecs = STRING::ToUint64(tagValue) * 1000;
-      if (newIntervalSecs < m_updateInterval)
-        m_updateInterval = newIntervalSecs;
+      uint64_t newInterval = STRING::ToUint64(tagValue) * 1000;
+      if (newInterval < m_updateInterval)
+        m_updateInterval = newInterval;
     }
     else if (tagName == "#EXTINF")
     {
+      const uint64_t durMs = static_cast<uint64_t>(STRING::ToFloat(tagValue) * 1000);
+      uint64_t startPts{0};
+      if (programDateTime != NO_VALUE && period->GetStart() != NO_VALUE)
+      {
+        startPts = programDateTime;
+      }
+      else
+      {
+        CSegment* lastSeg = newSegments.GetBack();
+        if (lastSeg)
+          startPts = lastSeg->m_endPts;
+      }
+
       // Make a new segment
       newSegment = CSegment();
-      newSegment->startPTS_ = currentSegStartPts;
+      newSegment->startPTS_ = startPts;
+      newSegment->m_endPts = startPts + durMs;
+      newSegment->m_number = currentSegNumber++;
 
-      uint64_t duration = static_cast<uint64_t>(STRING::ToFloat(tagValue) * rep->GetTimescale());
-      newSegment->m_duration = duration;
 
       if (currentEncryptionType == EncryptionType::AES128 && psshSetPos == PSSHSET_POS_DEFAULT)
       {
@@ -365,7 +392,8 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
       }
       newSegment->pssh_set_ = psshSetPos;
 
-      currentSegStartPts += duration;
+      // Reset EXT-X-PROGRAM-DATE-TIME, some playlists do not have this tag on each segment
+      programDateTime = NO_VALUE;
     }
     else if (tagName == "#EXT-X-BYTERANGE" && newSegment.has_value())
     {
@@ -485,8 +513,8 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
 
       period->SetSequence(m_discontSeq + discontCount);
 
-      uint64_t duration = currentSegStartPts - newSegments.Get(0)->startPTS_;
-      rep->SetDuration(duration);
+      uint64_t dur = newSegments.GetBack()->m_endPts - newSegments.GetFront()->startPTS_;
+      rep->SetDuration(dur);
 
       if (adp->GetStreamType() != StreamType::SUBTITLE)
       {
@@ -505,6 +533,7 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
         // CopyHLSData will copy also the init segment in the representations
         // that must persist to next period until overrided by new EXT-X-MAP tag
         newPeriod->CopyHLSData(m_currentPeriod);
+
         period = newPeriod.get();
         m_periods.push_back(std::move(newPeriod));
       }
@@ -514,14 +543,15 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
         period = m_periods[discontCount].get();
       }
 
+      if (programDateTime != NO_VALUE)
+        period->SetStart(programDateTime);
+
       newStartNumber += rep->SegmentTimeline().GetSize();
       adp = period->GetAdaptationSets()[adpSetPos].get();
       // When we switch to a repr of another period we need to set current base url
       CRepresentation* switchRep = adp->GetRepresentations()[reprPos].get();
       switchRep->SetBaseUrl(rep->GetBaseUrl());
       rep = switchRep;
-
-      currentSegStartPts = 0;
 
       if (currentEncryptionType == EncryptionType::WIDEVINE)
       {
@@ -560,17 +590,18 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
   rep->SegmentTimeline().Swap(newSegments);
   rep->SetStartNumber(newStartNumber);
 
-  uint64_t reprDuration{0};
+  uint64_t reprDur{0};
   if (rep->SegmentTimeline().Get(0))
-    reprDuration = currentSegStartPts - rep->SegmentTimeline().Get(0)->startPTS_;
+    reprDur = rep->SegmentTimeline().GetBack()->m_endPts - rep->SegmentTimeline().GetFront()->startPTS_;
 
-  rep->SetDuration(reprDuration);
+  rep->SetDuration(reprDur);
   period->SetSequence(m_discontSeq + discontCount);
 
-  uint64_t totalTimeSecs = 0;
+  uint64_t totalTimeMs = 0;
   if (discontCount > 0 || m_hasDiscontSeq)
   {
-    if (adp->GetStreamType() != StreamType::SUBTITLE)
+    // On live stream you dont know the period end, so dont set the period duration in advance
+    if (!m_isLive && adp->GetStreamType() != StreamType::SUBTITLE)
     {
       uint64_t periodDuration =
           (rep->GetDuration() * m_periods[discontCount]->GetTimescale()) / rep->GetTimescale();
@@ -579,7 +610,7 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
 
     for (auto& p : m_periods)
     {
-      totalTimeSecs += p->GetDuration() / p->GetTimescale();
+      totalTimeMs += p->GetDuration() * 1000 / p->GetTimescale();
       if (!m_isLive)
       {
         auto& adpSet = p->GetAdaptationSets()[adpSetPos];
@@ -589,14 +620,14 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
   }
   else
   {
-    totalTimeSecs = rep->GetDuration() / rep->GetTimescale();
+    totalTimeMs = rep->GetDuration() * 1000 / rep->GetTimescale();
     if (!m_isLive)
       rep->SetIsNeedsUpdates(false);
   }
 
   if (adp->GetStreamType() != StreamType::SUBTITLE)
-    m_totalTimeSecs = totalTimeSecs;
-  
+    m_totalTime = totalTimeMs;
+
   // If you pause the video and after some time you want to continue the playback,
   // its possible that we need to continue with this period (lost),
   // or, that segments on current period (lost) cannot be downloaded because too old
@@ -612,24 +643,26 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
 void adaptive::CHLSTree::PrepareSegments(PLAYLIST::CPeriod* period,
                                          PLAYLIST::CAdaptationSet* adp,
                                          PLAYLIST::CRepresentation* rep,
-                                         uint64_t segPosition)
+                                         uint64_t segNumber)
 {
-  if (segPosition == 0 || segPosition < rep->GetStartNumber() ||
-      segPosition == SEGMENT_NO_NUMBER)
+  if (segNumber == 0 || segNumber < rep->GetStartNumber() ||
+      segNumber == SEGMENT_NO_NUMBER)
   {
     rep->current_segment_ = nullptr;
   }
   else
   {
-    if (segPosition >= rep->GetStartNumber() + rep->SegmentTimeline().GetSize())
+    if (segNumber >= rep->GetStartNumber() + rep->SegmentTimeline().GetSize())
     {
-      segPosition = rep->GetStartNumber() + rep->SegmentTimeline().GetSize() - 1;
+      segNumber = rep->GetStartNumber() + rep->SegmentTimeline().GetSize() - 1;
     }
 
     rep->current_segment_ =
-        rep->get_segment(static_cast<size_t>(segPosition - rep->GetStartNumber()));
+        rep->get_segment(static_cast<size_t>(segNumber - rep->GetStartNumber()));
   }
 
+  //! @todo: m_currentPeriod != m_periods.back().get() condition should be removed from here
+  //! this is done on AdaptiveStream::ensureSegment on IsLastSegment check
   if (rep->IsWaitForSegment() &&
       (rep->get_next_segment(rep->current_segment_) || m_currentPeriod != m_periods.back().get()))
   {
@@ -755,12 +788,12 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
 
   // Save the current segment position before parsing the manifest
   // to allow find the right segment on updated playlist segments
-  const uint64_t segPosition = rep->getCurrentSegmentNumber();
+  const uint64_t segNumber = rep->getCurrentSegmentNumber();
 
   if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep,
                          isDrmChanged))
   {
-    PrepareSegments(period, adp, rep, segPosition);
+    PrepareSegments(period, adp, rep, segNumber);
   }
 }
 
@@ -806,12 +839,12 @@ void adaptive::CHLSTree::RefreshLiveSegments()
 
     // Save the current segment position before parsing the manifest
     // to allow find the right segment on updated playlist segments
-    const uint64_t segPosition = repr->getCurrentSegmentNumber();
+    const uint64_t segNumber = repr->getCurrentSegmentNumber();
 
     if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), m_currentPeriod, adpSet,
                            repr, isDrmChanged))
     {
-      PrepareSegments(m_currentPeriod, adpSet, repr, segPosition);
+      PrepareSegments(m_currentPeriod, adpSet, repr, segNumber);
     }
   }
 }
@@ -835,13 +868,15 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
     //! media playlist parsing code could be reused
 
     std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
-    period->SetTimescale(1000000);
+    // In case of missing EXT-X-PROGRAM-DATE-TIME set start period to 0
+    period->SetStart(0);
+    period->SetTimescale(TIMESCALE);
 
     auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
     newAdpSet->SetStreamType(StreamType::VIDEO);
 
     auto repr = CRepresentation::MakeUniquePtr(newAdpSet.get());
-    repr->SetTimescale(1000000);
+    repr->SetTimescale(TIMESCALE);
     repr->SetSourceUrl(manifest_url_);
     repr->AddCodecs(CODEC::FOURCC_H264);
 
@@ -1008,7 +1043,7 @@ bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,
     }
   }
 
-  repr->SetTimescale(1000000);
+  repr->SetTimescale(TIMESCALE);
 
   if (!r.m_uri.empty())
   {
@@ -1172,7 +1207,9 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
   // Create Period / Adaptation sets / Representations
 
   std::unique_ptr<CPeriod> period = CPeriod::MakeUniquePtr();
-  period->SetTimescale(1000000);
+  // In case of missing EXT-X-PROGRAM-DATE-TIME set start period to 0
+  period->SetStart(0);
+  period->SetTimescale(TIMESCALE);
 
   // Add audio renditions (do not take in account variants references)
   for (const Rendition& r : pl.m_audioRenditions)
@@ -1353,7 +1390,7 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       }
 
       auto repr = CRepresentation::MakeUniquePtr(adpSet);
-      repr->SetTimescale(1000000);
+      repr->SetTimescale(TIMESCALE);
       repr->AddCodecs(codecVideo);
       repr->SetBandwidth(var.m_bandwidth);
 
@@ -1417,7 +1454,7 @@ void adaptive::CHLSTree::AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPerio
   newAdpSet->SetLanguage("unk"); // Unknown
 
   auto repr = CRepresentation::MakeUniquePtr(newAdpSet.get());
-  repr->SetTimescale(1000000);
+  repr->SetTimescale(TIMESCALE);
 
   repr->AddCodecs(codec);
   repr->SetAudioChannels(2);

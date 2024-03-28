@@ -27,7 +27,6 @@ public:
       m_isEncrypted{false},
       m_mainId{0},
       m_adStream{tree, adp, initialRepr},
-      m_hasSegmentChanged{false},
       m_isValid{true} {};
 
 
@@ -87,7 +86,6 @@ public:
   uint16_t m_mainId;
   adaptive::AdaptiveStream m_adStream;
   kodi::addon::InputstreamInfo m_info;
-  bool m_hasSegmentChanged;
   bool m_isValid;
 
 private:

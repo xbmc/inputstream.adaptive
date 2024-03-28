@@ -25,6 +25,11 @@ AP4_Result CAdaptiveByteStream::WritePartial(const void* buffer,
   return AP4_ERROR_NOT_SUPPORTED;
 }
 
+bool CAdaptiveByteStream::ReadFull(std::vector<uint8_t>& buffer)
+{
+  return m_adStream->ReadFullBuffer(buffer);
+}
+
 AP4_Result CAdaptiveByteStream::Seek(AP4_Position position)
 {
   return m_adStream->seek(position) ? AP4_SUCCESS : AP4_ERROR_NOT_SUPPORTED;
@@ -39,15 +44,6 @@ AP4_Result CAdaptiveByteStream::Tell(AP4_Position& position)
 AP4_Result CAdaptiveByteStream::GetSize(AP4_LargeSize& size)
 {
   return AP4_ERROR_NOT_SUPPORTED;
-}
-
-AP4_Result CAdaptiveByteStream::GetSegmentSize(size_t& size)
-{
-  if (m_adStream->ensureSegment() && m_adStream->retrieveCurrentSegmentBufferSize(size))
-  {
-    return AP4_SUCCESS;
-  }
-  return AP4_ERROR_EOS;
 }
 
 bool CAdaptiveByteStream::waitingForSegment() const

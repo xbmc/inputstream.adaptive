@@ -156,7 +156,7 @@ public:
   /*! \brief Get the total time in ms of the stream
    *  \return The total time in ms of the stream
    */
-  uint64_t GetTotalTimeMs() const { return m_adaptiveTree->m_totalTimeSecs * 1000; };
+  uint64_t GetTotalTimeMs() const { return m_adaptiveTree->m_totalTime; };
 
   /*! \brief Get the elapsed time in ms of the stream including all chapters
    *  \return The elapsed time in ms of the stream including all chapters
@@ -307,13 +307,6 @@ public:
   void OnStreamChange(adaptive::AdaptiveStream* adStream) override;
 
 protected:
-  /*!
-   * \brief Event raised when the current segment is changed and
-   *        the data has already been read by the sample reader.
-   * \param stream The stream for which segment has changed.
-   */
-  void OnSegmentChangedRead(CStream* stream);
-
   /*! \brief Check for and load decrypter module matching the supplied key system
    *  \param key_system [OUT] Will be assigned to if a decrypter is found matching
    *                    the set license type

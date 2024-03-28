@@ -33,10 +33,17 @@ public:
   AP4_Result WritePartial(const void* buffer,
                           AP4_Size bytesToWrite,
                           AP4_Size& bytesWritten) override;
+
+  /*!
+  * \brief Read in full the stream.
+  * \param buffer[OUT] The full data buffer bytes
+  * \return True if has success, otherwise false
+  */
+  bool ReadFull(std::vector<uint8_t>& buffer);
+
   AP4_Result Seek(AP4_Position position) override;
   AP4_Result Tell(AP4_Position& position) override;
   AP4_Result GetSize(AP4_LargeSize& size) override;
-  AP4_Result GetSegmentSize(size_t& size);
 
   // AP4_Referenceable methods
   void AddReference() override{};

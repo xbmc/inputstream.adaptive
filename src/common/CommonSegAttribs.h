@@ -40,11 +40,15 @@ public:
   void SetSegmentEndNr(const uint64_t segNumber) { m_segEndNr = segNumber; }
   bool HasSegmentEndNr();
 
+  uint64_t GetStartPTS() const;
+  void SetStartPTS(uint64_t startPts) { m_startPts = startPts; }
+
 protected:
   CCommonSegAttribs* m_parentCommonSegAttribs{nullptr};
   std::optional<CSegmentList> m_segmentList;
   std::optional<CSegmentTemplate> m_segmentTemplate;
   std::optional<uint64_t> m_segEndNr;
+  uint64_t m_startPts{0};
 };
 
 } // namespace PLAYLIST
