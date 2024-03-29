@@ -1,3 +1,24 @@
+v21.4.4 (2024-03-29)
+- [Dash] Fix video freeze/buffering on live streaming
+- [Dash] Improved live streaming manifest update
+- [Dash] Fixed and improved live streaming with multiple periods/chapters
+- [Dash] Improved live streaming with misaligned segments
+- [Dash] Improved SegmentTemplate, SegmentTimeline tag parsing
+- [Dash] Fix 'default' attribute parsing on AdaptationSet tag
+- [Dash] Fix wrong video duration with SegmentList case
+- [Dash] Fix possible wrong duration/timescale into periods
+- [Dash] Various cleanup of parsing code
+- [Dash] Fix possible broken playback due to wrongly parsed encryption
+- [HLS] Add support to EXT-X-PROGRAM-DATE-TIME tag
+- [TTML] Fix missing text on multiline subtitles
+- [TTML] Fix broken subtitles when they have same begin PTS
+- [TTML] Add workaround to try improve display of overlapping subtitles
+- [TTML] Improved time parsing was potentially causing display problems
+- [TTML] Add support to DFXP fourcc (Smooth Streaming)
+- [TTML] Fixed a problem that could cause doubled display of text
+- Fix possible broken (segmented) subtitles when disabled/re-enabled
+- Updated bento4 library to v1.6.0-641
+
 v21.4.3 (2024-02-21)
 - [Dash] Fix broken playback on streams with widevine encrypted subs (not supported)
 - [Dash] Removed timeline segments limit based on SIDX max references
