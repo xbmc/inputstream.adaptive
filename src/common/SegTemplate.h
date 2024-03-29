@@ -61,8 +61,22 @@ public:
   void SetEndNumber(uint64_t endNumber) { m_endNumber = endNumber; }
   bool HasEndNumber() const { return m_endNumber.has_value(); }
 
-  bool HasVariableTime() const;
-  
+  uint64_t GetPresTimeOffset() const;
+  void SetPresTimeOffset(uint64_t ptsOffset) { m_ptsOffset = ptsOffset; }
+  bool HasPresTimeOffset() const { return m_ptsOffset.has_value(); }
+
+  // \brief Defines a <SegmentTimeline>, <S> element
+  struct TimelineElement
+  {
+    uint64_t time{0};
+    uint32_t duration{0};
+    uint32_t repeat{0};
+  };
+
+  std::vector<TimelineElement>& Timeline() { return m_timeline; }
+  const std::vector<TimelineElement>& Timeline() const { return m_timeline; }
+  bool HasTimeline() const { return !m_timeline.empty(); }
+
   CSegment MakeInitSegment();
 
   std::string FormatUrl(std::string_view url,
@@ -80,6 +94,8 @@ private:
   std::optional<uint32_t> m_duration;
   std::optional<uint64_t> m_startNumber;
   std::optional<uint64_t> m_endNumber;
+  std::optional <uint64_t> m_ptsOffset;
+  std::vector<TimelineElement> m_timeline;
 };
 
 } // namespace PLAYLIST

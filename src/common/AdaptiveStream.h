@@ -72,8 +72,26 @@ class AdaptiveTree;
     int GetTrackType() const;
     PLAYLIST::StreamType GetStreamType() const;
 
+    /*!
+     * \brief Process that ensures that you have a segment that can be placed in the
+     *        segments buffer for downloading, and that at same time a demuxer can read the data.
+     * \return True when a segment exists and the data can be read (from segments buffer index 0), or
+     *         False when there are no available segments, that could means:
+     *         - End of stream
+     *         - End of period/chapter for multiperiods streams
+     *         - For live streams a delay to obtain segments from a manifest update
+     */
     bool ensureSegment();
-    uint32_t read(void* buffer, uint32_t  bytesToRead);
+
+    uint32_t read(void* buffer, uint32_t bytesToRead);
+
+    /*!
+     * \brief Read the full stream buffer until EOF.
+     * \param buffer[OUT] The full data buffer bytes
+     * \return True if has success, otherwise false
+     */
+    bool ReadFullBuffer(std::vector<uint8_t>& buffer);
+
     uint64_t tell(){ read(0, 0);  return absolute_position_; };
     bool seek(uint64_t const pos);
 
@@ -90,7 +108,7 @@ class AdaptiveTree;
     size_t getSegmentPos();
     uint64_t GetCurrentPTSOffset() { return currentPTSOffset_; };
     uint64_t GetAbsolutePTSOffset() { return absolutePTSOffset_; };
-    bool waitingForSegment(bool checkTime = false) const;
+    bool waitingForSegment() const;
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
     bool StreamChanged() { return stream_changed_; }
@@ -127,6 +145,10 @@ class AdaptiveTree;
       uint64_t segment_number{0};
       PLAYLIST::CRepresentation* rep{nullptr};
     };
+    // Be aware! All data related to segments stored in the SEGMENTBUFFER object are static,
+    // these data are totally unrelated to manifest updates that may change the segments timeline,
+    // so if you need to find a segment stored here in the timeline you must use Start PTS,
+    // otherwise you could cause misalignments due to different start numbers / segment positions.
     std::vector<SEGMENTBUFFER*> segment_buffers_;
 
     void AllocateSegmentBuffers(size_t size);

@@ -83,11 +83,11 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
   if (STRING::CompareNoCase(XML::GetAttrib(nodeSSM, "IsLive"), "true"))
   {
     m_isLive = true;
-    stream_start_ = UTILS::GetTimestamp();
+    stream_start_ = UTILS::GetTimestampMs();
     available_time_ = stream_start_;
   }
 
-  m_totalTimeSecs = period->GetDuration() / period->GetTimescale();
+  m_totalTime = period->GetDuration() * 1000 / period->GetTimescale();
 
   // Parse <Protection> tag
   PRProtectionParser protParser;
@@ -401,6 +401,7 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
         {
           CSegment seg;
           seg.startPTS_ = nextStartPts;
+          seg.m_endPts = seg.startPTS_ + segDuration;
           seg.m_time = nextStartPts + m_ptsBase;
           seg.m_number = index;
 
@@ -414,7 +415,7 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
   }
 }
 
-void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
+bool adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                               PLAYLIST::CAdaptationSet* adpSet,
                                               PLAYLIST::CRepresentation* repr,
                                               size_t pos,
@@ -423,7 +424,7 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                               uint32_t mediaTimescale)
 {
   if (!m_isLive || pos == SEGMENT_NO_POS)
-    return;
+    return false;
 
   //! @todo: This old code is now wrong because InsertLiveSegment can be called many times
   //! by the same segment, that will lead expired_segments_ to have a wrong value
@@ -437,7 +438,7 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   if (pos != adpSet->SegmentTimelineDuration().GetSize() - 1)
   {
     repr->expired_segments_++;
-    return;
+    return false;
   }
 
   adpSet->SegmentTimelineDuration().Append(
@@ -449,7 +450,7 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   {
     LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
               repr->GetId().data());
-    return;
+    return false;
   }
 
   CSegment segCopy = *segment;
@@ -460,6 +461,7 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   fragmentDuration = timestamp - m_ptsBase - segCopy.startPTS_;
 
   segCopy.startPTS_ += fragmentDuration;
+  segCopy.m_endPts = segCopy.startPTS_ + fragmentDuration;
   segCopy.m_time += fragmentDuration;
   segCopy.m_number++;
 
@@ -470,4 +472,6 @@ void adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   {
     repr->SegmentTimeline().Append(segCopy);
   }
+
+  return true;
 }

@@ -162,6 +162,30 @@ public:
   }
 
   /*!
+   * \brief Get the last <T> value pointer
+   * \return <T> value pointer, otherwise nullptr if not found
+   */
+  T* GetBack()
+  {
+    if (m_data.empty())
+      return nullptr;
+
+    return &m_data.back();
+  }
+
+  /*!
+   * \brief Get the first <T> value pointer
+   * \return <T> value pointer, otherwise nullptr if not found
+   */
+  T* GetFront()
+  {
+    if (m_data.empty())
+      return nullptr;
+
+    return &m_data.front();
+  }
+
+  /*!
    * \brief Get index position of <T> value pointer
    * \param elem The <T> pointer to get the position
    * \return The index position, or SEGMENT_NO_POS if not found

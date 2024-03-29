@@ -146,62 +146,44 @@ AP4_Result CSubtitleSampleReader::ReadSample()
   else if (m_adByteStream && m_adStream) // Read the sample data from a segment file stream (e.g. HLS)
   {
     // Get the next segment
-    if (m_adStream->ensureSegment())
+    std::vector<uint8_t> buffer;
+    if (m_adByteStream->ReadFull(buffer))
     {
-      size_t segSize;
-      if (m_adStream->retrieveCurrentSegmentBufferSize(segSize))
+      auto rep = m_adStream->getRepresentation();
+      if (rep)
       {
-        AP4_DataBuffer segData;
-        while (segSize > 0)
+        auto currentSegment = rep->current_segment_;
+        if (currentSegment)
         {
-          AP4_Size readSize = m_segmentChunkSize;
-          if (segSize < static_cast<size_t>(m_segmentChunkSize))
-            readSize = static_cast<AP4_Size>(segSize);
+          AP4_DataBuffer segData(buffer.data(), static_cast<AP4_Size>(buffer.size()));
+          uint64_t segDur = currentSegment->m_endPts - currentSegment->startPTS_;
 
-          AP4_Byte* buf = new AP4_Byte[readSize];
-          segSize -= readSize;
-          if (AP4_SUCCEEDED(m_adByteStream->Read(buf, readSize)))
+          AP4_UI32 duration =
+              static_cast<AP4_UI32>((segDur * STREAM_TIME_BASE) / rep->GetTimescale());
+          AP4_UI64 pts = (currentSegment->startPTS_ * STREAM_TIME_BASE) / rep->GetTimescale();
+
+          m_codecHandler->Transform(pts, duration, segData, 1000);
+          if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
           {
-            segData.AppendData(buf, readSize);
-            delete[] buf;
+            m_pts = m_sample.GetCts();
+            return AP4_SUCCESS;
           }
-          else
-          {
-            delete[] buf;
-            break;
-          }
-        }
-        auto rep = m_adStream->getRepresentation();
-        if (rep)
-        {
-          auto currentSegment = rep->current_segment_;
-          if (currentSegment)
-          {
-            m_codecHandler->Transform(currentSegment->startPTS_,
-                                      static_cast<AP4_UI32>(currentSegment->m_duration), segData,
-                                      1000);
-            if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
-            {
-              m_pts = m_sample.GetCts();
-              return AP4_SUCCESS;
-            }
-          }
-          else
-            LOG::LogF(LOGERROR, "Failed to get current segment of subtitle stream");
         }
         else
-          LOG::LogF(LOGERROR, "Failed to get Representation of subtitle stream");
+          LOG::LogF(LOGERROR, "Failed to get current segment of subtitle stream");
       }
       else
-      {
-        LOG::LogF(LOGWARNING, "Failed to get subtitle segment buffer size");
-      }
+        LOG::LogF(LOGERROR, "Failed to get Representation of subtitle stream");
     }
-    else if (m_adStream->getRepresentation()->IsWaitForSegment())
+    else
     {
-      // Wait for manifest live update to get next segment
-      return AP4_SUCCESS;
+      LOG::LogF(LOGERROR, "Failed to get segment data from subtitle stream");
     }
+  }
+  else if (m_adStream && m_adStream->getRepresentation()->IsWaitForSegment())
+  {
+    // Wait for manifest live update to get next segment
+    return AP4_SUCCESS;
   }
 
   m_eos = true;

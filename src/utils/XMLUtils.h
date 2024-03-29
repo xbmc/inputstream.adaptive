@@ -34,8 +34,7 @@ namespace XML
  * \param fallback [OPT] The fallback value when parse fails, by default set as max uint64_t value
  * \return The parsed date in seconds, or fallback value when fails.
  */
-uint64_t ParseDate(std::string_view timeStr,
-                   uint64_t fallback = std::numeric_limits<uint64_t>::max());
+double ParseDate(std::string_view timeStr, double fallback = std::numeric_limits<double>::max());
 
 /*!
  * \brief Parses an XML duration string.

@@ -39,7 +39,8 @@ public:
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
                                      PLAYLIST::CRepresentation* rep,
-                                     bool& isDrmChanged) override;
+                                     bool& isDrmChanged,
+                                     uint64_t currentSegNumber) override;
 
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
@@ -84,7 +85,7 @@ protected:
     uint32_t m_bandwidth{0};
     std::string m_codecs;
     std::string m_resolution;
-    double m_frameRate{0};
+    float m_frameRate{0};
     std::string m_groupIdAudio;
     std::string m_groupIdSubtitles;
     std::string m_uri;
@@ -128,7 +129,7 @@ protected:
   void PrepareSegments(PLAYLIST::CPeriod* period,
                        PLAYLIST::CAdaptationSet* adp,
                        PLAYLIST::CRepresentation* rep,
-                       uint64_t segPosition);
+                       uint64_t segNumber);
 
   virtual void RefreshLiveSegments() override;
 

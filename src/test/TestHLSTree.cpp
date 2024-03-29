@@ -87,7 +87,7 @@ protected:
 
     testHelper::testFile = filePath;
     bool isDrmChanged;
-    return tree->PrepareRepresentation(per, adp, rep, isDrmChanged);
+    return tree->PrepareRepresentation(per, adp, rep, isDrmChanged, PLAYLIST::SEGMENT_NO_NUMBER);
   }
 
   adaptive::CHLSTree* tree;
@@ -276,27 +276,37 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
 TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
 {
   OpenTestFileMaster("hls/1a2v_master.m3u8", "https://foo.bar/master.m3u8");
-  std::string var_download_url = tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[1]->GetSourceUrl();
+  std::string var_download_url = tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl();
 
-  auto& periodFirst = tree->m_periods[0];
+  {
+    auto& periodFirst = tree->m_periods[0];
 
-  bool ret = OpenTestFileVariant("hls/disco_fmp4_noenc_v_stream_1.m3u8", var_download_url,
-                                 periodFirst.get(), periodFirst->GetAdaptationSets()[0].get(),
-                                 periodFirst->GetAdaptationSets()[0]->GetRepresentations()[1].get());
+    bool ret =
+        OpenTestFileVariant("hls/disco_fmp4_noenc_v_stream_1.m3u8", var_download_url,
+                            periodFirst.get(), periodFirst->GetAdaptationSets()[0].get(),
+                            periodFirst->GetAdaptationSets()[0]->GetRepresentations()[0].get());
 
-  EXPECT_EQ(ret, true);
+    EXPECT_EQ(ret, true);
 
-  auto& periodSecond = tree->m_periods[1];
-  uint64_t pts = periodSecond->GetAdaptationSets()[0]->GetRepresentations()[1]->SegmentTimeline().GetData()[0].startPTS_;
-  EXPECT_EQ(pts, 0);
+    auto& periodSecond = tree->m_periods[1];
+    auto& adp0rep1 = periodSecond->GetAdaptationSets()[0]->GetRepresentations()[0];
+    auto& adp0rep1seg1 = adp0rep1->SegmentTimeline().GetData().front();
+    EXPECT_EQ(adp0rep1seg1.startPTS_, 0);
+  }
+  {
+    auto& periodFirst = tree->m_periods[0];
+    var_download_url =
+        tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetSourceUrl();
+    bool ret =
+        OpenTestFileVariant("hls/disco_fmp4_noenc_a_stream_0.m3u8", var_download_url,
+                              periodFirst.get(), periodFirst->GetAdaptationSets()[1].get(),
+                              periodFirst->GetAdaptationSets()[1]->GetRepresentations()[0].get());
 
-  var_download_url = tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0]->GetSourceUrl();
-  ret = OpenTestFileVariant("hls/disco_fmp4_noenc_a_stream_0.m3u8", var_download_url,
-                            periodSecond.get(), periodSecond->GetAdaptationSets()[1].get(),
-                            periodSecond->GetAdaptationSets()[1]->GetRepresentations()[0].get());
+    EXPECT_EQ(ret, true);
 
-  EXPECT_EQ(ret, true);
-
-  pts = periodSecond->GetAdaptationSets()[1]->GetRepresentations()[0]->SegmentTimeline().GetData()[0].startPTS_;
-  EXPECT_EQ(pts, 0);
+    auto& periodSecond = tree->m_periods[1];
+    auto& adp1rep0 = periodSecond->GetAdaptationSets()[1]->GetRepresentations()[0];
+    auto& adp1rep0seg1 = adp1rep0->SegmentTimeline().GetData().front();
+    EXPECT_EQ(adp1rep0seg1.startPTS_, 0);
+  }
 }

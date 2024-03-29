@@ -34,9 +34,15 @@ void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std:
 
 /*!
  * \brief Get the current timestamp
- * \return The timestamp in milliseconds
+ * \return The timestamp in seconds
  */
 uint64_t GetTimestamp();
+
+/*!
+ * \brief Get the current timestamp
+ * \return The timestamp in milliseconds
+ */
+uint64_t GetTimestampMs();
 
 /*!
  * \brief Add zero-pad on the left side of data when the data size is less than pad size

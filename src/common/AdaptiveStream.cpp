@@ -475,10 +475,13 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
       for (const WebmReader::CUEPOINT& cue : cuepoints)
       {
         seg.startPTS_ = cue.pts;
+        seg.m_endPts = seg.startPTS_ + cue.duration;
+        seg.m_time = cue.pts;
         seg.range_begin_ = cue.pos_start;
         seg.range_end_ = cue.pos_end;
         rep->SegmentTimeline().GetData().emplace_back(seg);
 
+        //! todo: use SegmentTimelineDuration should not be needed
         if (adpSet->SegmentTimelineDuration().GetSize() < rep->SegmentTimeline().GetSize())
         {
           adpSet->SegmentTimelineDuration().GetData().emplace_back(
@@ -550,12 +553,15 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
           seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
           rep->SegmentTimeline().GetData().emplace_back(seg);
 
+          //! todo: use SegmentTimelineDuration should not be needed
           if (adpSet->SegmentTimelineDuration().GetSize() < rep->SegmentTimeline().GetSize())
           {
             adpSet->SegmentTimelineDuration().GetData().emplace_back(refs[i].m_SubsegmentDuration);
           }
 
           seg.startPTS_ += refs[i].m_SubsegmentDuration;
+          seg.m_endPts = seg.startPTS_ + refs[i].m_SubsegmentDuration;
+          seg.m_time += refs[i].m_SubsegmentDuration;
           reprDuration += refs[i].m_SubsegmentDuration;
         }
 
@@ -829,11 +835,11 @@ void AdaptiveStream::ReplacePlaceholder(std::string& url, const std::string plac
 
 bool AdaptiveStream::ensureSegment()
 {
+  // NOTE: Some demuxers may call ensureSegment more times to try make more attempts when it return false.
   if (state_ != RUNNING)
     return false;
 
-  // We an only switch to the next segment, if the current (== segment_buffers_[0]) is finished.
-  // This is the case if we have more than 1 valid segments, or worker is not processing anymore.
+  // Switch to the next segment, if the current (so segment_buffers_[0]) segment has been read fully by the demuxer.
   if ((!worker_processing_ || valid_segment_buffers_ > 1) &&
       segment_read_pos_ >= segment_buffers_[0]->buffer.size())
   {
@@ -878,21 +884,54 @@ bool AdaptiveStream::ensureSegment()
       }
     }
 
+    if (valid_segment_buffers_ == 0 && available_segment_buffers_ > 0)
+    {
+      LOG::LogF(LOGDEBUG, "[AS-%u] Download not started yet (rep. id \"%s\" period id \"%s\")",
+                clsId, current_rep_->GetId().data(), current_period_->GetId().data());
+      return false;
+    }
+
+    // Get the next segment in download/downloaded
     if (valid_segment_buffers_ > 0)
     {
       if (!segment_buffers_[0]->segment.IsInitialization())
       {
-        nextSegment = current_rep_->get_segment(static_cast<size_t>(
-            segment_buffers_[0]->segment_number - current_rep_->GetStartNumber()));
+        // Always search by PTS, the segment buffer is static and meantime manifest updates
+        // may be happened so search by position/segment number could lead to misalignments
+        // moreover some streams dont use segments numbers or may have inconsistent timestamps
+        nextSegment = current_rep_->GetSegmentByPts(segment_buffers_[0]->segment.startPTS_);
       }
     }
     else
       nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
 
+    if (!nextSegment && (m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) &&
+        !m_tree->IsLastSegment(current_period_, current_rep_, current_rep_->current_segment_))
+    {
+      // Ensure to add a new segment only when the last one in the buffer has been consumed
+      if (available_segment_buffers_ == 0)
+      {
+        if (m_tree->InsertLiveSegment(getPeriod(), getAdaptationSet(), getRepresentation(),
+                                      getSegmentPos(), 0, 0, 0))
+        {
+          //! @todo: seem to be possible get the segment from InsertLiveSegment and then avoid call get_next_segment
+          nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
+        }
+
+        if (!nextSegment && !current_rep_->IsWaitForSegment())
+        {
+          current_rep_->SetIsWaitForSegment(true);
+          LOG::LogF(LOGDEBUG, "[AS-%u] Begin WaitForSegment stream rep. id \"%s\" period id \"%s\"",
+                    clsId, current_rep_->GetId().data(), current_period_->GetId().data());
+          return false;
+        }
+      }
+    }
+
     if (nextSegment)
     {
       currentPTSOffset_ =
-        (nextSegment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
+          (nextSegment->startPTS_ * current_rep_->timescale_ext_) / current_rep_->timescale_int_;
 
       absolutePTSOffset_ =
           (current_rep_->SegmentTimeline().Get(0)->startPTS_ * current_rep_->timescale_ext_) /
@@ -907,8 +946,7 @@ bool AdaptiveStream::ensureSegment()
         observer_->OnSegmentChanged(this);
       }
 
-      size_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
-      uint64_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
+      const size_t nextSegPos = current_rep_->get_segment_pos(nextSegment);
 
       CRepresentation* newRep = current_rep_;
       bool isBufferFull = valid_segment_buffers_ >= max_buffer_length_;
@@ -919,12 +957,15 @@ bool AdaptiveStream::ensureSegment()
         // The representation from the last added segment buffer
         CRepresentation* prevRep = segment_buffers_[available_segment_buffers_ - 1]->rep;
 
-        bool isLastSegment = nextsegmentPosold + available_segment_buffers_ ==
+        bool isLastSegment = nextSegPos + available_segment_buffers_ ==
                              current_rep_->SegmentTimeline().GetSize() - 1;
         // Dont change representation if it is the last segment of a period otherwise when it comes
         // the time to play the last segment in a period, AdaptiveStream wasn't able to insert the
         // initialization segment (in the case of fMP4) and you would get corrupted or blank video
         // for the last segment
+        // 
+        //! @todo: isLastSegment could be inconsistent if InsertLiveSegment is used
+        //! must be done a real check to verify if the segment is the last of period
         if (isLastSegment)
           newRep = prevRep;
         else
@@ -935,7 +976,8 @@ bool AdaptiveStream::ensureSegment()
           // On manifests type like HLS we need also to get update segments
           // because need to be downloaded/parsed from different child manifest files
           bool isDrmChanged;
-          m_tree->PrepareRepresentation(current_period_, current_adp_, newRep, isDrmChanged);
+          m_tree->PrepareRepresentation(current_period_, current_adp_, newRep, isDrmChanged,
+                                        current_rep_->getCurrentSegmentNumber());
 
           // If the representation has been changed, segments may have to be generated (DASH)
           if (newRep->SegmentTimeline().IsEmpty())
@@ -945,37 +987,41 @@ bool AdaptiveStream::ensureSegment()
 
       // Add to the buffer next segment (and the next following segments, if available)
 
-      // Align to new segment numeration (that could be changed if manifest update occurred with quality switching)
-      size_t nextsegmentPos = static_cast<size_t>(nextsegno - newRep->GetStartNumber());
+      const size_t maxPos = newRep->SegmentTimeline().GetSize();
+      size_t segPos;
 
-      if (nextsegmentPos + available_segment_buffers_ >= newRep->SegmentTimeline().GetSize())
+      if (available_segment_buffers_ == 0) // Buffer empty, add the current segment
+        segPos = nextSegPos;
+      else // Continue adding segments that follow the last one added in to the buffer
       {
-        nextsegmentPos = newRep->SegmentTimeline().GetSize() - available_segment_buffers_;
+        CSegment* followSeg =
+            current_rep_->GetNextSegment(segment_buffers_[available_segment_buffers_ - 1]->segment);
+        if (followSeg)
+          segPos = current_rep_->get_segment_pos(followSeg);
+        else // No segment, EOS or you need to wait next manifest update
+          segPos = maxPos;
       }
 
-      const size_t maxPos = newRep->SegmentTimeline().GetSize();
-
-      for (size_t updPos(available_segment_buffers_); updPos < max_buffer_length_; ++updPos)
+      for (size_t index = available_segment_buffers_; index < max_buffer_length_; ++index)
       {
-        const size_t segPos = nextsegmentPos + updPos;
         if (segPos == maxPos) // To avoid out-of-range log prints with get_segment
           break;
 
         const CSegment* futureSegment = newRep->get_segment(segPos);
-
         if (futureSegment)
         {
-          segment_buffers_[updPos]->segment = *futureSegment;
-          segment_buffers_[updPos]->segment_number = newRep->GetStartNumber() + segPos;
-          segment_buffers_[updPos]->rep = newRep;
+          segment_buffers_[index]->segment = *futureSegment;
+          segment_buffers_[index]->segment_number = newRep->GetStartNumber() + segPos;
+          segment_buffers_[index]->rep = newRep;
           ++available_segment_buffers_;
+          ++segPos;
         }
       }
 
       thread_data_->signal_dl_.notify_one();
-      // Make sure that we have at least one segment filling
+      // Make sure that we have at least one segment filling (the worker thread start the download)
       // Otherwise we lead into a deadlock because first condition is false.
-      if (!valid_segment_buffers_)
+      if (valid_segment_buffers_ == 0)
         thread_data_->signal_dl_.wait(lck);
 
       if (stream_changed_)
@@ -985,20 +1031,14 @@ bool AdaptiveStream::ensureSegment()
         return false;
       }
     }
-    else if ((m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) &&
-             current_period_ == m_tree->m_periods.back().get())
+    else if (current_rep_->IsWaitForSegment() &&
+             (m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()))
     {
-      if (!current_rep_->IsWaitForSegment())
-      {
-        current_rep_->SetIsWaitForSegment(true);
-        LOG::LogF(LOGDEBUG, "[AS-%u] Begin WaitForSegment stream id \"%s\"", clsId,
-                  current_rep_->GetId().data());
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
       return false;
     }
-    else
+    else if (available_segment_buffers_ == 0)
     {
+      LOG::LogF(LOGDEBUG, "[AS-%u] End of segments", clsId);
       state_ = STOPPED;
       return false;
     }
@@ -1010,7 +1050,7 @@ bool AdaptiveStream::ensureSegment()
 uint32_t AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
 {
   if (state_ == STOPPED)
-    return false;
+    return 0;
 
   std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
 
@@ -1018,7 +1058,7 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
   {
     size_t avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
     // Wait until we have all data
-    while (avail < bytesToRead && worker_processing_)
+    while (avail < bytesToRead && worker_processing_) //! @todo: worker_processing_ not safe check, if the worker is downloading multiple files
     {
       thread_data_->signal_rw_.wait(lckrw);
       avail = segment_buffers_[0]->buffer.size() - segment_read_pos_;
@@ -1044,6 +1084,27 @@ uint32_t AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
   }
 
   return 0;
+}
+
+bool AdaptiveStream::ReadFullBuffer(std::vector<uint8_t>& buffer)
+{
+  if (ensureSegment())
+  {
+    std::unique_lock<std::mutex> lckrw(thread_data_->mutex_rw_);
+    // Wait until we have all data
+    while (worker_processing_) //! @todo: worker_processing_ not safe check, if the worker is downloading multiple files
+    {
+      thread_data_->signal_rw_.wait(lckrw);
+    }
+
+    buffer = segment_buffers_[0]->buffer;
+    // Signal we have read until the last byte
+    segment_read_pos_ = segment_buffers_[0]->buffer.size();
+
+    return state_ != STOPPED; // The worker set state STOPPED when the download fails
+  }
+
+  return false;
 }
 
 bool AdaptiveStream::seek(uint64_t const pos)
@@ -1239,7 +1300,7 @@ size_t adaptive::AdaptiveStream::getSegmentPos()
   return current_rep_->getCurrentSegmentPos();
 }
 
-bool AdaptiveStream::waitingForSegment(bool checkTime) const
+bool AdaptiveStream::waitingForSegment() const
 {
   if (current_adp_->GetStreamType() == StreamType::SUBTITLE)
     return false;
@@ -1247,16 +1308,9 @@ bool AdaptiveStream::waitingForSegment(bool checkTime) const
   if ((m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) && state_ == RUNNING)
   {
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
-
-    if (current_rep_ && current_rep_->IsWaitForSegment())
-    {
-      return !checkTime || (current_adp_->GetStreamType() != StreamType::VIDEO &&
-                            current_adp_->GetStreamType() != StreamType::AUDIO);
-    }
-
-    // We can fall here when we are waiting for new segments, but the download it not started yet
-    // so return true only when checkTime is false, to avoid trigger EOS on sample reader and stop playback
-    return !checkTime;
+    // Although IsWaitForSegment may be true, do not anticipate the wait for segments
+    // if there are still segments in the buffer that can be read and/or downloaded
+    return current_rep_ && current_rep_->IsWaitForSegment() && available_segment_buffers_ == 0;
   }
   return false;
 }
