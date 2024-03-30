@@ -98,6 +98,10 @@ constexpr const char* NAME_TTML = "ttml";
 
 constexpr const char* FOURCC_H264 = "h264"; // MPEG-4 AVC
 constexpr const char* FOURCC_AVC_ = "avc"; // Generic prefix for all avc* fourcc, e.g. avc1, avcb
+constexpr const char* FOURCC_AVC1 = "avc1";
+constexpr const char* FOURCC_AVC2 = "avc2";
+constexpr const char* FOURCC_AVC3 = "avc3";
+constexpr const char* FOURCC_AVC4 = "avc4";
 constexpr const char* FOURCC_VP09 = "vp09"; // VP9
 constexpr const char* FOURCC_AV01 = "av01"; // AV1
 constexpr const char* FOURCC_HEVC = "hevc";
