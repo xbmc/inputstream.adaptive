@@ -792,7 +792,18 @@ void CSession::UpdateStream(CStream& stream)
 
     if (CODEC::Contains(codecs, CODEC::FOURCC_AVC_, codecStr) ||
         CODEC::Contains(codecs, CODEC::FOURCC_H264, codecStr))
+    {
       stream.m_info.SetCodecName(CODEC::NAME_H264);
+
+      if (STRING::Contains(codecStr, CODEC::FOURCC_AVC1))
+        stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_AVC1));
+      else if (STRING::Contains(codecStr, CODEC::FOURCC_AVC2))
+        stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_AVC2));
+      else if (STRING::Contains(codecStr, CODEC::FOURCC_AVC3))
+        stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_AVC3));
+      else if (STRING::Contains(codecStr, CODEC::FOURCC_AVC4))
+        stream.m_info.SetCodecFourCC(CODEC::MakeFourCC(CODEC::FOURCC_AVC4));
+    }
     else if (CODEC::Contains(codecs, CODEC::FOURCC_HEVC, codecStr))
       stream.m_info.SetCodecName(CODEC::NAME_HEVC);
     else if (CODEC::Contains(codecs, CODEC::FOURCC_HVC1, codecStr))

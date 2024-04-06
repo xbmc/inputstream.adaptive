@@ -179,6 +179,22 @@ bool AVCCodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
 
   bool isChanged = UpdateInfoCodecName(info, CODEC::NAME_H264);
 
+  uint32_t fourcc = 0;
+  if (m_sampleDescription->GetFormat() == AP4_SAMPLE_FORMAT_AVC1)
+    fourcc = CODEC::MakeFourCC(CODEC::FOURCC_AVC1);
+  else if (m_sampleDescription->GetFormat() == AP4_SAMPLE_FORMAT_AVC2)
+    fourcc = CODEC::MakeFourCC(CODEC::FOURCC_AVC2);
+  else if (m_sampleDescription->GetFormat() == AP4_SAMPLE_FORMAT_AVC3)
+    fourcc = CODEC::MakeFourCC(CODEC::FOURCC_AVC3);
+  else if (m_sampleDescription->GetFormat() == AP4_SAMPLE_FORMAT_AVC4)
+    fourcc = CODEC::MakeFourCC(CODEC::FOURCC_AVC4);
+
+  if (fourcc != 0 && info.GetCodecFourCC() != fourcc)
+  {
+    info.SetCodecFourCC(fourcc);
+    isChanged = true;
+  }
+
   if (AP4_AvcSampleDescription* avcSampleDescription =
           AP4_DYNAMIC_CAST(AP4_AvcSampleDescription, m_sampleDescription))
   {
