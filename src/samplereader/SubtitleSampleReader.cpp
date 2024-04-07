@@ -160,7 +160,14 @@ AP4_Result CSubtitleSampleReader::ReadSample()
 
           AP4_UI32 duration =
               static_cast<AP4_UI32>((segDur * STREAM_TIME_BASE) / rep->GetTimescale());
-          AP4_UI64 pts = (currentSegment->startPTS_ * STREAM_TIME_BASE) / rep->GetTimescale();
+
+          //! @todo: startPTS workaround! pts has been taken by substracting the period start
+          //! this just to have a lower pts value, but the real problem is in CSession::GetNextSample
+          //! that that makes an incorrect comparison of DTSorPTS
+          const uint64_t pStart = m_adStream->getPeriod()->GetStart() * rep->GetTimescale() / 1000;
+          const uint64_t startPts = currentSegment->startPTS_ - pStart;
+
+          AP4_UI64 pts = (startPts * STREAM_TIME_BASE) / rep->GetTimescale();
 
           m_codecHandler->Transform(pts, duration, segData, 1000);
           if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
