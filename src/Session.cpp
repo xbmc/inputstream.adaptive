@@ -406,6 +406,9 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       CPeriod::PSSHSet& sessionPsshset = m_adaptiveTree->m_currentPeriod->GetPSSHSets()[ses];
 
+      if (sessionPsshset.adaptation_set_->GetStreamType() == StreamType::NOTYPE)
+        continue;
+
       std::string_view licenseData = CSrvBroker::GetKodiProps().GetLicenseData();
 
       if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING)
@@ -629,6 +632,13 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
   {
     if (adp->GetRepresentations().empty())
       continue;
+
+    if (adp->GetStreamType() == StreamType::NOTYPE)
+    {
+      LOG::LogF(LOGDEBUG, "Skipped streams on adaptation set id \"%s\" due to unsupported/unknown type",
+                adp->GetId().data());
+      continue;
+    }
 
     bool isManualStreamSelection;
     if (adp->GetStreamType() == StreamType::VIDEO)
