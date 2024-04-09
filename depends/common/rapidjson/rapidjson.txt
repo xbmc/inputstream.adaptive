@@ -1,0 +1,1 @@
+rapidjson https://github.com/Tencent/rapidjson/archive/5ec44fb9206695e5293f610b0a46d21851d0c966.tar.gz

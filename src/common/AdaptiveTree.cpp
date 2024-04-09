@@ -42,6 +42,7 @@ namespace adaptive
     m_settings = left.m_settings;
     m_supportedKeySystem = left.m_supportedKeySystem;
     m_pathSaveManifest = left.m_pathSaveManifest;
+    stream_start_ = left.stream_start_;
   }
 
   void AdaptiveTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
@@ -63,6 +64,7 @@ namespace adaptive
     m_manifestParams = srvBroker->GetKodiProps().GetManifestParams();
     m_manifestHeaders = srvBroker->GetKodiProps().GetManifestHeaders();
     m_manifestUpdParams = manifestUpdParams;
+    stream_start_ = GetTimestamp();
 
     // Convenience way to share common addon settings we avoid
     // calling the API many times to improve parsing performance
@@ -72,6 +74,11 @@ namespace adaptive
     m_settings.m_bufferMaxDuration =
         static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
     */
+  }
+
+  uint64_t AdaptiveTree::GetTimestamp()
+  {
+    return UTILS::GetTimestampMs();
   }
 
   void AdaptiveTree::Uninitialize()

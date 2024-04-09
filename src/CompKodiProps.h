@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -40,6 +41,11 @@ struct ChooserProps
   uint32_t m_bandwidthMax{0};
   std::pair<int, int> m_resolutionMax; // Res. limit for non-protected videos (values 0 means auto)
   std::pair<int, int> m_resolutionSecureMax; // Res. limit for DRM protected videos (values 0 means auto)
+};
+
+struct ManifestConfig
+{
+  std::optional<uint32_t> timeShiftBufferLimit; // Limit the timeshift buffer depth, in seconds
 };
 
 class ATTR_DLL_LOCAL CCompKodiProps
@@ -92,7 +98,12 @@ public:
   // \brief Specifies the chooser properties that will override XML settings
   const ChooserProps& GetChooserProps() const { return m_chooserProps; }
 
+  // \brief Specifies the manifest configuration
+  const ManifestConfig& GetManifestConfig() const { return m_manifestConfig; }
+
 private:
+  void ParseManifestConfig(const std::string& data);
+
   std::string m_licenseType;
   std::string m_licenseKey;
   std::string m_licenseData;
@@ -112,6 +123,7 @@ private:
   std::string m_drmPreInitData;
   bool m_isInternalCookies{false};
   ChooserProps m_chooserProps;
+  ManifestConfig m_manifestConfig;
 };
 
 } // namespace KODI_PROPS

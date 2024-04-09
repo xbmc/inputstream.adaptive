@@ -105,11 +105,6 @@ protected:
 
   virtual void RefreshLiveSegments() override;
 
-  /*
-   * \brief Get the current timestamp in ms, overridable method for test project
-   */
-  virtual uint64_t GetTimestamp();
-
   // The lower start number of segments
   uint64_t m_segmentsLowerStartNumber{0};
 
@@ -125,7 +120,5 @@ protected:
 
   // Determines if a custom PSSH initialization license data is provided
   bool m_isCustomInitPssh{false};
-
-  bool m_isMpdUpdate = false;
 };
 } // namespace adaptive

@@ -93,6 +93,11 @@ public:
                          std::string_view supportedKeySystem,
                          std::string_view manifestUpdParams);
 
+  /*
+   * \brief Get the current timestamp in ms, overridable method for test project
+   */
+  virtual uint64_t GetTimestamp();
+
   /*!
    * \brief Performs operations to stop running process and release resources.
    */

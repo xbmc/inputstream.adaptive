@@ -14,10 +14,10 @@ void CStream::Disable()
 {
   if (m_isEnabled)
   {
+    m_adStream.Disable();
     // Stop downloads
     m_adStream.Stop();
     // ReadSample async thread may still working despite stop download signal
-    // for example segmented webvtt use CSubtitleSampleReader -> retrieveCurrentSegmentBufferSize
     if (m_streamReader)
       m_streamReader->WaitReadSampleAsyncComplete();
     // Dispose the thread worker data only after async thread is complete otherwise mutex go to nirvana
