@@ -32,6 +32,16 @@ namespace adaptive
 class AdaptiveStream;
 class AdaptiveTree;
 
+// \brief Defines the type of event when starting the stream
+enum class EVENT_TYPE
+{
+  NONE,
+  STREAM_START, // First start of the stream
+  STREAM_ENABLE, // Has been re-enabled the disabled stream
+  PERIOD_CHANGE, // Has been changed period
+  REP_CHANGE // Has been changed representation (stream quality)
+};
+
   class ATTR_DLL_LOCAL AdaptiveStreamObserver
   {
   public:
@@ -48,7 +58,7 @@ class AdaptiveTree;
     virtual ~AdaptiveStream();
     void set_observer(AdaptiveStreamObserver *observer){ observer_ = observer; };
     void Reset();
-    bool start_stream(uint64_t startPts =0);
+    bool start_stream(const uint64_t startPts = 0);
     /*!
      * \brief Disable current representation, wait the current download is finished and stop downloads.
      */
@@ -60,6 +70,10 @@ class AdaptiveTree;
      */
     void DisposeWorker();
     uint64_t getMaxTimeMs();
+
+    void Disable();
+
+    void SetStartEvent(const EVENT_TYPE eventType) { m_startEvent = eventType; }
 
     /*!
     * \brief Set the current segment to the one specified, and reset
@@ -111,7 +125,7 @@ class AdaptiveTree;
     bool waitingForSegment() const;
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
-    bool StreamChanged() { return stream_changed_; }
+    bool StreamChanged() { return m_startEvent == EVENT_TYPE::REP_CHANGE; }
 
     void OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTimescale) override;
 
@@ -267,7 +281,6 @@ class AdaptiveTree;
     size_t available_segment_buffers_{0};
     // Number of segments stored in segment buffer (segment_buffers_) currently in download and downloaded
     size_t valid_segment_buffers_{0};
-    PLAYLIST::CRepresentation* last_rep_; // used to align new live rep with old
 
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
@@ -277,7 +290,9 @@ class AdaptiveTree;
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
-    bool stream_changed_ = false;
+
+    // Defines the event to start the stream, the status will be resetted by start stream method.
+    EVENT_TYPE m_startEvent{EVENT_TYPE::STREAM_START};
 
     // Class ID for debug log purpose, allow the LOG prints of each AdaptiveStream to be distinguished
     uint32_t clsId;

@@ -80,7 +80,8 @@ public:
                  PLAYLIST::CRepresentation* repr,
                  bool isDefaultRepr,
                  uint32_t uniqueId,
-                 std::string_view audioLanguageOrig);
+                 std::string_view audioLanguageOrig,
+                 const bool isPeriodChange);
 
   /*! \brief Update stream's InputstreamInfo
    *  \param stream The stream to update

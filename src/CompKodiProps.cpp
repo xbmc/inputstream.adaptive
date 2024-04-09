@@ -12,6 +12,8 @@
 #include "utils/Utils.h"
 #include "utils/log.h"
 
+#include <rapidjson/document.h>
+
 #include <string_view>
 
 using namespace UTILS;
@@ -39,6 +41,7 @@ constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manif
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
 constexpr std::string_view PROP_MANIFEST_UPD_PARAMS = "inputstream.adaptive.manifest_upd_params";
+constexpr std::string_view PROP_MANIFEST_CONFIG = "inputstream.adaptive.manifest_config";
 
 constexpr std::string_view PROP_STREAM_PARAMS = "inputstream.adaptive.stream_params";
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
@@ -173,7 +176,7 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     }
     else if (prop.first == PROP_LIVE_DELAY)
     {
-      m_liveDelay = STRING::ToUint64(prop.second);
+      m_liveDelay = STRING::ToUint64(prop.second); //! @todo: move to PROP_MANIFEST_CONFIG
     }
     else if (prop.first == PROP_PRE_INIT_DATA)
     {
@@ -208,6 +211,10 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     {
       m_isInternalCookies = STRING::CompareNoCase(prop.second, "true");
     }
+    else if (prop.first == PROP_MANIFEST_CONFIG)
+    {
+      ParseManifestConfig(prop.second);
+    }
     else
     {
       LOG::Log(LOGWARNING, "Property found \"%s\" is not supported", prop.first.c_str());
@@ -226,5 +233,39 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
       m_licenseKey = licenseUrl;
     else
       m_licenseKey.replace(0, pipePos, licenseUrl);
+  }
+}
+
+void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& data)
+{
+  /*
+   * Expected JSON structure:
+   * { "config_name": "value", ... }
+   */
+  rapidjson::Document jDoc;
+  jDoc.Parse(data.c_str(), data.size());
+
+  if (!jDoc.IsObject())
+  {
+    LOG::LogF(LOGERROR, "Malformed JSON data in to \"%s\" property", PROP_MANIFEST_CONFIG.data());
+    return;
+  }
+
+  // Iterate dictionary
+  for (auto& jChildObj : jDoc.GetObject())
+  {
+    const std::string configName = jChildObj.name.GetString();
+    rapidjson::Value& jDictVal = jChildObj.value;
+
+    if (configName == "timeshift_bufferlimit" && jDictVal.IsNumber())
+    {
+      if (jDictVal.GetUint() > 0)
+        m_manifestConfig.timeShiftBufferLimit = jDictVal.GetUint();
+    }
+    else
+    {
+      LOG::LogF(LOGERROR, "Unsupported \"%s\" config or wrong data type on \"%s\" property",
+                configName.c_str(), PROP_MANIFEST_CONFIG.data());
+    }
   }
 }

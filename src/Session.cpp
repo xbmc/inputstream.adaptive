@@ -28,6 +28,7 @@
 #include <kodi/addon-instance/Inputstream.h>
 
 using namespace kodi::tools;
+using namespace adaptive;
 using namespace PLAYLIST;
 using namespace SESSION;
 using namespace UTILS;
@@ -570,6 +571,8 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 {
   bool isPsshChanged{true};
   bool isReusePssh{true};
+  bool isPeriodChange = m_adaptiveTree->m_nextPeriod;
+
   if (m_adaptiveTree->m_nextPeriod)
   {
     isPsshChanged =
@@ -648,7 +651,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
         CRepresentation* currentRepr = adp->GetRepresentations()[i].get();
         bool isDefaultRepr{currentRepr == defaultRepr};
 
-        AddStream(adp, currentRepr, isDefaultRepr, uniqueId, audioLanguageOrig);
+        AddStream(adp, currentRepr, isDefaultRepr, uniqueId, audioLanguageOrig, isPeriodChange);
       }
     }
     else
@@ -658,7 +661,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
       uint32_t uniqueId{adpIndex};
       uniqueId |= reprIndex << 16;
 
-      AddStream(adp, defaultRepr, true, uniqueId, audioLanguageOrig);
+      AddStream(adp, defaultRepr, true, uniqueId, audioLanguageOrig, isPeriodChange);
     }
   }
 
@@ -669,7 +672,8 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
                          PLAYLIST::CRepresentation* initialRepr,
                          bool isDefaultRepr,
                          uint32_t uniqueId,
-                         std::string_view audioLanguageOrig)
+                         std::string_view audioLanguageOrig,
+                         const bool isPeriodChange)
 {
   m_streams.push_back(std::make_unique<CStream>(m_adaptiveTree, adp, initialRepr));
 
@@ -722,6 +726,7 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
   stream.m_info.ClearExtraData();
   stream.m_info.SetFeatures(0);
 
+  stream.m_adStream.SetStartEvent(isPeriodChange ? EVENT_TYPE::PERIOD_CHANGE : EVENT_TYPE::STREAM_START);
   stream.m_adStream.set_observer(dynamic_cast<adaptive::AdaptiveStreamObserver*>(this));
 
   UpdateStream(stream);

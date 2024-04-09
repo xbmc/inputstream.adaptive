@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:cenc="urn:mpeg:cenc:2013" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd" type="dynamic" publishTime="2024-04-03T11:10:00.731Z" minimumUpdatePeriod="PT30S" availabilityStartTime="2024-03-25T06:47:12.732Z" minBufferTime="PT6S" suggestedPresentationDelay="PT18S" timeShiftBufferDepth="PT2H0M0S" profiles="urn:hbbtv:dash:profile:isoff-live:2012,urn:mpeg:dash:profile:isoff-live:2011">
+  <Period start="PT0S" id="1">
+    <AdaptationSet mimeType="video/mp4" frameRate="50/1" segmentAlignment="true" subsegmentAlignment="true" startWithSAP="1" subsegmentStartsWithSAP="1" bitstreamSwitching="false">
+      <SegmentTemplate timescale="90000" duration="540000" startNumber="1"/>
+      <Representation id="1" width="1280" height="720" bandwidth="3200000" codecs="avc1.640020" scanType="progressive">
+        <SegmentTemplate duration="540000" startNumber="1" media="manifest_1280x720p50_3200k_20240325_b_$Number$.mp4" initialization="manifest_1280x720p50_3200k_20240325_b_init.mp4"/>
+      </Representation>
+      <Representation id="2" width="960" height="540" bandwidth="1600000" codecs="avc1.4d401f" scanType="progressive">
+        <SegmentTemplate duration="540000" startNumber="1" media="manifest_960x540p50_1600k_20240325_b_$Number$.mp4" initialization="manifest_960x540p50_1600k_20240325_b_init.mp4"/>
+      </Representation>
+      <Representation id="3" width="640" height="360" bandwidth="1200000" codecs="avc1.4d401f" scanType="progressive">
+        <SegmentTemplate duration="540000" startNumber="1" media="manifest_640x360p50_1200k_20240325_b_$Number$.mp4" initialization="manifest_640x360p50_1200k_20240325_b_init.mp4"/>
+      </Representation>
+    </AdaptationSet>
+    <AdaptationSet mimeType="audio/mp4" lang="de" segmentAlignment="0" startWithSAP="1">
+      <SegmentTemplate timescale="48000" media="manifest_128_audio_min_20240325_b_$Number$.mp4" initialization="manifest_128_audio_min_20240325_b_init.mp4" duration="288000" startNumber="1"/>
+      <Representation id="4" bandwidth="128000" audioSamplingRate="48000" codecs="mp4a.40.2">
+        <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

@@ -52,8 +52,7 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree* tree,
     absolutePTSOffset_(0),
     lastUpdated_(std::chrono::system_clock::now()),
     m_fixateInitialization(false),
-    m_segmentFileOffset(0),
-    last_rep_(0)
+    m_segmentFileOffset(0)
 {
   auto& kodiProps = CSrvBroker::GetKodiProps();
   m_streamParams = kodiProps.GetStreamParams();
@@ -600,7 +599,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
   return false;
 }
 
-bool AdaptiveStream::start_stream(uint64_t startPts)
+bool AdaptiveStream::start_stream(const uint64_t startPts)
 {
   if (!current_rep_ || current_rep_->IsSubtitleFileStream())
     return false;
@@ -662,7 +661,7 @@ bool AdaptiveStream::start_stream(uint64_t startPts)
   // the current segment is now invalidated / inconsistent state because when subs will be turn on again, more time may have elapsed
   // and so the pts is changed. Therefore we need to search the first segment related to the current pts,
   // and start reading segments from this position.
-  if (startPts != PLAYLIST::NO_PTS_VALUE && startPts != 0 &&
+  if (m_startEvent == EVENT_TYPE::STREAM_ENABLE && startPts != PLAYLIST::NO_PTS_VALUE && startPts != 0 &&
       current_adp_->GetStreamType() == StreamType::SUBTITLE)
   {
     uint64_t seekSecs = startPts / STREAM_TIME_BASE;
@@ -680,49 +679,29 @@ bool AdaptiveStream::start_stream(uint64_t startPts)
 
   if (!current_rep_->current_segment_)
   {
-    if (!play_timeshift_buffer_ && m_tree->IsLive() &&
-        current_rep_->SegmentTimeline().GetSize() > 1 && m_tree->m_periods.size() == 1)
+    if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->IsLive() && !play_timeshift_buffer_ &&
+        !current_rep_->SegmentTimeline().IsEmpty())
     {
-      if (!last_rep_)
-      {
-        std::size_t pos;
-        if (m_tree->IsLive() || m_tree->available_time_ >= m_tree->stream_start_)
-        {
-          pos = current_rep_->SegmentTimeline().GetSize() - 1;
-        }
-        else
-        {
-          pos = static_cast<size_t>(
-              ((m_tree->stream_start_ - m_tree->available_time_) * current_rep_->GetTimescale()) /
-              current_rep_->GetDuration());
-          if (pos == 0)
-            pos = 1;
-        }
-        uint64_t duration(current_rep_->get_segment(pos)->startPTS_ -
-                          current_rep_->get_segment(pos - 1)->startPTS_);
-        size_t segmentPos{0};
-        size_t segPosDelay =
-            static_cast<size_t>((m_tree->m_liveDelay * current_rep_->GetTimescale()) / duration);
+      size_t segPos = current_rep_->SegmentTimeline().GetSize() - 1;
+      //! @todo: segment duration is not fixed for each segment, this can calculate a wrong delay
+      uint64_t segDur = current_rep_->get_segment(segPos)->m_endPts -
+                        current_rep_->get_segment(segPos)->startPTS_;
 
-        if (pos > segPosDelay)
-        {
-          segmentPos = pos - segPosDelay;
-        }
-        current_rep_->current_segment_ = current_rep_->get_segment(segmentPos);
-      }
-      else // switching streams, align new stream segment no.
+      size_t segPosDelay =
+          static_cast<size_t>((m_tree->m_liveDelay * current_rep_->GetTimescale()) / segDur);
+
+      if (segPos > segPosDelay)
+        segPos -= segPosDelay;
+      else
       {
-        uint64_t segmentId = segment_buffers_[0]->segment_number;
-        if (segmentId >= current_rep_->GetStartNumber() + current_rep_->SegmentTimeline().GetSize())
-        {
-          segmentId =
-              current_rep_->GetStartNumber() + current_rep_->SegmentTimeline().GetSize() - 1;
-        }
-        current_rep_->current_segment_ =
-            current_rep_->get_segment(static_cast<size_t>(segmentId - current_rep_->GetStartNumber()));
+        //! @todo: Unhandled! should fall on previous period (when exists)
+        //! since is needed change period all this code should be moved just after manifest parsing and before period init
+        segPos = 0;
       }
+
+      current_rep_->current_segment_ = current_rep_->get_segment(segPos);
     }
-    else if (stream_changed_) // switching streams, align new stream segment no.
+    else if (m_startEvent == EVENT_TYPE::REP_CHANGE) // switching streams, align new stream segment no.
     {
       uint64_t segmentId = segment_buffers_[0]->segment_number;
       if (segmentId >= current_rep_->GetStartNumber() + current_rep_->SegmentTimeline().GetSize())
@@ -738,7 +717,8 @@ bool AdaptiveStream::start_stream(uint64_t startPts)
     }
   }
 
-  stream_changed_ = false;
+  // Reset the event for the next one
+  m_startEvent = EVENT_TYPE::NONE;
 
   const CSegment* next_segment =
       current_rep_->get_next_segment(current_rep_->current_segment_);
@@ -863,7 +843,6 @@ bool AdaptiveStream::ensureSegment()
       return false;
 
     CSegment* nextSegment{nullptr};
-    last_rep_ = current_rep_;
 
     if (valid_segment_buffers_ > 0)
     {
@@ -880,7 +859,7 @@ bool AdaptiveStream::ensureSegment()
         current_rep_->SetIsEnabled(true);
         // When stream changed flag is signalled, kodi reopen the stream and AdaptiveStream::start_stream method
         // will be called also to align the "current segment" for the current representation
-        stream_changed_ = true;
+        m_startEvent = EVENT_TYPE::REP_CHANGE;
       }
     }
 
@@ -1002,6 +981,9 @@ bool AdaptiveStream::ensureSegment()
           segPos = maxPos;
       }
 
+      //! @todo: this way of adding in download all available segments dont allow
+      //! switching stream quality, so the "representation chooser" is completely excluded
+      //! this can cause a bad initial buffering because the stream dont fit the bandwidth.
       for (size_t index = available_segment_buffers_; index < max_buffer_length_; ++index)
       {
         if (segPos == maxPos) // To avoid out-of-range log prints with get_segment
@@ -1024,7 +1006,7 @@ bool AdaptiveStream::ensureSegment()
       if (valid_segment_buffers_ == 0)
         thread_data_->signal_dl_.wait(lck);
 
-      if (stream_changed_)
+      if (m_startEvent == EVENT_TYPE::REP_CHANGE)
       {
         if (observer_)
           observer_->OnStreamChange(this);
@@ -1167,6 +1149,13 @@ uint64_t AdaptiveStream::getMaxTimeMs()
                      current_rep_->timescale_int_;
 
   return (timeExt - absolutePTSOffset_) / 1000;
+}
+
+void adaptive::AdaptiveStream::Disable()
+{
+  // Prepare the future event to re-enable the stream, but preserve following events
+  if (m_startEvent != EVENT_TYPE::REP_CHANGE && m_startEvent != EVENT_TYPE::PERIOD_CHANGE)
+    m_startEvent = EVENT_TYPE::STREAM_ENABLE;
 }
 
 void AdaptiveStream::ResetCurrentSegment(const PLAYLIST::CSegment* newSegment)
