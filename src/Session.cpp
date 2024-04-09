@@ -1070,6 +1070,12 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
       {
         if (AP4_SUCCEEDED(streamReader->Start(isStarted)))
         {
+          //!@ todo: DTSorPTS comparison is wrong
+          //! currently we are compare audio/video/subtitles
+          //! for audio/video the pts/dts come from demuxer, but subtitles use pts from manifest
+          //! these values not always are comparable because pts/dts that come from demuxer packet data
+          //! can be different and makes this package selection ineffective
+          //! see also workaround on CSubtitleSampleReader::ReadSample
           if (!res || streamReader->DTSorPTS() < res->GetReader()->DTSorPTS())
           {
             if (stream->m_adStream.waitingForSegment())
