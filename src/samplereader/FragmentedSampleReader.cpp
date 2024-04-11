@@ -26,8 +26,8 @@ using namespace UTILS;
 
 namespace
 {
-constexpr uint8_t SMOOTHSTREAM_TFRFBOX_UUID[] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46, 0x95,
-                                                 0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f};
+constexpr uint8_t MP4_TFRFBOX_UUID[] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46, 0x95,
+                                        0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f};
 } // unnamed namespace
 
 
@@ -337,8 +337,10 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
     while ((atom = traf->GetChild(AP4_ATOM_TYPE_UUID, atom_pos++)) != nullptr)
     {
       AP4_UuidAtom* uuidAtom{AP4_DYNAMIC_CAST(AP4_UuidAtom, atom)};
-      // For smooth streaming live streams we have an TFRF atom with one / more following fragment durations
-      if (std::memcmp(uuidAtom->GetUuid(), SMOOTHSTREAM_TFRFBOX_UUID, 16) == 0)
+      // Some Dash and Smooth Streaming live streaming can be segment controlled
+      // these type of manifests dont have scheduled manifest updates
+      // so its needed to parse the TFRF in order to get new updates
+      if (std::memcmp(uuidAtom->GetUuid(), MP4_TFRFBOX_UUID, 16) == 0)
       {
         ParseTrafTfrf(uuidAtom);
         break;

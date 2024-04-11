@@ -436,8 +436,7 @@ int AdaptiveStream::SecondsSinceUpdate() const
 
 void AdaptiveStream::OnTFRFatom(uint64_t ts, uint64_t duration, uint32_t mediaTimescale)
 {
-  m_tree->InsertLiveSegment(current_period_, current_adp_, current_rep_, getSegmentPos(), ts,
-                            duration, mediaTimescale);
+  m_tree->InsertLiveFragment(current_adp_, current_rep_, ts, duration, mediaTimescale);
 }
 
 bool adaptive::AdaptiveStream::IsRequiredCreateMovieAtom()
@@ -891,7 +890,7 @@ bool AdaptiveStream::ensureSegment()
       if (available_segment_buffers_ == 0)
       {
         if (m_tree->InsertLiveSegment(getPeriod(), getAdaptationSet(), getRepresentation(),
-                                      getSegmentPos(), 0, 0, 0))
+                                      getSegmentPos()))
         {
           //! @todo: seem to be possible get the segment from InsertLiveSegment and then avoid call get_next_segment
           nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);

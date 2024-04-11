@@ -414,58 +414,47 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
   }
 }
 
-bool adaptive::CSmoothTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
-                                              PLAYLIST::CAdaptationSet* adpSet,
-                                              PLAYLIST::CRepresentation* repr,
-                                              size_t pos,
-                                              uint64_t timestamp,
-                                              uint64_t fragmentDuration,
-                                              uint32_t mediaTimescale)
+bool adaptive::CSmoothTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
+                                               PLAYLIST::CRepresentation* repr,
+                                               uint64_t fTimestamp,
+                                               uint64_t fDuration,
+                                               uint32_t fTimescale)
 {
-  if (!m_isLive || pos == SEGMENT_NO_POS)
+  if (!m_isLive)
     return false;
 
-  //! @todo: This old code is now wrong because InsertLiveSegment can be called many times
-  //! by the same segment, that will lead expired_segments_ to have a wrong value
-  //! expired_segments_ should be removed by implementing DVRWindowLength (and timeShiftBufferDepth on dash)
-  //! and then add a method to clear old segments from the timeline based on timeshift window
-  //! but this looks like that need to take care also of how works segment positions.
+  //! @todo: expired_segments_ should be removed and need to be implemented DVRWindowLength
+  //! then add a better way to delete old segments from the timeline based on timeshift window
+  //! this also requires taking care of the Dash parser
 
-  // Check if its not the last frame we watch
-  //! @todo: this code prevent to add many fragments done by more callbacks
-  //! atm not found a good way to change this code by having smooth playback
-  if (pos != adpSet->SegmentTimelineDuration().GetSize() - 1)
-  {
-    repr->expired_segments_++;
+  CSegment* lastSeg = repr->SegmentTimeline().GetBack();
+  if (!lastSeg)
     return false;
-  }
 
-  adpSet->SegmentTimelineDuration().Append(
-      static_cast<std::uint32_t>(fragmentDuration * period->GetTimescale() / mediaTimescale));
+  LOG::Log(LOGDEBUG,
+           "Fragment info - timestamp: %llu, duration: %llu, timescale: %u (PTS base: %llu)",
+           fTimestamp, fDuration, fTimescale, m_ptsBase);
 
-  CSegment* segment = repr->SegmentTimeline().Get(pos);
+  const uint64_t fStartPts =
+      static_cast<uint64_t>(static_cast<double>(fTimestamp) / fTimescale * repr->GetTimescale()) -
+      m_ptsBase;
 
-  if (!segment)
-  {
-    LOG::LogF(LOGERROR, "Segment at position %zu not found from representation id: %s", pos,
-              repr->GetId().data());
+  if (fStartPts <= lastSeg->startPTS_)
     return false;
-  }
 
-  CSegment segCopy = *segment;
+  repr->expired_segments_++;
 
-  LOG::LogF(LOGDEBUG,
-            "Fragment duration from timestamp (timestamp: %llu, PTS base: %llu, start PTS: %llu)",
-            timestamp, m_ptsBase, segCopy.startPTS_);
-  fragmentDuration = timestamp - m_ptsBase - segCopy.startPTS_;
+  CSegment segCopy = *lastSeg;
+  const uint64_t duration =
+      static_cast<uint64_t>(static_cast<double>(fDuration) / fTimescale * repr->GetTimescale());
 
-  segCopy.startPTS_ += fragmentDuration;
-  segCopy.m_endPts = segCopy.startPTS_ + fragmentDuration;
-  segCopy.m_time += fragmentDuration;
+  segCopy.startPTS_ = fStartPts;
+  segCopy.m_endPts = segCopy.startPTS_ + duration;
+  segCopy.m_time = fTimestamp;
   segCopy.m_number++;
 
-  LOG::LogF(LOGDEBUG, "Insert live segment to adptation set \"%s\" (PTS: %llu, number: %llu)",
-            adpSet->GetId().data(), segCopy.startPTS_, segCopy.m_number);
+  LOG::Log(LOGDEBUG, "Insert fragment to adaptation set \"%s\" (PTS: %llu, number: %llu)",
+           adpSet->GetId().data(), segCopy.startPTS_, segCopy.m_number);
 
   for (auto& repr : adpSet->GetRepresentations())
   {

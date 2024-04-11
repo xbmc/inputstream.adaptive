@@ -156,24 +156,36 @@ public:
   void FreeSegments(PLAYLIST::CPeriod* period, PLAYLIST::CRepresentation* repr);
 
   /*!
-   * \brief Some adaptive streaming protocols allow the client to download the live playlist once and
-   *        build future segments based on metadata contained in the fragments e.g. to avoid repeated
-   *        manifest downloads or to cover the duration of a period not fully covered by the provided timeline.
+   * \brief Some types of live manifests do not include segments, so the client must create them,
+   *        this method could be used in conjunction with manifest updates.
    * \param period Current period
    * \param adpSet Current adaptation set
    * \param repr Current representation
    * \param pos Current segment position
-   * \param timestamp Fragment start timestamp
-   * \param fragmentDuration Fragment duration
-   * \param movieTimescale Fragment movie timescale
    */
   virtual bool InsertLiveSegment(PLAYLIST::CPeriod* period,
                                  PLAYLIST::CAdaptationSet* adpSet,
                                  PLAYLIST::CRepresentation* repr,
-                                 size_t pos,
-                                 uint64_t timestamp,
-                                 uint64_t fragmentDuration,
-                                 uint32_t movieTimescale)
+                                 size_t pos)
+  {
+    return false;
+  }
+
+  /*!
+   * \brief Some types of live manifests might include only the initial segments,
+   *        so the client by parsing the packet data (usually MP4) can get the
+   *        info to create future segments.
+   * \param adpSet Current adaptation set
+   * \param repr Current representation
+   * \param fTimestamp Fragment start timestamp
+   * \param fDuration Fragment duration
+   * \param fTimescale Fragment timescale
+   */
+  virtual bool InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
+                                  PLAYLIST::CRepresentation* repr,
+                                  uint64_t fTimestamp,
+                                  uint64_t fDuration,
+                                  uint32_t fTimescale)
   {
     return false;
   }
