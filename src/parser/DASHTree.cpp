@@ -34,6 +34,15 @@ using namespace kodi::tools;
 using namespace PLAYLIST;
 using namespace UTILS;
 
+/*
+ * Supported dynamic live services:
+ * - MPD-controlled live:
+ *   - SegmentTemplate with segments, updates are sheduled to call RefreshLiveSegments method to retrieve updated segments
+ *   - SegmentTemplate without segments, InsertLiveSegment method will be called to add new segments, combined with sheduled updates
+ * - Segment-controlled live:
+ *   - SegmentTemplate without segments, demuxer parse the packets and calls InsertLiveFragment method to provide new segments
+ */
+
 namespace
 {
 std::string ReplacePlaceHolders(std::string str, const std::string_view id, uint32_t bandwidth)
@@ -1737,10 +1746,7 @@ void adaptive::CDashTree::RefreshLiveSegments()
 bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
                                             PLAYLIST::CAdaptationSet* adpSet,
                                             PLAYLIST::CRepresentation* repr,
-                                            size_t pos,
-                                            uint64_t timestamp,
-                                            uint64_t fragmentDuration,
-                                            uint32_t movieTimescale)
+                                            size_t pos)
 {
   //! @todo: seem this method should be used with manifests having SegmentTemplate without timeline only
   //! if so the code should use the SegmentTemplate info to generate the next segment.
@@ -1802,5 +1808,51 @@ bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   {
     repr->SegmentTimeline().Append(segCopy);
   }
+  return true;
+}
+
+bool adaptive::CDashTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
+                                             PLAYLIST::CRepresentation* repr,
+                                             uint64_t fTimestamp,
+                                             uint64_t fDuration,
+                                             uint32_t fTimescale)
+{
+  // MPD segment-controlled live should not have MPD@minimumUpdatePeriod
+  // since its expected to parse segments packets to extract updates
+  if (!m_isLive || !repr->HasSegmentTemplate() || m_minimumUpdatePeriod != NO_VALUE)
+    return false;
+
+  CSegment* lastSeg = repr->SegmentTimeline().GetBack();
+  if (!lastSeg)
+    return false;
+
+  LOG::Log(LOGDEBUG, "Fragment info - timestamp: %llu, duration: %llu, timescale: %u", fTimestamp,
+           fDuration, fTimescale);
+
+  const uint64_t fStartPts =
+      static_cast<uint64_t>(static_cast<double>(fTimestamp) / fTimescale * repr->GetTimescale());
+
+  if (fStartPts <= lastSeg->startPTS_)
+    return false;
+
+  repr->expired_segments_++;
+
+  CSegment segCopy = *lastSeg;
+  const uint64_t duration =
+      static_cast<uint64_t>(static_cast<double>(fDuration) / fTimescale * repr->GetTimescale());
+
+  segCopy.startPTS_ = fStartPts;
+  segCopy.m_endPts = segCopy.startPTS_ + duration;
+  segCopy.m_time = segCopy.startPTS_;
+  segCopy.m_number++;
+
+  LOG::Log(LOGDEBUG, "Insert fragment to adaptation set \"%s\" (PTS: %llu, number: %llu)",
+           adpSet->GetId().data(), segCopy.startPTS_, segCopy.m_number);
+
+  for (auto& repr : adpSet->GetRepresentations())
+  {
+    repr->SegmentTimeline().Append(segCopy);
+  }
+
   return true;
 }

@@ -47,10 +47,13 @@ public:
   virtual bool InsertLiveSegment(PLAYLIST::CPeriod* period,
                                  PLAYLIST::CAdaptationSet* adpSet,
                                  PLAYLIST::CRepresentation* repr,
-                                 size_t pos,
-                                 uint64_t timestamp,
-                                 uint64_t fragmentDuration,
-                                 uint32_t movieTimescale) override;
+                                 size_t pos) override;
+
+  virtual bool InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
+                                  PLAYLIST::CRepresentation* repr,
+                                  uint64_t fTimestamp,
+                                  uint64_t fDuration,
+                                  uint32_t fTimescale) override;
 
 protected:
   virtual CDashTree* Clone() const override { return new CDashTree{*this}; }
@@ -116,7 +119,7 @@ protected:
   uint64_t m_timeShiftBufferDepth{0}; // MPD Timeshift buffer attribute value, in ms
   uint64_t m_mediaPresDuration{0}; // MPD Media presentation duration attribute value, in ms (may be not provided)
 
-  uint64_t m_minimumUpdatePeriod{0}; // in seconds
+  uint64_t m_minimumUpdatePeriod{PLAYLIST::NO_VALUE}; // in seconds, NO_VALUE if not set
 
   // Determines if a custom PSSH initialization license data is provided
   bool m_isCustomInitPssh{false};
