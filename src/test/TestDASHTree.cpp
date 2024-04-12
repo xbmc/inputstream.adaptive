@@ -286,7 +286,7 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithPTO)
   auto& segments = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
   EXPECT_EQ(segments.GetSize(), 450);
-  EXPECT_EQ(segments.Get(0)->m_number, 126571);
+  EXPECT_EQ(segments.Get(0)->m_number, 404314437);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPublishTime)
@@ -298,7 +298,7 @@ TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTemplateWithOldPub
   auto& segments = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
   EXPECT_EQ(segments.GetSize(), 30);
-  EXPECT_EQ(segments.Get(0)->m_number, 603270);
+  EXPECT_EQ(segments.Get(0)->m_number, 603271);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
@@ -749,6 +749,6 @@ TEST_F(DASHTreeTest, TSBAvailabilityStartTime)
       tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
   EXPECT_EQ(tl.GetSize(), 1200);
-  EXPECT_EQ(tl.GetFront()->m_number, 129068);
-  EXPECT_EQ(tl.GetBack()->m_number, 130267);
+  EXPECT_EQ(tl.GetFront()->m_number, 129069);
+  EXPECT_EQ(tl.GetBack()->m_number, 130268);
 }
