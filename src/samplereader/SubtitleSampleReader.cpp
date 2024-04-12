@@ -182,15 +182,15 @@ AP4_Result CSubtitleSampleReader::ReadSample()
       else
         LOG::LogF(LOGERROR, "Failed to get Representation of subtitle stream");
     }
+    else if (m_adStream->getRepresentation()->IsWaitForSegment())
+    {
+      // Wait for manifest live update to get next segment
+      return AP4_SUCCESS;
+    }
     else
     {
       LOG::LogF(LOGERROR, "Failed to get segment data from subtitle stream");
     }
-  }
-  else if (m_adStream && m_adStream->getRepresentation()->IsWaitForSegment())
-  {
-    // Wait for manifest live update to get next segment
-    return AP4_SUCCESS;
   }
 
   m_eos = true;
