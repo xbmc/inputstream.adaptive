@@ -1,3 +1,15 @@
+v21.4.5 (2024-04-13)
+- [Dash] Implemented segment-controlled live stream
+- [Dash] Introduced new property inputstream.adaptive.manifest_config to configure manifest, see Wiki for details
+- [Dash] Handled TimeShiftBuffer between multiple periods
+- [Dash] Limited TimeShiftBuffer to 4 hours to avoid excessive memory consumption, configurable by using the new manifest_config property
+- [Dash] Fix TimeShiftBuffer, regression of v21.4.4
+- [Dash] Fix wrong start period on live streams
+- [Dash] Fix broken playback with MPD providing availabilityStartTime
+- Fixes to not displayed subtitles, regressions of v21.4.4
+- Fix broken playback with avc3/avc4 codecs (Kodi 21 patched on next release)
+- Add RapidJSON dependency
+
 v21.4.4 (2024-03-29)
 - [Dash] Fix video freeze/buffering on live streaming
 - [Dash] Improved live streaming manifest update
