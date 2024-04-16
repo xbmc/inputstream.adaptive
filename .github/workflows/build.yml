@@ -14,7 +14,8 @@ jobs:
           os: ubuntu-latest
           CC: gcc
           CXX: g++
-          DEBIAN_BUILD: true
+# disable (for now) because PPA is currently unmaintained
+#          DEBIAN_BUILD: true
     steps:
     - name: Install needed ubuntu depends
       env:
