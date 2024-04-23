@@ -10,6 +10,7 @@
 
 #include "AdaptationSet.h"
 #include "Representation.h"
+#include "utils/log.h"
 
 using namespace PLAYLIST;
 
@@ -86,6 +87,12 @@ void PLAYLIST::CPeriod::RemovePSSHSet(uint16_t pssh_set)
 
 void PLAYLIST::CPeriod::DecreasePSSHSetUsageCount(uint16_t pssh_set)
 {
+  if (pssh_set >= m_psshSets.size())
+  {
+    LOG::LogF(LOGERROR, "Cannot decrease PSSH usage, PSSHSet position %u exceeds the container size", pssh_set);
+    return;
+  }
+
   PSSHSet& psshSet = m_psshSets[pssh_set];
   if (psshSet.m_usageCount > 0)
     psshSet.m_usageCount--;
