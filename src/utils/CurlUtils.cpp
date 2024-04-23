@@ -312,43 +312,59 @@ bool UTILS::CURL::DownloadFile(std::string_view url,
   if (url.empty())
     return false;
 
-  CURL::CUrl curl{url};
-  curl.AddHeaders(reqHeaders);
+  size_t retries{3};
 
-  int statusCode = curl.Open();
-
-  if (statusCode == -1)
-    LOG::Log(LOGERROR, "Download failed, internal error: %s", url.data());
-  else if (statusCode >= 400)
-    LOG::Log(LOGERROR, "Download failed, HTTP error %d: %s", statusCode, url.data());
-  else // Start the download
+  while (retries-- > 0)
   {
-    resp.effectiveUrl = curl.GetEffectiveUrl();
+    CURL::CUrl curl{url};
+    curl.AddHeaders(reqHeaders);
 
-    if (curl.Read(resp.data) != CURL::ReadStatus::IS_EOF)
+    int statusCode = curl.Open();
+
+    if (statusCode == -1)
     {
-      LOG::Log(LOGERROR, "Download failed: %s", statusCode, url.data());
-      return false;
+      LOG::Log(LOGERROR, "Download failed, internal error: %s", url.data());
+      break;
     }
-
-    if (resp.data.empty())
+    else if (statusCode >= 500)
     {
-      LOG::Log(LOGERROR, "Download failed, no data: %s", url.data());
-      return false;
+      continue; // Try again
     }
-
-    resp.headers["content-type"] = curl.GetResponseHeader("content-type");
-    for (std::string_view name : respHeaders)
+    else if (statusCode >= 400)
     {
-      resp.headers[name.data()] = curl.GetResponseHeader(name);
+      LOG::Log(LOGERROR, "Download failed, HTTP error %d: %s", statusCode, url.data());
+      break;
     }
+    else // Start the download
+    {
+      resp.effectiveUrl = curl.GetEffectiveUrl();
 
-    resp.downloadSpeed = curl.GetDownloadSpeed();
-    resp.dataSize = curl.GetTotalByteRead();
+      if (curl.Read(resp.data) != CURL::ReadStatus::IS_EOF)
+      {
+        LOG::Log(LOGERROR, "Download failed: %s", statusCode, url.data());
+        break;
+      }
 
-    LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
-             url.data(), curl.GetTotalByteRead(), resp.downloadSpeed);
-    return true;
+      if (resp.data.empty())
+      {
+        LOG::Log(LOGERROR, "Download failed, no data: %s", url.data());
+        break;
+      }
+
+      resp.headers["content-type"] = curl.GetResponseHeader("content-type");
+      for (std::string_view name : respHeaders)
+      {
+        resp.headers[name.data()] = curl.GetResponseHeader(name);
+      }
+
+      resp.downloadSpeed = curl.GetDownloadSpeed();
+      resp.dataSize = curl.GetTotalByteRead();
+
+      LOG::Log(LOGDEBUG, "Download finished: %s (downloaded %zu byte, speed %0.2lf byte/s)",
+               url.data(), curl.GetTotalByteRead(), resp.downloadSpeed);
+      return true;
+    }
   }
+
   return false;
 }
