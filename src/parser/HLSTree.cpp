@@ -284,12 +284,22 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
 
       switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
       {
+        case EncryptionType::CLEAR:
+          currentEncryptionType = EncryptionType::CLEAR;
+          period->SetEncryptionState(EncryptionState::UNENCRYPTED);
+          psshSetPos = PSSHSET_POS_DEFAULT;
+          break;
         case EncryptionType::UNKNOWN:
+          currentEncryptionType = EncryptionType::UNKNOWN;
+          period->SetEncryptionState(EncryptionState::ENCRYPTED);
+          break;
         case EncryptionType::NOT_SUPPORTED:
+          currentEncryptionType = EncryptionType::NOT_SUPPORTED;
           period->SetEncryptionState(EncryptionState::ENCRYPTED);
           break;
         case EncryptionType::AES128:
           currentEncryptionType = EncryptionType::AES128;
+          period->SetEncryptionState(EncryptionState::UNENCRYPTED);
           psshSetPos = PSSHSET_POS_DEFAULT;
           break;
         case EncryptionType::WIDEVINE:
