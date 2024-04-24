@@ -46,7 +46,6 @@ public:
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
                                      PLAYLIST::CRepresentation* rep,
-                                     bool& isDrmChanged,
                                      uint64_t currentSegNumber) override;
 
   virtual void OnDataArrived(uint64_t segNum,
@@ -150,8 +149,7 @@ protected:
                                  std::string_view sourceUrl,
                                  PLAYLIST::CPeriod* period,
                                  PLAYLIST::CAdaptationSet* adp,
-                                 PLAYLIST::CRepresentation* rep,
-                                 bool& isDrmChanged);
+                                 PLAYLIST::CRepresentation* rep);
 
   void PrepareSegments(PLAYLIST::CPeriod* period,
                        PLAYLIST::CAdaptationSet* adp,

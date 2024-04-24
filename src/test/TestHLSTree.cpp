@@ -86,8 +86,7 @@ protected:
       rep->SetSourceUrl(url);
 
     testHelper::testFile = filePath;
-    bool isDrmChanged;
-    return tree->PrepareRepresentation(per, adp, rep, isDrmChanged, PLAYLIST::SEGMENT_NO_NUMBER);
+    return tree->PrepareRepresentation(per, adp, rep, PLAYLIST::SEGMENT_NO_NUMBER);
   }
 
   adaptive::CHLSTree* tree;

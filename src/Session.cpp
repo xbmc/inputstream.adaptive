@@ -943,9 +943,8 @@ void CSession::PrepareStream(CStream* stream)
   // Download the manifest only at first start of the stream
   if (startEvent == EVENT_TYPE::STREAM_START)
   {
-    bool noop;
     m_adaptiveTree->PrepareRepresentation(stream->m_adStream.getPeriod(),
-                                          stream->m_adStream.getAdaptationSet(), repr, noop,
+                                          stream->m_adStream.getAdaptationSet(), repr,
                                           SEGMENT_NO_NUMBER);
   }
 

@@ -126,7 +126,6 @@ public:
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
                                      PLAYLIST::CRepresentation* rep,
-                                     bool& isDrmChanged,
                                      uint64_t currentSegNumber)
   {
     return false;

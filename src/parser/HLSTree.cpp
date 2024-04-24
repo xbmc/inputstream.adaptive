@@ -180,7 +180,6 @@ bool adaptive::CHLSTree::Open(std::string_view url,
 bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
                                                PLAYLIST::CAdaptationSet* adp,
                                                PLAYLIST::CRepresentation* rep,
-                                               bool& isDrmChanged,
                                                uint64_t currentSegNumber)
 {
   // Prepare child manifest only once time for VOD stream and always for live stream
@@ -201,8 +200,7 @@ bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
     if (!DownloadChildManifest(adp, rep, resp))
       return false;
 
-    status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep,
-                                isDrmChanged);
+    status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep);
 
     if (status == ParseStatus::SUCCESS)
     {
@@ -433,8 +431,7 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
     std::string_view sourceUrl,
     PLAYLIST::CPeriod* period,
     PLAYLIST::CAdaptationSet* adp,
-    PLAYLIST::CRepresentation* rep,
-    bool& isDrmChanged)
+    PLAYLIST::CRepresentation* rep)
 {
   const auto& manifestCfg = CSrvBroker::GetKodiProps().GetManifestConfig();
   size_t adpSetPos = GetPtrPosition(period->GetAdaptationSets(), adp);
@@ -521,12 +518,6 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
 
           rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                             m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-
-          if (period->GetPSSHSets()[rep->GetPsshSetPos()].m_usageCount == 1 || isDrmChanged)
-            isDrmChanged = true;
-          else
-            isDrmChanged = false;
-          break;
         default:
           break;
       }
@@ -1048,7 +1039,6 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
   if (rep->IsIncludedStream())
     return;
 
-  bool isDrmChanged{false};
   UTILS::CURL::HTTPResponse resp;
 
   if (!DownloadChildManifest(adp, rep, resp))
@@ -1059,14 +1049,11 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
   const uint64_t segNumber = rep->getCurrentSegmentNumber();
 
   const ParseStatus status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl),
-                                                period, adp, rep, isDrmChanged);
+                                                period, adp, rep);
   if (status == ParseStatus::SUCCESS)
   {
     PrepareSegments(period, adp, rep, segNumber);
   }
-
-  if (isDrmChanged)
-    LOG::Log(LOGERROR, "Unmanaged DRM change between segments");
 }
 
 bool adaptive::CHLSTree::DownloadKey(std::string_view url,
@@ -1106,7 +1093,6 @@ void adaptive::CHLSTree::RefreshLiveSegments()
 
   for (auto& [adpSet, repr] : refreshList)
   {
-    bool isDrmChanged{false};
     UTILS::CURL::HTTPResponse resp;
 
     if (!DownloadChildManifest(adpSet, repr, resp))
@@ -1117,7 +1103,7 @@ void adaptive::CHLSTree::RefreshLiveSegments()
     const uint64_t segNumber = repr->getCurrentSegmentNumber();
 
     const ParseStatus status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl),
-                                                  m_currentPeriod, adpSet, repr, isDrmChanged);
+                                                  m_currentPeriod, adpSet, repr);
 
     if (status == ParseStatus::SUCCESS)
     {
