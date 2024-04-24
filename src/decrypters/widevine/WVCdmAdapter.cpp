@@ -60,7 +60,6 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
   // the domain name is hashed to generate a short folder name
   std::string basePath = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), "widevine");
   basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
-  basePath += FILESYS::SEPARATOR;
 
   wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter(
       "com.widevine.alpha", cdmPath, basePath,

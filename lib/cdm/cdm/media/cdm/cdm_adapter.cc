@@ -79,6 +79,23 @@ void* GetCdmHost(int host_interface_version, void* user_data)
   }
 }
 
+std::string PathCombine(std::string_view path, std::string_view filePath)
+{
+  if (path.empty())
+    return std::string(filePath);
+
+  if (path.back() == PATH_SEPARATOR)
+    path.remove_suffix(1);
+
+  if (filePath.front() == PATH_SEPARATOR)
+    filePath.remove_prefix(1);
+
+  std::string cPath{path};
+  cPath += PATH_SEPARATOR;
+  cPath += filePath;
+  return cPath;
+}
+
 bool ExistsDir(const char* path)
 {
   struct stat info;
@@ -717,7 +734,7 @@ void CdmFileIoImpl::Open(const char* file_name, uint32_t file_name_size)
   {
     opened_ = true;
     m_filepath.assign(file_name, file_name_size);
-    m_filepath = base_path_ + m_filepath;
+    m_filepath = PathCombine(base_path_, m_filepath);
     client_->OnOpenComplete(cdm::FileIOClient::Status::kSuccess);
   }
   else
