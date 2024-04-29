@@ -421,9 +421,6 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
   // in the current period and its needed to switch to the next period
   if (m_session->SeekChapter(m_session->GetChapter() + 1))
   {
-    //! @todo: If a live stream make use of "insert live segments" and have also multiple periods/chapters
-    //! "insert live segments" prevents the period change, by always inserting segments this code will never be reached
-
     // Switched to new period / chapter
     m_checkChapterSeek = true;
     m_lastPts = PLAYLIST::NO_PTS_VALUE;
