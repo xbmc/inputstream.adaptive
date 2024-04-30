@@ -45,7 +45,17 @@ struct ChooserProps
 
 struct ManifestConfig
 {
-  std::optional<uint32_t> timeShiftBufferLimit; // Limit the timeshift buffer depth, in seconds
+  // Limit the timeshift buffer depth, in seconds
+  std::optional<uint32_t> timeShiftBufferLimit;
+  // Faulty HLS live services can send manifest updates with inconsistent EXT-X-ENDLIST
+  // when the stream is not finished, enabling this will ignore EXT-X-ENDLIST tags
+  bool hlsIgnoreEndList{false};
+  // Faulty HLS live services can send manifest updates with inconsistent EXT-X-MEDIA-SEQUENCE
+  // enabling this will correct the value by using EXT-X-PROGRAM-DATE-TIME tags
+  bool hlsFixMediaSequence{false};
+  // Faulty HLS live services can send manifest updates with inconsistent EXT-X-DISCONTINUITY-SEQUENCE
+  // enabling this will correct the value by using EXT-X-PROGRAM-DATE-TIME tags
+  bool hlsFixDiscontSequence{false};
 };
 
 class ATTR_DLL_LOCAL CCompKodiProps

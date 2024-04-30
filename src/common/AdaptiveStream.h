@@ -74,6 +74,7 @@ enum class EVENT_TYPE
     void Disable();
 
     void SetStartEvent(const EVENT_TYPE eventType) { m_startEvent = eventType; }
+    EVENT_TYPE GetStartEvent() const { return m_startEvent; }
 
     /*!
     * \brief Set the current segment to the one specified, and reset

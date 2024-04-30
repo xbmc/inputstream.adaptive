@@ -19,6 +19,13 @@ namespace adaptive
 class ATTR_DLL_LOCAL CHLSTree : public AdaptiveTree
 {
 public:
+  enum class ParseStatus
+  {
+    SUCCESS,
+    ERROR,
+    INVALID, // Invalid manifest e.g. without segments
+  };
+
   CHLSTree() : AdaptiveTree() {}
   virtual ~CHLSTree() {}
 
@@ -119,12 +126,32 @@ protected:
                              PLAYLIST::CRepresentation* rep,
                              UTILS::CURL::HTTPResponse& resp);
 
-  bool ParseChildManifest(const std::string& data,
-                          std::string_view sourceUrl,
-                          PLAYLIST::CPeriod* period,
-                          PLAYLIST::CAdaptationSet* adp,
-                          PLAYLIST::CRepresentation* rep,
-                          bool& isDrmChanged);
+  /*
+   * \brief Check for inconsistent EXT-X-MEDIA-SEQUENCE value on manifest update,
+   *        then correct the media sequence number.
+   *        The corrected value is determined by finding the corresponding segment (PTS) in the updated playlist
+   *        in order to work EXT-X-PROGRAM-DATE-TIME tag is needed.
+   */
+  void FixMediaSequence(std::stringstream& streamData,
+                        uint64_t& mediaSeqNumber,
+                        size_t adpSetPos,
+                        size_t reprPos);
+
+  /*
+   * \brief Check for inconsistent EXT-X-DISCONTINUITY-SEQUENCE value on manifest update,
+   *        then correct the discontinuity sequence number.
+   *        The corrected value is determined by checking whether a segment falls within an existing period
+   *        if found use that sequence number to fix EXT-X-DISCONTINUITY-SEQUENCE
+   *        in order to work EXT-X-PROGRAM-DATE-TIME tag is needed.
+   */
+  void FixDiscSequence(std::stringstream& streamData, uint32_t& discSeqNumber);
+
+  ParseStatus ParseChildManifest(const std::string& data,
+                                 std::string_view sourceUrl,
+                                 PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adp,
+                                 PLAYLIST::CRepresentation* rep,
+                                 bool& isDrmChanged);
 
   void PrepareSegments(PLAYLIST::CPeriod* period,
                        PLAYLIST::CAdaptationSet* adp,
@@ -191,6 +218,13 @@ private:
    * \param codec The codec string of the audio stream
    */
   void AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPeriod>& period, std::string codec);
+
+  /*!
+   * \brief Find the period related to the specified discontinuity sequence number.
+   * \param discNumber The sequence number
+   * \return The period if found, otherwise nullptr
+   */
+  PLAYLIST::CPeriod* FindDiscontinuityPeriod(const uint32_t seqNumber);
 
   uint8_t m_segmentIntervalSec = 4;
   bool m_hasDiscontSeq = false;

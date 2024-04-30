@@ -186,6 +186,9 @@ namespace adaptive
                                    const PLAYLIST::CRepresentation* segRep,
                                    const PLAYLIST::CSegment* segment) const
   {
+    if (segRep->SegmentTimeline().IsEmpty())
+      return true;
+
     if (!segment || !segPeriod || !segRep)
       return false;
 
@@ -280,6 +283,11 @@ namespace adaptive
           break;
 
         updLck.lock();
+
+        // Reset interval value to allow forced update from manifest
+        if (m_resetInterval)
+          m_tree->m_updateInterval = PLAYLIST::NO_VALUE;
+
         m_tree->RefreshLiveSegments();
       }
     }

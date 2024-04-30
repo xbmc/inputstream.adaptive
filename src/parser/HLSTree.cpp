@@ -191,17 +191,33 @@ bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
   //! and we could overload servers of manifest requests
   //! should be limit updates by taking in account a timing per representation basis
 
-  UTILS::CURL::HTTPResponse resp;
+  ParseStatus status = ParseStatus::INVALID;
+  size_t maxInvalidStatus = 3;
 
-  if (!DownloadChildManifest(adp, rep, resp))
-    return false;
-
-  if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep,
-                         isDrmChanged))
+  while (status == ParseStatus::INVALID && maxInvalidStatus > 0)
   {
-    // We dont set segment position to PrepareSegments because its adjusted on AdaptiveStream::start_stream
-    PrepareSegments(period, adp, rep, currentSegNumber);
+    UTILS::CURL::HTTPResponse resp;
+
+    if (!DownloadChildManifest(adp, rep, resp))
+      return false;
+
+    status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep,
+                                isDrmChanged);
+
+    if (status == ParseStatus::SUCCESS)
+    {
+      // We dont set segment position to PrepareSegments because its adjusted on AdaptiveStream::start_stream
+      PrepareSegments(period, adp, rep, currentSegNumber);
+    }
+    else if (status == ParseStatus::INVALID)
+    {
+      // Give the provider a minimum amount of time to update the manifest before downloading it again
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      maxInvalidStatus--;
+    }
   }
+
+  StartUpdateThread();
 
   return true;
 }
@@ -227,25 +243,218 @@ bool adaptive::CHLSTree::DownloadChildManifest(PLAYLIST::CAdaptationSet* adp,
   return true;
 }
 
-bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
-                                            std::string_view sourceUrl,
-                                            PLAYLIST::CPeriod* period,
-                                            PLAYLIST::CAdaptationSet* adp,
-                                            PLAYLIST::CRepresentation* rep,
-                                            bool& isDrmChanged)
+void adaptive::CHLSTree::FixMediaSequence(std::stringstream& streamData,
+                                          uint64_t& mediaSeqNumber,
+                                          size_t adpSetPos,
+                                          size_t reprPos)
 {
+  // Get the last segment PTS and number in the last period
+  auto& lastPRep = m_periods.back()->GetAdaptationSets()[adpSetPos]->GetRepresentations()[reprPos];
+  if (lastPRep->SegmentTimeline().IsEmpty())
+    return;
+  CSegment* lastSeg = lastPRep->SegmentTimeline().GetBack();
+  uint64_t segStartPts = lastSeg->startPTS_; // The start PTS refer to date-time
+  uint64_t segNumber = lastSeg->m_number;
+
+  std::streampos streamInitPos = streamData.tellg();
+  uint64_t dateTime{0};
+  uint64_t totalSegs{0};
+  bool isSegFound{false};
+
+  // Inspect all manifest data to try to find the segment
+  for (std::string line; STRING::GetLine(streamData, line);)
+  {
+    std::string tagName;
+    std::string tagValue;
+    ParseTagNameValue(line, tagName, tagValue);
+
+    if (tagName == "#EXT-X-PROGRAM-DATE-TIME")
+    {
+      dateTime = static_cast<uint64_t>(XML::ParseDate(tagValue, 0) * 1000);
+    }
+    else if (tagName == "#EXTINF")
+    {
+      if (dateTime >= segStartPts)
+      {
+        isSegFound = true;
+        break;
+      }
+
+      dateTime += static_cast<uint64_t>(STRING::ToFloat(tagValue) * 1000);
+      ++totalSegs;
+    }
+  }
+
+  // Rollback the stream reader to the initial position
+  // to allow the parser to continue from where it stopped
+  streamData.clear();
+  streamData.seekg(streamInitPos, std::ios::beg);
+
+  if (isSegFound)
+  {
+    uint64_t mediaSeqNumberFix = segNumber - totalSegs;
+
+    if (mediaSeqNumber != mediaSeqNumberFix)
+    {
+      LOG::Log(LOGWARNING, "Inconsistent EXT-X-MEDIA-SEQUENCE of %llu, corrected to %llu",
+               mediaSeqNumber, mediaSeqNumberFix);
+      mediaSeqNumber = mediaSeqNumberFix;
+    }
+  }
+  else
+  {
+    LOG::Log(LOGERROR, "Inconsistent EXT-X-MEDIA-SEQUENCE of %llu, cannot be corrected");
+  }
+}
+
+void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t& discSeqNumber)
+{
+  std::streampos streamInitPos = streamData.tellg();
+  uint64_t dateTime{0};
+  uint32_t discSeqNumberFix = discSeqNumber;
+  bool isDiscFound{false};
+
+  // Inspect manifest data to extrapolate the start/end PTS of all periods
+  // based on EXT-X-PROGRAM-DATE-TIME
+  std::vector<uint64_t> periodsStartTime;
+  std::vector<uint64_t> periodsEndTime;
+
+  for (std::string line; STRING::GetLine(streamData, line);)
+  {
+    std::string tagName;
+    std::string tagValue;
+    ParseTagNameValue(line, tagName, tagValue);
+
+    if (tagName == "#EXT-X-PROGRAM-DATE-TIME")
+    {
+      dateTime = static_cast<uint64_t>(XML::ParseDate(tagValue, 0) * 1000);
+    }
+    else if (tagName == "#EXTINF")
+    {
+      if (periodsStartTime.empty())
+        periodsStartTime.emplace_back(dateTime);
+
+      dateTime += static_cast<uint64_t>(STRING::ToFloat(tagValue) * 1000);
+    }
+    else if (tagName == "#EXT-X-DISCONTINUITY")
+    {
+      periodsEndTime.emplace_back(dateTime);
+      periodsStartTime.emplace_back(dateTime);
+    }
+  }
+  periodsEndTime.emplace_back(dateTime);
+
+  // Update with single period
+  if (periodsStartTime.size() == 1)
+  {
+    // Continue with the last one
+    isDiscFound = true;
+    discSeqNumberFix = m_periods.back()->GetSequence();
+  }
+  else // Update with multiple periods
+  {
+    // Try to find a match with the second period by using period start time,
+    // it works only when the EXT-X-PROGRAM-DATE-TIME value is precise
+    for (auto& period : m_periods)
+    {
+      if (period->GetStart() == periodsStartTime[1])
+      {
+        discSeqNumberFix = period->GetSequence() - 1;
+        isDiscFound = true;
+        break;
+      }
+    }
+
+    if (!isDiscFound)
+    {
+      // Use cases when the discontinuity has not found:
+      // 1) The second period is a new period
+      // 2) EXT-X-PROGRAM-DATE-TIME is inconsistent (almost impossible determine which period to update)
+      // The following cycle tries to check if the first (updated) period
+      // can fit one of the existing ones, otherwise fallback to the last one.
+      // With a malformed manifest update this could cause any kind of playback oddities,
+      // such as segments played multiple times, or periods switched before the end of their playback.
+      for (auto& period : m_periods)
+      {
+        for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end(); ++itPeriod)
+        {
+          if ((*itPeriod)->GetStart() == NO_VALUE)
+            continue;
+
+          auto nextPeriod = itPeriod + 1;
+
+          if (nextPeriod != m_periods.end())
+          {
+            if ((*itPeriod)->GetStart() <= periodsStartTime[0] &&
+                (*itPeriod)->GetStart() < periodsEndTime[0] &&
+                (*nextPeriod)->GetStart() >= periodsEndTime[0])
+            {
+              discSeqNumberFix = (*itPeriod)->GetSequence();
+              isDiscFound = true;
+              break;
+            }
+          }
+          else
+          {
+            if ((*itPeriod)->GetStart() <= periodsStartTime[0])
+            {
+              discSeqNumberFix = (*itPeriod)->GetSequence();
+              isDiscFound = true;
+            }
+          }
+        }
+        if (isDiscFound)
+          break;
+      }
+    }
+  }
+
+  if (!isDiscFound)
+  {
+    LOG::LogF(LOGERROR, "Cannot find appropriate sequence number, try fallback to the last one");
+    discSeqNumberFix = m_periods.back()->GetSequence();
+  }
+
+  // Rollback the stream reader to the initial position
+  // to allow the parser to continue from where it stopped
+  streamData.clear();
+  streamData.seekg(streamInitPos, std::ios::beg);
+
+  if (discSeqNumber != discSeqNumberFix)
+  {
+    LOG::Log(LOGWARNING, "Inconsistent EXT-X-DISCONTINUITY-SEQUENCE of %u, corrected to %u",
+             discSeqNumber, discSeqNumberFix);
+    discSeqNumber = discSeqNumberFix;
+  }
+}
+
+ adaptive::CHLSTree::ParseStatus adaptive::CHLSTree::ParseChildManifest(
+    const std::string& data,
+    std::string_view sourceUrl,
+    PLAYLIST::CPeriod* period,
+    PLAYLIST::CAdaptationSet* adp,
+    PLAYLIST::CRepresentation* rep,
+    bool& isDrmChanged)
+{
+  const auto& manifestCfg = CSrvBroker::GetKodiProps().GetManifestConfig();
   size_t adpSetPos = GetPtrPosition(period->GetAdaptationSets(), adp);
   size_t reprPos = GetPtrPosition(adp->GetRepresentations(), rep);
-
-  std::unique_ptr<CPeriod> periodLost;
 
   rep->SetBaseUrl(sourceUrl);
 
   EncryptionType currentEncryptionType = EncryptionType::CLEAR;
 
+  // To know in advance if EXT-X-PROGRAM-DATE-TIME is available
+  bool hasProgramDateTime = STRING::Contains(data, "#EXT-X-PROGRAM-DATE-TIME:");
+  bool hasEndList{false}; // Determine if there is the EXT-X-ENDLIST tag
+
   uint64_t programDateTime{NO_VALUE}; // EXT-X-PROGRAM-DATE-TIME in ms or NO_VALUE
   uint64_t currentSegNumber{0};
-  uint64_t newStartNumber{0};
+
+  uint64_t lastSegNumber{SEGMENT_NO_NUMBER}; // The segment number of last segment in the previous manifest
+  uint64_t lastSegStartPts{NO_PTS_VALUE}; // The start PTS of last segment in the previous manifest
+
+  uint64_t mediaSequenceNbr{0};
 
   CSpinCache<CSegment> newSegments;
   std::optional<CSegment> newSegment;
@@ -256,6 +465,10 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
   uint32_t discontCount{0};
 
   bool isExtM3Uformat{false};
+
+  // Skip all segments until an EXT-X-DISCONTINUITY is found, probably a malformed manifest update
+  // WARNING: when this is true, the "period" variable is nullptr!
+  bool isSkipUntilDiscont{false};
 
   // Parse child playlist
   std::stringstream streamData{data};
@@ -278,7 +491,7 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
     std::string tagValue;
     ParseTagNameValue(line, tagName, tagValue);
 
-    if (tagName == "#EXT-X-KEY")
+    if (tagName == "#EXT-X-KEY" && !isSkipUntilDiscont)
     {
       auto attribs = ParseTagAttributes(tagValue);
 
@@ -343,8 +556,12 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
     }
     else if (tagName == "#EXT-X-MEDIA-SEQUENCE")
     {
-      newStartNumber = STRING::ToUint64(tagValue);
-      currentSegNumber = newStartNumber;
+      mediaSequenceNbr = STRING::ToUint64(tagValue);
+
+      if (manifestCfg.hlsFixMediaSequence && hasProgramDateTime)
+        FixMediaSequence(streamData, mediaSequenceNbr, adpSetPos, reprPos);
+
+      currentSegNumber = mediaSequenceNbr;
     }
     else if (tagName == "#EXT-X-PLAYLIST-TYPE")
     {
@@ -354,11 +571,11 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
         m_updateInterval = NO_VALUE;
       }
     }
-    else if (tagName == "#EXT-X-PROGRAM-DATE-TIME")
+    else if (tagName == "#EXT-X-PROGRAM-DATE-TIME" && !isSkipUntilDiscont)
     {
       programDateTime = static_cast<uint64_t>(XML::ParseDate(tagValue, 0) * 1000);
       // Set or update the period start, only from the first program date time value
-      if (newSegments.IsEmpty())
+      if (period->GetStart() == 0 || period->GetStart() == NO_VALUE)
         period->SetStart(programDateTime);
     }
     else if (tagName == "#EXT-X-TARGETDURATION")
@@ -370,7 +587,7 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
       if (newInterval < m_updateInterval)
         m_updateInterval = newInterval;
     }
-    else if (tagName == "#EXTINF")
+    else if (tagName == "#EXTINF" && !isSkipUntilDiscont)
     {
       const uint64_t durMs = static_cast<uint64_t>(STRING::ToFloat(tagValue) * 1000);
       uint64_t startPts{0};
@@ -480,64 +697,101 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
     }
     else if (tagName == "#EXT-X-DISCONTINUITY-SEQUENCE")
     {
-      m_discontSeq = STRING::ToUint32(tagValue);
+      uint32_t discontSeq = STRING::ToUint32(tagValue);
+
+      // Make sure to set the sequence to the initial period
       if (!initial_sequence_.has_value())
-        initial_sequence_ = m_discontSeq;
+        period->SetSequence(discontSeq);
 
-      m_hasDiscontSeq = true;
-      // make sure first period has a sequence on initial prepare
-      if (m_discontSeq > 0 && m_periods.back()->GetSequence() == 0)
-        m_periods[0]->SetSequence(m_discontSeq);
+      if (manifestCfg.hlsFixDiscontSequence && hasProgramDateTime)
+        FixDiscSequence(streamData, discontSeq);
 
-        for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
+      if (!initial_sequence_.has_value())
+        initial_sequence_ = discontSeq;
+
+      // Delete periods linked to old discontinuities
+      const uint32_t currPeriodSeq = m_currentPeriod->GetSequence();
+
+      for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
       {
-        if (itPeriod->get()->GetSequence() < m_discontSeq)
+        const uint32_t periodSeq = itPeriod->get()->GetSequence();
+        if (periodSeq < discontSeq)
         {
-          if ((*itPeriod).get() != m_currentPeriod)
+          // Period sequence can be equal to current (is use) sequence when:
+          // 1) If you pause the video and after some time you want to continue the playback,
+          //    but this period become outdated.
+          // 2) Malformed manifest update, corrected by FixDiscSequence force this behavior.
+          // So in order to force switching to the next period/sequence the segments must be deleted
+          if (periodSeq == currPeriodSeq)
           {
-            itPeriod = m_periods.erase(itPeriod);
+            auto& pCurrAdp = m_currentPeriod->GetAdaptationSets()[adpSetPos];
+            auto& pCurrRep = pCurrAdp->GetRepresentations()[reprPos];
+            pCurrRep->SegmentTimeline().Clear();
+            pCurrRep->current_segment_ = nullptr;
+            LOG::Log(LOGDEBUG, "Clear outdated period of discontinuity %u",
+                     itPeriod->get()->GetSequence());
           }
           else
           {
-            // we end up here after pausing for some time
-            // remove from m_periods for now and reattach later
-            periodLost = std::move(*itPeriod); // Move out the period unique ptr
-            itPeriod = m_periods.erase(itPeriod); // Remove empty unique ptr state
+            LOG::Log(LOGDEBUG, "Deleted period of discontinuity %u",
+                     itPeriod->get()->GetSequence());
+            itPeriod = m_periods.erase(itPeriod);
+            continue;
           }
         }
-        else
-          itPeriod++;
+
+        itPeriod++;
       }
 
-      period = m_periods[0].get();
-      adp = period->GetAdaptationSets()[adpSetPos].get();
-      rep = adp->GetRepresentations()[reprPos].get();
+      period = FindDiscontinuityPeriod(discontSeq);
+      if (period)
+      {
+        adp = period->GetAdaptationSets()[adpSetPos].get();
+        rep = adp->GetRepresentations()[reprPos].get();
+      }
+      else
+      {
+        LOG::LogF(LOGERROR, "Period of discontinuity %u not found, attempt to advance to the next",
+                  discontSeq);
+        isSkipUntilDiscont = true;
+      }
+
+      m_hasDiscontSeq = true;
+      m_discontSeq = discontSeq;
     }
     else if (tagName == "#EXT-X-DISCONTINUITY")
     {
-      if (newSegments.IsEmpty())
+      if (!newSegments.IsEmpty() && !isSkipUntilDiscont)
       {
-        LOG::Log(LOGDEBUG, "Ignored EXT-X-DISCONTINUITY tag, no segment");
-        continue;
+        period->SetSequence(m_discontSeq + discontCount);
+
+        uint64_t dur = newSegments.GetBack()->m_endPts - newSegments.GetFront()->startPTS_;
+        rep->SetDuration(dur);
+
+        if (adp->GetStreamType() != StreamType::SUBTITLE)
+        {
+          uint64_t periodDuration =
+              (rep->GetDuration() * period->GetTimescale()) / rep->GetTimescale();
+          period->SetDuration(periodDuration);
+        }
+
+        FreeSegments(period, rep);
+        rep->SegmentTimeline().Swap(newSegments);
+
+        rep->SetStartNumber(mediaSequenceNbr);
       }
 
-      period->SetSequence(m_discontSeq + discontCount);
+      isSkipUntilDiscont = false;
+      ++discontCount;
 
-      uint64_t dur = newSegments.GetBack()->m_endPts - newSegments.GetFront()->startPTS_;
-      rep->SetDuration(dur);
+      // Create a new period or update an existing one
 
-      if (adp->GetStreamType() != StreamType::SUBTITLE)
+      CPeriod* foundPeriod = FindDiscontinuityPeriod(m_discontSeq + discontCount);
+      if (foundPeriod) // Update existing period
       {
-        uint64_t periodDuration =
-            (rep->GetDuration() * m_periods[discontCount]->GetTimescale()) / rep->GetTimescale();
-        period->SetDuration(periodDuration);
+        period = foundPeriod;
       }
-
-      FreeSegments(period, rep);
-      rep->SegmentTimeline().Swap(newSegments);
-      rep->SetStartNumber(newStartNumber);
-
-      if (m_periods.size() == ++discontCount)
+      else // Create new period
       {
         auto newPeriod = CPeriod::MakeUniquePtr();
         // CopyHLSData will copy also the init segment in the representations
@@ -545,18 +799,14 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
         newPeriod->CopyHLSData(m_currentPeriod);
 
         period = newPeriod.get();
+        period->SetStart(0);
+
         m_periods.push_back(std::move(newPeriod));
       }
-      else
-      {
-        // Period(s) already created by a previously downloaded manifest child
-        period = m_periods[discontCount].get();
-      }
 
-      if (programDateTime != NO_VALUE)
-        period->SetStart(programDateTime);
+      mediaSequenceNbr += rep->SegmentTimeline().GetSize();
+      currentSegNumber = mediaSequenceNbr;
 
-      newStartNumber += rep->SegmentTimeline().GetSize();
       adp = period->GetAdaptationSets()[adpSetPos].get();
       // When we switch to a repr of another period we need to set current base url
       CRepresentation* switchRep = adp->GetRepresentations()[reprPos].get();
@@ -575,30 +825,47 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
     }
     else if (tagName == "#EXT-X-ENDLIST")
     {
-      m_isLive = false;
-      m_updateInterval = NO_VALUE;
+      hasEndList = true;
     }
   }
 
   if (!isExtM3Uformat)
   {
     LOG::LogF(LOGERROR, "Non-compliant HLS manifest, #EXTM3U tag not found.");
-    return false;
+    return ParseStatus::ERROR;
+  }
+
+  if (hasEndList)
+  {
+    if (manifestCfg.hlsIgnoreEndList)
+    {
+      LOG::Log(LOGWARNING, "Ignored EXT-X-ENDLIST tag");
+    }
+    else
+    {
+      m_isLive = false;
+      m_updateInterval = NO_VALUE;
+    }
   }
 
   if (m_isLive && m_updateInterval == NO_VALUE)
     m_updateInterval = 0; // Refresh at each segment
 
-  FreeSegments(period, rep);
-
-  if (newSegments.IsEmpty())
+  if (newSegments.IsEmpty() || isSkipUntilDiscont)
   {
-    LOG::LogF(LOGERROR, "No segments parsed.");
-    return false;
+    LOG::LogF(LOGERROR, "No segments in the manifest.");
+
+    // Faulty live services can send manifest updates with EXT-X-ENDLIST
+    // and without segments despite the live stream is not ended
+    if (manifestCfg.hlsIgnoreEndList && hasEndList)
+      return ParseStatus::INVALID;
+
+    return ParseStatus::ERROR;
   }
 
+  FreeSegments(period, rep);
   rep->SegmentTimeline().Swap(newSegments);
-  rep->SetStartNumber(newStartNumber);
+  rep->SetStartNumber(mediaSequenceNbr);
 
   uint64_t reprDur{0};
   if (rep->SegmentTimeline().Get(0))
@@ -638,16 +905,7 @@ bool adaptive::CHLSTree::ParseChildManifest(const std::string& data,
   if (adp->GetStreamType() != StreamType::SUBTITLE)
     m_totalTime = totalTimeMs;
 
-  // If you pause the video and after some time you want to continue the playback,
-  // its possible that we need to continue with this period (lost),
-  // or, that segments on current period (lost) cannot be downloaded because too old
-  // if so the stream will finish/ends and will start to switching/playing the next new period
-  if (periodLost)
-    m_periods.insert(m_periods.begin(), std::move(periodLost));
-
-  StartUpdateThread();
-
-  return true;
+  return ParseStatus::SUCCESS;
 }
 
 void adaptive::CHLSTree::PrepareSegments(PLAYLIST::CPeriod* period,
@@ -800,11 +1058,15 @@ void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
   // to allow find the right segment on updated playlist segments
   const uint64_t segNumber = rep->getCurrentSegmentNumber();
 
-  if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep,
-                         isDrmChanged))
+  const ParseStatus status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl),
+                                                period, adp, rep, isDrmChanged);
+  if (status == ParseStatus::SUCCESS)
   {
     PrepareSegments(period, adp, rep, segNumber);
   }
+
+  if (isDrmChanged)
+    LOG::Log(LOGERROR, "Unmanaged DRM change between segments");
 }
 
 bool adaptive::CHLSTree::DownloadKey(std::string_view url,
@@ -839,6 +1101,9 @@ void adaptive::CHLSTree::RefreshLiveSegments()
         refreshList.emplace_back(adpSet.get(), repr.get());
     }
   }
+
+  bool isInvalidUpdate = false;
+
   for (auto& [adpSet, repr] : refreshList)
   {
     bool isDrmChanged{false};
@@ -851,11 +1116,28 @@ void adaptive::CHLSTree::RefreshLiveSegments()
     // to allow find the right segment on updated playlist segments
     const uint64_t segNumber = repr->getCurrentSegmentNumber();
 
-    if (ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), m_currentPeriod, adpSet,
-                           repr, isDrmChanged))
+    const ParseStatus status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl),
+                                                  m_currentPeriod, adpSet, repr, isDrmChanged);
+
+    if (status == ParseStatus::SUCCESS)
     {
       PrepareSegments(m_currentPeriod, adpSet, repr, segNumber);
     }
+    else if (status == ParseStatus::INVALID)
+    {
+      isInvalidUpdate = true;
+    }
+  }
+
+  if (isInvalidUpdate)
+  {
+    // Faulty live services could send malformed manifest updates
+    // so avoid requesting updates too quickly but you also need to make sure
+    // that we have segments to mitigate a buffering problem
+    // so try halve the interval time in a temporary way
+    m_updateInterval = m_updateInterval / 2;
+    // Reset the interval on the next update, to restore the original value
+    m_updThread.ResetInterval();
   }
 }
 
@@ -1489,6 +1771,16 @@ void adaptive::CHLSTree::AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPerio
       return; // Repr. with included audio already exists
   }
   period->AddAdaptationSet(newAdpSet);
+}
+
+PLAYLIST::CPeriod* adaptive::CHLSTree::FindDiscontinuityPeriod(const uint32_t seqNumber)
+{
+  for (auto& period : m_periods)
+  {
+    if (period->GetSequence() == seqNumber)
+      return period.get();
+  }
+  return nullptr;
 }
 
 const adaptive::CHLSTree::Variant* adaptive::CHLSTree::FindVariantByAudioGroupId(

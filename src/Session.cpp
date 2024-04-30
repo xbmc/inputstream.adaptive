@@ -938,26 +938,24 @@ void CSession::PrepareStream(CStream* stream)
     return;
 
   CRepresentation* repr = stream->m_adStream.getRepresentation();
+  const EVENT_TYPE startEvent = stream->m_adStream.GetStartEvent();
 
-  if (stream->m_adStream.StreamChanged())
+  // Download the manifest only at first start of the stream
+  if (startEvent == EVENT_TYPE::STREAM_START)
   {
-    // For HLS case when stream (representation) quality has been changed
-    // its not needed to update again the child manifest by calling ParseChildManifest
-    // because its already been done by AdaptiveStream thread worker or AdaptiveStream::ensureSegment
-    stream->m_isEncrypted = repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT;
-    return;
+    bool noop;
+    m_adaptiveTree->PrepareRepresentation(stream->m_adStream.getPeriod(),
+                                          stream->m_adStream.getAdaptationSet(), repr, noop,
+                                          SEGMENT_NO_NUMBER);
   }
 
-  bool isDrmChanged{false};
-  if (m_adaptiveTree->PrepareRepresentation(stream->m_adStream.getPeriod(),
-                                            stream->m_adStream.getAdaptationSet(), repr,
-                                            isDrmChanged, SEGMENT_NO_NUMBER))
+  if (startEvent != EVENT_TYPE::REP_CHANGE &&
+      stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::ENCRYPTED_SUPPORTED)
   {
-    if (isDrmChanged)
-      InitializeDRM();
-
-    stream->m_isEncrypted = repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT;
+    InitializeDRM();
   }
+
+  stream->m_isEncrypted = repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT;
 }
 
 void CSession::EnableStream(CStream* stream, bool enable)
