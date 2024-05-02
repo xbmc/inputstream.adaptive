@@ -106,6 +106,10 @@ bool CreateDirs(const char* path)
 #ifdef _WIN32
   }
 #endif
+  // Ignore the first separator
+  if (*p == PATH_SEPARATOR)
+    p++;
+
   // Iterate each folder in the path
   while ((p = std::strchr(p, PATH_SEPARATOR)) != NULL)
   {
