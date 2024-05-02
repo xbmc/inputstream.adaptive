@@ -126,7 +126,6 @@ public:
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
                                      PLAYLIST::CRepresentation* rep,
-                                     bool& isDrmChanged,
                                      uint64_t currentSegNumber)
   {
     return false;
@@ -252,6 +251,9 @@ public:
     // \brief Reset start time (make exit the condition variable m_cvUpdInterval and re-start the timeout)
     void ResetStartTime() { m_cvUpdInterval.notify_all(); }
 
+    // \brief At next update reset the interval value to NO_VALUE, before make RefreshLiveSegments callback
+    void ResetInterval() { m_resetInterval = true; }
+
     // \brief As "std::mutex" lock, but put in pause the manifest updates (support std::lock_guard).
     //        If an update is in progress, block the code until the update is finished.
     void lock() { Pause(); }
@@ -281,6 +283,7 @@ public:
     std::mutex m_waitMutex;
     std::condition_variable m_cvWait;
     bool m_threadStop{false};
+    bool m_resetInterval{false};
   };
 
   /*!

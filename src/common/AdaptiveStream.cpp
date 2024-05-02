@@ -953,8 +953,7 @@ bool AdaptiveStream::ensureSegment()
         {
           // On manifests type like HLS we need also to get update segments
           // because need to be downloaded/parsed from different child manifest files
-          bool isDrmChanged;
-          m_tree->PrepareRepresentation(current_period_, current_adp_, newRep, isDrmChanged,
+          m_tree->PrepareRepresentation(current_period_, current_adp_, newRep,
                                         current_rep_->getCurrentSegmentNumber());
 
           // If the representation has been changed, segments may have to be generated (DASH)

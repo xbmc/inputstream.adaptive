@@ -36,7 +36,6 @@ void PLAYLIST::CPeriod::CopyHLSData(const CPeriod* other)
   m_baseUrl = other->m_baseUrl;
   m_id = other->m_id;
   m_timescale = other->m_timescale;
-  m_start = other->m_start;
   m_encryptionState = other->m_encryptionState;
   m_includedStreamType = other->m_includedStreamType;
   m_isSecureDecoderNeeded = other->m_isSecureDecoderNeeded;

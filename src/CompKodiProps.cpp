@@ -262,6 +262,18 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& dat
       if (jDictVal.GetUint() > 0)
         m_manifestConfig.timeShiftBufferLimit = jDictVal.GetUint();
     }
+    else if (configName == "hls_ignore_endlist" && jDictVal.IsBool())
+    {
+       m_manifestConfig.hlsIgnoreEndList = jDictVal.GetBool();
+    }
+    else if (configName == "hls_fix_mediasequence" && jDictVal.IsBool())
+    {
+       m_manifestConfig.hlsFixMediaSequence = jDictVal.GetBool();
+    }
+    else if (configName == "hls_fix_discsequence" && jDictVal.IsBool())
+    {
+       m_manifestConfig.hlsFixDiscontSequence = jDictVal.GetBool();
+    }
     else
     {
       LOG::LogF(LOGERROR, "Unsupported \"%s\" config or wrong data type on \"%s\" property",
