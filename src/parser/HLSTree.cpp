@@ -491,7 +491,7 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
     if (tagName == "#EXT-X-KEY" && !isSkipUntilDiscont)
     {
       auto attribs = ParseTagAttributes(tagValue);
-
+      // NOTE: Multiple EXT-X-KEYs can be parsed sequentially
       switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
       {
         case EncryptionType::CLEAR:
@@ -499,26 +499,35 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
           period->SetEncryptionState(EncryptionState::UNENCRYPTED);
           psshSetPos = PSSHSET_POS_DEFAULT;
           break;
-        case EncryptionType::UNKNOWN:
-          currentEncryptionType = EncryptionType::UNKNOWN;
-          period->SetEncryptionState(EncryptionState::ENCRYPTED);
-          break;
-        case EncryptionType::NOT_SUPPORTED:
-          currentEncryptionType = EncryptionType::NOT_SUPPORTED;
-          period->SetEncryptionState(EncryptionState::ENCRYPTED);
-          break;
         case EncryptionType::AES128:
-          currentEncryptionType = EncryptionType::AES128;
-          period->SetEncryptionState(EncryptionState::UNENCRYPTED);
-          psshSetPos = PSSHSET_POS_DEFAULT;
+          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_DRM)
+          {
+            currentEncryptionType = EncryptionType::AES128;
+            period->SetEncryptionState(EncryptionState::ENCRYPTED_CK);
+            psshSetPos = PSSHSET_POS_DEFAULT;
+          }
           break;
         case EncryptionType::WIDEVINE:
-          currentEncryptionType = EncryptionType::WIDEVINE;
-          period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
+          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
+          {
+            currentEncryptionType = EncryptionType::WIDEVINE;
+            period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
 
-          rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-                                            m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
+                                              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+          }
+          break;
+        case EncryptionType::NOT_SUPPORTED:
+          // Set only if a supported encrypton has not previously been parsed
+          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_DRM &&
+              period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
+          {
+            currentEncryptionType = EncryptionType::NOT_SUPPORTED;
+            period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
+          }
+          break;
         default:
+          LOG::LogF(LOGFATAL, "Unhandled EncryptionType");
           break;
       }
     }
@@ -808,7 +817,7 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
       {
         rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                           m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-        period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
+        period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
       }
 
       if (rep->HasInitSegment())
@@ -939,7 +948,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
                                        size_t segBufferSize,
                                        bool isLastChunk)
 {
-  if (psshSet && m_currentPeriod->GetEncryptionState() != EncryptionState::ENCRYPTED_SUPPORTED)
+  if (psshSet && m_currentPeriod->GetEncryptionState() == EncryptionState::ENCRYPTED_CK)
   {
     std::lock_guard<TreeUpdateThread> lckUpdTree(GetTreeUpdMutex());
 
@@ -1222,7 +1231,9 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   }
 
   // WIDEVINE
-  if (STRING::CompareNoCase(attribs["KEYFORMAT"], "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"))
+  if (STRING::CompareNoCase(attribs["KEYFORMAT"],
+                            "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed") &&
+      STRING::CompareNoCase(attribs["KEYFORMAT"], m_supportedKeySystem))
   {
     m_currentPssh = uriData;
 
@@ -1256,14 +1267,9 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     return EncryptionType::WIDEVINE;
   }
 
-  // KNOWN UNSUPPORTED
-  if (STRING::CompareNoCase(attribs["KEYFORMAT"], "com.apple.streamingkeydelivery"))
-  {
-    LOG::LogF(LOGDEBUG, "Keyformat %s not supported", attribs["KEYFORMAT"].c_str());
-    return EncryptionType::NOT_SUPPORTED;
-  }
-
-  return EncryptionType::UNKNOWN;
+  // Unsupported encryption
+  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", attribs["KEYFORMAT"].c_str());
+  return EncryptionType::NOT_SUPPORTED;
 }
 
 bool adaptive::CHLSTree::GetUriByteData(std::string_view uri, std::vector<uint8_t>& data)
@@ -1354,6 +1360,7 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
 {
   std::stringstream streamData{data};
   MultivariantPlaylist pl;
+  std::vector<EncryptionType> encryptionTypes;
 
   // Parse text data
 
@@ -1462,24 +1469,19 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
     else if (tagName == "#EXT-X-SESSION-KEY")
     {
       auto attribs = ParseTagAttributes(tagValue);
-
-      switch (ProcessEncryption(base_url_, attribs))
-      {
-        case EncryptionType::NOT_SUPPORTED:
-          return false;
-        case EncryptionType::AES128:
-        case EncryptionType::WIDEVINE:
-          // #EXT-X-SESSION-KEY is meant for preparing DRM without
-          // loading sub-playlist. As long our workflow is serial, we
-          // don't profite and therefore do not any action.
-          break;
-        case EncryptionType::UNKNOWN:
-          LOG::LogF(LOGWARNING, "Unknown encryption type");
-          break;
-        default:
-          break;
-      }
+      encryptionTypes.emplace_back(ProcessEncryption(base_url_, attribs));
     }
+  }
+
+  if (!encryptionTypes.empty())
+  {
+    // Check if there is at least one EXT-X-SESSION-KEY supported
+    bool isNotSupported =
+        std::all_of(encryptionTypes.begin(), encryptionTypes.end(),
+                    [](EncryptionType type) { return type == EncryptionType::NOT_SUPPORTED; });
+
+    if (isNotSupported)
+      return false;
   }
 
   // Create Period / Adaptation sets / Representations

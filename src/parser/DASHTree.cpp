@@ -639,7 +639,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   // Parse <ContentProtection> child tags
   if (nodeAdp.child("ContentProtection"))
   {
-    period->SetEncryptionState(EncryptionState::ENCRYPTED);
+    period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
     ParseTagContentProtection(nodeAdp, adpSet->ProtectionSchemes());
     period->SetSecureDecodeNeeded(ParseTagContentProtectionSecDec(nodeAdp));
   }
@@ -947,7 +947,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   // Parse <ContentProtection> child tags
   if (nodeRepr.child("ContentProtection"))
   {
-    period->SetEncryptionState(EncryptionState::ENCRYPTED);
+    period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
     ParseTagContentProtection(nodeRepr, repr->ProtectionSchemes());
   }
 
@@ -961,7 +961,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     if (m_isCustomInitPssh ||
         GetProtectionData(adpSet->ProtectionSchemes(), repr->ProtectionSchemes(), pssh, kid))
     {
-      period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
+      period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
 
       uint16_t psshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid);
 

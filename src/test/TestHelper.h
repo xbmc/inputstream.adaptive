@@ -25,6 +25,8 @@
 //        this shortens the conversion needed
 using STR = std::string;
 
+constexpr std::string_view UUID_WIDEVINE = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+
 std::string GetEnv(const std::string& var);
 void SetFileName(std::string& file, const std::string name);
 
