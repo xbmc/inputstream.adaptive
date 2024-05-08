@@ -512,13 +512,12 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
           {
             currentEncryptionType = EncryptionType::WIDEVINE;
             period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
-
             rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                               m_currentDefaultKID, m_currentKidUrl, m_currentIV);
           }
           break;
         case EncryptionType::NOT_SUPPORTED:
-          // Set only if a supported encrypton has not previously been parsed
+          // Set only if a supported encryption has not previously been parsed
           if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_DRM &&
               period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
           {
@@ -784,44 +783,51 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
       isSkipUntilDiscont = false;
       ++discontCount;
 
-      // Create a new period or update an existing one
-
-      CPeriod* foundPeriod = FindDiscontinuityPeriod(m_discontSeq + discontCount);
-      if (foundPeriod) // Update existing period
-      {
-        period = foundPeriod;
-      }
-      else // Create new period
-      {
-        auto newPeriod = CPeriod::MakeUniquePtr();
-        // CopyHLSData will copy also the init segment in the representations
-        // that must persist to next period until overrided by new EXT-X-MAP tag
-        newPeriod->CopyHLSData(m_currentPeriod);
-
-        period = newPeriod.get();
-        period->SetStart(0);
-
-        m_periods.push_back(std::move(newPeriod));
-      }
-
       mediaSequenceNbr += rep->SegmentTimeline().GetSize();
       currentSegNumber = mediaSequenceNbr;
 
-      adp = period->GetAdaptationSets()[adpSetPos].get();
-      // When we switch to a repr of another period we need to set current base url
-      CRepresentation* switchRep = adp->GetRepresentations()[reprPos].get();
-      switchRep->SetBaseUrl(rep->GetBaseUrl());
-      rep = switchRep;
+      CPeriod* newPeriod = FindDiscontinuityPeriod(m_discontSeq + discontCount);
 
-      if (currentEncryptionType == EncryptionType::WIDEVINE)
+      if (!newPeriod) // Create new period
       {
-        rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-                                          m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-        period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
+        auto newPeriodPtr = CPeriod::MakeUniquePtr();
+
+        // Clone same data structure from previous period (no segment will be copied)
+        newPeriodPtr->CopyHLSData(period);
+        newPeriod = newPeriodPtr.get();
+        m_periods.push_back(std::move(newPeriodPtr));
       }
 
-      if (rep->HasInitSegment())
-        rep->SetContainerType(ContainerType::MP4);
+      newPeriod->SetStart(0);
+
+      CAdaptationSet* newAdpSet = newPeriod->GetAdaptationSets()[adpSetPos].get();
+      CRepresentation* newRep = newAdpSet->GetRepresentations()[reprPos].get();
+
+      // Copy the base url from previous period/representation
+      newRep->SetBaseUrl(rep->GetBaseUrl());
+
+      // Copy init segment from previous period/representation
+      // it must persist until overrided by a new EXT-X-MAP tag
+      if (rep->GetInitSegment().has_value())
+      {
+        newRep->SetInitSegment(*rep->GetInitSegment());
+        newRep->SetContainerType(rep->GetContainerType());
+      }
+
+      // Copy encryption data from previous period/representation
+      // it must persist until overrided by a new EXT-X-KEY tag
+      newPeriod->SetEncryptionState(period->GetEncryptionState());
+      if (currentEncryptionType == EncryptionType::WIDEVINE)
+      {
+        newRep->m_psshSetPos =
+            InsertPsshSet(newAdpSet->GetStreamType(), newPeriod, newAdpSet, m_currentPssh,
+                          m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+      }
+
+      // Set the new period as current
+      period = newPeriod;
+      adp = newAdpSet;
+      rep = newRep;
     }
     else if (tagName == "#EXT-X-ENDLIST")
     {
