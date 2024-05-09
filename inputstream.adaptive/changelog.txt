@@ -1,3 +1,6 @@
+v21.4.7 (2024-05-09)
+- [HLS] Fix wrong encryption between discontinuities that can cause crashes
+
 v21.4.6 (2024-05-02)
 - [HLS] New manifest_config property params to try fix faulty live services: hls_ignore_endlist, hls_fix_mediasequence, hls_fix_discsequence, see Wiki for details
 - [HLS] Fix crash/playback freeze due to unhandled encryption transition
