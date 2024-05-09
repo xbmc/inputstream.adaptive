@@ -49,8 +49,6 @@ void PLAYLIST::CRepresentation::CopyHLSData(const CRepresentation* other)
 
   m_isIncludedStream = other->m_isIncludedStream;
   m_isEnabled = other->m_isEnabled;
-  m_isWaitForSegment = other->m_isWaitForSegment;
-  m_initSegment = other->m_initSegment;
 }
 
 void PLAYLIST::CRepresentation::SetScaling()

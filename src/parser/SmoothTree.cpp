@@ -93,7 +93,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
   xml_node nodeProt = nodeSSM.child("Protection");
   if (nodeProt)
   {
-    period->SetEncryptionState(EncryptionState::ENCRYPTED);
+    period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
     period->SetSecureDecodeNeeded(true);
 
     pugi::xml_node nodeProtHead = nodeProt.child("ProtectionHeader");
@@ -105,7 +105,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
       {
         if (protParser.ParseHeader(nodeProtHead.child_value()))
         {
-          period->SetEncryptionState(EncryptionState::ENCRYPTED_SUPPORTED);
+          period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
           m_licenseUrl = protParser.GetLicenseURL();
         }
       }

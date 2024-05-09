@@ -70,7 +70,6 @@ void PLAYLIST::CAdaptationSet::CopyHLSData(const CAdaptationSet* other)
 
   m_baseUrl = other->m_baseUrl;
   m_streamType = other->m_streamType;
-  m_startNumber = other->m_startNumber;
   m_isImpaired = other->m_isImpaired;
   m_isOriginal = other->m_isOriginal;
   m_isDefault = other->m_isDefault;

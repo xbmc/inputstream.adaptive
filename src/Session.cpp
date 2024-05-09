@@ -360,8 +360,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
   m_cdmSessions.resize(m_adaptiveTree->m_currentPeriod->GetPSSHSets().size());
 
   // Try to initialize an SingleSampleDecryptor
-  if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() !=
-      EncryptionState::UNENCRYPTED)
+  if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() == EncryptionState::ENCRYPTED_DRM)
   {
     std::string_view licenseKey = CSrvBroker::GetKodiProps().GetLicenseKey();
 
@@ -581,14 +580,14 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
     isPsshChanged =
         !(m_adaptiveTree->m_currentPeriod->GetPSSHSets() == m_adaptiveTree->m_nextPeriod->GetPSSHSets());
     isReusePssh = !isPsshChanged && m_adaptiveTree->m_nextPeriod->GetEncryptionState() ==
-                                       EncryptionState::ENCRYPTED_SUPPORTED;
+                                       EncryptionState::ENCRYPTED_DRM;
     m_adaptiveTree->m_currentPeriod = m_adaptiveTree->m_nextPeriod;
     m_adaptiveTree->m_nextPeriod = nullptr;
   }
 
   m_chapterStartTime = GetChapterStartTime();
 
-  if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() == EncryptionState::ENCRYPTED)
+  if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() == EncryptionState::NOT_SUPPORTED)
   {
     LOG::LogF(LOGERROR, "Unhandled encrypted stream.");
     return false;
@@ -949,7 +948,7 @@ void CSession::PrepareStream(CStream* stream)
   }
 
   if (startEvent != EVENT_TYPE::REP_CHANGE &&
-      stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::ENCRYPTED_SUPPORTED)
+      stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::ENCRYPTED_DRM)
   {
     InitializeDRM();
   }

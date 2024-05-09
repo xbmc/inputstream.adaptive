@@ -37,14 +37,15 @@ protected:
     OpenTestFileMaster(filePath, "http://foo.bar/" + filePath);
   }
 
-  void OpenTestFileMaster(std::string filePath, std::string url)
+  bool OpenTestFileMaster(std::string filePath, std::string url)
   {
-    OpenTestFileMaster(filePath, url, {});
+    return OpenTestFileMaster(filePath, url, {}, "");
   }
 
-  void OpenTestFileMaster(std::string filePath,
+  bool OpenTestFileMaster(std::string filePath,
                           std::string url,
-                          std::map<std::string, std::string> manifestHeaders)
+                          std::map<std::string, std::string> manifestHeaders,
+                          std::string_view supportedKeySystem)
   {
     testHelper::testFile = filePath;
 
@@ -55,7 +56,7 @@ protected:
     if (!testHelper::DownloadFile(url, {}, {}, resp))
     {
       LOG::Log(LOGERROR, "Cannot download \"%s\" DASH manifest file.", url.c_str());
-      exit(1);
+      return false;
     }
 
     ADP::KODI_PROPS::ChooserProps chooserProps;
@@ -63,17 +64,19 @@ protected:
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED", "");
+    tree->Configure(m_reprChooser, supportedKeySystem, "");
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
     {
       LOG::Log(LOGERROR, "Cannot open \"%s\" HLS manifest.", url.c_str());
-      exit(1);
+      return false;
     }
+
     tree->PostOpen();
     tree->m_currentAdpSet = tree->m_periods[0]->GetAdaptationSets()[0].get();
     tree->m_currentRepr = tree->m_currentAdpSet->GetRepresentations()[0].get();
+    return true;
   }
 
   bool OpenTestFileVariant(std::string filePath,
@@ -308,4 +311,90 @@ TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
     auto& adp1rep0seg1 = adp1rep0->SegmentTimeline().GetData().front();
     EXPECT_EQ(adp1rep0seg1.startPTS_, 0);
   }
+}
+
+TEST_F(HLSTreeTest, MultipleEncryptionSequence)
+{
+  testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
+
+  OpenTestFileMaster("hls/encrypt_master.m3u8", "https://baz.qux/hls/video/stream_name/master.m3u8");
+  std::string var_download_url =
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl();
+
+  bool ret = OpenTestFileVariant("hls/encrypt_seq_stream.m3u8", var_download_url,
+                                 tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
+
+  EXPECT_EQ(ret, true);
+  auto& periods = tree->m_periods;
+  EXPECT_EQ(periods.size(), 3);
+
+  // Check if each period has the period encryption state
+  EXPECT_EQ(periods[0]->GetEncryptionState(), PLAYLIST::EncryptionState::UNENCRYPTED);
+  EXPECT_EQ(periods[1]->GetEncryptionState(), PLAYLIST::EncryptionState::ENCRYPTED_CK);
+  EXPECT_EQ(periods[2]->GetEncryptionState(), PLAYLIST::EncryptionState::UNENCRYPTED);
+}
+
+TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrmNoKSMaster)
+{
+  // Open the master manifest without any supported key system
+  // OpenTestFileMaster must return false to prevent ISA to process child manifests
+  // since master manifest contains EXT-X-SESSION-KEY used to check supported ks's
+  testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
+
+  bool ret = OpenTestFileMaster("hls/encrypt_master_drm.m3u8",
+                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, "");
+  EXPECT_EQ(ret, false);
+}
+
+TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrmNoKS)
+{
+  // Open the master manifest without any supported key system
+  // OpenTestFileMaster must return true and process child manifests
+  // since master manifest DO NOT contains EXT-X-SESSION-KEY
+  testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
+
+  bool ret = OpenTestFileMaster("hls/encrypt_master.m3u8",
+                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, "");
+
+  EXPECT_EQ(ret, true);
+
+  std::string var_download_url =
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl();
+
+  ret = OpenTestFileVariant("hls/encrypt_seq_stream_drm.m3u8", var_download_url,
+                            tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
+
+  EXPECT_EQ(ret, true);
+  auto& periods = tree->m_periods;
+  EXPECT_EQ(periods.size(), 2);
+
+  // Check if each period has the period encryption state
+  EXPECT_EQ(periods[0]->GetEncryptionState(), PLAYLIST::EncryptionState::NOT_SUPPORTED);
+  EXPECT_EQ(periods[1]->GetEncryptionState(), PLAYLIST::EncryptionState::NOT_SUPPORTED);
+}
+
+TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrm)
+{
+  // Open the master manifest with the supported Widevine key system
+  // OpenTestFileMaster must return true and process child manifests
+  testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
+
+  bool ret = OpenTestFileMaster("hls/encrypt_master_drm.m3u8",
+                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, UUID_WIDEVINE);
+
+  EXPECT_EQ(ret, true);
+
+  std::string var_download_url =
+      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl();
+
+  ret = OpenTestFileVariant("hls/encrypt_seq_stream_drm.m3u8", var_download_url,
+                            tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
+
+  EXPECT_EQ(ret, true);
+  auto& periods = tree->m_periods;
+  EXPECT_EQ(periods.size(), 2);
+
+  // Check if each period has the period encryption state
+  EXPECT_EQ(periods[0]->GetEncryptionState(), PLAYLIST::EncryptionState::ENCRYPTED_DRM);
+  EXPECT_EQ(periods[1]->GetEncryptionState(), PLAYLIST::EncryptionState::ENCRYPTED_DRM);
 }

@@ -48,8 +48,9 @@ constexpr uint64_t KODI_VP_BUFFER_SECS = 8;
 enum class EncryptionState
 {
   UNENCRYPTED,
-  ENCRYPTED, // Unhandled/unsupported encrypted stream
-  ENCRYPTED_SUPPORTED, // Supported encrypted stream
+  ENCRYPTED_DRM, // DRM encrypted
+  ENCRYPTED_CK, // ClearKey encrypted (e.g. AES-128)
+  NOT_SUPPORTED, // Unsupported encryption
 };
 
 enum class EncryptionType
@@ -58,7 +59,6 @@ enum class EncryptionType
   CLEAR,
   AES128,
   WIDEVINE,
-  UNKNOWN,
 };
 
 enum class ContainerType
