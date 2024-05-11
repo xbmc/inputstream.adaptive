@@ -24,10 +24,11 @@ using namespace pugi;
 double UTILS::XML::ParseDate(std::string_view timeStr,
                              double fallback /* = std::numeric_limits<double>::max() */)
 {
-  int year, mon, day, hour, minu, sec;
-  int msec{0};
-  if (std::sscanf(timeStr.data(), "%d-%d-%dT%d:%d:%d.%dZ", &year, &mon, &day, &hour, &minu, &sec,
-                  &msec) >= 6)
+  int year, mon, day, hour, minu;
+  double sec;
+
+  // This code dont take in account of timezone
+  if (std::sscanf(timeStr.data(), "%d-%d-%dT%d:%d:%lf", &year, &mon, &day, &hour, &minu, &sec) == 6)
   {
     tm tmd{0};
     tmd.tm_year = year - 1900;
@@ -35,9 +36,10 @@ double UTILS::XML::ParseDate(std::string_view timeStr,
     tmd.tm_mday = day;
     tmd.tm_hour = hour;
     tmd.tm_min = minu;
-    tmd.tm_sec = sec;
-    return static_cast<double>(_mkgmtime(&tmd)) + msec / 1000.0;
+    tmd.tm_sec = 0;
+    return static_cast<double>(_mkgmtime(&tmd)) + sec;
   }
+
   return fallback;
 }
 

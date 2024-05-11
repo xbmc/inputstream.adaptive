@@ -11,6 +11,7 @@
 #include "../common/AdaptiveTreeFactory.h"
 #include "../common/SegTemplate.h"
 #include "../utils/UrlUtils.h"
+#include "../utils/XMLUtils.h"
 
 #include <gtest/gtest.h>
 
@@ -255,4 +256,13 @@ TEST_F(UtilsTest, SegTemplateFormatUrlChecks)
   url = "https://cdn.com/_$_example/$Bandwidth";
   ret = segTpl.FormatUrl(url, "repID", 1500, 1, 0);
   EXPECT_EQ(ret, "https://cdn.com/_$_example/$Bandwidth");
+}
+
+TEST_F(UtilsTest, XMLDateTimeConversions)
+{
+  EXPECT_EQ(XML::ParseDate("2024-04-30T20:20:13.145433Z"), 1714508413.1454329);
+
+  EXPECT_EQ(XML::ParseDate("2024-05-07T17:00:21"), 1715101221);
+
+  EXPECT_EQ(XML::ParseDate("2024-05-07T17:00:21.989+0200"), 1715101221.989);
 }
