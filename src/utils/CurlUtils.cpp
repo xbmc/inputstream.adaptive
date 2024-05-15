@@ -141,7 +141,7 @@ std::string GetCookies(std::string_view url)
       }
 
       // Check expiry time
-      if (cookie.m_expires > currentTimestamp)
+      if (cookie.m_expires <= currentTimestamp)
         continue;
 
       cookiesStr += cookie.m_name + "=" + cookie.m_value + ";";
