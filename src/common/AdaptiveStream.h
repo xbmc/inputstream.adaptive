@@ -162,8 +162,8 @@ enum class EVENT_TYPE
     };
     // Be aware! All data related to segments stored in the SEGMENTBUFFER object are static,
     // these data are totally unrelated to manifest updates that may change the segments timeline,
-    // so if you need to find a segment stored here in the timeline you must use Start PTS,
-    // otherwise you could cause misalignments due to different start numbers / segment positions.
+    // so if you need to find a segment stored here in the timeline you must use segment number or PTS,
+    // never by position otherwise you could cause misalignments.
     std::vector<SEGMENTBUFFER*> segment_buffers_;
 
     void AllocateSegmentBuffers(size_t size);

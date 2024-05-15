@@ -1043,6 +1043,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     else
     {
       uint64_t segNumber = segTemplate->GetStartNumber();
+      const bool hasMediaNumber = segTemplate->HasMediaNumber();
       const uint32_t segTimescale = segTemplate->GetTimescale();
       const uint64_t periodStartMs = period->GetStart() == NO_VALUE ? 0 : period->GetStart();
       const uint64_t periodStartScaled = periodStartMs * segTemplate->GetTimescale() / 1000;
@@ -1071,7 +1072,10 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
             if (!hasPTO)
               seg.startPTS_ += periodStartScaled;
             seg.m_endPts = seg.startPTS_ + tlElem.duration;
-            seg.m_number = segNumber++;
+
+            if (hasMediaNumber)
+              seg.m_number = segNumber++;
+
             seg.m_time = time;
 
             totalDuration += tlElem.duration;
@@ -1147,7 +1151,10 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
           CSegment seg;
           seg.startPTS_ = time;
           seg.m_endPts = seg.startPTS_ + segDuration;
-          seg.m_number = segNumber++;
+
+          if (hasMediaNumber)
+            seg.m_number = segNumber++;
+
           seg.m_time = time;
 
           repr->SegmentTimeline().GetData().emplace_back(seg);
