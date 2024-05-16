@@ -874,10 +874,8 @@ bool AdaptiveStream::ensureSegment()
     {
       if (!segment_buffers_[0]->segment.IsInitialization())
       {
-        // Always search by PTS, the segment buffer is static and meantime manifest updates
-        // may be happened so search by position/segment number could lead to misalignments
-        // moreover some streams dont use segments numbers or may have inconsistent timestamps
-        nextSegment = current_rep_->GetSegmentByPts(segment_buffers_[0]->segment.startPTS_);
+        // Search the same segment on the timeline (which in the meantime may have been updated)
+        nextSegment = current_rep_->GetSegment(segment_buffers_[0]->segment);
       }
     }
     else

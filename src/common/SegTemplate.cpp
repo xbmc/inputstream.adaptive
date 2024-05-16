@@ -41,6 +41,11 @@ std::string PLAYLIST::CSegmentTemplate::GetMedia() const
   return ""; // Default value
 }
 
+bool PLAYLIST::CSegmentTemplate::HasMediaNumber() const
+{
+  return STRING::Contains(m_media, "$Number");
+}
+
 uint32_t PLAYLIST::CSegmentTemplate::GetTimescale() const
 {
   if (m_timescale.has_value())

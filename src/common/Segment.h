@@ -41,7 +41,7 @@ public:
   uint16_t pssh_set_ = PSSHSET_POS_DEFAULT;
 
   uint64_t m_time{0}; // Timestamp
-  uint64_t m_number{0};
+  uint64_t m_number{SEGMENT_NO_NUMBER};
 
   /*!
    * \brief Determines if it is an initialization segment.

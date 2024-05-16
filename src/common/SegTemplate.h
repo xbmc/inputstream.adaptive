@@ -40,6 +40,12 @@ public:
   std::string GetMedia() const;
   void SetMedia(std::string_view media) { m_media = media; }
 
+  /*!
+   * \brief Check if media make use of $Number$ template variable.
+   * \return True if media has $Number$ template variable, otherwise false.
+   */
+  bool HasMediaNumber() const;
+
   uint32_t GetTimescale() const;
   void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
 

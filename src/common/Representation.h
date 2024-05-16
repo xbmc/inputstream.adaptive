@@ -230,26 +230,61 @@ public:
     return m_segmentTimeline.IsEmpty() ? 0 : m_segmentTimeline.GetPosition(segment);
   }
 
-  CSegment* GetSegmentByPts(const uint64_t startPts)
+  CSegment* GetSegment(const CSegment& segment)
   {
-    for (CSegment& segment : m_segmentTimeline.GetData())
+    // If available, find the segment by number, this is because some
+    // live services provide inconsistent timestamps between manifest updates
+    // which will make it ineffective to find the same segment
+    if (segment.m_number != SEGMENT_NO_NUMBER)
     {
-      // Search by >= is intended to allow minimizing problems with encoders
-      // that provide inconsistent timestamps between manifest updates
-      if (segment.startPTS_ >= startPts)
-        return &segment;
+      const uint64_t number = segment.m_number;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        if (segment.m_number == number)
+          return &segment;
+      }
     }
+    else
+    {
+      const uint64_t startPTS = segment.startPTS_;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        // Search by >= is intended to allow minimizing problems with encoders
+        // that provide inconsistent timestamps between manifest updates
+        if (segment.startPTS_ >= startPTS)
+          return &segment;
+      }
+    }
+
     return nullptr;
   }
 
   CSegment* GetNextSegment(const CSegment& segment)
   {
-    const uint64_t segStartPTS = segment.startPTS_;
-
-    for (CSegment& segment : m_segmentTimeline.GetData())
+    // If available, find the segment by number, this is because some
+    // live services provide inconsistent timestamps between manifest updates
+    // which will make it ineffective to find the next segment
+    if (segment.m_number != SEGMENT_NO_NUMBER)
     {
-      if (segment.startPTS_ > segStartPTS)
-        return &segment;
+      const uint64_t number = segment.m_number;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        if (segment.m_number > number)
+          return &segment;
+      }
+    }
+    else
+    {
+      const uint64_t startPTS = segment.startPTS_;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        if (segment.startPTS_ > startPTS)
+          return &segment;
+      }
     }
     return nullptr;
   }
