@@ -79,7 +79,7 @@ constexpr std::array VIDEO_NAME_LIST = {NAME_MPEG1, NAME_MPEG2, NAME_MPEG4, NAME
 // Audio definitions
 
 constexpr const char* NAME_AAC = "aac";
-constexpr const char* NAME_DTS = "dtshd_ma";
+constexpr const char* NAME_DTS = "dca";
 constexpr const char* NAME_AC3 = "ac3";
 constexpr const char* NAME_EAC3 = "eac3"; // Enhanced AC-3
 constexpr const char* NAME_OPUS = "opus";
