@@ -607,17 +607,6 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
       newSegment->m_endPts = startPts + durMs;
       newSegment->m_number = currentSegNumber++;
 
-
-      if (currentEncryptionType == EncryptionType::AES128 && psshSetPos == PSSHSET_POS_DEFAULT)
-      {
-        if (!m_currentKidUrl.empty())
-        {
-          psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
-                                     m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-        }
-      }
-      newSegment->pssh_set_ = psshSetPos;
-
       // Reset EXT-X-PROGRAM-DATE-TIME, some playlists do not have this tag on each segment
       programDateTime = NO_VALUE;
     }
@@ -690,6 +679,18 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
       }
 
       newSegment->url = line;
+
+      // The EXT-X-KEY tag might appear before or after the EXTINF tag
+      // so its needed process it just before add the segment to timeline
+      if (currentEncryptionType == EncryptionType::AES128 && psshSetPos == PSSHSET_POS_DEFAULT)
+      {
+        if (!m_currentKidUrl.empty())
+        {
+          psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
+                                     m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+        }
+      }
+      newSegment->pssh_set_ = psshSetPos;
 
       newSegments.GetData().emplace_back(*newSegment);
       newSegment.reset();
