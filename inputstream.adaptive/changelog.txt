@@ -1,3 +1,9 @@
+v21.4.8 (2024-05-19)
+[HLS] Fix a problem that can cause video freezes or repeated frames
+[HLS] Fix parsing of EXT-X-KEY protection on segments
+Fix a problem that was filter out valid cookies
+Fix regression caused unrecognized DTS streams
+
 v21.4.7 (2024-05-09)
 - [HLS] Fix wrong encryption between discontinuities that can cause crashes
 
