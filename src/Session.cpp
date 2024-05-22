@@ -573,16 +573,14 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
 {
   bool isPsshChanged{true};
   bool isReusePssh{true};
-  bool isPeriodChange = m_adaptiveTree->m_nextPeriod;
 
-  if (m_adaptiveTree->m_nextPeriod)
+  if (m_adaptiveTree->IsChangingPeriod())
   {
     isPsshChanged =
         !(m_adaptiveTree->m_currentPeriod->GetPSSHSets() == m_adaptiveTree->m_nextPeriod->GetPSSHSets());
     isReusePssh = !isPsshChanged && m_adaptiveTree->m_nextPeriod->GetEncryptionState() ==
                                        EncryptionState::ENCRYPTED_DRM;
     m_adaptiveTree->m_currentPeriod = m_adaptiveTree->m_nextPeriod;
-    m_adaptiveTree->m_nextPeriod = nullptr;
   }
 
   m_chapterStartTime = GetChapterStartTime();
@@ -660,7 +658,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
         CRepresentation* currentRepr = adp->GetRepresentations()[i].get();
         bool isDefaultRepr{currentRepr == defaultRepr};
 
-        AddStream(adp, currentRepr, isDefaultRepr, uniqueId, audioLanguageOrig, isPeriodChange);
+        AddStream(adp, currentRepr, isDefaultRepr, uniqueId, audioLanguageOrig);
       }
     }
     else
@@ -670,7 +668,7 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
       uint32_t uniqueId{adpIndex};
       uniqueId |= reprIndex << 16;
 
-      AddStream(adp, defaultRepr, true, uniqueId, audioLanguageOrig, isPeriodChange);
+      AddStream(adp, defaultRepr, true, uniqueId, audioLanguageOrig);
     }
   }
 
@@ -681,8 +679,7 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
                          PLAYLIST::CRepresentation* initialRepr,
                          bool isDefaultRepr,
                          uint32_t uniqueId,
-                         std::string_view audioLanguageOrig,
-                         const bool isPeriodChange)
+                         std::string_view audioLanguageOrig)
 {
   m_streams.push_back(std::make_unique<CStream>(m_adaptiveTree, adp, initialRepr));
 
@@ -735,7 +732,6 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
   stream.m_info.ClearExtraData();
   stream.m_info.SetFeatures(0);
 
-  stream.m_adStream.SetStartEvent(isPeriodChange ? EVENT_TYPE::PERIOD_CHANGE : EVENT_TYPE::STREAM_START);
   stream.m_adStream.set_observer(dynamic_cast<adaptive::AdaptiveStreamObserver*>(this));
 
   UpdateStream(stream);
@@ -933,18 +929,19 @@ void CSession::UpdateStream(CStream& stream)
 
 void CSession::PrepareStream(CStream* stream)
 {
-  if (m_adaptiveTree->GetTreeType() != adaptive::TreeType::HLS)
+  if (!m_adaptiveTree->IsReqPrepareStream())
     return;
 
   CRepresentation* repr = stream->m_adStream.getRepresentation();
   const EVENT_TYPE startEvent = stream->m_adStream.GetStartEvent();
 
-  // Download the manifest only at first start of the stream
-  if (startEvent == EVENT_TYPE::STREAM_START)
+  // Prepare the representation when the period change usually its not needed,
+  // because the timeline is always already updated
+  if ((!m_adaptiveTree->IsChangingPeriod() || !repr->HasSegmentTimeline()) &&
+      (startEvent == EVENT_TYPE::STREAM_START || startEvent == EVENT_TYPE::STREAM_ENABLE))
   {
     m_adaptiveTree->PrepareRepresentation(stream->m_adStream.getPeriod(),
-                                          stream->m_adStream.getAdaptationSet(), repr,
-                                          SEGMENT_NO_NUMBER);
+                                          stream->m_adStream.getAdaptationSet(), repr);
   }
 
   if (startEvent != EVENT_TYPE::REP_CHANGE &&
@@ -1252,6 +1249,20 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   return ret;
 }
 
+void CSession::OnDemuxRead()
+{
+  if (m_adaptiveTree->IsChangingPeriod() && m_adaptiveTree->IsChangingPeriodDone())
+  {
+    m_adaptiveTree->m_nextPeriod = nullptr;
+
+    if (GetChapterSeekTime() > 0)
+    {
+      SeekTime(GetChapterSeekTime());
+      ResetChapterSeekTime();
+    }
+  }
+}
+
 void CSession::OnSegmentChanged(adaptive::AdaptiveStream* adStream)
 {
   for (auto& stream : m_streams)
@@ -1403,7 +1414,7 @@ int CSession::GetPeriodId() const
 
 bool CSession::SeekChapter(int ch)
 {
-  if (m_adaptiveTree->m_nextPeriod)
+  if (m_adaptiveTree->IsChangingPeriod())
     return true;
 
   --ch;

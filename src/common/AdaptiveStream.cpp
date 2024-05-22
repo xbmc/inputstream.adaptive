@@ -1154,9 +1154,12 @@ uint64_t AdaptiveStream::getMaxTimeMs()
 
 void adaptive::AdaptiveStream::Disable()
 {
-  // Prepare the future event to re-enable the stream, but preserve following events
-  if (m_startEvent != EVENT_TYPE::REP_CHANGE && m_startEvent != EVENT_TYPE::PERIOD_CHANGE)
-    m_startEvent = EVENT_TYPE::STREAM_ENABLE;
+  // Preserve following events
+  if (m_startEvent == EVENT_TYPE::REP_CHANGE)
+    return;
+
+  // Prepare it for the future event
+  m_startEvent = EVENT_TYPE::STREAM_ENABLE;
 }
 
 void AdaptiveStream::ResetCurrentSegment(const PLAYLIST::CSegment* newSegment)

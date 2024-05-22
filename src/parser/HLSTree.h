@@ -26,7 +26,7 @@ public:
     INVALID, // Invalid manifest e.g. without segments
   };
 
-  CHLSTree() : AdaptiveTree() {}
+  CHLSTree();
   virtual ~CHLSTree() {}
 
   virtual TreeType GetTreeType() override { return TreeType::HLS; }
@@ -45,8 +45,7 @@ public:
 
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
-                                     PLAYLIST::CRepresentation* rep,
-                                     uint64_t currentSegNumber) override;
+                                     PLAYLIST::CRepresentation* rep) override;
 
   virtual void OnDataArrived(uint64_t segNum,
                              uint16_t psshSet,
@@ -149,6 +148,11 @@ protected:
    *        in order to work EXT-X-PROGRAM-DATE-TIME tag is needed.
    */
   void FixDiscSequence(std::stringstream& streamData, uint32_t& discSeqNumber);
+
+  bool ProcessChildManifest(PLAYLIST::CPeriod* period,
+                            PLAYLIST::CAdaptationSet* adp,
+                            PLAYLIST::CRepresentation* rep,
+                            uint64_t currentSegNumber);
 
   ParseStatus ParseChildManifest(const std::string& data,
                                  std::string_view sourceUrl,

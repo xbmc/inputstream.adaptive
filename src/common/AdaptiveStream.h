@@ -38,7 +38,6 @@ enum class EVENT_TYPE
   NONE,
   STREAM_START, // First start of the stream
   STREAM_ENABLE, // Has been re-enabled the disabled stream
-  PERIOD_CHANGE, // Has been changed period
   REP_CHANGE // Has been changed representation (stream quality)
 };
 
@@ -73,7 +72,6 @@ enum class EVENT_TYPE
 
     void Disable();
 
-    void SetStartEvent(const EVENT_TYPE eventType) { m_startEvent = eventType; }
     EVENT_TYPE GetStartEvent() const { return m_startEvent; }
 
     /*!

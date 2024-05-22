@@ -62,7 +62,6 @@ private:
   int m_currentVideoMaxWidth{0};
   int m_currentVideoMaxHeight{0};
   std::map<INPUTSTREAM_TYPE, unsigned int> m_IncludedStreams;
-  bool m_checkChapterSeek = false;
   int m_failedSeekTime = ~0;
   std::string m_chapterName;
   // The last PTS of the segment package fed to kodi.

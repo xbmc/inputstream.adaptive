@@ -125,8 +125,7 @@ public:
    */
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
-                                     PLAYLIST::CRepresentation* rep,
-                                     uint64_t currentSegNumber)
+                                     PLAYLIST::CRepresentation* rep)
   {
     return false;
   }
@@ -225,6 +224,18 @@ public:
                ? m_currentPeriod->GetAdaptationSets()[pos].get()
                : nullptr;
   }
+
+  /*!
+   * \brief Checks if a period change is in progress (m_nextPeriod is set).
+   * \return True the period will be changed, otherwise false.
+   */
+  bool IsChangingPeriod() const { return m_nextPeriod; }
+
+  /*!
+   * \brief Check if the period change has been made.
+   * \return True the period is changed, otherwise false.
+   */
+  bool IsChangingPeriodDone() const { return m_nextPeriod == m_currentPeriod; }
 
   /*!
    * \brief Check for live streaming content (timeshift buffer)
@@ -329,6 +340,14 @@ public:
   bool IsTTMLTimeRelative() const { return m_isTTMLTimeRelative; }
 
   /*!
+   * \brief Specifies if the manifest parser require to prepare the stream representation.
+   *        Usually this is needed for protocols that use separate manifests
+   *        for each stream such as HLS.
+   * \return True if prepare the stream is required, otherwise false.
+   */
+  bool IsReqPrepareStream() const { return m_isReqPrepareStream; }
+
+  /*!
    * \brief Check if specified segment is the last of current period.
    * \param segPeriod The period relative to the segment
    * \param segRep The representation relative to the segment
@@ -381,6 +400,7 @@ protected:
   std::string m_licenseUrl;
 
   bool m_isTTMLTimeRelative{false};
+  bool m_isReqPrepareStream{false};
 };
 
 } // namespace adaptive

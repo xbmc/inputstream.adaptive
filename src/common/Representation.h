@@ -157,9 +157,6 @@ public:
   bool IsIncludedStream() const { return m_isIncludedStream; }
   void SetIsIncludedStream(bool isIncludedStream) { m_isIncludedStream = isIncludedStream; }
 
-  bool IsNeedsUpdates() const { return m_isNeedsUpdates; }
-  void SetIsNeedsUpdates(bool isNeedsUpdates) { m_isNeedsUpdates = isNeedsUpdates; }
-
   void CopyHLSData(const CRepresentation* other);
 
   static bool CompareBandwidth(std::unique_ptr<CRepresentation>& left,
@@ -369,7 +366,6 @@ protected:
   bool m_isWaitForSegment{false};
 
   bool m_isIncludedStream{false};
-  bool m_isNeedsUpdates{true};
 };
 
 } // namespace PLAYLIST
