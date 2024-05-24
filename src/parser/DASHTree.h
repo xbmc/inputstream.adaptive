@@ -102,11 +102,11 @@ protected:
                                    const std::vector<std::string>& respHeaders,
                                    UTILS::CURL::HTTPResponse& resp);
 
-  virtual void RefreshSegments(PLAYLIST::CPeriod* period,
-                               PLAYLIST::CAdaptationSet* adp,
-                               PLAYLIST::CRepresentation* rep) override;
+  virtual void OnRequestSegments(PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adp,
+                                 PLAYLIST::CRepresentation* rep) override;
 
-  virtual void RefreshLiveSegments() override;
+  virtual void OnUpdateSegments() override;
 
   // The lower start number of segments
   uint64_t m_segmentsLowerStartNumber{0};

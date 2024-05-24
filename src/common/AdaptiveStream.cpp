@@ -832,10 +832,15 @@ bool AdaptiveStream::ensureSegment()
     // lock live segment updates
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
-    if (m_tree->HasManifestUpdatesSegs() && SecondsSinceUpdate() > 1)
+    if (m_tree->HasManifestUpdatesSegs())
     {
-      m_tree->RefreshSegments(current_period_, current_adp_, current_rep_);
-      lastUpdated_ = std::chrono::system_clock::now();
+      // Limit requests with an interval of at least 1 second,
+      // to avoid overloading servers with too requests
+      if (SecondsSinceUpdate() > 1)
+      {
+        m_tree->OnRequestSegments(current_period_, current_adp_, current_rep_);
+        lastUpdated_ = std::chrono::system_clock::now();
+      }
     }
 
     if (m_fixateInitialization)
@@ -947,12 +952,12 @@ bool AdaptiveStream::ensureSegment()
         else
           newRep = m_tree->GetRepChooser()->GetNextRepresentation(current_adp_, prevRep);
 
+        //! @todo: There is the possibility that stream quality switching happen frequently in very short time,
+        //! so if OnStreamChange is used on a parser, it could overload servers of manifest requests
+        //! a minimum interval should be considered to avoid too switches in a too short period of time
         if (newRep != prevRep) // Stream quality changed
         {
-          // On manifests type like HLS we need also to get update segments
-          // because need to be downloaded/parsed from different child manifest files
-          m_tree->PrepareRepresentation(current_period_, current_adp_, newRep,
-                                        current_rep_->getCurrentSegmentNumber());
+          m_tree->OnStreamChange(current_period_, current_adp_, current_rep_, newRep);
 
           // If the representation has been changed, segments may have to be generated (DASH)
           if (newRep->SegmentTimeline().IsEmpty())

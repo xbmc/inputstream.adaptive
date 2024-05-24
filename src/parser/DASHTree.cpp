@@ -37,7 +37,7 @@ using namespace UTILS;
 /*
  * Supported dynamic live services:
  * - MPD-controlled live:
- *   - SegmentTemplate with segments, updates are sheduled to call RefreshLiveSegments method to retrieve updated segments
+ *   - SegmentTemplate with segments, updates are sheduled to call OnUpdateSegments method to retrieve updated segments
  *   - SegmentTemplate without segments, InsertLiveSegment method will be called to add new segments, combined with sheduled updates
  * - Segment-controlled live:
  *   - SegmentTemplate without segments, demuxer parse the packets and calls InsertLiveFragment method to provide new segments
@@ -1542,19 +1542,18 @@ bool adaptive::CDashTree::DownloadManifestUpd(std::string_view url,
   return CURL::DownloadFile(url, reqHeaders, respHeaders, resp);
 }
 
-void adaptive::CDashTree::RefreshSegments(PLAYLIST::CPeriod* period,
-                                          PLAYLIST::CAdaptationSet* adp,
-                                          PLAYLIST::CRepresentation* rep)
+void adaptive::CDashTree::OnRequestSegments(PLAYLIST::CPeriod* period,
+                                            PLAYLIST::CAdaptationSet* adp,
+                                            PLAYLIST::CRepresentation* rep)
 {
   if (adp->GetStreamType() == StreamType::VIDEO || adp->GetStreamType() == StreamType::AUDIO)
   {
-    RefreshLiveSegments();
+    OnUpdateSegments();
   }
 }
 
-// Can be called form update-thread!
 //! @todo: check updated variables that are not thread safe
-void adaptive::CDashTree::RefreshLiveSegments()
+void adaptive::CDashTree::OnUpdateSegments()
 {
   lastUpdated_ = std::chrono::system_clock::now();
 

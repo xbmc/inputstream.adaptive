@@ -288,7 +288,7 @@ namespace adaptive
         if (m_resetInterval)
           m_tree->m_updateInterval = PLAYLIST::NO_VALUE;
 
-        m_tree->RefreshLiveSegments();
+        m_tree->OnUpdateSegments();
       }
     }
   }

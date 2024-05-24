@@ -57,9 +57,14 @@ public:
                              size_t segBufferSize,
                              bool isLastChunk) override;
 
-  virtual void RefreshSegments(PLAYLIST::CPeriod* period,
-                               PLAYLIST::CAdaptationSet* adp,
-                               PLAYLIST::CRepresentation* rep) override;
+  virtual void OnStreamChange(PLAYLIST::CPeriod* period,
+                              PLAYLIST::CAdaptationSet* adp,
+                              PLAYLIST::CRepresentation* previousRep,
+                              PLAYLIST::CRepresentation* currentRep) override;
+
+  virtual void OnRequestSegments(PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adp,
+                                 PLAYLIST::CRepresentation* rep) override;
 
 protected:
   // \brief Rendition features
@@ -156,7 +161,7 @@ protected:
                        PLAYLIST::CRepresentation* rep,
                        uint64_t segNumber);
 
-  virtual void RefreshLiveSegments() override;
+  virtual void OnUpdateSegments() override;
 
   virtual bool ParseManifest(const std::string& stream);
 

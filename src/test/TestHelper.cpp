@@ -165,7 +165,7 @@ std::string DASHTestTree::RunManifestUpdate(std::string manifestUpdFile)
 {
   m_manifestUpdUrl.clear();
   testHelper::testFile = manifestUpdFile;
-  RefreshLiveSegments();
+  OnUpdateSegments();
   return m_manifestUpdUrl;
 }
 

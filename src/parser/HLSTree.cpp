@@ -1047,10 +1047,47 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
                                 isLastChunk);
 }
 
-//Called each time before we switch to a new segment
-void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
-                                         PLAYLIST::CAdaptationSet* adp,
-                                         PLAYLIST::CRepresentation* rep)
+void adaptive::CHLSTree::OnStreamChange(PLAYLIST::CPeriod* period,
+                                        PLAYLIST::CAdaptationSet* adp,
+                                        PLAYLIST::CRepresentation* previousRep,
+                                        PLAYLIST::CRepresentation* currentRep)
+{
+  const uint64_t currentSegNumber = previousRep->getCurrentSegmentNumber();
+
+  // Prepare child manifest only once time for VOD stream and always for live stream
+  if (!currentRep->IsNeedsUpdates())
+    return;
+
+  ParseStatus status = ParseStatus::INVALID;
+  size_t maxInvalidStatus = 3;
+
+  while (status == ParseStatus::INVALID && maxInvalidStatus > 0)
+  {
+    UTILS::CURL::HTTPResponse resp;
+
+    if (!DownloadChildManifest(adp, currentRep, resp))
+      return;
+
+    status =
+        ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, currentRep);
+
+    if (status == ParseStatus::SUCCESS)
+    {
+      // We dont set segment position to PrepareSegments because its adjusted on AdaptiveStream::start_stream
+      PrepareSegments(period, adp, currentRep, currentSegNumber);
+    }
+    else if (status == ParseStatus::INVALID)
+    {
+      // Give the provider a minimum amount of time to update the manifest before downloading it again
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      maxInvalidStatus--;
+    }
+  }
+}
+
+void adaptive::CHLSTree::OnRequestSegments(PLAYLIST::CPeriod* period,
+                                           PLAYLIST::CAdaptationSet* adp,
+                                           PLAYLIST::CRepresentation* rep)
 {
   if (rep->IsIncludedStream())
     return;
@@ -1088,9 +1125,8 @@ bool adaptive::CHLSTree::DownloadManifestChild(std::string_view url,
   return CURL::DownloadFile(url, reqHeaders, respHeaders, resp);
 }
 
-// Can be called form update-thread!
 //! @todo: check updated variables that are not thread safe
-void adaptive::CHLSTree::RefreshLiveSegments()
+void adaptive::CHLSTree::OnUpdateSegments()
 {
   lastUpdated_ = std::chrono::system_clock::now();
 

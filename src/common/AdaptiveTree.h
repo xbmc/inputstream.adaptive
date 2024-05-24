@@ -146,9 +146,30 @@ public:
                              size_t segBufferSize,
                              bool isLastChunk);
 
-  virtual void RefreshSegments(PLAYLIST::CPeriod* period,
-                               PLAYLIST::CAdaptationSet* adp,
-                               PLAYLIST::CRepresentation* rep)
+  /*!
+   * \brief Callback that request new segments each time the demuxer reads, for the specified representation.
+   *        Intended for live streaming that does not have a defined update time interval.
+   * \param period Current period
+   * \param adpSet Current adaptation set
+   * \param repr The representation where update the timeline
+   */
+  virtual void OnRequestSegments(PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adp,
+                                 PLAYLIST::CRepresentation* rep)
+  {
+  }
+
+  /*!
+   * \brief Callback done when the stream (representation) quality has been changed.
+   * \param period Current period
+   * \param adpSet Current adaptation set
+   * \param previousRep The previous representation
+   * \param currentRep The new current representation
+   */
+  virtual void OnStreamChange(PLAYLIST::CPeriod* period,
+                              PLAYLIST::CAdaptationSet* adp,
+                              PLAYLIST::CRepresentation* previousRep,
+                              PLAYLIST::CRepresentation* currentRep)
   {
   }
 
@@ -251,7 +272,7 @@ public:
     // \brief Reset start time (make exit the condition variable m_cvUpdInterval and re-start the timeout)
     void ResetStartTime() { m_cvUpdInterval.notify_all(); }
 
-    // \brief At next update reset the interval value to NO_VALUE, before make RefreshLiveSegments callback
+    // \brief At next update reset the interval value to NO_VALUE, before make OnUpdateSegments callback
     void ResetInterval() { m_resetInterval = true; }
 
     // \brief As "std::mutex" lock, but put in pause the manifest updates (support std::lock_guard).
@@ -334,7 +355,12 @@ protected:
   // Live segment update section
   bool m_isLive{false};
   virtual void StartUpdateThread();
-  virtual void RefreshLiveSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
+
+  /*!
+   * \brief Callback that request new segments, used with TreeUpdateThread worker.
+   *        Intended for live streaming that does have a defined update time interval.
+   */
+  virtual void OnUpdateSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
 
   // Manifest update interval in ms,
   // Non-zero value: refresh interval starting from the moment mpd download was initiated
