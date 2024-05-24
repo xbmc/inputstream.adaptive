@@ -678,7 +678,8 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
 
   if (!current_rep_->current_segment_)
   {
-    if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->IsLive() && !play_timeshift_buffer_ &&
+    if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->IsLive() &&
+        !m_tree->IsChangingPeriod() && !play_timeshift_buffer_ &&
         !current_rep_->SegmentTimeline().IsEmpty())
     {
       size_t segPos = current_rep_->SegmentTimeline().GetSize() - 1;
