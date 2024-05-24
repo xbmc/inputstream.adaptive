@@ -790,29 +790,6 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
   return false;
 }
 
-void AdaptiveStream::ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value)
-{
-  std::string::size_type lenReplace(placeholder.length());
-  std::string::size_type np(url.find(placeholder));
-  char rangebuf[128];
-
-  if (np == std::string::npos)
-    return;
-
-  np += lenReplace;
-
-  std::string::size_type npe(url.find('$', np));
-
-  char fmt[16];
-  if (np == npe)
-    strcpy(fmt, "%" PRIu64);
-  else
-    strcpy(fmt, url.substr(np, npe - np).c_str());
-
-  sprintf(rangebuf, fmt, value);
-  url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
-}
-
 bool AdaptiveStream::ensureSegment()
 {
   // NOTE: Some demuxers may call ensureSegment more times to try make more attempts when it return false.

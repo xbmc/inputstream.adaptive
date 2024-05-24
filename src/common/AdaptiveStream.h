@@ -224,7 +224,7 @@ enum class EVENT_TYPE
     void worker();
 
     int SecondsSinceUpdate() const;
-    static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
+
     bool GenerateSidxSegments(PLAYLIST::CRepresentation* rep);
 
     struct THREADDATA
