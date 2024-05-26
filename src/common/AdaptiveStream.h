@@ -288,7 +288,6 @@ enum class EVENT_TYPE
     std::atomic<bool> worker_processing_;
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
-    bool play_timeshift_buffer_;
 
     // Defines the event to start the stream, the status will be resetted by start stream method.
     EVENT_TYPE m_startEvent{EVENT_TYPE::STREAM_START};

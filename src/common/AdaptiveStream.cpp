@@ -57,7 +57,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree* tree,
   auto& kodiProps = CSrvBroker::GetKodiProps();
   m_streamParams = kodiProps.GetStreamParams();
   m_streamHeaders = kodiProps.GetStreamHeaders();
-  play_timeshift_buffer_ = kodiProps.IsPlayTimeshift();
 
   current_rep_->current_segment_ = nullptr;
 
@@ -679,7 +678,7 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
   if (!current_rep_->current_segment_)
   {
     if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->IsLive() &&
-        !m_tree->IsChangingPeriod() && !play_timeshift_buffer_ &&
+        !m_tree->IsChangingPeriod() && !CSrvBroker::GetKodiProps().IsPlayTimeshift() &&
         !current_rep_->SegmentTimeline().IsEmpty())
     {
       size_t segPos = current_rep_->SegmentTimeline().GetSize() - 1;
