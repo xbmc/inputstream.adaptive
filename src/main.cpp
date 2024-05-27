@@ -208,6 +208,9 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   // - Chapter/period change
   // - Automatic stream (representation) quality change (such as adaptive)
   // - Manual stream (representation) quality change (from OSD)
+  // streamid behaviour:
+  // - The streamid can be influenced by Kodi core based on preferences set in Kodi settings (e.g. language)
+  // - Fallback calls, e.g. if the opened video streamid fails, Kodi core will try to open another video streamid
 
   if (!m_session)
     return false;
