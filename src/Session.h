@@ -80,8 +80,7 @@ public:
                  PLAYLIST::CRepresentation* repr,
                  bool isDefaultRepr,
                  uint32_t uniqueId,
-                 std::string_view audioLanguageOrig,
-                 const bool isPeriodChange);
+                 std::string_view audioLanguageOrig);
 
   /*! \brief Update stream's InputstreamInfo
    *  \param stream The stream to update
@@ -292,6 +291,11 @@ public:
   /*! \brief Set m_chapterSeekTime back to 0
    */
   void ResetChapterSeekTime() { m_chapterSeekTime = 0; };
+
+  /*!
+   * \brief Callback from DemuxRead method of InputStream interface
+   */
+  void OnDemuxRead();
 
   //Observer Section
 

@@ -125,8 +125,7 @@ public:
    */
   virtual bool PrepareRepresentation(PLAYLIST::CPeriod* period,
                                      PLAYLIST::CAdaptationSet* adp,
-                                     PLAYLIST::CRepresentation* rep,
-                                     uint64_t currentSegNumber)
+                                     PLAYLIST::CRepresentation* rep)
   {
     return false;
   }
@@ -146,9 +145,30 @@ public:
                              size_t segBufferSize,
                              bool isLastChunk);
 
-  virtual void RefreshSegments(PLAYLIST::CPeriod* period,
-                               PLAYLIST::CAdaptationSet* adp,
-                               PLAYLIST::CRepresentation* rep)
+  /*!
+   * \brief Callback that request new segments each time the demuxer reads, for the specified representation.
+   *        Intended for live streaming that does not have a defined update time interval.
+   * \param period Current period
+   * \param adpSet Current adaptation set
+   * \param repr The representation where update the timeline
+   */
+  virtual void OnRequestSegments(PLAYLIST::CPeriod* period,
+                                 PLAYLIST::CAdaptationSet* adp,
+                                 PLAYLIST::CRepresentation* rep)
+  {
+  }
+
+  /*!
+   * \brief Callback done when the stream (representation) quality has been changed.
+   * \param period Current period
+   * \param adpSet Current adaptation set
+   * \param previousRep The previous representation
+   * \param currentRep The new current representation
+   */
+  virtual void OnStreamChange(PLAYLIST::CPeriod* period,
+                              PLAYLIST::CAdaptationSet* adp,
+                              PLAYLIST::CRepresentation* previousRep,
+                              PLAYLIST::CRepresentation* currentRep)
   {
   }
 
@@ -206,6 +226,18 @@ public:
   }
 
   /*!
+   * \brief Checks if a period change is in progress (m_nextPeriod is set).
+   * \return True the period will be changed, otherwise false.
+   */
+  bool IsChangingPeriod() const { return m_nextPeriod; }
+
+  /*!
+   * \brief Check if the period change has been made.
+   * \return True the period is changed, otherwise false.
+   */
+  bool IsChangingPeriodDone() const { return m_nextPeriod == m_currentPeriod; }
+
+  /*!
    * \brief Check for live streaming content (timeshift buffer)
    * \return True for live streaming content, otherwise false for VOD content
    */
@@ -251,7 +283,7 @@ public:
     // \brief Reset start time (make exit the condition variable m_cvUpdInterval and re-start the timeout)
     void ResetStartTime() { m_cvUpdInterval.notify_all(); }
 
-    // \brief At next update reset the interval value to NO_VALUE, before make RefreshLiveSegments callback
+    // \brief At next update reset the interval value to NO_VALUE, before make OnUpdateSegments callback
     void ResetInterval() { m_resetInterval = true; }
 
     // \brief As "std::mutex" lock, but put in pause the manifest updates (support std::lock_guard).
@@ -308,6 +340,14 @@ public:
   bool IsTTMLTimeRelative() const { return m_isTTMLTimeRelative; }
 
   /*!
+   * \brief Specifies if the manifest parser require to prepare the stream representation.
+   *        Usually this is needed for protocols that use separate manifests
+   *        for each stream such as HLS.
+   * \return True if prepare the stream is required, otherwise false.
+   */
+  bool IsReqPrepareStream() const { return m_isReqPrepareStream; }
+
+  /*!
    * \brief Check if specified segment is the last of current period.
    * \param segPeriod The period relative to the segment
    * \param segRep The representation relative to the segment
@@ -334,7 +374,12 @@ protected:
   // Live segment update section
   bool m_isLive{false};
   virtual void StartUpdateThread();
-  virtual void RefreshLiveSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
+
+  /*!
+   * \brief Callback that request new segments, used with TreeUpdateThread worker.
+   *        Intended for live streaming that does have a defined update time interval.
+   */
+  virtual void OnUpdateSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
 
   // Manifest update interval in ms,
   // Non-zero value: refresh interval starting from the moment mpd download was initiated
@@ -355,6 +400,7 @@ protected:
   std::string m_licenseUrl;
 
   bool m_isTTMLTimeRelative{false};
+  bool m_isReqPrepareStream{false};
 };
 
 } // namespace adaptive

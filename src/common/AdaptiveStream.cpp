@@ -57,7 +57,6 @@ AdaptiveStream::AdaptiveStream(AdaptiveTree* tree,
   auto& kodiProps = CSrvBroker::GetKodiProps();
   m_streamParams = kodiProps.GetStreamParams();
   m_streamHeaders = kodiProps.GetStreamHeaders();
-  play_timeshift_buffer_ = kodiProps.IsPlayTimeshift();
 
   current_rep_->current_segment_ = nullptr;
 
@@ -678,7 +677,8 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
 
   if (!current_rep_->current_segment_)
   {
-    if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->IsLive() && !play_timeshift_buffer_ &&
+    if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->IsLive() &&
+        !m_tree->IsChangingPeriod() && !CSrvBroker::GetKodiProps().IsPlayTimeshift() &&
         !current_rep_->SegmentTimeline().IsEmpty())
     {
       size_t segPos = current_rep_->SegmentTimeline().GetSize() - 1;
@@ -789,29 +789,6 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
   return false;
 }
 
-void AdaptiveStream::ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value)
-{
-  std::string::size_type lenReplace(placeholder.length());
-  std::string::size_type np(url.find(placeholder));
-  char rangebuf[128];
-
-  if (np == std::string::npos)
-    return;
-
-  np += lenReplace;
-
-  std::string::size_type npe(url.find('$', np));
-
-  char fmt[16];
-  if (np == npe)
-    strcpy(fmt, "%" PRIu64);
-  else
-    strcpy(fmt, url.substr(np, npe - np).c_str());
-
-  sprintf(rangebuf, fmt, value);
-  url.replace(np - lenReplace, npe - np + lenReplace + 1, rangebuf);
-}
-
 bool AdaptiveStream::ensureSegment()
 {
   // NOTE: Some demuxers may call ensureSegment more times to try make more attempts when it return false.
@@ -832,10 +809,15 @@ bool AdaptiveStream::ensureSegment()
     // lock live segment updates
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
-    if (m_tree->HasManifestUpdatesSegs() && SecondsSinceUpdate() > 1)
+    if (m_tree->HasManifestUpdatesSegs())
     {
-      m_tree->RefreshSegments(current_period_, current_adp_, current_rep_);
-      lastUpdated_ = std::chrono::system_clock::now();
+      // Limit requests with an interval of at least 1 second,
+      // to avoid overloading servers with too requests
+      if (SecondsSinceUpdate() > 1)
+      {
+        m_tree->OnRequestSegments(current_period_, current_adp_, current_rep_);
+        lastUpdated_ = std::chrono::system_clock::now();
+      }
     }
 
     if (m_fixateInitialization)
@@ -947,12 +929,12 @@ bool AdaptiveStream::ensureSegment()
         else
           newRep = m_tree->GetRepChooser()->GetNextRepresentation(current_adp_, prevRep);
 
+        //! @todo: There is the possibility that stream quality switching happen frequently in very short time,
+        //! so if OnStreamChange is used on a parser, it could overload servers of manifest requests
+        //! a minimum interval should be considered to avoid too switches in a too short period of time
         if (newRep != prevRep) // Stream quality changed
         {
-          // On manifests type like HLS we need also to get update segments
-          // because need to be downloaded/parsed from different child manifest files
-          m_tree->PrepareRepresentation(current_period_, current_adp_, newRep,
-                                        current_rep_->getCurrentSegmentNumber());
+          m_tree->OnStreamChange(current_period_, current_adp_, current_rep_, newRep);
 
           // If the representation has been changed, segments may have to be generated (DASH)
           if (newRep->SegmentTimeline().IsEmpty())
@@ -1149,9 +1131,12 @@ uint64_t AdaptiveStream::getMaxTimeMs()
 
 void adaptive::AdaptiveStream::Disable()
 {
-  // Prepare the future event to re-enable the stream, but preserve following events
-  if (m_startEvent != EVENT_TYPE::REP_CHANGE && m_startEvent != EVENT_TYPE::PERIOD_CHANGE)
-    m_startEvent = EVENT_TYPE::STREAM_ENABLE;
+  // Preserve following events
+  if (m_startEvent == EVENT_TYPE::REP_CHANGE)
+    return;
+
+  // Prepare it for the future event
+  m_startEvent = EVENT_TYPE::STREAM_ENABLE;
 }
 
 void AdaptiveStream::ResetCurrentSegment(const PLAYLIST::CSegment* newSegment)

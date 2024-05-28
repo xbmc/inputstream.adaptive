@@ -138,6 +138,11 @@ std::string GetVideoCodec(std::string_view codecs)
 }
 } // unnamed namespace
 
+adaptive::CHLSTree::CHLSTree() : AdaptiveTree()
+{
+  m_isReqPrepareStream = true;
+}
+
 adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
 {
   m_decrypter = std::make_unique<AESDecrypter>(left.m_decrypter->getLicenseKey());
@@ -179,41 +184,13 @@ bool adaptive::CHLSTree::Open(std::string_view url,
 
 bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
                                                PLAYLIST::CAdaptationSet* adp,
-                                               PLAYLIST::CRepresentation* rep,
-                                               uint64_t currentSegNumber)
+                                               PLAYLIST::CRepresentation* rep)
 {
-  // Prepare child manifest only once time for VOD stream and always for live stream
-  if (!rep->IsNeedsUpdates())
+  if (!m_isLive && rep->HasSegmentTimeline())
     return true;
 
-  //! @todo: on Live stream adaptive switching stream can happen very often in short time
-  //! and we could overload servers of manifest requests
-  //! should be limit updates by taking in account a timing per representation basis
-
-  ParseStatus status = ParseStatus::INVALID;
-  size_t maxInvalidStatus = 3;
-
-  while (status == ParseStatus::INVALID && maxInvalidStatus > 0)
-  {
-    UTILS::CURL::HTTPResponse resp;
-
-    if (!DownloadChildManifest(adp, rep, resp))
-      return false;
-
-    status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep);
-
-    if (status == ParseStatus::SUCCESS)
-    {
-      // We dont set segment position to PrepareSegments because its adjusted on AdaptiveStream::start_stream
-      PrepareSegments(period, adp, rep, currentSegNumber);
-    }
-    else if (status == ParseStatus::INVALID)
-    {
-      // Give the provider a minimum amount of time to update the manifest before downloading it again
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      maxInvalidStatus--;
-    }
-  }
+  if (!ProcessChildManifest(period, adp, rep, SEGMENT_NO_NUMBER))
+    return false;
 
   StartUpdateThread();
 
@@ -424,6 +401,38 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
              discSeqNumber, discSeqNumberFix);
     discSeqNumber = discSeqNumberFix;
   }
+}
+
+bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
+                                              PLAYLIST::CAdaptationSet* adp,
+                                              PLAYLIST::CRepresentation* rep,
+                                              uint64_t currentSegNumber)
+{
+  ParseStatus status = ParseStatus::INVALID;
+  size_t maxInvalidStatus = 3;
+
+  while (status == ParseStatus::INVALID && maxInvalidStatus > 0)
+  {
+    UTILS::CURL::HTTPResponse resp;
+
+    if (!DownloadChildManifest(adp, rep, resp))
+      return false;
+
+    status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep);
+
+    if (status == ParseStatus::SUCCESS)
+    {
+      PrepareSegments(period, adp, rep, currentSegNumber);
+    }
+    else if (status == ParseStatus::INVALID)
+    {
+      // Give the provider a minimum amount of time before trying to download it again
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      maxInvalidStatus--;
+    }
+  }
+
+  return status == ParseStatus::SUCCESS;
 }
 
  adaptive::CHLSTree::ParseStatus adaptive::CHLSTree::ParseChildManifest(
@@ -895,18 +904,11 @@ void adaptive::CHLSTree::FixDiscSequence(std::stringstream& streamData, uint32_t
     for (auto& p : m_periods)
     {
       totalTimeMs += p->GetDuration() * 1000 / p->GetTimescale();
-      if (!m_isLive)
-      {
-        auto& adpSet = p->GetAdaptationSets()[adpSetPos];
-        adpSet->GetRepresentations()[reprPos]->SetIsNeedsUpdates(false);
-      }
     }
   }
   else
   {
     totalTimeMs = rep->GetDuration() * 1000 / rep->GetTimescale();
-    if (!m_isLive)
-      rep->SetIsNeedsUpdates(false);
   }
 
   if (adp->GetStreamType() != StreamType::SUBTITLE)
@@ -1047,29 +1049,31 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
                                 isLastChunk);
 }
 
-//Called each time before we switch to a new segment
-void adaptive::CHLSTree::RefreshSegments(PLAYLIST::CPeriod* period,
-                                         PLAYLIST::CAdaptationSet* adp,
-                                         PLAYLIST::CRepresentation* rep)
+void adaptive::CHLSTree::OnStreamChange(PLAYLIST::CPeriod* period,
+                                        PLAYLIST::CAdaptationSet* adp,
+                                        PLAYLIST::CRepresentation* previousRep,
+                                        PLAYLIST::CRepresentation* currentRep)
 {
-  if (rep->IsIncludedStream())
+  if (!m_isLive && currentRep->HasSegmentTimeline())
     return;
 
-  UTILS::CURL::HTTPResponse resp;
+  const uint64_t currentSegNumber = previousRep->getCurrentSegmentNumber();
 
-  if (!DownloadChildManifest(adp, rep, resp))
+  ProcessChildManifest(period, adp, currentRep, currentSegNumber);
+}
+
+void adaptive::CHLSTree::OnRequestSegments(PLAYLIST::CPeriod* period,
+                                           PLAYLIST::CAdaptationSet* adp,
+                                           PLAYLIST::CRepresentation* rep)
+{
+  if (rep->IsIncludedStream())
     return;
 
   // Save the current segment position before parsing the manifest
   // to allow find the right segment on updated playlist segments
   const uint64_t segNumber = rep->getCurrentSegmentNumber();
 
-  const ParseStatus status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl),
-                                                period, adp, rep);
-  if (status == ParseStatus::SUCCESS)
-  {
-    PrepareSegments(period, adp, rep, segNumber);
-  }
+  ProcessChildManifest(period, adp, rep, segNumber);
 }
 
 bool adaptive::CHLSTree::DownloadKey(std::string_view url,
@@ -1088,9 +1092,8 @@ bool adaptive::CHLSTree::DownloadManifestChild(std::string_view url,
   return CURL::DownloadFile(url, reqHeaders, respHeaders, resp);
 }
 
-// Can be called form update-thread!
 //! @todo: check updated variables that are not thread safe
-void adaptive::CHLSTree::RefreshLiveSegments()
+void adaptive::CHLSTree::OnUpdateSegments()
 {
   lastUpdated_ = std::chrono::system_clock::now();
 
@@ -1109,23 +1112,11 @@ void adaptive::CHLSTree::RefreshLiveSegments()
 
   for (auto& [adpSet, repr] : refreshList)
   {
-    UTILS::CURL::HTTPResponse resp;
-
-    if (!DownloadChildManifest(adpSet, repr, resp))
-      continue;
-
     // Save the current segment position before parsing the manifest
     // to allow find the right segment on updated playlist segments
     const uint64_t segNumber = repr->getCurrentSegmentNumber();
 
-    const ParseStatus status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl),
-                                                  m_currentPeriod, adpSet, repr);
-
-    if (status == ParseStatus::SUCCESS)
-    {
-      PrepareSegments(m_currentPeriod, adpSet, repr, segNumber);
-    }
-    else if (status == ParseStatus::INVALID)
+    if (!ProcessChildManifest(m_currentPeriod, adpSet, repr, segNumber))
     {
       isInvalidUpdate = true;
     }

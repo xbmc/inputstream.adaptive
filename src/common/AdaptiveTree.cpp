@@ -43,6 +43,9 @@ namespace adaptive
     m_supportedKeySystem = left.m_supportedKeySystem;
     m_pathSaveManifest = left.m_pathSaveManifest;
     stream_start_ = left.stream_start_;
+
+    m_isTTMLTimeRelative = left.m_isTTMLTimeRelative;
+    m_isReqPrepareStream = left.m_isReqPrepareStream;
   }
 
   void AdaptiveTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
@@ -288,7 +291,7 @@ namespace adaptive
         if (m_resetInterval)
           m_tree->m_updateInterval = PLAYLIST::NO_VALUE;
 
-        m_tree->RefreshLiveSegments();
+        m_tree->OnUpdateSegments();
       }
     }
   }

@@ -208,6 +208,9 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   // - Chapter/period change
   // - Automatic stream (representation) quality change (such as adaptive)
   // - Manual stream (representation) quality change (from OSD)
+  // streamid behaviour:
+  // - The streamid can be influenced by Kodi core based on preferences set in Kodi settings (e.g. language)
+  // - Fallback calls, e.g. if the opened video streamid fails, Kodi core will try to open another video streamid
 
   if (!m_session)
     return false;
@@ -328,15 +331,7 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
   if (!m_session)
     return NULL;
 
-  if (m_checkChapterSeek)
-  {
-    m_checkChapterSeek = false;
-    if (m_session->GetChapterSeekTime() > 0)
-    {
-      m_session->SeekTime(m_session->GetChapterSeekTime());
-      m_session->ResetChapterSeekTime();
-    }
-  }
+  m_session->OnDemuxRead();
 
   if (~m_failedSeekTime)
   {
@@ -422,7 +417,6 @@ DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
   if (m_session->SeekChapter(m_session->GetChapter() + 1))
   {
     // Switched to new period / chapter
-    m_checkChapterSeek = true;
     m_lastPts = PLAYLIST::NO_PTS_VALUE;
     for (unsigned int i(1);
          i <= INPUTSTREAM_MAX_STREAM_COUNT && i <= m_session->GetStreamCount(); ++i)
