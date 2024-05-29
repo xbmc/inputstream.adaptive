@@ -1,0 +1,53 @@
+name: "Feature request"
+description: "Use this template for raising a feature request."
+title: "[Feature request] "
+labels: ["Type: Feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking your time to compile this feature request.
+        Before continuing please read following points:
+        - Make sure there is not already an open feature request with the same purpose.
+        - Parts of this add-on are still under development (see status on the Wiki page), so its possible that your request will take much longer than expected (months, not days) to be accepted.
+        - Your request will be implemented initially in the current development branch, any backports will be evaluated only upon request and on a case-by-case basis.
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Describe the feature
+      description: "Tell us your feature proposal. Provide a detailed description with context and any relevant GitHub repos or other resources if relevant."
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: "Tell the reasons behind this feature request, for example if the request is for a purpose limited to your specific use case."
+    validations:
+      required: true
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Are you willing to contribute in development?
+      description: "If you have the skills to develop changes to the source code yourself, this could ensure faster implementation."
+      options:
+        - "Yes"
+        - "No"
+      default: 1
+    validations:
+      required: true
+  - type: dropdown
+    id: backports
+    attributes:
+      label: Should a possible backport be considered?
+      description: "The possibility of backporting a feature to previous Kodi releases is determined by some factors and at the discretion of the maintainers, if requested will be evaluated its feasibility, otherwise it will only be implemented for the development branch."
+      options:
+        - "Yes"
+        - "No"
+      default: 1
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        By submitting a feature request you commit to helping volunteer developers when asked, and accept there is no promise of a quick acceptance or implementation!
