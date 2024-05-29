@@ -4,63 +4,67 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-"Language-Team: none\n"
+"Report-Msgid-Bugs-To: translations@kodi.tv\n"
+"PO-Revision-Date: 2024-05-29 02:06+0000\n"
+"Last-Translator: rimasx <riks_12@hot.ee>\n"
+"Language-Team: Estonian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/et_ee/>\n"
 "Language: et_ee\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.5.4\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream klient kohanduvate voogude jaoks"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
-msgstr ""
+msgstr "InputStream klient adaptiivsete voogude jaoks. Toetatakse levinud voogedastusprotokolle, nagu MPEG-DASH, HLS ja Microsoft Smooth Streaming.[CR][CR]Lisamoodul toetab ka DRM-iga kaitstud vooge, nagu Google Widevine, Microsoft PlayReady ja teised.[CR][CR][CR] ]Dokumentatsiooni saamiseks külasta aadressi https://github.com/xbmc/inputstream.adaptive"
 
 #. Category title
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Üldseaded"
 
 #. The minimum bandwidth which should not be deceeded
 msgctxt "#30101"
 msgid "Minimum bandwidth (Kbps)"
-msgstr ""
+msgstr "Minimaalne ribalaius (Kbps)"
 
 #. The maximum bandwidth which should not be exceeded
 msgctxt "#30102"
 msgid "Maximum bandwidth (Kbps)"
-msgstr ""
+msgstr "Maksimaalne ribalaius (Kbps)"
 
 #. Description of setting with label #30101, 30102
 msgctxt "#30103"
 msgid "Establishes the bandwidth limit not to be exceeded with the audio / video streams. Set to 0 to disable it."
-msgstr ""
+msgstr "Kehtestab ribalaiuse piirangu, mida heli-/videovoogudega ei tohi ületada. Selle keelamiseks sea väärtuseks 0."
 
 # empty strings from id 30104 to 30109
 #. Maximum video resolution non-protected videos
 msgctxt "#30110"
 msgid "Maximum resolution"
-msgstr ""
+msgstr "Maksimaalne eraldusvõime"
 
 # empty string with id 30111
 #. Type of media streams that will be handled for the playback
 msgctxt "#30112"
 msgid "Type of media streams played"
-msgstr ""
+msgstr "Esitatud meediavoogude tüüp"
 
 #. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
 msgid "Maximum resolution for DRM videos"
-msgstr ""
+msgstr "Maksimaalne eraldusvõime DRM-videote jaoks"
 
 # empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore screen resolution"
-msgstr ""
+msgstr "Ignoreeri ekraani eraldusvõimet"
 
 #. Description of setting with label #30115
 msgctxt "#30116"
