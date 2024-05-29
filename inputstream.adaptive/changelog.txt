@@ -1,3 +1,6 @@
+v21.4.9 (2024-05-29)
+- Fixed some use cases where the period change was not working correctly
+
 v21.4.8 (2024-05-19)
 [HLS] Fix a problem that can cause video freezes or repeated frames
 [HLS] Fix parsing of EXT-X-KEY protection on segments
