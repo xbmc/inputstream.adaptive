@@ -288,6 +288,10 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
 
   uint16_t psshSetPos = stream->m_adStream.getRepresentation()->m_psshSetPos;
+
+  std::string kid = stream->m_adStream.getPeriod()->GetPSSHSets()[psshSetPos].defaultKID_;
+
+
   reader->SetDecrypter(m_session->GetSingleSampleDecryptor(psshSetPos),
                        m_session->GetDecrypterCaps(psshSetPos));
 

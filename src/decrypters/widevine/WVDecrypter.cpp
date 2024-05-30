@@ -100,8 +100,10 @@ Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
+  std::vector<uint8_t> kid(defaultKeyId.begin(), defaultKeyId.end());
+
   CWVCencSingleSampleDecrypter* decrypter = new CWVCencSingleSampleDecrypter(
-      *m_WVCdmAdapter, pssh, defaultKeyId, skipSessionMessage, cryptoMode, this);
+      *m_WVCdmAdapter, pssh, kid, skipSessionMessage, cryptoMode, this);
   if (!decrypter->GetSessionId())
   {
     delete decrypter;

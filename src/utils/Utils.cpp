@@ -238,6 +238,20 @@ std::string UTILS::ConvertKIDtoUUID(std::string_view kid)
   return uuid;
 }
 
+std::string UTILS::ConvertKIDtoUUID(const std::vector<uint8_t>& kid)
+{
+  static char hexDigits[] = "0123456789abcdef";
+  std::string uuid;
+  for (size_t i{0}; i < 16; ++i)
+  {
+    if (i == 4 || i == 6 || i == 8 || i == 10)
+      uuid += '-';
+    uuid += hexDigits[kid[i] >> 4];
+    uuid += hexDigits[kid[i] & 15];
+  }
+  return uuid;
+}
+
 bool UTILS::CreateISMlicense(std::string_view key,
                              std::string_view licenseData,
                              std::vector<uint8_t>& initData)

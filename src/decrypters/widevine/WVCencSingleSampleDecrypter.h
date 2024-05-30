@@ -32,7 +32,7 @@ public:
   // methods
   CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
                                std::vector<uint8_t>& pssh,
-                               std::string_view defaultKeyId,
+                               std::vector<uint8_t>& defaultKeyId,
                                bool skipSessionMessage,
                                CryptoMode cryptoMode,
                                CWVDecrypter* host);
@@ -93,7 +93,7 @@ private:
   std::string m_strSession;
   std::vector<uint8_t> m_pssh;
   AP4_DataBuffer m_challenge;
-  std::string m_defaultKeyId;
+  std::vector<uint8_t> m_defaultKeyId;
   struct WVSKEY
   {
     bool operator==(WVSKEY const& other) const { return m_keyId == other.m_keyId; };

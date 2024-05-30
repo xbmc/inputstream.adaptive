@@ -223,6 +223,7 @@ std::vector<uint8_t> ToVecUint8(std::string_view str);
  * \return The string on its hexadecimal representation
  */
 std::string ToHexadecimal(std::string_view str);
+std::string ToHexadecimal(const std::vector<uint8_t>& str);
 
 /*!
  * \brief Trim a string with remove of not wanted spaces at begin and end of string.

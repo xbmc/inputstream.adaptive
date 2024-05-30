@@ -27,6 +27,7 @@ std::vector<uint8_t> AnnexbToAvc(const char* b16Data);
 std::vector<uint8_t> AvcToAnnexb(const std::vector<uint8_t>& avc);
 std::string ConvertKIDtoWVKID(std::string_view kid);
 std::string ConvertKIDtoUUID(std::string_view kid);
+std::string ConvertKIDtoUUID(const std::vector<uint8_t>& kid);
 bool CreateISMlicense(std::string_view key,
                       std::string_view licenseData,
                       std::vector<uint8_t>& initData);

@@ -44,7 +44,7 @@ void CWVCencSingleSampleDecrypter::SetSession(const char* session,
 
 CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
                                                            std::vector<uint8_t>& pssh,
-                                                           std::string_view defaultKeyId,
+                                                           std::vector<uint8_t>& defaultKeyId,
                                                            bool skipSessionMessage,
                                                            CryptoMode cryptoMode,
                                                            CWVDecrypter* host)
@@ -436,7 +436,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
 
         if (blocks[2][kidPos - 1] == 'H')
         {
-          std::string keyIdUUID{StringUtils::ToHexadecimal(m_defaultKeyId)};
+          std::string keyIdUUID{STRING::ToHexadecimal(m_defaultKeyId)};
           blocks[2].replace(kidPos - 1, 6, keyIdUUID.c_str(), 32);
         }
         else
@@ -664,7 +664,18 @@ AP4_Result CWVCencSingleSampleDecrypter::SetFragmentInfo(AP4_UI32 poolId,
   if (poolId >= m_fragmentPool.size())
     return AP4_ERROR_OUT_OF_RANGE;
 
-  m_fragmentPool[poolId].m_key = keyId;
+  // KID as 00000000000000000000000000000000
+  const std::vector<uint8_t> emptyKeyId = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                           0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+  if (keyId == emptyKeyId)
+  {
+    m_fragmentPool[poolId].m_key = m_defaultKeyId;
+    LOG::Log(LOGDEBUG, "SET DEFAULT KID");
+  }
+  else
+    m_fragmentPool[poolId].m_key = keyId;
+    
   m_fragmentPool[poolId].m_nalLengthSize = nalLengthSize;
   m_fragmentPool[poolId].m_annexbSpsPps.SetData(annexbSpsPps.GetData(), annexbSpsPps.GetDataSize());
   m_fragmentPool[poolId].m_decrypterFlags = flags;
@@ -1164,7 +1175,7 @@ void CWVCencSingleSampleDecrypter::ResetVideo()
 
 void CWVCencSingleSampleDecrypter::SetDefaultKeyId(std::string_view keyId)
 {
-  m_defaultKeyId = keyId;
+  m_defaultKeyId.assign(keyId.begin(), keyId.end());
 }
 
 void CWVCencSingleSampleDecrypter::AddKeyId(std::string_view keyId)

@@ -39,6 +39,8 @@ CFragmentedSampleReader::CFragmentedSampleReader(AP4_ByteStream* input,
     m_track{track},
     m_streamId{streamId}
 {
+  m_defaultKey = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 }
 
 CFragmentedSampleReader::~CFragmentedSampleReader()
