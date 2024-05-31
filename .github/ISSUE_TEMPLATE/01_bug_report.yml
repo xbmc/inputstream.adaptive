@@ -1,0 +1,107 @@
+name: Bug Report
+description: Use this template for reporting a bug.
+title: "[Bug] "
+labels: ["Triage: Needed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking your time to compile this bug report.
+        Before continuing make sure there is not already an open issue with the same problem.
+        Please note that you can also use the [Kodi-InputStream forum](https://forum.kodi.tv/forumdisplay.php?fid=312) page to ask for any information.
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Describe the problem
+      description: "Tell us what happened. Provide a detailed description of the issue with context."
+    validations:
+      required: true
+  - type: textarea
+    id: possible-fix
+    attributes:
+      label: Possible fix
+      description: "Tell us the possible changes that resolve or affect the issue."
+    validations:
+      required: false
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: "Tell us how to reproduce the issue. Walk us through it step by step."
+      placeholder: |
+        1. First step
+        2. Second step
+        3. ...
+    validations:
+      required: false
+  - type: textarea
+    id: debuglog
+    attributes:
+      label: Debug log
+      description: |
+        **Providing a Kodi debug log showing the issue is mandatory, it must be provided in full and not partially.**
+        [Click here](https://kodi.wiki/view/Log_file) to learn how to get the log.
+        You can choose to add the log file as URL by using our pastebin https://paste.kodi.tv/, or you can attach the log file directly here.
+    validations:
+      required: true
+  - type: textarea
+    id: manifests
+    attributes:
+      label: Stream manifest file(s)
+      description: |
+        If possible, it is recommended to add the manifest file(s) of the played stream (e.g. MPD file for MPEG-DASH or M3U8 master and variants for HLS).
+        How to get manifest files:
+        - Get them from the add-on folder, [click here](https://github.com/xbmc/inputstream.adaptive/wiki/Dev.-FAQ#how-to-get-downloaded-manifests-files) to learn how.
+        - Download them by using direct links
+        NOTE: Providing us the direct URL might be a problem, because often require a service account and it can be geo-locked.
+    validations:
+      required: false
+  - type: textarea
+    id: add-info
+    attributes:
+      label: Additional info
+      description: "If appropriate, tell us additional contextual info that can help us, such as add-on version comparisons, screenshots or videos that show the issue."
+    validations:
+      required: false
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system(s)
+      options:
+        - Android
+        - Apple (iOS)
+        - Apple (tvOS)
+        - Apple (macOS)
+        - Linux
+        - WebOS
+        - Windows
+        - Windows (UMP)
+        - Other (specify below)
+      multiple: true
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: Operating system version(s)
+      description: "If appropriate, specify the operating system version(s) where the problem occurs (e.g. Android 13, Windows 11, ...)"
+    validations:
+      required: false
+  - type: input
+    id: addon-version
+    attributes:
+      label: InputStream Adaptive version(s)
+      description: "Tell us the version(s) of the add-on on which the problem occurs"
+    validations:
+      required: true
+  - type: input
+    id: kodi-version
+    attributes:
+      label: Kodi version(s)
+      description: "Tell us the version(s) of Kodi on which the problem occurs (e.g. Kodi 20.2, v21, ...)"
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        By submitting an issue you commit to updating the report with new information and helping volunteer developers when asked, and accept there is no promise of a quick fix!
