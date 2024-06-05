@@ -53,3 +53,7 @@ jobs:
         if [[ $DEBIAN_BUILD != true ]]; then cd ${app_id}/build; fi
         if [[ $DEBIAN_BUILD != true ]]; then make; fi
         if [[ $DEBIAN_BUILD == true ]]; then ./debian-addon-package-test.sh ${{ github.workspace }}/${app_id}; fi
+    - name: Run tests
+      run: |
+        cd ${app_id}/build/${app_id}-prefix/src/${app_id}-build
+        make CTEST_OUTPUT_ON_FAILURE=1 GTEST_COLOR=1 test
