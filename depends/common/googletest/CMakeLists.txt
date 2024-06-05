@@ -16,7 +16,7 @@ if (POLICY CMP0077)
 endif (POLICY CMP0077)
 
 project(googletest-distribution)
-set(GOOGLETEST_VERSION 1.13.0)
+set(GOOGLETEST_VERSION 1.14.0)
 
 # Workaround for missing debug postfix
 # may be fixed on future versions
