@@ -1069,8 +1069,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
             // If no PTO, the "t" value on <SegmentTimeline><S> element should be relative to period start
             // this may be wrong, has been added to try fix following sample stream
             // https://d24rwxnt7vw9qb.cloudfront.net/v1/dash/e6d234965645b411ad572802b6c9d5a10799c9c1/All_Reference_Streams//6e16c26536564c2f9dbc5f725a820cff/index.mpd
-            if (!hasPTO)
-              seg.startPTS_ += periodStartScaled;
+            //if (!hasPTO)
+            //  seg.startPTS_ += periodStartScaled;
             seg.m_endPts = seg.startPTS_ + tlElem.duration;
 
             if (hasMediaNumber)
