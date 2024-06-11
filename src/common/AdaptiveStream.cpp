@@ -1272,9 +1272,6 @@ size_t adaptive::AdaptiveStream::getSegmentPos()
 
 bool AdaptiveStream::waitingForSegment() const
 {
-  if (current_adp_->GetStreamType() == StreamType::SUBTITLE)
-    return false;
-
   if ((m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) && state_ == RUNNING)
   {
     std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
