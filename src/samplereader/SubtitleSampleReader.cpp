@@ -9,12 +9,14 @@
 #include "SubtitleSampleReader.h"
 
 #include "CompKodiProps.h"
+#include "CompResources.h"
 #include "SrvBroker.h"
 #include "Stream.h"
 #include "AdaptiveByteStream.h"
 #include "codechandler/TTMLCodecHandler.h"
 #include "codechandler/WebVTTCodecHandler.h"
 #include "common/AdaptiveStream.h"
+#include "common/AdaptiveTree.h"
 #include "common/Representation.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
@@ -161,11 +163,16 @@ AP4_Result CSubtitleSampleReader::ReadSample()
           AP4_UI32 duration =
               static_cast<AP4_UI32>((segDur * STREAM_TIME_BASE) / rep->GetTimescale());
 
+          uint64_t startPts = currentSegment->startPTS_;
+
           //! @todo: startPTS workaround! pts has been taken by substracting the period start
           //! this just to have a lower pts value, but the real problem is in CSession::GetNextSample
           //! that that makes an incorrect comparison of DTSorPTS
-          const uint64_t pStart = m_adStream->getPeriod()->GetStart() * rep->GetTimescale() / 1000;
-          const uint64_t startPts = currentSegment->startPTS_ - pStart;
+          if (CSrvBroker::GetResources().GetTree().GetTreeType() == adaptive::TreeType::HLS)
+          {
+            const uint64_t pStart = m_adStream->getPeriod()->GetStart() * rep->GetTimescale() / 1000;
+            startPts -= pStart;
+          }
 
           AP4_UI64 pts = (startPts * STREAM_TIME_BASE) / rep->GetTimescale();
 
