@@ -29,7 +29,7 @@ public:
   CHLSTree();
   virtual ~CHLSTree() {}
 
-  virtual TreeType GetTreeType() override { return TreeType::HLS; }
+  virtual TreeType GetTreeType() const override { return TreeType::HLS; }
 
   CHLSTree(const CHLSTree& left);
 
