@@ -82,7 +82,7 @@ public:
   AdaptiveTree(const AdaptiveTree& left);
   virtual ~AdaptiveTree() = default;
 
-  virtual TreeType GetTreeType() { return TreeType::UNKNOWN; }
+  virtual TreeType GetTreeType() const { return TreeType::UNKNOWN; }
 
   /*!
    * \brief Configure the adaptive tree.

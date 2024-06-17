@@ -38,7 +38,7 @@ public:
                  std::string_view supportedKeySystem,
                  std::string_view manifestUpdParams) override;
 
-  virtual TreeType GetTreeType() override { return TreeType::DASH; }
+  virtual TreeType GetTreeType() const override { return TreeType::DASH; }
 
   virtual bool Open(std::string_view url,
                     const std::map<std::string, std::string>& headers,
