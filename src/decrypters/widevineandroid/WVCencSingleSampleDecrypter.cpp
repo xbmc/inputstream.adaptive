@@ -177,7 +177,7 @@ bool CWVCencSingleSampleDecrypterA::HasLicenseKey(std::string_view keyId)
 {
   // true = one session for all streams, false = one sessions per stream
   // false fixes pixaltion issues on some devices when manifest has multiple encrypted streams
-  return true;
+  return false;
 }
 
 void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
