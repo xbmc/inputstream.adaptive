@@ -1,3 +1,8 @@
+v21.4.10 (2024-06-24)
+- Fix problem on live streams where buffering block subtitles processing
+- Limited subtitles PTS workaround to HLS attempt to make Dash work
+- Updated google tests dependency to v1.14
+
 v21.4.9 (2024-05-29)
 - Fixed some use cases where the period change was not working correctly
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon
   id="inputstream.adaptive"
-  version="21.4.9"
+  version="21.4.10"
   name="InputStream Adaptive"
   provider-name="peak3d, Team Kodi">
   <requires>@ADDON_DEPENDS@</requires>
