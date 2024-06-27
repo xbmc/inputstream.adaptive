@@ -526,13 +526,14 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defaultKid,
                                      sessionPsshset.media_, session.m_decrypterCaps);
 
+        session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
+
         if (session.m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_INVALID)
         {
           m_adaptiveTree->m_currentPeriod->RemovePSSHSet(static_cast<std::uint16_t>(ses));
         }
         else if (session.m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_SECURE_PATH)
         {
-          session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
           isSecureVideoSession = true;
 
           bool isDisableSecureDecoder = CSrvBroker::GetSettings().IsDisableSecureDecoder();
@@ -944,8 +945,7 @@ void CSession::PrepareStream(CStream* stream)
                                           stream->m_adStream.getAdaptationSet(), repr);
   }
 
-  if (startEvent != EVENT_TYPE::REP_CHANGE &&
-      stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::ENCRYPTED_DRM)
+  if (stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::ENCRYPTED_DRM)
   {
     InitializeDRM();
   }
@@ -969,6 +969,28 @@ void CSession::EnableStream(CStream* stream, bool enable)
 
     stream->Disable();
   }
+}
+
+bool SESSION::CSession::IsCDMSessionSecurePath(size_t index)
+{
+  if (index >= m_cdmSessions.size())
+  {
+    LOG::LogF(LOGERROR, "No CDM session at index %u", index);
+    return false;
+  }
+
+  return (m_cdmSessions[index].m_decrypterCaps.flags &
+          DRM::DecrypterCapabilites::SSD_SECURE_PATH) != 0;
+}
+
+const char* SESSION::CSession::GetCDMSession(unsigned int index)
+{
+  if (index >= m_cdmSessions.size())
+  {
+    LOG::LogF(LOGERROR, "No CDM session at index %u", index);
+    return nullptr;
+  }
+  return m_cdmSessions[index].m_cdmSessionStr;
 }
 
 uint64_t CSession::PTSToElapsed(uint64_t pts)

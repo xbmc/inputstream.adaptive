@@ -136,30 +136,6 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
 
   if (stream)
   {
-    uint8_t cdmId(static_cast<uint8_t>(stream->m_adStream.getRepresentation()->m_psshSetPos));
-    if (stream->m_isEncrypted && m_session->GetCDMSession(cdmId) != nullptr)
-    {
-      kodi::addon::StreamCryptoSession cryptoSession;
-
-      LOG::Log(LOGDEBUG, "GetStream(%d): initalizing crypto session", streamid);
-      cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem());
-
-      const char* sessionId(m_session->GetCDMSession(cdmId));
-      cryptoSession.SetSessionId(sessionId);
-
-      if (m_session->GetDecrypterCaps(cdmId).flags &
-          DRM::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
-        stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_DECODE);
-      else
-        stream->m_info.SetFeatures(0);
-
-      cryptoSession.SetFlags((m_session->GetDecrypterCaps(cdmId).flags &
-                          DRM::DecrypterCapabilites::SSD_SECURE_DECODER)
-                             ? STREAM_CRYPTO_FLAG_SECURE_DECODER
-                             : 0);
-      stream->m_info.SetCryptoSession(cryptoSession);
-    }
-
     info = stream->m_info;
     return true;
   }
@@ -322,7 +298,39 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     }
   }
   m_session->EnableStream(stream, true);
-  return stream->GetReader()->GetInformation(stream->m_info);
+
+  bool isInfoChanged = stream->GetReader()->GetInformation(stream->m_info);
+
+  uint16_t cdmSessionIndex = stream->m_adStream.getRepresentation()->m_psshSetPos;
+
+  if (stream->m_isEncrypted && m_session->IsCDMSessionSecurePath(cdmSessionIndex))
+  {
+    LOG::Log(LOGDEBUG, "OpenStream(%d): Create secure crypto session", streamid);
+
+    // StreamCryptoSession enable the use of ISA VideoCodecAdaptive decoder
+    kodi::addon::StreamCryptoSession cryptoSession;
+    cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem());
+
+    const char* sessionId(m_session->GetCDMSession(cdmSessionIndex));
+    cryptoSession.SetSessionId(sessionId);
+
+    if (m_session->GetDecrypterCaps(cdmSessionIndex).flags &
+        DRM::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
+      stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_DECODE);
+    else
+      stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_NONE);
+
+    if (m_session->GetDecrypterCaps(cdmSessionIndex).flags &
+        DRM::DecrypterCapabilites::SSD_SECURE_DECODER)
+      cryptoSession.SetFlags(STREAM_CRYPTO_FLAG_SECURE_DECODER);
+    else
+      cryptoSession.SetFlags(STREAM_CRYPTO_FLAG_NONE);
+
+    stream->m_info.SetCryptoSession(cryptoSession);
+    isInfoChanged = true;
+  }
+
+  return isInfoChanged;
 }
 
 
