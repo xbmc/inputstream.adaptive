@@ -9,11 +9,12 @@
 #include "native_library.h"
 
 #include <dlfcn.h>
+#include <mach-o/dyld.h>
 #include <mach-o/getsect.h>
 
-#if MAC_OS_X_VERSION_MIN_REQUIRED < 1016
-#define USE_BUNDLE_RES_MAP 1
-#endif
+//#if MAC_OS_X_VERSION_MIN_REQUIRED < 1016
+//#define USE_BUNDLE_RES_MAP 1
+//#endif
 
 namespace base {
 
@@ -75,12 +76,26 @@ NativeLibrary LoadNativeLibrary(const std::string& library_path,
   if (!bundle)
     return NULL;
 
+//#if USE_BUNDLE_RES_MAP
+  CFBundleRefNum (*openResourceMap)(CFBundleRef) = NULL;
+  NSSymbol nsSymbol = NULL;
+  if (NSIsSymbolNameDefinedWithHint("_CFBundleOpenBundleResourceMap", "CoreFoundation"))
+  {
+    nsSymbol = NSLookupAndBindSymbolWithHint("_CFBundleOpenBundleResourceMap", "CoreFoundation");
+    if (nsSymbol)
+    {
+      openResourceMap = NSAddressOfSymbol(nsSymbol);
+    }
+  }
+//#endif
+
   NativeLibrary native_lib = new NativeLibraryStruct();
   native_lib->type = BUNDLE;
   native_lib->bundle = bundle;
-#if USE_BUNDLE_RES_MAP
-  native_lib->bundle_resource_ref = CFBundleOpenBundleResourceMap(bundle);
-#endif
+//#if USE_BUNDLE_RES_MAP
+  if (openResourceMap)
+    native_lib->bundle_resource_ref = openResourceMap(bundle); // CFBundleOpenBundleResourceMap(bundle); deprecated
+//#endif
   native_lib->objc_status = OBJC_UNKNOWN;
   return native_lib;
 }
@@ -91,10 +106,21 @@ void UnloadNativeLibrary(NativeLibrary library) {
     return;
   if (library->objc_status == OBJC_NOT_PRESENT) {
     if (library->type == BUNDLE) {
-#if USE_BUNDLE_RES_MAP
-      CFBundleCloseBundleResourceMap(library->bundle,
-                                     library->bundle_resource_ref);
-#endif
+//#if USE_BUNDLE_RES_MAP
+      void (*closeResourceMap)(CFBundleRef, CFBundleRefNum) = NULL;
+      NSSymbol nsSymbol = NULL;
+      if (NSIsSymbolNameDefinedWithHint("_CFBundleCloseBundleResourceMap", "CoreFoundation"))
+      {
+        nsSymbol = NSLookupAndBindSymbolWithHint("_CFBundleCloseBundleResourceMap", "CoreFoundation");
+        if (nsSymbol)
+        {
+           closeResourceMap = NSAddressOfSymbol(nsSymbol);
+        }
+      }
+      if (closeResourceMap)
+        closeResourceMap(library->bundle, library->bundle_resource_ref);
+//#endif
+      // CFBundleCloseBundleResourceMap(library->bundle, library->bundle_resource_ref); deprecated
       CFRelease(library->bundle);
     } else {
       dlclose(library->dylib);
