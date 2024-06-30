@@ -553,7 +553,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   int statusCode = file.Open();
   if (statusCode == -1 || statusCode >= 400)
   {
-    LOG::Log(LOGERROR, "License server returned failure");
+    LOG::Log(LOGERROR, "License server returned failure (HTTP error %i)", statusCode);
     return false;
   }
 
