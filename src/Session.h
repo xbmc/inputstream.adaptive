@@ -113,11 +113,17 @@ public:
    */
   unsigned int GetStreamCount() const { return static_cast<unsigned int>(m_streams.size()); }
 
+  /*!
+   * \brief Determines if the CDM session at specified index require Secure Path (TEE).
+   * \return True if Secure Path is required, otherwise false.
+   */
+  bool IsCDMSessionSecurePath(size_t index);
+
   /*! \brief Get a session string (session id) by index from the cdm sessions
    *  \param index The index (psshSet number) of the cdm session
    *  \return The session string
    */
-  const char* GetCDMSession(unsigned int index) { return m_cdmSessions[index].m_cdmSessionStr; }
+  const char* GetCDMSession(unsigned int index);
 
   /*! \brief Get the media type mask
    *  \return The media type mask
