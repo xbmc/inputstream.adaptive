@@ -11,6 +11,10 @@
 #include <dlfcn.h>
 #include <mach-o/getsect.h>
 
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 1016
+#define USE_BUNDLE_RES_MAP 1
+#endif
+
 namespace base {
 
 static NativeLibraryObjCStatus GetObjCStatusForImage(
@@ -74,7 +78,9 @@ NativeLibrary LoadNativeLibrary(const std::string& library_path,
   NativeLibrary native_lib = new NativeLibraryStruct();
   native_lib->type = BUNDLE;
   native_lib->bundle = bundle;
+#if USE_BUNDLE_RES_MAP
   native_lib->bundle_resource_ref = CFBundleOpenBundleResourceMap(bundle);
+#endif
   native_lib->objc_status = OBJC_UNKNOWN;
   return native_lib;
 }
@@ -85,8 +91,10 @@ void UnloadNativeLibrary(NativeLibrary library) {
     return;
   if (library->objc_status == OBJC_NOT_PRESENT) {
     if (library->type == BUNDLE) {
+#if USE_BUNDLE_RES_MAP
       CFBundleCloseBundleResourceMap(library->bundle,
                                      library->bundle_resource_ref);
+#endif
       CFRelease(library->bundle);
     } else {
       dlclose(library->dylib);
