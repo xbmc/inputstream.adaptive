@@ -476,7 +476,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
         seg.m_time = cue.pts;
         seg.range_begin_ = cue.pos_start;
         seg.range_end_ = cue.pos_end;
-        rep->SegmentTimeline().GetData().emplace_back(seg);
+        rep->SegmentTimeline().Add(seg);
       }
       return true;
     }
@@ -541,7 +541,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
         {
           seg.range_begin_ = seg.range_end_ + 1;
           seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
-          rep->SegmentTimeline().GetData().emplace_back(seg);
+          rep->SegmentTimeline().Add(seg);
 
           seg.startPTS_ += refs[i].m_SubsegmentDuration;
           seg.m_endPts = seg.startPTS_ + refs[i].m_SubsegmentDuration;
@@ -810,7 +810,7 @@ bool AdaptiveStream::ensureSegment()
     if (m_fixateInitialization)
       return false;
 
-    CSegment* nextSegment{nullptr};
+    const CSegment* nextSegment{nullptr};
 
     if (valid_segment_buffers_ > 0)
     {
@@ -938,7 +938,7 @@ bool AdaptiveStream::ensureSegment()
         segPos = nextSegPos;
       else // Continue adding segments that follow the last one added in to the buffer
       {
-        CSegment* followSeg =
+        const CSegment* followSeg =
             current_rep_->GetNextSegment(segment_buffers_[available_segment_buffers_ - 1]->segment);
         if (followSeg)
           segPos = current_rep_->get_segment_pos(followSeg);
@@ -1221,7 +1221,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
     ++choosen_seg;
   }
 
-  CSegment* old_seg = current_rep_->current_segment_;
+  const CSegment* old_seg = current_rep_->current_segment_;
   const CSegment* newSeg = current_rep_->get_segment(choosen_seg);
 
   if (newSeg)

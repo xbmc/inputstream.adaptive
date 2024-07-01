@@ -462,7 +462,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
 
   uint64_t mediaSequenceNbr{0};
 
-  CSpinCache<CSegment> newSegments;
+  CSegContainer newSegments;
   std::optional<CSegment> newSegment;
 
   // Pssh set used between segments
@@ -701,7 +701,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       }
       newSegment->pssh_set_ = psshSetPos;
 
-      newSegments.GetData().emplace_back(*newSegment);
+      newSegments.Add(*newSegment);
       newSegment.reset();
     }
     else if (tagName == "#EXT-X-DISCONTINUITY-SEQUENCE")

@@ -114,7 +114,7 @@ namespace adaptive
 
   void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
   {
-    for (auto& segment : repr->SegmentTimeline().GetData())
+    for (const CSegment& segment : repr->SegmentTimeline())
     {
       period->DecreasePSSHSetUsageCount(segment.pssh_set_);
     }

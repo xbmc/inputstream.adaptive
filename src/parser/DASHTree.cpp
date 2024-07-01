@@ -915,7 +915,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       seg.m_time = segStartPts;
       seg.m_number = segNumber++;
 
-      repr->SegmentTimeline().GetData().push_back(seg);
+      repr->SegmentTimeline().Add(seg);
 
       segStartPts += duration;
       index++;
@@ -1080,7 +1080,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
             seg.m_time = time;
 
             totalDuration += tlElem.duration;
-            repr->SegmentTimeline().GetData().emplace_back(seg);
+            repr->SegmentTimeline().Add(seg);
 
             time += tlElem.duration;
           } while (repeat-- > 0);
@@ -1158,7 +1158,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
           seg.m_time = time;
 
-          repr->SegmentTimeline().GetData().emplace_back(seg);
+          repr->SegmentTimeline().Add(seg);
 
           time = seg.m_endPts;
         }
@@ -1701,10 +1701,10 @@ void adaptive::CDashTree::OnUpdateSegments()
                   continue;
                 }
 
-                CSegment* foundSeg{nullptr};
+                const CSegment* foundSeg{nullptr};
                 const uint64_t segStartPTS = repr->current_segment_->startPTS_;
 
-                for (CSegment& segment : updRepr->SegmentTimeline().GetData())
+                for (const CSegment& segment : updRepr->SegmentTimeline())
                 {
                   if (segment.startPTS_ == segStartPTS)
                   {

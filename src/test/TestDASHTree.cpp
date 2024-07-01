@@ -601,7 +601,7 @@ TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
 
   auto& repr = tree->m_currentPeriod->GetAdaptationSets()[1]->GetRepresentations()[0];
   // Set the last segment to the current segment to simulate reaching the last segment
-  repr->current_segment_ = &repr->SegmentTimeline().GetData().back();
+  repr->current_segment_ = repr->SegmentTimeline().GetBack();
 
   EXPECT_EQ(repr->current_segment_->startPTS_, 95687379264);
   EXPECT_EQ(repr->getCurrentSegmentPos(), 4);

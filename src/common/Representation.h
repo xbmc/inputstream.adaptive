@@ -103,8 +103,8 @@ public:
   uint16_t GetHdcpVersion() const { return m_hdcpVersion; }
   void SetHdcpVersion(uint16_t hdcpVersion) { m_hdcpVersion = hdcpVersion; }
 
-  CSpinCache<CSegment>& SegmentTimeline() { return m_segmentTimeline; }
-  CSpinCache<CSegment> SegmentTimeline() const { return m_segmentTimeline; }
+  CSegContainer& SegmentTimeline() { return m_segmentTimeline; }
+  CSegContainer SegmentTimeline() const { return m_segmentTimeline; }
   bool HasSegmentTimeline() { return !m_segmentTimeline.IsEmpty(); }
 
   std::optional<CSegmentBase>& GetSegmentBase() { return m_segmentBase; }
@@ -175,7 +175,7 @@ public:
 
   size_t expired_segments_{0};
 
-  CSegment* current_segment_{nullptr};
+  const CSegment* current_segment_{nullptr};
 
 
   bool HasInitSegment() const { return m_initSegment.has_value(); }
@@ -227,7 +227,7 @@ public:
     return m_segmentTimeline.IsEmpty() ? 0 : m_segmentTimeline.GetPosition(segment);
   }
 
-  CSegment* GetSegment(const CSegment& segment)
+  const CSegment* GetSegment(const CSegment& segment)
   {
     // If available, find the segment by number, this is because some
     // live services provide inconsistent timestamps between manifest updates
@@ -236,7 +236,7 @@ public:
     {
       const uint64_t number = segment.m_number;
 
-      for (CSegment& segment : m_segmentTimeline.GetData())
+      for (const CSegment& segment : m_segmentTimeline)
       {
         if (segment.m_number == number)
           return &segment;
@@ -246,7 +246,7 @@ public:
     {
       const uint64_t startPTS = segment.startPTS_;
 
-      for (CSegment& segment : m_segmentTimeline.GetData())
+      for (const CSegment& segment : m_segmentTimeline)
       {
         // Search by >= is intended to allow minimizing problems with encoders
         // that provide inconsistent timestamps between manifest updates
@@ -258,7 +258,7 @@ public:
     return nullptr;
   }
 
-  CSegment* GetNextSegment(const CSegment& segment)
+  const CSegment* GetNextSegment(const CSegment& segment)
   {
     // If available, find the segment by number, this is because some
     // live services provide inconsistent timestamps between manifest updates
@@ -267,7 +267,7 @@ public:
     {
       const uint64_t number = segment.m_number;
 
-      for (CSegment& segment : m_segmentTimeline.GetData())
+      for (const CSegment& segment : m_segmentTimeline)
       {
         if (segment.m_number > number)
           return &segment;
@@ -277,7 +277,7 @@ public:
     {
       const uint64_t startPTS = segment.startPTS_;
 
-      for (CSegment& segment : m_segmentTimeline.GetData())
+      for (const CSegment& segment : m_segmentTimeline)
       {
         if (segment.startPTS_ > startPTS)
           return &segment;
@@ -355,7 +355,7 @@ protected:
 
   uint64_t m_startNumber{1};
 
-  CSpinCache<CSegment> m_segmentTimeline;
+  CSegContainer m_segmentTimeline;
 
   uint64_t m_duration{0};
   uint32_t m_timescale{0};

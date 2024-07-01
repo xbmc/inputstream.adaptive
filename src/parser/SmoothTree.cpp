@@ -404,7 +404,7 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
           seg.m_time = nextStartPts + m_ptsBase;
           seg.m_number = index;
 
-          repr->SegmentTimeline().GetData().emplace_back(seg);
+          repr->SegmentTimeline().Add(seg);
 
           nextStartPts += segDuration;
           index++;

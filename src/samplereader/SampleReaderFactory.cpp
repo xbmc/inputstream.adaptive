@@ -16,6 +16,7 @@
 #include "samplereader/SubtitleSampleReader.h"
 #include "samplereader/TSSampleReader.h"
 #include "samplereader/WebmSampleReader.h"
+#include "utils/log.h"
 
 #include <bento4/Ap4.h>
 
