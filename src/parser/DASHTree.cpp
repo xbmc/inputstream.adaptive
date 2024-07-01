@@ -921,25 +921,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       index++;
     }
 
-    // Determines total duration of segments
-    uint64_t totalDur;
-    if (adpSet->HasSegmentTimelineDuration())
-    {
-      auto& segTLData = adpSet->SegmentTimelineDuration();
-      totalDur = std::accumulate(segTLData.begin(), segTLData.end(), 0ULL);
-      if (isTLDurTsRescale)
-      {
-        totalDur =
-            static_cast<uint64_t>(static_cast<double>(totalDur) /
-                                  adpSet->GetSegDurationsTimescale() * segList.GetTimescale());
-      }
-    }
-    else
-    {
-      totalDur = static_cast<uint64_t>(repr->Timeline().GetSize()) * segList.GetDuration();
-    }
-
-    repr->SetDuration(totalDur);
     repr->SetTimescale(segList.GetTimescale());
 
     repr->SetSegmentList(segList);
@@ -1055,7 +1036,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       if (segTemplate->HasTimeline()) // Generate segments from template timeline
       {
         uint64_t time{0};
-        uint64_t totalDuration{0};
 
         for (const auto& tlElem : segTemplate->Timeline())
         {
@@ -1079,7 +1059,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
             seg.m_time = time;
 
-            totalDuration += tlElem.duration;
             repr->Timeline().Add(seg);
 
             time += tlElem.duration;
@@ -1087,7 +1066,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         }
 
         repr->SetTimescale(segTimescale);
-        repr->SetDuration(totalDuration);
       }
       else // Generate segments by using template
       {
@@ -1164,11 +1142,11 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
         }
 
         repr->SetTimescale(segTemplate->GetTimescale());
-        repr->SetDuration(static_cast<uint64_t>(segDuration) * segmentsCount);
       }
     }
   }
 
+  repr->SetDuration(repr->Timeline().GetDuration());
   repr->SetScaling();
 
   adpSet->AddRepresentation(repr);

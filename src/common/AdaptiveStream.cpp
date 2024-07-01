@@ -478,6 +478,8 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
         seg.range_end_ = cue.pos_end;
         rep->Timeline().Add(seg);
       }
+
+      rep->SetDuration(rep->Timeline().GetDuration());
       return true;
     }
   }
@@ -495,7 +497,6 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
 
     bool isMoovFound{false};
     AP4_Cardinal sidxCount{1};
-    uint64_t reprDuration{0};
 
     CSegment seg;
     seg.startPTS_ = 0;
@@ -546,7 +547,6 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
           seg.startPTS_ += refs[i].m_SubsegmentDuration;
           seg.m_endPts = seg.startPTS_ + refs[i].m_SubsegmentDuration;
           seg.m_time += refs[i].m_SubsegmentDuration;
-          reprDuration += refs[i].m_SubsegmentDuration;
         }
 
         sidxCount--;
@@ -576,7 +576,7 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
       rep->SetInitSegment(initSeg);
     }
 
-    rep->SetDuration(reprDuration);
+    rep->SetDuration(rep->Timeline().GetDuration());
 
     return true;
   }

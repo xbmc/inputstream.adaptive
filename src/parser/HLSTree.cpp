@@ -774,8 +774,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       {
         period->SetSequence(m_discontSeq + discontCount);
 
-        uint64_t dur = newSegments.GetBack()->m_endPts - newSegments.GetFront()->startPTS_;
-        rep->SetDuration(dur);
+        rep->SetDuration(newSegments.GetDuration());
 
         if (adp->GetStreamType() != StreamType::SUBTITLE)
         {
