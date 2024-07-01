@@ -477,13 +477,6 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
         seg.range_begin_ = cue.pos_start;
         seg.range_end_ = cue.pos_end;
         rep->SegmentTimeline().GetData().emplace_back(seg);
-
-        //! todo: use SegmentTimelineDuration should not be needed
-        if (adpSet->SegmentTimelineDuration().GetSize() < rep->SegmentTimeline().GetSize())
-        {
-          adpSet->SegmentTimelineDuration().GetData().emplace_back(
-              static_cast<uint32_t>(cue.duration));
-        }
       }
       return true;
     }
@@ -549,12 +542,6 @@ bool AdaptiveStream::parseIndexRange(PLAYLIST::CRepresentation* rep,
           seg.range_begin_ = seg.range_end_ + 1;
           seg.range_end_ = seg.range_begin_ + refs[i].m_ReferencedSize - 1;
           rep->SegmentTimeline().GetData().emplace_back(seg);
-
-          //! todo: use SegmentTimelineDuration should not be needed
-          if (adpSet->SegmentTimelineDuration().GetSize() < rep->SegmentTimeline().GetSize())
-          {
-            adpSet->SegmentTimelineDuration().GetData().emplace_back(refs[i].m_SubsegmentDuration);
-          }
 
           seg.startPTS_ += refs[i].m_SubsegmentDuration;
           seg.m_endPts = seg.startPTS_ + refs[i].m_SubsegmentDuration;

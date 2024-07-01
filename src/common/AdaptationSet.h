@@ -79,8 +79,8 @@ public:
   void AddSwitchingIds(std::string_view switchingIds);
   const std::vector<std::string>& GetSwitchingIds() { return m_switchingIds; }
 
-  CSpinCache<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
-  bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.IsEmpty(); }
+  std::vector<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
+  bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.empty(); }
 
   /*!
    * \brief Get the timescale of segment durations tag.
@@ -175,7 +175,7 @@ protected:
   std::string m_language;
   std::vector<std::string> m_switchingIds;
 
-  CSpinCache<uint32_t> m_segmentTimelineDuration;
+  std::vector<uint32_t> m_segmentTimelineDuration;
   uint64_t m_segDurationsTimescale{NO_VALUE};
 
   // Custom ISAdaptive attributes (used on DASH only)

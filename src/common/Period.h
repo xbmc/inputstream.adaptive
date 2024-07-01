@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "AdaptiveUtils.h"
 #include "CommonSegAttribs.h"
 #include "SegTemplate.h"
 #include "utils/CryptoUtils.h"
@@ -89,8 +88,8 @@ public:
     m_isSecureDecoderNeeded = isSecureDecoderNeeded;
   };
 
-  CSpinCache<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
-  bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.IsEmpty(); }
+  std::vector<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
+  bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.empty(); }
 
   void CopyHLSData(const CPeriod* other);
 
@@ -143,7 +142,7 @@ protected:
   uint64_t m_duration{0};
   EncryptionState m_encryptionState{EncryptionState::UNENCRYPTED};
   bool m_isSecureDecoderNeeded{false};
-  CSpinCache<uint32_t> m_segmentTimelineDuration;
+  std::vector<uint32_t> m_segmentTimelineDuration;
 };
 
 } // namespace adaptive

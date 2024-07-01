@@ -68,7 +68,7 @@ protected:
                               PLAYLIST::CPeriod* period);
 
   void ParseTagSegmentTimeline(pugi::xml_node parentNode,
-                               PLAYLIST::CSpinCache<uint32_t>& SCTimeline);
+                               std::vector<uint32_t>& SCTimeline);
 
   void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate& segTpl);
 
