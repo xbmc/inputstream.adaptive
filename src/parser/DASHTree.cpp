@@ -915,7 +915,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       seg.m_time = segStartPts;
       seg.m_number = segNumber++;
 
-      repr->SegmentTimeline().Add(seg);
+      repr->Timeline().Add(seg);
 
       segStartPts += duration;
       index++;
@@ -936,7 +936,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     }
     else
     {
-      totalDur = static_cast<uint64_t>(repr->SegmentTimeline().GetSize()) * segList.GetDuration();
+      totalDur = static_cast<uint64_t>(repr->Timeline().GetSize()) * segList.GetDuration();
     }
 
     repr->SetDuration(totalDur);
@@ -1013,7 +1013,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   if (repr->GetContainerType() == ContainerType::TEXT && repr->GetMimeType() != "application/mp4" &&
-      !repr->HasSegmentBase() && !repr->HasSegmentTemplate() && !repr->HasSegmentTimeline())
+      !repr->HasSegmentBase() && !repr->HasSegmentTemplate() && !repr->Timeline().IsEmpty())
   {
     // Raw unsegmented subtitles called "sidecar" is a single file specified in the <BaseURL> tag,
     // must not have the MP4 ISOBMFF mime type or any other dash element.
@@ -1021,7 +1021,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   // Generate segments from SegmentTemplate
-  if (repr->HasSegmentTemplate() && !repr->HasSegmentTimeline())
+  if (repr->HasSegmentTemplate() && !repr->Timeline().IsEmpty())
   {
     auto& segTemplate = repr->GetSegmentTemplate();
 
@@ -1080,7 +1080,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
             seg.m_time = time;
 
             totalDuration += tlElem.duration;
-            repr->SegmentTimeline().Add(seg);
+            repr->Timeline().Add(seg);
 
             time += tlElem.duration;
           } while (repeat-- > 0);
@@ -1158,7 +1158,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
           seg.m_time = time;
 
-          repr->SegmentTimeline().Add(seg);
+          repr->Timeline().Add(seg);
 
           time = seg.m_endPts;
         }
@@ -1675,7 +1675,7 @@ void adaptive::CDashTree::OnUpdateSegments()
           {
             auto repr = (*itRepr).get();
 
-            if (updRepr->SegmentTimeline().IsEmpty())
+            if (updRepr->Timeline().IsEmpty())
             {
               LOG::LogF(LOGWARNING,
                         "MPD update - Updated timeline has no segments "
@@ -1684,16 +1684,16 @@ void adaptive::CDashTree::OnUpdateSegments()
               continue;
             }
 
-            if (!repr->SegmentTimeline().IsEmpty())
+            if (!repr->Timeline().IsEmpty())
             {
               if (!repr->current_segment_) // Representation that should not be used for playback
               {
-                repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
+                repr->Timeline().Swap(updRepr->Timeline());
               }
               else
               {
-                if (repr->SegmentTimeline().GetInitialSize() == updRepr->SegmentTimeline().GetSize() &&
-                    repr->SegmentTimeline().Get(0)->startPTS_ == updRepr->SegmentTimeline().Get(0)->startPTS_)
+                if (repr->Timeline().GetInitialSize() == updRepr->Timeline().GetSize() &&
+                    repr->Timeline().Get(0)->startPTS_ == updRepr->Timeline().Get(0)->startPTS_)
                 {
                   LOG::LogF(LOGDEBUG,
                             "MPD update - No new segments (repr. id \"%s\", period id \"%s\")",
@@ -1704,7 +1704,7 @@ void adaptive::CDashTree::OnUpdateSegments()
                 const CSegment* foundSeg{nullptr};
                 const uint64_t segStartPTS = repr->current_segment_->startPTS_;
 
-                for (const CSegment& segment : updRepr->SegmentTimeline())
+                for (const CSegment& segment : updRepr->Timeline())
                 {
                   if (segment.startPTS_ == segStartPTS)
                   {
@@ -1736,7 +1736,7 @@ void adaptive::CDashTree::OnUpdateSegments()
                 }
                 else
                 {
-                  repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
+                  repr->Timeline().Swap(updRepr->Timeline());
                   repr->current_segment_ = foundSeg;
 
                   LOG::LogF(LOGDEBUG, "MPD update - Done (repr. id \"%s\", period id \"%s\")",
@@ -1801,7 +1801,7 @@ bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   //! @todo: expired_segments_ should be reworked, see also other parsers
   repr->expired_segments_++;
 
-  CSegment* segment = repr->SegmentTimeline().Get(pos);
+  CSegment* segment = repr->Timeline().Get(pos);
 
   if (!segment)
   {
@@ -1822,7 +1822,7 @@ bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->SegmentTimeline().Append(segCopy);
+    repr->Timeline().Append(segCopy);
   }
   return true;
 }
@@ -1838,7 +1838,7 @@ bool adaptive::CDashTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
   if (!m_isLive || !repr->HasSegmentTemplate() || m_minimumUpdatePeriod != NO_VALUE)
     return false;
 
-  CSegment* lastSeg = repr->SegmentTimeline().GetBack();
+  CSegment* lastSeg = repr->Timeline().GetBack();
   if (!lastSeg)
     return false;
 
@@ -1867,7 +1867,7 @@ bool adaptive::CDashTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->SegmentTimeline().Append(segCopy);
+    repr->Timeline().Append(segCopy);
   }
 
   return true;

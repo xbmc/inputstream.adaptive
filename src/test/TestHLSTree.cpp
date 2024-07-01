@@ -292,7 +292,7 @@ TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
 
     auto& periodSecond = tree->m_periods[1];
     auto& adp0rep1 = periodSecond->GetAdaptationSets()[0]->GetRepresentations()[0];
-    auto adp0rep1seg1 = adp0rep1->SegmentTimeline().GetFront();
+    auto adp0rep1seg1 = adp0rep1->Timeline().GetFront();
     EXPECT_EQ(adp0rep1seg1->startPTS_, 0);
   }
   {
@@ -308,7 +308,7 @@ TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
 
     auto& periodSecond = tree->m_periods[1];
     auto& adp1rep0 = periodSecond->GetAdaptationSets()[1]->GetRepresentations()[0];
-    auto adp1rep0seg1 = adp1rep0->SegmentTimeline().GetFront();
+    auto adp1rep0seg1 = adp1rep0->Timeline().GetFront();
     EXPECT_EQ(adp1rep0seg1->startPTS_, 0);
   }
 }

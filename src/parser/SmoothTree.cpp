@@ -404,7 +404,7 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
           seg.m_time = nextStartPts + m_ptsBase;
           seg.m_number = index;
 
-          repr->SegmentTimeline().Add(seg);
+          repr->Timeline().Add(seg);
 
           nextStartPts += segDuration;
           index++;
@@ -427,7 +427,7 @@ bool adaptive::CSmoothTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
   //! then add a better way to delete old segments from the timeline based on timeshift window
   //! this also requires taking care of the Dash parser
 
-  CSegment* lastSeg = repr->SegmentTimeline().GetBack();
+  CSegment* lastSeg = repr->Timeline().GetBack();
   if (!lastSeg)
     return false;
 
@@ -458,7 +458,7 @@ bool adaptive::CSmoothTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->SegmentTimeline().Append(segCopy);
+    repr->Timeline().Append(segCopy);
   }
 
   return true;

@@ -114,12 +114,12 @@ namespace adaptive
 
   void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
   {
-    for (const CSegment& segment : repr->SegmentTimeline())
+    for (const CSegment& segment : repr->Timeline())
     {
       period->DecreasePSSHSetUsageCount(segment.pssh_set_);
     }
 
-    repr->SegmentTimeline().Clear();
+    repr->Timeline().Clear();
     repr->current_segment_ = nullptr;
   }
 
@@ -189,7 +189,7 @@ namespace adaptive
                                    const PLAYLIST::CRepresentation* segRep,
                                    const PLAYLIST::CSegment* segment) const
   {
-    if (segRep->SegmentTimeline().IsEmpty())
+    if (segRep->Timeline().IsEmpty())
       return true;
 
     if (!segment || !segPeriod || !segRep)
@@ -212,7 +212,7 @@ namespace adaptive
     }
     else
     {
-      const CSegment* lastSeg = segRep->SegmentTimeline().GetBack();
+      const CSegment* lastSeg = segRep->Timeline().GetBack();
       return segment == lastSeg;
     }
     return false;

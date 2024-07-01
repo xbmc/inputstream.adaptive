@@ -103,9 +103,14 @@ public:
   uint16_t GetHdcpVersion() const { return m_hdcpVersion; }
   void SetHdcpVersion(uint16_t hdcpVersion) { m_hdcpVersion = hdcpVersion; }
 
-  CSegContainer& SegmentTimeline() { return m_segmentTimeline; }
-  CSegContainer SegmentTimeline() const { return m_segmentTimeline; }
-  bool HasSegmentTimeline() { return !m_segmentTimeline.IsEmpty(); }
+  /*!
+   * \brief The segment timeline.
+   */
+  CSegContainer& Timeline() { return m_segmentTimeline; }
+  /*!
+   * \brief The segment timeline.
+   */
+  CSegContainer Timeline() const { return m_segmentTimeline; }
 
   std::optional<CSegmentBase>& GetSegmentBase() { return m_segmentBase; }
   void SetSegmentBase(const CSegmentBase& segBase) { m_segmentBase = segBase; }
