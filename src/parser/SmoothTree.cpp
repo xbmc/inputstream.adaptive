@@ -427,7 +427,7 @@ bool adaptive::CSmoothTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
   //! then add a better way to delete old segments from the timeline based on timeshift window
   //! this also requires taking care of the Dash parser
 
-  CSegment* lastSeg = repr->Timeline().GetBack();
+  const CSegment* lastSeg = repr->Timeline().GetBack();
   if (!lastSeg)
     return false;
 

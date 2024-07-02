@@ -604,19 +604,19 @@ TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
   repr->current_segment_ = repr->Timeline().GetBack();
 
   EXPECT_EQ(repr->current_segment_->startPTS_, 95687379264);
-  EXPECT_EQ(repr->getCurrentSegmentPos(), 4);
+  EXPECT_EQ(repr->Timeline().GetPos(repr->current_segment_), 4);
 
   tree->RunManifestUpdate("mpd/bad_segtimeline_2.mpd");
   EXPECT_EQ(repr->current_segment_->startPTS_, 95687381280);
-  EXPECT_EQ(repr->getCurrentSegmentPos(), 2);
+  EXPECT_EQ(repr->Timeline().GetPos(repr->current_segment_), 2);
 
   tree->RunManifestUpdate("mpd/bad_segtimeline_3.mpd");
   EXPECT_EQ(repr->current_segment_->startPTS_, 95687382336);
-  EXPECT_EQ(repr->getCurrentSegmentPos(), 1);
+  EXPECT_EQ(repr->Timeline().GetPos(repr->current_segment_), 1);
 
   tree->RunManifestUpdate("mpd/bad_segtimeline_4.mpd");
   EXPECT_EQ(repr->current_segment_->startPTS_, 95687382337);
-  EXPECT_EQ(repr->getCurrentSegmentPos(), 0);
+  EXPECT_EQ(repr->Timeline().GetPos(repr->current_segment_), 0);
 }
 
 TEST_F(DASHTreeTest, AdaptionSetSwitching)

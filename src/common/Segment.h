@@ -76,42 +76,49 @@ public:
   const CSegment* Get(size_t pos) const;
 
   /*!
-   * \brief Get the segment pointer from the specified position
-   * \param pos The position of segment
-   * \return Segment pointer, otherwise nullptr if not found
-   */
-  CSegment* Get(size_t pos);
-
-  /*!
    * \brief Get the last segment pointer
    * \return Segment pointer, otherwise nullptr if not found
    */
-  CSegment* GetBack();
+  const CSegment* GetBack() const;
 
   /*!
    * \brief Get the first segment as pointer
    * \return Segment pointer, otherwise nullptr if not found
    */
-  CSegment* GetFront();
+  const CSegment* GetFront() const;
 
   /*!
-   * \brief Get index position of a segment pointer
+   * \brief Get the next segment after the one specified.
+   *        The search is done by number (if available) otherwise by PTS.
+   * \return If found the segment pointer, otherwise nullptr.
+   */
+  const CSegment* GetNext(const CSegment* seg) const;
+
+  /*!
+   * \brief Try find same/similar segment in the timeline.
+   *        The search is done by number (if available) otherwise by PTS.
+   * \return If found the segment pointer, otherwise nullptr.
+   */
+  const CSegment* Find(const CSegment& seg) const;
+
+  /*!
+   * \brief Get index position of a segment pointer in the timeline.
    * \param elem The segment pointer to get the position
    * \return The index position, or SEGMENT_NO_POS if not found
    */
-  const size_t GetPosition(const CSegment* elem) const;
+  const size_t GetPos(const CSegment* seg) const;
 
   /*!
    * \brief Add a segment to the container.
    * \param elem The segment to add
    */
-  void Add(const CSegment& elem);
+  void Add(const CSegment& seg);
 
   /*!
    * \brief Append segment to the container, by increasing the count.
    * \param elem The segment to append
    */
-  void Append(const CSegment& elem);
+  void Append(const CSegment& seg);
 
   void Swap(CSegContainer& other);
 

@@ -670,8 +670,8 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
     {
       size_t segPos = current_rep_->Timeline().GetSize() - 1;
       //! @todo: segment duration is not fixed for each segment, this can calculate a wrong delay
-      uint64_t segDur = current_rep_->get_segment(segPos)->m_endPts -
-                        current_rep_->get_segment(segPos)->startPTS_;
+      const CSegment* lastSeg = current_rep_->Timeline().GetBack();
+      uint64_t segDur = lastSeg->m_endPts - lastSeg->startPTS_;
 
       size_t segPosDelay =
           static_cast<size_t>((m_tree->m_liveDelay * current_rep_->GetTimescale()) / segDur);
@@ -685,7 +685,7 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
         segPos = 0;
       }
 
-      current_rep_->current_segment_ = current_rep_->get_segment(segPos);
+      current_rep_->current_segment_ = current_rep_->Timeline().Get(segPos);
     }
     else if (m_startEvent == EVENT_TYPE::REP_CHANGE) // switching streams, align new stream segment no.
     {
@@ -694,7 +694,7 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
       {
         segmentId = current_rep_->GetStartNumber() + current_rep_->Timeline().GetSize() - 1;
       }
-      current_rep_->current_segment_ = current_rep_->get_segment(
+      current_rep_->current_segment_ = current_rep_->Timeline().Get(
           static_cast<size_t>(segmentId - current_rep_->GetStartNumber()));
     }
     else
@@ -706,8 +706,7 @@ bool AdaptiveStream::start_stream(const uint64_t startPts)
   // Reset the event for the next one
   m_startEvent = EVENT_TYPE::NONE;
 
-  const CSegment* next_segment =
-      current_rep_->get_next_segment(current_rep_->current_segment_);
+  const CSegment* next_segment = current_rep_->GetNextSegment();
 
   if (!next_segment && current_adp_->GetStreamType() != StreamType::SUBTITLE)
   {
@@ -844,11 +843,11 @@ bool AdaptiveStream::ensureSegment()
       if (!segment_buffers_[0]->segment.IsInitialization())
       {
         // Search the same segment on the timeline (which in the meantime may have been updated)
-        nextSegment = current_rep_->GetSegment(segment_buffers_[0]->segment);
+        nextSegment = current_rep_->Timeline().Find(segment_buffers_[0]->segment);
       }
     }
     else
-      nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
+      nextSegment = current_rep_->GetNextSegment();
 
     if (!nextSegment && (m_tree->HasManifestUpdates() || m_tree->HasManifestUpdatesSegs()) &&
         !m_tree->IsLastSegment(current_period_, current_rep_, current_rep_->current_segment_))
@@ -860,7 +859,7 @@ bool AdaptiveStream::ensureSegment()
                                       getSegmentPos()))
         {
           //! @todo: seem to be possible get the segment from InsertLiveSegment and then avoid call get_next_segment
-          nextSegment = current_rep_->get_next_segment(current_rep_->current_segment_);
+          nextSegment = current_rep_->GetNextSegment();
         }
 
         if (!nextSegment && !current_rep_->IsWaitForSegment())
@@ -891,7 +890,7 @@ bool AdaptiveStream::ensureSegment()
         observer_->OnSegmentChanged(this);
       }
 
-      const size_t nextSegPos = current_rep_->get_segment_pos(nextSegment);
+      const size_t nextSegPos = current_rep_->Timeline().GetPos(nextSegment);
 
       CRepresentation* newRep = current_rep_;
       bool isBufferFull = valid_segment_buffers_ >= max_buffer_length_;
@@ -939,9 +938,9 @@ bool AdaptiveStream::ensureSegment()
       else // Continue adding segments that follow the last one added in to the buffer
       {
         const CSegment* followSeg =
-            current_rep_->GetNextSegment(segment_buffers_[available_segment_buffers_ - 1]->segment);
+            current_rep_->Timeline().GetNext(&segment_buffers_[available_segment_buffers_ - 1]->segment);
         if (followSeg)
-          segPos = current_rep_->get_segment_pos(followSeg);
+          segPos = current_rep_->Timeline().GetPos(followSeg);
         else // No segment, EOS or you need to wait next manifest update
           segPos = maxPos;
       }
@@ -951,10 +950,10 @@ bool AdaptiveStream::ensureSegment()
       //! this can cause a bad initial buffering because the stream dont fit the bandwidth.
       for (size_t index = available_segment_buffers_; index < max_buffer_length_; ++index)
       {
-        if (segPos == maxPos) // To avoid out-of-range log prints with get_segment
+        if (segPos == maxPos) // To avoid out-of-range log prints with Timeline().Get
           break;
 
-        const CSegment* futureSegment = newRep->get_segment(segPos);
+        const CSegment* futureSegment = newRep->Timeline().Get(segPos);
         if (futureSegment)
         {
           segment_buffers_[index]->segment = *futureSegment;
@@ -1132,7 +1131,7 @@ void AdaptiveStream::ResetCurrentSegment(const PLAYLIST::CSegment* newSegment)
   WaitWorker();
   // EnsureSegment loads always the next segment, so go back 1
   current_rep_->current_segment_ =
-    current_rep_->get_segment(current_rep_->get_segment_pos(newSegment) - 1);
+      current_rep_->Timeline().Get(current_rep_->Timeline().GetPos(newSegment) - 1);
   // TODO: if new segment is already prefetched, don't ResetActiveBuffer;
   ResetActiveBuffer(false);
 }
@@ -1187,7 +1186,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   size_t choosen_seg{0};
 
   while (choosen_seg < current_rep_->Timeline().GetSize() &&
-         sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_)
+         sec_in_ts > current_rep_->Timeline().Get(choosen_seg)->startPTS_)
   {
     ++choosen_seg;
   }
@@ -1207,14 +1206,14 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
       return false;
   }
 
-  if (choosen_seg && current_rep_->get_segment(choosen_seg)->startPTS_ > sec_in_ts)
+  if (choosen_seg && current_rep_->Timeline().Get(choosen_seg)->startPTS_ > sec_in_ts)
     --choosen_seg;
 
   // Never seek into expired segments.....
   if (choosen_seg < current_rep_->expired_segments_)
     choosen_seg = current_rep_->expired_segments_;
 
-  if (!preceeding && sec_in_ts > current_rep_->get_segment(choosen_seg)->startPTS_ &&
+  if (!preceeding && sec_in_ts > current_rep_->Timeline().Get(choosen_seg)->startPTS_ &&
       current_adp_->GetStreamType() == StreamType::VIDEO)
   {
     //Assume that we have I-Frames only at segment start
@@ -1222,7 +1221,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
   }
 
   const CSegment* old_seg = current_rep_->current_segment_;
-  const CSegment* newSeg = current_rep_->get_segment(choosen_seg);
+  const CSegment* newSeg = current_rep_->Timeline().Get(choosen_seg);
 
   if (newSeg)
   {
@@ -1254,7 +1253,7 @@ bool AdaptiveStream::seek_time(double seek_seconds, bool preceeding, bool& needR
 
 size_t adaptive::AdaptiveStream::getSegmentPos()
 {
-  return current_rep_->getCurrentSegmentPos();
+  return current_rep_->Timeline().GetPos(current_rep_->current_segment_);
 }
 
 bool AdaptiveStream::waitingForSegment() const

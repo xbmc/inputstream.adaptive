@@ -1013,7 +1013,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   if (repr->GetContainerType() == ContainerType::TEXT && repr->GetMimeType() != "application/mp4" &&
-      !repr->HasSegmentBase() && !repr->HasSegmentTemplate() && !repr->Timeline().IsEmpty())
+      !repr->HasSegmentBase() && !repr->HasSegmentTemplate() && repr->Timeline().IsEmpty())
   {
     // Raw unsegmented subtitles called "sidecar" is a single file specified in the <BaseURL> tag,
     // must not have the MP4 ISOBMFF mime type or any other dash element.
@@ -1021,7 +1021,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   // Generate segments from SegmentTemplate
-  if (repr->HasSegmentTemplate() && !repr->Timeline().IsEmpty())
+  if (repr->HasSegmentTemplate() && repr->Timeline().IsEmpty())
   {
     auto& segTemplate = repr->GetSegmentTemplate();
 
@@ -1744,7 +1744,7 @@ void adaptive::CDashTree::OnUpdateSegments()
                 }
               }
 
-              if (repr->IsWaitForSegment() && (repr->get_next_segment(repr->current_segment_)))
+              if (repr->IsWaitForSegment() && repr->GetNextSegment())
               {
                 repr->SetIsWaitForSegment(false);
                 LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
@@ -1801,7 +1801,7 @@ bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   //! @todo: expired_segments_ should be reworked, see also other parsers
   repr->expired_segments_++;
 
-  CSegment* segment = repr->Timeline().Get(pos);
+  const CSegment* segment = repr->Timeline().Get(pos);
 
   if (!segment)
   {
@@ -1838,7 +1838,7 @@ bool adaptive::CDashTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
   if (!m_isLive || !repr->HasSegmentTemplate() || m_minimumUpdatePeriod != NO_VALUE)
     return false;
 
-  CSegment* lastSeg = repr->Timeline().GetBack();
+  const CSegment* lastSeg = repr->Timeline().GetBack();
   if (!lastSeg)
     return false;
 

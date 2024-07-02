@@ -51,6 +51,29 @@ void PLAYLIST::CRepresentation::CopyHLSData(const CRepresentation* other)
   m_isEnabled = other->m_isEnabled;
 }
 
+const CSegment* PLAYLIST::CRepresentation::GetNextSegment()
+{
+  return m_segmentTimeline.GetNext(current_segment_);
+}
+
+const uint64_t PLAYLIST::CRepresentation::GetCurrentSegNumber() const
+{
+  return GetSegNumber(current_segment_);
+}
+
+const uint64_t PLAYLIST::CRepresentation::GetSegNumber(const CSegment* seg) const
+{
+  if (!seg)
+    return SEGMENT_NO_NUMBER;
+
+  const size_t segPos = m_segmentTimeline.GetPos(seg);
+
+  if (segPos == SEGMENT_NO_POS)
+    return SEGMENT_NO_NUMBER;
+
+  return static_cast<uint64_t>(segPos) + m_startNumber;
+}
+
 void PLAYLIST::CRepresentation::SetScaling()
 {
   if (!m_timescale)
