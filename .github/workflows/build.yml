@@ -28,7 +28,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         repository: xbmc/xbmc
-        ref: master
+        ref: Omega
         path: xbmc
     - name: Checkout add-on repo
       uses: actions/checkout@v4
