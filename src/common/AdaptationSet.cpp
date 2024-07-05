@@ -13,6 +13,7 @@
 #include "utils/Utils.h"
 
 #include <algorithm> // any_of
+#include <iterator> // back_inserter
 
 using namespace PLAYLIST;
 using namespace UTILS;
@@ -53,7 +54,7 @@ void PLAYLIST::CAdaptationSet::AddRepresentation(
 std::vector<CRepresentation*> PLAYLIST::CAdaptationSet::GetRepresentationsPtr()
 {
   std::vector<CRepresentation*> ptrReprs;
-  std::transform(m_representations.begin(), m_representations.end(), back_inserter(ptrReprs),
+  std::transform(m_representations.begin(), m_representations.end(), std::back_inserter(ptrReprs),
                  [](const std::unique_ptr<CRepresentation>& r) { return r.get(); });
   return ptrReprs;
 }

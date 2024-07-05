@@ -186,7 +186,7 @@ bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
                                                PLAYLIST::CAdaptationSet* adp,
                                                PLAYLIST::CRepresentation* rep)
 {
-  if (!m_isLive && rep->HasSegmentTimeline())
+  if (!m_isLive && !rep->Timeline().IsEmpty())
     return true;
 
   if (!ProcessChildManifest(period, adp, rep, SEGMENT_NO_NUMBER))
@@ -225,9 +225,9 @@ void adaptive::CHLSTree::FixMediaSequence(std::stringstream& streamData,
 {
   // Get the last segment PTS and number in the last period
   auto& lastPRep = m_periods.back()->GetAdaptationSets()[adpSetPos]->GetRepresentations()[reprPos];
-  if (lastPRep->SegmentTimeline().IsEmpty())
+  if (lastPRep->Timeline().IsEmpty())
     return;
-  CSegment* lastSeg = lastPRep->SegmentTimeline().GetBack();
+  const CSegment* lastSeg = lastPRep->Timeline().GetBack();
   uint64_t segStartPts = lastSeg->startPTS_; // The start PTS refer to date-time
   uint64_t segNumber = lastSeg->m_number;
 
@@ -462,7 +462,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
 
   uint64_t mediaSequenceNbr{0};
 
-  CSpinCache<CSegment> newSegments;
+  CSegContainer newSegments;
   std::optional<CSegment> newSegment;
 
   // Pssh set used between segments
@@ -605,7 +605,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       }
       else
       {
-        CSegment* lastSeg = newSegments.GetBack();
+        const CSegment* lastSeg = newSegments.GetBack();
         if (lastSeg)
           startPts = lastSeg->m_endPts;
       }
@@ -701,7 +701,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       }
       newSegment->pssh_set_ = psshSetPos;
 
-      newSegments.GetData().emplace_back(*newSegment);
+      newSegments.Add(*newSegment);
       newSegment.reset();
     }
     else if (tagName == "#EXT-X-DISCONTINUITY-SEQUENCE")
@@ -735,7 +735,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
           {
             auto& pCurrAdp = m_currentPeriod->GetAdaptationSets()[adpSetPos];
             auto& pCurrRep = pCurrAdp->GetRepresentations()[reprPos];
-            pCurrRep->SegmentTimeline().Clear();
+            pCurrRep->Timeline().Clear();
             pCurrRep->current_segment_ = nullptr;
             LOG::Log(LOGDEBUG, "Clear outdated period of discontinuity %u",
                      itPeriod->get()->GetSequence());
@@ -774,8 +774,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       {
         period->SetSequence(m_discontSeq + discontCount);
 
-        uint64_t dur = newSegments.GetBack()->m_endPts - newSegments.GetFront()->startPTS_;
-        rep->SetDuration(dur);
+        rep->SetDuration(newSegments.GetDuration());
 
         if (adp->GetStreamType() != StreamType::SUBTITLE)
         {
@@ -785,7 +784,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
         }
 
         FreeSegments(period, rep);
-        rep->SegmentTimeline().Swap(newSegments);
+        rep->Timeline().Swap(newSegments);
 
         rep->SetStartNumber(mediaSequenceNbr);
       }
@@ -793,7 +792,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       isSkipUntilDiscont = false;
       ++discontCount;
 
-      mediaSequenceNbr += rep->SegmentTimeline().GetSize();
+      mediaSequenceNbr += rep->Timeline().GetSize();
       currentSegNumber = mediaSequenceNbr;
 
       CPeriod* newPeriod = FindDiscontinuityPeriod(m_discontSeq + discontCount);
@@ -880,12 +879,12 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
   }
 
   FreeSegments(period, rep);
-  rep->SegmentTimeline().Swap(newSegments);
+  rep->Timeline().Swap(newSegments);
   rep->SetStartNumber(mediaSequenceNbr);
 
   uint64_t reprDur{0};
-  if (rep->SegmentTimeline().Get(0))
-    reprDur = rep->SegmentTimeline().GetBack()->m_endPts - rep->SegmentTimeline().GetFront()->startPTS_;
+  if (rep->Timeline().Get(0))
+    reprDur = rep->Timeline().GetBack()->m_endPts - rep->Timeline().GetFront()->startPTS_;
 
   rep->SetDuration(reprDur);
   period->SetSequence(m_discontSeq + discontCount);
@@ -929,19 +928,19 @@ void adaptive::CHLSTree::PrepareSegments(PLAYLIST::CPeriod* period,
   }
   else
   {
-    if (segNumber >= rep->GetStartNumber() + rep->SegmentTimeline().GetSize())
+    if (segNumber >= rep->GetStartNumber() + rep->Timeline().GetSize())
     {
-      segNumber = rep->GetStartNumber() + rep->SegmentTimeline().GetSize() - 1;
+      segNumber = rep->GetStartNumber() + rep->Timeline().GetSize() - 1;
     }
 
     rep->current_segment_ =
-        rep->get_segment(static_cast<size_t>(segNumber - rep->GetStartNumber()));
+        rep->Timeline().Get(static_cast<size_t>(segNumber - rep->GetStartNumber()));
   }
 
   //! @todo: m_currentPeriod != m_periods.back().get() condition should be removed from here
   //! this is done on AdaptiveStream::ensureSegment on IsLastSegment check
   if (rep->IsWaitForSegment() &&
-      (rep->get_next_segment(rep->current_segment_) || m_currentPeriod != m_periods.back().get()))
+      (rep->GetNextSegment() || m_currentPeriod != m_periods.back().get()))
   {
     LOG::LogF(LOGDEBUG, "End WaitForSegment stream id \"%s\"", rep->GetId().data());
     rep->SetIsWaitForSegment(false);
@@ -1054,10 +1053,10 @@ void adaptive::CHLSTree::OnStreamChange(PLAYLIST::CPeriod* period,
                                         PLAYLIST::CRepresentation* previousRep,
                                         PLAYLIST::CRepresentation* currentRep)
 {
-  if (!m_isLive && currentRep->HasSegmentTimeline())
+  if (!m_isLive && !currentRep->Timeline().IsEmpty())
     return;
 
-  const uint64_t currentSegNumber = previousRep->getCurrentSegmentNumber();
+  const uint64_t currentSegNumber = previousRep->GetCurrentSegNumber();
 
   ProcessChildManifest(period, adp, currentRep, currentSegNumber);
 }
@@ -1071,7 +1070,7 @@ void adaptive::CHLSTree::OnRequestSegments(PLAYLIST::CPeriod* period,
 
   // Save the current segment position before parsing the manifest
   // to allow find the right segment on updated playlist segments
-  const uint64_t segNumber = rep->getCurrentSegmentNumber();
+  const uint64_t segNumber = rep->GetCurrentSegNumber();
 
   ProcessChildManifest(period, adp, rep, segNumber);
 }
@@ -1114,7 +1113,7 @@ void adaptive::CHLSTree::OnUpdateSegments()
   {
     // Save the current segment position before parsing the manifest
     // to allow find the right segment on updated playlist segments
-    const uint64_t segNumber = repr->getCurrentSegmentNumber();
+    const uint64_t segNumber = repr->GetCurrentSegNumber();
 
     if (!ProcessChildManifest(m_currentPeriod, adpSet, repr, segNumber))
     {

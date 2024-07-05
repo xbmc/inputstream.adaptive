@@ -938,7 +938,7 @@ void CSession::PrepareStream(CStream* stream)
 
   // Prepare the representation when the period change usually its not needed,
   // because the timeline is always already updated
-  if ((!m_adaptiveTree->IsChangingPeriod() || !repr->HasSegmentTimeline()) &&
+  if ((!m_adaptiveTree->IsChangingPeriod() || repr->Timeline().IsEmpty()) &&
       (startEvent == EVENT_TYPE::STREAM_START || startEvent == EVENT_TYPE::STREAM_ENABLE))
   {
     m_adaptiveTree->PrepareRepresentation(stream->m_adStream.getPeriod(),

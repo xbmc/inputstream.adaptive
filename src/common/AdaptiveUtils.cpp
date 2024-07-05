@@ -10,6 +10,7 @@
 
 #include "AdaptiveStream.h"
 #include "Representation.h"
+#include "utils/log.h"
 #include "utils/Utils.h"
 
 #include <cinttypes>

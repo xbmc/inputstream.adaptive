@@ -9,12 +9,10 @@
 #pragma once
 
 #include <algorithm>
-#include <deque>
 #include <limits>
+#include <memory>
 #include <string_view>
 #include <vector>
-
-#include "utils/log.h"
 
 // forwards
 class AP4_Movie;
@@ -118,133 +116,6 @@ bool ParseRangeValues(std::string_view range,
  */
 AP4_Movie* CreateMovieAtom(adaptive::AdaptiveStream& adStream,
                            kodi::addon::InputstreamInfo& streamInfo);
-
-template<typename T>
-class CSpinCache
-{
-public:
-  /*!
-   * \brief Get the <T> value pointer from the specified position
-   * \param pos The position of <T>
-   * \return <T> value pointer, otherwise nullptr if not found
-   */
-  const T* Get(size_t pos) const
-  {
-    if (pos == SEGMENT_NO_POS || m_data.empty())
-      return nullptr;
-
-    if (pos >= m_data.size())
-    {
-      LOG::LogF(LOGWARNING, "Position out-of-range (%zu of %zu)", pos, m_data.size());
-      return nullptr;
-    }
-
-    return &m_data[pos];
-  }
-
-  /*!
-   * \brief Get the <T> value pointer from the specified position
-   * \param pos The position of <T>
-   * \return <T> value pointer, otherwise nullptr if not found
-   */
-  T* Get(size_t pos)
-  {
-    if (pos == SEGMENT_NO_POS || m_data.empty())
-      return nullptr;
-
-    if (pos >= m_data.size())
-    {
-      LOG::LogF(LOGWARNING, "Position out-of-range (%zu of %zu)", pos, m_data.size());
-      return nullptr;
-    }
-
-    return &m_data[pos];
-  }
-
-  /*!
-   * \brief Get the last <T> value pointer
-   * \return <T> value pointer, otherwise nullptr if not found
-   */
-  T* GetBack()
-  {
-    if (m_data.empty())
-      return nullptr;
-
-    return &m_data.back();
-  }
-
-  /*!
-   * \brief Get the first <T> value pointer
-   * \return <T> value pointer, otherwise nullptr if not found
-   */
-  T* GetFront()
-  {
-    if (m_data.empty())
-      return nullptr;
-
-    return &m_data.front();
-  }
-
-  /*!
-   * \brief Get index position of <T> value pointer
-   * \param elem The <T> pointer to get the position
-   * \return The index position, or SEGMENT_NO_POS if not found
-   */
-  const size_t GetPosition(const T* elem) const
-  {
-    for (size_t i = 0; i < m_data.size(); ++i)
-    {
-      if (&m_data[i] == elem)
-        return i;
-    }
-
-    return SEGMENT_NO_POS;
-  };
-
-  /*!
-   * \brief Append <T> value to the container, by increasing the count.
-   * \param elem The <T> value to append
-   */
-  void Append(const T& elem)
-  {
-    m_data.emplace_back(elem);
-    m_appendCount += 1;
-  }
-
-  void Swap(CSpinCache<T>& other)
-  {
-    m_data.swap(other.m_data);
-    std::swap(m_appendCount, other.m_appendCount);
-  }
-
-  void Clear()
-  {
-    m_data.clear();
-    m_appendCount = 0;
-  }
-
-  bool IsEmpty() const { return m_data.empty(); }
-
-  /*!
-   * \brief Get the number of the appended <T> elements.
-   * \return The number of appended elements.
-   */
-  size_t GetAppendCount() const { return m_appendCount; }
-
-  size_t GetSize() const { return m_data.size(); }
-
-  /*!
-   * \brief Get the number of elements without taking into account those appended.
-   * \return The number of elements.
-   */
-  size_t GetInitialSize() const { return m_data.size() - m_appendCount; }
-
-  std::deque<T>& GetData() { return m_data; }
-
-private:
-  std::deque<T> m_data;
-  size_t m_appendCount{0}; // Number of appended elements
-};
 
 // \brief Get the position of a pointer within a vector of unique_ptr
 template<typename T, typename Ptr>
