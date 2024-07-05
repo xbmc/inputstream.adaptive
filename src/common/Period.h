@@ -57,7 +57,18 @@ public:
   void SetStart(uint64_t start) { m_start = start; }
 
   /*!
-   * \brief Get the duration, in timescale units.
+   * \brief Get a precise duration of all segments, in timescale units.
+   *        Value is taken from the first A/V representation timeline.
+   *        The value can differ from GetDuration, because GetDuration take in account
+   *        the duration from "start" time of period,
+   *        and may be affected by inaccurate estimates of ADS streams.
+   * \return The duration value.
+   */
+  uint64_t GetSegDuration();
+
+  /*!
+   * \brief Get the duration, in timescale units,
+   *        (value may be affected by inaccurate estimates of ADS streams).
    * \return The duration value.
    */
   uint64_t GetDuration() const { return m_duration; }

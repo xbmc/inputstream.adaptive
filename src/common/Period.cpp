@@ -23,6 +23,17 @@ PLAYLIST::CPeriod::~CPeriod()
 {
 }
 
+uint64_t PLAYLIST::CPeriod::GetSegDuration()
+{
+  CAdaptationSet* adp = CAdaptationSet::FindByFirstAVStream(m_adaptationSets);
+  if (adp && !adp->GetRepresentations().empty())
+  {
+    auto& rep = adp->GetRepresentations().front();
+    return rep->Timeline().GetDuration() * m_timescale / rep->GetTimescale();
+  }
+  return 0;
+}
+
 void PLAYLIST::CPeriod::CopyHLSData(const CPeriod* other)
 {
   m_adaptationSets.reserve(other->m_adaptationSets.size());
@@ -99,3 +110,5 @@ void PLAYLIST::CPeriod::AddAdaptationSet(std::unique_ptr<CAdaptationSet>& adapta
 {
   m_adaptationSets.push_back(std::move(adaptationSet));
 }
+
+
