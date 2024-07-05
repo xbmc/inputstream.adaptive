@@ -17,6 +17,7 @@ namespace UTILS
 {
 namespace BASE64
 {
+bool IsBase64(const std::string& str);
 
 void Encode(const uint8_t* input, const size_t length, std::string& output);
 std::string Encode(const uint8_t* input, const size_t length);

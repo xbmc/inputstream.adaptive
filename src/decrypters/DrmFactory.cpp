@@ -8,6 +8,10 @@
 
 #include "DrmFactory.h"
 
+#include "SrvBroker.h"
+#include "CompKodiProps.h"
+#include "Helpers.h"
+
 #include <kodi/addon-instance/inputstream/StreamCrypto.h>
 #if ANDROID
 #include "widevineandroid/WVDecrypter.h"
@@ -41,4 +45,19 @@ IDecrypter* DRM::FACTORY::GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem)
   }
 
   return nullptr;
+}
+
+bool DRM::IsKeySystemDRMSupported(std::string_view ks)
+{
+#if ANDROID
+  if (CWVDecrypterA::IsKeySystemSupported(ks))
+    return true;
+#else
+// Darwin embedded are apple platforms different than MacOS (e.g. IOS)
+#ifndef TARGET_DARWIN_EMBEDDED
+  if (CWVDecrypter::IsKeySystemSupported(ks))
+    return true;
+#endif
+#endif
+  return false;
 }

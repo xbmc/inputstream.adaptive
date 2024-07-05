@@ -23,7 +23,9 @@
 #include "utils/Utils.h"
 #include "utils/log.h"
 
+#include <algorithm>
 #include <array>
+#include <utility>
 
 #include <kodi/addon-instance/Inputstream.h>
 
@@ -135,6 +137,27 @@ void CSession::DisposeDecrypter()
 bool CSession::Initialize()
 {
   const auto& kodiProps = CSrvBroker::GetKodiProps();
+  // Pre-initialize the DRM is available only if the DRM configuration
+  // has set the priority to 1, this because the manifest is downloaded later
+  std::string drmPreInitData;
+  auto& drmCustomCfgs = kodiProps.GetDrmConfigs();
+  for (auto& [ks, cfg] : kodiProps.GetDrmConfigs())
+  {
+    if (cfg.m_priority == 1 && DRM::IsKeySystemDRMSupported(ks))
+    {
+      drmPreInitData = cfg.m_preInitData;
+      break;
+    }
+  }
+
+  /*
+  * todo: the following code should be moved into initialize period <<<----------------------------------------------------------------------------------------------------<<<
+  * but as first must be solved the supportedKeySystem var
+  * it is used only on DASH tree, to search the supported pssh
+  * at the time it was implemented in a reverse way, but the parser should not have this task
+  * instead the parser should only collect the encryption data
+  * and then do other things here or on another apposite section
+  * 
   // Set the DRM configuration flags
   if (kodiProps.IsLicensePersistentStorage())
     m_drmConfig |= DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE;
@@ -146,18 +169,18 @@ bool CSession::Initialize()
     SetSupportedDecrypterURN(supportedKeySystem);
     LOG::Log(LOGDEBUG, "Supported URN: %s", supportedKeySystem.c_str());
   }
-
+  */
   std::map<std::string, std::string> manifestHeaders = kodiProps.GetManifestHeaders();
   bool isSessionOpened{false};
 
   // Preinitialize the DRM, if pre-initialisation data are provided
-  if (!kodiProps.GetDrmPreInitData().empty())
+  if (!drmPreInitData.empty())
   {
     std::string challengeB64;
     std::string sessionId;
     // Pre-initialize the DRM allow to generate the challenge and session ID data
     // used to make licensed manifest requests (via proxy callback)
-    if (PreInitializeDRM(challengeB64, sessionId, isSessionOpened))
+    if (PreInitializeDRM(drmPreInitData, challengeB64, sessionId, isSessionOpened))
     {
       manifestHeaders["challengeB64"] = STRING::URLEncode(challengeB64);
       manifestHeaders["sessionId"] = sessionId;
@@ -268,11 +291,11 @@ void CSession::CheckHDCP()
   }
 }
 
-bool CSession::PreInitializeDRM(std::string& challengeB64,
+bool CSession::PreInitializeDRM(std::string_view preInitData,
+                                std::string& challengeB64,
                                 std::string& sessionId,
                                 bool& isSessionOpened)
 {
-  std::string_view preInitData = CSrvBroker::GetKodiProps().GetDrmPreInitData();
   std::string_view psshData;
   std::string_view kidData;
   // Parse the PSSH/KID data
