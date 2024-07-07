@@ -54,7 +54,8 @@ enum class EncryptionState
 enum class EncryptionType
 {
   NOT_SUPPORTED,
-  CLEAR,
+  NONE,
+  CLEARKEY,
   AES128,
   WIDEVINE,
 };

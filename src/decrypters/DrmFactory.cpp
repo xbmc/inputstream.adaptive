@@ -9,6 +9,7 @@
 #include "DrmFactory.h"
 
 #include <kodi/addon-instance/inputstream/StreamCrypto.h>
+#include "clearkey/ClearKeyDecrypter.h"
 #if ANDROID
 #include "widevineandroid/WVDecrypter.h"
 #else
@@ -21,7 +22,11 @@ using namespace DRM;
 
 IDecrypter* DRM::FACTORY::GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem)
 {
-  if (keySystem == STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE)
+  if (keySystem == STREAM_CRYPTO_KEY_SYSTEM_CLEARKEY)
+  {
+    return new CClearKeyDecrypter();
+  }
+  else if (keySystem == STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE)
   {
 #if ANDROID
     return new CWVDecrypterA();

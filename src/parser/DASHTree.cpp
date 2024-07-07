@@ -1302,7 +1302,7 @@ bool adaptive::CDashTree::GetProtectionData(
   const ProtectionScheme* protSelected = nullptr;
   const ProtectionScheme* protCommon = nullptr;
 
-  for (auto supportedKeySystem : m_supportedKeySystems)
+  for (std::string_view supportedKeySystem : m_supportedKeySystems)
   {
     for (const ProtectionScheme& protScheme : reprProtSchemes)
     {
@@ -1356,7 +1356,12 @@ bool adaptive::CDashTree::GetProtectionData(
   }
 
   if (!selectedPssh.empty())
-    pssh = BASE64::Decode(selectedPssh);
+  {
+    if (UTILS::BASE64::IsValidBase64(selectedPssh))
+      pssh = BASE64::Decode(selectedPssh);
+    else
+      std::copy(selectedPssh.begin(), selectedPssh.end(), std::back_inserter(pssh));   
+  }
 
   if (!selectedKid.empty())
   {

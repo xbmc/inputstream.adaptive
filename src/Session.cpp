@@ -373,12 +373,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
     LOG::Log(LOGDEBUG, "Entering encryption section");
 
-    if (licenseKey.empty())
-    {
-      LOG::Log(LOGERROR, "Invalid license_key");
-      return false;
-    }
-
     if (!m_decrypter)
     {
       LOG::Log(LOGERROR, "No decrypter found for encrypted stream");
@@ -405,6 +399,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     }
 
     std::string_view licenseData = CSrvBroker::GetKodiProps().GetLicenseData();
+    std::string_view licenseType = CSrvBroker::GetKodiProps().GetLicenseType();
 
     // cdmSession 0 is reserved for unencrypted streams
     for (size_t ses{1}; ses < m_cdmSessions.size(); ++ses)
@@ -451,6 +446,11 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           //! To take in account that license_data property is also used on DASH parser to bypass ContentProtection tags.
           drmOptionalKeyParam = licenseData;
         }
+      }
+      else if (licenseType == "org.w3.clearkey")
+      {
+        // URL for license server is set to PSSH, use this as is
+        initData = sessionPsshset.pssh_;
       }
       else if (!licenseData.empty())
       {
@@ -1354,6 +1354,8 @@ STREAM_CRYPTO_KEY_SYSTEM CSession::GetCryptoKeySystem() const
     return STREAM_CRYPTO_KEY_SYSTEM_WISEPLAY;
   else if (licenseType == "com.microsoft.playready")
     return STREAM_CRYPTO_KEY_SYSTEM_PLAYREADY;
+  else if (licenseType == "org.w3.clearkey")
+    return STREAM_CRYPTO_KEY_SYSTEM_CLEARKEY;
   else
     return STREAM_CRYPTO_KEY_SYSTEM_NONE;
 }

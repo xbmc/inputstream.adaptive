@@ -449,7 +449,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
 
   rep->SetBaseUrl(sourceUrl);
 
-  EncryptionType currentEncryptionType = EncryptionType::CLEAR;
+  EncryptionType currentEncryptionType = EncryptionType::NONE;
 
   // To know in advance if EXT-X-PROGRAM-DATE-TIME is available
   bool hasProgramDateTime = STRING::Contains(data, "#EXT-X-PROGRAM-DATE-TIME:");
@@ -504,8 +504,8 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       // NOTE: Multiple EXT-X-KEYs can be parsed sequentially
       switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
       {
-        case EncryptionType::CLEAR:
-          currentEncryptionType = EncryptionType::CLEAR;
+        case EncryptionType::NONE:
+          currentEncryptionType = EncryptionType::NONE;
           period->SetEncryptionState(EncryptionState::UNENCRYPTED);
           psshSetPos = PSSHSET_POS_DEFAULT;
           break;
@@ -524,6 +524,15 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
             period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
             rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                               m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+          }
+          break;
+        case EncryptionType::CLEARKEY:
+          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
+          {
+            currentEncryptionType = EncryptionType::CLEARKEY;
+            period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
+            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
+              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
           }
           break;
         case EncryptionType::NOT_SUPPORTED:
@@ -1210,7 +1219,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   {
     m_currentPssh.clear();
 
-    return EncryptionType::CLEAR;
+    return EncryptionType::NONE;
   }
 
   // AES-128
@@ -1266,6 +1275,40 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
       m_cryptoMode = CryptoMode::AES_CBC;
 
     return EncryptionType::WIDEVINE;
+  }
+
+  // CLEARKEY
+  if (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_CLEARKEY) !=
+      m_supportedKeySystems.end() && std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_COMMON) !=
+    m_supportedKeySystems.end())
+  {
+    if (STRING::CompareNoCase(keyFormat, "identity"))
+    {
+      m_currentPssh = uriData;
+
+      if (STRING::KeyExists(attribs, "KEYID"))
+      {
+        std::string keyid = attribs["KEYID"].substr(2);
+        const char* defaultKID = keyid.c_str();
+        m_currentDefaultKID.resize(16);
+        for (unsigned int i(0); i < 16; ++i)
+        {
+          m_currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
+          ++defaultKID;
+          m_currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
+          ++defaultKID;
+        }
+      }
+      else if (uriUrl.empty()) // No kid provided, assume key == kid
+        m_currentDefaultKID.assign(uriData.begin(), uriData.end());
+
+      if (encryptMethod == "SAMPLE-AES-CTR")
+        m_cryptoMode = CryptoMode::AES_CTR;
+      else if (encryptMethod == "SAMPLE-AES")
+        m_cryptoMode = CryptoMode::AES_CBC;
+
+      return EncryptionType::CLEARKEY;
+    }
   }
 
   // Unsupported encryption

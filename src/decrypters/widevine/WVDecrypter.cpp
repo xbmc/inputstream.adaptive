@@ -90,6 +90,11 @@ bool CWVDecrypter::OpenDRMSystem(std::string_view licenseURL,
                                  const std::vector<uint8_t>& serverCertificate,
                                  const uint8_t config)
 {
+  if (licenseURL.empty())
+  {
+    LOG::LogF(LOGERROR, "License Key property cannot be empty");
+    return false;
+  }
   m_WVCdmAdapter = new CWVCdmAdapter(licenseURL, serverCertificate, config, this);
 
   return m_WVCdmAdapter->GetCdmAdapter() != nullptr;
