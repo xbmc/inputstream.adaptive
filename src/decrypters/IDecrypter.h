@@ -62,7 +62,7 @@ public:
    * \param keySystem The URN to be matched
    * \return Supported URN if type matches to capabilities, otherwise null
    */
-  virtual std::string SelectKeySytem(std::string_view keySystem) = 0;
+  virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) = 0;
 
   /**
    * \brief Initialise the DRM system

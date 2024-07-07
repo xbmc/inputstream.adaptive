@@ -40,7 +40,7 @@ namespace adaptive
     m_manifestParams = left.m_manifestParams;
     m_manifestHeaders = left.m_manifestHeaders;
     m_settings = left.m_settings;
-    m_supportedKeySystem = left.m_supportedKeySystem;
+    m_supportedKeySystems = left.m_supportedKeySystems;
     m_pathSaveManifest = left.m_pathSaveManifest;
     stream_start_ = left.stream_start_;
 
@@ -49,11 +49,11 @@ namespace adaptive
   }
 
   void AdaptiveTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                               std::string_view supportedKeySystem,
+                               std::vector<std::string_view> supportedKeySystems,
                                std::string_view manifestUpdParams)
   {
     m_reprChooser = reprChooser;
-    m_supportedKeySystem = supportedKeySystem;
+    m_supportedKeySystems = supportedKeySystems;
 
     auto srvBroker = CSrvBroker::GetInstance();
 

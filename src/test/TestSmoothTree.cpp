@@ -6,11 +6,11 @@
  *  See LICENSES/README.md for more information.
  */
 
-#include "TestHelper.h"
-
 #include "../CompKodiProps.h"
 #include "../SrvBroker.h"
+#include "../decrypters/Helpers.h"
 #include "../utils/UrlUtils.h"
+#include "TestHelper.h"
 
 #include <gtest/gtest.h>
 
@@ -59,7 +59,7 @@ protected:
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED", "");
+    tree->Configure(m_reprChooser, std::vector<std::string_view>{DRM::URN_WIDEVINE}, "");
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))

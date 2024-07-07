@@ -322,7 +322,7 @@ protected:
    *  \param key_system [OUT] Will be assigned to if a decrypter is found matching
    *                    the set license type
    */
-  void SetSupportedDecrypterURN(std::string& key_system);
+  void SetSupportedDecrypterURN(std::vector<std::string_view>& keySystems);
 
   /*! \brief Destroy all CencSingleSampleDecrypter instances
    */
@@ -334,7 +334,7 @@ protected:
 
   bool ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,
                                    std::vector<uint8_t>& initData,
-                                   std::string keySystem);
+                                   std::vector<std::string_view> keySystems);
 
 private:
   std::string m_manifestUrl;

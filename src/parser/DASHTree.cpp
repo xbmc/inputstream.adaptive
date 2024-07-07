@@ -105,10 +105,10 @@ adaptive::CDashTree::CDashTree(const CDashTree& left) : AdaptiveTree(left)
 }
 
 void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                    std::string_view supportedKeySystem,
+                                    std::vector<std::string_view> supportedKeySystems,
                                     std::string_view manifestUpdParams)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdParams);
+  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdParams);
   m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetLicenseData().empty();
 }
 
@@ -1276,6 +1276,10 @@ void adaptive::CDashTree::ParseTagContentProtection(
       {
         protScheme.pssh = node.child_value();
       }
+      else if (StringUtils::EndsWithNoCase(childName, "laurl")) // e.g. <clearkey:Laurl> or <dashif:Laurl> ...
+      {
+        protScheme.pssh = node.child_value();
+      }
       else if (childName == "mspr:pro" || childName == "pro")
       {
         PRProtectionParser parser;
@@ -1298,29 +1302,32 @@ bool adaptive::CDashTree::GetProtectionData(
   const ProtectionScheme* protSelected = nullptr;
   const ProtectionScheme* protCommon = nullptr;
 
-  for (const ProtectionScheme& protScheme : reprProtSchemes)
+  for (auto supportedKeySystem : m_supportedKeySystems)
   {
-    if (STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
+    for (const ProtectionScheme& protScheme : reprProtSchemes)
     {
-      protSelected = &protScheme;
-    }
-    else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
-    {
-      protCommon = &protScheme;
-    }
-  }
-
-  if (!protSelected || !protCommon)
-  {
-    for (const ProtectionScheme& protScheme : adpProtSchemes)
-    {
-      if (!protSelected && STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
+      if (STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
       {
         protSelected = &protScheme;
       }
-      else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
+      else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
       {
         protCommon = &protScheme;
+      }
+    }
+
+    if (!protSelected || !protCommon)
+    {
+      for (const ProtectionScheme& protScheme : adpProtSchemes)
+      {
+        if (!protSelected && STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
+        {
+          protSelected = &protScheme;
+        }
+        else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
+        {
+          protCommon = &protScheme;
+        }
       }
     }
   }

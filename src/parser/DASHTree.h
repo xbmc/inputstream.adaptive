@@ -35,7 +35,7 @@ public:
   CDashTree(const CDashTree& left);
 
   void Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                 std::string_view supportedKeySystem,
+                 std::vector<std::string_view> supportedKeySystems,
                  std::string_view manifestUpdParams) override;
 
   virtual TreeType GetTreeType() const override { return TreeType::DASH; }

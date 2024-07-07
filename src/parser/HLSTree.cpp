@@ -12,6 +12,7 @@
 #include "PRProtectionParser.h"
 #include "SrvBroker.h"
 #include "aes_decrypter.h"
+#include "decrypters/Helpers.h"
 #include "kodi/tools/StringUtils.h"
 #include "utils/Base64Utils.h"
 #include "utils/StringUtils.h"
@@ -149,10 +150,10 @@ adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
 }
 
 void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                   std::string_view supportedKeySystem,
+                                   std::vector<std::string_view> supportedKeySystems,
                                    std::string_view manifestUpdateParam)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdateParam);
+  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdateParam);
   m_decrypter = std::make_unique<AESDecrypter>(CSrvBroker::GetKodiProps().GetLicenseKey());
 }
 
@@ -1189,6 +1190,9 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     std::string_view baseUrl, std::map<std::string, std::string>& attribs)
 {
   std::string_view encryptMethod = attribs["METHOD"];
+  // According to specs KEYFORMAT is optional and if not specified defaults implicitly to "identity"
+  const std::string keyFormat = attribs["KEYFORMAT"].empty() ? "identity" : attribs["KEYFORMAT"];
+
   std::vector<uint8_t> uriData;
   std::string uriUrl;
 
@@ -1228,9 +1232,9 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   }
 
   // WIDEVINE
-  if (STRING::CompareNoCase(attribs["KEYFORMAT"],
-                            "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed") &&
-      STRING::CompareNoCase(attribs["KEYFORMAT"], m_supportedKeySystem))
+  if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE) &&
+      (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_WIDEVINE) !=
+          m_supportedKeySystems.end()))
   {
     m_currentPssh = uriData;
 
@@ -1265,7 +1269,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   }
 
   // Unsupported encryption
-  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", attribs["KEYFORMAT"].c_str());
+  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", keyFormat.c_str());
   return EncryptionType::NOT_SUPPORTED;
 }
 
