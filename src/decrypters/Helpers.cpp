@@ -45,3 +45,10 @@ std::string DRM::GenerateUrlDomainHash(std::string_view url)
   md5.Finalize();
   return md5.HexDigest();
 }
+
+bool DRM::IsKeySystemSupported(std::string_view keySystem)
+{
+  return keySystem == DRM::KS_NONE || keySystem == DRM::KS_WIDEVINE ||
+    keySystem == DRM::KS_PLAYREADY || keySystem == DRM::KS_WISEPLAY ||
+    keySystem == DRM::KS_CLEARKEY;
+}
