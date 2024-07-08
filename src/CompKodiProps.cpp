@@ -52,7 +52,7 @@ constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
-constexpr std::string_view PROP_INTERNAL_COOKIES = "inputstream.adaptive.internal_cookies";
+constexpr std::string_view PROP_INTERNAL_COOKIES = "inputstream.adaptive.internal_cookies"; //! @todo: to remove on Kodi 22
 
 // Chooser's properties
 constexpr std::string_view PROP_STREAM_SELECTION_TYPE = "inputstream.adaptive.stream_selection_type";
@@ -214,7 +214,11 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     }
     else if (prop.first == PROP_INTERNAL_COOKIES)
     {
-      m_isInternalCookies = STRING::CompareNoCase(prop.second, "true");
+      LOG::Log(LOGERROR,
+               "Warning \"inputstream.adaptive.internal_cookies\" property has been moved to the new "
+               "\"inputstream.adaptive.config\". The old property will be removed from next Kodi 22.\n"
+               "See Wiki integration page for more details.");
+      m_config.internalCookies = STRING::CompareNoCase(prop.second, "true");
     }
     else if (prop.first == PROP_MANIFEST_CONFIG)
     {
@@ -265,6 +269,10 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseConfig(const std::string& data)
     if (configName == "ssl_verify_peer" && jDictVal.IsBool())
     {
       m_config.curlSSLVerifyPeer = jDictVal.GetBool();
+    }
+    else if (configName == "internal_cookies" && jDictVal.IsBool())
+    {
+      m_config.internalCookies = jDictVal.GetBool();
     }
     else
     {

@@ -196,14 +196,14 @@ UTILS::CURL::CUrl::CUrl(std::string_view url)
     // Add session cookies
     // NOTE: if kodi property inputstream.adaptive.stream_headers is set with "cookie" header
     // the cookies set by the property will replace these
-    if (kodiProps.IsInternalCookies())
+    if (kodiProps.GetConfig().internalCookies)
       m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "cookie", GetCookies(url));
   }
 }
 
 UTILS::CURL::CUrl::~CUrl()
 {
-  if (CSrvBroker::GetKodiProps().IsInternalCookies())
+  if (CSrvBroker::GetKodiProps().GetConfig().internalCookies)
     StoreCookies(GetEffectiveUrl(), GetResponseHeaders("set-cookie"));
 
   m_file.Close();
