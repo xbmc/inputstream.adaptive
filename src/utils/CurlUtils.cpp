@@ -184,15 +184,19 @@ UTILS::CURL::CUrl::CUrl(std::string_view url)
 {
   if (m_file.CURLCreate(url.data()))
   {
+    auto& kodiProps = CSrvBroker::GetKodiProps();
+
     // Default curl options
     m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
     m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
     m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
+    if (!kodiProps.GetConfig().curlSSLVerifyPeer)
+      m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "verifypeer", "false");
 
     // Add session cookies
     // NOTE: if kodi property inputstream.adaptive.stream_headers is set with "cookie" header
     // the cookies set by the property will replace these
-    if (CSrvBroker::GetKodiProps().IsInternalCookies())
+    if (kodiProps.IsInternalCookies())
       m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "cookie", GetCookies(url));
   }
 }
