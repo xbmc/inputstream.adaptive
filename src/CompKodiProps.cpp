@@ -51,7 +51,8 @@ constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.pl
 constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
-constexpr std::string_view PROP_INTERNAL_COOKIES = "inputstream.adaptive.internal_cookies";
+constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
+constexpr std::string_view PROP_INTERNAL_COOKIES = "inputstream.adaptive.internal_cookies"; //! @todo: to remove on Kodi 22
 
 // Chooser's properties
 constexpr std::string_view PROP_STREAM_SELECTION_TYPE = "inputstream.adaptive.stream_selection_type";
@@ -207,9 +208,17 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
       else
         LOG::Log(LOGERROR, "Resolution not valid on \"%s\" property.", prop.first.c_str());
     }
+    else if (prop.first == PROP_CONFIG)
+    {
+      ParseConfig(prop.second);
+    }
     else if (prop.first == PROP_INTERNAL_COOKIES)
     {
-      m_isInternalCookies = STRING::CompareNoCase(prop.second, "true");
+      LOG::Log(LOGERROR,
+               "Warning \"inputstream.adaptive.internal_cookies\" property has been moved to the new "
+               "\"inputstream.adaptive.config\". The old property will be removed from next Kodi 22.\n"
+               "See Wiki integration page for more details.");
+      m_config.internalCookies = STRING::CompareNoCase(prop.second, "true");
     }
     else if (prop.first == PROP_MANIFEST_CONFIG)
     {
@@ -233,6 +242,43 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
       m_licenseKey = licenseUrl;
     else
       m_licenseKey.replace(0, pipePos, licenseUrl);
+  }
+}
+
+void ADP::KODI_PROPS::CCompKodiProps::ParseConfig(const std::string& data)
+{
+  /*
+   * Expected JSON structure:
+   * { "config_name": "value", ... }
+   */
+  rapidjson::Document jDoc;
+  jDoc.Parse(data.c_str(), data.size());
+
+  if (!jDoc.IsObject())
+  {
+    LOG::LogF(LOGERROR, "Malformed JSON data in to \"%s\" property", PROP_MANIFEST_CONFIG.data());
+    return;
+  }
+
+  // Iterate dictionary
+  for (auto& jChildObj : jDoc.GetObject())
+  {
+    const std::string configName = jChildObj.name.GetString();
+    rapidjson::Value& jDictVal = jChildObj.value;
+
+    if (configName == "ssl_verify_peer" && jDictVal.IsBool())
+    {
+      m_config.curlSSLVerifyPeer = jDictVal.GetBool();
+    }
+    else if (configName == "internal_cookies" && jDictVal.IsBool())
+    {
+      m_config.internalCookies = jDictVal.GetBool();
+    }
+    else
+    {
+      LOG::LogF(LOGERROR, "Unsupported \"%s\" config or wrong data type on \"%s\" property",
+                configName.c_str(), PROP_MANIFEST_CONFIG.data());
+    }
   }
 }
 

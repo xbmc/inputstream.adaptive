@@ -43,6 +43,16 @@ struct ChooserProps
   std::pair<int, int> m_resolutionSecureMax; // Res. limit for DRM protected videos (values 0 means auto)
 };
 
+// Generic add-on configuration
+struct Config
+{
+  // Determines whether curl verifies the authenticity of the peer's certificate,
+  // if set to false CA certificates are not loaded and verification will be skipped.
+  bool curlSSLVerifyPeer{true};
+  // Determines if cookies are internally handled by InputStream Adaptive add-on
+  bool internalCookies{false};
+};
+
 struct ManifestConfig
 {
   // Limit the timeshift buffer depth, in seconds
@@ -102,16 +112,17 @@ public:
    */
   std::string_view GetDrmPreInitData() const { return m_drmPreInitData; }
 
-  // \brief Defines if cookies are internally handled by InputStream Adaptive add-on
-  bool IsInternalCookies() const { return m_isInternalCookies; }
-
   // \brief Specifies the chooser properties that will override XML settings
   const ChooserProps& GetChooserProps() const { return m_chooserProps; }
+
+  // \brief Specifies generic add-on configuration
+  const Config& GetConfig() const { return m_config; }
 
   // \brief Specifies the manifest configuration
   const ManifestConfig& GetManifestConfig() const { return m_manifestConfig; }
 
 private:
+  void ParseConfig(const std::string& data);
   void ParseManifestConfig(const std::string& data);
 
   std::string m_licenseType;
@@ -131,8 +142,8 @@ private:
   bool m_playTimeshiftBuffer{false};
   uint64_t m_liveDelay{0};
   std::string m_drmPreInitData;
-  bool m_isInternalCookies{false};
   ChooserProps m_chooserProps;
+  Config m_config;
   ManifestConfig m_manifestConfig;
 };
 
