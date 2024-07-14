@@ -15,6 +15,48 @@
 using namespace PLAYLIST;
 using namespace UTILS;
 
+void PLAYLIST::CRepresentation::SetParent(CAdaptationSet* parent /* = nullptr */,
+                                          bool copyData /* = false */)
+{
+  CCommonSegAttribs::m_parentCommonSegAttribs = parent;
+
+  // If you change parent, you will loose pointer where CCommonAttribs have data stored
+  // so copy all data, and after replace CCommonAttribs
+  // this is a workaround for a more complex problem see CDashTree::MergeAdpSets todo
+  if (copyData && m_parentCommonAttributes)
+  {
+    if (m_parentCommonAttributes->GetContainerType() != ContainerType::NOTYPE &&
+        m_containerType == ContainerType::NOTYPE)
+      m_containerType = m_parentCommonAttributes->GetContainerType();
+
+    if (m_parentCommonAttributes->GetAspectRatio() != 0 && m_aspectRatio == 0)
+      m_aspectRatio = m_parentCommonAttributes->GetAspectRatio();
+
+    if (m_parentCommonAttributes->GetFrameRate() != 0 && m_frameRate == 0)
+      m_frameRate = m_parentCommonAttributes->GetFrameRate();
+
+    if (m_parentCommonAttributes->GetFrameRateScale() != 0 && m_frameRateScale == 0)
+      m_frameRateScale = m_parentCommonAttributes->GetFrameRateScale();
+
+    if (m_parentCommonAttributes->GetWidth() != 0 && m_resWidth == 0)
+      m_resWidth = m_parentCommonAttributes->GetWidth();
+
+    if (m_parentCommonAttributes->GetHeight() != 0 && m_resHeight == 0)
+      m_resHeight = m_parentCommonAttributes->GetHeight();
+
+    if (m_parentCommonAttributes->GetSampleRate() != 0 && m_sampleRate == 0)
+      m_sampleRate = m_parentCommonAttributes->GetSampleRate();
+
+    if (m_parentCommonAttributes->GetAudioChannels() != 0 && m_audioChannels == 0)
+      m_audioChannels = m_parentCommonAttributes->GetAudioChannels();
+
+    if (!m_parentCommonAttributes->GetMimeType().empty() && m_mimeType.empty())
+      m_mimeType = m_parentCommonAttributes->GetMimeType();
+  }
+
+  CCommonAttribs::m_parentCommonAttributes = parent;
+}
+
 void PLAYLIST::CRepresentation::AddCodecs(std::string_view codecs)
 {
   std::set<std::string> list = STRING::SplitToSet(codecs, ',');

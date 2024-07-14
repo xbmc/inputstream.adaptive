@@ -1466,6 +1466,10 @@ uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
   return channels;
 }
 
+//! @todo: MergeAdpSets its a kind of workaround
+//! its missing a middle interface where store "streams" (or media tracks) data in a form
+//! that is detached from "tree" interface, this would avoid the force
+//! change of CAdaptationSet data and its parent data (CRepresentation::SetParent)
 void adaptive::CDashTree::MergeAdpSets()
 {
   // NOTE: This method wipe out all properties of merged adaptation set
@@ -1501,7 +1505,7 @@ void adaptive::CDashTree::MergeAdpSets()
           for (auto itRepr = nextAdpSet->GetRepresentations().begin();
                itRepr < nextAdpSet->GetRepresentations().end(); ++itRepr)
           {
-            itRepr->get()->SetParent(adpSet);
+            itRepr->get()->SetParent(adpSet, true);
             adpSet->GetRepresentations().push_back(std::move(*itRepr));
           }
           itNextAdpSet = periodAdpSets.erase(itNextAdpSet);
