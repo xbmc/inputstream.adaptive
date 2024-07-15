@@ -16,6 +16,7 @@
 #include "common/AdaptiveTreeFactory.h"
 #include "common/Chooser.h"
 #include "decrypters/DrmFactory.h"
+#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
@@ -26,7 +27,6 @@
 #include <array>
 
 #include <kodi/addon-instance/Inputstream.h>
-#include <decrypters/Helpers.h>
 
 using namespace kodi::tools;
 using namespace adaptive;
@@ -384,16 +384,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       if (!m_decrypter->OpenDRMSystem(licenseKey, m_serverCertificate, m_drmConfig))
       {
         LOG::Log(LOGERROR, "OpenDRMSystem failed");
-        return false;
-      }
-    }
-    for (std::string_view supportedKeySystem : m_adaptiveTree->m_supportedKeySystems)
-    {
-      std::string keySystem = std::string(supportedKeySystem).substr(9); // Remove prefix "urn:uuid:"
-      STRING::ReplaceAll(keySystem, "-", "");
-      if (keySystem.size() != 32)
-      {
-        LOG::Log(LOGERROR, "Wrong DRM key system (%s)", supportedKeySystem.data());
         return false;
       }
     }
@@ -1489,13 +1479,15 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
 
   for (std::string_view keySystem : keySystems)
   {
-    std::vector<uint8_t> keySystemBytes;
-    STRING::ToHexBytes(std::string(keySystem), keySystemBytes);
+    std::vector<uint8_t> systemIdBytes;
+    STRING::ToHexBytes(DRM::UrnToSystemId(keySystem), systemIdBytes);
+
     for (unsigned int i = 0; initData.size() == 0 && i < pssh.ItemCount(); i++)
     {
-      if (std::memcmp(pssh[i].GetSystemId(), keySystemBytes.data(), 16) == 0)
+      if (std::memcmp(pssh[i].GetSystemId(), systemIdBytes.data(), 16) == 0)
       {
         const AP4_DataBuffer& dataBuf = pssh[i].GetData();
+
         initData.insert(initData.end(), dataBuf.GetData(), dataBuf.GetData() + dataBuf.GetDataSize());
 
         if (sessionPsshset.defaultKID_.empty())
