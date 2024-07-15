@@ -212,8 +212,8 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlash)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
@@ -228,8 +228,8 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
       tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
@@ -241,7 +241,8 @@ TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  EXPECT_EQ(tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  EXPECT_EQ(tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl,
+            "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelative)
@@ -253,8 +254,8 @@ TEST_F(HLSTreeTest, ParseKeyUriRelative)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
@@ -271,8 +272,8 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
       tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, PtsSetInMultiPeriod)

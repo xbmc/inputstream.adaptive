@@ -215,7 +215,7 @@ public:
                          PLAYLIST::CAdaptationSet* adp,
                          const std::vector<uint8_t>& pssh,
                          std::string_view defaultKID,
-                         std::string_view kidUrl = "",
+                         std::string_view licenseUrl = "",
                          std::string_view iv = "");
 
   PLAYLIST::CAdaptationSet* GetAdaptationSet(size_t pos) const

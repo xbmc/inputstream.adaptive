@@ -938,14 +938,16 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   {
     std::vector<uint8_t> pssh;
     std::string kid;
+    std::string licenseUrl;
     // If a custom init PSSH is provided, should mean that a certain content protection tag
     // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
-    if (m_isCustomInitPssh ||
-        GetProtectionData(adpSet->ProtectionSchemes(), repr->ProtectionSchemes(), pssh, kid))
+    if (m_isCustomInitPssh || GetProtectionData(adpSet->ProtectionSchemes(),
+                                                repr->ProtectionSchemes(), pssh, kid, licenseUrl))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
 
-      uint16_t psshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid);
+      uint16_t psshSetPos =
+          InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid, licenseUrl);
 
       if (psshSetPos == PSSHSET_POS_INVALID)
       {
@@ -1278,7 +1280,7 @@ void adaptive::CDashTree::ParseTagContentProtection(
       }
       else if (StringUtils::EndsWithNoCase(childName, "laurl")) // e.g. <clearkey:Laurl> or <dashif:Laurl> ...
       {
-        protScheme.pssh = node.child_value();
+        protScheme.licenseUrl = node.child_value();
       }
       else if (childName == "mspr:pro" || childName == "pro")
       {
@@ -1296,7 +1298,8 @@ bool adaptive::CDashTree::GetProtectionData(
     const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
     const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
     std::vector<uint8_t>& pssh,
-    std::string& kid)
+    std::string& kid,
+    std::string& licenseUrl)
 {
   // Try find a protection scheme compatible for the current systemid
   const ProtectionScheme* protSelected = nullptr;
@@ -1341,6 +1344,7 @@ bool adaptive::CDashTree::GetProtectionData(
     isEncrypted = true;
     selectedKid = protSelected->kid;
     selectedPssh = protSelected->pssh;
+    licenseUrl = protSelected->licenseUrl;
   }
   if (protCommon)
   {
@@ -1356,12 +1360,7 @@ bool adaptive::CDashTree::GetProtectionData(
   }
 
   if (!selectedPssh.empty())
-  {
-    if (UTILS::BASE64::IsValidBase64(selectedPssh))
-      pssh = BASE64::Decode(selectedPssh);
-    else
-      std::copy(selectedPssh.begin(), selectedPssh.end(), std::back_inserter(pssh));   
-  }
+    pssh = BASE64::Decode(selectedPssh);
 
   if (!selectedKid.empty())
   {

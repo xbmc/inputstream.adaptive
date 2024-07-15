@@ -334,9 +334,9 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   std::string hexKid{StringUtils::ToHexadecimal(decKid)};
   LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
 
-  if (m_decrypter && initData.size() >= 4 &&
-      (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-           initData, "", decKid, true, CryptoMode::AES_CTR)) != 0)
+  if (m_decrypter && (session.m_cencSingleSampleDecrypter =
+                          m_decrypter->CreateSingleSampleDecrypter(initData, "", decKid, "", true,
+                                                                   CryptoMode::AES_CTR)) != nullptr)
   {
     session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
     sessionId = session.m_cdmSessionStr;
@@ -447,11 +447,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           drmOptionalKeyParam = licenseData;
         }
       }
-      else if (licenseType == "org.w3.clearkey")
-      {
-        // URL for license server is set to PSSH, use this as is
-        initData = sessionPsshset.pssh_;
-      }
       else if (!licenseData.empty())
       {
         // Custom license PSSH data provided from property
@@ -461,11 +456,11 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         initData = BASE64::Decode(licenseData);
       }
 
-      if (initData.empty())
+      if (initData.empty() && sessionPsshset.m_licenseUrl.empty())
       {
         if (!sessionPsshset.pssh_.empty())
         {
-          // Use the PSSH provided by manifest
+          // Use the init data provided by manifest (e.g. PSSH)
           initData = sessionPsshset.pssh_;
         }
         else
@@ -521,13 +516,13 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         }
       }
 
-      if (m_decrypter && initData.size() >= 4 &&
+      if (m_decrypter &&
           (session.m_cencSingleSampleDecrypter ||
            (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-                initData, drmOptionalKeyParam, defaultKid, false,
+                initData, drmOptionalKeyParam, defaultKid, sessionPsshset.m_licenseUrl, false,
                 sessionPsshset.m_cryptoMode == CryptoMode::NONE ? CryptoMode::AES_CTR
                                                                 : sessionPsshset.m_cryptoMode)) !=
-               0))
+               nullptr))
       {
         m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defaultKid,
                                      sessionPsshset.media_, session.m_decrypterCaps);

@@ -32,23 +32,25 @@ bool CClearKeyDecrypter::OpenDRMSystem(std::string_view licenseURL,
 }
 
 Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecrypter(
-    std::vector<uint8_t>& pssh,
+    std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
     std::string_view defaultkeyid,
+    std::string_view licenseUrl,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
   CClearKeyCencSingleSampleDecrypter* decrypter = nullptr;
   auto& keys = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).m_keys;
-  std::string_view licenseUrl(reinterpret_cast<char*>(pssh.data()), pssh.size());
-  if (!keys.empty() || licenseUrl.substr(0, 4) != "http") // keys provided in props or directly in playlist (HLS)
+
+  if (!keys.empty() || !initData.empty()) // Keys provided from manifest or Kodi property
   {
-    decrypter = new CClearKeyCencSingleSampleDecrypter(pssh, defaultkeyid, keys, this);
+    decrypter = new CClearKeyCencSingleSampleDecrypter(initData, defaultkeyid, keys, this);
   }
   else // Clearkey license server URL provided
   {
     decrypter = new CClearKeyCencSingleSampleDecrypter(licenseUrl, defaultkeyid, this);
   }
+
   if (!decrypter->HasKeys())
   {
     delete decrypter;

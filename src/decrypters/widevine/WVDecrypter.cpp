@@ -101,14 +101,15 @@ bool CWVDecrypter::OpenDRMSystem(std::string_view licenseURL,
 }
 
 Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
-    std::vector<uint8_t>& pssh,
+    std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
     std::string_view defaultKeyId,
+    std::string_view licenseUrl,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
   CWVCencSingleSampleDecrypter* decrypter = new CWVCencSingleSampleDecrypter(
-      *m_WVCdmAdapter, pssh, defaultKeyId, skipSessionMessage, cryptoMode, this);
+      *m_WVCdmAdapter, initData, defaultKeyId, skipSessionMessage, cryptoMode, this);
   if (!decrypter->GetSessionId())
   {
     delete decrypter;

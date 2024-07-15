@@ -41,7 +41,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
 {
   SetParentIsOwner(false);
 
-  if (pssh.size() > 65535)
+  if (pssh.size() < 4 || pssh.size() > 65535)
   {
     LOG::LogF(LOGERROR, "PSSH init data with length %zu seems not to be cenc init data",
               pssh.size());

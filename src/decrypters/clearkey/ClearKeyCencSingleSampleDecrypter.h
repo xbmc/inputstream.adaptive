@@ -19,9 +19,9 @@ public:
   CClearKeyCencSingleSampleDecrypter(std::string_view licenseUrl,
                                      std::string_view defaultKeyId,
                                      CClearKeyDecrypter* host);
-  CClearKeyCencSingleSampleDecrypter(std::vector<uint8_t>& pssh,
+  CClearKeyCencSingleSampleDecrypter(const std::vector<uint8_t>& initdata,
                                      std::string_view defaultKeyId,
-                                     std::map<std::string, std::string> keys,
+                                     const std::map<std::string, std::string>& keys,
                                      CClearKeyDecrypter* host);
   virtual ~CClearKeyCencSingleSampleDecrypter(){};
   void AddSessionKey(std::string_view keyId);

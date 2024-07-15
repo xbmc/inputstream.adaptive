@@ -983,12 +983,12 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
-      if (!pssh.m_kidUrl.empty())
+      if (!pssh.m_licenseUrl.empty())
       {
         // Try check if we already obtained KID from this KID URL
         for (const CPeriod::PSSHSet& psshSet : m_currentPeriod->GetPSSHSets())
         {
-          if (!psshSet.defaultKID_.empty() && psshSet.m_kidUrl == pssh.m_kidUrl)
+          if (!psshSet.defaultKID_.empty() && psshSet.m_licenseUrl == pssh.m_licenseUrl)
           {
             pssh.defaultKID_ = psshSet.defaultKID_;
             break;
@@ -1001,7 +1001,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
       RETRY:
         std::map<std::string, std::string> headers;
         std::vector<std::string> keyParts = STRING::SplitToVec(m_decrypter->getLicenseKey(), '|');
-        std::string url = pssh.m_kidUrl;
+        std::string url = pssh.m_licenseUrl;
 
         if (keyParts.size() > 0)
         {
@@ -1284,7 +1284,19 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   {
     if (STRING::CompareNoCase(keyFormat, "identity"))
     {
-      m_currentPssh = uriData;
+      if (uriUrl.empty())
+      {
+        m_currentPssh = uriData;
+      }
+      else
+      {
+        if (URL::IsUrlRelative(uriUrl))
+          uriUrl = URL::Join(baseUrl.data(), uriUrl);
+
+        UTILS::CURL::HTTPResponse resp;
+        if (DownloadKey(uriUrl, {}, {}, resp))
+          m_currentPssh = STRING::ToVecUint8(resp.data);
+      }
 
       if (STRING::KeyExists(attribs, "KEYID"))
       {

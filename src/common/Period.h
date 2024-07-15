@@ -111,7 +111,7 @@ public:
 
     //! @todo: create getter/setters
     std::vector<uint8_t> pssh_; // Data as bytes (not base64)
-    std::string m_kidUrl; // Url where get the KID
+    std::string m_licenseUrl; // License server URL
     std::string defaultKID_;
     std::string iv;
     uint32_t media_{0};

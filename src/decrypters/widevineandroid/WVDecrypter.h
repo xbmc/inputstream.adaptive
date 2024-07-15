@@ -88,9 +88,10 @@ public:
                              const uint8_t config) override;
 
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      std::vector<uint8_t>& pssh,
+      std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
+      std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
 

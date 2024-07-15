@@ -29,6 +29,12 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     std::string_view licenseUrl, std::string_view defaultKeyId, CClearKeyDecrypter* host)
   : m_host(host)
 {
+  if (licenseUrl.empty())
+  {
+    LOG::LogF(LOGERROR, "License server URL not found");
+    return;
+  }
+
   const std::string postData = CreateLicenseRequest(defaultKeyId);
 
   if (CSrvBroker::GetSettings().IsDebugLicense())
@@ -66,14 +72,14 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
 
   if (!ParseLicenseResponse(response))
   {
-    LOG::LogF(LOGERROR, "Could not read full license server response");
+    LOG::LogF(LOGERROR, "Could not parse the license server response");
     return;
   }
 
   const std::string b64DefaultKeyId = UTILS::BASE64::Encode(defaultKeyId.data());
   if (!STRING::KeyExists(m_keyPairs, b64DefaultKeyId))
   {
-    LOG::LogF(LOGERROR, "Key not found on license response");
+    LOG::LogF(LOGERROR, "Key not found on license server response");
     return;
   }
 
@@ -89,18 +95,27 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
 }
 
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
-    std::vector<uint8_t>& pssh,
+    const std::vector<uint8_t>& initData,
     std::string_view defaultKeyId,
-    std::map<std::string, std::string> keys,
+    const std::map<std::string, std::string>& keys,
     CClearKeyDecrypter* host)
   : m_host(host)
 {
   std::vector<uint8_t> hexKey;
 
-  if (!keys.empty()) // get key from map provided in props
-    UTILS::STRING::ToHexBytes(keys[UTILS::STRING::ToHexadecimal(defaultKeyId)], hexKey);
-  else // key is provided directly in playlist
-    hexKey = pssh;
+  if (keys.empty()) // Assume key is provided from the manifest
+  {
+    hexKey = initData;
+  }
+  else // Key provided in Kodi props
+  {
+    const std::string hexDefKid = UTILS::STRING::ToHexadecimal(defaultKeyId);
+
+    if (STRING::KeyExists(keys, hexDefKid))
+      UTILS::STRING::ToHexBytes(keys.at(hexDefKid), hexKey);
+    else
+      LOG::LogF(LOGERROR, "Missing KeyId \"%s\" on DRM configuration");
+  }
 
   const AP4_UI08* ap4Key = reinterpret_cast<const AP4_UI08*>(hexKey.data());
   AP4_CencSingleSampleDecrypter::Create(AP4_CENC_CIPHER_AES_128_CTR, ap4Key, 16, 0, 0, nullptr,

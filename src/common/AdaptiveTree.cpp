@@ -140,13 +140,13 @@ namespace adaptive
                                        PLAYLIST::CAdaptationSet* adp,
                                        const std::vector<uint8_t>& pssh,
                                        std::string_view defaultKID,
-                                       std::string_view kidUrl /* = "" */,
+                                       std::string_view licenseUrl /* = "" */,
                                        std::string_view iv /* = "" */)
   {
     CPeriod::PSSHSet psshSet;
     psshSet.pssh_ = pssh;
     psshSet.defaultKID_ = defaultKID;
-    psshSet.m_kidUrl = kidUrl;
+    psshSet.m_licenseUrl = licenseUrl;
     psshSet.iv = iv;
     psshSet.m_cryptoMode = m_cryptoMode;
     psshSet.adaptation_set_ = adp;

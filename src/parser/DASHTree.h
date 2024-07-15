@@ -81,12 +81,14 @@ protected:
    * \param reprProtSchemes The protection schemes of the representation
    * \param pssh[OUT] The PSSH (if any) that match the supported systemid
    * \param kid[OUT] The KID (should be provided)
+   * \param licenseUrl[OUT] The license url (if any)
    * \return True if a protection has been found, otherwise false
    */
   bool GetProtectionData(const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
                          const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
                          std::vector<uint8_t>& pssh,
-                         std::string& kid);
+                         std::string& kid,
+                         std::string& licenseUrl);
 
   bool ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 

@@ -23,9 +23,10 @@ public:
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      std::vector<uint8_t>& pssh,
+      std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       std::string_view defaultkeyid,
+      std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
   virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
