@@ -47,11 +47,7 @@ public:
    *        To be used if you plan to set or move a representation to an AdptationSet or a different one.
    * \param parent[OPT] The parent AdaptationSet to link
    */
-  void SetParent(CAdaptationSet* parent = nullptr)
-  {
-    CCommonSegAttribs::m_parentCommonSegAttribs = parent;
-    CCommonAttribs::m_parentCommonAttributes = parent;
-  }
+  void SetParent(CAdaptationSet* parent = nullptr, bool copyData = false);
 
   // Share AdaptationSet common attribs
   static std::unique_ptr<CRepresentation> MakeUniquePtr(CAdaptationSet* parent = nullptr)
