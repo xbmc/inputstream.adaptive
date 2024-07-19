@@ -28,5 +28,7 @@ void Decode(const char* input, const size_t length, std::vector<uint8_t>& output
 std::vector<uint8_t> Decode(std::string_view input);
 std::string DecodeToStr(std::string_view input);
 
+bool IsValidBase64(const std::string& input);
+
 } // namespace BASE64
 } // namespace UTILS

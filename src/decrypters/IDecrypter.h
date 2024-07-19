@@ -62,7 +62,7 @@ public:
    * \param keySystem The URN to be matched
    * \return Supported URN if type matches to capabilities, otherwise null
    */
-  virtual std::string SelectKeySytem(std::string_view keySystem) = 0;
+  virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) = 0;
 
   /**
    * \brief Initialise the DRM system
@@ -77,17 +77,19 @@ public:
   
   /**
    * \brief Creates a Single Sample Decrypter for decrypting content 
-   * \param pssh The PSSH for initialising the decrypter
+   * \param initData The data for initialising the decrypter (e.g. PSSH)
    * \param optionalKeyParameter License key data passed into IA as parameter
    * \param defaultkeyid The default KeyID to initialise with
+   * \param licenseUrl The license server URL
    * \param skipSessionMessage False for preinitialisation case
    * \param cryptoMode The crypto/cypher mode to initialise with
    * \return The single sample decrypter if successfully created
    */
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      std::vector<uint8_t>& pssh,
+      std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
+      std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) = 0;
 

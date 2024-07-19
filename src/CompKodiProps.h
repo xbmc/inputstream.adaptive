@@ -68,6 +68,11 @@ struct ManifestConfig
   bool hlsFixDiscontSequence{false};
 };
 
+struct DrmCfg
+{
+  std::map<std::string, std::string> m_keys;
+};
+
 class ATTR_DLL_LOCAL CCompKodiProps
 {
 public:
@@ -121,9 +126,16 @@ public:
   // \brief Specifies the manifest configuration
   const ManifestConfig& GetManifestConfig() const { return m_manifestConfig; }
 
+  // \brief Get DRM configuration for specified keysystem, if not found will return default values
+  const DrmCfg& GetDrmConfig(const std::string& keySystem) { return m_drmConfigs[keySystem]; }
+
+  const std::map<std::string, DrmCfg>& GetDrmConfigs() const { return m_drmConfigs; }
+
 private:
   void ParseConfig(const std::string& data);
   void ParseManifestConfig(const std::string& data);
+
+  bool ParseDrmConfig(const std::string& data);
 
   std::string m_licenseType;
   std::string m_licenseKey;
@@ -145,6 +157,7 @@ private:
   ChooserProps m_chooserProps;
   Config m_config;
   ManifestConfig m_manifestConfig;
+  std::map<std::string, DrmCfg> m_drmConfigs;
 };
 
 } // namespace KODI_PROPS

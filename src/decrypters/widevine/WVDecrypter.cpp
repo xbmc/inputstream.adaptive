@@ -8,6 +8,7 @@
 
 #include "WVDecrypter.h"
 
+#include "decrypters/Helpers.h"
 #include "WVCdmAdapter.h"
 #include "WVCencSingleSampleDecrypter.h"
 #include "utils/Base64Utils.h"
@@ -76,32 +77,39 @@ bool CWVDecrypter::Initialize()
   return true;
 }
 
-std::string CWVDecrypter::SelectKeySytem(std::string_view keySystem)
+std::vector<std::string_view> CWVDecrypter::SelectKeySystems(std::string_view keySystem)
 {
-  if (keySystem == "com.widevine.alpha")
-    return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+  std::vector<std::string_view> keySystems;
+  if (keySystem == KS_WIDEVINE)
+    keySystems.push_back(URN_WIDEVINE);
 
-  return "";
+  return keySystems;
 }
 
 bool CWVDecrypter::OpenDRMSystem(std::string_view licenseURL,
                                  const std::vector<uint8_t>& serverCertificate,
                                  const uint8_t config)
 {
+  if (licenseURL.empty())
+  {
+    LOG::LogF(LOGERROR, "License Key property cannot be empty");
+    return false;
+  }
   m_WVCdmAdapter = new CWVCdmAdapter(licenseURL, serverCertificate, config, this);
 
   return m_WVCdmAdapter->GetCdmAdapter() != nullptr;
 }
 
 Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
-    std::vector<uint8_t>& pssh,
+    std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
     std::string_view defaultKeyId,
+    std::string_view licenseUrl,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
   CWVCencSingleSampleDecrypter* decrypter = new CWVCencSingleSampleDecrypter(
-      *m_WVCdmAdapter, pssh, defaultKeyId, skipSessionMessage, cryptoMode, this);
+      *m_WVCdmAdapter, initData, defaultKeyId, skipSessionMessage, cryptoMode, this);
   if (!decrypter->GetSessionId())
   {
     delete decrypter;

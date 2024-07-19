@@ -105,10 +105,10 @@ adaptive::CDashTree::CDashTree(const CDashTree& left) : AdaptiveTree(left)
 }
 
 void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                    std::string_view supportedKeySystem,
+                                    std::vector<std::string_view> supportedKeySystems,
                                     std::string_view manifestUpdParams)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdParams);
+  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdParams);
   m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetLicenseData().empty();
 }
 
@@ -938,14 +938,16 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   {
     std::vector<uint8_t> pssh;
     std::string kid;
+    std::string licenseUrl;
     // If a custom init PSSH is provided, should mean that a certain content protection tag
     // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
-    if (m_isCustomInitPssh ||
-        GetProtectionData(adpSet->ProtectionSchemes(), repr->ProtectionSchemes(), pssh, kid))
+    if (m_isCustomInitPssh || GetProtectionData(adpSet->ProtectionSchemes(),
+                                                repr->ProtectionSchemes(), pssh, kid, licenseUrl))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
 
-      uint16_t psshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid);
+      uint16_t psshSetPos =
+          InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid, licenseUrl);
 
       if (psshSetPos == PSSHSET_POS_INVALID)
       {
@@ -1276,6 +1278,10 @@ void adaptive::CDashTree::ParseTagContentProtection(
       {
         protScheme.pssh = node.child_value();
       }
+      else if (StringUtils::EndsWithNoCase(childName, "laurl")) // e.g. <clearkey:Laurl> or <dashif:Laurl> ...
+      {
+        protScheme.licenseUrl = node.child_value();
+      }
       else if (childName == "mspr:pro" || childName == "pro")
       {
         PRProtectionParser parser;
@@ -1292,35 +1298,39 @@ bool adaptive::CDashTree::GetProtectionData(
     const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
     const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
     std::vector<uint8_t>& pssh,
-    std::string& kid)
+    std::string& kid,
+    std::string& licenseUrl)
 {
   // Try find a protection scheme compatible for the current systemid
   const ProtectionScheme* protSelected = nullptr;
   const ProtectionScheme* protCommon = nullptr;
 
-  for (const ProtectionScheme& protScheme : reprProtSchemes)
+  for (std::string_view supportedKeySystem : m_supportedKeySystems)
   {
-    if (STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
+    for (const ProtectionScheme& protScheme : reprProtSchemes)
     {
-      protSelected = &protScheme;
-    }
-    else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
-    {
-      protCommon = &protScheme;
-    }
-  }
-
-  if (!protSelected || !protCommon)
-  {
-    for (const ProtectionScheme& protScheme : adpProtSchemes)
-    {
-      if (!protSelected && STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
+      if (STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
       {
         protSelected = &protScheme;
       }
-      else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
+      else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
       {
         protCommon = &protScheme;
+      }
+    }
+
+    if (!protSelected || !protCommon)
+    {
+      for (const ProtectionScheme& protScheme : adpProtSchemes)
+      {
+        if (!protSelected && STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
+        {
+          protSelected = &protScheme;
+        }
+        else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
+        {
+          protCommon = &protScheme;
+        }
       }
     }
   }
@@ -1334,6 +1344,7 @@ bool adaptive::CDashTree::GetProtectionData(
     isEncrypted = true;
     selectedKid = protSelected->kid;
     selectedPssh = protSelected->pssh;
+    licenseUrl = protSelected->licenseUrl;
   }
   if (protCommon)
   {

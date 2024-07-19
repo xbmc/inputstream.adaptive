@@ -7,14 +7,16 @@
  */
 
 #include "CompKodiProps.h"
+
 #include "CompSettings.h"
+#include "decrypters/Helpers.h"
 #include "utils/StringUtils.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
 
-#include <rapidjson/document.h>
-
 #include <string_view>
+
+#include <rapidjson/document.h>
 
 using namespace UTILS;
 
@@ -52,6 +54,7 @@ constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
+constexpr std::string_view PROP_DRM = "inputstream.adaptive.drm";
 constexpr std::string_view PROP_INTERNAL_COOKIES = "inputstream.adaptive.internal_cookies"; //! @todo: to remove on Kodi 22
 
 // Chooser's properties
@@ -72,7 +75,10 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
 
     if (prop.first == PROP_LICENSE_TYPE)
     {
-      m_licenseType = prop.second;
+      if (DRM::IsKeySystemSupported(prop.second))
+        m_licenseType = prop.second;
+      else
+        LOG::LogF(LOGERROR, "License type \"%s\" is not supported", prop.second.c_str());
     }
     else if (prop.first == PROP_LICENSE_KEY)
     {
@@ -224,6 +230,14 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     {
       ParseManifestConfig(prop.second);
     }
+    else if (prop.first == PROP_DRM && !prop.second.empty())
+    {
+      if (!ParseDrmConfig(prop.second))
+        LOG::LogF(LOGERROR, "Cannot parse \"%s\" property, wrong or malformed data.",
+          prop.first.c_str());
+
+      logPropValRedacted = true;
+    }
     else
     {
       LOG::Log(LOGWARNING, "Property found \"%s\" is not supported", prop.first.c_str());
@@ -242,6 +256,15 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
       m_licenseKey = licenseUrl;
     else
       m_licenseKey.replace(0, pipePos, licenseUrl);
+  }
+
+  if (m_licenseType == DRM::KS_CLEARKEY && !m_licenseKey.empty())
+  {
+    LOG::Log(
+      LOGERROR,
+      "The \"inputstream.adaptive.license_key\" property cannot be used to configure ClearKey DRM,\n"
+      "use \"inputstream.adaptive.drm\" instead.\nSee Wiki integration page for more details.");
+    m_licenseKey.clear();
   }
 }
 
@@ -326,4 +349,60 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& dat
                 configName.c_str(), PROP_MANIFEST_CONFIG.data());
     }
   }
+}
+
+//! @todo: inputstream.adaptive.drm in future will be used to set configs of all DRM's
+//!        and so will replace old props such as: license_type, license_key, license_data, etc...
+bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
+{
+  /* Expected JSON structure:
+   * { "keysystem_name" : { "persistent_storage" : bool,
+   *                        "force_secure_decoder" : bool,
+   *                        "streams_pssh_data" : str,
+   *                        "pre_init_data" : str,
+   *                        "priority": int, 
+   *                        "keyids": list<dict>},
+   *   "keysystem_name_2" : { ... }}
+   */
+  rapidjson::Document jDoc;
+  jDoc.Parse(data.c_str(), data.size());
+
+  if (!jDoc.IsObject())
+  {
+    LOG::LogF(LOGERROR, "Malformed JSON data in to \"%s\" property", PROP_DRM.data());
+    return false;
+  }
+
+  // Iterate key systems dict
+  for (auto& jChildObj : jDoc.GetObject())
+  {
+    const char* keySystem = jChildObj.name.GetString();
+
+    if (!DRM::IsKeySystemSupported(keySystem))
+    {
+      LOG::LogF(LOGERROR, "Ignored unknown key system \"%s\" on DRM property", keySystem);
+      continue;
+    }
+
+    DrmCfg& drmCfg = m_drmConfigs[keySystem];
+    auto& jDictVal = jChildObj.value;
+
+    if (!jDictVal.IsObject())
+    {
+      LOG::LogF(LOGERROR, "Cannot parse key system \"%s\" value on DRM property, wrong data type",
+                keySystem);
+      continue;
+    }
+
+    if (jDictVal.HasMember("keyids") && jDictVal["keyids"].IsObject())
+    {
+      for (auto const& keyid : jDictVal["keyids"].GetObject())
+      {
+        if (keyid.name.IsString() && keyid.value.IsString())
+          drmCfg.m_keys[keyid.name.GetString()] = (keyid.value.GetString());
+      }
+    }
+  }
+
+  return true;
 }

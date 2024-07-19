@@ -12,6 +12,7 @@
 #include "PRProtectionParser.h"
 #include "SrvBroker.h"
 #include "aes_decrypter.h"
+#include "decrypters/Helpers.h"
 #include "kodi/tools/StringUtils.h"
 #include "utils/Base64Utils.h"
 #include "utils/StringUtils.h"
@@ -149,10 +150,10 @@ adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
 }
 
 void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                   std::string_view supportedKeySystem,
+                                   std::vector<std::string_view> supportedKeySystems,
                                    std::string_view manifestUpdateParam)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdateParam);
+  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdateParam);
   m_decrypter = std::make_unique<AESDecrypter>(CSrvBroker::GetKodiProps().GetLicenseKey());
 }
 
@@ -448,7 +449,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
 
   rep->SetBaseUrl(sourceUrl);
 
-  EncryptionType currentEncryptionType = EncryptionType::CLEAR;
+  EncryptionType currentEncryptionType = EncryptionType::NONE;
 
   // To know in advance if EXT-X-PROGRAM-DATE-TIME is available
   bool hasProgramDateTime = STRING::Contains(data, "#EXT-X-PROGRAM-DATE-TIME:");
@@ -503,8 +504,8 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       // NOTE: Multiple EXT-X-KEYs can be parsed sequentially
       switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
       {
-        case EncryptionType::CLEAR:
-          currentEncryptionType = EncryptionType::CLEAR;
+        case EncryptionType::NONE:
+          currentEncryptionType = EncryptionType::NONE;
           period->SetEncryptionState(EncryptionState::UNENCRYPTED);
           psshSetPos = PSSHSET_POS_DEFAULT;
           break;
@@ -523,6 +524,15 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
             period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
             rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                               m_currentDefaultKID, m_currentKidUrl, m_currentIV);
+          }
+          break;
+        case EncryptionType::CLEARKEY:
+          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
+          {
+            currentEncryptionType = EncryptionType::CLEARKEY;
+            period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
+            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
+              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
           }
           break;
         case EncryptionType::NOT_SUPPORTED:
@@ -973,12 +983,12 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
-      if (!pssh.m_kidUrl.empty())
+      if (!pssh.m_licenseUrl.empty())
       {
         // Try check if we already obtained KID from this KID URL
         for (const CPeriod::PSSHSet& psshSet : m_currentPeriod->GetPSSHSets())
         {
-          if (!psshSet.defaultKID_.empty() && psshSet.m_kidUrl == pssh.m_kidUrl)
+          if (!psshSet.defaultKID_.empty() && psshSet.m_licenseUrl == pssh.m_licenseUrl)
           {
             pssh.defaultKID_ = psshSet.defaultKID_;
             break;
@@ -991,7 +1001,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
       RETRY:
         std::map<std::string, std::string> headers;
         std::vector<std::string> keyParts = STRING::SplitToVec(m_decrypter->getLicenseKey(), '|');
-        std::string url = pssh.m_kidUrl;
+        std::string url = pssh.m_licenseUrl;
 
         if (keyParts.size() > 0)
         {
@@ -1189,6 +1199,9 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     std::string_view baseUrl, std::map<std::string, std::string>& attribs)
 {
   std::string_view encryptMethod = attribs["METHOD"];
+  // According to specs KEYFORMAT is optional and if not specified defaults implicitly to "identity"
+  const std::string keyFormat = attribs["KEYFORMAT"].empty() ? "identity" : attribs["KEYFORMAT"];
+
   std::vector<uint8_t> uriData;
   std::string uriUrl;
 
@@ -1206,7 +1219,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   {
     m_currentPssh.clear();
 
-    return EncryptionType::CLEAR;
+    return EncryptionType::NONE;
   }
 
   // AES-128
@@ -1228,9 +1241,9 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   }
 
   // WIDEVINE
-  if (STRING::CompareNoCase(attribs["KEYFORMAT"],
-                            "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed") &&
-      STRING::CompareNoCase(attribs["KEYFORMAT"], m_supportedKeySystem))
+  if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE) &&
+      (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_WIDEVINE) !=
+          m_supportedKeySystems.end()))
   {
     m_currentPssh = uriData;
 
@@ -1264,8 +1277,54 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     return EncryptionType::WIDEVINE;
   }
 
+  // CLEARKEY
+  if (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_CLEARKEY) !=
+      m_supportedKeySystems.end() && std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_COMMON) !=
+    m_supportedKeySystems.end())
+  {
+    if (STRING::CompareNoCase(keyFormat, "identity"))
+    {
+      if (uriUrl.empty())
+      {
+        m_currentPssh = uriData;
+      }
+      else
+      {
+        if (URL::IsUrlRelative(uriUrl))
+          uriUrl = URL::Join(baseUrl.data(), uriUrl);
+
+        UTILS::CURL::HTTPResponse resp;
+        if (DownloadKey(uriUrl, {}, {}, resp))
+          m_currentPssh = STRING::ToVecUint8(resp.data);
+      }
+
+      if (STRING::KeyExists(attribs, "KEYID"))
+      {
+        std::string keyid = attribs["KEYID"].substr(2);
+        const char* defaultKID = keyid.c_str();
+        m_currentDefaultKID.resize(16);
+        for (unsigned int i(0); i < 16; ++i)
+        {
+          m_currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
+          ++defaultKID;
+          m_currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
+          ++defaultKID;
+        }
+      }
+      else if (uriUrl.empty()) // No kid provided, assume key == kid
+        m_currentDefaultKID.assign(uriData.begin(), uriData.end());
+
+      if (encryptMethod == "SAMPLE-AES-CTR")
+        m_cryptoMode = CryptoMode::AES_CTR;
+      else if (encryptMethod == "SAMPLE-AES")
+        m_cryptoMode = CryptoMode::AES_CBC;
+
+      return EncryptionType::CLEARKEY;
+    }
+  }
+
   // Unsupported encryption
-  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", attribs["KEYFORMAT"].c_str());
+  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", keyFormat.c_str());
   return EncryptionType::NOT_SUPPORTED;
 }
 

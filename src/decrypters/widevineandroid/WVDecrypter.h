@@ -81,16 +81,17 @@ public:
   }
 #endif
 
-  virtual std::string SelectKeySytem(std::string_view keySystem) override;
+  virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) override;
 
   virtual bool OpenDRMSystem(std::string_view licenseURL,
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
 
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      std::vector<uint8_t>& pssh,
+      std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       std::string_view defaultKeyId,
+      std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
 

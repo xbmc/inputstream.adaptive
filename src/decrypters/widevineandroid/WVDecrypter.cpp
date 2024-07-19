@@ -8,6 +8,7 @@
 
 #include "WVDecrypter.h"
 
+#include "decrypters/Helpers.h"
 #include "WVCencSingleSampleDecrypter.h"
 #include "common/AdaptiveDecrypter.h"
 #include "jsmn.h"
@@ -82,26 +83,26 @@ void JNIThread(JavaVM* vm)
 }
 #endif
 
-std::string CWVDecrypterA::SelectKeySytem(std::string_view keySystem)
+std::vector<std::string_view> CWVDecrypterA::SelectKeySystems(std::string_view keySystem)
 {
-  LOG::Log(LOGDEBUG, "Key system request: %s", keySystem.data());
-  if (keySystem == "com.widevine.alpha")
+  LOG::Log(LOGDEBUG, "Key system request: %s", keySystem);
+  std::vector<std::string_view> keySystems;
+  if (keySystem == KS_WIDEVINE)
   {
     m_keySystem = WIDEVINE;
-    return "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+    keySystems.push_back(URN_WIDEVINE);
   }
-  else if (keySystem == "com.huawei.wiseplay")
+  else if (keySystem == KS_WISEPLAY)
   {
     m_keySystem = WISEPLAY;
-    return "urn:uuid:3D5E6D35-9B9A-41E8-B843-DD3C6E72C42C";
+    keySystems.push_back(URN_WISEPLAY);
   }
-  else if (keySystem == "com.microsoft.playready")
+  else if (keySystem == KS_PLAYREADY)
   {
     m_keySystem = PLAYREADY;
-    return "urn:uuid:9A04F079-9840-4286-AB92-E65BE0885F95";
+    keySystems.push_back(URN_PLAYREADY);
   }
-
-  return "";
+  return keySystems;
 }
 
 bool CWVDecrypterA::OpenDRMSystem(std::string_view licenseURL,
@@ -111,6 +112,12 @@ bool CWVDecrypterA::OpenDRMSystem(std::string_view licenseURL,
   if (m_keySystem == NONE)
     return false;
 
+  if (licenseURL.empty())
+  {
+    LOG::LogF(LOGERROR, "License Key property cannot be empty");
+    return false;
+  }
+
   m_WVCdmAdapter = new CWVCdmAdapterA(m_keySystem, licenseURL, serverCertificate,
                                       m_mediaDrmEventListener.get(), this);
 
@@ -118,14 +125,15 @@ bool CWVDecrypterA::OpenDRMSystem(std::string_view licenseURL,
 }
 
 Adaptive_CencSingleSampleDecrypter* CWVDecrypterA::CreateSingleSampleDecrypter(
-    std::vector<uint8_t>& pssh,
+    std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
     std::string_view defaultKeyId,
+    std::string_view licenseUrl,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
   CWVCencSingleSampleDecrypterA* decrypter = new CWVCencSingleSampleDecrypterA(
-      *m_WVCdmAdapter, pssh, optionalKeyParameter, defaultKeyId, this);
+      *m_WVCdmAdapter, initData, optionalKeyParameter, defaultKeyId, this);
 
   {
     std::lock_guard<std::mutex> lk(m_decrypterListMutex);

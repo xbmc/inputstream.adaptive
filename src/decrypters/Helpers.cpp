@@ -11,6 +11,7 @@
 #include "utils/DigestMD5Utils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
+#include "utils/log.h"
 
 using namespace UTILS;
 
@@ -44,4 +45,24 @@ std::string DRM::GenerateUrlDomainHash(std::string_view url)
   md5.Update(baseDomain.c_str(), static_cast<uint32_t>(baseDomain.size()));
   md5.Finalize();
   return md5.HexDigest();
+}
+
+std::string DRM::UrnToSystemId(std::string_view urn)
+{
+  std::string sysId{urn.substr(9)}; // Remove prefix "urn:uuid:"
+  STRING::ReplaceAll(sysId, "-", "");
+
+  if (sysId.size() != 32)
+  {
+    LOG::Log(LOGERROR, "Cannot convert URN (%s) to System ID", urn.data());
+    return "";
+  }
+  return sysId;
+}
+
+bool DRM::IsKeySystemSupported(std::string_view keySystem)
+{
+  return keySystem == DRM::KS_NONE || keySystem == DRM::KS_WIDEVINE ||
+    keySystem == DRM::KS_PLAYREADY || keySystem == DRM::KS_WISEPLAY ||
+    keySystem == DRM::KS_CLEARKEY;
 }

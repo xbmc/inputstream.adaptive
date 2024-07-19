@@ -10,6 +10,8 @@
 
 #include "log.h"
 
+#include <regex>
+
 using namespace UTILS::BASE64;
 
 namespace
@@ -18,6 +20,7 @@ constexpr char PADDING{'='};
 constexpr std::string_view CHARACTERS{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                       "abcdefghijklmnopqrstuvwxyz"
                                       "0123456789+/"};
+constexpr std::string_view REGEX("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$");
 // clang-format off
 constexpr unsigned char BASE64_TABLE[] = {
     255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
@@ -199,4 +202,10 @@ std::string UTILS::BASE64::DecodeToStr(std::string_view input)
   std::vector<uint8_t> output;
   Decode(input.data(), input.size(), output);
   return {output.begin(), output.end()};
+}
+
+bool UTILS::BASE64::IsValidBase64(const std::string& input)
+{
+  std::regex base64Regex(REGEX.data());
+  return std::regex_match(input, base64Regex);
 }

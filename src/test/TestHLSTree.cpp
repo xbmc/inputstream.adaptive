@@ -39,13 +39,13 @@ protected:
 
   bool OpenTestFileMaster(std::string filePath, std::string url)
   {
-    return OpenTestFileMaster(filePath, url, {}, "");
+    return OpenTestFileMaster(filePath, url, {}, std::vector<std::string_view>{});
   }
 
   bool OpenTestFileMaster(std::string filePath,
                           std::string url,
                           std::map<std::string, std::string> manifestHeaders,
-                          std::string_view supportedKeySystem)
+                          std::vector<std::string_view> supportedKeySystems)
   {
     testHelper::testFile = filePath;
 
@@ -64,7 +64,7 @@ protected:
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_reprChooser, supportedKeySystem, "");
+    tree->Configure(m_reprChooser, supportedKeySystems, "");
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
@@ -212,8 +212,8 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlash)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
@@ -228,8 +228,8 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
       tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
@@ -241,7 +241,8 @@ TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  EXPECT_EQ(tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  EXPECT_EQ(tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl,
+            "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelative)
@@ -253,8 +254,8 @@ TEST_F(HLSTreeTest, ParseKeyUriRelative)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
@@ -271,8 +272,8 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
       tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string kidUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_kidUrl;
-  EXPECT_EQ(kidUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
+  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
@@ -342,7 +343,7 @@ TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrmNoKSMaster)
   testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
   bool ret = OpenTestFileMaster("hls/encrypt_master_drm.m3u8",
-                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, "");
+                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, std::vector<std::string_view>{});
   EXPECT_EQ(ret, false);
 }
 
@@ -354,7 +355,7 @@ TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrmNoKS)
   testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
   bool ret = OpenTestFileMaster("hls/encrypt_master.m3u8",
-                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, "");
+                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, std::vector<std::string_view>{});
 
   EXPECT_EQ(ret, true);
 
@@ -380,7 +381,7 @@ TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrm)
   testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
   bool ret = OpenTestFileMaster("hls/encrypt_master_drm.m3u8",
-                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, UUID_WIDEVINE);
+    "https://baz.qux/hls/video/stream_name/master.m3u8", {}, std::vector<std::string_view>{URN_WIDEVINE});
 
   EXPECT_EQ(ret, true);
 

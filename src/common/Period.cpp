@@ -43,7 +43,7 @@ uint16_t PLAYLIST::CPeriod::InsertPSSHSet(const PSSHSet& psshSet)
 {
   auto itPssh = m_psshSets.end();
 
-  if (psshSet.m_kidUrl.empty())
+  if (psshSet.m_licenseUrl.empty())
   {
     // Find the psshSet by skipping the first one of the list (for unencrypted streams)
     // note that PSSHSet struct has a custom comparator for std::find
