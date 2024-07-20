@@ -98,7 +98,7 @@ namespace adaptive
     // A manifest can provide live delay value, if not so we use our default
     // value of 16 secs, this is needed to ensure an appropriate playback,
     // an add-on can override the delay to try fix edge use cases
-    uint64_t liveDelay = CSrvBroker::GetKodiProps().GetLiveDelay();
+    uint64_t liveDelay = CSrvBroker::GetKodiProps().GetManifestConfig().liveDelay;
     if (liveDelay >= 16)
       m_liveDelay = liveDelay;
     else if (m_liveDelay < 16)

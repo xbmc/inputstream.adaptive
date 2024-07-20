@@ -58,6 +58,8 @@ struct ManifestConfig
   // Faulty HLS live services can send manifest updates with inconsistent EXT-X-DISCONTINUITY-SEQUENCE
   // enabling this will correct the value by using EXT-X-PROGRAM-DATE-TIME tags
   bool hlsFixDiscontSequence{false};
+  // Custom delay from LIVE edge in seconds
+  uint64_t liveDelay{0};
 };
 
 struct DrmCfg
@@ -98,8 +100,6 @@ public:
 
   // \brief Specify to start playing a LIVE stream from the beginning of the buffer instead of its end
   bool IsPlayTimeshift() const { return m_playTimeshiftBuffer; }
-  // \brief Get a custom delay from LIVE edge in seconds
-  uint64_t GetLiveDelay() const { return m_liveDelay; }
 
   /*
    * \brief Get data to "pre-initialize" the DRM, if set is represented as a string
@@ -140,7 +140,6 @@ private:
   std::map<std::string, std::string> m_streamHeaders;
   std::string m_audioLanguageOrig;
   bool m_playTimeshiftBuffer{false};
-  uint64_t m_liveDelay{0};
   std::string m_drmPreInitData;
   ChooserProps m_chooserProps;
   Config m_config;
