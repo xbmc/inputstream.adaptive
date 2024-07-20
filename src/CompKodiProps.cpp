@@ -357,12 +357,17 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       continue;
     }
 
-    if (jDictVal.HasMember("keyids") && jDictVal["keyids"].IsObject())
+    if (jDictVal.HasMember("license") && jDictVal["license"].IsObject())
     {
-      for (auto const& keyid : jDictVal["keyids"].GetObject())
+      auto& jDictLic = jDictVal["license"];
+
+      if (jDictLic.HasMember("keyids") && jDictLic["keyids"].IsArray())
       {
-        if (keyid.name.IsString() && keyid.value.IsString())
-          drmCfg.m_keys[keyid.name.GetString()] = (keyid.value.GetString());
+        for (auto const& keyid : jDictLic["keyids"].GetObject())
+        {
+          if (keyid.name.IsString() && keyid.value.IsString())
+            drmCfg.m_keys[keyid.name.GetString()] = (keyid.value.GetString());
+        }
       }
     }
   }
