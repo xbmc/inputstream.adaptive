@@ -38,7 +38,6 @@ constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_dat
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
 
-constexpr std::string_view PROP_MANIFEST_TYPE = "inputstream.adaptive.manifest_type"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
@@ -112,25 +111,6 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     {
       m_serverCertificate = prop.second;
       logPropValRedacted = true;
-    }
-    else if (prop.first == PROP_MANIFEST_TYPE) //! @todo: deprecated, to be removed on next Kodi release
-    {
-      LOG::Log(
-          LOGWARNING,
-          "Warning \"inputstream.adaptive.manifest_type\" property is deprecated and "
-          "will be removed next Kodi version, the manifest type is now automatically detected.\n"
-          "If you are using a proxy remember to add the appropriate \"content-type\" header "
-          "to the HTTP manifest response\nSee Wiki page \"How to provide custom manifest/license\" "
-          "to learn more about it.");
-
-      if (STRING::CompareNoCase(prop.second, "MPD"))
-        m_manifestType = ManifestType::MPD;
-      else if (STRING::CompareNoCase(prop.second, "ISM"))
-        m_manifestType = ManifestType::ISM;
-      else if (STRING::CompareNoCase(prop.second, "HLS"))
-        m_manifestType = ManifestType::HLS;
-      else
-        LOG::LogF(LOGERROR, "Manifest type \"%s\" is not supported", prop.second.c_str());
     }
     else if (prop.first ==
              PROP_MANIFEST_UPD_PARAM) //! @todo: deprecated, to be removed on next Kodi release

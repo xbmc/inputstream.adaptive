@@ -26,14 +26,6 @@ namespace ADP
 namespace KODI_PROPS
 {
 
-enum class ManifestType // Deprecated
-{
-  UNKNOWN = 0,
-  MPD,
-  ISM,
-  HLS
-};
-
 // Chooser's properties that will override XML settings
 struct ChooserProps
 {
@@ -88,7 +80,6 @@ public:
   bool IsLicenseForceSecDecoder() const { return m_isLicenseForceSecureDecoder; }
 
   std::string_view GetServerCertificate() const { return m_serverCertificate; }
-  ManifestType GetManifestType() const { return m_manifestType; } // Deprecated
 
   std::string GetManifestUpdParam() const { return m_manifestUpdateParam; } // Deprecated
   // \brief HTTP parameters used to download manifest updates
@@ -143,7 +134,6 @@ private:
   bool m_isLicensePersistentStorage{false};
   bool m_isLicenseForceSecureDecoder{false};
   std::string m_serverCertificate;
-  ManifestType m_manifestType{ManifestType::UNKNOWN}; // Deprecated
   std::string m_manifestUpdateParam; // Deprecated
   std::string m_manifestUpdParams;
   std::string m_manifestParams;
