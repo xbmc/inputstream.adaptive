@@ -38,7 +38,6 @@ constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_dat
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
 
-constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
 constexpr std::string_view PROP_MANIFEST_UPD_PARAMS = "inputstream.adaptive.manifest_upd_params";
@@ -111,22 +110,6 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     {
       m_serverCertificate = prop.second;
       logPropValRedacted = true;
-    }
-    else if (prop.first ==
-             PROP_MANIFEST_UPD_PARAM) //! @todo: deprecated, to be removed on next Kodi release
-    {
-      LOG::Log(
-          LOGWARNING,
-          "Warning \"inputstream.adaptive.manifest_update_parameter\" property is deprecated and"
-          " will be removed next Kodi version, use \"inputstream.adaptive.manifest_upd_params\""
-          " instead.\nSee Wiki integration page for more details.");
-      if (prop.second == "full")
-      {
-        LOG::Log(LOGERROR, "The parameter \"full\" is no longer supported. For problems with live "
-                           "streaming contents please open an Issue to the GitHub repository.");
-      }
-      else
-        m_manifestUpdateParam = prop.second;
     }
     else if (prop.first == PROP_MANIFEST_UPD_PARAMS)
     {

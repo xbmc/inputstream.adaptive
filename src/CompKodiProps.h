@@ -81,7 +81,6 @@ public:
 
   std::string_view GetServerCertificate() const { return m_serverCertificate; }
 
-  std::string GetManifestUpdParam() const { return m_manifestUpdateParam; } // Deprecated
   // \brief HTTP parameters used to download manifest updates
   std::string GetManifestUpdParams() const { return m_manifestUpdParams; }
   // \brief HTTP parameters used to download manifests
@@ -134,7 +133,6 @@ private:
   bool m_isLicensePersistentStorage{false};
   bool m_isLicenseForceSecureDecoder{false};
   std::string m_serverCertificate;
-  std::string m_manifestUpdateParam; // Deprecated
   std::string m_manifestUpdParams;
   std::string m_manifestParams;
   std::map<std::string, std::string> m_manifestHeaders;

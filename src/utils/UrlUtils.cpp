@@ -141,21 +141,6 @@ bool UTILS::URL::IsUrlRelativeLevel(std::string_view url)
   return (url.compare(0, 3, PREFIX_DOUBLE_DOT) == 0);
 }
 
-std::string UTILS::URL::GetParametersFromPlaceholder(std::string& url, std::string_view placeholder)
-{
-  std::string::size_type phPos = url.find(placeholder);
-  if (phPos != std::string::npos)
-  {
-    while (phPos && url[phPos] != '&' && url[phPos] != '?')
-    {
-      --phPos;
-    }
-    if (phPos > 0)
-      return url.substr(phPos);
-  }
-  return "";
-}
-
 std::string UTILS::URL::GetParameters(std::string& url) {
   size_t paramsPos = url.find('?');
   if (paramsPos != std::string::npos)

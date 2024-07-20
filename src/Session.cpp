@@ -173,25 +173,6 @@ bool CSession::Initialize()
   }
 
   std::string manifestUrl = m_manifestUrl;
-  std::string manifestUpdateParam = kodiProps.GetManifestUpdParams();
-
-  if (manifestUpdateParam.empty())
-  {
-    //! @todo: In the next version of kodi, remove this hack of adding the $START_NUMBER$ parameter
-    //!        to the manifest url which is forcibly cut and copied to the manifest update request url,
-    //!        this seem used by YouTube addon only, adaptations are relatively simple
-    manifestUpdateParam = kodiProps.GetManifestUpdParam();
-    if (manifestUpdateParam.empty() && STRING::Contains(manifestUrl, "$START_NUMBER$"))
-    {
-      LOG::Log(LOGWARNING,
-               "The misuse of adding params with $START_NUMBER$ placeholder to the "
-               "manifest url has been deprecated and will be removed on next Kodi version.\n"
-               "Please use \"manifest_upd_params\" Kodi property to set manifest update "
-               "parameters, see Wiki integration page.");
-      manifestUpdateParam = URL::GetParametersFromPlaceholder(manifestUrl, "$START_NUMBER$");
-      manifestUrl.resize(manifestUrl.size() - manifestUpdateParam.size());
-    }
-  }
 
   URL::AppendParameters(manifestUrl, kodiProps.GetManifestParams());
 
@@ -214,7 +195,7 @@ bool CSession::Initialize()
   if (!m_adaptiveTree)
     return false;
 
-  m_adaptiveTree->Configure(m_reprChooser, supportedKeySystems, manifestUpdateParam);
+  m_adaptiveTree->Configure(m_reprChooser, supportedKeySystems, kodiProps.GetManifestUpdParams());
 
   if (!m_adaptiveTree->Open(manifestResp.effectiveUrl, manifestResp.headers, manifestResp.data))
   {
