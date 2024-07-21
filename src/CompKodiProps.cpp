@@ -11,6 +11,7 @@
 #include "CompSettings.h"
 #include "decrypters/Helpers.h"
 #include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
 #include "utils/Utils.h"
 #include "utils/log.h"
 
@@ -53,6 +54,7 @@ constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_d
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
 constexpr std::string_view PROP_DRM = "inputstream.adaptive.drm";
+constexpr std::string_view PROP_DRM_LEGACY = "inputstream.adaptive.drm_legacy";
 
 // Chooser's properties
 constexpr std::string_view PROP_STREAM_SELECTION_TYPE = "inputstream.adaptive.stream_selection_type";
@@ -194,6 +196,14 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
       if (!ParseDrmConfig(prop.second))
         LOG::LogF(LOGERROR, "Cannot parse \"%s\" property, wrong or malformed data.",
           prop.first.c_str());
+
+      logPropValRedacted = true;
+    }
+    else if (prop.first == PROP_DRM_LEGACY && !prop.second.empty())
+    {
+      if (!ParseDrmLegacyConfig(prop.second))
+        LOG::LogF(LOGERROR, "Cannot parse \"%s\" property, wrong or malformed data.",
+                  prop.first.c_str());
 
       logPropValRedacted = true;
     }
@@ -372,5 +382,88 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
     }
   }
 
+  return true;
+}
+
+bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& data)
+{
+  // Legacy way to configure a DRM.
+  // Designed to have a minimal configuration for the most common use cases using a single DRM.
+
+  /* Expected TEXT structure:
+   * [DRM KeySystem] | [License server URL or KeyId's] | [License server headers]
+   *
+   * From 1 to 3 fields, splitted by pipes
+   */
+
+  std::vector<std::string> pipedCfg = STRING::SplitToVec(data, '|');
+  if (pipedCfg.size() > 3)
+  {
+    LOG::LogF(LOGERROR, "Malformed value on the DRM legacy property");
+    return false;
+  }
+
+  std::string keySystem = STRING::Trim(pipedCfg[0]);
+
+  std::string licenseStr;
+  if (pipedCfg.size() > 1)
+    licenseStr = STRING::Trim(pipedCfg[1]);
+
+  std::string licenseHeaders;
+  if (pipedCfg.size() > 2)
+    licenseHeaders = STRING::Trim(pipedCfg[2]);
+
+  if (!DRM::IsKeySystemSupported(keySystem))
+  {
+    LOG::LogF(LOGERROR, "Unknown key system \"%s\" on DRM legacy property", keySystem.data());
+    return false;
+  }
+
+  m_licenseType = keySystem;
+
+  // Clear existing value to prevent possible mix with other similar properties
+  m_licenseKey.clear();
+
+  if (!licenseStr.empty())
+  {
+    if (URL::IsValidUrl(licenseStr)) // License server URL
+    {
+      m_licenseKey = licenseStr;
+    }
+    else // Assume are keyid's for ClearKey DRM
+    {
+      // Expected TEXT structure: "kid1:key1,kid2:key2,..."
+      DrmCfg& drmCfg = m_drmConfigs[keySystem];
+      std::vector<std::string> keyIdPair = STRING::SplitToVec(licenseStr, ',');
+
+      for (const std::string& keyPairStr : keyIdPair)
+      {
+        std::vector<std::string> keyPair = STRING::SplitToVec(keyPairStr, ':');
+        if (keyPair.size() != 2)
+        {
+          LOG::LogF(LOGERROR, "Ignored malformed ClearKey kid/key pair");
+          continue;
+        }
+        drmCfg.m_keys[STRING::Trim(keyPair[0])] = STRING::Trim(keyPair[1]);
+      }
+    }
+  }
+
+  //! @todo: temporary stored default DRM values here just for convenience
+  //! since we need to construct the "license key" string
+  //! these values are stored also on DRM's implementation,
+  //! they must be placed in an appropriate place with the future DRM config rework
+  if (licenseHeaders.empty())
+  {
+    if (keySystem == DRM::KS_WIDEVINE)
+      licenseHeaders = "Content-Type=application%2Foctet-stream";
+    else if (keySystem == DRM::KS_PLAYREADY)
+      licenseHeaders = "Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%"
+                       "2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense";
+    else if (keySystem == DRM::KS_WISEPLAY)
+      licenseHeaders = "Content-Type=application/json";
+  }
+
+  m_licenseKey += "|" + licenseHeaders + "|R{SSM}|R";
   return true;
 }
