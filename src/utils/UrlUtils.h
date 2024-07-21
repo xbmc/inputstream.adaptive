@@ -37,16 +37,6 @@ bool IsUrlRelative(std::string_view url);
  */
 bool IsUrlRelativeLevel(std::string_view url);
 
-/*! \brief Get URL parameters starting from the parameter referred to the value
- *   placeholder until the end. E.g. with placeholder "$START_NUMBER$"
- *   from "https://foo.bar/dash.mpd?start_seq=$START_NUMBER$"
- *   will return "?start_seq=$START_NUMBER$"
- *  \param url An URL with parameteres
- *  \param placeholder The value placeholder name of a parameter
- *  \return The parameters referred to the placeholder until the end of url
- */
-std::string GetParametersFromPlaceholder(std::string& url, std::string_view placeholder);
-
 /*! \brief Get URL parameters e.g. "?q=something"
  *  \param url An URL
  *  \return The URL parameters

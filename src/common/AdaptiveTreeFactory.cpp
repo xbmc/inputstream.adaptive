@@ -24,30 +24,12 @@ using namespace UTILS;
 adaptive::AdaptiveTree* PLAYLIST_FACTORY::CreateAdaptiveTree(
     const UTILS::CURL::HTTPResponse& manifestResp)
 {
-  TreeType type = TreeType::UNKNOWN;
-
-  // Add-on can override manifest type
-  //! @todo: deprecated, to be removed on next Kodi release
-  ADP::KODI_PROPS::ManifestType manifestTypeProp = CSrvBroker::GetKodiProps().GetManifestType();
-
   // Detect the manifest type
-  if (manifestTypeProp == ADP::KODI_PROPS::ManifestType::UNKNOWN)
-  {
-    std::string contentType;
-    if (STRING::KeyExists(manifestResp.headers, "content-type"))
-      contentType = manifestResp.headers.at("content-type");
+  std::string contentType;
+  if (STRING::KeyExists(manifestResp.headers, "content-type"))
+    contentType = manifestResp.headers.at("content-type");
 
-    type = InferManifestType(manifestResp.effectiveUrl, contentType, manifestResp.data);
-  }
-  else
-  {
-    if (manifestTypeProp == ADP::KODI_PROPS::ManifestType::MPD)
-      type = TreeType::DASH;
-    else if (manifestTypeProp == ADP::KODI_PROPS::ManifestType::HLS)
-      type = TreeType::HLS;
-    else if (manifestTypeProp == ADP::KODI_PROPS::ManifestType::ISM)
-      type = TreeType::SMOOTH_STREAMING;
-  }
+  TreeType type = InferManifestType(manifestResp.effectiveUrl, contentType, manifestResp.data);
 
   switch (type)
   {

@@ -38,8 +38,6 @@ constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_dat
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
 
-constexpr std::string_view PROP_MANIFEST_TYPE = "inputstream.adaptive.manifest_type"; //! @todo: deprecated, to be removed on next Kodi release
-constexpr std::string_view PROP_MANIFEST_UPD_PARAM = "inputstream.adaptive.manifest_update_parameter"; //! @todo: deprecated, to be removed on next Kodi release
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
 constexpr std::string_view PROP_MANIFEST_UPD_PARAMS = "inputstream.adaptive.manifest_upd_params";
@@ -50,12 +48,11 @@ constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_he
 
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
-constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
+constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay"; //! @todo: deprecated to be removed on Kodi 23
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
 constexpr std::string_view PROP_DRM = "inputstream.adaptive.drm";
-constexpr std::string_view PROP_INTERNAL_COOKIES = "inputstream.adaptive.internal_cookies"; //! @todo: to remove on Kodi 22
 
 // Chooser's properties
 constexpr std::string_view PROP_STREAM_SELECTION_TYPE = "inputstream.adaptive.stream_selection_type";
@@ -113,41 +110,6 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
       m_serverCertificate = prop.second;
       logPropValRedacted = true;
     }
-    else if (prop.first == PROP_MANIFEST_TYPE) //! @todo: deprecated, to be removed on next Kodi release
-    {
-      LOG::Log(
-          LOGWARNING,
-          "Warning \"inputstream.adaptive.manifest_type\" property is deprecated and "
-          "will be removed next Kodi version, the manifest type is now automatically detected.\n"
-          "If you are using a proxy remember to add the appropriate \"content-type\" header "
-          "to the HTTP manifest response\nSee Wiki page \"How to provide custom manifest/license\" "
-          "to learn more about it.");
-
-      if (STRING::CompareNoCase(prop.second, "MPD"))
-        m_manifestType = ManifestType::MPD;
-      else if (STRING::CompareNoCase(prop.second, "ISM"))
-        m_manifestType = ManifestType::ISM;
-      else if (STRING::CompareNoCase(prop.second, "HLS"))
-        m_manifestType = ManifestType::HLS;
-      else
-        LOG::LogF(LOGERROR, "Manifest type \"%s\" is not supported", prop.second.c_str());
-    }
-    else if (prop.first ==
-             PROP_MANIFEST_UPD_PARAM) //! @todo: deprecated, to be removed on next Kodi release
-    {
-      LOG::Log(
-          LOGWARNING,
-          "Warning \"inputstream.adaptive.manifest_update_parameter\" property is deprecated and"
-          " will be removed next Kodi version, use \"inputstream.adaptive.manifest_upd_params\""
-          " instead.\nSee Wiki integration page for more details.");
-      if (prop.second == "full")
-      {
-        LOG::Log(LOGERROR, "The parameter \"full\" is no longer supported. For problems with live "
-                           "streaming contents please open an Issue to the GitHub repository.");
-      }
-      else
-        m_manifestUpdateParam = prop.second;
-    }
     else if (prop.first == PROP_MANIFEST_UPD_PARAMS)
     {
       // Should not happen that an add-on try to force the old "full" parameter value
@@ -181,9 +143,14 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     {
       m_playTimeshiftBuffer = STRING::CompareNoCase(prop.second, "true");
     }
-    else if (prop.first == PROP_LIVE_DELAY)
+    else if (prop.first == PROP_LIVE_DELAY) //! @todo: deprecated to be removed on Kodi 23
     {
-      m_liveDelay = STRING::ToUint64(prop.second); //! @todo: move to PROP_MANIFEST_CONFIG
+      LOG::Log(LOGWARNING,
+               "Warning \"inputstream.adaptive.live_delay\" property is deprecated and"
+               " will be removed next Kodi version, use \"inputstream.adaptive.manifest_config\""
+               " instead.\nSee Wiki integration page for more details.");
+
+      m_manifestConfig.liveDelay = STRING::ToUint64(prop.second);
     }
     else if (prop.first == PROP_PRE_INIT_DATA)
     {
@@ -217,14 +184,6 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     else if (prop.first == PROP_CONFIG)
     {
       ParseConfig(prop.second);
-    }
-    else if (prop.first == PROP_INTERNAL_COOKIES)
-    {
-      LOG::Log(LOGERROR,
-               "Warning \"inputstream.adaptive.internal_cookies\" property has been moved to the new "
-               "\"inputstream.adaptive.config\". The old property will be removed from next Kodi 22.\n"
-               "See Wiki integration page for more details.");
-      m_config.internalCookies = STRING::CompareNoCase(prop.second, "true");
     }
     else if (prop.first == PROP_MANIFEST_CONFIG)
     {
@@ -342,6 +301,10 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& dat
     else if (configName == "hls_fix_discsequence" && jDictVal.IsBool())
     {
        m_manifestConfig.hlsFixDiscontSequence = jDictVal.GetBool();
+    }
+    else if (configName == "live_delay" && jDictVal.IsUint64())
+    {
+      m_manifestConfig.liveDelay = jDictVal.GetUint64();
     }
     else
     {
