@@ -136,6 +136,7 @@ private:
   void ParseManifestConfig(const std::string& data);
 
   bool ParseDrmConfig(const std::string& data);
+  bool ParseDrmLegacyConfig(const std::string& data);
 
   std::string m_licenseType;
   std::string m_licenseKey;
