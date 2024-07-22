@@ -218,14 +218,12 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
   // For multi-periods streaming must be ensured the duration of each period:
   // - If "duration" attribute is provided on each Period tag, do nothing
   // - If "duration" attribute is missing, but "start" attribute, use this last one to calculate the duration
-  // - If both attributes are missing, try get the duration from a representation
+  // - If both attributes are missing, try get the duration from a representation,
+  //   e.g. a single period in a live stream the duration must be determined by the available segments
 
   uint64_t totalDuration{0}; // Calculated duration, in ms
   uint64_t mpdTotalDuration = m_mediaPresDuration; // MPD total duration, in ms
-  if (mpdTotalDuration == 0)
-    mpdTotalDuration = m_timeShiftBufferDepth;
 
-  if (!IsLive())
   {
     for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
     {
@@ -287,6 +285,9 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
       ++itPeriod;
     }
   }
+
+  if (mpdTotalDuration == 0)
+    mpdTotalDuration = m_timeShiftBufferDepth;
 
   if (mpdTotalDuration > 0)
     m_totalTime = mpdTotalDuration;
