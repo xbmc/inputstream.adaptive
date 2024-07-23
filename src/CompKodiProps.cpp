@@ -232,7 +232,7 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     LOG::Log(
       LOGERROR,
       "The \"inputstream.adaptive.license_key\" property cannot be used to configure ClearKey DRM,\n"
-      "use \"inputstream.adaptive.drm\" instead.\nSee Wiki integration page for more details.");
+      "use \"inputstream.adaptive.drm_legacy\" instead.\nSee Wiki integration page for more details.");
     m_licenseKey.clear();
   }
 }
