@@ -233,6 +233,7 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     {
       ParseManifestConfig(prop.second);
     }
+    /* for future DRM properties rework
     else if (prop.first == PROP_DRM && !prop.second.empty())
     {
       if (!ParseDrmConfig(prop.second))
@@ -241,6 +242,7 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
 
       logPropValRedacted = true;
     }
+    */
     else if (prop.first == PROP_DRM_LEGACY && !prop.second.empty())
     {
       if (!ParseDrmLegacyConfig(prop.second))
@@ -274,7 +276,7 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     LOG::Log(
       LOGERROR,
       "The \"inputstream.adaptive.license_key\" property cannot be used to configure ClearKey DRM,\n"
-      "use \"inputstream.adaptive.drm\" instead.\nSee Wiki integration page for more details.");
+      "use \"inputstream.adaptive.drm_legacy\" instead.\nSee Wiki integration page for more details.");
     m_licenseKey.clear();
   }
 }
