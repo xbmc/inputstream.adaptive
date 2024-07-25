@@ -114,7 +114,7 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     if (STRING::KeyExists(keys, hexDefKid))
       UTILS::STRING::ToHexBytes(keys.at(hexDefKid), hexKey);
     else
-      LOG::LogF(LOGERROR, "Missing KeyId \"%s\" on DRM configuration");
+      LOG::LogF(LOGERROR, "Missing KeyId \"%s\" on DRM configuration", defaultKeyId.data());
   }
 
   const AP4_UI08* ap4Key = reinterpret_cast<const AP4_UI08*>(hexKey.data());
