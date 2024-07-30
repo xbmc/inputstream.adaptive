@@ -10,6 +10,8 @@
 
 #include "../common/AdaptiveTreeFactory.h"
 #include "../common/SegTemplate.h"
+#include "../utils/DigestMD5Utils.h"
+#include "../utils/StringUtils.h"
 #include "../utils/UrlUtils.h"
 #include "../utils/XMLUtils.h"
 
@@ -265,4 +267,23 @@ TEST_F(UtilsTest, XMLDateTimeConversions)
   EXPECT_EQ(XML::ParseDate("2024-05-07T17:00:21"), 1715101221);
 
   EXPECT_EQ(XML::ParseDate("2024-05-07T17:00:21.989+0200"), 1715101221.989);
+}
+
+TEST_F(UtilsTest, MD5HashTest)
+{
+  std::string strTest = "Test";
+  DIGEST::MD5 md5;
+  md5.Update(strTest.c_str(), static_cast<uint32_t>(strTest.size()));
+  md5.Finalize();
+  
+  EXPECT_EQ(md5.HexDigest(), "0cbc6611f5540bd0809a388dc95a615b");
+}
+
+TEST_F(UtilsTest, UrlEncodeDecode)
+{
+  const std::string strTest = "abc123-._!()~&%\xC3\xA8\xC3\xB9"; // abc123-._!()~&%ищ
+  std::string encoded = STRING::URLEncode(strTest);
+
+  EXPECT_EQ(encoded, "abc123-._!()~%26%25%C3%A8%C3%B9");
+  EXPECT_EQ(STRING::URLDecode(encoded), strTest);
 }
