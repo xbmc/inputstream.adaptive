@@ -623,7 +623,7 @@ void CdmAdapter::OnSessionKeysChange(const char* session_id,
     char buffer[128];
     char* bufferPtr{buffer};
     for (uint32_t j{0}; j < keys_info[i].key_id_size; ++j)
-      bufferPtr += sprintf(bufferPtr, "%02X", (int)keys_info[i].key_id[j]);
+      bufferPtr += std::snprintf(bufferPtr, 3, "%02X", (int)keys_info[i].key_id[j]);
     LOG::Log(LOGDEBUG, "%s: Sessionkey %s status: %d syscode: %u", __func__, buffer,
                  keys_info[i].status, keys_info[i].system_code);
 
