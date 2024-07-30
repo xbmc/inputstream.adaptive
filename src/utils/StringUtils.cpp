@@ -150,8 +150,8 @@ std::string UTILS::STRING::URLEncode(std::string_view strURLData)
     else
     {
       result.append("%");
-      char buf[3];
-      sprintf(buf, "%.2X", c);
+      char buf[4]; // 3 chars + null
+      std::snprintf(buf, 4, "%.2X", static_cast<unsigned char>(c));
       result.append(buf);
     }
   }

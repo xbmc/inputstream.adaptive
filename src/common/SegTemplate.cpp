@@ -13,7 +13,7 @@
 
 #include "kodi/tools/StringUtils.h"
 
-#include <cstdio> // sprintf
+#include <cstdio> // snprintf
 
 using namespace PLAYLIST;
 using namespace UTILS;
@@ -198,7 +198,7 @@ std::string PLAYLIST::CSegmentTemplate::FormatIdentifier(std::string_view identi
   }
 
   char substitution[128];
-  if (std::sprintf(substitution, formatTag.c_str(), value) > 0)
+  if (std::snprintf(substitution, 128, formatTag.c_str(), value) > 0)
     return substitution;
   else
     LOG::LogF(LOGERROR, "Cannot convert value \"%llu\" with \"%s\" format tag", value,
