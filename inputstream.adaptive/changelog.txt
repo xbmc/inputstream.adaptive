@@ -1,3 +1,17 @@
+v22.1.0 (2024-07-30)
+- Implemented DRM ClearKey support (for Dash, HLS only)
+- New property inputstream.adaptive.drm_legacy easy way to configure DRM, see details on Wiki
+- New property inputstream.adaptive.config allow to configure curl SSL verify peer and cookies, see details on Wiki
+- [HLS] Fix crash / video freeze when switching stream quality with adaptive streaming
+- [DASH] Fix regression on live streaming video seek
+- [DASH] Fix lost attribute data with manifests that have adaptation set switching
+- Deprecated inputstream.adaptive.internal_cookies, moved to the new inputstream.adaptive.config
+- Updated bento4 dependency to upstream (C++20 compatibility)
+- Updated rapidjson dependency to upstream
+- Deprecated inputstream.adaptive.live_delay, moved to inputstream.adaptive.manifest_config
+- Removed deprecated property inputstream.adaptive.manifest_type
+- Removed deprecated property inputstream.adaptive.manifest_update_parameter
+
 v21.4.10 (2024-06-24)
 - Fix problem on live streams where buffering block subtitles processing
 - Limited subtitles PTS workaround to HLS attempt to make Dash work
