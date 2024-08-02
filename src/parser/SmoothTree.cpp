@@ -189,8 +189,8 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
   if (protParser.HasProtection() && (adpSet->GetStreamType() == StreamType::VIDEO ||
                                      adpSet->GetStreamType() == StreamType::AUDIO))
   {
-    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(),
-                               protParser.GetPSSH(), protParser.GetKID());
+    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(), protParser.GetPSSH(),
+                               STRING::ToHexadecimal(protParser.GetKID()));
   }
 
   adpSet->SetLanguage(XML::GetAttrib(nodeSI, "Language"));

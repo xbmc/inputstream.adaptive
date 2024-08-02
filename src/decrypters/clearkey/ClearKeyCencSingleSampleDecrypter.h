@@ -17,15 +17,15 @@ class CClearKeyCencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecry
 {
 public:
   CClearKeyCencSingleSampleDecrypter(std::string_view licenseUrl,
-                                     std::string_view defaultKeyId,
+                                     const std::vector<uint8_t>& defaultKeyId,
                                      CClearKeyDecrypter* host);
   CClearKeyCencSingleSampleDecrypter(const std::vector<uint8_t>& initdata,
-                                     std::string_view defaultKeyId,
+                                     const std::vector<uint8_t>& defaultKeyId,
                                      const std::map<std::string, std::string>& keys,
                                      CClearKeyDecrypter* host);
   virtual ~CClearKeyCencSingleSampleDecrypter(){};
-  void AddSessionKey(std::string_view keyId);
-  bool HasKeyId(std::string_view keyid);
+  void AddSessionKey(const std::vector<uint8_t>& keyId);
+  bool HasKeyId(const std::vector<uint8_t>& keyid);
   virtual AP4_Result SetFragmentInfo(AP4_UI32 pool_id,
                                      const std::vector<uint8_t>& key,
                                      const AP4_UI08 nal_length_size,
@@ -42,17 +42,17 @@ public:
                                        unsigned int subsample_count,
                                        const AP4_UI16* bytes_of_cleartext_data,
                                        const AP4_UI32* bytes_of_encrypted_data) override;
-  std::string CreateLicenseRequest(std::string_view defaultKeyId);
+  std::string CreateLicenseRequest(const std::vector<uint8_t>& defaultKeyId);
   bool ParseLicenseResponse(std::string data);
-  void SetDefaultKeyId(std::string_view keyId) override{};
-  void AddKeyId(std::string_view keyId) override{};
+  void SetDefaultKeyId(const std::vector<uint8_t>& keyId) override{};
+  void AddKeyId(const std::vector<uint8_t>& keyId) override{};
   bool HasKeys() { return !m_keyIds.empty(); }
 
 private:
   AP4_CencSingleSampleDecrypter* m_singleSampleDecrypter{nullptr};
   std::string m_strSession;
   std::string m_licenceDefaultKeyId;
-  std::vector<std::string> m_keyIds;
+  std::vector<std::vector<uint8_t>> m_keyIds;
   std::map<std::string, std::string> m_keyPairs;
   CClearKeyDecrypter* m_host;
 };

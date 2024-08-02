@@ -10,6 +10,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace DRM
 {
@@ -45,5 +46,30 @@ std::string GenerateUrlDomainHash(std::string_view url);
  * \return The System ID, otherwise empty if fails.
  */
 std::string UrnToSystemId(std::string_view urn);
+
+/*!
+ * \brief Convert a hexdecimal KeyId of 32 chars to 16 bytes.
+ * \param kidStr The hexdecimal KeyId
+ * \return KeyId as bytes, otherwise empty if fails.
+ */
+std::vector<uint8_t> ConvertKidStrToBytes(std::string_view kidStr);
+
+/*!
+ * \brief Convert a KeyId of 16 bytes to a KeyId UUID format.
+ * \param kidStr The hexdecimal KeyId
+ * \return The KeyId UUID, otherwise empty if fails.
+ */
+std::string ConvertKidBytesToUUID(std::vector<uint8_t> kid);
+
+/*!
+ * \brief Convert a PlayReady KeyId of 16 bytes to a Widevine KeyId.
+ * \param kid The PlayReady KeyId
+ * \return The Widevine KeyId, otherwise empty if fails.
+ */
+std::vector<uint8_t> ConvertPrKidtoWvKid(std::vector<uint8_t> kid);
+
+bool CreateISMlicense(std::string_view kidStr,
+                      std::string_view licenseData,
+                      std::vector<uint8_t>& initData);
 
 }; // namespace DRM

@@ -8,10 +8,10 @@
 
 #include "PRProtectionParser.h"
 
+#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CharArrayParser.h"
 #include "utils/StringUtils.h"
-#include "utils/Utils.h"
 #include "utils/XMLUtils.h"
 #include "utils/log.h"
 #include "pugixml.hpp"
@@ -141,13 +141,13 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
 
   if (!kidBase64.empty())
   {
-    std::string kid = BASE64::DecodeToStr(kidBase64);
-    if (kid.size() == 16)
+    std::vector<uint8_t> prKid = BASE64::Decode(kidBase64);
+    if (prKid.size() == 16)
     {
-      m_KID = ConvertKIDtoWVKID(kid);
+      m_KID = DRM::ConvertPrKidtoWvKid(prKid);
     }
     else
-      LOG::LogF(LOGWARNING, "KID size %zu instead of 16, KID ignored.", kid.size());
+      LOG::LogF(LOGWARNING, "KID size %zu instead of 16, KID ignored.", prKid.size());
   }
 
   xml_node nodeLAURL = nodeDATA.child("LA_URL");
@@ -196,8 +196,11 @@ bool adaptive::CPsshParser::Parse(const std::vector<uint8_t>& data)
     {
       if (charParser.CharsLeft() < 16)
         return false;
-      std::string kid = charParser.ReadNextString(16);
-      m_keyIds.emplace_back(kid);
+
+      std::vector<uint8_t> kid;
+      if (charParser.ReadNextArray(16, kid))
+        m_keyIds.emplace_back(kid);
+
       kidCount--;
     }
   }
