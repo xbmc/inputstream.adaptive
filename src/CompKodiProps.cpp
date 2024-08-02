@@ -32,9 +32,9 @@ constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key"
 // PROP_LICENSE_KEY dont have enough space also because include other parameters
 // so we provide two properties allow set an url split into two 1024-character parts
 // see: https://github.com/xbmc/xbmc/issues/23903#issuecomment-1755264854
-// this problem should be fixed on Kodi 22
-constexpr std::string_view PROP_LICENSE_URL = "inputstream.adaptive.license_url";
-constexpr std::string_view PROP_LICENSE_URL_APPEND = "inputstream.adaptive.license_url_append";
+// -> this problem has been fixed on Kodi 22
+constexpr std::string_view PROP_LICENSE_URL = "inputstream.adaptive.license_url"; //! @todo: deprecated to be removed on Kodi 23
+constexpr std::string_view PROP_LICENSE_URL_APPEND = "inputstream.adaptive.license_url_append"; //! @todo: deprecated to be removed on Kodi 23
 constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_data";
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
@@ -86,12 +86,22 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     }
     else if (prop.first == PROP_LICENSE_URL)
     {
+      LOG::Log(
+          LOGWARNING,
+          "Warning \"inputstream.adaptive.license_url\" property for PVR API bug is deprecated and "
+          "will be removed on next Kodi version. This because the PVR API bug has been fixed on "
+          "Kodi v22. Please use the appropriate properties to set the DRM configuration.");
       // If PROP_LICENSE_URL_APPEND is parsed before this one, we need to append it
       licenseUrl = prop.second + licenseUrl;
       logPropValRedacted = true;
     }
     else if (prop.first == PROP_LICENSE_URL_APPEND)
     {
+      LOG::Log(
+          LOGWARNING,
+          "Warning \"inputstream.adaptive.license_url_append\" property for PVR API bug is deprecated and "
+          "will be removed on next Kodi version. This because the PVR API bug has been fixed on "
+          "Kodi v22. Please use the appropriate properties to set the DRM configuration.");
       licenseUrl += prop.second;
       logPropValRedacted = true;
     }
