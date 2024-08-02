@@ -26,7 +26,7 @@
 using namespace UTILS;
 
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
-    std::string_view licenseUrl, std::string_view defaultKeyId, CClearKeyDecrypter* host)
+    std::string_view licenseUrl, const std::vector<uint8_t>& defaultKeyId, CClearKeyDecrypter* host)
   : m_host(host)
 {
   if (licenseUrl.empty())
@@ -76,7 +76,7 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     return;
   }
 
-  const std::string b64DefaultKeyId = UTILS::BASE64::Encode(defaultKeyId.data());
+  const std::string b64DefaultKeyId = UTILS::BASE64::Encode(defaultKeyId);
   if (!STRING::KeyExists(m_keyPairs, b64DefaultKeyId))
   {
     LOG::LogF(LOGERROR, "Key not found on license server response");
@@ -96,7 +96,7 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
 
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     const std::vector<uint8_t>& initData,
-    std::string_view defaultKeyId,
+    const std::vector<uint8_t>& defaultKeyId,
     const std::map<std::string, std::string>& keys,
     CClearKeyDecrypter* host)
   : m_host(host)
@@ -124,17 +124,17 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
   AddSessionKey(defaultKeyId);
 }
 
-void CClearKeyCencSingleSampleDecrypter::AddSessionKey(std::string_view keyId)
+void CClearKeyCencSingleSampleDecrypter::AddSessionKey(const std::vector<uint8_t>& keyId)
 {
   if (std::find(m_keyIds.begin(), m_keyIds.end(), keyId) == m_keyIds.end())
-    m_keyIds.push_back(std::string(keyId));
+    m_keyIds.emplace_back(keyId);
 }
 
-bool CClearKeyCencSingleSampleDecrypter::HasKeyId(std::string_view keyid)
+bool CClearKeyCencSingleSampleDecrypter::HasKeyId(const std::vector<uint8_t>& keyid)
 {
   if (!keyid.empty())
   {
-    for (const std::string& key : m_keyIds)
+    for (const std::vector<uint8_t>& key : m_keyIds)
     {
       if (key == keyid)
         return true;
@@ -161,7 +161,8 @@ AP4_Result CClearKeyCencSingleSampleDecrypter::DecryptSampleData(
                           bytes_of_encrypted_data);
 }
 
-std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(std::string_view defaultKeyId)
+std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(
+    const std::vector<uint8_t>& defaultKeyId)
 {
   // github.com/Dash-Industry-Forum/ClearKey-Content-Protection/blob/master/README.md
   /* Expected JSON structure for license request:
@@ -171,9 +172,8 @@ std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(std::string
    *     ]
    * "type":"temporary" }
    */
-  std::string kid{defaultKeyId};
-  UTILS::STRING::ReplaceAll(kid, "-", "");
-  std::string b64Kid = UTILS::BASE64::Encode(kid);
+
+  std::string b64Kid = UTILS::BASE64::Encode(defaultKeyId);
   UTILS::STRING::ReplaceAll(b64Kid, "=", "");
 
   rapidjson::Document jDoc;

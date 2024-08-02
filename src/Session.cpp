@@ -327,11 +327,11 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   initData = BASE64::Decode(psshData);
 
   // Decode the provided KID
-  std::string decKid{BASE64::DecodeToStr(kidData)};
+  const std::vector<uint8_t> decKid = BASE64::Decode(kidData);
 
   CCdmSession& session(m_cdmSessions[1]);
 
-  std::string hexKid{StringUtils::ToHexadecimal(decKid)};
+  std::string hexKid{STRING::ToHexadecimal(decKid)};
   LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
 
   if (m_decrypter && (session.m_cencSingleSampleDecrypter =
@@ -420,7 +420,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
             LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming, based on "
                                "license data property");
           }
-          CreateISMlicense(sessionPsshset.defaultKID_, licenseData, initData);
+          DRM::CreateISMlicense(sessionPsshset.defaultKID_, licenseData, initData);
         }
         else if (licenseType == "com.microsoft.playready")
         {
@@ -462,7 +462,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       }
 
       CCdmSession& session{m_cdmSessions[ses]};
-      std::string defaultKid = sessionPsshset.defaultKID_;
+      const std::vector<uint8_t> defaultKid = DRM::ConvertKidStrToBytes(sessionPsshset.defaultKID_);
 
       if (addDefaultKID && ses == 1 && session.m_cencSingleSampleDecrypter)
       {
@@ -475,8 +475,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       if (m_decrypter && !defaultKid.empty())
       {
-        LOG::Log(LOGDEBUG, "Initializing stream with KID: %s",
-                 STRING::ToHexadecimal(defaultKid).c_str());
+        LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", sessionPsshset.defaultKID_.c_str());
 
         for (size_t i{1}; i < ses; ++i)
         {
@@ -1509,8 +1508,7 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
                   AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)) };
               if (tenc)
               {
-                sessionPsshset.defaultKID_ =
-                  std::string(reinterpret_cast<const char*>(tenc->GetDefaultKid()), 16);
+                sessionPsshset.defaultKID_ = STRING::ToHexadecimal(tenc->GetDefaultKid(), 16);
               }
               else
               {
@@ -1519,8 +1517,7 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
                                      schi->GetChild(AP4_UUID_PIFF_TRACK_ENCRYPTION_ATOM, 0)) };
                 if (piff)
                 {
-                  sessionPsshset.defaultKID_ =
-                    std::string(reinterpret_cast<const char*>(piff->GetDefaultKid()), 16);
+                  sessionPsshset.defaultKID_ = STRING::ToHexadecimal(piff->GetDefaultKid(), 16);
                 }
               }
             }

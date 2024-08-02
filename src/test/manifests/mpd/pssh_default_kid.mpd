@@ -22,7 +22,7 @@
           <Initialization xmlns="urn:mpeg:dash:schema:mpd:2011" range="0-1477"/>
         </SegmentBase>
       </Representation>
-      <ContentProtection xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:_="urn:mpeg:cenc:2013" schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc" cenc:default_KID="01004b6f-0835-b807-9098-c070dc30a6c7"/>
+      <ContentProtection xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:_="urn:mpeg:cenc:2013" schemeIdUri="urn:mpeg:dash:mp4protection:2011" value="cenc" cenc:default_KID="01004b6f0835b8079098c070dc30a6c7"/>
       <ContentProtection xmlns="urn:mpeg:dash:schema:mpd:2011" schemeIdUri="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed">
         <cenc:pssh xmlns="urn:mpeg:cenc:2013">AAAANHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABQIARIQnrQFDeRLSAKTLifXUIPiZg==</cenc:pssh>
       </ContentProtection>

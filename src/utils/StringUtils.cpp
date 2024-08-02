@@ -306,6 +306,22 @@ std::string UTILS::STRING::ToHexadecimal(std::string_view str)
   return ss.str();
 }
 
+std::string UTILS::STRING::ToHexadecimal(const uint8_t* str, const size_t size)
+{
+  std::ostringstream ss;
+  ss << std::hex;
+  for (size_t i = 0; i < size; ++i)
+  {
+    ss << std::setw(2) << std::setfill('0') << static_cast<unsigned long>(str[i]);
+  }
+  return ss.str();
+}
+
+std::string UTILS::STRING::ToHexadecimal(const std::vector<uint8_t> data)
+{
+  return ToHexadecimal(data.data(), data.size());
+}
+
 std::string UTILS::STRING::Trim(std::string value)
 {
   StringUtils::Trim(value);

@@ -25,19 +25,19 @@ public:
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
-      std::string_view defaultkeyid,
+      const std::vector<uint8_t>& defaultkeyid,
       std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
   virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
   virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                               std::string_view keyid,
+                               const std::vector<uint8_t>& keyid,
                                uint32_t media,
                                DRM::DecrypterCapabilites& caps) override
   {
   }
   virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                             std::string_view keyid) override;
+                             const std::vector<uint8_t>& keyid) override;
   virtual bool IsInitialised() override { return true; }
   virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override
   {
