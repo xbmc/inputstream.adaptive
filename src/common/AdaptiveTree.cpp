@@ -197,6 +197,10 @@ namespace adaptive
 
     if (IsLive())
     {
+      // Assume that if the period is the last, it never ends until segments can no longer be downloaded
+      if (m_periods.back().get() == segPeriod)
+        return false;
+
       if (segPeriod->GetDuration() > 0 && segPeriod->GetStart() != NO_VALUE)
       {
         const uint64_t pDurMs = segPeriod->GetDuration() * 1000 / segPeriod->GetTimescale();
