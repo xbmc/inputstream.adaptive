@@ -25,11 +25,7 @@ constexpr uint32_t AP4_TRACK_ID_UNKNOWN = -1;
 std::vector<uint8_t> AnnexbToHvcc(const char* b16Data);
 std::vector<uint8_t> AnnexbToAvc(const char* b16Data);
 std::vector<uint8_t> AvcToAnnexb(const std::vector<uint8_t>& avc);
-std::string ConvertKIDtoWVKID(std::string_view kid);
-std::string ConvertKIDtoUUID(std::string_view kid);
-bool CreateISMlicense(std::string_view key,
-                      std::string_view licenseData,
-                      std::vector<uint8_t>& initData);
+
 void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std::string& header);
 
 /*!

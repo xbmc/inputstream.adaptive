@@ -24,7 +24,7 @@ public:
   /*! \brief Add a Key ID to the current session
    *  \param keyId The KID
    */
-  virtual void AddKeyId(std::string_view keyId)
+  virtual void AddKeyId(const std::vector<uint8_t>& keyId)
   {
     throw std::logic_error("AddKeyId method not implemented.");
   };
@@ -32,7 +32,7 @@ public:
   /*! \brief Set a Key ID as default
    *  \param keyId The KID
    */
-  virtual void SetDefaultKeyId(std::string_view keyId)
+  virtual void SetDefaultKeyId(const std::vector<uint8_t>& keyId)
   {
     throw std::logic_error("SetDefaultKeyId method not implemented.");
   };

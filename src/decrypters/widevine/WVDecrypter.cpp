@@ -103,7 +103,7 @@ bool CWVDecrypter::OpenDRMSystem(std::string_view licenseURL,
 Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
-    std::string_view defaultKeyId,
+    const std::vector<uint8_t>& defaultKeyId,
     std::string_view licenseUrl,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
@@ -129,7 +129,7 @@ void CWVDecrypter::DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypt
 }
 
 void CWVDecrypter::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                   std::string_view keyId,
+                                   const std::vector<uint8_t>& keyId,
                                    uint32_t media,
                                    DecrypterCapabilites& caps)
 {
@@ -143,7 +143,7 @@ void CWVDecrypter::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter
 }
 
 bool CWVDecrypter::HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                 std::string_view keyId)
+                                 const std::vector<uint8_t>& keyId)
 {
   if (decrypter)
     return static_cast<CWVCencSingleSampleDecrypter*>(decrypter)->HasKeyId(keyId);

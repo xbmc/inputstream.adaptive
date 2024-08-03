@@ -225,6 +225,26 @@ std::vector<uint8_t> ToVecUint8(std::string_view str);
 std::string ToHexadecimal(std::string_view str);
 
 /*!
+ * \brief Convert each character in the array to its hexadecimal
+ *        representation and return the concatenated result.
+ *        Example: "abc" -> "616263"
+ * \param str The array to be converted
+ * \param size The size of the array
+ * \return The string on its hexadecimal representation
+ */
+std::string ToHexadecimal(const uint8_t* str, const size_t size);
+
+/*!
+ * \brief Convert each character in the vector to its hexadecimal
+ *        representation and return the concatenated result.
+ *        Example: "abc" -> "616263"
+ * \param str The array to be converted
+ * \param size The size of the array
+ * \return The string on its hexadecimal representation
+ */
+std::string ToHexadecimal(const std::vector<uint8_t> data);
+
+/*!
  * \brief Trim a string with remove of not wanted spaces at begin and end of string.
  * \param value The string to be trimmed
  * \return The string trimmed

@@ -1249,16 +1249,13 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
 
     if (STRING::KeyExists(attribs, "KEYID"))
     {
-      std::string keyid = attribs["KEYID"].substr(2);
-      const char* defaultKID = keyid.c_str();
-      m_currentDefaultKID.resize(16);
-      for (unsigned int i(0); i < 16; ++i)
-      {
-        m_currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
-        ++defaultKID;
-        m_currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
-        ++defaultKID;
-      }
+      std::string keyid = attribs["KEYID"];
+      STRING::ToLower(keyid);
+
+      if (STRING::StartsWith(keyid, "0x"))
+        m_currentDefaultKID = keyid.substr(2); // To remove "0x"
+      else
+        LOG::LogF(LOGERROR, "Incorrect KEYID tag format");
     }
 
     // If there is no KID, try to get it from pssh data
@@ -1266,7 +1263,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     {
       CPsshParser parser;
       if (parser.Parse(m_currentPssh) && parser.GetKeyIds().size() > 0)
-        m_currentDefaultKID = parser.GetKeyIds()[0];
+        m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKeyIds()[0]);
     }
 
     if (encryptMethod == "SAMPLE-AES-CTR")
@@ -1300,19 +1297,16 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
 
       if (STRING::KeyExists(attribs, "KEYID"))
       {
-        std::string keyid = attribs["KEYID"].substr(2);
-        const char* defaultKID = keyid.c_str();
-        m_currentDefaultKID.resize(16);
-        for (unsigned int i(0); i < 16; ++i)
-        {
-          m_currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
-          ++defaultKID;
-          m_currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
-          ++defaultKID;
-        }
+        std::string keyid = attribs["KEYID"];
+        STRING::ToLower(keyid);
+
+        if (STRING::StartsWith(keyid, "0x"))
+          m_currentDefaultKID = keyid.substr(2); // To remove "0x"
+        else
+          LOG::LogF(LOGERROR, "Incorret KEYID tag format");
       }
       else if (uriUrl.empty()) // No kid provided, assume key == kid
-        m_currentDefaultKID.assign(uriData.begin(), uriData.end());
+        m_currentDefaultKID = STRING::ToHexadecimal(uriData);
 
       if (encryptMethod == "SAMPLE-AES-CTR")
         m_cryptoMode = CryptoMode::AES_CTR;
