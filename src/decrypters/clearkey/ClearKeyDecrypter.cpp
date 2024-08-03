@@ -34,7 +34,7 @@ bool CClearKeyDecrypter::OpenDRMSystem(std::string_view licenseURL,
 Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
-    std::string_view defaultkeyid,
+    const std::vector<uint8_t>& defaultkeyid,
     std::string_view licenseUrl,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
@@ -68,7 +68,7 @@ void CClearKeyDecrypter::DestroySingleSampleDecrypter(Adaptive_CencSingleSampleD
 }
 
 bool CClearKeyDecrypter::HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                       std::string_view keyId)
+                                       const std::vector<uint8_t>& keyId)
 {
   if (decrypter)
     return static_cast<CClearKeyCencSingleSampleDecrypter*>(decrypter)->HasKeyId(keyId);

@@ -34,17 +34,17 @@ public:
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
-      std::string_view defaultKeyId,
+      const std::vector<uint8_t>& defaultKeyId,
       std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
   virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
   virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                               std::string_view keyId,
+                               const std::vector<uint8_t>& keyId,
                                uint32_t media,
                                DecrypterCapabilites& caps) override;
   virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                             std::string_view keyId) override;
+                             const std::vector<uint8_t>& keyId) override;
   virtual bool IsInitialised() override { return m_WVCdmAdapter != nullptr; }
   virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override;
   virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,

@@ -1287,7 +1287,7 @@ void adaptive::CDashTree::ParseTagContentProtection(
       {
         PRProtectionParser parser;
         if (parser.ParseHeader(node.child_value()))
-          protScheme.kid = parser.GetKID();
+          protScheme.kid = STRING::ToHexadecimal(parser.GetKID());
       }
     }
 
@@ -1363,27 +1363,9 @@ bool adaptive::CDashTree::GetProtectionData(
   if (!selectedPssh.empty())
     pssh = BASE64::Decode(selectedPssh);
 
-  if (!selectedKid.empty())
-  {
-    if (selectedKid.size() == 36)
-    {
-      const char* selectedKidPtr = selectedKid.c_str();
-      kid.resize(16);
-      for (size_t i{0}; i < 16; i++)
-      {
-        if (i == 4 || i == 6 || i == 8 || i == 10)
-          selectedKidPtr++;
-        kid[i] = STRING::ToHexNibble(*selectedKidPtr) << 4;
-        selectedKidPtr++;
-        kid[i] |= STRING::ToHexNibble(*selectedKidPtr);
-        selectedKidPtr++;
-      }
-    }
-    else
-    {
-      kid = selectedKid;
-    }
-  }
+  // There are no constraints on the Kid format, it is recommended to be as UUID but not mandatory
+  STRING::ReplaceAll(selectedKid, "-", "");
+  kid = selectedKid;
 
   return isEncrypted;
 }

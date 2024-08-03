@@ -13,6 +13,7 @@
 #include "WVCdmAdapter.h"
 #include "WVDecrypter.h"
 #include "jsmn.h"
+#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/DigestMD5Utils.h"
@@ -29,7 +30,7 @@ using namespace kodi::tools;
 CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
                                                              std::vector<uint8_t>& pssh,
                                                              std::string_view optionalKeyParameter,
-                                                             std::string_view defaultKeyId,
+                                                             const std::vector<uint8_t>& defaultKeyId,
                                                              CWVDecrypterA* host)
   : m_mediaDrm(drm),
     m_isProvisioningRequested(false),
@@ -173,14 +174,14 @@ std::vector<char> CWVCencSingleSampleDecrypterA::GetChallengeData()
   return m_keyRequestData;
 }
 
-bool CWVCencSingleSampleDecrypterA::HasLicenseKey(std::string_view keyId)
+bool CWVCencSingleSampleDecrypterA::HasLicenseKey(const std::vector<uint8_t>& keyId)
 {
   // true = one session for all streams, false = one sessions per stream
   // false fixes pixaltion issues on some devices when manifest has multiple encrypted streams
   return true;
 }
 
-void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
+void CWVCencSingleSampleDecrypterA::GetCapabilities(const std::vector<uint8_t>& keyId,
                                                     uint32_t media,
                                                     DecrypterCapabilites& caps)
 {
@@ -503,12 +504,12 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
       {
         if (blocks[2][kidPos - 1] == 'H')
         {
-          std::string keyIdUUID{StringUtils::ToHexadecimal(m_defaultKeyId)};
+          std::string keyIdUUID{STRING::ToHexadecimal(m_defaultKeyId)};
           blocks[2].replace(kidPos - 1, 6, keyIdUUID.c_str(), 32);
         }
         else
         {
-          std::string kidUUID{ConvertKIDtoUUID(m_defaultKeyId)};
+          std::string kidUUID{DRM::ConvertKidBytesToUUID(m_defaultKeyId)};
           blocks[2].replace(kidPos, 5, kidUUID.c_str(), 36);
           kidPlaceholderLen = 5;
         }
