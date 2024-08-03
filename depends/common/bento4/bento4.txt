@@ -1,1 +1,1 @@
-bento4 https://github.com/xbmc/Bento4/archive/refs/tags/1.6.0-641-2-Omega.tar.gz
+bento4 https://github.com/xbmc/Bento4/archive/refs/tags/1.6.0-641-3-Omega.tar.gz
