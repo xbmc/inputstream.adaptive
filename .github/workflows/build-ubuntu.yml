@@ -1,0 +1,69 @@
+name: Build on Ubuntu
+on: [push, pull_request]
+env:
+  app_id: inputstream.adaptive
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: "Ubuntu x64 (GCC-14) package test"
+          os: ubuntu-24.04
+          CC: gcc
+          CXX: g++
+          GCC14_BUILD: true
+          ZIP_NAME_SUFFIX: linux_x64_gcc14
+        - name: "Ubuntu x64 package test"
+          os: ubuntu-latest
+          CC: gcc
+          CXX: g++
+          GCC14_BUILD: false
+          ZIP_NAME_SUFFIX: linux_x64
+    steps:
+    - name: Install GCC-14
+      if: ${{ matrix.GCC14_BUILD == true }}
+      run: |
+        sudo apt update
+        sudo apt install g++-14 gcc-14
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+    - name: Checkout Kodi repo
+      uses: actions/checkout@v4
+      with:
+        repository: xbmc/xbmc
+        ref: master
+        path: xbmc
+    - name: Checkout add-on repo
+      uses: actions/checkout@v4
+      with:
+        path: ${{ env.app_id }}
+    - name: Configure
+      env:
+        CC: ${{ matrix.CC }}
+        CXX: ${{ matrix.CXX }}
+      run: |
+        cd ${app_id} && mkdir -p build && cd build
+        cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=${{ github.workspace }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/xbmc/addons -DPACKAGE_ZIP=1 -DPACKAGE_DIR=${{ github.workspace }}/build_zips ${{ github.workspace }}/xbmc/cmake/addons
+    - name: Build
+      env:
+        CC: ${{ matrix.CC }}
+        CXX: ${{ matrix.CXX }}
+      run: |
+        cd ${app_id}/build
+        make
+    - name: Run tests
+      run: |
+        cd ${app_id}/build/${app_id}-prefix/src/${app_id}-build
+        make CTEST_OUTPUT_ON_FAILURE=1 GTEST_COLOR=1 test
+    - name: Make ZIP artifact
+      run: |
+        cd ${{ github.workspace }}/xbmc/addons
+        zip -r inputstream.adaptive.zip inputstream.adaptive
+    - name: Upload zipped artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.app_id }}_${{ matrix.ZIP_NAME_SUFFIX }}.zip
+        path: ${{ github.workspace }}/xbmc/addons/inputstream.adaptive.zip
