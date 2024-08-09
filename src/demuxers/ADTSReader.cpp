@@ -429,7 +429,7 @@ bool ADTSReader::ReadPacket()
     if ((id3Ret = m_id3TagParser.parse(m_stream)) == ID3TAG::PARSE_SUCCESS)
       continue;
     else if (id3Ret == ID3TAG::PARSE_FAIL)
-      break;
+      return false;
 
     if (m_id3TagParser.getPts(m_basePts))
       m_frameParser.resetFrameCount();
