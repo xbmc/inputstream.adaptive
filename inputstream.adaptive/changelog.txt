@@ -1,3 +1,7 @@
+v21.5.2 (2024-08-10)
+[HLS] Fix playback stop problem with some AAC streams
+Fix builds with GCC-14
+
 v21.5.1 (2024-08-03)
 - [Dash] Fix playback stall/crash with manifest having default kid as non-UUID format
 - [Dash] Fix some live streams affected by playback stop regression
