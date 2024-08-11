@@ -388,7 +388,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       }
     }
 
-    std::string_view licenseData = CSrvBroker::GetKodiProps().GetLicenseData();
     std::string_view licenseType = CSrvBroker::GetKodiProps().GetLicenseType();
 
     // cdmSession 0 is reserved for unencrypted streams
@@ -401,7 +400,9 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       if (sessionPsshset.adaptation_set_->GetStreamType() == StreamType::NOTYPE)
         continue;
-            
+
+      std::string_view licenseData = CSrvBroker::GetKodiProps().GetLicenseData();
+
       if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING)
       {
         if (licenseType == "com.widevine.alpha")
