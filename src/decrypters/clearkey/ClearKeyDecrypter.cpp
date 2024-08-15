@@ -40,15 +40,20 @@ Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecryp
     CryptoMode cryptoMode)
 {
   CClearKeyCencSingleSampleDecrypter* decrypter = nullptr;
-  auto& keys = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).m_keys;
+  auto& cfgLic = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).license;
 
-  if (!keys.empty() || !initData.empty()) // Keys provided from manifest or Kodi property
+  // If keys / license url are provided by Kodi property, those of the manifest will be overwritten
+
+  if (!cfgLic.serverUrl.empty())
+    licenseUrl = cfgLic.serverUrl;
+
+  if ((!cfgLic.keys.empty() || !initData.empty()) && cfgLic.serverUrl.empty()) // Keys provided from manifest or Kodi property
   {
-    decrypter = new CClearKeyCencSingleSampleDecrypter(initData, defaultkeyid, keys, this);
+    decrypter = new CClearKeyCencSingleSampleDecrypter(initData, defaultkeyid, cfgLic.keys, this);
   }
   else // Clearkey license server URL provided
   {
-    decrypter = new CClearKeyCencSingleSampleDecrypter(licenseUrl, defaultkeyid, this);
+    decrypter = new CClearKeyCencSingleSampleDecrypter(licenseUrl, cfgLic.reqHeaders, defaultkeyid, this);
   }
 
   if (!decrypter->HasKeys())

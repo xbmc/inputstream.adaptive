@@ -17,6 +17,7 @@ class CClearKeyCencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecry
 {
 public:
   CClearKeyCencSingleSampleDecrypter(std::string_view licenseUrl,
+                                     const std::map<std::string, std::string>& licenseHeaders,
                                      const std::vector<uint8_t>& defaultKeyId,
                                      CClearKeyDecrypter* host);
   CClearKeyCencSingleSampleDecrypter(const std::vector<uint8_t>& initdata,

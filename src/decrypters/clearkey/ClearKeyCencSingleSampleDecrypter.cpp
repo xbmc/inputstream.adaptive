@@ -26,7 +26,10 @@
 using namespace UTILS;
 
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
-    std::string_view licenseUrl, const std::vector<uint8_t>& defaultKeyId, CClearKeyDecrypter* host)
+    std::string_view licenseUrl,
+    const std::map<std::string, std::string>& licenseHeaders,
+    const std::vector<uint8_t>& defaultKeyId,
+    CClearKeyDecrypter* host)
   : m_host(host)
 {
   if (licenseUrl.empty())
@@ -47,6 +50,8 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
   CURL::CUrl curl{licenseUrl};
   curl.AddHeader("Accept", "application/json");
   curl.AddHeader("Content-Type", "application/json");
+  curl.AddHeaders(licenseHeaders);
+
   curl.AddHeader("postdata", UTILS::BASE64::Encode(postData));
 
   std::string response;
