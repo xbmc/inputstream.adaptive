@@ -381,6 +381,12 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
     {
       auto& jDictLic = jDictVal["license"];
 
+      if (jDictLic.HasMember("server_url") && jDictLic["server_url"].IsString())
+        drmCfg.license.serverUrl = jDictLic["server_url"].GetString();
+
+      if (jDictLic.HasMember("req_headers") && jDictLic["req_headers"].IsString())
+        ParseHeaderString(drmCfg.license.reqHeaders, jDictLic["req_headers"].GetString());
+
       if (jDictLic.HasMember("keyids") && jDictLic["keyids"].IsArray())
       {
         for (auto const& keyid : jDictLic["keyids"].GetObject())
