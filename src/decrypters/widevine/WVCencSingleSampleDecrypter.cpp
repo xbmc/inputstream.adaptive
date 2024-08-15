@@ -459,6 +459,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     }
 
     std::string encData{BASE64::Encode(blocks[2])};
+    //! @todo: inappropriate use of "postdata" header, use CURL::CUrl for post request
     file.AddHeader("postdata", encData.c_str());
   }
 
