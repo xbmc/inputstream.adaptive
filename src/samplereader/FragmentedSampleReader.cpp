@@ -28,6 +28,8 @@ namespace
 {
 constexpr uint8_t MP4_TFRFBOX_UUID[] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46, 0x95,
                                         0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f};
+
+constexpr AP4_UI32 MP4_SAMPLE_FORMAT_WVTT = AP4_ATOM_TYPE('w', 'v', 't', 't');
 } // unnamed namespace
 
 
@@ -484,7 +486,7 @@ void CFragmentedSampleReader::UpdateSampleDescription()
       case AP4_SAMPLE_FORMAT_STPP:
         m_codecHandler = new TTMLCodecHandler(desc, false);
         break;
-      case AP4_SAMPLE_FORMAT_WVTT:
+      case MP4_SAMPLE_FORMAT_WVTT:
         m_codecHandler = new WebVTTCodecHandler(desc, false);
         break;
       case AP4_SAMPLE_FORMAT_VP9:
