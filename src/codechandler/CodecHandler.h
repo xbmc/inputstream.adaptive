@@ -20,9 +20,8 @@
 class ATTR_DLL_LOCAL CodecHandler
 {
 public:
-  CodecHandler(AP4_SampleDescription* sd)
-    : m_sampleDescription(sd), m_naluLengthSize(0), m_pictureId(0), m_pictureIdPrev(0xFF){};
-  virtual ~CodecHandler(){};
+  CodecHandler(AP4_SampleDescription* sd) : m_sampleDescription(sd) {}
+  virtual ~CodecHandler() = default;
 
   virtual void UpdatePPSId(const AP4_DataBuffer& buffer) {}
 
@@ -46,9 +45,7 @@ public:
 
   AP4_SampleDescription* m_sampleDescription;
   AP4_DataBuffer m_extraData;
-  AP4_UI08 m_naluLengthSize;
-  AP4_UI08 m_pictureId;
-  AP4_UI08 m_pictureIdPrev;
+  AP4_UI08 m_naluLengthSize{0};
 
   protected:
   bool UpdateInfoCodecName(kodi::addon::InputstreamInfo& info, const char* codecName);
