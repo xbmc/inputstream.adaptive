@@ -386,7 +386,7 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
         for (auto const& keyid : jDictLic["keyids"].GetObject())
         {
           if (keyid.name.IsString() && keyid.value.IsString())
-            drmCfg.m_keys[keyid.name.GetString()] = (keyid.value.GetString());
+            drmCfg.license.keys[keyid.name.GetString()] = (keyid.value.GetString());
         }
       }
     }
@@ -430,15 +430,13 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
   }
 
   m_licenseType = keySystem;
-
-  // Clear existing value to prevent possible mix with other similar properties
-  m_licenseKey.clear();
+  std::string licenseUrl;
 
   if (!licenseStr.empty())
   {
     if (URL::IsValidUrl(licenseStr)) // License server URL
     {
-      m_licenseKey = licenseStr;
+      licenseUrl = licenseStr;
     }
     else // Assume are keyid's for ClearKey DRM
     {
@@ -454,17 +452,24 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
           LOG::LogF(LOGERROR, "Ignored malformed ClearKey kid/key pair");
           continue;
         }
-        drmCfg.m_keys[STRING::Trim(keyPair[0])] = STRING::Trim(keyPair[1]);
+        drmCfg.license.keys[STRING::Trim(keyPair[0])] = STRING::Trim(keyPair[1]);
       }
     }
   }
 
-  //! @todo: temporary stored default DRM values here just for convenience
-  //! since we need to construct the "license key" string
-  //! these values are stored also on DRM's implementation,
-  //! they must be placed in an appropriate place with the future DRM config rework
-  if (licenseHeaders.empty())
+  if (keySystem == DRM::KS_CLEARKEY)
   {
+    DrmCfg& drmCfg = m_drmConfigs[keySystem];
+
+    drmCfg.license.serverUrl = licenseUrl;
+    ParseHeaderString(drmCfg.license.reqHeaders, licenseHeaders);
+  }
+  else if (licenseHeaders.empty())
+  {
+    //! @todo: temporary stored default DRM values here just for convenience
+    //! since we need to construct the "license key" string
+    //! these values are stored also on DRM's implementation,
+    //! they must be placed in an appropriate place with the future DRM config rework
     if (keySystem == DRM::KS_WIDEVINE)
       licenseHeaders = "Content-Type=application%2Foctet-stream";
     else if (keySystem == DRM::KS_PLAYREADY)
@@ -474,6 +479,6 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
       licenseHeaders = "Content-Type=application/json";
   }
 
-  m_licenseKey += "|" + licenseHeaders + "|R{SSM}|R";
+  m_licenseKey = licenseUrl + "|" + licenseHeaders + "|R{SSM}|R";
   return true;
 }
