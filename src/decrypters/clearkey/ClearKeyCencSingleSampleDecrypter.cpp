@@ -178,8 +178,7 @@ std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(
    * "type":"temporary" }
    */
 
-  std::string b64Kid = UTILS::BASE64::Encode(defaultKeyId);
-  UTILS::STRING::ReplaceAll(b64Kid, "=", "");
+  std::string b64Kid = UTILS::BASE64::Encode(defaultKeyId, false);
 
   rapidjson::Document jDoc;
   jDoc.SetObject();
