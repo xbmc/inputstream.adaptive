@@ -88,10 +88,10 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     return;
   }
 
-  std::vector<uint8_t> keyBytes = BASE64::Decode(m_keyPairs[b64DefaultKeyId]);
+  const std::vector<uint8_t> keyBytes = BASE64::Decode(m_keyPairs[b64DefaultKeyId]);
   if (AP4_FAILED(AP4_CencSingleSampleDecrypter::Create(AP4_CENC_CIPHER_AES_128_CTR, keyBytes.data(),
-                                                       16, 0, 0, nullptr, false,
-                                                       m_singleSampleDecrypter)))
+                                                       static_cast<AP4_Size>(keyBytes.size()), 0, 0,
+                                                       nullptr, false, m_singleSampleDecrypter)))
   {
     LOG::LogF(LOGERROR, "Failed to create AP4_CencSingleSampleDecrypter");
   }
@@ -122,9 +122,9 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
       LOG::LogF(LOGERROR, "Missing KeyId \"%s\" on DRM configuration", defaultKeyId.data());
   }
 
-  const AP4_UI08* ap4Key = reinterpret_cast<const AP4_UI08*>(hexKey.data());
-  AP4_CencSingleSampleDecrypter::Create(AP4_CENC_CIPHER_AES_128_CTR, ap4Key, 16, 0, 0, nullptr,
-                                        false, m_singleSampleDecrypter);
+  AP4_CencSingleSampleDecrypter::Create(AP4_CENC_CIPHER_AES_128_CTR, hexKey.data(),
+                                        static_cast<AP4_Size>(hexKey.size()), 0, 0, nullptr, false,
+                                        m_singleSampleDecrypter);
   SetParentIsOwner(false);
   AddSessionKey(defaultKeyId);
 }
