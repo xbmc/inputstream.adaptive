@@ -42,6 +42,13 @@ public:
   * \param url The url of the file to download
   */
   CUrl(std::string_view url);
+
+ /*!
+  * \brief Create CUrl for POST request, if the data are empty, GET will be performed.
+  * \param url The request url
+  * \param postData The data for the POST request
+  */
+  CUrl(std::string_view url, const std::string& postData);
   ~CUrl();
 
  /*!

@@ -8,6 +8,7 @@
 
 #include "CurlUtils.h"
 
+#include "Base64Utils.h"
 #include "StringUtils.h"
 #include "UrlUtils.h"
 #include "Utils.h"
@@ -198,6 +199,14 @@ UTILS::CURL::CUrl::CUrl(std::string_view url)
     // the cookies set by the property will replace these
     if (kodiProps.GetConfig().internalCookies)
       m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "cookie", GetCookies(url));
+  }
+}
+
+UTILS::CURL::CUrl::CUrl(std::string_view url, const std::string& postData) : CUrl::CUrl(url)
+{
+  if (m_file.IsOpen() && !postData.empty())
+  {
+    m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "postdata", BASE64::Encode(postData));
   }
 }
 
