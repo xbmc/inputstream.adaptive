@@ -463,6 +463,9 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
 
     drmCfg.license.serverUrl = licenseUrl;
     ParseHeaderString(drmCfg.license.reqHeaders, licenseHeaders);
+    // Until the future DRM config rework only the ClearKey DRM use the new properties
+    // so return now to keep m_licenseKey empty
+    return true;
   }
   else if (licenseHeaders.empty())
   {
