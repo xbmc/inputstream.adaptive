@@ -68,6 +68,20 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
 {
   std::string licenseUrl;
 
+  if (((STRING::KeyExists(props, PROP_LICENSE_TYPE) || STRING::KeyExists(props, PROP_LICENSE_KEY)) &&
+       (STRING::KeyExists(props, PROP_DRM_LEGACY) || STRING::KeyExists(props, PROP_DRM))) ||
+      (STRING::KeyExists(props, PROP_DRM_LEGACY) && STRING::KeyExists(props, PROP_DRM)))
+  {
+    LOG::Log(LOGERROR, "WRONG DRM CONFIGURATION. A mixed use of DRM properties are not supported.\n"
+                       "Please fix your configuration by setting only one of these:\n"
+                       " - Simple method: \"inputstream.adaptive.drm_legacy\"\n"
+                       " - Advanced method: \"inputstream.adaptive.license_type\" with optional "
+                       "\"inputstream.adaptive.license_key\"\n"
+                       " - NEW Advanced method (WIP, test only): \"inputstream.adaptive.drm\"\n"
+                       "For more details, see the Github Wiki Integration page.");
+    return;
+  }
+
   for (const auto& prop : props)
   {
     bool logPropValRedacted{false};
@@ -344,7 +358,8 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
    *                        "streams_pssh_data" : str,
    *                        "pre_init_data" : str,
    *                        "priority": int, 
-   *                        "keyids": list<dict>},
+   *                        "license": dict,
+   *                        ... },
    *   "keysystem_name_2" : { ... }}
    */
   rapidjson::Document jDoc;
@@ -367,6 +382,9 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       continue;
     }
 
+    //! @todo: m_licenseType temporarily assigned, to remove with the DRM config rework
+    m_licenseType = keySystem;
+
     DrmCfg& drmCfg = m_drmConfigs[keySystem];
     auto& jDictVal = jChildObj.value;
 
@@ -387,7 +405,7 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       if (jDictLic.HasMember("req_headers") && jDictLic["req_headers"].IsString())
         ParseHeaderString(drmCfg.license.reqHeaders, jDictLic["req_headers"].GetString());
 
-      if (jDictLic.HasMember("keyids") && jDictLic["keyids"].IsArray())
+      if (jDictLic.HasMember("keyids") && jDictLic["keyids"].IsObject())
       {
         for (auto const& keyid : jDictLic["keyids"].GetObject())
         {
@@ -396,6 +414,9 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
         }
       }
     }
+
+    //! @todo: temporary support only one DRM config
+    break;
   }
 
   return true;
