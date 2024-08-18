@@ -12,6 +12,7 @@
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
 #include "decrypters/Helpers.h"
+#include "utils/log.h"
 
 std::vector<std::string_view> CClearKeyDecrypter::SelectKeySystems(std::string_view keySystem)
 {
@@ -39,6 +40,12 @@ Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecryp
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
+  if (cryptoMode != CryptoMode::AES_CTR)
+  {
+    LOG::LogF(LOGERROR, "Cannot initialize ClearKey DRM. Only \"cenc\" encryption supported.");
+    return nullptr;
+  }
+
   CClearKeyCencSingleSampleDecrypter* decrypter = nullptr;
   auto& cfgLic = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).license;
 
