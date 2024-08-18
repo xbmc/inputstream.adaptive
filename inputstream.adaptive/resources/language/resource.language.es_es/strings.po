@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2024-04-22 15:36+0000\n"
+"PO-Revision-Date: 2024-08-14 15:26+0000\n"
 "Last-Translator: roliverosc <roliverosc@hotmail.com>\n"
 "Language-Team: Spanish (Spain) <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/es_es/>\n"
 "Language: es_es\n"
@@ -13,7 +13,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.4.3\n"
+"X-Generator: Weblate 5.6.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -69,7 +69,7 @@ msgstr "Ignorar resolución de pantalla"
 #. Description of setting with label #30115
 msgctxt "#30116"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
-msgstr "Si está habilitado, la resolución de la pantalla (o tamaño de ventana cuando está en modo ventana) ya no se considerará al seleccionar la mejor resolución de transmisión de vídeo cuando se inicie el vídeo y durante la reproducción."
+msgstr "Si está activado, la resolución de la pantalla (o tamaño de ventana cuando está en modo ventana) ya no se considerará al seleccionar la mejor resolución de transmisión de vídeo cuando se inicie el vídeo y durante la reproducción."
 
 msgctxt "#30117"
 msgid "Manual stream selection mode"
@@ -78,7 +78,7 @@ msgstr "Modo de selección manual de transmisión"
 #. Description of setting with label #30117
 msgctxt "#30118"
 msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
-msgstr "Define qué tipo de transmisiones estarán disponibles para la selección manual en la configuración OSD de Kodi durante la reproducción."
+msgstr "Define qué tipo de transmisiones estarán disponibles para la selección manual en los ajustes OSD de Kodi durante la reproducción."
 
 #. Category title
 msgctxt "#30120"
@@ -88,12 +88,12 @@ msgstr "Experto"
 # empty string with id 30121
 msgctxt "#30122"
 msgid "Try avoiding the use of secure decoder"
-msgstr "Intentar evitar el uso de un decodificador seguro"
+msgstr "Intentar evitar el uso de decodificador seguro"
 
 #. Description of setting with label #30122
 msgctxt "#30123"
 msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
-msgstr "Es posible que algunos dispositivos Android definidos como Widevine L1 no funcionen correctamente, lo que puede provocar una pantalla negra durante la reproducción. En este caso intente habilitarlo."
+msgstr "Es posible que algunos dispositivos Android definidos como Widevine L1 no funcionen correctamente, lo que puede provocar una pantalla negra durante la reproducción. En este caso intente activarlo."
 
 # empty strings from id 30124 to 30155
 #. Item list value of setting with label #30117
@@ -139,16 +139,16 @@ msgstr "DRM Widevine"
 
 msgctxt "#30167"
 msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
-msgstr "ADVERTENCIA: Esta es una función de PRUEBA, es posible que no funcione correctamente y puede cambiar en versiones futuras."
+msgstr "ADVERTENCIA: Esta es una función en PRUEBAS, es posible que no funcione correctamente y que pueda cambiar en versiones futuras."
 
 msgctxt "#30168"
 msgid "Auto determines initial bandwidth"
-msgstr "Determinar automáticamente el ancho de banda inicial"
+msgstr "Determinar automáticamente ancho de banda inicial"
 
 #. Description of setting with label #30168
 msgctxt "#30169"
 msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
-msgstr "Si está habilitado, el ancho de banda lo determinará la primera descarga; sin embargo, es posible que no sea exacto. Si la calidad del vídeo al inicio de la reproducción es demasiado baja, intente desactivarla."
+msgstr "Si está activado, el ancho de banda lo determinará la primera descarga; sin embargo, es posible que no sea exacto. Si la calidad del vídeo al inicio de la reproducción es demasiado baja, intente desactivarlo."
 
 msgctxt "#30170"
 msgid "Initial bandwidth (Kbps)"
@@ -176,7 +176,7 @@ msgstr "Tipo de selección de transmisión"
 #. Description of setting with label #30174
 msgctxt "#30175"
 msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
-msgstr "Establezca cómo se elegirá la calidad de las transmisiones de audio/vídeo durante la reproducción. Esta configuración puede ser anulada por el complemento de vídeo utilizado. Consulte la Wiki para obtener más información."
+msgstr "Establezca cómo se elegirá la calidad de las transmisiones de audio y vídeo durante la reproducción. Esta configuración puede ser anulada por el complemento de vídeo utilizado. Consulte la Wiki para obtener más información."
 
 #. Item list value of setting with label #30174
 msgctxt "#30176"
@@ -222,7 +222,7 @@ msgstr "Ignorar cambio de resolución de pantalla"
 #. Description of setting with label #30202
 msgctxt "#30203"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
-msgstr "Si está habilitado, la resolución de la pantalla (o el tamaño de la ventana cuando está en modo ventana) ya no se considerará al seleccionar la mejor resolución de transmisión de vídeo durante la reproducción."
+msgstr "Si está activado, la resolución de la pantalla (o el tamaño de la ventana cuando está en modo ventana) ya no se considerará al seleccionar la mejor resolución de transmisión de vídeo durante la reproducción."
 
 #. Absolute path to the folder containing the DRM binary files
 msgctxt "#30204"
