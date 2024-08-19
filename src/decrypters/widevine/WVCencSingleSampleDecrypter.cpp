@@ -71,15 +71,6 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
 
   m_wvCdmAdapter.insertssd(this);
 
-  if (CSrvBroker::GetSettings().IsDebugLicense())
-  {
-    std::string debugFilePath = FILESYS::PathCombine(m_host->GetLibraryPath(),
-                                                     "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
-
-    std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
-    UTILS::FILESYS::SaveFile(debugFilePath, data, true);
-  }
-
   // No cenc init data with PSSH box format, create one
   if (memcmp(pssh.data() + 4, "pssh", 4) != 0)
   {
@@ -107,6 +98,15 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
     psshAtom[2] = static_cast<uint8_t>(psshAtom.size() >> 8);
     psshAtom[3] = static_cast<uint8_t>(psshAtom.size());
     m_pssh = psshAtom;
+  }
+
+  if (CSrvBroker::GetSettings().IsDebugLicense())
+  {
+    std::string debugFilePath =
+        FILESYS::PathCombine(m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
+
+    std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
+    UTILS::FILESYS::SaveFile(debugFilePath, data, true);
   }
 
   drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(m_promiseId++, cdm::SessionType::kTemporary,
