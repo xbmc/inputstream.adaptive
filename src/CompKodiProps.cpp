@@ -68,6 +68,20 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
 {
   std::string licenseUrl;
 
+  if (((STRING::KeyExists(props, PROP_LICENSE_TYPE) || STRING::KeyExists(props, PROP_LICENSE_KEY)) &&
+       (STRING::KeyExists(props, PROP_DRM_LEGACY) || STRING::KeyExists(props, PROP_DRM))) ||
+      (STRING::KeyExists(props, PROP_DRM_LEGACY) && STRING::KeyExists(props, PROP_DRM)))
+  {
+    LOG::Log(LOGERROR, "WRONG DRM CONFIGURATION. A mixed use of DRM properties are not supported.\n"
+                       "Please fix your configuration by setting only one of these:\n"
+                       " - Simple method: \"inputstream.adaptive.drm_legacy\"\n"
+                       " - Advanced method: \"inputstream.adaptive.license_type\" with optional "
+                       "\"inputstream.adaptive.license_key\"\n"
+                       " - NEW Advanced method (WIP, test only): \"inputstream.adaptive.drm\"\n"
+                       "For more details, see the Github Wiki Integration page.");
+    return;
+  }
+
   for (const auto& prop : props)
   {
     bool logPropValRedacted{false};
@@ -344,7 +358,8 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
    *                        "streams_pssh_data" : str,
    *                        "pre_init_data" : str,
    *                        "priority": int, 
-   *                        "keyids": list<dict>},
+   *                        "license": dict,
+   *                        ... },
    *   "keysystem_name_2" : { ... }}
    */
   rapidjson::Document jDoc;
@@ -367,6 +382,9 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       continue;
     }
 
+    //! @todo: m_licenseType temporarily assigned, to remove with the DRM config rework
+    m_licenseType = keySystem;
+
     DrmCfg& drmCfg = m_drmConfigs[keySystem];
     auto& jDictVal = jChildObj.value;
 
@@ -381,15 +399,24 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
     {
       auto& jDictLic = jDictVal["license"];
 
-      if (jDictLic.HasMember("keyids") && jDictLic["keyids"].IsArray())
+      if (jDictLic.HasMember("server_url") && jDictLic["server_url"].IsString())
+        drmCfg.license.serverUrl = jDictLic["server_url"].GetString();
+
+      if (jDictLic.HasMember("req_headers") && jDictLic["req_headers"].IsString())
+        ParseHeaderString(drmCfg.license.reqHeaders, jDictLic["req_headers"].GetString());
+
+      if (jDictLic.HasMember("keyids") && jDictLic["keyids"].IsObject())
       {
         for (auto const& keyid : jDictLic["keyids"].GetObject())
         {
           if (keyid.name.IsString() && keyid.value.IsString())
-            drmCfg.m_keys[keyid.name.GetString()] = (keyid.value.GetString());
+            drmCfg.license.keys[keyid.name.GetString()] = (keyid.value.GetString());
         }
       }
     }
+
+    //! @todo: temporary support only one DRM config
+    break;
   }
 
   return true;
@@ -430,15 +457,13 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
   }
 
   m_licenseType = keySystem;
-
-  // Clear existing value to prevent possible mix with other similar properties
-  m_licenseKey.clear();
+  std::string licenseUrl;
 
   if (!licenseStr.empty())
   {
     if (URL::IsValidUrl(licenseStr)) // License server URL
     {
-      m_licenseKey = licenseStr;
+      licenseUrl = licenseStr;
     }
     else // Assume are keyid's for ClearKey DRM
     {
@@ -454,17 +479,27 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
           LOG::LogF(LOGERROR, "Ignored malformed ClearKey kid/key pair");
           continue;
         }
-        drmCfg.m_keys[STRING::Trim(keyPair[0])] = STRING::Trim(keyPair[1]);
+        drmCfg.license.keys[STRING::Trim(keyPair[0])] = STRING::Trim(keyPair[1]);
       }
     }
   }
 
-  //! @todo: temporary stored default DRM values here just for convenience
-  //! since we need to construct the "license key" string
-  //! these values are stored also on DRM's implementation,
-  //! they must be placed in an appropriate place with the future DRM config rework
-  if (licenseHeaders.empty())
+  if (keySystem == DRM::KS_CLEARKEY)
   {
+    DrmCfg& drmCfg = m_drmConfigs[keySystem];
+
+    drmCfg.license.serverUrl = licenseUrl;
+    ParseHeaderString(drmCfg.license.reqHeaders, licenseHeaders);
+    // Until the future DRM config rework only the ClearKey DRM use the new properties
+    // so return now to keep m_licenseKey empty
+    return true;
+  }
+  else if (licenseHeaders.empty())
+  {
+    //! @todo: temporary stored default DRM values here just for convenience
+    //! since we need to construct the "license key" string
+    //! these values are stored also on DRM's implementation,
+    //! they must be placed in an appropriate place with the future DRM config rework
     if (keySystem == DRM::KS_WIDEVINE)
       licenseHeaders = "Content-Type=application%2Foctet-stream";
     else if (keySystem == DRM::KS_PLAYREADY)
@@ -474,6 +509,6 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
       licenseHeaders = "Content-Type=application/json";
   }
 
-  m_licenseKey += "|" + licenseHeaders + "|R{SSM}|R";
+  m_licenseKey = licenseUrl + "|" + licenseHeaders + "|R{SSM}|R";
   return true;
 }

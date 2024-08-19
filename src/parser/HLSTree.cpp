@@ -1295,6 +1295,13 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
           m_currentPssh = STRING::ToVecUint8(resp.data);
       }
 
+      if (uriUrl.empty()) // No kid provided, assume key == kid
+        m_currentDefaultKID = STRING::ToHexadecimal(uriData);
+
+    }
+    else if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE))
+    {
+      // Take only the KID
       if (STRING::KeyExists(attribs, "KEYID"))
       {
         std::string keyid = attribs["KEYID"];
@@ -1305,16 +1312,14 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
         else
           LOG::LogF(LOGERROR, "Incorret KEYID tag format");
       }
-      else if (uriUrl.empty()) // No kid provided, assume key == kid
-        m_currentDefaultKID = STRING::ToHexadecimal(uriData);
-
-      if (encryptMethod == "SAMPLE-AES-CTR")
-        m_cryptoMode = CryptoMode::AES_CTR;
-      else if (encryptMethod == "SAMPLE-AES")
-        m_cryptoMode = CryptoMode::AES_CBC;
-
-      return EncryptionType::CLEARKEY;
     }
+
+    if (encryptMethod == "SAMPLE-AES-CTR")
+      m_cryptoMode = CryptoMode::AES_CTR;
+    else if (encryptMethod == "SAMPLE-AES")
+      m_cryptoMode = CryptoMode::AES_CBC;
+
+    return EncryptionType::CLEARKEY;
   }
 
   // Unsupported encryption

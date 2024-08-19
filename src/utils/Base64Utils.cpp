@@ -44,7 +44,10 @@ constexpr unsigned char BASE64_TABLE[] = {
 // clang-format on
 } // namespace
 
-void UTILS::BASE64::Encode(const uint8_t* input, const size_t length, std::string& output)
+void UTILS::BASE64::Encode(const uint8_t* input,
+                           const size_t length,
+                           std::string& output,
+                           const bool padding /* = true */)
 {
   if (input == nullptr || length == 0)
     return;
@@ -68,40 +71,45 @@ void UTILS::BASE64::Encode(const uint8_t* input, const size_t length, std::strin
       output.push_back(CHARACTERS[(l >> 0) & 0x3F]);
   }
 
-  int left = 3 - (length % 3);
-
-  if (length % 3)
+  if (padding)
   {
-    for (int i = 0; i < left; i++)
-      output.push_back(PADDING);
+    const int left = 3 - (length % 3);
+
+    if (length % 3)
+    {
+      for (int i = 0; i < left; ++i)
+        output.push_back(PADDING);
+    }
   }
 }
 
-std::string UTILS::BASE64::Encode(const uint8_t* input, const size_t length)
+std::string UTILS::BASE64::Encode(const uint8_t* input,
+                                  const size_t length,
+                                  const bool padding /* = true */)
 {
   std::string output;
-  Encode(input, length, output);
+  Encode(input, length, output, padding);
   return output;
 }
 
-std::string UTILS::BASE64::Encode(const std::vector<uint8_t>& input)
+std::string UTILS::BASE64::Encode(const std::vector<uint8_t>& input, const bool padding /* = true */)
 {
   std::string output;
-  Encode(input.data(), input.size(), output);
+  Encode(input.data(), input.size(), output, padding);
   return output;
 }
 
-std::string UTILS::BASE64::Encode(const std::vector<char>& input)
+std::string UTILS::BASE64::Encode(const std::vector<char>& input, const bool padding /* = true */)
 {
   std::string output;
-  Encode(reinterpret_cast<const uint8_t*>(input.data()), input.size(), output);
+  Encode(reinterpret_cast<const uint8_t*>(input.data()), input.size(), output, padding);
   return output;
 }
 
-std::string UTILS::BASE64::Encode(const std::string& inputStr)
+std::string UTILS::BASE64::Encode(const std::string& inputStr, const bool padding /* = true */)
 {
   std::string output;
-  Encode(reinterpret_cast<const uint8_t*>(inputStr.data()), inputStr.size(), output);
+  Encode(reinterpret_cast<const uint8_t*>(inputStr.data()), inputStr.size(), output, padding);
   return output;
 }
 

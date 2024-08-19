@@ -27,6 +27,12 @@ bool KeyExists(const T& container, const Key& key)
   return container.find(key) != std::end(container);
 }
 
+template<typename T>
+bool KeyExists(const T& container, const std::string_view key)
+{
+  return container.find(key.data()) != std::end(container);
+}
+
 /*!
  * \brief Get map value of the specified key
  * \param map The map where find the value
