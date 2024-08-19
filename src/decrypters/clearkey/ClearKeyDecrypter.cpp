@@ -12,6 +12,7 @@
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
 #include "decrypters/Helpers.h"
+#include "utils/log.h"
 
 std::vector<std::string_view> CClearKeyDecrypter::SelectKeySystems(std::string_view keySystem)
 {
@@ -39,16 +40,27 @@ Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecryp
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
-  CClearKeyCencSingleSampleDecrypter* decrypter = nullptr;
-  auto& keys = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).m_keys;
-
-  if (!keys.empty() || !initData.empty()) // Keys provided from manifest or Kodi property
+  if (cryptoMode != CryptoMode::AES_CTR)
   {
-    decrypter = new CClearKeyCencSingleSampleDecrypter(initData, defaultkeyid, keys, this);
+    LOG::LogF(LOGERROR, "Cannot initialize ClearKey DRM. Only \"cenc\" encryption supported.");
+    return nullptr;
+  }
+
+  CClearKeyCencSingleSampleDecrypter* decrypter = nullptr;
+  auto& cfgLic = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).license;
+
+  // If keys / license url are provided by Kodi property, those of the manifest will be overwritten
+
+  if (!cfgLic.serverUrl.empty())
+    licenseUrl = cfgLic.serverUrl;
+
+  if ((!cfgLic.keys.empty() || !initData.empty()) && cfgLic.serverUrl.empty()) // Keys provided from manifest or Kodi property
+  {
+    decrypter = new CClearKeyCencSingleSampleDecrypter(initData, defaultkeyid, cfgLic.keys, this);
   }
   else // Clearkey license server URL provided
   {
-    decrypter = new CClearKeyCencSingleSampleDecrypter(licenseUrl, defaultkeyid, this);
+    decrypter = new CClearKeyCencSingleSampleDecrypter(licenseUrl, cfgLic.reqHeaders, defaultkeyid, this);
   }
 
   if (!decrypter->HasKeys())

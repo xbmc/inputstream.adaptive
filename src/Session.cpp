@@ -454,9 +454,10 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           // Use the init data provided by manifest (e.g. PSSH)
           initData = sessionPsshset.pssh_;
         }
-        else
+        else if (licenseType != DRM::KS_CLEARKEY)
         {
           // Try extract the PSSH/KID from the stream
+          // only if clearkeys are not used (use case e.g. Widevine manifest tested with ClearKey DRM)
           if (!ExtractStreamProtectionData(sessionPsshset, initData, m_adaptiveTree->m_supportedKeySystems))
             LOG::Log(LOGERROR, "License data: Cannot extract PSSH/KID data from the stream");
         }

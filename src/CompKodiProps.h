@@ -70,7 +70,15 @@ struct ManifestConfig
 
 struct DrmCfg
 {
-  std::map<std::string, std::string> m_keys;
+  struct License
+  {
+    std::string serverUrl;
+    std::map<std::string, std::string> reqHeaders;
+
+    std::map<std::string, std::string> keys; // Clearkeys kid / key
+  };
+
+  License license; // The license configuration
 };
 
 class ATTR_DLL_LOCAL CCompKodiProps
