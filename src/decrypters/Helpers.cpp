@@ -14,7 +14,64 @@
 #include "utils/UrlUtils.h"
 #include "utils/log.h"
 
+#include <algorithm>
+
 using namespace UTILS;
+
+namespace
+{
+constexpr uint8_t PSSHBOX_HEADER_PSSH[4] = {0x70, 0x73, 0x73, 0x68};
+constexpr uint8_t PSSHBOX_HEADER_VER0[4] = {0x00, 0x00, 0x00, 0x00};
+
+/*!
+ * \brief Make a protobuf tag.
+ * \param fieldNumber The field number
+ * \param wireType The wire type:
+ *                 0 = varint (int32, int64, uint32, uint64, sint32, sint64, bool, enum)
+ *                 1 = 64 bit (fixed64, sfixed64, double)
+ *                 2 = Length-delimited (string, bytes, embedded messages, packed repeated fields)
+ *                 5 = 32 bit (fixed32, sfixed32, float)
+ * \return The tag.
+ */
+int MakeProtobufTag(int fieldNumber, int wireType)
+{
+  return (fieldNumber << 3) | wireType;
+}
+
+// \brief Write the size value to the data as varint format
+void WriteProtobufVarintSize(std::vector<uint8_t>& data, int size)
+{
+  do
+  {
+    uint8_t byte = size & 127;
+    size >>= 7;
+    if (size > 0)
+      byte |= 128; // Varint continuation
+    data.emplace_back(byte);
+  } while (size > 0);
+}
+
+/*!
+ * \brief Replace in a vector, a sequence of vector data with another one.
+ * \param data The data to be modified
+ * \param sequence The sequence of data to be searched
+ * \param replace The data used to replace the sequence
+ * \return True if the data has been modified, otherwise false.
+ */
+bool ReplaceVectorSeq(std::vector<uint8_t>& data,
+                      const std::vector<uint8_t>& sequence,
+                      const std::vector<uint8_t>& replace)
+{
+  auto it = std::search(data.begin(), data.end(), sequence.begin(), sequence.end());
+  if (it != data.end())
+  {
+    it = data.erase(it, it + sequence.size());
+    data.insert(it, replace.begin(), replace.end());
+    return true;
+  }
+  return false;
+}
+} // unnamed namespace
 
 std::string DRM::GenerateUrlDomainHash(std::string_view url)
 {
@@ -107,6 +164,27 @@ std::string DRM::ConvertKidBytesToUUID(std::vector<uint8_t> kid)
   return uuid;
 }
 
+std::vector<uint8_t> DRM::ConvertKidToUUIDVec(const std::vector<uint8_t>& kid)
+{
+  if (kid.size() != 16)
+    return {};
+
+  static char hexDigits[] = "0123456789abcdef";
+  std::vector<uint8_t> uuid;
+  uuid.reserve(32);
+
+  for (size_t i = 0; i < 16; ++i)
+  {
+    if (i == 4 || i == 6 || i == 8 || i == 10)
+      uuid.emplace_back('-');
+
+    uuid.emplace_back(hexDigits[kid[i] >> 4]);
+    uuid.emplace_back(hexDigits[kid[i] & 15]);
+  }
+
+  return uuid;
+}
+
 std::vector<uint8_t> DRM::ConvertPrKidtoWvKid(std::vector<uint8_t> kid)
 {
   if (kid.size() != 16)
@@ -122,77 +200,82 @@ std::vector<uint8_t> DRM::ConvertPrKidtoWvKid(std::vector<uint8_t> kid)
   return remapped;
 }
 
-bool DRM::CreateISMlicense(std::string_view kidStr,
-                           std::string_view licenseData,
-                           std::vector<uint8_t>& initData)
+bool DRM::IsValidPsshHeader(const std::vector<uint8_t>& pssh)
 {
-  std::vector<uint8_t> kidBytes = ConvertKidStrToBytes(kidStr);
+  return pssh.size() >= 8 && std::equal(pssh.begin() + 4, pssh.begin() + 8, PSSHBOX_HEADER_PSSH);
+}
 
-  if (kidBytes.size() != 16 || licenseData.empty())
-  {
-    initData.clear();
+bool DRM::MakeWidevinePsshData(const std::vector<uint8_t>& kid,
+                               std::vector<uint8_t> contentIdData,
+                               std::vector<uint8_t>& wvPsshData)
+{
+  wvPsshData.clear();
+
+  if (kid.empty())
     return false;
-  }
 
-  std::string decLicData = BASE64::DecodeToStr(licenseData);
-  size_t origLicenseSize = decLicData.size();
+  // The generated synthesized Widevine PSSH box require minimal contents:
+  // - The key_id field set with the KID
+  // - The content_id field copied from the key_id field (but we allow custom content)
 
-  const uint8_t* kid{reinterpret_cast<const uint8_t*>(std::strstr(decLicData.data(), "{KID}"))};
-  const uint8_t* uuid{reinterpret_cast<const uint8_t*>(std::strstr(decLicData.data(), "{UUID}"))};
-  uint8_t* decLicDataUint = reinterpret_cast<uint8_t*>(decLicData.data());
+  // Create "key_id" field, id: 2 (can be repeated if multiples)
+  wvPsshData.push_back(MakeProtobufTag(2, 2));
+  WriteProtobufVarintSize(wvPsshData, static_cast<int>(kid.size()));
+  wvPsshData.insert(wvPsshData.end(), kid.begin(), kid.end());
 
-  size_t license_size = uuid ? origLicenseSize + 36 - 6 : origLicenseSize;
-
-  //Build up proto header
-  initData.resize(512);
-  uint8_t* protoptr(initData.data());
-  if (kid)
+  // Prepare "content_id" data
+  if (contentIdData.empty()) // If no data, by default add the KID
   {
-    if (uuid && uuid < kid)
-      return false;
-    license_size -= 5; //Remove sizeof(placeholder)
-    std::memcpy(protoptr, decLicDataUint, kid - decLicDataUint);
-    protoptr += kid - decLicDataUint;
-    license_size -= static_cast<size_t>(kid - decLicDataUint);
-    kid += 5;
-    origLicenseSize -= kid - decLicDataUint;
-  }
-  else
-    kid = decLicDataUint;
-
-  *protoptr++ = 18; //id=16>>3=2, type=2(flexlen)
-  *protoptr++ = 16; //length of key
-  std::memcpy(protoptr, kidBytes.data(), 16);
-  protoptr += 16;
-
-  *protoptr++ = 34; //id=32>>3=4, type=2(flexlen)
-  do
-  {
-    *protoptr++ = static_cast<uint8_t>(license_size & 127);
-    license_size >>= 7;
-    if (license_size)
-      *(protoptr - 1) |= 128;
-    else
-      break;
-  } while (1);
-  if (uuid)
-  {
-    std::memcpy(protoptr, kid, uuid - kid);
-    protoptr += uuid - kid;
-
-    std::string uuidKid{ConvertKidBytesToUUID(kidBytes)};
-    protoptr = reinterpret_cast<uint8_t*>(uuidKid.data());
-
-    size_t sizeleft = origLicenseSize - ((uuid - kid) + 6);
-    std::memcpy(protoptr, uuid + 6, sizeleft);
-    protoptr += sizeleft;
+    contentIdData.insert(contentIdData.end(), kid.begin(), kid.end());
   }
   else
   {
-    std::memcpy(protoptr, kid, origLicenseSize);
-    protoptr += origLicenseSize;
+    // Replace placeholders if needed
+    static const std::vector<uint8_t> phKid = {'{', 'K', 'I', 'D', '}'};
+    ReplaceVectorSeq(contentIdData, phKid, kid);
+
+    static const std::vector<uint8_t> phUuid = {'{', 'U', 'U', 'I', 'D', '}'};
+    const std::vector<uint8_t> kidUuid = ConvertKidToUUIDVec(kid);
+    ReplaceVectorSeq(contentIdData, phUuid, kidUuid);
   }
-  initData.resize(protoptr - initData.data());
+
+  // Create "content_id" field, id: 4
+  wvPsshData.push_back(MakeProtobufTag(4, 2));
+  WriteProtobufVarintSize(wvPsshData, static_cast<int>(contentIdData.size()));
+  wvPsshData.insert(wvPsshData.end(), contentIdData.begin(), contentIdData.end());
+
+  return true;
+}
+
+bool DRM::MakePssh(const uint8_t* systemId,
+                   const std::vector<uint8_t>& initData,
+                   std::vector<uint8_t>& psshData)
+{
+  if (!systemId)
+    return false;
+
+  psshData.clear();
+  psshData.resize(4, 0); // Size field 4 bytes (updated later)
+  psshData.insert(psshData.end(), PSSHBOX_HEADER_PSSH, PSSHBOX_HEADER_PSSH + 4);
+  psshData.insert(psshData.end(), PSSHBOX_HEADER_VER0, PSSHBOX_HEADER_VER0 + 4);
+  psshData.insert(psshData.end(), systemId, systemId + 16);
+
+  // Add init data size (4 bytes)
+  const uint32_t initDataSize = static_cast<uint32_t>(initData.size());
+  psshData.emplace_back(static_cast<uint8_t>((initDataSize >> 24) & 0xFF));
+  psshData.emplace_back(static_cast<uint8_t>((initDataSize >> 16) & 0xFF));
+  psshData.emplace_back(static_cast<uint8_t>((initDataSize >> 8) & 0xFF));
+  psshData.emplace_back(static_cast<uint8_t>(initDataSize & 0xFF));
+
+  // Add init data
+  psshData.insert(psshData.end(), initData.begin(), initData.end());
+
+  // Update box size (first 4 bytes)
+  const uint32_t boxSize = static_cast<uint32_t>(psshData.size());
+  psshData[0] = static_cast<uint8_t>((boxSize >> 24) & 0xFF);
+  psshData[1] = static_cast<uint8_t>((boxSize >> 16) & 0xFF);
+  psshData[2] = static_cast<uint8_t>((boxSize >> 8) & 0xFF);
+  psshData[3] = static_cast<uint8_t>(boxSize & 0xFF);
 
   return true;
 }

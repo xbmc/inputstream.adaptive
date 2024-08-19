@@ -129,8 +129,11 @@ public:
 
   virtual void ResetVideo() override {}
 
-  virtual void SetLibraryPath(std::string_view libraryPath) override {}
-  virtual std::string_view GetLibraryPath() const override { return ""; }
+  virtual void SetLibraryPath(std::string_view libraryPath) override
+  {
+    m_libraryPath = libraryPath;
+  }
+  virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
 
   virtual void OnMediaDrmEvent(const CJNIMediaDrm& mediaDrm,
                                const std::vector<char>& sessionId,
@@ -139,6 +142,7 @@ public:
                                const std::vector<char>& data) override;
 
 private:
+  std::string m_libraryPath;
   kodi::platform::CInterfaceAndroidSystem m_androidSystem;
   std::unique_ptr<CMediaDrmOnEventListener> m_mediaDrmEventListener;
   WV_KEYSYSTEM m_keySystem;
