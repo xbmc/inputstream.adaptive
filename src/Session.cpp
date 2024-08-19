@@ -407,7 +407,8 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       if (sessionPsshset.adaptation_set_->GetStreamType() == StreamType::NOTYPE)
         continue;
 
-      std::string_view licenseData = CSrvBroker::GetKodiProps().GetLicenseData();
+      const std::vector<uint8_t> defaultKid = DRM::ConvertKidStrToBytes(sessionPsshset.defaultKID_);
+      std::string_view licenseDataStr = CSrvBroker::GetKodiProps().GetLicenseData();
 
       if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING)
       {
@@ -417,17 +418,21 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           //! @todo: CreateISMlicense accept placeholders {KID} and {UUID} but its not wiki documented
           //! we should continue allow create custom pssh with placeholders?
           //! see also todo's below
-          if (licenseData.empty())
+          std::vector<uint8_t> licenseData = BASE64::Decode(licenseDataStr);
+
+          if (DRM::IsValidPsshHeader(licenseData))
           {
-            LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming");
-            licenseData = "e0tJRH0="; // {KID}
+            initData = licenseData;
           }
           else
           {
-            LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming, based on "
-                               "license data property");
+            LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming %s",
+                     licenseData.empty() ? "" : "(with custom data)");
+
+            std::vector<uint8_t> wvPsshData;
+            if (DRM::MakeWidevinePsshData(defaultKid, licenseData, wvPsshData))
+              DRM::MakePssh(DRM::ID_WIDEVINE, wvPsshData, initData);
           }
-          DRM::CreateISMlicense(sessionPsshset.defaultKID_, licenseData, initData);
         }
         else if (licenseType == "com.microsoft.playready")
         {
@@ -441,16 +446,16 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           //! As first decoupling things and allowing to have a way to set DRM optional parameters in a extensible way
           //! for future other use cases, and not limited to Playready only.
           //! To take in account that license_data property is also used on DASH parser to bypass ContentProtection tags.
-          drmOptionalKeyParam = licenseData;
+          drmOptionalKeyParam = licenseDataStr;
         }
       }
-      else if (!licenseData.empty())
+      else if (!licenseDataStr.empty())
       {
         // Custom license PSSH data provided from property
         // This can allow to initialize a DRM that could be also not specified
         // as supported in the manifest (e.g. missing DASH ContentProtection tags)
         LOG::Log(LOGDEBUG, "License data: Use PSSH data provided by the license data property");
-        initData = BASE64::Decode(licenseData);
+        initData = BASE64::Decode(licenseDataStr);
       }
 
       if (initData.empty() && sessionPsshset.m_licenseUrl.empty())
@@ -470,7 +475,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       }
 
       CCdmSession& session{m_cdmSessions[ses]};
-      const std::vector<uint8_t> defaultKid = DRM::ConvertKidStrToBytes(sessionPsshset.defaultKID_);
 
       if (addDefaultKID && ses == 1 && session.m_cencSingleSampleDecrypter)
       {
