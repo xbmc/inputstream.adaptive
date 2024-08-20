@@ -205,7 +205,7 @@ std::string UTILS::URL::GetUrlPath(std::string url)
 
 void UTILS::URL::AppendParameters(std::string& url, std::string_view params)
 {
-  if (params.empty())
+  if (params.empty() || params.front() == '|')
     return;
 
   params.remove_prefix(params.front() == '&' || params.front() == '?' ? 1 : 0);
@@ -326,4 +326,11 @@ void UTILS::URL::EnsureEndingBackslash(std::string& url)
 {
   if (!url.empty() && url.back() != '/')
     url += "/";
+}
+
+void UTILS::URL::RemovePipePart(std::string& url)
+{
+  const size_t urlPipePos = url.find("|");
+  if (urlPipePos != std::string::npos)
+    url.erase(urlPipePos);
 }
