@@ -93,5 +93,11 @@ std::string Join(std::string baseUrl, std::string relativeUrl);
  */
 void EnsureEndingBackslash(std::string& url);
 
+/*!
+ * \brief Remove the part of the URL that starts with the pipe char "|".
+ * \param url[IN][OUT] An URL.
+ */
+void RemovePipePart(std::string& url);
+
 } // namespace URL
 } // namespace UTILS

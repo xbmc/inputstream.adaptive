@@ -173,6 +173,7 @@ bool CSession::Initialize()
   }
 
   std::string manifestUrl = m_manifestUrl;
+  URL::RemovePipePart(manifestUrl); // No pipe char uses, must be used Kodi properties only
 
   URL::AppendParameters(manifestUrl, kodiProps.GetManifestParams());
 
