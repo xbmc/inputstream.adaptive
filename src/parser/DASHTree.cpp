@@ -1343,26 +1343,41 @@ bool adaptive::CDashTree::GetProtectionData(
   //! @todo: this should not be a task of parser, moreover missing an appropriate KID extraction from mp4 box
   auto& kodiProps = CSrvBroker::GetKodiProps();
   ProtectionScheme ckProtScheme;
-  if (!protSelected && !protCommon && kodiProps.GetLicenseType() == DRM::KS_CLEARKEY)
+  if (kodiProps.GetLicenseType() == DRM::KS_CLEARKEY)
   {
-    for (const ProtectionScheme& protScheme : reprProtSchemes)
+    std::string_view defaultKid;
+    if (protSelected)
+      defaultKid = protSelected->kid;
+    if (defaultKid.empty() && protCommon)
+      defaultKid = protCommon->kid;
+
+    if (defaultKid.empty())
     {
-      if (!protScheme.kid.empty())
+      for (const ProtectionScheme& protScheme : reprProtSchemes)
       {
-        ckProtScheme.kid = protScheme.kid;
-        break;
+        if (!protScheme.kid.empty())
+        {
+          defaultKid = protScheme.kid;
+          break;
+        }
       }
-    }
-    if (ckProtScheme.kid.empty())
-    {
-      for (const ProtectionScheme& protScheme : adpProtSchemes)
+      if (defaultKid.empty())
       {
-        ckProtScheme.kid = protScheme.kid;
-        break;
+        for (const ProtectionScheme& protScheme : adpProtSchemes)
+        {
+          if (!protScheme.kid.empty())
+          {
+            defaultKid = protScheme.kid;
+            break;
+          }
+        }
       }
-    }
-    if (!ckProtScheme.kid.empty())
+      if (protCommon)
+        ckProtScheme = *protCommon;
+
+      ckProtScheme.kid = defaultKid;
       protCommon = &ckProtScheme;
+    }
   }
 
   bool isEncrypted{false};
