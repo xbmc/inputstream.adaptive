@@ -10,6 +10,7 @@
 
 #include "AdaptiveStream.h"
 #include "Representation.h"
+#include "decrypters/Helpers.h"
 #include "utils/log.h"
 #include "utils/Utils.h"
 
@@ -125,14 +126,14 @@ AP4_Movie* PLAYLIST::CreateMovieAtom(adaptive::AdaptiveStream& adStream,
     const PLAYLIST::CPeriod::PSSHSet& psshSet =
         adStream.getPeriod()->GetPSSHSets()[repr->GetPsshSetPos()];
 
-    const AP4_UI08* kid = nullptr;
+    std::vector<uint8_t> defaultKid;
     if (psshSet.defaultKID_.empty())
-      kid = DEFAULT_KEYID;
+      defaultKid.assign(DEFAULT_KEYID, DEFAULT_KEYID + 16);
     else
-      kid = reinterpret_cast<const AP4_UI08*>(psshSet.defaultKID_.data());
+      defaultKid = DRM::ConvertKidStrToBytes(psshSet.defaultKID_);
 
     AP4_ContainerAtom schi{AP4_ATOM_TYPE_SCHI};
-    schi.AddChild(new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8, kid));
+    schi.AddChild(new AP4_TencAtom(AP4_CENC_CIPHER_AES_128_CTR, 8, defaultKid.data()));
     sampleDesc = new AP4_ProtectedSampleDescription(0, sampleDesc, 0,
                                                     AP4_PROTECTION_SCHEME_TYPE_PIFF, 0, "", &schi);
   }
