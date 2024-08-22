@@ -123,18 +123,30 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
   }
   else
   {
-    // Versions > 4.0 can contains one or more optionals KID's within DATA/PROTECTINFO/KIDS tag
+    // Versions > 4.0 can contains:
+    // DATA/PROTECTINFO/KID tag or multiple KID tags on DATA/PROTECTINFO/KIDS
     xml_node nodePROTECTINFO = nodeDATA.child("PROTECTINFO");
     if (nodePROTECTINFO)
     {
-      xml_node nodeKIDS = nodePROTECTINFO.child("KIDS");
-      if (nodeKIDS)
+      xml_node nodeKID = nodePROTECTINFO.child("KID");
+      if (nodeKID)
       {
-        LOG::Log(LOGDEBUG, "Playready header contains %zu KID's.",
-                 XML::CountChilds(nodeKIDS, "KID"));
-        // We get the first KID
-        xml_node nodeKID = nodeKIDS.child("KID");
-        kidBase64 = nodeKID.child_value();
+        kidBase64 = nodeKID.attribute("VALUE").as_string();
+      }
+      else
+      {
+        xml_node nodeKIDS = nodePROTECTINFO.child("KIDS");
+        if (nodeKIDS)
+        {
+          LOG::Log(LOGDEBUG, "Playready header contains %zu KID's.",
+                   XML::CountChilds(nodeKIDS, "KID"));
+          // We get the first KID
+          xml_node nodeKID = nodeKIDS.child("KID");
+          if (nodeKID)
+          {
+            kidBase64 = nodeKID.attribute("VALUE").as_string();
+          }
+        }
       }
     }
   }
