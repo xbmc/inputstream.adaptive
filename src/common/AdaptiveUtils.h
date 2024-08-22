@@ -58,6 +58,7 @@ enum class EncryptionType
   CLEARKEY,
   AES128,
   WIDEVINE,
+  PLAYREADY,
 };
 
 enum class ContainerType

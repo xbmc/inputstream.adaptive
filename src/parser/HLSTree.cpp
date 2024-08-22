@@ -502,7 +502,8 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
     {
       auto attribs = ParseTagAttributes(tagValue);
       // NOTE: Multiple EXT-X-KEYs can be parsed sequentially
-      switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
+      const EncryptionType encryptType = ProcessEncryption(rep->GetBaseUrl(), attribs);
+      switch (encryptType)
       {
         case EncryptionType::NONE:
           currentEncryptionType = EncryptionType::NONE;
@@ -518,9 +519,10 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
           }
           break;
         case EncryptionType::WIDEVINE:
+        case EncryptionType::PLAYREADY:
           if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
           {
-            currentEncryptionType = EncryptionType::WIDEVINE;
+            currentEncryptionType = encryptType;
             period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
             rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                               m_currentDefaultKID, m_currentKidUrl, m_currentIV);
@@ -836,7 +838,8 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       // Copy encryption data from previous period/representation
       // it must persist until overrided by a new EXT-X-KEY tag
       newPeriod->SetEncryptionState(period->GetEncryptionState());
-      if (currentEncryptionType == EncryptionType::WIDEVINE)
+      if (currentEncryptionType == EncryptionType::WIDEVINE ||
+          currentEncryptionType == EncryptionType::PLAYREADY)
       {
         newRep->m_psshSetPos =
             InsertPsshSet(newAdpSet->GetStreamType(), newPeriod, newAdpSet, m_currentPssh,
@@ -1272,6 +1275,38 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
       m_cryptoMode = CryptoMode::AES_CBC;
 
     return EncryptionType::WIDEVINE;
+  }
+
+  // PLAYREADY
+  if (STRING::CompareNoCase(keyFormat, DRM::KS_PLAYREADY) &&
+      (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_PLAYREADY) !=
+       m_supportedKeySystems.end()))
+  {
+    if (uriData.empty())
+    {
+      LOG::LogF(LOGERROR, "Incorrect or unsupported URI tag format");
+      return EncryptionType::NOT_SUPPORTED;
+    }
+
+    m_currentPssh = uriData;
+
+    PRProtectionParser parser;
+
+    if (parser.ParseHeader(m_currentPssh) && !parser.GetKID().empty())
+    {
+      m_licenseUrl = parser.GetLicenseURL();
+      m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKID());
+
+      auto encryptionType = parser.GetEncryption();
+      if (encryptionType == PRProtectionParser::EncryptionType::AESCTR)
+        m_cryptoMode = CryptoMode::AES_CTR;
+      else if (encryptionType == PRProtectionParser::EncryptionType::AESCBC)
+        m_cryptoMode = CryptoMode::AES_CBC;
+    }
+    else
+      LOG::LogF(LOGERROR, "Cannot parse Playready header");
+
+    return EncryptionType::PLAYREADY;
   }
 
   // CLEARKEY
