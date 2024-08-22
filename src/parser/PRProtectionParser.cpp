@@ -26,7 +26,12 @@ namespace
 constexpr uint16_t PLAYREADY_WRM_TAG = 0x0001;
 } // unnamed namespace
 
-bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
+bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeaderBase64)
+{
+  return ParseHeader(BASE64::Decode(prHeaderBase64));
+}
+
+bool adaptive::PRProtectionParser::ParseHeader(const std::vector<uint8_t>& prHeader)
 {
   m_KID.clear();
   m_licenseURL.clear();
@@ -35,12 +40,11 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
   if (prHeader.empty())
     return false;
 
-  const std::vector<uint8_t> headerData = BASE64::Decode(prHeader);
-  m_PSSH = headerData;
+  m_PSSH = prHeader;
 
   // Parse header object data
   CCharArrayParser charParser;
-  charParser.Reset(headerData.data(), headerData.size());
+  charParser.Reset(prHeader.data(), prHeader.size());
 
   if (!charParser.SkipChars(4))
   {
@@ -120,21 +124,59 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
     // Version 4.0 have KID within DATA tag
     xml_node nodeKID = nodeDATA.child("KID");
     kidBase64 = nodeKID.child_value();
-  }
-  else
-  {
-    // Versions > 4.0 can contains one or more optionals KID's within DATA/PROTECTINFO/KIDS tag
+
     xml_node nodePROTECTINFO = nodeDATA.child("PROTECTINFO");
     if (nodePROTECTINFO)
     {
-      xml_node nodeKIDS = nodePROTECTINFO.child("KIDS");
-      if (nodeKIDS)
+      xml_node nodeAlgid = nodePROTECTINFO.child("ALGID");
+      if (nodeAlgid)
       {
-        LOG::Log(LOGDEBUG, "Playready header contains %zu KID's.",
-                 XML::CountChilds(nodeKIDS, "KID"));
-        // We get the first KID
-        xml_node nodeKID = nodeKIDS.child("KID");
-        kidBase64 = nodeKID.child_value();
+        auto algid = nodeAlgid.child_value();
+        if (algid == "AESCTR")
+          m_encryption = EncryptionType::AESCTR;
+        else if (algid == "AESCBC")
+          m_encryption = EncryptionType::AESCBC;
+      }
+    }
+  }
+  else
+  {
+    // Versions > 4.0 can contains:
+    // DATA/PROTECTINFO/KID tag or multiple KID tags on DATA/PROTECTINFO/KIDS
+    xml_node nodePROTECTINFO = nodeDATA.child("PROTECTINFO");
+    if (nodePROTECTINFO)
+    {
+      xml_node nodeKID = nodePROTECTINFO.child("KID");
+      if (nodeKID)
+      {
+        kidBase64 = nodeKID.attribute("VALUE").as_string();
+
+        auto algid = nodeKID.attribute("ALGID").as_string();
+        if (algid == "AESCTR")
+          m_encryption = EncryptionType::AESCTR;
+        else if (algid == "AESCBC")
+          m_encryption = EncryptionType::AESCBC;
+      }
+      else
+      {
+        xml_node nodeKIDS = nodePROTECTINFO.child("KIDS");
+        if (nodeKIDS)
+        {
+          LOG::Log(LOGDEBUG, "Playready header contains %zu KID's.",
+                   XML::CountChilds(nodeKIDS, "KID"));
+          // We get the first KID
+          xml_node nodeKID = nodeKIDS.child("KID");
+          if (nodeKID)
+          {
+            kidBase64 = nodeKID.attribute("VALUE").as_string();
+
+            auto algid = nodeKID.attribute("ALGID").as_string();
+            if (algid == "AESCTR")
+              m_encryption = EncryptionType::AESCTR;
+            else if (algid == "AESCBC")
+              m_encryption = EncryptionType::AESCBC;
+          }
+        }      
       }
     }
   }
