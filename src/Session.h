@@ -30,6 +30,8 @@ public:
   CSession(const std::string& manifestUrl);
   virtual ~CSession();
 
+  void DeleteStreams();
+
   /*! \brief Initialize the session
    *  \return True if has success, false otherwise
    */
