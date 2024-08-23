@@ -65,7 +65,7 @@ CSession::CSession(const std::string& manifestUrl) : m_manifestUrl(manifestUrl)
 CSession::~CSession()
 {
   LOG::Log(LOGDEBUG, "CSession::~CSession()");
-  m_streams.clear();
+  DeleteStreams();
   DisposeDecrypter();
 
   if (m_adaptiveTree)
@@ -77,6 +77,12 @@ CSession::~CSession()
 
   delete m_reprChooser;
   m_reprChooser = nullptr;
+}
+
+void SESSION::CSession::DeleteStreams()
+{
+  LOG::Log(LOGDEBUG, "CSession::DeleteStreams()");
+  m_streams.clear();
 }
 
 void CSession::SetSupportedDecrypterURN(std::vector<std::string_view>& keySystems)
