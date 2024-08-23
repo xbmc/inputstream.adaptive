@@ -23,6 +23,16 @@ namespace
 constexpr uint8_t PSSHBOX_HEADER_PSSH[4] = {0x70, 0x73, 0x73, 0x68};
 constexpr uint8_t PSSHBOX_HEADER_VER0[4] = {0x00, 0x00, 0x00, 0x00};
 
+// Protection scheme identifying the encryption algorithm. The protection
+// scheme is represented as a uint32 value. The uint32 contains 4 bytes each
+// representing a single ascii character in one of the 4CC protection scheme values.
+enum class WIDEVINE_PROT_SCHEME {
+  CENC = 0x63656E63,
+  CBC1 = 0x63626331,
+  CENS = 0x63656E73,
+  CBCS = 0x63626373
+};
+
 /*!
  * \brief Make a protobuf tag.
  * \param fieldNumber The field number
@@ -38,8 +48,8 @@ int MakeProtobufTag(int fieldNumber, int wireType)
   return (fieldNumber << 3) | wireType;
 }
 
-// \brief Write the size value to the data as varint format
-void WriteProtobufVarintSize(std::vector<uint8_t>& data, int size)
+// \brief Write a protobuf varint value to the data
+void WriteProtobufVarint(std::vector<uint8_t>& data, int size)
 {
   do
   {
@@ -220,7 +230,7 @@ bool DRM::MakeWidevinePsshData(const std::vector<uint8_t>& kid,
 
   // Create "key_id" field, id: 2 (can be repeated if multiples)
   wvPsshData.push_back(MakeProtobufTag(2, 2));
-  WriteProtobufVarintSize(wvPsshData, static_cast<int>(kid.size()));
+  WriteProtobufVarint(wvPsshData, static_cast<int>(kid.size())); // Write data size
   wvPsshData.insert(wvPsshData.end(), kid.begin(), kid.end());
 
   // Prepare "content_id" data
@@ -241,8 +251,12 @@ bool DRM::MakeWidevinePsshData(const std::vector<uint8_t>& kid,
 
   // Create "content_id" field, id: 4
   wvPsshData.push_back(MakeProtobufTag(4, 2));
-  WriteProtobufVarintSize(wvPsshData, static_cast<int>(contentIdData.size()));
+  WriteProtobufVarint(wvPsshData, static_cast<int>(contentIdData.size())); // Write data size
   wvPsshData.insert(wvPsshData.end(), contentIdData.begin(), contentIdData.end());
+
+  // Create "protection_scheme" field, id: 9
+  // wvPsshData.push_back(MakeProtobufTag(9, 0));
+  // WriteProtobufVarint(wvPsshData, static_cast<int>(WIDEVINE_PROT_SCHEME::CENC));
 
   return true;
 }
