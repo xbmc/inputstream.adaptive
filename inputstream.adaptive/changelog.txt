@@ -1,3 +1,15 @@
+v22.1.3 (2024-08-24)
+- INFO: Playback problems with PlayReady DRM are known, we are investigating for a solution
+- [HLS] Add support to PlayReady
+- [Widevine] Improved synthesized PSSH for smooth streaming with Playready
+- Removed unofficial pipe support from manifest url to prevent possible playback problems
+- [ClearKey] Add support to set license server url from drm_legacy property
+- [ClearKey] Add support to set license server headers from drm_legacy property
+- [ClearKey] Improved compatibility to override manifests with other DRM's
+- [HLS] Fix non-stop playback problem when the decrypter is not initialised for some problem
+- Fix a license data regression with smooth streaming
+- Fix a smooth streaming regression that caused decryption problems
+
 v22.1.2 (2024-08-10)
 - [HLS] Fix playback stop problem with some AAC streams
 - Fix builds with GCC-14
