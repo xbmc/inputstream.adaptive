@@ -30,6 +30,14 @@ constexpr uint8_t MP4_TFRFBOX_UUID[] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46
                                         0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f};
 
 constexpr AP4_UI32 MP4_SAMPLE_FORMAT_WVTT = AP4_ATOM_TYPE('w', 'v', 't', 't');
+
+class MP4UnknownUuidAtom : public AP4_UnknownUuidAtom
+{
+public:
+  // Expose atom data
+  const AP4_DataBuffer& GetData() { return m_Data; }
+};
+
 } // unnamed namespace
 
 
@@ -507,7 +515,7 @@ void CFragmentedSampleReader::UpdateSampleDescription()
 
 void CFragmentedSampleReader::ParseTrafTfrf(AP4_UuidAtom* uuidAtom)
 {
-  const AP4_DataBuffer& buf{AP4_DYNAMIC_CAST(AP4_UnknownUuidAtom, uuidAtom)->GetData()};
+  const AP4_DataBuffer& buf{static_cast<MP4UnknownUuidAtom*>(uuidAtom)->GetData()};
   CCharArrayParser parser;
   parser.Reset(buf.GetData(), buf.GetDataSize());
 
