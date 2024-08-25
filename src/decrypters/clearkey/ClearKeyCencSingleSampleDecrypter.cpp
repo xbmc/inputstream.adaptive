@@ -25,6 +25,21 @@
 
 using namespace UTILS;
 
+namespace
+{
+void CkB64Encode(std::string& str)
+{
+  STRING::ReplaceAll(str, "+", "-");
+  STRING::ReplaceAll(str, "/", "_");
+}
+
+void CkB64Decode(std::string& str)
+{
+  STRING::ReplaceAll(str, "-", "+");
+  STRING::ReplaceAll(str, "_", "/");
+}
+}
+
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     std::string_view licenseUrl,
     const std::map<std::string, std::string>& licenseHeaders,
@@ -177,6 +192,7 @@ std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(
    */
 
   std::string b64Kid = UTILS::BASE64::Encode(defaultKeyId, false);
+  CkB64Encode(b64Kid);
 
   rapidjson::Document jDoc;
   jDoc.SetObject();
@@ -253,8 +269,8 @@ bool CClearKeyCencSingleSampleDecrypter::ParseLicenseResponse(std::string data)
 
         if (!b64Key.empty() && !b64KeyId.empty())
         {
-          UTILS::STRING::ReplaceAll(b64Key, "-", "+");
-          UTILS::STRING::ReplaceAll(b64KeyId, "-", "+");
+          CkB64Decode(b64Key);
+          CkB64Decode(b64KeyId);
 
           // pad b64
           int left = 4 - (b64Key.length() % 4);
