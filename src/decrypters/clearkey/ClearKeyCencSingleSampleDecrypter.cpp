@@ -270,26 +270,10 @@ bool CClearKeyCencSingleSampleDecrypter::ParseLicenseResponse(std::string data)
         if (!b64Key.empty() && !b64KeyId.empty())
         {
           CkB64Decode(b64Key);
+          BASE64::AddPadding(b64Key);
+
           CkB64Decode(b64KeyId);
-
-          // pad b64
-          int left = 4 - (b64Key.length() % 4);
-          if (b64Key.length() % 4)
-          {
-            for (int i = 0; i < left; i++)
-            {
-              b64Key.push_back('=');
-            }
-          }
-
-          left = 4 - (b64KeyId.length() % 4);
-          if (b64KeyId.length() % 4)
-          {
-            for (int i = 0; i < left; i++)
-            {
-              b64KeyId.push_back('=');
-            }
-          }
+          BASE64::AddPadding(b64KeyId);
 
           m_keyPairs.emplace(b64KeyId, b64Key);
           break;
