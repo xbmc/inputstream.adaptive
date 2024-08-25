@@ -94,7 +94,7 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     return;
   }
 
-  const std::string b64DefaultKeyId = UTILS::BASE64::Encode(defaultKeyId);
+  const std::string b64DefaultKeyId = BASE64::Encode(defaultKeyId);
   if (!STRING::KeyExists(m_keyPairs, b64DefaultKeyId))
   {
     LOG::LogF(LOGERROR, "Key not found on license server response");
@@ -127,10 +127,10 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
   }
   else // Key provided in Kodi props
   {
-    const std::string hexDefKid = UTILS::STRING::ToHexadecimal(defaultKeyId);
+    const std::string hexDefKid = STRING::ToHexadecimal(defaultKeyId);
 
     if (STRING::KeyExists(keys, hexDefKid))
-      UTILS::STRING::ToHexBytes(keys.at(hexDefKid), hexKey);
+      STRING::ToHexBytes(keys.at(hexDefKid), hexKey);
     else
       LOG::LogF(LOGERROR, "Missing KeyId \"%s\" on DRM configuration", defaultKeyId.data());
   }
@@ -191,7 +191,7 @@ std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(
    * "type":"temporary" }
    */
 
-  std::string b64Kid = UTILS::BASE64::Encode(defaultKeyId, false);
+  std::string b64Kid = BASE64::Encode(defaultKeyId, false);
   CkB64Encode(b64Kid);
 
   rapidjson::Document jDoc;
