@@ -30,5 +30,7 @@ std::string DecodeToStr(std::string_view input);
 
 bool IsValidBase64(const std::string& input);
 
+bool AddPadding(std::string& base64str);
+
 } // namespace BASE64
 } // namespace UTILS
