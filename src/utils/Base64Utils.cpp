@@ -217,3 +217,17 @@ bool UTILS::BASE64::IsValidBase64(const std::string& input)
   std::regex base64Regex(REGEX.data());
   return std::regex_match(input, base64Regex);
 }
+
+bool UTILS::BASE64::AddPadding(std::string& base64str)
+{
+  const int mod = static_cast<int>(base64str.length() % 4);
+  if (mod > 0)
+  {
+    for (int i = 4 - mod; i > 0; --i)
+    {
+      base64str.push_back(PADDING);
+    }
+    return true;
+  }
+  return false;
+}

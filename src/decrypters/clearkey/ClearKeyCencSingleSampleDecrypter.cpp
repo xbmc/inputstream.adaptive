@@ -25,6 +25,21 @@
 
 using namespace UTILS;
 
+namespace
+{
+void CkB64Encode(std::string& str)
+{
+  STRING::ReplaceAll(str, "+", "-");
+  STRING::ReplaceAll(str, "/", "_");
+}
+
+void CkB64Decode(std::string& str)
+{
+  STRING::ReplaceAll(str, "-", "+");
+  STRING::ReplaceAll(str, "_", "/");
+}
+}
+
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     std::string_view licenseUrl,
     const std::map<std::string, std::string>& licenseHeaders,
@@ -79,7 +94,7 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     return;
   }
 
-  const std::string b64DefaultKeyId = UTILS::BASE64::Encode(defaultKeyId);
+  const std::string b64DefaultKeyId = BASE64::Encode(defaultKeyId);
   if (!STRING::KeyExists(m_keyPairs, b64DefaultKeyId))
   {
     LOG::LogF(LOGERROR, "Key not found on license server response");
@@ -112,10 +127,10 @@ CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
   }
   else // Key provided in Kodi props
   {
-    const std::string hexDefKid = UTILS::STRING::ToHexadecimal(defaultKeyId);
+    const std::string hexDefKid = STRING::ToHexadecimal(defaultKeyId);
 
     if (STRING::KeyExists(keys, hexDefKid))
-      UTILS::STRING::ToHexBytes(keys.at(hexDefKid), hexKey);
+      STRING::ToHexBytes(keys.at(hexDefKid), hexKey);
     else
       LOG::LogF(LOGERROR, "Missing KeyId \"%s\" on DRM configuration", defaultKeyId.data());
   }
@@ -176,7 +191,8 @@ std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(
    * "type":"temporary" }
    */
 
-  std::string b64Kid = UTILS::BASE64::Encode(defaultKeyId, false);
+  std::string b64Kid = BASE64::Encode(defaultKeyId, false);
+  CkB64Encode(b64Kid);
 
   rapidjson::Document jDoc;
   jDoc.SetObject();
@@ -253,27 +269,11 @@ bool CClearKeyCencSingleSampleDecrypter::ParseLicenseResponse(std::string data)
 
         if (!b64Key.empty() && !b64KeyId.empty())
         {
-          UTILS::STRING::ReplaceAll(b64Key, "-", "+");
-          UTILS::STRING::ReplaceAll(b64KeyId, "-", "+");
+          CkB64Decode(b64Key);
+          BASE64::AddPadding(b64Key);
 
-          // pad b64
-          int left = 4 - (b64Key.length() % 4);
-          if (b64Key.length() % 4)
-          {
-            for (int i = 0; i < left; i++)
-            {
-              b64Key.push_back('=');
-            }
-          }
-
-          left = 4 - (b64KeyId.length() % 4);
-          if (b64KeyId.length() % 4)
-          {
-            for (int i = 0; i < left; i++)
-            {
-              b64KeyId.push_back('=');
-            }
-          }
+          CkB64Decode(b64KeyId);
+          BASE64::AddPadding(b64KeyId);
 
           m_keyPairs.emplace(b64KeyId, b64Key);
           break;
