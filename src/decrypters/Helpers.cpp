@@ -61,6 +61,21 @@ void WriteProtobufVarint(std::vector<uint8_t>& data, int size)
   } while (size > 0);
 }
 
+int ReadProtobufVarint(const std::vector<uint8_t>& data, size_t& offset)
+{
+  int value = 0;
+  int shift = 0;
+  while (true)
+  {
+    uint8_t byte = data[offset++];
+    value |= (byte & 0x7F) << shift;
+    if (!(byte & 0x80))
+      break;
+    shift += 7;
+  }
+  return value;
+}
+
 /*!
  * \brief Replace in a vector, a sequence of vector data with another one.
  * \param data The data to be modified
@@ -227,6 +242,31 @@ std::vector<uint8_t> DRM::ConvertPrKidtoWvKid(std::vector<uint8_t> kid)
 bool DRM::IsValidPsshHeader(const std::vector<uint8_t>& pssh)
 {
   return pssh.size() >= 8 && std::equal(pssh.begin() + 4, pssh.begin() + 8, PSSHBOX_HEADER_PSSH);
+}
+
+std::vector<uint8_t> DRM::GetKIDWidevinePsshData(const std::vector<uint8_t>& wvPsshData)
+{
+  size_t offset = 0;
+  while (offset < wvPsshData.size())
+  {
+    uint8_t tag = wvPsshData[offset++];
+    int fieldNumber = tag >> 3;
+    int wireType = tag & 0x07;
+
+    if (fieldNumber == 2 && wireType == 2) // "key_id" field, id: 2
+    {
+      int length = ReadProtobufVarint(wvPsshData, offset);
+      std::vector<uint8_t> kid(wvPsshData.begin() + offset, wvPsshData.begin() + offset + length);
+      return kid;
+    }
+    else // Skip field
+    {
+      int length = ReadProtobufVarint(wvPsshData, offset);
+      if (wireType != 0)
+        offset += length;
+    }
+  }
+  return {}; // Not found
 }
 
 bool DRM::MakeWidevinePsshData(const std::vector<uint8_t>& kid,

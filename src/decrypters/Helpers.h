@@ -81,6 +81,7 @@ std::vector<uint8_t> ConvertKidToUUIDVec(const std::vector<uint8_t>& kid);
  * \param kid The PlayReady KeyId
  * \return The Widevine KeyId, otherwise empty if fails.
  */
+std::vector<uint8_t> GetKIDWidevinePsshData(const std::vector<uint8_t>& wvPsshData);
 std::vector<uint8_t> ConvertPrKidtoWvKid(std::vector<uint8_t> kid);
 
 bool IsValidPsshHeader(const std::vector<uint8_t>& pssh);

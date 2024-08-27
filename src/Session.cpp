@@ -17,6 +17,7 @@
 #include "common/Chooser.h"
 #include "decrypters/DrmFactory.h"
 #include "decrypters/Helpers.h"
+#include "parser/PRProtectionParser.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
@@ -449,6 +450,23 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         // as supported in the manifest (e.g. missing DASH ContentProtection tags)
         LOG::Log(LOGDEBUG, "License data: Use PSSH data provided by the license data property");
         initData = BASE64::Decode(licenseDataStr);
+      }
+
+      if (!initData.empty() && defaultKidStr.empty())
+      {
+        CPsshParser parser;
+        if (parser.Parse(initData))
+        {
+          if (!parser.GetData().empty())
+          {
+            auto data = DRM::GetKIDWidevinePsshData(parser.GetData());
+            if (!data.empty())
+            {
+              LOG::LogF(LOGDEBUG, "KID PARSED FROM PSSH");
+              defaultKidStr = STRING::ToHexadecimal(data);
+            }
+          }
+        }
       }
 
       //! @todo: as is implemented InitializeDRM will initialize all PSSHSet's also when are not used,
