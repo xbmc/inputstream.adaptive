@@ -12,7 +12,6 @@
 #include "PRProtectionParser.h"
 #include "SrvBroker.h"
 #include "common/Period.h"
-#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
@@ -1334,49 +1333,6 @@ bool adaptive::CDashTree::GetProtectionData(
           protCommon = &protScheme;
         }
       }
-    }
-  }
-
-  // Workaround for ClearKey:
-  // if license type ClearKey is set and a manifest dont contains ClearKey protection scheme
-  // in any case the KID is required to allow decryption (with clear keys or license URLs provided by Kodi props)
-  //! @todo: this should not be a task of parser, moreover missing an appropriate KID extraction from mp4 box
-  auto& kodiProps = CSrvBroker::GetKodiProps();
-  ProtectionScheme ckProtScheme;
-  if (kodiProps.GetLicenseType() == DRM::KS_CLEARKEY)
-  {
-    std::string_view defaultKid;
-    if (protSelected)
-      defaultKid = protSelected->kid;
-    if (defaultKid.empty() && protCommon)
-      defaultKid = protCommon->kid;
-
-    if (defaultKid.empty())
-    {
-      for (const ProtectionScheme& protScheme : reprProtSchemes)
-      {
-        if (!protScheme.kid.empty())
-        {
-          defaultKid = protScheme.kid;
-          break;
-        }
-      }
-      if (defaultKid.empty())
-      {
-        for (const ProtectionScheme& protScheme : adpProtSchemes)
-        {
-          if (!protScheme.kid.empty())
-          {
-            defaultKid = protScheme.kid;
-            break;
-          }
-        }
-      }
-      if (protCommon)
-        ckProtScheme = *protCommon;
-
-      ckProtScheme.kid = defaultKid;
-      protCommon = &ckProtScheme;
     }
   }
 
