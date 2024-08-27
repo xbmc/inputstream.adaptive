@@ -279,24 +279,31 @@ namespace adaptive
 
     while (m_tree->m_updateInterval != NO_VALUE && m_tree->m_updateInterval > 0 && !m_threadStop)
     {
-      if (m_cvUpdInterval.wait_for(updLck, std::chrono::milliseconds(m_tree->m_updateInterval)) ==
-          std::cv_status::timeout)
-      {
-        updLck.unlock();
-        // If paused, wait until last "Resume" will be called
-        std::unique_lock<std::mutex> lckWait(m_waitMutex);
-        m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
-        if (m_threadStop)
-          break;
+      auto nowTime = std::chrono::steady_clock::now();
 
-        updLck.lock();
+      std::chrono::milliseconds intervalMs = std::chrono::milliseconds(m_tree->m_updateInterval);
+      // Wait for the interval time, the predicate method is used to avoid spurious wakeups
+      // and to allow exit early when notify_all is called to force stop operations
+      m_cvUpdInterval.wait_for(updLck, intervalMs,
+                               [&nowTime, &intervalMs, this] {
+                                 return std::chrono::steady_clock::now() - nowTime >= intervalMs ||
+                                        m_threadStop;
+                               });
 
-        // Reset interval value to allow forced update from manifest
-        if (m_resetInterval)
-          m_tree->m_updateInterval = PLAYLIST::NO_VALUE;
+      updLck.unlock();
+      // If paused, wait until last "Resume" will be called
+      std::unique_lock<std::mutex> lckWait(m_waitMutex);
+      m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
+      if (m_threadStop)
+        break;
 
-        m_tree->OnUpdateSegments();
-      }
+      updLck.lock();
+
+      // Reset interval value to allow forced update from manifest
+      if (m_resetInterval)
+        m_tree->m_updateInterval = PLAYLIST::NO_VALUE;
+
+      m_tree->OnUpdateSegments();
     }
   }
 
