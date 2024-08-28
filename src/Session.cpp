@@ -1501,7 +1501,7 @@ bool CSession::ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPs
         {
           if (pssh[i].GetKid(0))
           {
-            sessionPsshset.defaultKID_ = std::string((const char*)pssh[i].GetKid(0), 16);
+            sessionPsshset.defaultKID_ = STRING::ToHexadecimal(pssh[i].GetKid(0), 16);
           }
           else if (AP4_Track* track = movie->GetTrack(
             static_cast<AP4_Track::Type>(stream.m_adStream.GetTrackType())))
