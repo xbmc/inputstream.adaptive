@@ -399,6 +399,17 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
     // cdmSession 0 is reserved for unencrypted streams
     for (size_t ses{1}; ses < m_cdmSessions.size(); ++ses)
     {
+      CCdmSession& session{m_cdmSessions[ses]};
+
+      // Check if the decrypter has been previously initialized, if so skip it,
+      // sessions are collected and never removed and InitializeDRM can be called more times
+      // depending on how it is used:
+      // 1) CSession::Initialize->InitializePeriod->InitializeDRM - Used by DASH/SS (single call)
+      // 2) CInputStreamAdaptive::DemuxRead->m_session->InitializePeriod()->InitializeDRM - On chapter change (single call)
+      // 3) CInputStreamAdaptive::OpenStream->m_session->PrepareStream->InitializeDRM - Used by HLS (a call for each stream)
+      if (session.m_cencSingleSampleDecrypter)
+        continue;
+
       std::vector<uint8_t> initData;
       std::string drmOptionalKeyParam;
 
@@ -473,8 +484,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
             LOG::Log(LOGERROR, "License data: Cannot extract PSSH/KID data from the stream");
         }
       }
-
-      CCdmSession& session{m_cdmSessions[ses]};
 
       if (addDefaultKID && ses == 1 && session.m_cencSingleSampleDecrypter)
       {
