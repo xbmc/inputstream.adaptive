@@ -1,3 +1,10 @@
+v21.5.4 (2024-08-28)
+- [Widevine] Improved synthesized PSSH for smooth streaming with Playready
+- [ClearKey] Fix bad license data encoding/decoding
+- Fix to prevent initialize decrypters already initialized
+- Fix a possible problem on KID extraction from mp4box
+- Fix a problem that can cause delay to perform live streams manifest updates, causing buffering problems
+
 v21.5.3 (2024-08-24)
 - INFO: Playback problems with PlayReady DRM are known, we are investigating for a solution
 - [ClearKey] Add support to set license server url from drm_legacy property
