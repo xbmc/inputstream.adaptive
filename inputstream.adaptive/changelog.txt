@@ -1,3 +1,9 @@
+v22.1.4 (2024-08-28)
+- [ClearKey] Fix bad license data encoding/decoding
+- Fix to prevent initialize decrypters already initialized
+- Fix a possible problem on KID extraction from mp4box
+- Fix a problem that can cause delay to perform live streams manifest updates, causing buffering problems
+
 v22.1.3 (2024-08-24)
 - INFO: Playback problems with PlayReady DRM are known, we are investigating for a solution
 - [HLS] Add support to PlayReady
