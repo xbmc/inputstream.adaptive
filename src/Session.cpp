@@ -422,9 +422,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
             LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming %s",
                      licenseData.empty() ? "" : "(with custom data)");
 
-            std::vector<uint8_t> wvPsshData;
-            if (DRM::MakeWidevinePsshData(defaultKid, licenseData, wvPsshData))
-              DRM::MakePssh(DRM::ID_WIDEVINE, wvPsshData, initData);
+            initData = DRM::PSSH::MakeWidevine({defaultKid}, licenseData);
           }
         }
         else if (licenseType == "com.microsoft.playready")

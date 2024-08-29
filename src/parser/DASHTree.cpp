@@ -9,9 +9,9 @@
 #include "DASHTree.h"
 
 #include "CompKodiProps.h"
-#include "PRProtectionParser.h"
 #include "SrvBroker.h"
 #include "common/Period.h"
+#include "decrypters/HelperPr.h"
 #include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
@@ -1286,8 +1286,8 @@ void adaptive::CDashTree::ParseTagContentProtection(
       }
       else if (childName == "mspr:pro" || childName == "pro")
       {
-        PRProtectionParser parser;
-        if (parser.ParseHeader(node.child_value()))
+        DRM::PRHeaderParser parser;
+        if (parser.Parse(node.child_value()))
           protScheme.kid = STRING::ToHexadecimal(parser.GetKID());
       }
     }

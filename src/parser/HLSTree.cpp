@@ -9,9 +9,9 @@
 #include "HLSTree.h"
 
 #include "CompKodiProps.h"
-#include "PRProtectionParser.h"
 #include "SrvBroker.h"
 #include "aes_decrypter.h"
+#include "decrypters/HelperPr.h"
 #include "decrypters/Helpers.h"
 #include "kodi/tools/StringUtils.h"
 #include "utils/Base64Utils.h"
@@ -1264,7 +1264,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     // If there is no KID, try to get it from pssh data
     if (m_currentDefaultKID.empty())
     {
-      CPsshParser parser;
+      DRM::PSSH parser;
       if (parser.Parse(m_currentPssh) && parser.GetKeyIds().size() > 0)
         m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKeyIds()[0]);
     }
@@ -1290,17 +1290,17 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
 
     m_currentPssh = uriData;
 
-    PRProtectionParser parser;
+    DRM::PRHeaderParser parser;
 
-    if (parser.ParseHeader(m_currentPssh) && !parser.GetKID().empty())
+    if (parser.Parse(m_currentPssh) && !parser.GetKID().empty())
     {
       m_licenseUrl = parser.GetLicenseURL();
       m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKID());
 
       auto encryptionType = parser.GetEncryption();
-      if (encryptionType == PRProtectionParser::EncryptionType::AESCTR)
+      if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCTR)
         m_cryptoMode = CryptoMode::AES_CTR;
-      else if (encryptionType == PRProtectionParser::EncryptionType::AESCBC)
+      else if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCBC)
         m_cryptoMode = CryptoMode::AES_CBC;
     }
     else

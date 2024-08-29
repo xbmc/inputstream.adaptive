@@ -35,7 +35,8 @@ constexpr std::string_view URN_COMMON = "urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52
 
 constexpr uint8_t ID_WIDEVINE[16] = {0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce,
                                      0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed};
-
+constexpr uint8_t ID_PLAYREADY[16] = {0x9a, 0x04, 0xf0, 0x79, 0x98, 0x40, 0x42, 0x86,
+                                      0xab, 0x92, 0xe6, 0x5b, 0xe0, 0x88, 0x5f, 0x95};
 
 bool IsKeySystemSupported(std::string_view keySystem);
 
@@ -67,42 +68,63 @@ std::vector<uint8_t> ConvertKidStrToBytes(std::string_view kidStr);
  */
 std::string ConvertKidBytesToUUID(std::vector<uint8_t> kid);
 
-std::vector<uint8_t> ConvertKidToUUIDVec(const std::vector<uint8_t>& kid);
-
-/*!
- * \brief Convert a PlayReady KeyId of 16 bytes to a Widevine KeyId.
- * \param kid The PlayReady KeyId
- * \return The Widevine KeyId, otherwise empty if fails.
- */
-std::vector<uint8_t> ConvertPrKidtoWvKid(std::vector<uint8_t> kid);
-
 bool IsValidPsshHeader(const std::vector<uint8_t>& pssh);
 
-/*!
- * \brief Generate a synthesized Widevine PSSH.
- *        (WidevinePsshData as google protobuf format
- *        https://github.com/devine-dl/pywidevine/blob/master/pywidevine/license_protocol.proto)
- * \param kid The KeyId
- * \param contentIdData Custom content for the "content_id" field as bytes
- *                      Placeholders allowed:
- *                      {KID} To inject the KID as bytes
- *                      {UUID} To inject the KID as UUID string format
- * \param wvPsshData[OUT] The generated Widevine PSSH
- * \return True if has success, otherwise false.
- */
-bool MakeWidevinePsshData(const std::vector<uint8_t>& kid,
-                          std::vector<uint8_t> contentIdData,
-                          std::vector<uint8_t>& wvPsshData);
+class PSSH
+{
+public:
+ /*!
+  * \brief Generate a PSSH box.
+  *        https://w3c.github.io/encrypted-media/format-registry/initdata/cenc.html#common-system
+  * \param systemId The DRM System ID (expected 16 bytes)
+  * \param keyIds The key id's
+  * \param initData[OPT] The pssh data e.g. WidevinePsshData
+  * \param version[OPT] The pssh box version (0 or 1)
+  * \param flags[OPT] The pssh box flags
+  * \return The pssh if has success, otherwise empty.
+  */
+  static std::vector<uint8_t> Make(const uint8_t* systemId,
+                                   const std::vector<std::vector<uint8_t>>& keyIds,
+                                   const std::vector<uint8_t>& initData = {},
+                                   const uint8_t version = 0,
+                                   const uint32_t flags = 0);
 
-/*!
- * \brief Generate a PSSH box (version 0, no KID's).
- * \param systemUuid The DRM System ID (expected 16 bytes)
- * \param initData The init data e.g. WidevinePsshData
- * \param psshData[OUT] The generated PSSH
- * \return True if has success, otherwise false.
- */
-bool MakePssh(const uint8_t* systemId,
-              const std::vector<uint8_t>& initData,
-              std::vector<uint8_t>& psshData);
+  /*!
+  * \brief Generate a PSSH box for Widevine.
+  * \param keyIds The key id's
+  * \param initData[OPT] Custom init data for the "content_id" field of WidevinePsshData struct
+  * \param version[OPT] The pssh box version (0 or 1)
+  * \param flags[OPT] The pssh box flags
+  * \return The pssh if has success, otherwise empty.
+  */
+  static std::vector<uint8_t> MakeWidevine(const std::vector<std::vector<uint8_t>>& keyIds,
+                                           const std::vector<uint8_t>& initData = {},
+                                           const uint8_t version = 0,
+                                           const uint32_t flags = 0);
+
+  /*!
+  * \brief Parse a PSSH, and the PSSH init data.
+  * \param data The PSSH
+  * \return True has success, otherwise false.
+  */
+  bool Parse(const std::vector<uint8_t>& data);
+
+  uint8_t GetVersion() const { return m_version; }
+  uint32_t GetFlags() const { return m_flags; }
+  const std::vector<uint8_t>& GetSystemId() const { return m_systemId; }
+  const std::vector<std::vector<uint8_t>>& GetKeyIds() const { return m_keyIds; }
+  const std::vector<uint8_t>& GetInitData() const { return m_initData; }
+  std::string GetLicenseUrl() const { return m_licenseUrl; }
+
+private:
+  void ResetData();
+
+  uint8_t m_version{0};
+  uint32_t m_flags{0};
+  std::vector<uint8_t> m_systemId;
+  std::vector<std::vector<uint8_t>> m_keyIds;
+  std::vector<uint8_t> m_initData;
+  std::string m_licenseUrl;
+};
 
 }; // namespace DRM

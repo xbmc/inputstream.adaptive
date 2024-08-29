@@ -1,14 +1,13 @@
 /*
- *  Copyright (C) 2023 Team Kodi
+ *  Copyright (C) 2024 Team Kodi
  *  This file is part of Kodi - https://kodi.tv
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
  *  See LICENSES/README.md for more information.
  */
 
-#include "PRProtectionParser.h"
-
-#include "decrypters/Helpers.h"
+#include "HelperPr.h"
+#include "utils/log.h"
 #include "utils/Base64Utils.h"
 #include "utils/CharArrayParser.h"
 #include "utils/StringUtils.h"
@@ -24,23 +23,39 @@ using namespace UTILS;
 namespace
 {
 constexpr uint16_t PLAYREADY_WRM_TAG = 0x0001;
+
+// \brief Convert a PlayReady KID to Widevine KID format
+std::vector<uint8_t> ConvertKidtoWv(std::vector<uint8_t> kid)
+{
+  if (kid.size() != 16)
+    return {};
+
+  std::vector<uint8_t> remapped;
+  static const size_t remap[16] = {3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15};
+  // Reordering bytes
+  for (size_t i{0}; i < 16; ++i)
+  {
+    remapped.emplace_back(kid[remap[i]]);
+  }
+  return remapped;
+}
 } // unnamed namespace
 
-bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeaderBase64)
+bool DRM::PRHeaderParser::Parse(std::string_view prHeaderBase64)
 {
-  return ParseHeader(BASE64::Decode(prHeaderBase64));
+  return Parse(BASE64::Decode(prHeaderBase64));
 }
 
-bool adaptive::PRProtectionParser::ParseHeader(const std::vector<uint8_t>& prHeader)
+bool DRM::PRHeaderParser::Parse(const std::vector<uint8_t>& prHeader)
 {
   m_KID.clear();
   m_licenseURL.clear();
-  m_PSSH.clear();
+  m_initData.clear();
 
   if (prHeader.empty())
     return false;
 
-  m_PSSH = prHeader;
+  m_initData = prHeader;
 
   // Parse header object data
   CCharArrayParser charParser;
@@ -176,7 +191,7 @@ bool adaptive::PRProtectionParser::ParseHeader(const std::vector<uint8_t>& prHea
             else if (algid == "AESCBC")
               m_encryption = EncryptionType::AESCBC;
           }
-        }      
+        }
       }
     }
   }
@@ -186,7 +201,7 @@ bool adaptive::PRProtectionParser::ParseHeader(const std::vector<uint8_t>& prHea
     std::vector<uint8_t> prKid = BASE64::Decode(kidBase64);
     if (prKid.size() == 16)
     {
-      m_KID = DRM::ConvertPrKidtoWvKid(prKid);
+      m_KID = ConvertKidtoWv(prKid);
     }
     else
       LOG::LogF(LOGWARNING, "KID size %zu instead of 16, KID ignored.", prKid.size());
@@ -194,64 +209,6 @@ bool adaptive::PRProtectionParser::ParseHeader(const std::vector<uint8_t>& prHea
 
   xml_node nodeLAURL = nodeDATA.child("LA_URL");
   m_licenseURL = nodeLAURL.child_value();
-
-  return true;
-}
-
-bool adaptive::CPsshParser::Parse(const std::vector<uint8_t>& data)
-{
-  CCharArrayParser charParser;
-  charParser.Reset(data.data(), data.size());
-
-  // BMFF box header (4byte size + 4byte type)
-  if (charParser.CharsLeft() < 8)
-    return false;
-  const uint32_t boxSize = charParser.ReadNextUnsignedInt();
-
-  if (std::memcmp(charParser.GetDataPos(), m_boxTypePssh, 4) != 0)
-  {
-    LOG::LogF(LOGERROR, "Wrong PSSH box type.");
-    return false;
-  }
-  charParser.SkipChars(4);
-
-  // Box header
-  if (charParser.CharsLeft() < 4)
-    return false;
-  const uint32_t header = charParser.ReadNextUnsignedInt();
-
-  m_version = (header >> 24) & 0x000000FF;
-  m_flags = header & 0x00FFFFFF;
-
-  // SystemID
-  if (charParser.CharsLeft() < 16)
-    return false;
-  charParser.ReadNextArray(16, m_systemId);
-
-  if (m_version == 1)
-  {
-    // KeyIDs
-    if (charParser.CharsLeft() < 4)
-      return false;
-    uint32_t kidCount = charParser.ReadNextUnsignedInt();
-    while (kidCount > 0)
-    {
-      if (charParser.CharsLeft() < 16)
-        return false;
-
-      std::vector<uint8_t> kid;
-      if (charParser.ReadNextArray(16, kid))
-        m_keyIds.emplace_back(kid);
-
-      kidCount--;
-    }
-  }
-  // Data
-  if (charParser.CharsLeft() < 4)
-    return false;
-  const uint32_t dataSize = charParser.ReadNextUnsignedInt();
-  if (!charParser.ReadNextArray(dataSize, m_data))
-    return false;
 
   return true;
 }

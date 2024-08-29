@@ -15,10 +15,13 @@ namespace pugi
 class xml_node;
 }
 
+namespace DRM
+{
+class PRHeaderParser;
+}
+
 namespace adaptive
 {
-// Forward
-class PRProtectionParser;
 
 class ATTR_DLL_LOCAL CSmoothTree : public AdaptiveTree
 {
@@ -45,7 +48,7 @@ protected:
 
   void ParseTagStreamIndex(pugi::xml_node nodeSI,
                            PLAYLIST::CPeriod* period,
-                           const PRProtectionParser& protParser);
+                           const DRM::PRHeaderParser& protParser);
   void ParseTagQualityLevel(pugi::xml_node nodeQI,
                             PLAYLIST::CAdaptationSet* adpSet,
                             const uint32_t timescale,

@@ -12,10 +12,11 @@ add_executable(${BINARY}
     TestHelper.cpp
     TestUtils.cpp
     ../decrypters/Helpers.cpp
+    ../decrypters/HelperPr.cpp
+    ../decrypters/HelperWv.cpp
     ../parser/DASHTree.cpp
     ../parser/HLSTree.cpp
     ../parser/SmoothTree.cpp
-    ../parser/PRProtectionParser.cpp
     ../common/AdaptationSet.cpp
     ../common/AdaptiveStream.cpp
     ../common/AdaptiveTree.cpp
