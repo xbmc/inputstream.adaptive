@@ -8,6 +8,7 @@
 
 #include "SmoothTree.h"
 
+#include "decrypters/Helpers.h"
 #include "decrypters/HelperPr.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
@@ -189,7 +190,9 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
   if (protParser.HasProtection() && (adpSet->GetStreamType() == StreamType::VIDEO ||
                                      adpSet->GetStreamType() == StreamType::AUDIO))
   {
-    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(), protParser.GetInitData(),
+    const std::vector<uint8_t> initData = DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, protParser.GetInitData());
+
+    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(), initData,
                                STRING::ToHexadecimal(protParser.GetKID()));
   }
 

@@ -1280,11 +1280,11 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
       return EncryptionType::NOT_SUPPORTED;
     }
 
-    m_currentPssh = uriData;
+    m_currentPssh = DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, uriData);
 
     DRM::PRHeaderParser parser;
 
-    if (parser.Parse(m_currentPssh) && !parser.GetKID().empty())
+    if (parser.Parse(uriData) && !parser.GetKID().empty())
     {
       m_licenseUrl = parser.GetLicenseURL();
       m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKID());
