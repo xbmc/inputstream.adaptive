@@ -1286,9 +1286,16 @@ void adaptive::CDashTree::ParseTagContentProtection(
       }
       else if (childName == "mspr:pro" || childName == "pro")
       {
-        DRM::PRHeaderParser parser;
-        if (parser.Parse(node.child_value()))
-          protScheme.kid = STRING::ToHexadecimal(parser.GetKID());
+        if (protScheme.kid.empty() || protScheme.pssh.empty())
+        {
+          DRM::PRHeaderParser parser;
+          if (parser.Parse(node.child_value()))
+          {
+            protScheme.kid = STRING::ToHexadecimal(parser.GetKID());
+            protScheme.pssh =
+                BASE64::Encode(DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, parser.GetInitData()));
+          }
+        }
       }
     }
 
