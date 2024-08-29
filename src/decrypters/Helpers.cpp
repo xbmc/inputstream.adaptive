@@ -80,6 +80,20 @@ std::string DRM::UrnToSystemId(std::string_view urn)
   return sysId;
 }
 
+std::vector<std::string> DRM::UrnsToSystemIds(const std::vector<std::string_view>& urns)
+{
+  std::vector<std::string> sids;
+
+  for (std::string_view urn : urns)
+  {
+    std::string sid = DRM::UrnToSystemId(urn);
+    if (!sid.empty())
+      sids.emplace_back(DRM::UrnToSystemId(urn));
+  }
+
+  return sids;
+}
+
 bool DRM::IsKeySystemSupported(std::string_view keySystem)
 {
   return keySystem == DRM::KS_NONE || keySystem == DRM::KS_WIDEVINE ||

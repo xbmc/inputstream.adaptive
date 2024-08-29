@@ -1261,14 +1261,6 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
         LOG::LogF(LOGERROR, "Incorrect KEYID tag format");
     }
 
-    // If there is no KID, try to get it from pssh data
-    if (m_currentDefaultKID.empty())
-    {
-      DRM::PSSH parser;
-      if (parser.Parse(m_currentPssh) && parser.GetKeyIds().size() > 0)
-        m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKeyIds()[0]);
-    }
-
     if (encryptMethod == "SAMPLE-AES-CTR")
       m_cryptoMode = CryptoMode::AES_CTR;
     else if (encryptMethod == "SAMPLE-AES")

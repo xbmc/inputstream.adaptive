@@ -55,6 +55,13 @@ std::string GenerateUrlDomainHash(std::string_view url);
 std::string UrnToSystemId(std::string_view urn);
 
 /*!
+ * \brief Convert a list of DRM URN's to System ID's.
+ * \param urn The URN
+ * \return The System ID's, failed conversions are not included.
+ */
+std::vector<std::string> UrnsToSystemIds(const std::vector<std::string_view>& urns);
+
+/*!
  * \brief Convert a hexdecimal KeyId of 32 chars to 16 bytes.
  * \param kidStr The hexdecimal KeyId
  * \return KeyId as bytes, otherwise empty if fails.
