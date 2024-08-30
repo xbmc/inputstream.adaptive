@@ -125,6 +125,22 @@ uint32_t UTILS::CCharArrayParser::ReadNextUnsignedInt()
          (static_cast<uint32_t>(m_data[m_position - 1]) & 0xFF);
 }
 
+uint32_t UTILS::CCharArrayParser::ReadNextLEUnsignedInt()
+{
+  if (!m_data)
+  {
+    LOG::LogF(LOGERROR, "{} - No data to read");
+    return 0;
+  }
+  m_position += 4;
+  if (m_position > m_limit)
+    LOG::LogF(LOGERROR, "{} - Position out of range");
+  return (static_cast<uint32_t>(m_data[m_position - 4]) & 0xFF) |
+         (static_cast<uint32_t>(m_data[m_position - 3]) & 0xFF) << 8 |
+         (static_cast<uint32_t>(m_data[m_position - 2]) & 0xFF) << 16 |
+         (static_cast<uint32_t>(m_data[m_position - 1]) & 0xFF) << 24;
+}
+
 uint64_t UTILS::CCharArrayParser::ReadNextUnsignedInt64()
 {
   if (!m_data)

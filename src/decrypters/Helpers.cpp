@@ -8,7 +8,10 @@
 
 #include "Helpers.h"
 
+#include "HelperPr.h"
+#include "HelperWv.h"
 #include "utils/Base64Utils.h"
+#include "utils/CharArrayParser.h"
 #include "utils/DigestMD5Utils.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
@@ -21,66 +24,15 @@ using namespace UTILS;
 namespace
 {
 constexpr uint8_t PSSHBOX_HEADER_PSSH[4] = {0x70, 0x73, 0x73, 0x68};
-constexpr uint8_t PSSHBOX_HEADER_VER0[4] = {0x00, 0x00, 0x00, 0x00};
 
-// Protection scheme identifying the encryption algorithm. The protection
-// scheme is represented as a uint32 value. The uint32 contains 4 bytes each
-// representing a single ascii character in one of the 4CC protection scheme values.
-enum class WIDEVINE_PROT_SCHEME {
-  CENC = 0x63656E63,
-  CBC1 = 0x63626331,
-  CENS = 0x63656E73,
-  CBCS = 0x63626373
-};
-
-/*!
- * \brief Make a protobuf tag.
- * \param fieldNumber The field number
- * \param wireType The wire type:
- *                 0 = varint (int32, int64, uint32, uint64, sint32, sint64, bool, enum)
- *                 1 = 64 bit (fixed64, sfixed64, double)
- *                 2 = Length-delimited (string, bytes, embedded messages, packed repeated fields)
- *                 5 = 32 bit (fixed32, sfixed32, float)
- * \return The tag.
- */
-int MakeProtobufTag(int fieldNumber, int wireType)
+void WriteBigEndianInt(std::vector<uint8_t>& data, const uint32_t value)
 {
-  return (fieldNumber << 3) | wireType;
+  data.emplace_back(static_cast<uint8_t>((value >> 24) & 0xFF));
+  data.emplace_back(static_cast<uint8_t>((value >> 16) & 0xFF));
+  data.emplace_back(static_cast<uint8_t>((value >> 8) & 0xFF));
+  data.emplace_back(static_cast<uint8_t>(value & 0xFF));
 }
 
-// \brief Write a protobuf varint value to the data
-void WriteProtobufVarint(std::vector<uint8_t>& data, int size)
-{
-  do
-  {
-    uint8_t byte = size & 127;
-    size >>= 7;
-    if (size > 0)
-      byte |= 128; // Varint continuation
-    data.emplace_back(byte);
-  } while (size > 0);
-}
-
-/*!
- * \brief Replace in a vector, a sequence of vector data with another one.
- * \param data The data to be modified
- * \param sequence The sequence of data to be searched
- * \param replace The data used to replace the sequence
- * \return True if the data has been modified, otherwise false.
- */
-bool ReplaceVectorSeq(std::vector<uint8_t>& data,
-                      const std::vector<uint8_t>& sequence,
-                      const std::vector<uint8_t>& replace)
-{
-  auto it = std::search(data.begin(), data.end(), sequence.begin(), sequence.end());
-  if (it != data.end())
-  {
-    it = data.erase(it, it + sequence.size());
-    data.insert(it, replace.begin(), replace.end());
-    return true;
-  }
-  return false;
-}
 } // unnamed namespace
 
 std::string DRM::GenerateUrlDomainHash(std::string_view url)
@@ -126,6 +78,20 @@ std::string DRM::UrnToSystemId(std::string_view urn)
     return "";
   }
   return sysId;
+}
+
+std::vector<std::string> DRM::UrnsToSystemIds(const std::vector<std::string_view>& urns)
+{
+  std::vector<std::string> sids;
+
+  for (std::string_view urn : urns)
+  {
+    std::string sid = DRM::UrnToSystemId(urn);
+    if (!sid.empty())
+      sids.emplace_back(DRM::UrnToSystemId(urn));
+  }
+
+  return sids;
 }
 
 bool DRM::IsKeySystemSupported(std::string_view keySystem)
@@ -174,122 +140,197 @@ std::string DRM::ConvertKidBytesToUUID(std::vector<uint8_t> kid)
   return uuid;
 }
 
-std::vector<uint8_t> DRM::ConvertKidToUUIDVec(const std::vector<uint8_t>& kid)
-{
-  if (kid.size() != 16)
-    return {};
-
-  static char hexDigits[] = "0123456789abcdef";
-  std::vector<uint8_t> uuid;
-  uuid.reserve(32);
-
-  for (size_t i = 0; i < 16; ++i)
-  {
-    if (i == 4 || i == 6 || i == 8 || i == 10)
-      uuid.emplace_back('-');
-
-    uuid.emplace_back(hexDigits[kid[i] >> 4]);
-    uuid.emplace_back(hexDigits[kid[i] & 15]);
-  }
-
-  return uuid;
-}
-
-std::vector<uint8_t> DRM::ConvertPrKidtoWvKid(std::vector<uint8_t> kid)
-{
-  if (kid.size() != 16)
-    return {};
-
-  std::vector<uint8_t> remapped;
-  static const size_t remap[16] = {3, 2, 1, 0, 5, 4, 7, 6, 8, 9, 10, 11, 12, 13, 14, 15};
-  // Reordering bytes
-  for (size_t i{0}; i < 16; ++i)
-  {
-    remapped.emplace_back(kid[remap[i]]);
-  }
-  return remapped;
-}
-
 bool DRM::IsValidPsshHeader(const std::vector<uint8_t>& pssh)
 {
   return pssh.size() >= 8 && std::equal(pssh.begin() + 4, pssh.begin() + 8, PSSHBOX_HEADER_PSSH);
 }
 
-bool DRM::MakeWidevinePsshData(const std::vector<uint8_t>& kid,
-                               std::vector<uint8_t> contentIdData,
-                               std::vector<uint8_t>& wvPsshData)
+std::vector<uint8_t> DRM::PSSH::Make(const uint8_t* systemId,
+                                     const std::vector<std::vector<uint8_t>>& keyIds,
+                                     const std::vector<uint8_t>& initData,
+                                     const uint8_t version,
+                                     const uint32_t flags)
 {
-  wvPsshData.clear();
+  if (!systemId)
+  {
+    LOG::LogF(LOGERROR, "Cannot make PSSH, no system id");
+    return {};
+  }
+  if (version > 1)
+  {
+    LOG::LogF(LOGERROR, "Cannot make PSSH, version %u not supported", version);
+    return {};
+  }
+  if (initData.empty() && keyIds.empty())
+  {
+    LOG::LogF(LOGERROR, "Cannot make PSSH, init data or key id's must be supplied");
+    return {};
+  }
 
-  if (kid.empty())
+  std::vector<uint8_t> psshBox;
+  psshBox.resize(4, 0); // Size field of 4 bytes (updated later)
+
+  psshBox.insert(psshBox.end(), PSSHBOX_HEADER_PSSH, PSSHBOX_HEADER_PSSH + 4);
+
+  psshBox.emplace_back(version);
+
+  psshBox.push_back((flags >> 16) & 0xFF);
+  psshBox.push_back((flags >> 8) & 0xFF);
+  psshBox.push_back(flags & 0xFF);
+
+  psshBox.insert(psshBox.end(), systemId, systemId + 16);
+
+  if (version == 1) // If version 1, add KID's
+  {
+    WriteBigEndianInt(psshBox, static_cast<uint32_t>(keyIds.size()));
+    for (const std::vector<uint8_t>& keyId : keyIds)
+    {
+      if (keyId.size() != 16)
+      {
+        LOG::LogF(LOGERROR, "Cannot make PSSH, wrong KID size");
+        return {};
+      }
+      psshBox.insert(psshBox.end(), keyId.begin(), keyId.end());
+    }
+  }
+
+  // Add init data size
+  WriteBigEndianInt(psshBox, static_cast<uint32_t>(initData.size()));
+
+  // Add init data
+  psshBox.insert(psshBox.end(), initData.begin(), initData.end());
+
+  // Update box size (first 4 bytes)
+  const uint32_t boxSize = static_cast<uint32_t>(psshBox.size());
+  psshBox[0] = static_cast<uint8_t>((boxSize >> 24) & 0xFF);
+  psshBox[1] = static_cast<uint8_t>((boxSize >> 16) & 0xFF);
+  psshBox[2] = static_cast<uint8_t>((boxSize >> 8) & 0xFF);
+  psshBox[3] = static_cast<uint8_t>(boxSize & 0xFF);
+
+  return psshBox;
+}
+
+std::vector<uint8_t> DRM::PSSH::MakeWidevine(const std::vector<std::vector<uint8_t>>& keyIds,
+                                             const std::vector<uint8_t>& initData,
+                                             const uint8_t version,
+                                             const uint32_t flags)
+{
+  // Make Widevine pssh data
+  const std::vector<uint8_t> wvPsshData = DRM::MakeWidevinePsshData(keyIds, initData);
+  if (wvPsshData.empty())
+    return {};
+
+  return Make(ID_WIDEVINE, keyIds, wvPsshData);
+}
+
+bool DRM::PSSH::Parse(const std::vector<uint8_t>& data)
+{
+  ResetData();
+  CCharArrayParser charParser;
+  charParser.Reset(data.data(), data.size());
+
+  // BMFF box header (4byte size + 4byte type)
+  if (charParser.CharsLeft() < 8)
+  {
+    LOG::LogF(LOGERROR, "Cannot parse PSSH data, malformed data.");
     return false;
-
-  // The generated synthesized Widevine PSSH box require minimal contents:
-  // - The key_id field set with the KID
-  // - The content_id field copied from the key_id field (but we allow custom content)
-
-  // Create "key_id" field, id: 2 (can be repeated if multiples)
-  wvPsshData.push_back(MakeProtobufTag(2, 2));
-  WriteProtobufVarint(wvPsshData, static_cast<int>(kid.size())); // Write data size
-  wvPsshData.insert(wvPsshData.end(), kid.begin(), kid.end());
-
-  // Prepare "content_id" data
-  if (contentIdData.empty()) // If no data, by default add the KID
-  {
-    contentIdData.insert(contentIdData.end(), kid.begin(), kid.end());
   }
-  else
+  const uint32_t boxSize = charParser.ReadNextUnsignedInt();
+  
+  if (!std::equal(charParser.GetDataPos(), charParser.GetDataPos() + 4, PSSHBOX_HEADER_PSSH))
   {
-    // Replace placeholders if needed
-    static const std::vector<uint8_t> phKid = {'{', 'K', 'I', 'D', '}'};
-    ReplaceVectorSeq(contentIdData, phKid, kid);
+    LOG::LogF(LOGERROR, "Cannot parse PSSH data, no PSSH box type.");
+    return false;
+  }
+  charParser.SkipChars(4);
 
-    static const std::vector<uint8_t> phUuid = {'{', 'U', 'U', 'I', 'D', '}'};
-    const std::vector<uint8_t> kidUuid = ConvertKidToUUIDVec(kid);
-    ReplaceVectorSeq(contentIdData, phUuid, kidUuid);
+  // Box header
+  if (charParser.CharsLeft() < 4)
+  {
+    LOG::LogF(LOGERROR, "Cannot parse PSSH data, malformed data.");
+    return false;
   }
 
-  // Create "content_id" field, id: 4
-  wvPsshData.push_back(MakeProtobufTag(4, 2));
-  WriteProtobufVarint(wvPsshData, static_cast<int>(contentIdData.size())); // Write data size
-  wvPsshData.insert(wvPsshData.end(), contentIdData.begin(), contentIdData.end());
+  const uint32_t header = charParser.ReadNextUnsignedInt();
 
-  // Create "protection_scheme" field, id: 9
-  // wvPsshData.push_back(MakeProtobufTag(9, 0));
-  // WriteProtobufVarint(wvPsshData, static_cast<int>(WIDEVINE_PROT_SCHEME::CENC));
+  m_version = (header >> 24) & 0x000000FF;
+  m_flags = header & 0x00FFFFFF;
+
+  // SystemID
+  if (charParser.CharsLeft() < 16)
+  {
+    LOG::LogF(LOGERROR, "Cannot parse PSSH data, malformed data.");
+    return false;
+  }
+  charParser.ReadNextArray(16, m_systemId);
+
+  if (m_version == 1) // If version 1, get key id's from pssh field
+  {
+    // KeyIDs
+    if (charParser.CharsLeft() < 4)
+    {
+      LOG::LogF(LOGERROR, "Cannot parse PSSH data, malformed data.");
+      return false;
+    }
+
+    uint32_t kidCount = charParser.ReadNextUnsignedInt();
+    while (kidCount > 0)
+    {
+      if (charParser.CharsLeft() < 16)
+      {
+        LOG::LogF(LOGERROR, "Cannot parse PSSH data, malformed data.");
+        return false;
+      }
+
+      std::vector<uint8_t> kid;
+      if (charParser.ReadNextArray(16, kid))
+        m_keyIds.emplace_back(kid);
+
+      kidCount--;
+    }
+  }
+
+  // Get init data
+  if (charParser.CharsLeft() < 4)
+  {
+    LOG::LogF(LOGERROR, "Cannot parse PSSH data, malformed data.");
+    return false;
+  }
+  const uint32_t dataSize = charParser.ReadNextUnsignedInt();
+  if (!charParser.ReadNextArray(dataSize, m_initData))
+  {
+    LOG::LogF(LOGERROR, "Cannot parse PSSH data, malformed data.");
+    return false;
+  }
+
+  // Parse init data, where needed
+
+  if (std::equal(m_systemId.cbegin(), m_systemId.cend(), ID_WIDEVINE))
+  {
+    if (m_version == 0)
+      DRM::ParseWidevinePssh(m_initData, m_keyIds);
+  }
+  else if (m_version == 0 && std::equal(m_systemId.cbegin(), m_systemId.cend(), ID_PLAYREADY))
+  {
+    DRM::PRHeaderParser hParser;
+    if (hParser.Parse(m_initData))
+    {
+      if (m_version == 0)
+        m_keyIds.emplace_back(hParser.GetKID());
+
+      m_licenseUrl = hParser.GetLicenseURL();
+    }
+  }
 
   return true;
 }
 
-bool DRM::MakePssh(const uint8_t* systemId,
-                   const std::vector<uint8_t>& initData,
-                   std::vector<uint8_t>& psshData)
+void DRM::PSSH::ResetData()
 {
-  if (!systemId)
-    return false;
-
-  psshData.clear();
-  psshData.resize(4, 0); // Size field 4 bytes (updated later)
-  psshData.insert(psshData.end(), PSSHBOX_HEADER_PSSH, PSSHBOX_HEADER_PSSH + 4);
-  psshData.insert(psshData.end(), PSSHBOX_HEADER_VER0, PSSHBOX_HEADER_VER0 + 4);
-  psshData.insert(psshData.end(), systemId, systemId + 16);
-
-  // Add init data size (4 bytes)
-  const uint32_t initDataSize = static_cast<uint32_t>(initData.size());
-  psshData.emplace_back(static_cast<uint8_t>((initDataSize >> 24) & 0xFF));
-  psshData.emplace_back(static_cast<uint8_t>((initDataSize >> 16) & 0xFF));
-  psshData.emplace_back(static_cast<uint8_t>((initDataSize >> 8) & 0xFF));
-  psshData.emplace_back(static_cast<uint8_t>(initDataSize & 0xFF));
-
-  // Add init data
-  psshData.insert(psshData.end(), initData.begin(), initData.end());
-
-  // Update box size (first 4 bytes)
-  const uint32_t boxSize = static_cast<uint32_t>(psshData.size());
-  psshData[0] = static_cast<uint8_t>((boxSize >> 24) & 0xFF);
-  psshData[1] = static_cast<uint8_t>((boxSize >> 16) & 0xFF);
-  psshData[2] = static_cast<uint8_t>((boxSize >> 8) & 0xFF);
-  psshData[3] = static_cast<uint8_t>(boxSize & 0xFF);
-
-  return true;
+  m_version = 0;
+  m_flags = 0;
+  m_systemId.clear();
+  m_keyIds.clear();
+  m_initData.clear();
+  m_licenseUrl.clear();
 }

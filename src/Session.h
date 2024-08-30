@@ -334,9 +334,10 @@ protected:
    */
   void DisposeDecrypter();
 
-  bool ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,
+  void ExtractStreamProtectionData(const PLAYLIST::CPeriod::PSSHSet& psshSet,
+                                   std::string& defaultKid,
                                    std::vector<uint8_t>& initData,
-                                   std::vector<std::string_view> keySystems);
+                                   const std::vector<std::string_view>& keySystems);
 
 private:
   std::string m_manifestUrl;

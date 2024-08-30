@@ -8,12 +8,13 @@
 
 #include "SmoothTree.h"
 
+#include "decrypters/Helpers.h"
+#include "decrypters/HelperPr.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
 #include "utils/Utils.h"
 #include "utils/XMLUtils.h"
 #include "utils/log.h"
-#include "PRProtectionParser.h"
 #include "pugixml.hpp"
 
 using namespace adaptive;
@@ -89,7 +90,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
   m_totalTime = period->GetDuration() * 1000 / period->GetTimescale();
 
   // Parse <Protection> tag
-  PRProtectionParser protParser;
+  DRM::PRHeaderParser protParser;
   xml_node nodeProt = nodeSSM.child("Protection");
   if (nodeProt)
   {
@@ -103,7 +104,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
       if (STRING::Contains(XML::GetAttrib(nodeProtHead, "SystemID"),
                            "9A04F079-9840-4286-AB92-E65BE0885F95"))
       {
-        if (protParser.ParseHeader(nodeProtHead.child_value()))
+        if (protParser.Parse(nodeProtHead.child_value()))
         {
           period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
           m_licenseUrl = protParser.GetLicenseURL();
@@ -133,7 +134,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
 
 void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
                                                 PLAYLIST::CPeriod* period,
-                                                const PRProtectionParser& protParser)
+                                                const DRM::PRHeaderParser& protParser)
 {
   std::unique_ptr<CAdaptationSet> adpSet = CAdaptationSet::MakeUniquePtr(period);
 
@@ -189,7 +190,9 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
   if (protParser.HasProtection() && (adpSet->GetStreamType() == StreamType::VIDEO ||
                                      adpSet->GetStreamType() == StreamType::AUDIO))
   {
-    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(), protParser.GetPSSH(),
+    const std::vector<uint8_t> initData = DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, protParser.GetInitData());
+
+    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(), initData,
                                STRING::ToHexadecimal(protParser.GetKID()));
   }
 
