@@ -96,6 +96,13 @@ public:
   uint32_t ReadNextUnsignedInt();
 
   /*!
+   * \brief Reads the next four chars little endian as unsigned short value (it is assumed
+   * that the caller has already checked the availability of the data for its length)
+   * \return The unsigned int value
+   */
+  uint32_t ReadNextLEUnsignedInt();
+
+  /*!
    * \brief Reads the next eight chars as unsigned int64 value (it is assumed 
    * that the caller has already checked the availability of the data for its length)
    * \return The unsigned int64 value

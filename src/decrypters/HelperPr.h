@@ -57,4 +57,12 @@ private:
   std::vector<uint8_t> m_initData;
 };
 
+/*!
+  * \brief Fix the PlayReady header.
+  *        If the LA_URL tag is missing, injects a mock LA_URL value to avoid causing the CDM to throw when creating the key request.
+  *        The LA_URL attribute is optional but some Android PlayReady implementations are known to require it.
+  *        Check if on v4.0.0.0 the CHECKSUM tag is missing, this is required, if so convert to v4.1.0.0 that dont need it.
+  */
+std::vector<uint8_t> FixPrHeader(const std::vector<uint8_t>& prHeader);
+
 } // namespace DRM
