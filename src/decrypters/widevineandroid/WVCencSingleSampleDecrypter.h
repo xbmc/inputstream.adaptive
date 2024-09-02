@@ -7,30 +7,31 @@
  */
 
 #pragma once
-#include "../IDecrypter.h"
+
 #include "common/AdaptiveCencSampleDecrypter.h"
+#include "decrypters/HelperWv.h"
+#include "decrypters/IDecrypter.h"
 
 #include <map>
 #include <string_view>
 
-#include <bento4/Ap4.h>
+namespace jni
+{
+class CJNIMediaDrm;
+}
 
-class CWVCdmAdapterA;
-class CWVDecrypterA;
-
-class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypterA : public Adaptive_CencSingleSampleDecrypter
+class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypterA : public Adaptive_CencSingleSampleDecrypter,
+                                                     public IWVObserver
 {
 public:
-  // methods
-  CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
+  CWVCencSingleSampleDecrypterA(IWVCdmAdapter<jni::CJNIMediaDrm>* cdmAdapter,
                                 std::vector<uint8_t>& pssh,
                                 std::string_view optionalKeyParameter,
-                                const std::vector<uint8_t>& defaultKeyId,
-                                CWVDecrypterA* host);
+                                const std::vector<uint8_t>& defaultKeyId);
   virtual ~CWVCencSingleSampleDecrypterA();
 
   bool StartSession(bool skipSessionMessage) { return KeyUpdateRequest(true, skipSessionMessage); };
-  const std::vector<char>& GetSessionIdRaw() { return m_sessionId; };
+
   virtual const char* GetSessionId() override;
   std::vector<char> GetChallengeData();
   virtual bool HasLicenseKey(const std::vector<uint8_t>& keyId);
@@ -67,23 +68,26 @@ public:
 
   void RequestNewKeys() { m_isKeyUpdateRequested = true; };
 
+  // IWVObserver interface
+  void OnNotify(const CdmMessage& message) override;
+
 private:
   bool ProvisionRequest();
   bool GetKeyRequest(std::vector<char>& keyRequestData);
   bool KeyUpdateRequest(bool waitForKeys, bool skipSessionMessage);
   bool SendSessionMessage(const std::vector<char>& keyRequestData);
 
-  CWVCdmAdapterA& m_mediaDrm;
+  IWVCdmAdapter<jni::CJNIMediaDrm>* m_cdmAdapter;
+
   std::vector<uint8_t> m_pssh;
   std::vector<uint8_t> m_initialPssh;
   std::map<std::string, std::string> m_optParams;
-  CWVDecrypterA* m_host;
 
-  std::vector<char> m_sessionId;
+  std::string m_sessionId;
+  std::vector<char> m_sessionIdVec;
   std::vector<char> m_keySetId;
   std::vector<char> m_keyRequestData;
 
-  char m_sessionIdChar[128];
   bool m_isProvisioningRequested;
   bool m_isKeyUpdateRequested;
 

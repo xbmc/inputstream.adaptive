@@ -16,7 +16,7 @@
 #include "utils/StringUtils.h"
 #include "utils/log.h"
 
-#include <kodi/Filesystem.h>
+#include <kodi/Filesystem.h> //! @todo: cleanup! remove me to use FileUtils.h
 
 #if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
 #include <dlfcn.h>
@@ -26,11 +26,8 @@ using namespace DRM;
 using namespace UTILS;
 using namespace kodi::tools;
 
-
 CWVDecrypter::~CWVDecrypter()
 {
-  delete m_WVCdmAdapter;
-  m_WVCdmAdapter = nullptr;
 #if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
   if (m_hdlLibLoader)
     dlclose(m_hdlLibLoader);
@@ -95,12 +92,12 @@ bool CWVDecrypter::OpenDRMSystem(std::string_view licenseURL,
     LOG::LogF(LOGERROR, "License Key property cannot be empty");
     return false;
   }
-  m_WVCdmAdapter = new CWVCdmAdapter(licenseURL, serverCertificate, config, this);
+  m_WVCdmAdapter = std::make_shared<CWVCdmAdapter>(licenseURL, serverCertificate, config, this);
 
-  return m_WVCdmAdapter->GetCdmAdapter() != nullptr;
+  return m_WVCdmAdapter->GetCDM() != nullptr;
 }
 
-Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
+std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypter::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
     const std::vector<uint8_t>& defaultKeyId,
@@ -108,30 +105,19 @@ Adaptive_CencSingleSampleDecrypter* CWVDecrypter::CreateSingleSampleDecrypter(
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
-  CWVCencSingleSampleDecrypter* decrypter = new CWVCencSingleSampleDecrypter(
-      *m_WVCdmAdapter, initData, defaultKeyId, skipSessionMessage, cryptoMode, this);
+  auto decrypter = std::make_shared<CWVCencSingleSampleDecrypter>(
+      m_WVCdmAdapter.get(), initData, defaultKeyId, skipSessionMessage, cryptoMode);
   if (!decrypter->GetSessionId())
   {
-    delete decrypter;
-    decrypter = nullptr;
+    return nullptr;
   }
   return decrypter;
 }
 
-void CWVDecrypter::DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter)
-{
-  if (decrypter)
-  {
-    // close session before dispose
-    static_cast<CWVCencSingleSampleDecrypter*>(decrypter)->CloseSessionId();
-    delete static_cast<CWVCencSingleSampleDecrypter*>(decrypter);
-  }
-}
-
-void CWVDecrypter::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+void CWVDecrypter::GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                    const std::vector<uint8_t>& keyId,
                                    uint32_t media,
-                                   DecrypterCapabilites& caps)
+                                   DRM::DecrypterCapabilites& caps)
 {
   if (!decrypter)
   {
@@ -139,35 +125,62 @@ void CWVDecrypter::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter
     return;
   }
 
-  static_cast<CWVCencSingleSampleDecrypter*>(decrypter)->GetCapabilities(keyId, media, caps);
+  auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypter>(decrypter);
+  if (wvDecrypter)
+  {
+    wvDecrypter->GetCapabilities(keyId, media, caps);
+  }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
 }
 
-bool CWVDecrypter::HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
+bool CWVDecrypter::HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                  const std::vector<uint8_t>& keyId)
 {
-  if (decrypter)
-    return static_cast<CWVCencSingleSampleDecrypter*>(decrypter)->HasKeyId(keyId);
+  auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypter>(decrypter);
+  if (wvDecrypter)
+  {
+    return wvDecrypter->HasKeyId(keyId);
+  }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
+
   return false;
 }
 
-std::string CWVDecrypter::GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter)
+std::string CWVDecrypter::GetChallengeB64Data(
+    std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter)
 {
-  if (!decrypter)
-    return "";
+  auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypter>(decrypter);
+  if (wvDecrypter)
+  {
+    AP4_DataBuffer challengeData = wvDecrypter->GetChallengeData();
+    return BASE64::Encode(challengeData.GetData(), challengeData.GetDataSize());
+  }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
 
-  AP4_DataBuffer challengeData =
-      static_cast<CWVCencSingleSampleDecrypter*>(decrypter)->GetChallengeData();
-  return BASE64::Encode(challengeData.GetData(), challengeData.GetDataSize());
+  return "";
 }
 
-bool CWVDecrypter::OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
+bool CWVDecrypter::OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                     const VIDEOCODEC_INITDATA* initData)
 {
-  if (!decrypter || !initData)
+  if (!initData)
+  {
+    LOG::LogF(LOGERROR, "Cannot open video decoder, missing init data");
     return false;
+  }
 
-  m_decodingDecrypter = static_cast<CWVCencSingleSampleDecrypter*>(decrypter);
-  return m_decodingDecrypter->OpenVideoDecoder(initData);
+  m_decodingDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypter>(decrypter);
+  if (m_decodingDecrypter)
+  {
+    return m_decodingDecrypter->OpenVideoDecoder(initData);
+  }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
+
+  return false;
 }
 
 VIDEOCODEC_RETVAL CWVDecrypter::DecryptAndDecodeVideo(
@@ -191,7 +204,10 @@ VIDEOCODEC_RETVAL CWVDecrypter::VideoFrameDataToPicture(
 void CWVDecrypter::ResetVideo()
 {
   if (m_decodingDecrypter)
+  {
     m_decodingDecrypter->ResetVideo();
+    m_decodingDecrypter = nullptr;
+  }
 }
 
 void CWVDecrypter::SetLibraryPath(std::string_view libraryPath)

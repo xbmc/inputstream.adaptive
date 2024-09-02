@@ -22,28 +22,28 @@ public:
   virtual bool OpenDRMSystem(std::string_view licenseURL,
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
-  virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+  virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       const std::vector<uint8_t>& defaultkeyid,
       std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
-  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
-  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+
+  virtual void GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                const std::vector<uint8_t>& keyid,
                                uint32_t media,
                                DRM::DecrypterCapabilites& caps) override
   {
   }
-  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                              const std::vector<uint8_t>& keyid) override;
   virtual bool IsInitialised() override { return true; }
-  virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override
+  virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override
   {
     return "";
   }
-  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual bool OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                 const VIDEOCODEC_INITDATA* initData) override
   {
     return false;

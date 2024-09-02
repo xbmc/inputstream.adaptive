@@ -20,6 +20,8 @@
 #include <kodi/platform/android/System.h>
 #endif
 
+#include <memory>
+
 class Adaptive_CencSingleSampleDecrypter;
 
 namespace SESSION
@@ -136,7 +138,7 @@ public:
    *  \param index The index (psshSet number) of the cdm session
    *  \return The single sample decrypter
    */
-  Adaptive_CencSingleSampleDecrypter* GetSingleSampleDecryptor(unsigned int index) const
+  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> GetSingleSampleDecryptor(unsigned int index) const
   {
     return m_cdmSessions[index].m_cencSingleSampleDecrypter;
   }
@@ -150,7 +152,7 @@ public:
    *  \param sessionId The session id string to match
    *  \return The single sample decrypter
    */
-  Adaptive_CencSingleSampleDecrypter* GetSingleSampleDecrypter(std::string sessionId);
+  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> GetSingleSampleDecrypter(std::string sessionId);
 
   /*! \brief Get decrypter capabilities for a single sample decrypter
    *  \param index The index (psshSet number) of the cdm session
@@ -348,9 +350,8 @@ private:
   struct CCdmSession
   {
     DRM::DecrypterCapabilites m_decrypterCaps;
-    Adaptive_CencSingleSampleDecrypter* m_cencSingleSampleDecrypter{nullptr};
+    std::shared_ptr<Adaptive_CencSingleSampleDecrypter> m_cencSingleSampleDecrypter;
     const char* m_cdmSessionStr{nullptr};
-    bool m_sharedCencSsd{false};
   };
   std::vector<CCdmSession> m_cdmSessions;
 

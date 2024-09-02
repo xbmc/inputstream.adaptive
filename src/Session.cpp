@@ -115,16 +115,7 @@ void CSession::DisposeSampleDecrypter()
     for (auto& cdmSession : m_cdmSessions)
     {
       cdmSession.m_cdmSessionStr = nullptr;
-      if (!cdmSession.m_sharedCencSsd)
-      {
-        m_decrypter->DestroySingleSampleDecrypter(cdmSession.m_cencSingleSampleDecrypter);
-        cdmSession.m_cencSingleSampleDecrypter = nullptr;
-      }
-      else
-      {
-        cdmSession.m_cencSingleSampleDecrypter = nullptr;
-        cdmSession.m_sharedCencSsd = false;
-      }
+      cdmSession.m_cencSingleSampleDecrypter = nullptr;
     }
   }
 }
@@ -485,16 +476,15 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
       {
         LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", defaultKidStr.c_str());
 
+        // If a decrypter has the default KID, re-use the same decrypter for also this session
         for (size_t i{1}; i < ses; ++i)
         {
           if (m_decrypter->HasLicenseKey(m_cdmSessions[i].m_cencSingleSampleDecrypter, defaultKid))
           {
             session.m_cencSingleSampleDecrypter = m_cdmSessions[i].m_cencSingleSampleDecrypter;
-            session.m_sharedCencSsd = true;
             break;
           }
         }
-
       }
       else if (defaultKid.empty())
       {
@@ -503,7 +493,6 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
           if (sessionPsshset.pssh_ == m_adaptiveTree->m_currentPeriod->GetPSSHSets()[i].pssh_)
           {
             session.m_cencSingleSampleDecrypter = m_cdmSessions[i].m_cencSingleSampleDecrypter;
-            session.m_sharedCencSsd = true;
             break;
           }
         }
@@ -1312,7 +1301,7 @@ void CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
   }
 }
 
-Adaptive_CencSingleSampleDecrypter* CSession::GetSingleSampleDecrypter(std::string sessionId)
+std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CSession::GetSingleSampleDecrypter(std::string sessionId)
 {
   for (std::vector<CCdmSession>::iterator b(m_cdmSessions.begin() + 1), e(m_cdmSessions.end());
        b != e; ++b)

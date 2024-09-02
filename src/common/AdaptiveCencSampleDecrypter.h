@@ -8,12 +8,14 @@
 
 #include "AdaptiveDecrypter.h"
 
+#include <memory>
+
 #include <bento4/Ap4.h>
 
 class CAdaptiveCencSampleDecrypter : public AP4_CencSampleDecrypter
 {
 public:
-  CAdaptiveCencSampleDecrypter(Adaptive_CencSingleSampleDecrypter* singleSampleDecrypter,
+  CAdaptiveCencSampleDecrypter(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> singleSampleDecrypter,
                                AP4_CencSampleInfoTable* sampleInfoTable);
   ~CAdaptiveCencSampleDecrypter() override {};
 
@@ -23,5 +25,5 @@ public:
                                        const AP4_UI08* iv);
 
 protected:
-  Adaptive_CencSingleSampleDecrypter* m_decrypter;
+  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> m_decrypter;
 };

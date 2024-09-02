@@ -22,11 +22,11 @@ using namespace UTILS;
 namespace
 {
 #if WIN32
-  constexpr const char* LIBRARY_FILENAME = "widevinecdm.dll";
+constexpr const char* LIBRARY_FILENAME = "widevinecdm.dll";
 #elif TARGET_DARWIN
-  constexpr const char* LIBRARY_FILENAME = "libwidevinecdm.dylib";
+constexpr const char* LIBRARY_FILENAME = "libwidevinecdm.dylib";
 #else
-  constexpr const char* LIBRARY_FILENAME = "libwidevinecdm.so";
+constexpr const char* LIBRARY_FILENAME = "libwidevinecdm.so";
 #endif
 } // unnamed namespace
 
@@ -34,7 +34,7 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
                              const std::vector<uint8_t>& serverCert,
                              const uint8_t config,
                              CWVDecrypter* host)
-  : m_licenseUrl(licenseURL), m_host(host), m_codecInstance(nullptr)
+  : m_licenseUrl(licenseURL), m_host(host)
 {
   if (m_host->GetLibraryPath().empty())
   {
@@ -62,35 +62,36 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
   basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
   basePath += FILESYS::SEPARATOR;
 
-  wv_adapter = std::shared_ptr<media::CdmAdapter>(new media::CdmAdapter(
+  m_cdmAdapter = std::make_shared<media::CdmAdapter>(
       "com.widevine.alpha", cdmPath, basePath,
       media::CdmConfig(false, (config & DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE) != 0),
-      dynamic_cast<media::CdmAdapterClient*>(this)));
-  if (!wv_adapter->valid())
+      dynamic_cast<media::CdmAdapterClient*>(this));
+
+  if (!m_cdmAdapter->valid())
   {
     LOG::Log(LOGERROR, "Unable to load widevine shared library (%s)", cdmPath.c_str());
-    wv_adapter = nullptr;
+    m_cdmAdapter = nullptr;
     return;
   }
 
   if (!serverCert.empty())
-    wv_adapter->SetServerCertificate(0, serverCert.data(), serverCert.size());
+    m_cdmAdapter->SetServerCertificate(0, serverCert.data(), serverCert.size());
 
   // For backward compatibility: If no | is found in URL, use the most common working config
   if (m_licenseUrl.find('|') == std::string::npos)
     m_licenseUrl += "|Content-Type=application%2Foctet-stream|R{SSM}|";
 
-  //wv_adapter->GetStatusForPolicy();
-  //wv_adapter->QueryOutputProtectionStatus();
+  // m_cdmAdapter->GetStatusForPolicy();
+  // m_cdmAdapter->QueryOutputProtectionStatus();
 }
 
 CWVCdmAdapter::~CWVCdmAdapter()
 {
-  if (wv_adapter)
+  if (m_cdmAdapter)
   {
-    wv_adapter->RemoveClient();
-    LOG::Log(LOGERROR, "Instances: %u", wv_adapter.use_count());
-    wv_adapter = nullptr;
+    m_cdmAdapter->RemoveClient();
+    // LOG::LogF(LOGDEBUG, "CDM Adapter instances: %u", m_cdmAdapter.use_count());
+    m_cdmAdapter = nullptr;
   }
 }
 
@@ -101,21 +102,24 @@ void CWVCdmAdapter::OnCDMMessage(const char* session,
                           size_t data_size,
                           uint32_t status)
 {
-  LOG::Log(LOGDEBUG, "CDMMessage: %u arrived!", msg);
-  std::vector<CWVCencSingleSampleDecrypter*>::iterator b(ssds.begin()), e(ssds.end());
-  for (; b != e; ++b)
-    if (!(*b)->GetSessionId() || strncmp((*b)->GetSessionId(), session, session_size) == 0)
-      break;
+  LOG::Log(LOGDEBUG, "CDM message: type %i arrived", msg);
 
-  if (b == ssds.end())
+  CdmMessageType type;
+  if (msg == CDMADPMSG::kSessionMessage)
+    type = CdmMessageType::SESSION_MESSAGE;
+  else if (msg == CDMADPMSG::kSessionKeysChange)
+    type = CdmMessageType::SESSION_KEY_CHANGE;
+  else
     return;
 
-  if (msg == CDMADPMSG::kSessionMessage)
-  {
-    (*b)->SetSession(session, session_size, data, data_size);
-  }
-  else if (msg == CDMADPMSG::kSessionKeysChange)
-    (*b)->AddSessionKey(data, data_size, status);
+  CdmMessage cdmMsg;
+  cdmMsg.sessionId.assign(session, session + session_size);
+  cdmMsg.type = type;
+  cdmMsg.data.assign(data, data + data_size);
+  cdmMsg.status = status;
+
+  // Send the message to attached CWVCencSingleSampleDecrypter instances
+  NotifyObservers(cdmMsg);
 }
 
 cdm::Buffer* CWVCdmAdapter::AllocateBuffer(size_t sz)
@@ -129,5 +133,46 @@ cdm::Buffer* CWVCdmAdapter::AllocateBuffer(size_t sz)
     return buf;
   }
   return nullptr;
-  ;
+}
+
+void CWVCdmAdapter::SetCodecInstance(void* instance)
+{
+  m_codecInstance = reinterpret_cast<kodi::addon::CInstanceVideoCodec*>(instance);
+}
+
+void CWVCdmAdapter::ResetCodecInstance()
+{
+  m_codecInstance = nullptr;
+}
+
+std::string_view CWVCdmAdapter::GetKeySystem()
+{
+  return KS_WIDEVINE;
+}
+
+std::string_view CWVCdmAdapter::GetLibraryPath() const
+{
+  return m_host->GetLibraryPath();
+}
+
+void CWVCdmAdapter::AttachObserver(IWVObserver* observer)
+{
+  std::lock_guard<std::mutex> lock(m_observer_mutex);
+  m_observers.emplace_back(observer);
+}
+
+void CWVCdmAdapter::DetachObserver(IWVObserver* observer)
+{
+  std::lock_guard<std::mutex> lock(m_observer_mutex);
+  m_observers.remove(observer);
+}
+
+void CWVCdmAdapter::NotifyObservers(const CdmMessage& message)
+{
+  std::lock_guard<std::mutex> lock(m_observer_mutex);
+  for (IWVObserver* observer : m_observers)
+  {
+    if (observer)
+      observer->OnNotify(message);
+  }
 }

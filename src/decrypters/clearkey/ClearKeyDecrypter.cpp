@@ -32,7 +32,7 @@ bool CClearKeyDecrypter::OpenDRMSystem(std::string_view licenseURL,
   return true;
 }
 
-Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecrypter(
+std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CClearKeyDecrypter::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
     const std::vector<uint8_t>& defaultkeyid,
@@ -46,7 +46,7 @@ Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecryp
     return nullptr;
   }
 
-  CClearKeyCencSingleSampleDecrypter* decrypter = nullptr;
+  std::shared_ptr<CClearKeyCencSingleSampleDecrypter> decrypter;
   auto& cfgLic = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).license;
 
   // If keys / license url are provided by Kodi property, those of the manifest will be overwritten
@@ -56,33 +56,35 @@ Adaptive_CencSingleSampleDecrypter* CClearKeyDecrypter::CreateSingleSampleDecryp
 
   if ((!cfgLic.keys.empty() || !initData.empty()) && cfgLic.serverUrl.empty()) // Keys provided from manifest or Kodi property
   {
-    decrypter = new CClearKeyCencSingleSampleDecrypter(initData, defaultkeyid, cfgLic.keys, this);
+    decrypter = std::make_shared<CClearKeyCencSingleSampleDecrypter>(initData, defaultkeyid,
+                                                                     cfgLic.keys, this);
   }
   else // Clearkey license server URL provided
   {
-    decrypter = new CClearKeyCencSingleSampleDecrypter(licenseUrl, cfgLic.reqHeaders, defaultkeyid, this);
+    decrypter = std::make_shared<CClearKeyCencSingleSampleDecrypter>(licenseUrl, cfgLic.reqHeaders,
+                                                                     defaultkeyid, this);
   }
 
   if (!decrypter->HasKeys())
   {
-    delete decrypter;
-    decrypter = nullptr;
+    return nullptr;
   }
   return decrypter;
 }
 
-void CClearKeyDecrypter::DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter)
+bool CClearKeyDecrypter::HasLicenseKey(
+    std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+    const std::vector<uint8_t>& keyId)
 {
   if (decrypter)
   {
-    delete static_cast<CClearKeyCencSingleSampleDecrypter*>(decrypter);
-  }
-}
+    auto clearKeyDecrypter =
+        std::dynamic_pointer_cast<CClearKeyCencSingleSampleDecrypter>(decrypter);
 
-bool CClearKeyDecrypter::HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                                       const std::vector<uint8_t>& keyId)
-{
-  if (decrypter)
-    return static_cast<CClearKeyCencSingleSampleDecrypter*>(decrypter)->HasKeyId(keyId);
+    if (clearKeyDecrypter)
+      return clearKeyDecrypter->HasKeyId(keyId);
+    else
+      LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
+  }
   return false;
 }

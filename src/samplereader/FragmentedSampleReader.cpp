@@ -98,7 +98,7 @@ bool CFragmentedSampleReader::Initialize(SESSION::CStream* stream)
   return true;
 }
 
-void CFragmentedSampleReader::SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
+void CFragmentedSampleReader::SetDecrypter(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd,
                                            const DRM::DecrypterCapabilites& dcaps)
 {
   if (ssd)

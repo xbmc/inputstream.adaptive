@@ -45,7 +45,7 @@ class ATTR_DLL_LOCAL ISampleReader
 public:
   virtual ~ISampleReader() = default;
   virtual bool Initialize(SESSION::CStream* stream) { return true; }
-  virtual void SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
+  virtual void SetDecrypter(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd,
                             const DRM::DecrypterCapabilites& dcaps){};
   /*!
    * \brief Defines if the end of the stream is reached
