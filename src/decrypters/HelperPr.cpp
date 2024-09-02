@@ -217,7 +217,7 @@ bool DRM::PRHeaderParser::Parse(const std::vector<uint8_t>& prHeader)
       xml_node nodeAlgid = nodePROTECTINFO.child("ALGID");
       if (nodeAlgid)
       {
-        auto algid = nodeAlgid.child_value();
+        std::string_view algid = nodeAlgid.child_value();
         if (algid == "AESCTR")
           m_encryption = EncryptionType::AESCTR;
         else if (algid == "AESCBC")
@@ -237,7 +237,7 @@ bool DRM::PRHeaderParser::Parse(const std::vector<uint8_t>& prHeader)
       {
         kidBase64 = nodeKID.attribute("VALUE").as_string();
 
-        auto algid = nodeKID.attribute("ALGID").as_string();
+        std::string_view algid = nodeKID.attribute("ALGID").as_string();
         if (algid == "AESCTR")
           m_encryption = EncryptionType::AESCTR;
         else if (algid == "AESCBC")
@@ -256,7 +256,7 @@ bool DRM::PRHeaderParser::Parse(const std::vector<uint8_t>& prHeader)
           {
             kidBase64 = nodeKID.attribute("VALUE").as_string();
 
-            auto algid = nodeKID.attribute("ALGID").as_string();
+            std::string_view algid = nodeKID.attribute("ALGID").as_string();
             if (algid == "AESCTR")
               m_encryption = EncryptionType::AESCTR;
             else if (algid == "AESCBC")
