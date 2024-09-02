@@ -94,6 +94,34 @@ std::vector<std::string> DRM::UrnsToSystemIds(const std::vector<std::string_view
   return sids;
 }
 
+std::string DRM::KeySystemToDrmName(std::string_view ks)
+{
+  if (ks == KS_WIDEVINE)
+    return "widevine";
+  else if (ks == KS_PLAYREADY)
+    return "playready";
+  else if (ks == KS_WISEPLAY)
+    return "wiseplay";
+  else if (ks == KS_CLEARKEY)
+    return "clearkey";
+  else
+    return "unknown";
+}
+
+const uint8_t* DRM::KeySystemToUUID(std::string_view ks)
+{
+  if (ks == KS_WIDEVINE)
+    return ID_WIDEVINE;
+  else if (ks == KS_PLAYREADY)
+    return ID_PLAYREADY;
+  else if (ks == KS_WISEPLAY)
+    return ID_WISEPLAY;
+  else if (ks == KS_CLEARKEY)
+    return ID_CLEARKEY;
+  else
+    return nullptr;
+}
+
 bool DRM::IsKeySystemSupported(std::string_view keySystem)
 {
   return keySystem == DRM::KS_NONE || keySystem == DRM::KS_WIDEVINE ||

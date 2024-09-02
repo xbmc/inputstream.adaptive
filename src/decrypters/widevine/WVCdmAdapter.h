@@ -9,15 +9,20 @@
 #pragma once
 
 #include "CdmBuffer.h"
-
 #include "cdm/media/cdm/cdm_adapter.h"
+#include "decrypters/HelperWv.h"
+
+#include <list>
+#include <mutex>
+
 #include <bento4/Ap4.h>
 #include <kodi/addon-instance/VideoCodec.h>
 
 class CWVDecrypter;
 class CWVCencSingleSampleDecrypter;
 
-class ATTR_DLL_LOCAL CWVCdmAdapter : public media::CdmAdapterClient
+class ATTR_DLL_LOCAL CWVCdmAdapter : public media::CdmAdapterClient,
+                                     public IWVCdmAdapter<media::CdmAdapter>
 {
 public:
   CWVCdmAdapter(std::string_view licenseURL,
@@ -26,44 +31,36 @@ public:
                 CWVDecrypter* host);
   virtual ~CWVCdmAdapter();
 
+  // media::CdmAdapterClient interface methods
+
   virtual void OnCDMMessage(const char* session,
                             uint32_t session_size,
                             CDMADPMSG msg,
                             const uint8_t* data,
                             size_t data_size,
                             uint32_t status) override;
-
   virtual cdm::Buffer* AllocateBuffer(size_t sz) override;
 
-  void insertssd(CWVCencSingleSampleDecrypter* ssd) { ssds.push_back(ssd); };
-  void removessd(CWVCencSingleSampleDecrypter* ssd)
-  {
-    std::vector<CWVCencSingleSampleDecrypter*>::iterator res(
-        std::find(ssds.begin(), ssds.end(), ssd));
-    if (res != ssds.end())
-      ssds.erase(res);
-  };
+  // IWVCdmAdapter interface methods
 
-  media::CdmAdapter* GetCdmAdapter() { return wv_adapter.get(); };
-  const std::string& GetLicenseURL() { return m_licenseUrl; };
+  std::shared_ptr<media::CdmAdapter> GetCDM() override { return m_cdmAdapter; }
+  const std::string& GetLicenseUrl() override { return m_licenseUrl; }
+  void SetCodecInstance(void* instance) override;
+  void ResetCodecInstance() override;
+  std::string_view GetKeySystem() override;
+  std::string_view GetLibraryPath() const override;
 
-  cdm::Status DecryptAndDecodeFrame(cdm::InputBuffer_2& cdm_in,
-                                    media::CdmVideoFrame* frame,
-                                    kodi::addon::CInstanceVideoCodec* codecInstance)
-  {
-    // DecryptAndDecodeFrame calls CdmAdapter::Allocate which calls Host->GetBuffer
-    // that cast hostInstance to CInstanceVideoCodec to get the frame buffer
-    // so we have temporary set the host instance
-    m_codecInstance = codecInstance;
-    cdm::Status ret = wv_adapter->DecryptAndDecodeFrame(cdm_in, frame);
-    m_codecInstance = nullptr;
-    return ret;
-  }
+  // IWVSubject interface methods
+
+  void AttachObserver(IWVObserver* observer) override;
+  void DetachObserver(IWVObserver* observer) override;
+  void NotifyObservers(const CdmMessage& message) override;
 
 private:
-  std::shared_ptr<media::CdmAdapter> wv_adapter;
+  std::shared_ptr<media::CdmAdapter> m_cdmAdapter;
   std::string m_licenseUrl;
-  kodi::addon::CInstanceVideoCodec* m_codecInstance;
+  kodi::addon::CInstanceVideoCodec* m_codecInstance{nullptr};
   CWVDecrypter* m_host;
-  std::vector<CWVCencSingleSampleDecrypter*> ssds;
+  std::list<IWVObserver*> m_observers;
+  std::mutex m_observer_mutex;
 };

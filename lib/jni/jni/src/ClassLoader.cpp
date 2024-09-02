@@ -11,7 +11,7 @@
 
 using namespace jni;
 
-CJNIClassLoader::CJNIClassLoader(const std::string &dexPath)
+jni::CJNIClassLoader::CJNIClassLoader(const std::string &dexPath)
   : CJNIBase("dalvik/system/PathClassLoader")
 {
   jhobject systemLoader = call_static_method<jhobject>("java/lang/ClassLoader", "getSystemClassLoader", "()Ljava/lang/ClassLoader;");
@@ -21,7 +21,7 @@ CJNIClassLoader::CJNIClassLoader(const std::string &dexPath)
   m_object.setGlobal();
 }
 
-jhclass CJNIClassLoader::loadClass(std::string className) const
+jhclass jni::CJNIClassLoader::loadClass(std::string className) const
 {
   return call_method<jhclass>(m_object,
     "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;",

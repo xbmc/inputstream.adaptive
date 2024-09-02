@@ -10,35 +10,35 @@
 
 #include "CompSettings.h"
 #include "SrvBroker.h"
-#include "WVCdmAdapter.h"
-#include "WVDecrypter.h"
-#include "jsmn.h"
+#include "decrypters/HelperWv.h"
 #include "decrypters/Helpers.h"
+#include "jsmn.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/DigestMD5Utils.h"
 #include "utils/FileUtils.h"
 #include "utils/StringUtils.h"
-#include "utils/Utils.h"
 #include "utils/log.h"
 
+#include <chrono>
 #include <thread>
 
-using namespace UTILS;
-using namespace kodi::tools;
+#include <jni/src/MediaDrm.h>
 
-CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
-                                                             std::vector<uint8_t>& pssh,
-                                                             std::string_view optionalKeyParameter,
-                                                             const std::vector<uint8_t>& defaultKeyId,
-                                                             CWVDecrypterA* host)
-  : m_mediaDrm(drm),
+using namespace UTILS;
+
+CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(
+    IWVCdmAdapter<jni::CJNIMediaDrm>* cdmAdapter,
+    std::vector<uint8_t>& pssh,
+    std::string_view optionalKeyParameter,
+    const std::vector<uint8_t>& defaultKeyId)
+  : m_cdmAdapter(cdmAdapter),
+    m_pssh(pssh),
     m_isProvisioningRequested(false),
     m_isKeyUpdateRequested(false),
     m_hdcpLimit(0),
     m_resolutionLimit(0),
-    m_defaultKeyId{defaultKeyId},
-    m_host{host}
+    m_defaultKeyId{defaultKeyId}
 {
   SetParentIsOwner(false);
 
@@ -49,12 +49,12 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
     return;
   }
 
-  m_pssh = pssh;
+  m_cdmAdapter->AttachObserver(this);
 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath =
-        FILESYS::PathCombine(m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
+        FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
     std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
     FILESYS::SaveFile(debugFilePath, data, true);
   }
@@ -65,7 +65,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
     m_optParams["PRCustomData"] = optionalKeyParameter;
 
   /*
-  std::vector<char> pui = m_mediaDrm.GetMediaDrm()->getPropertyByteArray("provisioningUniqueId");
+  std::vector<char> pui = m_cdmAdapter->GetCDM()->getPropertyByteArray("provisioningUniqueId");
   xbmc_jnienv()->ExceptionClear();
   if (pui.size() > 0)
   {
@@ -76,7 +76,8 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
 
   bool L3FallbackRequested = false;
 RETRY_OPEN:
-  m_sessionId = m_mediaDrm.GetMediaDrm()->openSession();
+  m_sessionIdVec = m_cdmAdapter->GetCDM()->openSession();
+  m_sessionId.assign(m_sessionIdVec.cbegin(), m_sessionIdVec.cend());
   if (xbmc_jnienv()->ExceptionCheck())
   {
     xbmc_jnienv()->ExceptionClear();
@@ -87,12 +88,12 @@ RETRY_OPEN:
       if (!ProvisionRequest())
       {
         if (!L3FallbackRequested &&
-            m_mediaDrm.GetMediaDrm()->getPropertyString("securityLevel") == "L1")
+            m_cdmAdapter->GetCDM()->getPropertyString("securityLevel") == "L1")
         {
           LOG::LogF(LOGWARNING, "L1 provisioning failed - retrying with L3...");
           L3FallbackRequested = true;
           m_isProvisioningRequested = false;
-          m_mediaDrm.GetMediaDrm()->setPropertyString("securityLevel", "L3");
+          m_cdmAdapter->GetCDM()->setPropertyString("securityLevel", "L3");
           goto RETRY_OPEN;
         }
         else
@@ -107,46 +108,55 @@ RETRY_OPEN:
     }
   }
 
-  if (m_sessionId.size() == 0)
+  if (m_sessionId.empty())
   {
     LOG::LogF(LOGERROR, "Unable to open DRM session");
     return;
   }
 
-  memcpy(m_sessionIdChar, m_sessionId.data(), m_sessionId.size());
-  m_sessionIdChar[m_sessionId.size()] = 0;
-
-  if (m_mediaDrm.GetKeySystemType() != PLAYREADY)
+  if (m_cdmAdapter->GetKeySystem() != DRM::KS_PLAYREADY)
   {
-    int maxSecuritylevel = m_mediaDrm.GetMediaDrm()->getMaxSecurityLevel();
+    int maxSecuritylevel = m_cdmAdapter->GetCDM()->getMaxSecurityLevel();
     xbmc_jnienv()->ExceptionClear();
 
-    LOG::Log(LOGDEBUG, "Session ID: %s, Max security level: %d", m_sessionIdChar, maxSecuritylevel);
+    LOG::Log(LOGDEBUG, "Session ID: %s, Max security level: %d", m_sessionId.c_str(), maxSecuritylevel);
   }
 }
 
 CWVCencSingleSampleDecrypterA::~CWVCencSingleSampleDecrypterA()
 {
+  // This decrypter can be used/shared with more streams "sessions"
+  // since it is used wrapped in a shared_ptr the destructor will be called only
+  // when the last stream "session" will be deleted, and so it can close the CDM session.
   if (!m_sessionId.empty())
   {
-    m_mediaDrm.GetMediaDrm()->removeKeys(m_sessionId);
+    /*
+    m_cdmAdapter->GetCDM()->removeKeys(m_sessionIdVec);
     if (xbmc_jnienv()->ExceptionCheck())
     {
       LOG::LogF(LOGERROR, "removeKeys has raised an exception");
       xbmc_jnienv()->ExceptionClear();
     }
-    m_mediaDrm.GetMediaDrm()->closeSession(m_sessionId);
+    */
+    m_cdmAdapter->GetCDM()->closeSession(m_sessionIdVec);
     if (xbmc_jnienv()->ExceptionCheck())
     {
       LOG::LogF(LOGERROR, "closeSession has raised an exception");
       xbmc_jnienv()->ExceptionClear();
     }
+    else
+      LOG::LogF(LOGDEBUG, "MediaDrm Session ID %s closed", m_sessionId.c_str());
+
+    m_sessionIdVec.clear();
+    m_sessionId.clear();
   }
+
+  m_cdmAdapter->DetachObserver(this);
 }
 
 const char* CWVCencSingleSampleDecrypterA::GetSessionId()
 {
-  return m_sessionIdChar;
+  return m_sessionId.c_str();
 }
 
 std::vector<char> CWVCencSingleSampleDecrypterA::GetChallengeData()
@@ -163,10 +173,11 @@ bool CWVCencSingleSampleDecrypterA::HasLicenseKey(const std::vector<uint8_t>& ke
 
 void CWVCencSingleSampleDecrypterA::GetCapabilities(const std::vector<uint8_t>& keyId,
                                                     uint32_t media,
-                                                    DecrypterCapabilites& caps)
+                                                    DRM::DecrypterCapabilites& caps)
 {
-  caps = {DecrypterCapabilites::SSD_SECURE_PATH | DecrypterCapabilites::SSD_ANNEXB_REQUIRED, 0,
-          m_hdcpLimit};
+  caps = {DRM::DecrypterCapabilites::SSD_SECURE_PATH |
+              DRM::DecrypterCapabilites::SSD_ANNEXB_REQUIRED,
+          0, m_hdcpLimit};
 
   if (caps.hdcpLimit == 0)
     caps.hdcpLimit = m_resolutionLimit;
@@ -174,21 +185,32 @@ void CWVCencSingleSampleDecrypterA::GetCapabilities(const std::vector<uint8_t>& 
   // Note: Currently we check for L1 only, Kodi core at later time check if secure decoder is needed
   // by using requiresSecureDecoderComponent method of MediaDrm API
   // https://github.com/xbmc/xbmc/blob/Nexus/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecAndroidMediaCodec.cpp#L639-L641
-  if (m_mediaDrm.GetMediaDrm()->getPropertyString("securityLevel") == "L1")
+  if (m_cdmAdapter->GetCDM()->getPropertyString("securityLevel") == "L1")
   {
     caps.hdcpLimit = m_resolutionLimit; //No restriction
-    caps.flags |= DecrypterCapabilites::SSD_SECURE_DECODER;
+    caps.flags |= DRM::DecrypterCapabilites::SSD_SECURE_DECODER;
   }
   LOG::LogF(LOGDEBUG, "hdcpLimit: %i", caps.hdcpLimit);
 
   caps.hdcpVersion = 99;
 }
 
+void CWVCencSingleSampleDecrypterA::OnNotify(const CdmMessage& message)
+{
+  if (!m_sessionId.empty() && m_sessionId != message.sessionId)
+    return;
+
+  if (message.type == CdmMessageType::EVENT_KEY_REQUIRED)
+  {
+    RequestNewKeys();
+  }
+}
+
 bool CWVCencSingleSampleDecrypterA::ProvisionRequest()
 {
-  LOG::Log(LOGWARNING, "Provision data request (DRM:%p)", m_mediaDrm.GetMediaDrm());
+  LOG::Log(LOGWARNING, "Provision data request (MediaDrm instance: %p)", m_cdmAdapter->GetCDM().get());
 
-  CJNIMediaDrmProvisionRequest request = m_mediaDrm.GetMediaDrm()->getProvisionRequest();
+  jni::CJNIMediaDrmProvisionRequest request = m_cdmAdapter->GetCDM()->getProvisionRequest();
   if (xbmc_jnienv()->ExceptionCheck())
   {
     LOG::LogF(LOGERROR, "getProvisionRequest has raised an exception");
@@ -227,7 +249,7 @@ bool CWVCencSingleSampleDecrypterA::ProvisionRequest()
   }
   std::copy(response.begin(), response.end(), std::back_inserter(provData));
 
-  m_mediaDrm.GetMediaDrm()->provideProvisionResponse(provData);
+  m_cdmAdapter->GetCDM()->provideProvisionResponse(provData);
   if (xbmc_jnienv()->ExceptionCheck())
   {
     LOG::LogF(LOGERROR, "provideProvisionResponse has raised an exception");
@@ -239,8 +261,8 @@ bool CWVCencSingleSampleDecrypterA::ProvisionRequest()
 
 bool CWVCencSingleSampleDecrypterA::GetKeyRequest(std::vector<char>& keyRequestData)
 {
-  CJNIMediaDrmKeyRequest keyRequest = m_mediaDrm.GetMediaDrm()->getKeyRequest(
-      m_sessionId, m_pssh, "video/mp4", CJNIMediaDrm::KEY_TYPE_STREAMING, m_optParams);
+  jni::CJNIMediaDrmKeyRequest keyRequest = m_cdmAdapter->GetCDM()->getKeyRequest(
+      m_sessionIdVec, m_pssh, "video/mp4", jni::CJNIMediaDrm::KEY_TYPE_STREAMING, m_optParams);
 
   if (xbmc_jnienv()->ExceptionCheck())
   {
@@ -272,6 +294,7 @@ bool CWVCencSingleSampleDecrypterA::KeyUpdateRequest(bool waitKeys, bool skipSes
   if (skipSessionMessage)
     return true;
 
+  //! @todo: exists ways to wait callbacks without make uses of wait loop and thread sleep
   m_isKeyUpdateRequested = false;
   if (!SendSessionMessage(m_keyRequestData))
     return false;
@@ -290,14 +313,14 @@ bool CWVCencSingleSampleDecrypterA::KeyUpdateRequest(bool waitKeys, bool skipSes
     }
   }
 
-  if (m_mediaDrm.GetKeySystemType() != PLAYREADY)
+  if (m_cdmAdapter->GetKeySystem() != DRM::KS_PLAYREADY)
   {
-    int securityLevel = m_mediaDrm.GetMediaDrm()->getSecurityLevel(m_sessionId);
+    int securityLevel = m_cdmAdapter->GetCDM()->getSecurityLevel(m_sessionIdVec);
     xbmc_jnienv()->ExceptionClear();
     LOG::Log(LOGDEBUG, "Security level: %d", securityLevel);
 
     std::map<std::string, std::string> keyStatus =
-        m_mediaDrm.GetMediaDrm()->queryKeyStatus(m_sessionId);
+        m_cdmAdapter->GetCDM()->queryKeyStatus(m_sessionIdVec);
     LOG::Log(LOGDEBUG, "Key status (%ld):", keyStatus.size());
     for (auto const& ks : keyStatus)
     {
@@ -309,7 +332,7 @@ bool CWVCencSingleSampleDecrypterA::KeyUpdateRequest(bool waitKeys, bool skipSes
 
 bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& keyRequestData)
 {
-  std::vector<std::string> blocks{StringUtils::Split(m_mediaDrm.GetLicenseURL(), '|')};
+  std::vector<std::string> blocks{STRING::SplitToVec(m_cdmAdapter->GetLicenseUrl(), '|')};
 
   if (blocks.size() != 4)
   {
@@ -321,8 +344,8 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
-    UTILS::FILESYS::SaveFile(debugFilePath, keyRequestData.data(), true);
+        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
+    FILESYS::SaveFile(debugFilePath, keyRequestData.data(), true);
   }
 
   //Process placeholder in GET String
@@ -357,17 +380,17 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   std::string contentType;
 
   //Process headers
-  std::vector<std::string> headers{StringUtils::Split(blocks[1], '&')};
+  std::vector<std::string> headers{STRING::SplitToVec(blocks[1], '&')};
   for (std::string& headerStr : headers)
   {
-    std::vector<std::string> header{StringUtils::Split(headerStr, '=')};
+    std::vector<std::string> header{STRING::SplitToVec(headerStr, '=')};
     if (!header.empty())
     {
-      StringUtils::Trim(header[0]);
+      STRING::Trim(header[0]);
       std::string value;
       if (header.size() > 1)
       {
-        StringUtils::Trim(header[1]);
+        STRING::Trim(header[1]);
         value = STRING::URLDecode(header[1]);
       }
       file.AddHeader(header[0], value);
@@ -522,8 +545,8 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
       if (CSrvBroker::GetSettings().IsDebugLicense())
       {
         std::string debugFilePath = FILESYS::PathCombine(
-            m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata");
-        UTILS::FILESYS::SaveFile(debugFilePath, blocks[2], true);
+            m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata");
+        FILESYS::SaveFile(debugFilePath, blocks[2], true);
       }
     }
 
@@ -565,7 +588,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
     return false;
   }
 
-  if (m_mediaDrm.GetKeySystemType() == PLAYREADY &&
+  if (m_cdmAdapter->GetKeySystem() == DRM::KS_PLAYREADY &&
       response.find("<LicenseNonce>") == std::string::npos)
   {
     std::string::size_type dstPos(response.find("</Licenses>"));
@@ -583,8 +606,8 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
-    UTILS::FILESYS::SaveFile(debugFilePath, response, true);
+        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
+    FILESYS::SaveFile(debugFilePath, response, true);
   }
 
   if (!blocks[3].empty() && blocks[3][0] != 'R' &&
@@ -607,7 +630,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
       jsmn_init(&jsn);
       int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 256);
 
-      std::vector<std::string> jsonVals{StringUtils::Split(blocks[3].substr(dataPos), ';')};
+      std::vector<std::string> jsonVals{STRING::SplitToVec(blocks[3].substr(dataPos), ';')};
 
       // Find HDCP limit
       if (jsonVals.size() > 1)
@@ -685,8 +708,8 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
     }
   }
 
-  m_keySetId = m_mediaDrm.GetMediaDrm()->provideKeyResponse(
-      m_sessionId, std::vector<char>(response.data(), response.data() + response.size()));
+  m_keySetId = m_cdmAdapter->GetCDM()->provideKeyResponse(
+      m_sessionIdVec, std::vector<char>(response.data(), response.data() + response.size()));
   if (xbmc_jnienv()->ExceptionCheck())
   {
     LOG::LogF(LOGERROR, "provideKeyResponse has raised an exception");
@@ -695,7 +718,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   }
 
   if (keyRequestData.size() == 2)
-    m_mediaDrm.SaveServiceCertificate();
+    m_cdmAdapter->SaveServiceCertificate();
 
   LOG::Log(LOGDEBUG, "License update successful");
   return true;
@@ -750,7 +773,7 @@ AP4_Result CWVCencSingleSampleDecrypterA::DecryptSampleData(AP4_UI32 poolId,
                                                            const AP4_UI16* bytesOfCleartextData,
                                                            const AP4_UI32* bytesOfEncryptedData)
 {
-  if (!m_mediaDrm.GetMediaDrm())
+  if (!m_cdmAdapter->GetCDM())
     return AP4_ERROR_INVALID_STATE;
 
   if (dataIn.GetDataSize() > 0)

@@ -8,61 +8,24 @@
 
 #pragma once
 
-#include "../IDecrypter.h"
-#include "WVCdmAdapter.h"
-#include "utils/Base64Utils.h"
-#include "utils/log.h"
+#include "decrypters/IDecrypter.h"
 
 #include <memory>
 #include <mutex>
 
-#include <jni/src/MediaDrm.h>
-#include <jni/src/MediaDrmOnEventListener.h>
+#ifdef DRMTHREAD
+#include <thread>
+#endif
+
 #include <kodi/platform/android/System.h>
 
-class CWVCencSingleSampleDecrypterA;
-
-using namespace UTILS;
-using namespace DRM;
-using namespace jni;
-
-class CMediaDrmOnEventCallback
+class CWVCdmAdapterA;
+namespace jni
 {
-public:
-  CMediaDrmOnEventCallback() = default;
-  virtual ~CMediaDrmOnEventCallback() = default;
+class CJNIClassLoader;
+}
 
-  virtual void OnMediaDrmEvent(const CJNIMediaDrm& mediaDrm,
-                               const std::vector<char>& sessionId,
-                               int event,
-                               int extra,
-                               const std::vector<char>& data) = 0;
-};
-
-/*!
- * \brief This class is derived from CJNIMediaDrmOnEventListener to allow us
- *        to initialize the base class at later time, since the constructors
- *        of CJNIMediaDrmOnEventListener need to access to the global
- *        xbmc_jnienv method immediately.
- */
-class CMediaDrmOnEventListener : public CJNIMediaDrmOnEventListener
-{
-public:
-  CMediaDrmOnEventListener(CMediaDrmOnEventCallback* decrypterEventCallback,
-                           CJNIClassLoader* classLoader);
-  virtual ~CMediaDrmOnEventListener() = default;
-
-  virtual void onEvent(const CJNIMediaDrm& mediaDrm,
-                       const std::vector<char>& sessionId,
-                       int event,
-                       int extra,
-                       const std::vector<char>& data) override;
-
-private:
-  CMediaDrmOnEventCallback* m_decrypterEventCallback;
-};
-
-class ATTR_DLL_LOCAL CWVDecrypterA : public IDecrypter, public CMediaDrmOnEventCallback
+class ATTR_DLL_LOCAL CWVDecrypterA : public DRM::IDecrypter
 {
 public:
   CWVDecrypterA();
@@ -87,7 +50,7 @@ public:
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
 
-  virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+  virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       const std::vector<uint8_t>& defaultKeyId,
@@ -95,21 +58,19 @@ public:
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
 
-  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
-
-  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual void GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                const std::vector<uint8_t>& keyId,
                                uint32_t media,
-                               DecrypterCapabilites& caps) override;
+                               DRM::DecrypterCapabilites& caps) override;
 
-  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                              const std::vector<uint8_t>& keyId) override;
 
-  virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override;
+  virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override;
 
   virtual bool IsInitialised() override { return m_WVCdmAdapter != nullptr; }
 
-  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual bool OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                 const VIDEOCODEC_INITDATA* initData) override
   {
     return false;
@@ -135,25 +96,16 @@ public:
   }
   virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
 
-  virtual void OnMediaDrmEvent(const CJNIMediaDrm& mediaDrm,
-                               const std::vector<char>& sessionId,
-                               int event,
-                               int extra,
-                               const std::vector<char>& data) override;
-
 private:
   std::string m_libraryPath;
   kodi::platform::CInterfaceAndroidSystem m_androidSystem;
-  std::unique_ptr<CMediaDrmOnEventListener> m_mediaDrmEventListener;
-  WV_KEYSYSTEM m_keySystem;
-  CWVCdmAdapterA* m_WVCdmAdapter;
-  inline static CJNIClassLoader* m_classLoader{nullptr};
-  std::vector<CWVCencSingleSampleDecrypterA*> m_decrypterList;
-  std::mutex m_decrypterListMutex;
+  std::string m_keySystem;
+  std::shared_ptr<CWVCdmAdapterA> m_WVCdmAdapter;
+  std::shared_ptr<jni::CJNIClassLoader> m_classLoader;
   std::string m_retvalHelper;
 #ifdef DRMTHREAD
   std::mutex m_jniMutex;
   std::condition_variable m_jniCondition;
-  std::thread* m_jniWorker;
+  std::unique_ptr<std::thread> m_jniWorker;
 #endif
 };

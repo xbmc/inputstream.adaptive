@@ -8,21 +8,13 @@
 
 #include "../IDecrypter.h"
 
-#include <bento4/Ap4.h>
-
 class CWVCdmAdapter;
 class CWVCencSingleSampleDecrypter;
 
-using namespace DRM;
-using namespace kodi::tools;
-
-
-/*********************************************************************************************/
-
-class ATTR_DLL_LOCAL CWVDecrypter : public IDecrypter
+class ATTR_DLL_LOCAL CWVDecrypter : public DRM::IDecrypter
 {
 public:
-  CWVDecrypter() : m_WVCdmAdapter(nullptr), m_decodingDecrypter(nullptr){};
+  CWVDecrypter() = default;
   virtual ~CWVDecrypter() override;
 
   virtual bool Initialize() override;
@@ -31,23 +23,23 @@ public:
   virtual bool OpenDRMSystem(std::string_view licenseURL,
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
-  virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+  virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       const std::vector<uint8_t>& defaultKeyId,
       std::string_view licenseUrl,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
-  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
-  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+
+  virtual void GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                const std::vector<uint8_t>& keyId,
                                uint32_t media,
-                               DecrypterCapabilites& caps) override;
-  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
+                               DRM::DecrypterCapabilites& caps) override;
+  virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                              const std::vector<uint8_t>& keyId) override;
   virtual bool IsInitialised() override { return m_WVCdmAdapter != nullptr; }
-  virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override;
-  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override;
+  virtual bool OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                 const VIDEOCODEC_INITDATA* initData) override;
   virtual VIDEOCODEC_RETVAL DecryptAndDecodeVideo(kodi::addon::CInstanceVideoCodec* codecInstance,
                                                   const DEMUX_PACKET* sample) override;
@@ -60,8 +52,10 @@ public:
   virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
 
 private:
-  CWVCdmAdapter* m_WVCdmAdapter;
-  CWVCencSingleSampleDecrypter* m_decodingDecrypter;
+  std::shared_ptr<CWVCdmAdapter> m_WVCdmAdapter;
+  std::shared_ptr<CWVCencSingleSampleDecrypter> m_decodingDecrypter;
   std::string m_libraryPath;
+#if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
   void* m_hdlLibLoader{nullptr}; // Aarch64 loader library handle
+#endif
 };

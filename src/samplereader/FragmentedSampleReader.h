@@ -26,7 +26,7 @@ public:
   ~CFragmentedSampleReader();
 
   virtual bool Initialize(SESSION::CStream* stream) override;
-  virtual void SetDecrypter(Adaptive_CencSingleSampleDecrypter* ssd,
+  virtual void SetDecrypter(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd,
                             const DRM::DecrypterCapabilites& dcaps) override;
 
   AP4_Result Start(bool& bStarted) override;
@@ -80,7 +80,7 @@ private:
   CodecHandler* m_codecHandler{nullptr};
   std::vector<uint8_t> m_defaultKey;
   AP4_ProtectedSampleDescription* m_protectedDesc{nullptr};
-  Adaptive_CencSingleSampleDecrypter* m_singleSampleDecryptor{nullptr};
+  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> m_singleSampleDecryptor{nullptr};
   CAdaptiveCencSampleDecrypter* m_decrypter{nullptr};
   CryptoInfo m_readerCryptoInfo{};
 };

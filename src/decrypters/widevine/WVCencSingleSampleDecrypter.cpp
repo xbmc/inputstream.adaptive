@@ -14,7 +14,6 @@
 #include "CdmFixedBuffer.h"
 #include "CdmTypeConversion.h"
 #include "WVCdmAdapter.h"
-#include "WVDecrypter.h"
 #include "cdm/media/cdm/cdm_adapter.h"
 #include "jsmn.h"
 #include "decrypters/Helpers.h"
@@ -31,25 +30,24 @@
 
 using namespace UTILS;
 
-void CWVCencSingleSampleDecrypter::SetSession(const char* session,
-                                              uint32_t sessionSize,
+void CWVCencSingleSampleDecrypter::SetSession(const std::string sessionId,
                                               const uint8_t* data,
-                                              size_t dataSize)
+                                              const size_t dataSize)
 {
   std::lock_guard<std::mutex> lock(m_renewalLock);
 
-  m_strSession = std::string(session, sessionSize);
+  m_strSession = sessionId;
   m_challenge.SetData(data, dataSize);
   LOG::LogF(LOGDEBUG, "Opened widevine session ID: %s", m_strSession.c_str());
 }
 
-CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
-                                                           std::vector<uint8_t>& pssh,
-                                                           const std::vector<uint8_t>& defaultKeyId,
-                                                           bool skipSessionMessage,
-                                                           CryptoMode cryptoMode,
-                                                           CWVDecrypter* host)
-  : m_wvCdmAdapter(drm),
+CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(
+    IWVCdmAdapter<media::CdmAdapter>* cdmAdapter,
+    std::vector<uint8_t>& pssh,
+    const std::vector<uint8_t>& defaultKeyId,
+    bool skipSessionMessage,
+    CryptoMode cryptoMode)
+  : m_cdmAdapter(cdmAdapter),
     m_pssh(pssh),
     m_hdcpVersion(99),
     m_hdcpLimit(0),
@@ -57,8 +55,7 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
     m_promiseId(1),
     m_isDrained(true),
     m_defaultKeyId(defaultKeyId),
-    m_EncryptionMode(cryptoMode),
-    m_host(host)
+    m_EncryptionMode(cryptoMode)
 {
   SetParentIsOwner(false);
 
@@ -69,21 +66,22 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
     return;
   }
 
-  m_wvCdmAdapter.insertssd(this);
+  m_cdmAdapter->AttachObserver(this);
 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string debugFilePath =
-        FILESYS::PathCombine(m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(),
+                                                     "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
 
     std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
     UTILS::FILESYS::SaveFile(debugFilePath, data, true);
   }
 
-  drm.GetCdmAdapter()->CreateSessionAndGenerateRequest(m_promiseId++, cdm::SessionType::kTemporary,
-                                                       cdm::InitDataType::kCenc, m_pssh.data(),
-                                                       static_cast<uint32_t>(m_pssh.size()));
+  m_cdmAdapter->GetCDM()->CreateSessionAndGenerateRequest(
+      m_promiseId++, cdm::SessionType::kTemporary, cdm::InitDataType::kCenc, m_pssh.data(),
+      static_cast<uint32_t>(m_pssh.size()));
 
+  //! @todo: loop with thread sleep should be removed, use callbacks
   int retrycount = 0;
   while (m_strSession.empty() && ++retrycount < 100)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -97,13 +95,19 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
   if (skipSessionMessage)
     return;
 
+  //! @todo: this loop is not so clear
   while (m_challenge.GetDataSize() > 0 && SendSessionMessage())
     ;
 }
 
 CWVCencSingleSampleDecrypter::~CWVCencSingleSampleDecrypter()
 {
-  m_wvCdmAdapter.removessd(this);
+  // This decrypter can be used/shared with more streams "sessions"
+  // since it is used wrapped in a shared_ptr the destructor will be called only
+  // when the last stream "session" will be deleted, and so it can close the CDM session.
+  CloseSessionId();
+
+  m_cdmAdapter->DetachObserver(this);
 }
 
 void CWVCencSingleSampleDecrypter::GetCapabilities(const std::vector<uint8_t>& keyId,
@@ -209,7 +213,7 @@ void CWVCencSingleSampleDecrypter::CloseSessionId()
   if (!m_strSession.empty())
   {
     LOG::LogF(LOGDEBUG, "Closing widevine session ID: %s", m_strSession.c_str());
-    m_wvCdmAdapter.GetCdmAdapter()->CloseSession(++m_promiseId, m_strSession.data(),
+    m_cdmAdapter->GetCDM()->CloseSession(++m_promiseId, m_strSession.data(),
                                                  m_strSession.size());
 
     LOG::LogF(LOGDEBUG, "Widevine session ID %s closed", m_strSession.c_str());
@@ -234,7 +238,7 @@ void CWVCencSingleSampleDecrypter::CheckLicenseRenewal()
 
 bool CWVCencSingleSampleDecrypter::SendSessionMessage()
 {
-  std::vector<std::string> blocks{StringUtils::Split(m_wvCdmAdapter.GetLicenseURL(), '|')};
+  std::vector<std::string> blocks{STRING::SplitToVec(m_cdmAdapter->GetLicenseUrl(), '|')};
 
   if (blocks.size() != 4)
   {
@@ -246,7 +250,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
+        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
     std::string data{reinterpret_cast<const char*>(m_challenge.GetData()),
                      m_challenge.GetDataSize()};
     UTILS::FILESYS::SaveFile(debugFilePath, data, true);
@@ -288,17 +292,17 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   bool serverCertRequest;
 
   //Process headers
-  std::vector<std::string> headers{StringUtils::Split(blocks[1], '&')};
+  std::vector<std::string> headers{STRING::SplitToVec(blocks[1], '&')};
   for (std::string& headerStr : headers)
   {
-    std::vector<std::string> header{StringUtils::Split(headerStr, '=')};
+    std::vector<std::string> header{STRING::SplitToVec(headerStr, '=')};
     if (!header.empty())
     {
-      StringUtils::Trim(header[0]);
+      STRING::Trim(header[0]);
       std::string value;
       if (header.size() > 1)
       {
-        StringUtils::Trim(header[1]);
+        STRING::Trim(header[1]);
         value = STRING::URLDecode(header[1]);
       }
       file.AddHeader(header[0].c_str(), value.c_str());
@@ -469,7 +473,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string debugFilePath = FILESYS::PathCombine(
-        m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
+        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
     FILESYS::SaveFile(debugFilePath, response, true);
   }
 
@@ -494,7 +498,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
       jsmn_init(&jsn);
       int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 256);
 
-      std::vector<std::string> jsonVals{StringUtils::Split(blocks[3].substr(dataPos), ';')};
+      std::vector<std::string> jsonVals{STRING::SplitToVec(blocks[3].substr(dataPos), ';')};
 
       // Find HDCP limit
       if (jsonVals.size() > 1)
@@ -535,7 +539,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
           respData = BASE64::DecodeToStr(respData);
         }
 
-        m_wvCdmAdapter.GetCdmAdapter()->UpdateSession(
+        m_cdmAdapter->GetCDM()->UpdateSession(
             ++m_promiseId, m_strSession.data(), m_strSession.size(),
             reinterpret_cast<const uint8_t*>(respData.c_str()), respData.size());
       }
@@ -553,7 +557,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
       {
         payloadPos += 4;
         if (blocks[3][1] == 'B')
-          m_wvCdmAdapter.GetCdmAdapter()->UpdateSession(
+          m_cdmAdapter->GetCDM()->UpdateSession(
               ++m_promiseId, m_strSession.data(), m_strSession.size(),
               reinterpret_cast<const uint8_t*>(response.c_str() + payloadPos),
               response.size() - payloadPos);
@@ -573,7 +577,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     {
       std::string decRespData{BASE64::DecodeToStr(response)};
 
-      m_wvCdmAdapter.GetCdmAdapter()->UpdateSession(
+      m_cdmAdapter->GetCDM()->UpdateSession(
           ++m_promiseId, m_strSession.data(), m_strSession.size(),
           reinterpret_cast<const uint8_t*>(decRespData.c_str()), decRespData.size());
     }
@@ -585,7 +589,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   }
   else // its binary - simply push the returned data as update
   {
-    m_wvCdmAdapter.GetCdmAdapter()->UpdateSession(
+    m_cdmAdapter->GetCDM()->UpdateSession(
         ++m_promiseId, m_strSession.data(), m_strSession.size(),
         reinterpret_cast<const uint8_t*>(response.data()), response.size());
   }
@@ -599,6 +603,21 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
 
   LOG::Log(LOGDEBUG, "License update successful");
   return true;
+}
+
+void CWVCencSingleSampleDecrypter::OnNotify(const CdmMessage& message)
+{
+  if (!m_strSession.empty() && m_strSession != message.sessionId)
+    return;
+
+  if (message.type == CdmMessageType::SESSION_MESSAGE)
+  {
+    SetSession(message.sessionId, message.data.data(), message.data.size());
+  }
+  else if (message.type == CdmMessageType::SESSION_KEY_CHANGE)
+  {
+    AddSessionKey(message.data.data(), message.data.size(), message.status);
+  }
 }
 
 void CWVCencSingleSampleDecrypter::AddSessionKey(const uint8_t* data,
@@ -745,7 +764,7 @@ AP4_Result CWVCencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 poolId,
                                                            const AP4_UI16* bytesOfCleartextData,
                                                            const AP4_UI32* bytesOfEncryptedData)
 {
-  if (!m_wvCdmAdapter.GetCdmAdapter())
+  if (!m_cdmAdapter->GetCDM())
   {
     dataOut.SetData(dataIn.GetData(), dataIn.GetDataSize());
     return AP4_SUCCESS;
@@ -975,7 +994,7 @@ AP4_Result CWVCencSingleSampleDecrypter::DecryptSampleData(AP4_UI32 poolId,
     cdmOut.SetDecryptedBuffer(&buf);
 
     CheckLicenseRenewal();
-    ret = m_wvCdmAdapter.GetCdmAdapter()->Decrypt(cdmIn, &cdmOut);
+    ret = m_cdmAdapter->GetCDM()->Decrypt(cdmIn, &cdmOut);
 
     if (ret == cdm::Status::kSuccess)
     {
@@ -1015,12 +1034,12 @@ bool CWVCencSingleSampleDecrypter::OpenVideoDecoder(const VIDEOCODEC_INITDATA* i
     if (currVidConfig.codec == vconfig.codec && currVidConfig.profile == vconfig.profile)
       return true;
 
-    m_wvCdmAdapter.GetCdmAdapter()->DeinitializeDecoder(cdm::StreamType::kStreamTypeVideo);
+    m_cdmAdapter->GetCDM()->DeinitializeDecoder(cdm::StreamType::kStreamTypeVideo);
   }
 
   m_currentVideoDecConfig = vconfig;
 
-  cdm::Status ret = m_wvCdmAdapter.GetCdmAdapter()->InitializeVideoDecoder(vconfig);
+  cdm::Status ret = m_cdmAdapter->GetCDM()->InitializeVideoDecoder(vconfig);
   m_videoFrames.clear();
   m_isDrained = true;
 
@@ -1053,8 +1072,13 @@ VIDEOCODEC_RETVAL CWVCencSingleSampleDecrypter::DecryptAndDecodeVideo(
   CheckLicenseRenewal();
 
   media::CdmVideoFrame videoFrame;
-  cdm::Status status =
-      m_wvCdmAdapter.DecryptAndDecodeFrame(inputBuffer, &videoFrame, codecInstance);
+
+  // DecryptAndDecodeFrame calls CdmAdapter::Allocate which calls Host->GetBuffer
+  // that cast hostInstance to CInstanceVideoCodec to get the frame buffer
+  // so we have temporary set the host instance
+  m_cdmAdapter->SetCodecInstance(codecInstance);
+  cdm::Status status = m_cdmAdapter->GetCDM()->DecryptAndDecodeFrame(inputBuffer, &videoFrame);
+  m_cdmAdapter->ResetCodecInstance();
 
   if (status == cdm::Status::kSuccess)
   {
@@ -1126,7 +1150,7 @@ VIDEOCODEC_RETVAL CWVCencSingleSampleDecrypter::VideoFrameDataToPicture(
 
 void CWVCencSingleSampleDecrypter::ResetVideo()
 {
-  m_wvCdmAdapter.GetCdmAdapter()->ResetDecoder(cdm::kStreamTypeVideo);
+  m_cdmAdapter->GetCDM()->ResetDecoder(cdm::kStreamTypeVideo);
   m_isDrained = true;
 }
 

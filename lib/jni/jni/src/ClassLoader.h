@@ -10,6 +10,8 @@
 
 #include "JNIBase.h"
 
+namespace jni
+{
 class CJNIClassLoader : public CJNIBase
 {
 public:
@@ -22,3 +24,4 @@ public:
 private:
   CJNIClassLoader();
 };
+}

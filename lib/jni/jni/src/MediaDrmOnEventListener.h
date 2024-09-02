@@ -10,12 +10,9 @@
 
 #include "JNIBase.h"
 
-
-class CJNIClassLoader;
-
 namespace jni
 {
-
+class CJNIClassLoader;
 class CJNIMediaDrm;
 
 class CJNIMediaDrmOnEventListener : public CJNIBase, public CJNIInterfaceImplem<CJNIMediaDrmOnEventListener>

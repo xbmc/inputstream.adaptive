@@ -9,9 +9,9 @@
 #include "AdaptiveCencSampleDecrypter.h"
 
 CAdaptiveCencSampleDecrypter::CAdaptiveCencSampleDecrypter(
-    Adaptive_CencSingleSampleDecrypter* singleSampleDecrypter,
+    std::shared_ptr<Adaptive_CencSingleSampleDecrypter> singleSampleDecrypter,
     AP4_CencSampleInfoTable* sampleInfoTable)
-  : AP4_CencSampleDecrypter(singleSampleDecrypter, sampleInfoTable)
+  : AP4_CencSampleDecrypter(singleSampleDecrypter.get(), sampleInfoTable)
 {
   m_decrypter = singleSampleDecrypter;
 }

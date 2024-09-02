@@ -8,52 +8,26 @@
 
 #include "WVDecrypter.h"
 
-#include "decrypters/Helpers.h"
+#include "WVCdmAdapter.h"
 #include "WVCencSingleSampleDecrypter.h"
 #include "common/AdaptiveDecrypter.h"
+#include "decrypters/Helpers.h"
 #include "jsmn.h"
-#include "kodi/tools/StringUtils.h"
 #include "utils/Base64Utils.h"
-#include "utils/DigestMD5Utils.h"
-#include "utils/StringUtils.h"
-#include "utils/Utils.h"
+#include "utils/log.h"
 
-#include <chrono>
-#include <deque>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <thread>
-
-#include <bento4/Ap4.h>
 #include <jni/src/ClassLoader.h>
 #include <jni/src/UUID.h>
-#include <kodi/Filesystem.h>
 
 using namespace DRM;
 using namespace UTILS;
-using namespace kodi::tools;
 
 namespace
 {
 kodi::platform::CInterfaceAndroidSystem* ANDROID_SYSTEM{nullptr};
 } // unnamed namespace
 
-CMediaDrmOnEventListener::CMediaDrmOnEventListener(CMediaDrmOnEventCallback* decrypterEventCallback,
-                                                   CJNIClassLoader* classLoader)
-  : CJNIMediaDrmOnEventListener(classLoader), m_decrypterEventCallback(decrypterEventCallback)
-{
-}
-
-void CMediaDrmOnEventListener::onEvent(const CJNIMediaDrm& mediaDrm,
-                                       const std::vector<char>& sessionId,
-                                       int event,
-                                       int extra,
-                                       const std::vector<char>& data)
-{
-  m_decrypterEventCallback->OnMediaDrmEvent(mediaDrm, sessionId, event, extra, data);
-}
-
-CWVDecrypterA::CWVDecrypterA() : m_keySystem(NONE), m_WVCdmAdapter(nullptr)
+CWVDecrypterA::CWVDecrypterA()
 {
   // CInterfaceAndroidSystem need to be initialized at runtime
   // then we have to set it to global variable just now
@@ -62,13 +36,9 @@ CWVDecrypterA::CWVDecrypterA() : m_keySystem(NONE), m_WVCdmAdapter(nullptr)
 
 CWVDecrypterA::~CWVDecrypterA()
 {
-  delete m_WVCdmAdapter;
-  m_WVCdmAdapter = nullptr;
-
 #ifdef DRMTHREAD
   m_jniCondition.notify_one();
   m_jniWorker->join();
-  delete m_jniWorker;
 #endif
 };
 
@@ -86,30 +56,32 @@ void JNIThread(JavaVM* vm)
 std::vector<std::string_view> CWVDecrypterA::SelectKeySystems(std::string_view keySystem)
 {
   LOG::Log(LOGDEBUG, "Key system request: %s", keySystem);
-  std::vector<std::string_view> keySystems;
+
   if (keySystem == KS_WIDEVINE)
   {
-    m_keySystem = WIDEVINE;
-    keySystems.push_back(URN_WIDEVINE);
+    m_keySystem = keySystem;
+    return {URN_WIDEVINE};
   }
   else if (keySystem == KS_WISEPLAY)
   {
-    m_keySystem = WISEPLAY;
-    keySystems.push_back(URN_WISEPLAY);
+    m_keySystem = keySystem;
+    return {URN_WISEPLAY};
   }
   else if (keySystem == KS_PLAYREADY)
   {
-    m_keySystem = PLAYREADY;
-    keySystems.push_back(URN_PLAYREADY);
+    m_keySystem = keySystem;
+    return {URN_PLAYREADY};
   }
-  return keySystems;
+
+  m_keySystem.clear();
+  return {};
 }
 
 bool CWVDecrypterA::OpenDRMSystem(std::string_view licenseURL,
                                   const std::vector<uint8_t>& serverCertificate,
                                   const uint8_t config)
 {
-  if (m_keySystem == NONE)
+  if (m_keySystem.empty())
     return false;
 
   if (licenseURL.empty())
@@ -118,13 +90,13 @@ bool CWVDecrypterA::OpenDRMSystem(std::string_view licenseURL,
     return false;
   }
 
-  m_WVCdmAdapter = new CWVCdmAdapterA(m_keySystem, licenseURL, serverCertificate,
-                                      m_mediaDrmEventListener.get(), this);
+  m_WVCdmAdapter = std::make_shared<CWVCdmAdapterA>(m_keySystem, licenseURL, serverCertificate,
+                                                    m_classLoader, this);
 
-  return m_WVCdmAdapter->GetMediaDrm();
+  return m_WVCdmAdapter->GetCDM() != nullptr;
 }
 
-Adaptive_CencSingleSampleDecrypter* CWVDecrypterA::CreateSingleSampleDecrypter(
+std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypterA::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
     std::string_view optionalKeyParameter,
     const std::vector<uint8_t>& defaultKeyId,
@@ -132,102 +104,71 @@ Adaptive_CencSingleSampleDecrypter* CWVDecrypterA::CreateSingleSampleDecrypter(
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
-  CWVCencSingleSampleDecrypterA* decrypter = new CWVCencSingleSampleDecrypterA(
-      *m_WVCdmAdapter, initData, optionalKeyParameter, defaultKeyId, this);
-
-  {
-    std::lock_guard<std::mutex> lk(m_decrypterListMutex);
-    m_decrypterList.push_back(decrypter);
-  }
+  std::shared_ptr<CWVCencSingleSampleDecrypterA> decrypter =
+      std::make_shared<CWVCencSingleSampleDecrypterA>(m_WVCdmAdapter.get(), initData,
+                                                      optionalKeyParameter, defaultKeyId);
 
   if (!(*decrypter->GetSessionId() && decrypter->StartSession(skipSessionMessage)))
   {
-    DestroySingleSampleDecrypter(decrypter);
     return nullptr;
   }
   return decrypter;
 }
 
-void CWVDecrypterA::DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter)
-{
-  if (decrypter)
-  {
-    std::vector<CWVCencSingleSampleDecrypterA*>::const_iterator res =
-        std::find(m_decrypterList.begin(), m_decrypterList.end(), decrypter);
-    if (res != m_decrypterList.end())
-    {
-      std::lock_guard<std::mutex> lk(m_decrypterListMutex);
-      m_decrypterList.erase(res);
-    }
-    delete static_cast<CWVCencSingleSampleDecrypterA*>(decrypter);
-  }
-}
-
-void CWVDecrypterA::GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+void CWVDecrypterA::GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                     const std::vector<uint8_t>& keyId,
                                     uint32_t media,
-                                    DecrypterCapabilites& caps)
+                                    DRM::DecrypterCapabilites& caps)
 {
-  if (decrypter)
-    static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->GetCapabilities(keyId, media, caps);
-  else
+  if (!decrypter)
+  {
     caps = {0, 0, 0};
+    return;
+  }
+
+  auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypterA>(decrypter);
+  if (wvDecrypter)
+  {
+    wvDecrypter->GetCapabilities(keyId, media, caps);
+  }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
 }
 
-bool CWVDecrypterA::HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
+bool CWVDecrypterA::HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                   const std::vector<uint8_t>& keyId)
 {
-  if (decrypter)
-    return static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->HasLicenseKey(keyId);
+  auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypterA>(decrypter);
+  if (wvDecrypter)
+  {
+    return wvDecrypter->HasLicenseKey(keyId);
+  }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
+
   return false;
 }
 
-std::string CWVDecrypterA::GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter)
+std::string CWVDecrypterA::GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter)
 {
-  if (!decrypter)
-    return "";
-
-  const std::vector<char> data = static_cast<CWVCencSingleSampleDecrypterA*>(decrypter)->GetChallengeData();
-  return BASE64::Encode(data);
-}
-
-void CWVDecrypterA::OnMediaDrmEvent(const CJNIMediaDrm& mediaDrm,
-                                    const std::vector<char>& sessionId,
-                                    int event,
-                                    int extra,
-                                    const std::vector<char>& data)
-{
-  LOG::LogF(LOGDEBUG, "%d arrived, #decrypter: %lu", event, m_decrypterList.size());
-  //we have only one DRM system running (m_WVCdmAdapter) so there is no need to compare mediaDrm
-  std::lock_guard<std::mutex> lk(m_decrypterListMutex);
-  for (std::vector<CWVCencSingleSampleDecrypterA*>::iterator b(m_decrypterList.begin()),
-       e(m_decrypterList.end());
-       b != e; ++b)
+  auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypterA>(decrypter);
+  if (wvDecrypter)
   {
-    if (sessionId.empty() || (*b)->GetSessionIdRaw() == sessionId)
-    {
-      switch (event)
-      {
-        case CJNIMediaDrm::EVENT_KEY_REQUIRED:
-          (*b)->RequestNewKeys();
-          break;
-        default:;
-      }
-    }
-    else
-    {
-      LOG::LogF(LOGDEBUG, "Session does not match: sizes: %lu -> %lu", sessionId.size(),
-                (*b)->GetSessionIdRaw().size());
-    }
+    const std::vector<char> challengeData = wvDecrypter->GetChallengeData();
+    return BASE64::Encode(challengeData);
   }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
+
+  return "";
 }
 
 bool CWVDecrypterA::Initialize()
 {
 #ifdef DRMTHREAD
   std::unique_lock<std::mutex> lk(m_jniMutex);
-  m_jniWorker = new std::thread(&CWVDecrypterA::JNIThread, this,
-                                reinterpret_cast<JavaVM*>(m_androidSystem.GetJNIEnv()));
+  m_jniWorker = std::make_unique<std::thread>(
+      &CWVDecrypterA::JNIThread, this, reinterpret_cast<JavaVM*>(m_androidSystem.GetJNIEnv()));
   m_jniCondition.wait(lk);
 #endif
   if (xbmc_jnienv()->ExceptionCheck())
@@ -239,7 +180,6 @@ bool CWVDecrypterA::Initialize()
   }
 
   //JNIEnv* env = static_cast<JNIEnv*>(m_androidSystem.GetJNIEnv());
-  CJNIClassLoader* classLoader;
   CJNIBase::SetSDKVersion(m_androidSystem.GetSDKVersion());
   CJNIBase::SetBaseClassName(m_androidSystem.GetClassName());
   LOG::Log(LOGDEBUG, "WVDecrypter JNI, SDK version: %d", m_androidSystem.GetSDKVersion());
@@ -249,25 +189,23 @@ bool CWVDecrypterA::Initialize()
     apkEnv = getenv("KODI_ANDROID_APK");
 
   if (!apkEnv)
+  {
+    LOG::LogF(LOGERROR, "Cannot get enviroment XBMC_ANDROID_APK/KODI_ANDROID_APK value");
     return false;
+  }
 
   std::string apkPath = apkEnv;
 
-  //! @todo: make classLoader a smartpointer
-  classLoader = new CJNIClassLoader(apkPath);
+  m_classLoader = std::make_shared<jni::CJNIClassLoader>(apkEnv);
   if (xbmc_jnienv()->ExceptionCheck())
   {
     LOG::LogF(LOGERROR, "Failed to create ClassLoader");
     xbmc_jnienv()->ExceptionDescribe();
     xbmc_jnienv()->ExceptionClear();
 
-    delete classLoader, classLoader = nullptr;
-
     return false;
   }
 
-  m_classLoader = classLoader;
-  m_mediaDrmEventListener = std::make_unique<CMediaDrmOnEventListener>(this, m_classLoader);
   return true;
 }
 

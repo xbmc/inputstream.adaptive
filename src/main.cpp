@@ -610,7 +610,7 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   m_name += ".decoder";
 
   std::string sessionId(initData.GetCryptoSession().GetSessionId());
-  Adaptive_CencSingleSampleDecrypter* ssd(m_session->GetSingleSampleDecrypter(sessionId));
+  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd(m_session->GetSingleSampleDecrypter(sessionId));
 
   return m_session->GetDecrypter()->OpenVideoDecoder(
       ssd, initData.GetCStructure());

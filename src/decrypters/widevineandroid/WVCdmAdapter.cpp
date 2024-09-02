@@ -9,38 +9,45 @@
 #include "WVCdmAdapter.h"
 
 #include "WVDecrypter.h"
+#include "decrypters/HelperWv.h"
 #include "decrypters/Helpers.h"
 #include "utils/FileUtils.h"
 #include "utils/log.h"
 
 #include <jni/src/UUID.h>
-#include <kodi/Filesystem.h>
 
 using namespace DRM;
-using namespace jni;
+using namespace UTILS;
 
-CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
+CMediaDrmOnEventListener::CMediaDrmOnEventListener(
+    CMediaDrmOnEventCallback* decrypterEventCallback,
+    std::shared_ptr<jni::CJNIClassLoader> classLoader)
+  : jni::CJNIMediaDrmOnEventListener(classLoader.get())
+{
+  m_decrypterEventCallback = decrypterEventCallback;
+}
+
+void CMediaDrmOnEventListener::onEvent(const jni::CJNIMediaDrm& mediaDrm,
+                                       const std::vector<char>& sessionId,
+                                       int event,
+                                       int extra,
+                                       const std::vector<char>& data)
+{
+  m_decrypterEventCallback->OnMediaDrmEvent(mediaDrm, sessionId, event, extra, data);
+}
+
+CWVCdmAdapterA::CWVCdmAdapterA(std::string_view keySystem,
                                std::string_view licenseURL,
                                const std::vector<uint8_t>& serverCert,
-                               CJNIMediaDrmOnEventListener* listener,
+                               std::shared_ptr<jni::CJNIClassLoader> jniClassLoader,
                                CWVDecrypterA* host)
-  : m_keySystem(ks), m_mediaDrm(0), m_licenseUrl(licenseURL), m_host(host)
+  : m_keySystem(keySystem), m_licenseUrl(licenseURL), m_host(host)
 {
   if (licenseURL.empty())
   {
     LOG::LogF(LOGERROR, "No license URL path specified");
     return;
   }
-
-  std::string drmName;
-  if (ks == WIDEVINE)
-    drmName = "widevine";
-  else if (ks == PLAYREADY)
-    drmName = "playready";
-  else if (ks == WISEPLAY)
-    drmName = "wiseplay";
-  else
-    drmName = "undefined";
 
   // The license url come from license_key kodi property
   // we have to kept only the url without the parameters specified after pipe "|" char
@@ -51,52 +58,58 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
 
   // Build up a CDM path to store decrypter specific stuff, each domain gets it own path
   // the domain name is hashed to generate a short folder name
+  std::string drmName = DRM::KeySystemToDrmName(m_keySystem);
   std::string basePath = FILESYS::PathCombine(FILESYS::GetAddonUserPath(), drmName);
   basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
   basePath += FILESYS::SEPARATOR;
   m_strBasePath = basePath;
 
   int64_t mostSigBits(0), leastSigBits(0);
-  const uint8_t* keySystem = GetKeySystem();
+  const uint8_t* systemUuid = DRM::KeySystemToUUID(m_keySystem);
+  if (!systemUuid)
+  {
+    LOG::LogF(LOGERROR, "Unable to get the system UUID");
+    return;
+  }
   for (unsigned int i(0); i < 8; ++i)
-    mostSigBits = (mostSigBits << 8) | keySystem[i];
+    mostSigBits = (mostSigBits << 8) | systemUuid[i];
   for (unsigned int i(8); i < 16; ++i)
-    leastSigBits = (leastSigBits << 8) | keySystem[i];
+    leastSigBits = (leastSigBits << 8) | systemUuid[i];
 
-  CJNIUUID uuid(mostSigBits, leastSigBits);
-  m_mediaDrm = new CJNIMediaDrm(uuid);
-  if (xbmc_jnienv()->ExceptionCheck() || !*m_mediaDrm)
+  jni::CJNIUUID uuid(mostSigBits, leastSigBits);
+  m_cdmAdapter = std::make_shared<jni::CJNIMediaDrm>(uuid);
+  if (xbmc_jnienv()->ExceptionCheck() || !*m_cdmAdapter.get())
   {
     LOG::LogF(LOGERROR, "Unable to initialize MediaDrm");
     xbmc_jnienv()->ExceptionClear();
-    delete m_mediaDrm, m_mediaDrm = nullptr;
     return;
   }
 
-  m_mediaDrm->setOnEventListener(*listener);
+  // Create media drm EventListener (unique_ptr explanation on class comment)
+  m_mediaDrmEventListener = std::make_unique<CMediaDrmOnEventListener>(this, jniClassLoader);
+  m_cdmAdapter->setOnEventListener(*m_mediaDrmEventListener.get());
   if (xbmc_jnienv()->ExceptionCheck())
   {
     LOG::LogF(LOGERROR, "Exception during installation of EventListener");
     xbmc_jnienv()->ExceptionClear();
-    m_mediaDrm->release();
-    delete m_mediaDrm, m_mediaDrm = nullptr;
+    m_cdmAdapter->release();
     return;
   }
 
-  std::vector<uint8_t> strDeviceId = m_mediaDrm->getPropertyByteArray("deviceUniqueId");
+  std::vector<uint8_t> strDeviceId = m_cdmAdapter->getPropertyByteArray("deviceUniqueId");
   xbmc_jnienv()->ExceptionClear();
-  std::string strSecurityLevel = m_mediaDrm->getPropertyString("securityLevel");
+  std::string strSecurityLevel = m_cdmAdapter->getPropertyString("securityLevel");
   xbmc_jnienv()->ExceptionClear();
-  std::string strSystemId = m_mediaDrm->getPropertyString("systemId");
+  std::string strSystemId = m_cdmAdapter->getPropertyString("systemId");
   xbmc_jnienv()->ExceptionClear();
 
 
-  if (m_keySystem == WIDEVINE)
+  if (m_keySystem == DRM::KS_WIDEVINE)
   {
-    //m_mediaDrm->setPropertyString("sessionSharing", "enable");
+    //m_cdmAdapter->setPropertyString("sessionSharing", "enable");
     if (!serverCert.empty())
     {
-      m_mediaDrm->setPropertyByteArray("serviceCertificate", serverCert);
+      m_cdmAdapter->setPropertyByteArray("serviceCertificate", serverCert);
     }
     else
       LoadServiceCertificate();
@@ -105,8 +118,7 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
     {
       LOG::LogF(LOGERROR, "Exception setting Service Certificate");
       xbmc_jnienv()->ExceptionClear();
-      m_mediaDrm->release();
-      delete m_mediaDrm, m_mediaDrm = nullptr;
+      m_cdmAdapter->release();
       return;
     }
   }
@@ -117,9 +129,9 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
 
   if (m_licenseUrl.find('|') == std::string::npos)
   {
-    if (m_keySystem == WIDEVINE)
+    if (m_keySystem == DRM::KS_WIDEVINE)
       m_licenseUrl += "|Content-Type=application%2Foctet-stream|R{SSM}|";
-    else if (m_keySystem == PLAYREADY)
+    else if (m_keySystem == DRM::KS_PLAYREADY)
       m_licenseUrl += "|Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%"
                       "2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense|R{SSM}|";
     else
@@ -129,16 +141,14 @@ CWVCdmAdapterA::CWVCdmAdapterA(WV_KEYSYSTEM ks,
 
 CWVCdmAdapterA::~CWVCdmAdapterA()
 {
-  if (m_mediaDrm)
+  if (m_cdmAdapter)
   {
-    m_mediaDrm->release();
+    m_cdmAdapter->release();
     if (xbmc_jnienv()->ExceptionCheck())
     {
       LOG::LogF(LOGERROR, "Exception releasing media drm");
       xbmc_jnienv()->ExceptionClear();
     }
-    delete m_mediaDrm;
-    m_mediaDrm = nullptr;
   }
 }
 
@@ -166,7 +176,7 @@ void CWVCdmAdapterA::LoadServiceCertificate()
                  std::chrono::time_point_cast<std::chrono::seconds>(now).time_since_epoch().count();
 
     if (certTime < nowTime && nowTime - certTime < 86400)
-      m_mediaDrm->setPropertyByteArray("serviceCertificate",
+      m_cdmAdapter->setPropertyByteArray("serviceCertificate",
                                        std::vector<uint8_t>(data + 8, data + sz));
     else
       free(data), data = nullptr;
@@ -174,7 +184,7 @@ void CWVCdmAdapterA::LoadServiceCertificate()
   if (!data)
   {
     LOG::Log(LOGDEBUG, "Requesting new Service Certificate");
-    m_mediaDrm->setPropertyString("privacyMode", "enable");
+    m_cdmAdapter->setPropertyString("privacyMode", "enable");
   }
   else
   {
@@ -183,9 +193,33 @@ void CWVCdmAdapterA::LoadServiceCertificate()
   }
 }
 
+void CWVCdmAdapterA::OnMediaDrmEvent(const jni::CJNIMediaDrm& mediaDrm,
+                                     const std::vector<char>& sessionId,
+                                     int event,
+                                     int extra,
+                                     const std::vector<char>& data)
+{
+  LOG::Log(LOGDEBUG, "MediaDrm event: type %i arrived", event);
+
+  CdmMessageType type;
+  if (event == jni::CJNIMediaDrm::EVENT_KEY_REQUIRED)
+    type = CdmMessageType::EVENT_KEY_REQUIRED;
+  else
+    return;
+
+  CdmMessage cdmMsg;
+  cdmMsg.sessionId.assign(sessionId.data(), sessionId.data() + sessionId.size());
+  cdmMsg.type = type;
+  cdmMsg.data.assign(data.data(), data.data() + data.size());
+  cdmMsg.status = extra;
+
+  // Send the message to attached CWVCencSingleSampleDecrypterA instances
+  NotifyObservers(cdmMsg);
+}
+
 void CWVCdmAdapterA::SaveServiceCertificate()
 {
-  const std::vector<uint8_t> sc = m_mediaDrm->getPropertyByteArray("serviceCertificate");
+  const std::vector<uint8_t> sc = m_cdmAdapter->getPropertyByteArray("serviceCertificate");
   if (xbmc_jnienv()->ExceptionCheck())
   {
     LOG::LogF(LOGWARNING, "Exception retrieving Service Certificate");
@@ -209,5 +243,37 @@ void CWVCdmAdapterA::SaveServiceCertificate()
     fwrite((uint8_t*)&nowTime, 1, sizeof(uint64_t), f);
     fwrite(sc.data(), 1, sc.size(), f);
     fclose(f);
+  }
+}
+
+std::string_view CWVCdmAdapterA::GetKeySystem()
+{
+  return m_keySystem;
+}
+
+std::string_view CWVCdmAdapterA::GetLibraryPath() const
+{
+  return m_host->GetLibraryPath();
+}
+
+void CWVCdmAdapterA::AttachObserver(IWVObserver* observer)
+{
+  std::lock_guard<std::mutex> lock(m_observer_mutex);
+  m_observers.emplace_back(observer);
+}
+
+void CWVCdmAdapterA::DetachObserver(IWVObserver* observer)
+{
+  std::lock_guard<std::mutex> lock(m_observer_mutex);
+  m_observers.remove(observer);
+}
+
+void CWVCdmAdapterA::NotifyObservers(const CdmMessage& message)
+{
+  std::lock_guard<std::mutex> lock(m_observer_mutex);
+  for (IWVObserver* observer : m_observers)
+  {
+    if (observer)
+      observer->OnNotify(message);
   }
 }

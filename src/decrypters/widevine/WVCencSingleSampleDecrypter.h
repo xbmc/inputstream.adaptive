@@ -8,34 +8,32 @@
 
 #pragma once
 
-#include "../IDecrypter.h"
 #include "cdm/media/cdm/api/content_decryption_module.h"
 #include "common/AdaptiveCencSampleDecrypter.h"
+#include "decrypters/HelperWv.h"
+#include "decrypters/IDecrypter.h"
 
 #include <list>
 #include <mutex>
 #include <optional>
 
-class CWVDecrypter;
-class CWVCdmAdapter;
-
 namespace media
 {
+class CdmAdapter;
 class CdmVideoFrame;
 }
 
 using namespace DRM;
 
-class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter
+class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter,
+                                                    public IWVObserver
 {
 public:
-  // methods
-  CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
+  CWVCencSingleSampleDecrypter(IWVCdmAdapter<media::CdmAdapter>* cdmAdapter,
                                std::vector<uint8_t>& pssh,
                                const std::vector<uint8_t>& defaultKeyId,
                                bool skipSessionMessage,
-                               CryptoMode cryptoMode,
-                               CWVDecrypter* host);
+                               CryptoMode cryptoMode);
   virtual ~CWVCencSingleSampleDecrypter();
 
   void GetCapabilities(const std::vector<uint8_t>& keyId,
@@ -45,7 +43,7 @@ public:
   void CloseSessionId();
   AP4_DataBuffer GetChallengeData();
 
-  void SetSession(const char* session, uint32_t sessionSize, const uint8_t* data, size_t dataSize);
+  void SetSession(const std::string sessionId, const uint8_t* data, const size_t dataSize);
 
   void AddSessionKey(const uint8_t* data, size_t dataSize, uint32_t status);
   bool HasKeyId(const std::vector<uint8_t>& keyid);
@@ -85,11 +83,14 @@ public:
   void SetDefaultKeyId(const std::vector<uint8_t>& keyId) override;
   void AddKeyId(const std::vector<uint8_t>& keyId) override;
 
+  // IWVObserver interface
+  void OnNotify(const CdmMessage& message) override;
+
 private:
   void CheckLicenseRenewal();
   bool SendSessionMessage();
 
-  CWVCdmAdapter& m_wvCdmAdapter;
+  IWVCdmAdapter<media::CdmAdapter>* m_cdmAdapter;
   std::string m_strSession;
   std::vector<uint8_t> m_pssh;
   AP4_DataBuffer m_challenge;
@@ -146,5 +147,4 @@ private:
   CryptoMode m_EncryptionMode;
 
   std::optional<cdm::VideoDecoderConfig_3> m_currentVideoDecConfig;
-  CWVDecrypter* m_host;
 };

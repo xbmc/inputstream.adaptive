@@ -9,12 +9,12 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string_view>
 
 #include <kodi/addon-instance/VideoCodec.h>
 
 class Adaptive_CencSingleSampleDecrypter;
-class AP4_DataBuffer;
 enum class CryptoMode;
 
 namespace DRM
@@ -85,7 +85,7 @@ public:
    * \param cryptoMode The crypto/cypher mode to initialise with
    * \return The single sample decrypter if successfully created
    */
-  virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
+  virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
       std::string_view optionalKeyParameter,
       const std::vector<uint8_t>& defaultKeyId,
@@ -94,19 +94,13 @@ public:
       CryptoMode cryptoMode) = 0;
 
   /**
-   * \brief Destroy the decrypter
-   * \param decrypter The single sample decrypter instance to destroy
-   */
-  virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) = 0;
-
-  /**
    * \brief Determine the capabilities of the decrypter against the supplied media type and KeyID
    * \param decrypter The single sample decrypter to use for this check
    * \param keyid The KeyID that will be used for this check
    * \param media The type of media being decrypted (audio/video)
    * \param caps The capabilities object to be populated
    */
-  virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual void GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                const std::vector<uint8_t>& keyId,
                                uint32_t media,
                                DecrypterCapabilites& caps) = 0;
@@ -117,7 +111,7 @@ public:
    * \param keyid The KeyID to check for a valid license
    * \return True if the KeyID has a license otherwise false
    */
-  virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                              const std::vector<uint8_t>& keyId) = 0;
 
   /**
@@ -131,7 +125,7 @@ public:
    * \param decrypter The single sample decrypter to use for license challenge
    * \return The license data in Base64 format
    */
-  virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) = 0;
+  virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) = 0;
 
   /**
    * \brief Open VideoCodec for decoding video in a secure pathway to Kodi
@@ -139,7 +133,7 @@ public:
    * \param initData The data for initialising the codec
    * \return True if the decoder was opened successfully otherwise false
    */
-  virtual bool OpenVideoDecoder(Adaptive_CencSingleSampleDecrypter* decrypter,
+  virtual bool OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                 const VIDEOCODEC_INITDATA* initData) = 0;
 
   /**
