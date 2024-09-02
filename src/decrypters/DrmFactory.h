@@ -10,10 +10,12 @@
 
 #include "IDecrypter.h"
 
+#include <memory>
+
 namespace DRM
 {
 namespace FACTORY
 {
-IDecrypter* GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem);
+std::shared_ptr<DRM::IDecrypter> GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem);
 }
 } // namespace DRM

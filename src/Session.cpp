@@ -123,7 +123,7 @@ void CSession::DisposeSampleDecrypter()
 void CSession::DisposeDecrypter()
 {
   DisposeSampleDecrypter();
-  delete m_decrypter;
+  m_decrypter = nullptr;
 }
 
 /*----------------------------------------------------------------------
@@ -472,7 +472,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         session.m_cencSingleSampleDecrypter->SetDefaultKeyId(defaultKid);
       }
 
-      if (m_decrypter && !defaultKid.empty())
+      if (!defaultKid.empty())
       {
         LOG::Log(LOGDEBUG, "Initializing stream with KID: %s", defaultKidStr.c_str());
 
@@ -502,13 +502,12 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         }
       }
 
-      if (m_decrypter &&
-          (session.m_cencSingleSampleDecrypter ||
-           (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-                initData, drmOptionalKeyParam, defaultKid, sessionPsshset.m_licenseUrl, false,
-                sessionPsshset.m_cryptoMode == CryptoMode::NONE ? CryptoMode::AES_CTR
-                                                                : sessionPsshset.m_cryptoMode)) !=
-               nullptr))
+      if (session.m_cencSingleSampleDecrypter ||
+          (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
+               initData, drmOptionalKeyParam, defaultKid, sessionPsshset.m_licenseUrl, false,
+               sessionPsshset.m_cryptoMode == CryptoMode::NONE ? CryptoMode::AES_CTR
+                                                               : sessionPsshset.m_cryptoMode)) !=
+              nullptr)
       {
         m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defaultKid,
                                      sessionPsshset.media_, session.m_decrypterCaps);
