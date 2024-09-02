@@ -146,7 +146,7 @@ public:
   /*! \brief Get the decrypter (DRM lib)
    *  \return The decrypter
    */
-  DRM::IDecrypter* GetDecrypter() { return m_decrypter; }
+  DRM::IDecrypter* GetDecrypter() { return m_decrypter.get(); }
 
   /*! \brief Get a single sample decrypter matching the session id provided
    *  \param sessionId The session id string to match
@@ -345,7 +345,7 @@ private:
   std::string m_manifestUrl;
   std::vector<uint8_t> m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
-  DRM::IDecrypter* m_decrypter{nullptr};
+  std::shared_ptr<DRM::IDecrypter> m_decrypter;
 
   struct CCdmSession
   {
