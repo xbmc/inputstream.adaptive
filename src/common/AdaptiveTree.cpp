@@ -40,7 +40,7 @@ namespace adaptive
     m_manifestParams = left.m_manifestParams;
     m_manifestHeaders = left.m_manifestHeaders;
     m_settings = left.m_settings;
-    m_supportedKeySystems = left.m_supportedKeySystems;
+    m_supportedKeySystem = left.m_supportedKeySystem;
     m_pathSaveManifest = left.m_pathSaveManifest;
     stream_start_ = left.stream_start_;
 
@@ -49,11 +49,11 @@ namespace adaptive
   }
 
   void AdaptiveTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                               std::vector<std::string_view> supportedKeySystems,
+                               std::string_view supportedKeySystem,
                                std::string_view manifestUpdParams)
   {
     m_reprChooser = reprChooser;
-    m_supportedKeySystems = supportedKeySystems;
+    m_supportedKeySystem = supportedKeySystem;
 
     auto srvBroker = CSrvBroker::GetInstance();
 
@@ -114,12 +114,12 @@ namespace adaptive
 
   void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
   {
-    for (const CSegment& segment : repr->Timeline())
+    for (auto& segment : repr->SegmentTimeline().GetData())
     {
       period->DecreasePSSHSetUsageCount(segment.pssh_set_);
     }
 
-    repr->Timeline().Clear();
+    repr->SegmentTimeline().Clear();
     repr->current_segment_ = nullptr;
   }
 
@@ -140,13 +140,13 @@ namespace adaptive
                                        PLAYLIST::CAdaptationSet* adp,
                                        const std::vector<uint8_t>& pssh,
                                        std::string_view defaultKID,
-                                       std::string_view licenseUrl /* = "" */,
+                                       std::string_view kidUrl /* = "" */,
                                        std::string_view iv /* = "" */)
   {
     CPeriod::PSSHSet psshSet;
     psshSet.pssh_ = pssh;
     psshSet.defaultKID_ = defaultKID;
-    psshSet.m_licenseUrl = licenseUrl;
+    psshSet.m_kidUrl = kidUrl;
     psshSet.iv = iv;
     psshSet.m_cryptoMode = m_cryptoMode;
     psshSet.adaptation_set_ = adp;
@@ -189,7 +189,7 @@ namespace adaptive
                                    const PLAYLIST::CRepresentation* segRep,
                                    const PLAYLIST::CSegment* segment) const
   {
-    if (segRep->Timeline().IsEmpty())
+    if (segRep->SegmentTimeline().IsEmpty())
       return true;
 
     if (!segment || !segPeriod || !segRep)
@@ -197,10 +197,6 @@ namespace adaptive
 
     if (IsLive())
     {
-      // Assume that if the period is the last, it never ends until segments can no longer be downloaded
-      if (m_periods.back().get() == segPeriod)
-        return false;
-
       if (segPeriod->GetDuration() > 0 && segPeriod->GetStart() != NO_VALUE)
       {
         const uint64_t pDurMs = segPeriod->GetDuration() * 1000 / segPeriod->GetTimescale();
@@ -216,7 +212,7 @@ namespace adaptive
     }
     else
     {
-      const CSegment* lastSeg = segRep->Timeline().GetBack();
+      const CSegment* lastSeg = segRep->SegmentTimeline().GetBack();
       return segment == lastSeg;
     }
     return false;
@@ -279,31 +275,24 @@ namespace adaptive
 
     while (m_tree->m_updateInterval != NO_VALUE && m_tree->m_updateInterval > 0 && !m_threadStop)
     {
-      auto nowTime = std::chrono::steady_clock::now();
+      if (m_cvUpdInterval.wait_for(updLck, std::chrono::milliseconds(m_tree->m_updateInterval)) ==
+          std::cv_status::timeout)
+      {
+        updLck.unlock();
+        // If paused, wait until last "Resume" will be called
+        std::unique_lock<std::mutex> lckWait(m_waitMutex);
+        m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
+        if (m_threadStop)
+          break;
 
-      std::chrono::milliseconds intervalMs = std::chrono::milliseconds(m_tree->m_updateInterval);
-      // Wait for the interval time, the predicate method is used to avoid spurious wakeups
-      // and to allow exit early when notify_all is called to force stop operations
-      m_cvUpdInterval.wait_for(updLck, intervalMs,
-                               [&nowTime, &intervalMs, this] {
-                                 return std::chrono::steady_clock::now() - nowTime >= intervalMs ||
-                                        m_threadStop;
-                               });
+        updLck.lock();
 
-      updLck.unlock();
-      // If paused, wait until last "Resume" will be called
-      std::unique_lock<std::mutex> lckWait(m_waitMutex);
-      m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
-      if (m_threadStop)
-        break;
+        // Reset interval value to allow forced update from manifest
+        if (m_resetInterval)
+          m_tree->m_updateInterval = PLAYLIST::NO_VALUE;
 
-      updLck.lock();
-
-      // Reset interval value to allow forced update from manifest
-      if (m_resetInterval)
-        m_tree->m_updateInterval = PLAYLIST::NO_VALUE;
-
-      m_tree->OnUpdateSegments();
+        m_tree->OnUpdateSegments();
+      }
     }
   }
 

@@ -39,15 +39,12 @@ public:
    */
   bool HasProtection() const { return !m_PSSH.empty(); }
 
-  /*!
-   * \brief Get keyid as 16 bytes format (converted for Widevine DRM)
-   */
-  const std::vector<uint8_t>& GetKID() const { return m_KID; }
+  std::string_view GetKID() const { return m_KID; }
   std::string_view GetLicenseURL() const { return m_licenseURL; }
-  const std::vector<uint8_t>& GetPSSH() const { return m_PSSH; }
+  std::vector<uint8_t> GetPSSH() const { return m_PSSH; }
 
 private:
-  std::vector<uint8_t> m_KID;
+  std::string m_KID;
   std::string m_licenseURL;
   std::vector<uint8_t> m_PSSH;
 };
@@ -59,11 +56,7 @@ public:
   bool Parse(const std::vector<uint8_t>& data);
 
   const std::vector<uint8_t>& GetSystemId() const { return m_systemId; }
-
-  /*!
-   * \brief Get keyid's as 16 bytes format
-   */
-  const std::vector<std::vector<uint8_t>>& GetKeyIds() const { return m_keyIds; }
+  const std::vector<std::string>& GetKeyIds() const { return m_keyIds; }
   const std::vector<uint8_t>& GetData() const { return m_data; }
 
 private:
@@ -71,7 +64,7 @@ private:
   uint8_t m_version{0};
   uint32_t m_flags{0};
   std::vector<uint8_t> m_systemId;
-  std::vector<std::vector<uint8_t>> m_keyIds;
+  std::vector<std::string> m_keyIds;
   std::vector<uint8_t> m_data;
 };
 

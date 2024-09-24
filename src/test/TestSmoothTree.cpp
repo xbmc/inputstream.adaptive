@@ -6,11 +6,11 @@
  *  See LICENSES/README.md for more information.
  */
 
+#include "TestHelper.h"
+
 #include "../CompKodiProps.h"
 #include "../SrvBroker.h"
-#include "../decrypters/Helpers.h"
 #include "../utils/UrlUtils.h"
-#include "TestHelper.h"
 
 #include <gtest/gtest.h>
 
@@ -59,7 +59,7 @@ protected:
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_reprChooser, std::vector<std::string_view>{DRM::URN_WIDEVINE}, "");
+    tree->Configure(m_reprChooser, "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED", "");
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
@@ -95,21 +95,21 @@ TEST_F(SmoothTreeTest, CheckAsyncTimelineStartPTS)
   // Each <StreamIndex> start with different chunk timestamp
   // so to sync streams we adjust PTS with <StreamIndex> which has the lowest timestamp (CSmoothTree::m_ptsBase)
   auto& period = tree->m_periods[0];
-  auto& segTL = period->GetAdaptationSets()[0]->GetRepresentations()[0]->Timeline();
+  auto& segTL = period->GetAdaptationSets()[0]->GetRepresentations()[0]->SegmentTimeline();
 
   EXPECT_EQ(segTL.GetSize(), 30);
   EXPECT_EQ(segTL.Get(0)->startPTS_, 7058030);
   EXPECT_EQ(segTL.Get(0)->m_time, 3903180167058030);
   EXPECT_EQ(segTL.Get(0)->m_number, 1);
 
-  segTL = period->GetAdaptationSets()[1]->GetRepresentations()[0]->Timeline();
+  segTL = period->GetAdaptationSets()[1]->GetRepresentations()[0]->SegmentTimeline();
 
   EXPECT_EQ(segTL.GetSize(), 30);
   EXPECT_EQ(segTL.Get(0)->startPTS_, 71363);
   EXPECT_EQ(segTL.Get(0)->m_time, 3903180160071363);
   EXPECT_EQ(segTL.Get(0)->m_number, 1);
 
-  segTL = period->GetAdaptationSets()[3]->GetRepresentations()[0]->Timeline();
+  segTL = period->GetAdaptationSets()[3]->GetRepresentations()[0]->SegmentTimeline();
 
   EXPECT_EQ(segTL.GetSize(), 29);
   EXPECT_EQ(segTL.Get(0)->startPTS_, 0);

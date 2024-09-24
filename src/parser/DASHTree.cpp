@@ -12,7 +12,6 @@
 #include "PRProtectionParser.h"
 #include "SrvBroker.h"
 #include "common/Period.h"
-#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/StringUtils.h"
@@ -106,10 +105,10 @@ adaptive::CDashTree::CDashTree(const CDashTree& left) : AdaptiveTree(left)
 }
 
 void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                    std::vector<std::string_view> supportedKeySystems,
+                                    std::string_view supportedKeySystem,
                                     std::string_view manifestUpdParams)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdParams);
+  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdParams);
   m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetLicenseData().empty();
 }
 
@@ -219,12 +218,14 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
   // For multi-periods streaming must be ensured the duration of each period:
   // - If "duration" attribute is provided on each Period tag, do nothing
   // - If "duration" attribute is missing, but "start" attribute, use this last one to calculate the duration
-  // - If both attributes are missing, try get the duration from a representation,
-  //   e.g. a single period in a live stream the duration must be determined by the available segments
+  // - If both attributes are missing, try get the duration from a representation
 
   uint64_t totalDuration{0}; // Calculated duration, in ms
   uint64_t mpdTotalDuration = m_mediaPresDuration; // MPD total duration, in ms
+  if (mpdTotalDuration == 0)
+    mpdTotalDuration = m_timeShiftBufferDepth;
 
+  if (!IsLive())
   {
     for (auto itPeriod = m_periods.begin(); itPeriod != m_periods.end();)
     {
@@ -286,9 +287,6 @@ bool adaptive::CDashTree::ParseManifest(const std::string& data)
       ++itPeriod;
     }
   }
-
-  if (mpdTotalDuration == 0)
-    mpdTotalDuration = m_timeShiftBufferDepth;
 
   if (mpdTotalDuration > 0)
     m_totalTime = mpdTotalDuration;
@@ -634,7 +632,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
     // add all duration values as timeline segments
     for (xml_node node : nodeSegDur.children("S"))
     {
-      adpSet->SegmentTimelineDuration().emplace_back(XML::GetAttribUint32(node, "d"));
+      adpSet->SegmentTimelineDuration().GetData().emplace_back(XML::GetAttribUint32(node, "d"));
     }
   }
 
@@ -877,10 +875,8 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
     uint64_t segNumber = segList.GetStartNumber();
 
     // If <SegmentDurations> tag is present it could use a different timescale
-    const size_t TLDurationSize = adpSet->SegmentTimelineDuration().size();
-    const bool isTLDurTsRescale = adpSet->HasSegmentTimelineDuration() &&
-                                  adpSet->GetSegDurationsTimescale() != NO_VALUE &&
-                                  adpSet->GetSegDurationsTimescale() != segList.GetTimescale();
+    bool isTsRescale = adpSet->GetSegDurationsTimescale() != NO_VALUE &&
+                       adpSet->GetSegDurationsTimescale() != segList.GetTimescale();
 
     for (xml_node node : nodeSeglist.children("SegmentURL"))
     {
@@ -899,10 +895,11 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       }
 
       uint64_t duration;
-      if (TLDurationSize > 0 && index < TLDurationSize)
+      uint32_t* sdDuration = adpSet->SegmentTimelineDuration().Get(index); // <SegmentDurations> tag is present
+      if (sdDuration)
       {
-        duration = adpSet->SegmentTimelineDuration()[index];
-        if (isTLDurTsRescale)
+        duration = *sdDuration;
+        if (isTsRescale)
         {
           duration =
               static_cast<uint64_t>(static_cast<double>(duration) /
@@ -917,12 +914,31 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       seg.m_time = segStartPts;
       seg.m_number = segNumber++;
 
-      repr->Timeline().Add(seg);
+      repr->SegmentTimeline().GetData().push_back(seg);
 
       segStartPts += duration;
       index++;
     }
 
+    // Determines total duration of segments
+    uint64_t totalDur;
+    if (adpSet->HasSegmentTimelineDuration())
+    {
+      auto& segTLData = adpSet->SegmentTimelineDuration().GetData();
+      totalDur = std::accumulate(segTLData.begin(), segTLData.end(), 0ULL);
+      if (isTsRescale)
+      {
+        totalDur =
+            static_cast<uint64_t>(static_cast<double>(totalDur) /
+                                  adpSet->GetSegDurationsTimescale() * segList.GetTimescale());
+      }
+    }
+    else
+    {
+      totalDur = static_cast<uint64_t>(repr->SegmentTimeline().GetSize()) * segList.GetDuration();
+    }
+
+    repr->SetDuration(totalDur);
     repr->SetTimescale(segList.GetTimescale());
 
     repr->SetSegmentList(segList);
@@ -940,16 +956,14 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   {
     std::vector<uint8_t> pssh;
     std::string kid;
-    std::string licenseUrl;
     // If a custom init PSSH is provided, should mean that a certain content protection tag
     // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
-    if (m_isCustomInitPssh || GetProtectionData(adpSet->ProtectionSchemes(),
-                                                repr->ProtectionSchemes(), pssh, kid, licenseUrl))
+    if (m_isCustomInitPssh ||
+        GetProtectionData(adpSet->ProtectionSchemes(), repr->ProtectionSchemes(), pssh, kid))
     {
       period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
 
-      uint16_t psshSetPos =
-          InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid, licenseUrl);
+      uint16_t psshSetPos = InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid);
 
       if (psshSetPos == PSSHSET_POS_INVALID)
       {
@@ -998,7 +1012,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   if (repr->GetContainerType() == ContainerType::TEXT && repr->GetMimeType() != "application/mp4" &&
-      !repr->HasSegmentBase() && !repr->HasSegmentTemplate() && repr->Timeline().IsEmpty())
+      !repr->HasSegmentBase() && !repr->HasSegmentTemplate() && !repr->HasSegmentTimeline())
   {
     // Raw unsegmented subtitles called "sidecar" is a single file specified in the <BaseURL> tag,
     // must not have the MP4 ISOBMFF mime type or any other dash element.
@@ -1006,7 +1020,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   }
 
   // Generate segments from SegmentTemplate
-  if (repr->HasSegmentTemplate() && repr->Timeline().IsEmpty())
+  if (repr->HasSegmentTemplate() && !repr->HasSegmentTimeline())
   {
     auto& segTemplate = repr->GetSegmentTemplate();
 
@@ -1040,6 +1054,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       if (segTemplate->HasTimeline()) // Generate segments from template timeline
       {
         uint64_t time{0};
+        uint64_t totalDuration{0};
 
         for (const auto& tlElem : segTemplate->Timeline())
         {
@@ -1063,13 +1078,15 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
             seg.m_time = time;
 
-            repr->Timeline().Add(seg);
+            totalDuration += tlElem.duration;
+            repr->SegmentTimeline().GetData().emplace_back(seg);
 
             time += tlElem.duration;
           } while (repeat-- > 0);
         }
 
         repr->SetTimescale(segTimescale);
+        repr->SetDuration(totalDuration);
       }
       else // Generate segments by using template
       {
@@ -1140,24 +1157,24 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
 
           seg.m_time = time;
 
-          repr->Timeline().Add(seg);
+          repr->SegmentTimeline().GetData().emplace_back(seg);
 
           time = seg.m_endPts;
         }
 
         repr->SetTimescale(segTemplate->GetTimescale());
+        repr->SetDuration(static_cast<uint64_t>(segDuration) * segmentsCount);
       }
     }
   }
 
-  repr->SetDuration(repr->Timeline().GetDuration());
   repr->SetScaling();
 
   adpSet->AddRepresentation(repr);
 }
 
 void adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
-                                                  std::vector<uint32_t>& SCTimeline)
+                                                  CSpinCache<uint32_t>& SCTimeline)
 {
   uint64_t nextPts{0};
 
@@ -1169,22 +1186,22 @@ void adaptive::CDashTree::ParseTagSegmentTimeline(pugi::xml_node nodeSegTL,
     uint32_t repeat = XML::GetAttribUint32(node, "r");
     repeat += 1;
 
-    if (SCTimeline.empty())
+    if (SCTimeline.IsEmpty())
     {
       nextPts = time;
     }
     else if (time > 0)
     {
       //Go back to the previous timestamp to calculate the real gap.
-      nextPts -= SCTimeline.back();
-      SCTimeline.back() = static_cast<uint32_t>(time - nextPts);
+      nextPts -= SCTimeline.GetData().back();
+      SCTimeline.GetData().back() = static_cast<uint32_t>(time - nextPts);
       nextPts = time;
     }
     if (duration > 0)
     {
       for (; repeat > 0; --repeat)
       {
-        SCTimeline.emplace_back(duration);
+        SCTimeline.GetData().emplace_back(duration);
         nextPts += duration;
       }
     }
@@ -1280,15 +1297,11 @@ void adaptive::CDashTree::ParseTagContentProtection(
       {
         protScheme.pssh = node.child_value();
       }
-      else if (StringUtils::EndsWithNoCase(childName, "laurl")) // e.g. <clearkey:Laurl> or <dashif:Laurl> ...
-      {
-        protScheme.licenseUrl = node.child_value();
-      }
       else if (childName == "mspr:pro" || childName == "pro")
       {
         PRProtectionParser parser;
         if (parser.ParseHeader(node.child_value()))
-          protScheme.kid = STRING::ToHexadecimal(parser.GetKID());
+          protScheme.kid = parser.GetKID();
       }
     }
 
@@ -1300,83 +1313,36 @@ bool adaptive::CDashTree::GetProtectionData(
     const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
     const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
     std::vector<uint8_t>& pssh,
-    std::string& kid,
-    std::string& licenseUrl)
+    std::string& kid)
 {
   // Try find a protection scheme compatible for the current systemid
   const ProtectionScheme* protSelected = nullptr;
   const ProtectionScheme* protCommon = nullptr;
 
-  for (std::string_view supportedKeySystem : m_supportedKeySystems)
+  for (const ProtectionScheme& protScheme : reprProtSchemes)
   {
-    for (const ProtectionScheme& protScheme : reprProtSchemes)
+    if (STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
     {
-      if (STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
-      {
-        protSelected = &protScheme;
-      }
-      else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
-      {
-        protCommon = &protScheme;
-      }
+      protSelected = &protScheme;
     }
-
-    if (!protSelected || !protCommon)
+    else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
     {
-      for (const ProtectionScheme& protScheme : adpProtSchemes)
-      {
-        if (!protSelected && STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
-        {
-          protSelected = &protScheme;
-        }
-        else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
-        {
-          protCommon = &protScheme;
-        }
-      }
+      protCommon = &protScheme;
     }
   }
 
-  // Workaround for ClearKey:
-  // if license type ClearKey is set and a manifest dont contains ClearKey protection scheme
-  // in any case the KID is required to allow decryption (with clear keys or license URLs provided by Kodi props)
-  //! @todo: this should not be a task of parser, moreover missing an appropriate KID extraction from mp4 box
-  auto& kodiProps = CSrvBroker::GetKodiProps();
-  ProtectionScheme ckProtScheme;
-  if (kodiProps.GetLicenseType() == DRM::KS_CLEARKEY)
+  if (!protSelected || !protCommon)
   {
-    std::string_view defaultKid;
-    if (protSelected)
-      defaultKid = protSelected->kid;
-    if (defaultKid.empty() && protCommon)
-      defaultKid = protCommon->kid;
-
-    if (defaultKid.empty())
+    for (const ProtectionScheme& protScheme : adpProtSchemes)
     {
-      for (const ProtectionScheme& protScheme : reprProtSchemes)
+      if (!protSelected && STRING::CompareNoCase(protScheme.idUri, m_supportedKeySystem))
       {
-        if (!protScheme.kid.empty())
-        {
-          defaultKid = protScheme.kid;
-          break;
-        }
+        protSelected = &protScheme;
       }
-      if (defaultKid.empty())
+      else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
       {
-        for (const ProtectionScheme& protScheme : adpProtSchemes)
-        {
-          if (!protScheme.kid.empty())
-          {
-            defaultKid = protScheme.kid;
-            break;
-          }
-        }
+        protCommon = &protScheme;
       }
-      if (protCommon)
-        ckProtScheme = *protCommon;
-
-      ckProtScheme.kid = defaultKid;
-      protCommon = &ckProtScheme;
     }
   }
 
@@ -1389,7 +1355,6 @@ bool adaptive::CDashTree::GetProtectionData(
     isEncrypted = true;
     selectedKid = protSelected->kid;
     selectedPssh = protSelected->pssh;
-    licenseUrl = protSelected->licenseUrl;
   }
   if (protCommon)
   {
@@ -1407,9 +1372,27 @@ bool adaptive::CDashTree::GetProtectionData(
   if (!selectedPssh.empty())
     pssh = BASE64::Decode(selectedPssh);
 
-  // There are no constraints on the Kid format, it is recommended to be as UUID but not mandatory
-  STRING::ReplaceAll(selectedKid, "-", "");
-  kid = selectedKid;
+  if (!selectedKid.empty())
+  {
+    if (selectedKid.size() == 36)
+    {
+      const char* selectedKidPtr = selectedKid.c_str();
+      kid.resize(16);
+      for (size_t i{0}; i < 16; i++)
+      {
+        if (i == 4 || i == 6 || i == 8 || i == 10)
+          selectedKidPtr++;
+        kid[i] = STRING::ToHexNibble(*selectedKidPtr) << 4;
+        selectedKidPtr++;
+        kid[i] |= STRING::ToHexNibble(*selectedKidPtr);
+        selectedKidPtr++;
+      }
+    }
+    else
+    {
+      kid = selectedKid;
+    }
+  }
 
   return isEncrypted;
 }
@@ -1504,10 +1487,6 @@ uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)
   return channels;
 }
 
-//! @todo: MergeAdpSets its a kind of workaround
-//! its missing a middle interface where store "streams" (or media tracks) data in a form
-//! that is detached from "tree" interface, this would avoid the force
-//! change of CAdaptationSet data and its parent data (CRepresentation::SetParent)
 void adaptive::CDashTree::MergeAdpSets()
 {
   // NOTE: This method wipe out all properties of merged adaptation set
@@ -1543,7 +1522,7 @@ void adaptive::CDashTree::MergeAdpSets()
           for (auto itRepr = nextAdpSet->GetRepresentations().begin();
                itRepr < nextAdpSet->GetRepresentations().end(); ++itRepr)
           {
-            itRepr->get()->SetParent(adpSet, true);
+            itRepr->get()->SetParent(adpSet);
             adpSet->GetRepresentations().push_back(std::move(*itRepr));
           }
           itNextAdpSet = periodAdpSets.erase(itNextAdpSet);
@@ -1695,7 +1674,7 @@ void adaptive::CDashTree::OnUpdateSegments()
           {
             auto repr = (*itRepr).get();
 
-            if (updRepr->Timeline().IsEmpty())
+            if (updRepr->SegmentTimeline().IsEmpty())
             {
               LOG::LogF(LOGWARNING,
                         "MPD update - Updated timeline has no segments "
@@ -1704,16 +1683,16 @@ void adaptive::CDashTree::OnUpdateSegments()
               continue;
             }
 
-            if (!repr->Timeline().IsEmpty())
+            if (!repr->SegmentTimeline().IsEmpty())
             {
               if (!repr->current_segment_) // Representation that should not be used for playback
               {
-                repr->Timeline().Swap(updRepr->Timeline());
+                repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
               }
               else
               {
-                if (repr->Timeline().GetInitialSize() == updRepr->Timeline().GetSize() &&
-                    repr->Timeline().Get(0)->startPTS_ == updRepr->Timeline().Get(0)->startPTS_)
+                if (repr->SegmentTimeline().GetInitialSize() == updRepr->SegmentTimeline().GetSize() &&
+                    repr->SegmentTimeline().Get(0)->startPTS_ == updRepr->SegmentTimeline().Get(0)->startPTS_)
                 {
                   LOG::LogF(LOGDEBUG,
                             "MPD update - No new segments (repr. id \"%s\", period id \"%s\")",
@@ -1721,10 +1700,10 @@ void adaptive::CDashTree::OnUpdateSegments()
                   continue;
                 }
 
-                const CSegment* foundSeg{nullptr};
+                CSegment* foundSeg{nullptr};
                 const uint64_t segStartPTS = repr->current_segment_->startPTS_;
 
-                for (const CSegment& segment : updRepr->Timeline())
+                for (CSegment& segment : updRepr->SegmentTimeline().GetData())
                 {
                   if (segment.startPTS_ == segStartPTS)
                   {
@@ -1756,7 +1735,7 @@ void adaptive::CDashTree::OnUpdateSegments()
                 }
                 else
                 {
-                  repr->Timeline().Swap(updRepr->Timeline());
+                  repr->SegmentTimeline().Swap(updRepr->SegmentTimeline());
                   repr->current_segment_ = foundSeg;
 
                   LOG::LogF(LOGDEBUG, "MPD update - Done (repr. id \"%s\", period id \"%s\")",
@@ -1764,7 +1743,7 @@ void adaptive::CDashTree::OnUpdateSegments()
                 }
               }
 
-              if (repr->IsWaitForSegment() && repr->GetNextSegment())
+              if (repr->IsWaitForSegment() && (repr->get_next_segment(repr->current_segment_)))
               {
                 repr->SetIsWaitForSegment(false);
                 LOG::LogF(LOGDEBUG, "End WaitForSegment repr. id %s", repr->GetId().data());
@@ -1821,7 +1800,7 @@ bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
   //! @todo: expired_segments_ should be reworked, see also other parsers
   repr->expired_segments_++;
 
-  const CSegment* segment = repr->Timeline().Get(pos);
+  CSegment* segment = repr->SegmentTimeline().Get(pos);
 
   if (!segment)
   {
@@ -1842,7 +1821,7 @@ bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->Timeline().Append(segCopy);
+    repr->SegmentTimeline().Append(segCopy);
   }
   return true;
 }
@@ -1858,7 +1837,7 @@ bool adaptive::CDashTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
   if (!m_isLive || !repr->HasSegmentTemplate() || m_minimumUpdatePeriod != NO_VALUE)
     return false;
 
-  const CSegment* lastSeg = repr->Timeline().GetBack();
+  CSegment* lastSeg = repr->SegmentTimeline().GetBack();
   if (!lastSeg)
     return false;
 
@@ -1887,7 +1866,7 @@ bool adaptive::CDashTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->Timeline().Append(segCopy);
+    repr->SegmentTimeline().Append(segCopy);
   }
 
   return true;

@@ -10,8 +10,6 @@
 
 #include "log.h"
 
-#include <regex>
-
 using namespace UTILS::BASE64;
 
 namespace
@@ -20,7 +18,6 @@ constexpr char PADDING{'='};
 constexpr std::string_view CHARACTERS{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                       "abcdefghijklmnopqrstuvwxyz"
                                       "0123456789+/"};
-constexpr std::string_view REGEX("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$");
 // clang-format off
 constexpr unsigned char BASE64_TABLE[] = {
     255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
@@ -44,10 +41,7 @@ constexpr unsigned char BASE64_TABLE[] = {
 // clang-format on
 } // namespace
 
-void UTILS::BASE64::Encode(const uint8_t* input,
-                           const size_t length,
-                           std::string& output,
-                           const bool padding /* = true */)
+void UTILS::BASE64::Encode(const uint8_t* input, const size_t length, std::string& output)
 {
   if (input == nullptr || length == 0)
     return;
@@ -71,45 +65,40 @@ void UTILS::BASE64::Encode(const uint8_t* input,
       output.push_back(CHARACTERS[(l >> 0) & 0x3F]);
   }
 
-  if (padding)
-  {
-    const int left = 3 - (length % 3);
+  int left = 3 - (length % 3);
 
-    if (length % 3)
-    {
-      for (int i = 0; i < left; ++i)
-        output.push_back(PADDING);
-    }
+  if (length % 3)
+  {
+    for (int i = 0; i < left; i++)
+      output.push_back(PADDING);
   }
 }
 
-std::string UTILS::BASE64::Encode(const uint8_t* input,
-                                  const size_t length,
-                                  const bool padding /* = true */)
+std::string UTILS::BASE64::Encode(const uint8_t* input, const size_t length)
 {
   std::string output;
-  Encode(input, length, output, padding);
+  Encode(input, length, output);
   return output;
 }
 
-std::string UTILS::BASE64::Encode(const std::vector<uint8_t>& input, const bool padding /* = true */)
+std::string UTILS::BASE64::Encode(const std::vector<uint8_t>& input)
 {
   std::string output;
-  Encode(input.data(), input.size(), output, padding);
+  Encode(input.data(), input.size(), output);
   return output;
 }
 
-std::string UTILS::BASE64::Encode(const std::vector<char>& input, const bool padding /* = true */)
+std::string UTILS::BASE64::Encode(const std::vector<char>& input)
 {
   std::string output;
-  Encode(reinterpret_cast<const uint8_t*>(input.data()), input.size(), output, padding);
+  Encode(reinterpret_cast<const uint8_t*>(input.data()), input.size(), output);
   return output;
 }
 
-std::string UTILS::BASE64::Encode(const std::string& inputStr, const bool padding /* = true */)
+std::string UTILS::BASE64::Encode(const std::string& inputStr)
 {
   std::string output;
-  Encode(reinterpret_cast<const uint8_t*>(inputStr.data()), inputStr.size(), output, padding);
+  Encode(reinterpret_cast<const uint8_t*>(inputStr.data()), inputStr.size(), output);
   return output;
 }
 
@@ -210,24 +199,4 @@ std::string UTILS::BASE64::DecodeToStr(std::string_view input)
   std::vector<uint8_t> output;
   Decode(input.data(), input.size(), output);
   return {output.begin(), output.end()};
-}
-
-bool UTILS::BASE64::IsValidBase64(const std::string& input)
-{
-  std::regex base64Regex(REGEX.data());
-  return std::regex_match(input, base64Regex);
-}
-
-bool UTILS::BASE64::AddPadding(std::string& base64str)
-{
-  const int mod = static_cast<int>(base64str.length() % 4);
-  if (mod > 0)
-  {
-    for (int i = 4 - mod; i > 0; --i)
-    {
-      base64str.push_back(PADDING);
-    }
-    return true;
-  }
-  return false;
 }

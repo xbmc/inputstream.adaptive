@@ -8,10 +8,10 @@
 
 #include "PRProtectionParser.h"
 
-#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CharArrayParser.h"
 #include "utils/StringUtils.h"
+#include "utils/Utils.h"
 #include "utils/XMLUtils.h"
 #include "utils/log.h"
 #include "pugixml.hpp"
@@ -123,43 +123,31 @@ bool adaptive::PRProtectionParser::ParseHeader(std::string_view prHeader)
   }
   else
   {
-    // Versions > 4.0 can contains:
-    // DATA/PROTECTINFO/KID tag or multiple KID tags on DATA/PROTECTINFO/KIDS
+    // Versions > 4.0 can contains one or more optionals KID's within DATA/PROTECTINFO/KIDS tag
     xml_node nodePROTECTINFO = nodeDATA.child("PROTECTINFO");
     if (nodePROTECTINFO)
     {
-      xml_node nodeKID = nodePROTECTINFO.child("KID");
-      if (nodeKID)
+      xml_node nodeKIDS = nodePROTECTINFO.child("KIDS");
+      if (nodeKIDS)
       {
-        kidBase64 = nodeKID.attribute("VALUE").as_string();
-      }
-      else
-      {
-        xml_node nodeKIDS = nodePROTECTINFO.child("KIDS");
-        if (nodeKIDS)
-        {
-          LOG::Log(LOGDEBUG, "Playready header contains %zu KID's.",
-                   XML::CountChilds(nodeKIDS, "KID"));
-          // We get the first KID
-          xml_node nodeKID = nodeKIDS.child("KID");
-          if (nodeKID)
-          {
-            kidBase64 = nodeKID.attribute("VALUE").as_string();
-          }
-        }
+        LOG::Log(LOGDEBUG, "Playready header contains %zu KID's.",
+                 XML::CountChilds(nodeKIDS, "KID"));
+        // We get the first KID
+        xml_node nodeKID = nodeKIDS.child("KID");
+        kidBase64 = nodeKID.child_value();
       }
     }
   }
 
   if (!kidBase64.empty())
   {
-    std::vector<uint8_t> prKid = BASE64::Decode(kidBase64);
-    if (prKid.size() == 16)
+    std::string kid = BASE64::DecodeToStr(kidBase64);
+    if (kid.size() == 16)
     {
-      m_KID = DRM::ConvertPrKidtoWvKid(prKid);
+      m_KID = ConvertKIDtoWVKID(kid);
     }
     else
-      LOG::LogF(LOGWARNING, "KID size %zu instead of 16, KID ignored.", prKid.size());
+      LOG::LogF(LOGWARNING, "KID size %zu instead of 16, KID ignored.", kid.size());
   }
 
   xml_node nodeLAURL = nodeDATA.child("LA_URL");
@@ -208,11 +196,8 @@ bool adaptive::CPsshParser::Parse(const std::vector<uint8_t>& data)
     {
       if (charParser.CharsLeft() < 16)
         return false;
-
-      std::vector<uint8_t> kid;
-      if (charParser.ReadNextArray(16, kid))
-        m_keyIds.emplace_back(kid);
-
+      std::string kid = charParser.ReadNextString(16);
+      m_keyIds.emplace_back(kid);
       kidCount--;
     }
   }

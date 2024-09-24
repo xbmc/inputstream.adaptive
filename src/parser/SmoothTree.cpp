@@ -189,8 +189,8 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
   if (protParser.HasProtection() && (adpSet->GetStreamType() == StreamType::VIDEO ||
                                      adpSet->GetStreamType() == StreamType::AUDIO))
   {
-    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(), protParser.GetPSSH(),
-                               STRING::ToHexadecimal(protParser.GetKID()));
+    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(),
+                               protParser.GetPSSH(), protParser.GetKID());
   }
 
   adpSet->SetLanguage(XML::GetAttrib(nodeSI, "Language"));
@@ -229,11 +229,11 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
     uint64_t t{0};
     if (XML::QueryAttrib(node, "t", t))
     {
-      if (!adpSet->SegmentTimelineDuration().empty())
+      if (!adpSet->SegmentTimelineDuration().IsEmpty())
       {
         //Go back to the previous timestamp to calculate the real gap.
-        previousPts -= adpSet->SegmentTimelineDuration().back();
-        adpSet->SegmentTimelineDuration().back() = static_cast<uint32_t>(t - previousPts);
+        previousPts -= adpSet->SegmentTimelineDuration().GetData().back();
+        adpSet->SegmentTimelineDuration().GetData().back() = static_cast<uint32_t>(t - previousPts);
       }
       else
       {
@@ -252,13 +252,13 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
     {
       while (repeatCount--)
       {
-        adpSet->SegmentTimelineDuration().emplace_back(duration);
+        adpSet->SegmentTimelineDuration().GetData().emplace_back(duration);
         previousPts += duration;
       }
     }
   }
 
-  if (adpSet->SegmentTimelineDuration().empty())
+  if (adpSet->SegmentTimelineDuration().IsEmpty())
   {
     LOG::LogF(LOGDEBUG, "No generated timeline, adaptation set skipped.");
     return;
@@ -396,7 +396,7 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
         uint64_t nextStartPts = adpSet->GetStartPTS() - m_ptsBase;
         uint64_t index = 1;
 
-        for (uint32_t segDuration : adpSet->SegmentTimelineDuration())
+        for (uint32_t segDuration : adpSet->SegmentTimelineDuration().GetData())
         {
           CSegment seg;
           seg.startPTS_ = nextStartPts;
@@ -404,7 +404,7 @@ void adaptive::CSmoothTree::CreateSegmentTimeline()
           seg.m_time = nextStartPts + m_ptsBase;
           seg.m_number = index;
 
-          repr->Timeline().Add(seg);
+          repr->SegmentTimeline().GetData().emplace_back(seg);
 
           nextStartPts += segDuration;
           index++;
@@ -427,7 +427,7 @@ bool adaptive::CSmoothTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
   //! then add a better way to delete old segments from the timeline based on timeshift window
   //! this also requires taking care of the Dash parser
 
-  const CSegment* lastSeg = repr->Timeline().GetBack();
+  CSegment* lastSeg = repr->SegmentTimeline().GetBack();
   if (!lastSeg)
     return false;
 
@@ -458,7 +458,7 @@ bool adaptive::CSmoothTree::InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
 
   for (auto& repr : adpSet->GetRepresentations())
   {
-    repr->Timeline().Append(segCopy);
+    repr->SegmentTimeline().Append(segCopy);
   }
 
   return true;

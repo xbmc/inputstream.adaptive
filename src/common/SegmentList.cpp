@@ -8,7 +8,6 @@
 
 #include "SegmentList.h"
 #include "Segment.h"
-#include "utils/log.h"
 
 using namespace PLAYLIST;
 

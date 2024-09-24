@@ -32,13 +32,13 @@ public:
   // methods
   CWVCencSingleSampleDecrypter(CWVCdmAdapter& drm,
                                std::vector<uint8_t>& pssh,
-                               const std::vector<uint8_t>& defaultKeyId,
+                               std::string_view defaultKeyId,
                                bool skipSessionMessage,
                                CryptoMode cryptoMode,
                                CWVDecrypter* host);
   virtual ~CWVCencSingleSampleDecrypter();
 
-  void GetCapabilities(const std::vector<uint8_t>& keyId,
+  void GetCapabilities(std::string_view keyId,
                        uint32_t media,
                        DecrypterCapabilites& caps);
   virtual const char* GetSessionId() override;
@@ -48,7 +48,7 @@ public:
   void SetSession(const char* session, uint32_t sessionSize, const uint8_t* data, size_t dataSize);
 
   void AddSessionKey(const uint8_t* data, size_t dataSize, uint32_t status);
-  bool HasKeyId(const std::vector<uint8_t>& keyid);
+  bool HasKeyId(std::string_view keyid);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
                                      const std::vector<uint8_t>& keyId,
@@ -82,8 +82,8 @@ public:
   VIDEOCODEC_RETVAL VideoFrameDataToPicture(kodi::addon::CInstanceVideoCodec* codecInstance,
                                             VIDEOCODEC_PICTURE* picture);
   void ResetVideo();
-  void SetDefaultKeyId(const std::vector<uint8_t>& keyId) override;
-  void AddKeyId(const std::vector<uint8_t>& keyId) override;
+  void SetDefaultKeyId(std::string_view keyId) override;
+  void AddKeyId(std::string_view keyId) override;
 
 private:
   void CheckLicenseRenewal();
@@ -93,11 +93,11 @@ private:
   std::string m_strSession;
   std::vector<uint8_t> m_pssh;
   AP4_DataBuffer m_challenge;
-  std::vector<uint8_t> m_defaultKeyId;
+  std::string m_defaultKeyId;
   struct WVSKEY
   {
     bool operator==(WVSKEY const& other) const { return m_keyId == other.m_keyId; };
-    std::vector<uint8_t> m_keyId;
+    std::string m_keyId;
     cdm::KeyStatus status;
   };
   std::vector<WVSKEY> m_keys;

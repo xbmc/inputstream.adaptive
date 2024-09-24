@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "AdaptiveUtils.h"
 #include "CommonSegAttribs.h"
 #include "SegTemplate.h"
 #include "utils/CryptoUtils.h"
@@ -88,8 +89,8 @@ public:
     m_isSecureDecoderNeeded = isSecureDecoderNeeded;
   };
 
-  std::vector<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
-  bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.empty(); }
+  CSpinCache<uint32_t>& SegmentTimelineDuration() { return m_segmentTimelineDuration; }
+  bool HasSegmentTimelineDuration() { return !m_segmentTimelineDuration.IsEmpty(); }
 
   void CopyHLSData(const CPeriod* other);
 
@@ -111,7 +112,7 @@ public:
 
     //! @todo: create getter/setters
     std::vector<uint8_t> pssh_; // Data as bytes (not base64)
-    std::string m_licenseUrl; // License server URL
+    std::string m_kidUrl; // Url where get the KID
     std::string defaultKID_;
     std::string iv;
     uint32_t media_{0};
@@ -142,7 +143,7 @@ protected:
   uint64_t m_duration{0};
   EncryptionState m_encryptionState{EncryptionState::UNENCRYPTED};
   bool m_isSecureDecoderNeeded{false};
-  std::vector<uint32_t> m_segmentTimelineDuration;
+  CSpinCache<uint32_t> m_segmentTimelineDuration;
 };
 
 } // namespace adaptive

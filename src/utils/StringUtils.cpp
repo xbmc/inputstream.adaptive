@@ -150,8 +150,8 @@ std::string UTILS::STRING::URLEncode(std::string_view strURLData)
     else
     {
       result.append("%");
-      char buf[4]; // 3 chars + null
-      std::snprintf(buf, 4, "%.2X", static_cast<unsigned char>(c));
+      char buf[3];
+      sprintf(buf, "%.2X", c);
       result.append(buf);
     }
   }
@@ -304,22 +304,6 @@ std::string UTILS::STRING::ToHexadecimal(std::string_view str)
     ss << std::setw(2) << std::setfill('0') << static_cast<unsigned long>(ch);
   }
   return ss.str();
-}
-
-std::string UTILS::STRING::ToHexadecimal(const uint8_t* str, const size_t size)
-{
-  std::ostringstream ss;
-  ss << std::hex;
-  for (size_t i = 0; i < size; ++i)
-  {
-    ss << std::setw(2) << std::setfill('0') << static_cast<unsigned long>(str[i]);
-  }
-  return ss.str();
-}
-
-std::string UTILS::STRING::ToHexadecimal(const std::vector<uint8_t> data)
-{
-  return ToHexadecimal(data.data(), data.size());
 }
 
 std::string UTILS::STRING::Trim(std::string value)

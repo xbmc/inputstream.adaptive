@@ -35,7 +35,7 @@ public:
   CDashTree(const CDashTree& left);
 
   void Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                 std::vector<std::string_view> supportedKeySystems,
+                 std::string_view supportedKeySystem,
                  std::string_view manifestUpdParams) override;
 
   virtual TreeType GetTreeType() const override { return TreeType::DASH; }
@@ -68,7 +68,7 @@ protected:
                               PLAYLIST::CPeriod* period);
 
   void ParseTagSegmentTimeline(pugi::xml_node parentNode,
-                               std::vector<uint32_t>& SCTimeline);
+                               PLAYLIST::CSpinCache<uint32_t>& SCTimeline);
 
   void ParseSegmentTemplate(pugi::xml_node node, PLAYLIST::CSegmentTemplate& segTpl);
 
@@ -81,14 +81,12 @@ protected:
    * \param reprProtSchemes The protection schemes of the representation
    * \param pssh[OUT] The PSSH (if any) that match the supported systemid
    * \param kid[OUT] The KID (should be provided)
-   * \param licenseUrl[OUT] The license url (if any)
    * \return True if a protection has been found, otherwise false
    */
   bool GetProtectionData(const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
                          const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
                          std::vector<uint8_t>& pssh,
-                         std::string& kid,
-                         std::string& licenseUrl);
+                         std::string& kid);
 
   bool ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 

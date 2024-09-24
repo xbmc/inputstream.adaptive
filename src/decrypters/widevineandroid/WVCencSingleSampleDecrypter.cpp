@@ -13,7 +13,6 @@
 #include "WVCdmAdapter.h"
 #include "WVDecrypter.h"
 #include "jsmn.h"
-#include "decrypters/Helpers.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/DigestMD5Utils.h"
@@ -30,7 +29,7 @@ using namespace kodi::tools;
 CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
                                                              std::vector<uint8_t>& pssh,
                                                              std::string_view optionalKeyParameter,
-                                                             const std::vector<uint8_t>& defaultKeyId,
+                                                             std::string_view defaultKeyId,
                                                              CWVDecrypterA* host)
   : m_mediaDrm(drm),
     m_isProvisioningRequested(false),
@@ -42,11 +41,19 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
 {
   SetParentIsOwner(false);
 
-  if (pssh.size() < 4 || pssh.size() > 65535)
+  if (pssh.size() > 65535)
   {
     LOG::LogF(LOGERROR, "PSSH init data with length %zu seems not to be cenc init data",
               pssh.size());
     return;
+  }
+
+  if (CSrvBroker::GetSettings().IsDebugLicense())
+  {
+    std::string debugFilePath =
+        FILESYS::PathCombine(m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
+    std::string data{reinterpret_cast<const char*>(pssh.data()), pssh.size()};
+    FILESYS::SaveFile(debugFilePath, data, true);
   }
 
   m_pssh = pssh;
@@ -71,15 +78,6 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm
     psshAtom[3] = static_cast<uint8_t>(psshAtom.size());
     m_pssh = psshAtom;
   }
-
-  if (CSrvBroker::GetSettings().IsDebugLicense())
-  {
-    std::string debugFilePath =
-        FILESYS::PathCombine(m_host->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
-    std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
-    FILESYS::SaveFile(debugFilePath, data, true);
-  }
-
   m_initialPssh = m_pssh;
 
   if (!optionalKeyParameter.empty())
@@ -175,14 +173,14 @@ std::vector<char> CWVCencSingleSampleDecrypterA::GetChallengeData()
   return m_keyRequestData;
 }
 
-bool CWVCencSingleSampleDecrypterA::HasLicenseKey(const std::vector<uint8_t>& keyId)
+bool CWVCencSingleSampleDecrypterA::HasLicenseKey(std::string_view keyId)
 {
   // true = one session for all streams, false = one sessions per stream
   // false fixes pixaltion issues on some devices when manifest has multiple encrypted streams
   return true;
 }
 
-void CWVCencSingleSampleDecrypterA::GetCapabilities(const std::vector<uint8_t>& keyId,
+void CWVCencSingleSampleDecrypterA::GetCapabilities(std::string_view keyId,
                                                     uint32_t media,
                                                     DecrypterCapabilites& caps)
 {
@@ -505,12 +503,12 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
       {
         if (blocks[2][kidPos - 1] == 'H')
         {
-          std::string keyIdUUID{STRING::ToHexadecimal(m_defaultKeyId)};
+          std::string keyIdUUID{StringUtils::ToHexadecimal(m_defaultKeyId)};
           blocks[2].replace(kidPos - 1, 6, keyIdUUID.c_str(), 32);
         }
         else
         {
-          std::string kidUUID{DRM::ConvertKidBytesToUUID(m_defaultKeyId)};
+          std::string kidUUID{ConvertKIDtoUUID(m_defaultKeyId)};
           blocks[2].replace(kidPos, 5, kidUUID.c_str(), 36);
           kidPlaceholderLen = 5;
         }
@@ -555,7 +553,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& 
   int statusCode = file.Open();
   if (statusCode == -1 || statusCode >= 400)
   {
-    LOG::Log(LOGERROR, "License server returned failure (HTTP error %i)", statusCode);
+    LOG::Log(LOGERROR, "License server returned failure");
     return false;
   }
 

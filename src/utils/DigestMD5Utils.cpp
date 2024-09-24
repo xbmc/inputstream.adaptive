@@ -255,9 +255,7 @@ std::string UTILS::DIGEST::MD5::HexDigest() const
 
   char buf[33];
   for (int i = 0; i < 16; i++)
-  {
-    std::snprintf(buf + i * 2, 3, "%02x", m_digest[i]);
-  }
+    sprintf(buf + i * 2, "%02x", m_digest[i]);
   buf[32] = 0;
 
   return std::string(buf);

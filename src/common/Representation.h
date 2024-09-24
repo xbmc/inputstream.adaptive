@@ -47,7 +47,11 @@ public:
    *        To be used if you plan to set or move a representation to an AdptationSet or a different one.
    * \param parent[OPT] The parent AdaptationSet to link
    */
-  void SetParent(CAdaptationSet* parent = nullptr, bool copyData = false);
+  void SetParent(CAdaptationSet* parent = nullptr)
+  {
+    CCommonSegAttribs::m_parentCommonSegAttribs = parent;
+    CCommonAttribs::m_parentCommonAttributes = parent;
+  }
 
   // Share AdaptationSet common attribs
   static std::unique_ptr<CRepresentation> MakeUniquePtr(CAdaptationSet* parent = nullptr)
@@ -99,14 +103,9 @@ public:
   uint16_t GetHdcpVersion() const { return m_hdcpVersion; }
   void SetHdcpVersion(uint16_t hdcpVersion) { m_hdcpVersion = hdcpVersion; }
 
-  /*!
-   * \brief The segment timeline.
-   */
-  CSegContainer& Timeline() { return m_segmentTimeline; }
-  /*!
-   * \brief The segment timeline.
-   */
-  const CSegContainer& Timeline() const { return m_segmentTimeline; }
+  CSpinCache<CSegment>& SegmentTimeline() { return m_segmentTimeline; }
+  CSpinCache<CSegment> SegmentTimeline() const { return m_segmentTimeline; }
+  bool HasSegmentTimeline() { return !m_segmentTimeline.IsEmpty(); }
 
   std::optional<CSegmentBase>& GetSegmentBase() { return m_segmentBase; }
   void SetSegmentBase(const CSegmentBase& segBase) { m_segmentBase = segBase; }
@@ -176,29 +175,157 @@ public:
 
   size_t expired_segments_{0};
 
-  const CSegment* current_segment_{nullptr};
+  CSegment* current_segment_{nullptr};
+
 
   bool HasInitSegment() const { return m_initSegment.has_value(); }
   void SetInitSegment(CSegment initSegment) { m_initSegment = initSegment; }
   std::optional<CSegment>& GetInitSegment() { return m_initSegment; }
 
   /*!
-   * \brief Get segment following the current one.
+   * \brief Get the next segment after the one specified.
    * \return If found the segment pointer, otherwise nullptr.
    */
-  const CSegment* GetNextSegment();
+  CSegment* get_next_segment(const CSegment* seg)
+  {
+    if (!seg || seg->IsInitialization())
+      return m_segmentTimeline.Get(0);
+
+    const size_t segPos = m_segmentTimeline.GetPosition(seg);
+
+    if (segPos == SEGMENT_NO_POS)
+      return nullptr;
+
+    size_t nextPos = segPos + 1;
+    if (nextPos == m_segmentTimeline.GetSize())
+      return nullptr;
+
+    return m_segmentTimeline.Get(nextPos);
+  }
+
+  /*!
+   * \brief Get the segment from specified position.
+   * \return If found the segment pointer, otherwise nullptr.
+   */
+  CSegment* get_segment(size_t pos)
+  {
+    if (pos == SEGMENT_NO_POS)
+      return nullptr;
+
+    return m_segmentTimeline.Get(pos);
+  }
+
+  /*!
+   * \brief Get the segment position.
+   * \return If found the position, otherwise SEGMENT_NO_POS.
+   */
+  const size_t get_segment_pos(const CSegment* segment) const
+  {
+    if (!segment)
+      return SEGMENT_NO_POS;
+
+    return m_segmentTimeline.IsEmpty() ? 0 : m_segmentTimeline.GetPosition(segment);
+  }
+
+  CSegment* GetSegment(const CSegment& segment)
+  {
+    // If available, find the segment by number, this is because some
+    // live services provide inconsistent timestamps between manifest updates
+    // which will make it ineffective to find the same segment
+    if (segment.m_number != SEGMENT_NO_NUMBER)
+    {
+      const uint64_t number = segment.m_number;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        if (segment.m_number == number)
+          return &segment;
+      }
+    }
+    else
+    {
+      const uint64_t startPTS = segment.startPTS_;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        // Search by >= is intended to allow minimizing problems with encoders
+        // that provide inconsistent timestamps between manifest updates
+        if (segment.startPTS_ >= startPTS)
+          return &segment;
+      }
+    }
+
+    return nullptr;
+  }
+
+  CSegment* GetNextSegment(const CSegment& segment)
+  {
+    // If available, find the segment by number, this is because some
+    // live services provide inconsistent timestamps between manifest updates
+    // which will make it ineffective to find the next segment
+    if (segment.m_number != SEGMENT_NO_NUMBER)
+    {
+      const uint64_t number = segment.m_number;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        if (segment.m_number > number)
+          return &segment;
+      }
+    }
+    else
+    {
+      const uint64_t startPTS = segment.startPTS_;
+
+      for (CSegment& segment : m_segmentTimeline.GetData())
+      {
+        if (segment.startPTS_ > startPTS)
+          return &segment;
+      }
+    }
+    return nullptr;
+  }
+
+  /*!
+   * \brief Get the position of current segment.
+   * \return If found the position, otherwise SEGMENT_NO_POS.
+   */
+  const size_t getCurrentSegmentPos() const { return get_segment_pos(current_segment_); }
 
   /*!
    * \brief Get the segment number of current segment.
    * \return If found the number, otherwise SEGMENT_NO_NUMBER.
    */
-  const uint64_t GetCurrentSegNumber() const;
+  const uint64_t getCurrentSegmentNumber() const
+  {
+    if (!current_segment_)
+      return SEGMENT_NO_NUMBER;
+
+    const size_t segPos = get_segment_pos(current_segment_);
+
+    if (segPos == SEGMENT_NO_POS)
+      return SEGMENT_NO_NUMBER;
+
+    return static_cast<uint64_t>(segPos) + m_startNumber;
+  }
 
   /*!
    * \brief Get the segment number of specified segment.
    * \return If found the number, otherwise SEGMENT_NO_NUMBER.
    */
-  const uint64_t GetSegNumber(const CSegment* seg) const;
+  const uint64_t getSegmentNumber(const CSegment* segment) const
+  {
+    if (!segment)
+      return SEGMENT_NO_NUMBER;
+
+    const size_t segPos = get_segment_pos(current_segment_);
+
+    if (segPos == SEGMENT_NO_POS)
+      return SEGMENT_NO_NUMBER;
+
+    return static_cast<uint64_t>(segPos) + m_startNumber;
+  }
+
 
   uint32_t timescale_ext_{0};
   uint32_t timescale_int_{0};
@@ -228,7 +355,7 @@ protected:
 
   uint64_t m_startNumber{1};
 
-  CSegContainer m_segmentTimeline;
+  CSpinCache<CSegment> m_segmentTimeline;
 
   uint64_t m_duration{0};
   uint32_t m_timescale{0};

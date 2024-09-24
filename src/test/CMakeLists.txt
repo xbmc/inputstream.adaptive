@@ -11,7 +11,6 @@ add_executable(${BINARY}
     TestSmoothTree.cpp
     TestHelper.cpp
     TestUtils.cpp
-    ../decrypters/Helpers.cpp
     ../parser/DASHTree.cpp
     ../parser/HLSTree.cpp
     ../parser/SmoothTree.cpp
@@ -43,7 +42,6 @@ add_executable(${BINARY}
     ../utils/Base64Utils.cpp
     ../utils/CharArrayParser.cpp
     ../utils/CurlUtils.cpp
-    ../utils/DigestMD5Utils.cpp
     ../utils/FileUtils.cpp
     ../utils/StringUtils.cpp
     ../utils/UrlUtils.cpp

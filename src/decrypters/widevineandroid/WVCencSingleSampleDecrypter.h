@@ -25,7 +25,7 @@ public:
   CWVCencSingleSampleDecrypterA(CWVCdmAdapterA& drm,
                                 std::vector<uint8_t>& pssh,
                                 std::string_view optionalKeyParameter,
-                                const std::vector<uint8_t>& defaultKeyId,
+                                std::string_view defaultKeyId,
                                 CWVDecrypterA* host);
   virtual ~CWVCencSingleSampleDecrypterA();
 
@@ -33,7 +33,7 @@ public:
   const std::vector<char>& GetSessionIdRaw() { return m_sessionId; };
   virtual const char* GetSessionId() override;
   std::vector<char> GetChallengeData();
-  virtual bool HasLicenseKey(const std::vector<uint8_t>& keyId);
+  virtual bool HasLicenseKey(std::string_view keyId);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
                                      const std::vector<uint8_t>& keyId,
@@ -61,7 +61,7 @@ public:
       // array of <subsample_count> integers. NULL if subsample_count is 0
       const AP4_UI32* bytesOfEncryptedData) override;
 
-  void GetCapabilities(const std::vector<uint8_t>& keyId,
+  void GetCapabilities(std::string_view keyId,
                        uint32_t media,
                        DRM::DecrypterCapabilites& caps);
 
@@ -87,7 +87,7 @@ private:
   bool m_isProvisioningRequested;
   bool m_isKeyUpdateRequested;
 
-  std::vector<uint8_t> m_defaultKeyId;
+  std::string m_defaultKeyId;
 
   struct FINFO
   {

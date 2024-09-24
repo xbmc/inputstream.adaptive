@@ -31,7 +31,6 @@ struct ProtectionScheme
   std::string value;
   std::string kid;
   std::string pssh;
-  std::string licenseUrl;
 };
 
 // CCommonAttribs class provide attribute data

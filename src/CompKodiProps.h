@@ -43,16 +43,6 @@ struct ChooserProps
   std::pair<int, int> m_resolutionSecureMax; // Res. limit for DRM protected videos (values 0 means auto)
 };
 
-// Generic add-on configuration
-struct Config
-{
-  // Determines whether curl verifies the authenticity of the peer's certificate,
-  // if set to false CA certificates are not loaded and verification will be skipped.
-  bool curlSSLVerifyPeer{true};
-  // Determines if cookies are internally handled by InputStream Adaptive add-on
-  bool internalCookies{false};
-};
-
 struct ManifestConfig
 {
   // Limit the timeshift buffer depth, in seconds
@@ -66,19 +56,6 @@ struct ManifestConfig
   // Faulty HLS live services can send manifest updates with inconsistent EXT-X-DISCONTINUITY-SEQUENCE
   // enabling this will correct the value by using EXT-X-PROGRAM-DATE-TIME tags
   bool hlsFixDiscontSequence{false};
-};
-
-struct DrmCfg
-{
-  struct License
-  {
-    std::string serverUrl;
-    std::map<std::string, std::string> reqHeaders;
-
-    std::map<std::string, std::string> keys; // Clearkeys kid / key
-  };
-
-  License license; // The license configuration
 };
 
 class ATTR_DLL_LOCAL CCompKodiProps
@@ -125,26 +102,17 @@ public:
    */
   std::string_view GetDrmPreInitData() const { return m_drmPreInitData; }
 
+  // \brief Defines if cookies are internally handled by InputStream Adaptive add-on
+  bool IsInternalCookies() const { return m_isInternalCookies; }
+
   // \brief Specifies the chooser properties that will override XML settings
   const ChooserProps& GetChooserProps() const { return m_chooserProps; }
-
-  // \brief Specifies generic add-on configuration
-  const Config& GetConfig() const { return m_config; }
 
   // \brief Specifies the manifest configuration
   const ManifestConfig& GetManifestConfig() const { return m_manifestConfig; }
 
-  // \brief Get DRM configuration for specified keysystem, if not found will return default values
-  const DrmCfg& GetDrmConfig(const std::string& keySystem) { return m_drmConfigs[keySystem]; }
-
-  const std::map<std::string, DrmCfg>& GetDrmConfigs() const { return m_drmConfigs; }
-
 private:
-  void ParseConfig(const std::string& data);
   void ParseManifestConfig(const std::string& data);
-
-  bool ParseDrmConfig(const std::string& data);
-  bool ParseDrmLegacyConfig(const std::string& data);
 
   std::string m_licenseType;
   std::string m_licenseKey;
@@ -163,10 +131,9 @@ private:
   bool m_playTimeshiftBuffer{false};
   uint64_t m_liveDelay{0};
   std::string m_drmPreInitData;
+  bool m_isInternalCookies{false};
   ChooserProps m_chooserProps;
-  Config m_config;
   ManifestConfig m_manifestConfig;
-  std::map<std::string, DrmCfg> m_drmConfigs;
 };
 
 } // namespace KODI_PROPS

@@ -136,25 +136,28 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
 
   if (stream)
   {
-    // If the stream is encrypted, verify if the decrypter has been initialized
-    // this is important for HLS because the DRM it is initialized at later time
-    // so on the OpenStream, instead of CSession::Initialize->InitializePeriod->InitializeDRM
-    // Since kodi initialize one single stream at time, can happens that or another stream
-    // has been opened before this one, or another stream will be opened after this one (e.g. unencrypted)
-    // so if you dont delete all streams, the kodi demux reader still starts
-    // and a corrupted playback will starts.
-    // NOTE: GetStream is called by Kodi twice times, before and after OpenStream, on HLS
-    // the first time all streams are unencrypted because child manifest has not been downloaded
-    const uint16_t psshSetPos = stream->m_adStream.getRepresentation()->m_psshSetPos;
-    if (psshSetPos != PSSHSET_POS_DEFAULT ||
-        stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::NOT_SUPPORTED)
+    uint8_t cdmId(static_cast<uint8_t>(stream->m_adStream.getRepresentation()->m_psshSetPos));
+    if (stream->m_isEncrypted && m_session->GetCDMSession(cdmId) != nullptr)
     {
-      if (!m_session->GetSingleSampleDecryptor(psshSetPos))
-      {
-        LOG::Log(LOGERROR, "GetStream(%d): Decrypter for the stream not found");
-        m_session->DeleteStreams();
-        return false;
-      }
+      kodi::addon::StreamCryptoSession cryptoSession;
+
+      LOG::Log(LOGDEBUG, "GetStream(%d): initalizing crypto session", streamid);
+      cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem());
+
+      const char* sessionId(m_session->GetCDMSession(cdmId));
+      cryptoSession.SetSessionId(sessionId);
+
+      if (m_session->GetDecrypterCaps(cdmId).flags &
+          DRM::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
+        stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_DECODE);
+      else
+        stream->m_info.SetFeatures(0);
+
+      cryptoSession.SetFlags((m_session->GetDecrypterCaps(cdmId).flags &
+                          DRM::DecrypterCapabilites::SSD_SECURE_DECODER)
+                             ? STREAM_CRYPTO_FLAG_SECURE_DECODER
+                             : 0);
+      stream->m_info.SetCryptoSession(cryptoSession);
     }
 
     info = stream->m_info;
@@ -319,39 +322,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     }
   }
   m_session->EnableStream(stream, true);
-
-  bool isInfoChanged = stream->GetReader()->GetInformation(stream->m_info);
-
-  uint16_t cdmSessionIndex = stream->m_adStream.getRepresentation()->m_psshSetPos;
-
-  if (stream->m_isEncrypted && m_session->IsCDMSessionSecurePath(cdmSessionIndex))
-  {
-    LOG::Log(LOGDEBUG, "OpenStream(%d): Create secure crypto session", streamid);
-
-    // StreamCryptoSession enable the use of ISA VideoCodecAdaptive decoder
-    kodi::addon::StreamCryptoSession cryptoSession;
-    cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem());
-
-    const char* sessionId(m_session->GetCDMSession(cdmSessionIndex));
-    cryptoSession.SetSessionId(sessionId);
-
-    if (m_session->GetDecrypterCaps(cdmSessionIndex).flags &
-        DRM::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
-      stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_DECODE);
-    else
-      stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_NONE);
-
-    if (m_session->GetDecrypterCaps(cdmSessionIndex).flags &
-        DRM::DecrypterCapabilites::SSD_SECURE_DECODER)
-      cryptoSession.SetFlags(STREAM_CRYPTO_FLAG_SECURE_DECODER);
-    else
-      cryptoSession.SetFlags(STREAM_CRYPTO_FLAG_NONE);
-
-    stream->m_info.SetCryptoSession(cryptoSession);
-    isInfoChanged = true;
-  }
-
-  return isInfoChanged;
+  return stream->GetReader()->GetInformation(stream->m_info);
 }
 
 

@@ -30,8 +30,6 @@ public:
   CSession(const std::string& manifestUrl);
   virtual ~CSession();
 
-  void DeleteStreams();
-
   /*! \brief Initialize the session
    *  \return True if has success, false otherwise
    */
@@ -115,17 +113,11 @@ public:
    */
   unsigned int GetStreamCount() const { return static_cast<unsigned int>(m_streams.size()); }
 
-  /*!
-   * \brief Determines if the CDM session at specified index require Secure Path (TEE).
-   * \return True if Secure Path is required, otherwise false.
-   */
-  bool IsCDMSessionSecurePath(size_t index);
-
   /*! \brief Get a session string (session id) by index from the cdm sessions
    *  \param index The index (psshSet number) of the cdm session
    *  \return The session string
    */
-  const char* GetCDMSession(unsigned int index);
+  const char* GetCDMSession(unsigned int index) { return m_cdmSessions[index].m_cdmSessionStr; }
 
   /*! \brief Get the media type mask
    *  \return The media type mask
@@ -324,7 +316,7 @@ protected:
    *  \param key_system [OUT] Will be assigned to if a decrypter is found matching
    *                    the set license type
    */
-  void SetSupportedDecrypterURN(std::vector<std::string_view>& keySystems);
+  void SetSupportedDecrypterURN(std::string& key_system);
 
   /*! \brief Destroy all CencSingleSampleDecrypter instances
    */
@@ -336,7 +328,7 @@ protected:
 
   bool ExtractStreamProtectionData(PLAYLIST::CPeriod::PSSHSet& sessionPsshset,
                                    std::vector<uint8_t>& initData,
-                                   std::vector<std::string_view> keySystems);
+                                   std::string keySystem);
 
 private:
   std::string m_manifestUrl;

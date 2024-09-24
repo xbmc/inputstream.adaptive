@@ -8,7 +8,6 @@
 
 #include "CurlUtils.h"
 
-#include "Base64Utils.h"
 #include "StringUtils.h"
 #include "UrlUtils.h"
 #include "Utils.h"
@@ -185,34 +184,22 @@ UTILS::CURL::CUrl::CUrl(std::string_view url)
 {
   if (m_file.CURLCreate(url.data()))
   {
-    auto& kodiProps = CSrvBroker::GetKodiProps();
-
     // Default curl options
     m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "seekable", "0");
     m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "acceptencoding", "gzip, deflate");
     m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "failonerror", "false");
-    if (!kodiProps.GetConfig().curlSSLVerifyPeer)
-      m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "verifypeer", "false");
 
     // Add session cookies
     // NOTE: if kodi property inputstream.adaptive.stream_headers is set with "cookie" header
     // the cookies set by the property will replace these
-    if (kodiProps.GetConfig().internalCookies)
+    if (CSrvBroker::GetKodiProps().IsInternalCookies())
       m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "cookie", GetCookies(url));
-  }
-}
-
-UTILS::CURL::CUrl::CUrl(std::string_view url, const std::string& postData) : CUrl::CUrl(url)
-{
-  if (m_file.IsOpen() && !postData.empty())
-  {
-    m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "postdata", BASE64::Encode(postData));
   }
 }
 
 UTILS::CURL::CUrl::~CUrl()
 {
-  if (CSrvBroker::GetKodiProps().GetConfig().internalCookies)
+  if (CSrvBroker::GetKodiProps().IsInternalCookies())
     StoreCookies(GetEffectiveUrl(), GetResponseHeaders("set-cookie"));
 
   m_file.Close();

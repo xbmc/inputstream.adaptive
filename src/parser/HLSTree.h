@@ -36,7 +36,7 @@ public:
   virtual CHLSTree* Clone() const override { return new CHLSTree{*this}; }
 
   virtual void Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                         std::vector<std::string_view> supportedKeySystems,
+                         std::string_view supportedKeySystem,
                          std::string_view manifestUpdateParam) override;
 
   virtual bool Open(std::string_view url,

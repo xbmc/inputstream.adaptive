@@ -73,7 +73,7 @@ public:
   uint64_t available_time_{0}; // in ms
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
 
-  std::vector<std::string_view> m_supportedKeySystems;
+  std::string m_supportedKeySystem;
   std::string location_;
 
   CryptoMode m_cryptoMode{CryptoMode::NONE};
@@ -90,7 +90,7 @@ public:
    * \param manifestUpdParams Parameters to be add to manifest request url, depends on manifest implementation
    */
   virtual void Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                         std::vector<std::string_view> supportedKeySystems,
+                         std::string_view supportedKeySystem,
                          std::string_view manifestUpdParams);
 
   /*
@@ -215,7 +215,7 @@ public:
                          PLAYLIST::CAdaptationSet* adp,
                          const std::vector<uint8_t>& pssh,
                          std::string_view defaultKID,
-                         std::string_view licenseUrl = "",
+                         std::string_view kidUrl = "",
                          std::string_view iv = "");
 
   PLAYLIST::CAdaptationSet* GetAdaptationSet(size_t pos) const

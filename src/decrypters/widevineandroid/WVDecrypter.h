@@ -81,29 +81,28 @@ public:
   }
 #endif
 
-  virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) override;
+  virtual std::string SelectKeySytem(std::string_view keySystem) override;
 
   virtual bool OpenDRMSystem(std::string_view licenseURL,
                              const std::vector<uint8_t>& serverCertificate,
                              const uint8_t config) override;
 
   virtual Adaptive_CencSingleSampleDecrypter* CreateSingleSampleDecrypter(
-      std::vector<uint8_t>& initData,
+      std::vector<uint8_t>& pssh,
       std::string_view optionalKeyParameter,
-      const std::vector<uint8_t>& defaultKeyId,
-      std::string_view licenseUrl,
+      std::string_view defaultKeyId,
       bool skipSessionMessage,
       CryptoMode cryptoMode) override;
 
   virtual void DestroySingleSampleDecrypter(Adaptive_CencSingleSampleDecrypter* decrypter) override;
 
   virtual void GetCapabilities(Adaptive_CencSingleSampleDecrypter* decrypter,
-                               const std::vector<uint8_t>& keyId,
+                               std::string_view keyId,
                                uint32_t media,
                                DecrypterCapabilites& caps) override;
 
   virtual bool HasLicenseKey(Adaptive_CencSingleSampleDecrypter* decrypter,
-                             const std::vector<uint8_t>& keyId) override;
+                             std::string_view keyId) override;
 
   virtual std::string GetChallengeB64Data(Adaptive_CencSingleSampleDecrypter* decrypter) override;
 
@@ -129,11 +128,8 @@ public:
 
   virtual void ResetVideo() override {}
 
-  virtual void SetLibraryPath(std::string_view libraryPath) override
-  {
-    m_libraryPath = libraryPath;
-  }
-  virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
+  virtual void SetLibraryPath(std::string_view libraryPath) override {}
+  virtual std::string_view GetLibraryPath() const override { return ""; }
 
   virtual void OnMediaDrmEvent(const CJNIMediaDrm& mediaDrm,
                                const std::vector<char>& sessionId,
@@ -142,7 +138,6 @@ public:
                                const std::vector<char>& data) override;
 
 private:
-  std::string m_libraryPath;
   kodi::platform::CInterfaceAndroidSystem m_androidSystem;
   std::unique_ptr<CMediaDrmOnEventListener> m_mediaDrmEventListener;
   WV_KEYSYSTEM m_keySystem;

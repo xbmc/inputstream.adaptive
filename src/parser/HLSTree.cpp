@@ -12,7 +12,6 @@
 #include "PRProtectionParser.h"
 #include "SrvBroker.h"
 #include "aes_decrypter.h"
-#include "decrypters/Helpers.h"
 #include "kodi/tools/StringUtils.h"
 #include "utils/Base64Utils.h"
 #include "utils/StringUtils.h"
@@ -150,10 +149,10 @@ adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
 }
 
 void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                   std::vector<std::string_view> supportedKeySystems,
+                                   std::string_view supportedKeySystem,
                                    std::string_view manifestUpdateParam)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdateParam);
+  AdaptiveTree::Configure(reprChooser, supportedKeySystem, manifestUpdateParam);
   m_decrypter = std::make_unique<AESDecrypter>(CSrvBroker::GetKodiProps().GetLicenseKey());
 }
 
@@ -187,7 +186,7 @@ bool adaptive::CHLSTree::PrepareRepresentation(PLAYLIST::CPeriod* period,
                                                PLAYLIST::CAdaptationSet* adp,
                                                PLAYLIST::CRepresentation* rep)
 {
-  if (!m_isLive && !rep->Timeline().IsEmpty())
+  if (!m_isLive && rep->HasSegmentTimeline())
     return true;
 
   if (!ProcessChildManifest(period, adp, rep, SEGMENT_NO_NUMBER))
@@ -226,9 +225,9 @@ void adaptive::CHLSTree::FixMediaSequence(std::stringstream& streamData,
 {
   // Get the last segment PTS and number in the last period
   auto& lastPRep = m_periods.back()->GetAdaptationSets()[adpSetPos]->GetRepresentations()[reprPos];
-  if (lastPRep->Timeline().IsEmpty())
+  if (lastPRep->SegmentTimeline().IsEmpty())
     return;
-  const CSegment* lastSeg = lastPRep->Timeline().GetBack();
+  CSegment* lastSeg = lastPRep->SegmentTimeline().GetBack();
   uint64_t segStartPts = lastSeg->startPTS_; // The start PTS refer to date-time
   uint64_t segNumber = lastSeg->m_number;
 
@@ -449,7 +448,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
 
   rep->SetBaseUrl(sourceUrl);
 
-  EncryptionType currentEncryptionType = EncryptionType::NONE;
+  EncryptionType currentEncryptionType = EncryptionType::CLEAR;
 
   // To know in advance if EXT-X-PROGRAM-DATE-TIME is available
   bool hasProgramDateTime = STRING::Contains(data, "#EXT-X-PROGRAM-DATE-TIME:");
@@ -463,7 +462,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
 
   uint64_t mediaSequenceNbr{0};
 
-  CSegContainer newSegments;
+  CSpinCache<CSegment> newSegments;
   std::optional<CSegment> newSegment;
 
   // Pssh set used between segments
@@ -504,8 +503,8 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       // NOTE: Multiple EXT-X-KEYs can be parsed sequentially
       switch (ProcessEncryption(rep->GetBaseUrl(), attribs))
       {
-        case EncryptionType::NONE:
-          currentEncryptionType = EncryptionType::NONE;
+        case EncryptionType::CLEAR:
+          currentEncryptionType = EncryptionType::CLEAR;
           period->SetEncryptionState(EncryptionState::UNENCRYPTED);
           psshSetPos = PSSHSET_POS_DEFAULT;
           break;
@@ -524,15 +523,6 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
             period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
             rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
                                               m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-          }
-          break;
-        case EncryptionType::CLEARKEY:
-          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
-          {
-            currentEncryptionType = EncryptionType::CLEARKEY;
-            period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
-            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
           }
           break;
         case EncryptionType::NOT_SUPPORTED:
@@ -615,7 +605,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       }
       else
       {
-        const CSegment* lastSeg = newSegments.GetBack();
+        CSegment* lastSeg = newSegments.GetBack();
         if (lastSeg)
           startPts = lastSeg->m_endPts;
       }
@@ -711,7 +701,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       }
       newSegment->pssh_set_ = psshSetPos;
 
-      newSegments.Add(*newSegment);
+      newSegments.GetData().emplace_back(*newSegment);
       newSegment.reset();
     }
     else if (tagName == "#EXT-X-DISCONTINUITY-SEQUENCE")
@@ -745,7 +735,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
           {
             auto& pCurrAdp = m_currentPeriod->GetAdaptationSets()[adpSetPos];
             auto& pCurrRep = pCurrAdp->GetRepresentations()[reprPos];
-            pCurrRep->Timeline().Clear();
+            pCurrRep->SegmentTimeline().Clear();
             pCurrRep->current_segment_ = nullptr;
             LOG::Log(LOGDEBUG, "Clear outdated period of discontinuity %u",
                      itPeriod->get()->GetSequence());
@@ -784,7 +774,8 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       {
         period->SetSequence(m_discontSeq + discontCount);
 
-        rep->SetDuration(newSegments.GetDuration());
+        uint64_t dur = newSegments.GetBack()->m_endPts - newSegments.GetFront()->startPTS_;
+        rep->SetDuration(dur);
 
         if (adp->GetStreamType() != StreamType::SUBTITLE)
         {
@@ -794,7 +785,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
         }
 
         FreeSegments(period, rep);
-        rep->Timeline().Swap(newSegments);
+        rep->SegmentTimeline().Swap(newSegments);
 
         rep->SetStartNumber(mediaSequenceNbr);
       }
@@ -802,7 +793,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       isSkipUntilDiscont = false;
       ++discontCount;
 
-      mediaSequenceNbr += rep->Timeline().GetSize();
+      mediaSequenceNbr += rep->SegmentTimeline().GetSize();
       currentSegNumber = mediaSequenceNbr;
 
       CPeriod* newPeriod = FindDiscontinuityPeriod(m_discontSeq + discontCount);
@@ -889,12 +880,12 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
   }
 
   FreeSegments(period, rep);
-  rep->Timeline().Swap(newSegments);
+  rep->SegmentTimeline().Swap(newSegments);
   rep->SetStartNumber(mediaSequenceNbr);
 
   uint64_t reprDur{0};
-  if (rep->Timeline().Get(0))
-    reprDur = rep->Timeline().GetBack()->m_endPts - rep->Timeline().GetFront()->startPTS_;
+  if (rep->SegmentTimeline().Get(0))
+    reprDur = rep->SegmentTimeline().GetBack()->m_endPts - rep->SegmentTimeline().GetFront()->startPTS_;
 
   rep->SetDuration(reprDur);
   period->SetSequence(m_discontSeq + discontCount);
@@ -938,19 +929,19 @@ void adaptive::CHLSTree::PrepareSegments(PLAYLIST::CPeriod* period,
   }
   else
   {
-    if (segNumber >= rep->GetStartNumber() + rep->Timeline().GetSize())
+    if (segNumber >= rep->GetStartNumber() + rep->SegmentTimeline().GetSize())
     {
-      segNumber = rep->GetStartNumber() + rep->Timeline().GetSize() - 1;
+      segNumber = rep->GetStartNumber() + rep->SegmentTimeline().GetSize() - 1;
     }
 
     rep->current_segment_ =
-        rep->Timeline().Get(static_cast<size_t>(segNumber - rep->GetStartNumber()));
+        rep->get_segment(static_cast<size_t>(segNumber - rep->GetStartNumber()));
   }
 
   //! @todo: m_currentPeriod != m_periods.back().get() condition should be removed from here
   //! this is done on AdaptiveStream::ensureSegment on IsLastSegment check
   if (rep->IsWaitForSegment() &&
-      (rep->GetNextSegment() || m_currentPeriod != m_periods.back().get()))
+      (rep->get_next_segment(rep->current_segment_) || m_currentPeriod != m_periods.back().get()))
   {
     LOG::LogF(LOGDEBUG, "End WaitForSegment stream id \"%s\"", rep->GetId().data());
     rep->SetIsWaitForSegment(false);
@@ -983,12 +974,12 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     //Encrypted media, decrypt it
     if (pssh.defaultKID_.empty())
     {
-      if (!pssh.m_licenseUrl.empty())
+      if (!pssh.m_kidUrl.empty())
       {
         // Try check if we already obtained KID from this KID URL
         for (const CPeriod::PSSHSet& psshSet : m_currentPeriod->GetPSSHSets())
         {
-          if (!psshSet.defaultKID_.empty() && psshSet.m_licenseUrl == pssh.m_licenseUrl)
+          if (!psshSet.defaultKID_.empty() && psshSet.m_kidUrl == pssh.m_kidUrl)
           {
             pssh.defaultKID_ = psshSet.defaultKID_;
             break;
@@ -1001,7 +992,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
       RETRY:
         std::map<std::string, std::string> headers;
         std::vector<std::string> keyParts = STRING::SplitToVec(m_decrypter->getLicenseKey(), '|');
-        std::string url = pssh.m_licenseUrl;
+        std::string url = pssh.m_kidUrl;
 
         if (keyParts.size() > 0)
         {
@@ -1063,10 +1054,10 @@ void adaptive::CHLSTree::OnStreamChange(PLAYLIST::CPeriod* period,
                                         PLAYLIST::CRepresentation* previousRep,
                                         PLAYLIST::CRepresentation* currentRep)
 {
-  if (!m_isLive && !currentRep->Timeline().IsEmpty())
+  if (!m_isLive && currentRep->HasSegmentTimeline())
     return;
 
-  const uint64_t currentSegNumber = previousRep->GetCurrentSegNumber();
+  const uint64_t currentSegNumber = previousRep->getCurrentSegmentNumber();
 
   ProcessChildManifest(period, adp, currentRep, currentSegNumber);
 }
@@ -1080,7 +1071,7 @@ void adaptive::CHLSTree::OnRequestSegments(PLAYLIST::CPeriod* period,
 
   // Save the current segment position before parsing the manifest
   // to allow find the right segment on updated playlist segments
-  const uint64_t segNumber = rep->GetCurrentSegNumber();
+  const uint64_t segNumber = rep->getCurrentSegmentNumber();
 
   ProcessChildManifest(period, adp, rep, segNumber);
 }
@@ -1123,7 +1114,7 @@ void adaptive::CHLSTree::OnUpdateSegments()
   {
     // Save the current segment position before parsing the manifest
     // to allow find the right segment on updated playlist segments
-    const uint64_t segNumber = repr->GetCurrentSegNumber();
+    const uint64_t segNumber = repr->getCurrentSegmentNumber();
 
     if (!ProcessChildManifest(m_currentPeriod, adpSet, repr, segNumber))
     {
@@ -1199,9 +1190,6 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     std::string_view baseUrl, std::map<std::string, std::string>& attribs)
 {
   std::string_view encryptMethod = attribs["METHOD"];
-  // According to specs KEYFORMAT is optional and if not specified defaults implicitly to "identity"
-  const std::string keyFormat = attribs["KEYFORMAT"].empty() ? "identity" : attribs["KEYFORMAT"];
-
   std::vector<uint8_t> uriData;
   std::string uriUrl;
 
@@ -1219,7 +1207,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   {
     m_currentPssh.clear();
 
-    return EncryptionType::NONE;
+    return EncryptionType::CLEAR;
   }
 
   // AES-128
@@ -1241,21 +1229,24 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
   }
 
   // WIDEVINE
-  if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE) &&
-      (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_WIDEVINE) !=
-          m_supportedKeySystems.end()))
+  if (STRING::CompareNoCase(attribs["KEYFORMAT"],
+                            "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed") &&
+      STRING::CompareNoCase(attribs["KEYFORMAT"], m_supportedKeySystem))
   {
     m_currentPssh = uriData;
 
     if (STRING::KeyExists(attribs, "KEYID"))
     {
-      std::string keyid = attribs["KEYID"];
-      STRING::ToLower(keyid);
-
-      if (STRING::StartsWith(keyid, "0x"))
-        m_currentDefaultKID = keyid.substr(2); // To remove "0x"
-      else
-        LOG::LogF(LOGERROR, "Incorrect KEYID tag format");
+      std::string keyid = attribs["KEYID"].substr(2);
+      const char* defaultKID = keyid.c_str();
+      m_currentDefaultKID.resize(16);
+      for (unsigned int i(0); i < 16; ++i)
+      {
+        m_currentDefaultKID[i] = STRING::ToHexNibble(*defaultKID) << 4;
+        ++defaultKID;
+        m_currentDefaultKID[i] |= STRING::ToHexNibble(*defaultKID);
+        ++defaultKID;
+      }
     }
 
     // If there is no KID, try to get it from pssh data
@@ -1263,7 +1254,7 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     {
       CPsshParser parser;
       if (parser.Parse(m_currentPssh) && parser.GetKeyIds().size() > 0)
-        m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKeyIds()[0]);
+        m_currentDefaultKID = parser.GetKeyIds()[0];
     }
 
     if (encryptMethod == "SAMPLE-AES-CTR")
@@ -1274,56 +1265,8 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
     return EncryptionType::WIDEVINE;
   }
 
-  // CLEARKEY
-  if (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_CLEARKEY) !=
-      m_supportedKeySystems.end() && std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_COMMON) !=
-    m_supportedKeySystems.end())
-  {
-    if (STRING::CompareNoCase(keyFormat, "identity"))
-    {
-      if (uriUrl.empty())
-      {
-        m_currentPssh = uriData;
-      }
-      else
-      {
-        if (URL::IsUrlRelative(uriUrl))
-          uriUrl = URL::Join(baseUrl.data(), uriUrl);
-
-        UTILS::CURL::HTTPResponse resp;
-        if (DownloadKey(uriUrl, {}, {}, resp))
-          m_currentPssh = STRING::ToVecUint8(resp.data);
-      }
-
-      if (uriUrl.empty()) // No kid provided, assume key == kid
-        m_currentDefaultKID = STRING::ToHexadecimal(uriData);
-
-    }
-    else if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE))
-    {
-      // Take only the KID
-      if (STRING::KeyExists(attribs, "KEYID"))
-      {
-        std::string keyid = attribs["KEYID"];
-        STRING::ToLower(keyid);
-
-        if (STRING::StartsWith(keyid, "0x"))
-          m_currentDefaultKID = keyid.substr(2); // To remove "0x"
-        else
-          LOG::LogF(LOGERROR, "Incorret KEYID tag format");
-      }
-    }
-
-    if (encryptMethod == "SAMPLE-AES-CTR")
-      m_cryptoMode = CryptoMode::AES_CTR;
-    else if (encryptMethod == "SAMPLE-AES")
-      m_cryptoMode = CryptoMode::AES_CBC;
-
-    return EncryptionType::CLEARKEY;
-  }
-
   // Unsupported encryption
-  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", keyFormat.c_str());
+  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", attribs["KEYFORMAT"].c_str());
   return EncryptionType::NOT_SUPPORTED;
 }
 
