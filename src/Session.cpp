@@ -53,13 +53,6 @@ CSession::CSession(const std::string& manifestUrl) : m_manifestUrl(manifestUrl)
     default:
       m_mediaTypeMask = static_cast<uint8_t>(~0);
   }
-
-  std::string_view serverCertificate = CSrvBroker::GetKodiProps().GetServerCertificate();
-
-  if (!serverCertificate.empty())
-  {
-    m_serverCertificate = BASE64::Decode(serverCertificate);
-  }
 }
 
 CSession::~CSession()
@@ -94,7 +87,8 @@ void CSession::SetSupportedDecrypterURN(std::vector<std::string_view>& keySystem
     return;
   }
 
-  m_decrypter = DRM::FACTORY::GetDecrypter(GetCryptoKeySystem());
+  const std::string keySystem = CSrvBroker::GetKodiProps().GetDrmKeySystem();
+  m_decrypter = DRM::FACTORY::GetDecrypter(GetCryptoKeySystem(keySystem));
   if (!m_decrypter)
     return;
 
@@ -104,7 +98,7 @@ void CSession::SetSupportedDecrypterURN(std::vector<std::string_view>& keySystem
     return;
   }
 
-  keySystems = m_decrypter->SelectKeySystems(CSrvBroker::GetKodiProps().GetLicenseType());
+  keySystems = m_decrypter->SelectKeySystems(keySystem);
   m_decrypter->SetLibraryPath(decrypterPath);
 }
 
@@ -132,14 +126,11 @@ void CSession::DisposeDecrypter()
 
 bool CSession::Initialize()
 {
-  const auto& kodiProps = CSrvBroker::GetKodiProps();
-  // Set the DRM configuration flags
-  if (kodiProps.IsLicensePersistentStorage())
-    m_drmConfig |= DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE;
+  auto& kodiProps = CSrvBroker::GetKodiProps();
 
   // Get URN's wich are supported by this addon
   std::vector<std::string_view> supportedKeySystems;
-  if (!kodiProps.GetLicenseType().empty())
+  if (!kodiProps.GetDrmKeySystem().empty())
   {
     SetSupportedDecrypterURN(supportedKeySystems);
     for (std::string_view keySystem : supportedKeySystems)
@@ -152,7 +143,7 @@ bool CSession::Initialize()
   bool isSessionOpened{false};
 
   // Preinitialize the DRM, if pre-initialisation data are provided
-  if (!kodiProps.GetDrmPreInitData().empty())
+  if (!kodiProps.GetDrmConfig().preInitData.empty())
   {
     std::string challengeB64;
     std::string sessionId;
@@ -255,15 +246,16 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
                                 std::string& sessionId,
                                 bool& isSessionOpened)
 {
-  std::string_view preInitData = CSrvBroker::GetKodiProps().GetDrmPreInitData();
-  std::string_view psshData;
-  std::string_view kidData;
+  auto& drmPropCfg = CSrvBroker::GetKodiProps().GetDrmConfig();
+
+  std::string psshData;
+  std::string kidData;
   // Parse the PSSH/KID data
-  size_t posSplitter = preInitData.find("|");
+  size_t posSplitter = drmPropCfg.preInitData.find("|");
   if (posSplitter != std::string::npos)
   {
-    psshData = preInitData.substr(0, posSplitter);
-    kidData = preInitData.substr(posSplitter + 1);
+    psshData = drmPropCfg.preInitData.substr(0, posSplitter);
+    kidData = drmPropCfg.preInitData.substr(posSplitter + 1);
   }
 
   if (psshData.empty() || kidData.empty())
@@ -277,14 +269,6 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   // Try to initialize an SingleSampleDecryptor
   LOG::LogF(LOGDEBUG, "Entering encryption section");
 
-  std::string_view licenseKey = CSrvBroker::GetKodiProps().GetLicenseKey();
-
-  if (licenseKey.empty())
-  {
-    LOG::LogF(LOGERROR, "Kodi property \"inputstream.adaptive.license_key\" value is not set");
-    return false;
-  }
-
   if (!m_decrypter)
   {
     LOG::LogF(LOGERROR, "No decrypter found for encrypted stream");
@@ -293,7 +277,8 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
 
   if (!m_decrypter->IsInitialised())
   {
-    if (!m_decrypter->OpenDRMSystem(licenseKey, m_serverCertificate, m_drmConfig))
+    DRM::Config drmCfg = DRM::CreateDRMConfig(DRM::KS_WIDEVINE, drmPropCfg);
+    if (!m_decrypter->OpenDRMSystem(drmCfg))
     {
       LOG::LogF(LOGERROR, "OpenDRMSystem failed");
       return false;
@@ -314,7 +299,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   LOG::LogF(LOGDEBUG, "Initializing session with KID: %s", hexKid.c_str());
 
   if (m_decrypter && (session.m_cencSingleSampleDecrypter =
-                          m_decrypter->CreateSingleSampleDecrypter(initData, "", decKid, "", true,
+                          m_decrypter->CreateSingleSampleDecrypter(initData, decKid, "", true,
                                                                    CryptoMode::AES_CTR)) != nullptr)
   {
     session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
@@ -345,10 +330,13 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
   // Try to initialize an SingleSampleDecryptor
   if (m_adaptiveTree->m_currentPeriod->GetEncryptionState() == EncryptionState::ENCRYPTED_DRM)
   {
-    std::string_view licenseKey = CSrvBroker::GetKodiProps().GetLicenseKey();
+    const std::string keySystem = CSrvBroker::GetKodiProps().GetDrmKeySystem();
+    auto& drmPropCfg = CSrvBroker::GetKodiProps().GetDrmConfig();
 
-    if (licenseKey.empty())
-      licenseKey = m_adaptiveTree->GetLicenseUrl();
+    DRM::Config drmCfg = DRM::CreateDRMConfig(keySystem, drmPropCfg);
+
+    if (drmCfg.license.serverUrl.empty())
+      drmCfg.license.serverUrl = m_adaptiveTree->GetLicenseUrl();
 
     LOG::Log(LOGDEBUG, "Entering encryption section");
 
@@ -360,14 +348,12 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
     if (!m_decrypter->IsInitialised())
     {
-      if (!m_decrypter->OpenDRMSystem(licenseKey, m_serverCertificate, m_drmConfig))
+      if (!m_decrypter->OpenDRMSystem(drmCfg))
       {
         LOG::Log(LOGERROR, "OpenDRMSystem failed");
         return false;
       }
     }
-
-    std::string_view licenseType = CSrvBroker::GetKodiProps().GetLicenseType();
 
     // cdmSession 0 is reserved for unencrypted streams
     for (size_t ses{1}; ses < m_cdmSessions.size(); ++ses)
@@ -390,55 +376,32 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       std::vector<uint8_t> initData = sessionPsshset.pssh_;
       std::string defaultKidStr = sessionPsshset.defaultKID_;
-      std::string drmOptionalKeyParam;
 
-      std::string_view licenseDataStr = CSrvBroker::GetKodiProps().GetLicenseData();
+      std::vector<uint8_t> customInitData = BASE64::Decode(drmPropCfg.initData);
 
-      if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING)
+      if (m_adaptiveTree->GetTreeType() == adaptive::TreeType::SMOOTH_STREAMING &&
+          keySystem == DRM::KS_WIDEVINE)
       {
-        if (licenseType == "com.widevine.alpha")
+        if (DRM::IsValidPsshHeader(customInitData))
         {
-          // Create SmoothStreaming Widevine PSSH data
-          //! @todo: CreateISMlicense accept placeholders {KID} and {UUID} but its not wiki documented
-          //! we should continue allow create custom pssh with placeholders?
-          //! see also todo's below
-          std::vector<uint8_t> licenseData = BASE64::Decode(licenseDataStr);
-
-          if (DRM::IsValidPsshHeader(licenseData))
-          {
-            initData = licenseData;
-          }
-          else
-          {
-            LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming %s",
-                     licenseData.empty() ? "" : "(with custom data)");
-
-            initData =
-                DRM::PSSH::MakeWidevine({DRM::ConvertKidStrToBytes(defaultKidStr)}, licenseData);
-          }
+          initData = customInitData;
         }
-        else if (licenseType == "com.microsoft.playready")
+        else
         {
-          // Use licenseData property to set data for the "PRCustomData" PlayReady DRM parameter
-          //! @todo: we are allowing to send custom data to the DRM for the license request
-          //! but drmOptionalKeyParam is used only for the specific "PRCustomData" DRM parameter
-          //! and limited to android only, ISM manifest only, also not wiki documented.
+          LOG::Log(LOGDEBUG, "License data: Create Widevine PSSH for SmoothStreaming %s",
+                   customInitData.empty() ? "" : "(with custom data)");
 
-          //! @todo: The current "inputstream.adaptive.license_data" ISA property its a lot confusing, too much
-          //! multi purpose with specific and/or limited behaviours, this property need to be reworked/changed.
-          //! As first decoupling things and allowing to have a way to set DRM optional parameters in a extensible way
-          //! for future other use cases, and not limited to Playready only.
-          //! To take in account that license_data property is also used on DASH parser to bypass ContentProtection tags.
-          drmOptionalKeyParam = licenseDataStr;
+          initData =
+              DRM::PSSH::MakeWidevine({DRM::ConvertKidStrToBytes(defaultKidStr)}, customInitData);
         }
       }
-      else if (!licenseDataStr.empty())
+      else if (!customInitData.empty())
       {
         // Custom license PSSH data provided from property
         // This can allow to initialize a DRM that could be also not specified
         // as supported in the manifest (e.g. missing DASH ContentProtection tags)
         LOG::Log(LOGDEBUG, "License data: Use PSSH data provided by the license data property");
-        initData = BASE64::Decode(licenseDataStr);
+        initData = customInitData;
       }
 
       // If no KID, but init data, extract the KID from init data
@@ -454,7 +417,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       //! @todo: as is implemented InitializeDRM will initialize all PSSHSet's also when are not used,
       //!   therefore ExtractStreamProtectionData can perform many (not needed) downloads of mp4 init files
-      if ((initData.empty() && licenseType != DRM::KS_CLEARKEY) || defaultKidStr.empty())
+      if ((initData.empty() && keySystem != DRM::KS_CLEARKEY) || defaultKidStr.empty())
       {
         // Try extract the PSSH/KID from the stream
         ExtractStreamProtectionData(sessionPsshset, defaultKidStr, initData,
@@ -504,7 +467,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
 
       if (session.m_cencSingleSampleDecrypter ||
           (session.m_cencSingleSampleDecrypter = m_decrypter->CreateSingleSampleDecrypter(
-               initData, drmOptionalKeyParam, defaultKid, sessionPsshset.m_licenseUrl, false,
+               initData, defaultKid, sessionPsshset.m_licenseUrl, false,
                sessionPsshset.m_cryptoMode == CryptoMode::NONE ? CryptoMode::AES_CTR
                                                                : sessionPsshset.m_cryptoMode)) !=
               nullptr)
@@ -522,13 +485,17 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
         {
           isSecureVideoSession = true;
 
-          bool isDisableSecureDecoder = CSrvBroker::GetSettings().IsDisableSecureDecoder();
-          if (isDisableSecureDecoder)
-            LOG::Log(LOGDEBUG, "Secure video session, with setting configured to try disable secure decoder");
-
-          if (isDisableSecureDecoder && !CSrvBroker::GetKodiProps().IsLicenseForceSecDecoder() &&
-              !m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded())
+          // Allow to disable the secure decoder
+          bool disableSecureDecoder = CSrvBroker::GetSettings().IsDisableSecureDecoder();
+          // but, DRM config can override it
+          if (drmPropCfg.isSecureDecoderEnabled.has_value())
+            disableSecureDecoder = !*drmPropCfg.isSecureDecoderEnabled;
+          // but, manifest config can override all others
+          if (m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded().has_value())
+            disableSecureDecoder = !*m_adaptiveTree->m_currentPeriod->IsSecureDecodeNeeded();
+          if (disableSecureDecoder)
           {
+            LOG::Log(LOGDEBUG, "Initialize DRM: Configured with secure decoder disabled");
             session.m_decrypterCaps.flags &= ~DRM::DecrypterCapabilites::SSD_SECURE_DECODER;
           }
         }
@@ -1325,16 +1292,15 @@ uint32_t CSession::GetIncludedStreamMask() const
   return res;
 }
 
-STREAM_CRYPTO_KEY_SYSTEM CSession::GetCryptoKeySystem() const
+STREAM_CRYPTO_KEY_SYSTEM CSession::GetCryptoKeySystem(std::string_view keySystem) const
 {
-  std::string_view licenseType = CSrvBroker::GetKodiProps().GetLicenseType();
-  if (licenseType == "com.widevine.alpha")
+  if (keySystem == DRM::KS_WIDEVINE)
     return STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE;
-  else if (licenseType == "com.huawei.wiseplay")
+  else if (keySystem == DRM::KS_WISEPLAY)
     return STREAM_CRYPTO_KEY_SYSTEM_WISEPLAY;
-  else if (licenseType == "com.microsoft.playready")
+  else if (keySystem == DRM::KS_PLAYREADY)
     return STREAM_CRYPTO_KEY_SYSTEM_PLAYREADY;
-  else if (licenseType == "org.w3.clearkey")
+  else if (keySystem == DRM::KS_CLEARKEY)
     return STREAM_CRYPTO_KEY_SYSTEM_CLEARKEY;
   else
     return STREAM_CRYPTO_KEY_SYSTEM_NONE;

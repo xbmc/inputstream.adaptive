@@ -90,12 +90,12 @@ msgstr ""
 #empty string with id 30121
 
 msgctxt "#30122"
-msgid "Try avoiding the use of secure decoder"
+msgid "Disable secure decoder"
 msgstr ""
 
 #. Description of setting with label #30122
 msgctxt "#30123"
-msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
+msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it. This setting may be overridden by the video add-on used."
 msgstr ""
 
 #empty strings from id 30124 to 30155

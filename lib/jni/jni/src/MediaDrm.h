@@ -52,7 +52,7 @@ public:
   std::vector<char> provideKeyResponse(const std::vector<char> &scope, const std::vector<char> &response) const;
 
   CJNIMediaDrmProvisionRequest getProvisionRequest() const;
-  void provideProvisionResponse(const std::vector<char> &response) const;
+  void provideProvisionResponse(const std::vector<uint8_t> &response) const;
 
   void removeKeys(const std::vector<char> &sessionId) const;
 

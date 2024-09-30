@@ -139,10 +139,10 @@ CJNIMediaDrmProvisionRequest CJNIMediaDrm::getProvisionRequest() const
       "getProvisionRequest", "()Landroid/media/MediaDrm$ProvisionRequest;");
 }
 
-void CJNIMediaDrm::provideProvisionResponse(const std::vector<char> &response) const
+void CJNIMediaDrm::provideProvisionResponse(const std::vector<uint8_t> &response) const
 {
   call_method<void>(m_object,
-    "provideProvisionResponse", "([B)V", jcast<jhbyteArray, std::vector<char> >(response));
+    "provideProvisionResponse", "([B)V", jcast<jhbyteArray, std::vector<uint8_t> >(response));
 }
 
 void CJNIMediaDrm::removeKeys(const std::vector<char> &sessionId) const

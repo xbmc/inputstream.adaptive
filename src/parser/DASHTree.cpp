@@ -110,7 +110,7 @@ void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser
                                     std::string_view manifestUpdParams)
 {
   AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdParams);
-  m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetLicenseData().empty();
+  m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetDrmConfig().initData.empty();
 }
 
 bool adaptive::CDashTree::Open(std::string_view url,
@@ -959,7 +959,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       }
       repr->m_psshSetPos = psshSetPos;
 
-      if (ParseTagContentProtectionSecDec(nodeRepr))
+      if (ParseTagContentProtectionSecDec(nodeRepr).has_value())
       {
         LOG::LogF(LOGERROR, "The <ContentProtection><widevine:license> tag must be child of "
                             "the <AdaptationSet> tag.");
@@ -1350,7 +1350,7 @@ bool adaptive::CDashTree::GetProtectionData(
   //! @todo: this should not be a task of parser, moreover missing an appropriate KID extraction from mp4 box
   auto& kodiProps = CSrvBroker::GetKodiProps();
   ProtectionScheme ckProtScheme;
-  if (kodiProps.GetLicenseType() == DRM::KS_CLEARKEY)
+  if (kodiProps.GetDrmKeySystem() == DRM::KS_CLEARKEY)
   {
     std::string_view defaultKid;
     if (protSelected)
@@ -1421,7 +1421,7 @@ bool adaptive::CDashTree::GetProtectionData(
   return isEncrypted;
 }
 
-bool adaptive::CDashTree::ParseTagContentProtectionSecDec(pugi::xml_node nodeParent)
+std::optional<bool> adaptive::CDashTree::ParseTagContentProtectionSecDec(pugi::xml_node nodeParent)
 {
   // Try to find ISA custom tag/attrib:
   // <ContentProtection><widevine:license robustness_level="HW_SECURE_CODECS_REQUIRED">
@@ -1446,11 +1446,14 @@ bool adaptive::CDashTree::ParseTagContentProtectionSecDec(pugi::xml_node nodePar
                                 "You must change it to \"HW_SECURE_CODECS_REQUIRED\".");
           robustnessLevel = "HW_SECURE_CODECS_REQUIRED";
         }
-        return robustnessLevel == "HW_SECURE_CODECS_REQUIRED";
+        if (robustnessLevel == "HW_SECURE_CODECS_NOT_ALLOWED")
+          return false;
+        else if (robustnessLevel == "HW_SECURE_CODECS_REQUIRED")
+          return true;
       }
     }
   }
-  return false;
+  return std::nullopt;
 }
 
 uint32_t adaptive::CDashTree::ParseAudioChannelConfig(pugi::xml_node node)

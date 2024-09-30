@@ -9,6 +9,7 @@
 #pragma once
 
 #include "decrypters/HelperWv.h"
+#include "decrypters/IDecrypter.h"
 
 #include <jni/src/ClassLoader.h>
 #include <jni/src/MediaDrm.h>
@@ -66,8 +67,7 @@ class ATTR_DLL_LOCAL CWVCdmAdapterA : public CMediaDrmOnEventCallback,
 {
 public:
   CWVCdmAdapterA(std::string_view keySystem,
-                 std::string_view licenseURL,
-                 const std::vector<uint8_t>& serverCert,
+                 const DRM::Config& config,
                  std::shared_ptr<jni::CJNIClassLoader> jniClassLoader,
                  CWVDecrypterA* host);
   ~CWVCdmAdapterA();
@@ -75,7 +75,7 @@ public:
   // IWVCdmAdapter interface methods
 
   std::shared_ptr<jni::CJNIMediaDrm> GetCDM() override { return m_cdmAdapter; }
-  const std::string& GetLicenseUrl() override { return m_licenseUrl; }
+  const DRM::Config& GetConfig() override;
   std::string_view GetKeySystem() override;
   std::string_view GetLibraryPath() const override;
   void SaveServiceCertificate() override;
@@ -96,13 +96,13 @@ private:
                        int extra,
                        const std::vector<char>& data) override;
 
+  DRM::Config m_config;
   std::shared_ptr<jni::CJNIMediaDrm> m_cdmAdapter;
   std::list<IWVObserver*> m_observers;
   std::mutex m_observer_mutex;
 
   std::string m_keySystem;
   std::unique_ptr<CMediaDrmOnEventListener> m_mediaDrmEventListener;
-  std::string m_licenseUrl;
   std::string m_strBasePath;
   CWVDecrypterA* m_host;
 };

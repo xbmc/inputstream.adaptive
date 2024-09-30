@@ -330,7 +330,9 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
     // StreamCryptoSession enable the use of ISA VideoCodecAdaptive decoder
     kodi::addon::StreamCryptoSession cryptoSession;
-    cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem());
+
+    const std::string keySystem = CSrvBroker::GetKodiProps().GetDrmKeySystem();
+    cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem(keySystem));
 
     const char* sessionId(m_session->GetCDMSession(cdmSessionIndex));
     cryptoSession.SetSessionId(sessionId);

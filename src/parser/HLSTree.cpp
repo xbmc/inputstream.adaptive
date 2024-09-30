@@ -146,7 +146,7 @@ adaptive::CHLSTree::CHLSTree() : AdaptiveTree()
 
 adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
 {
-  m_decrypter = std::make_unique<AESDecrypter>(left.m_decrypter->getLicenseKey());
+  m_decrypter = std::make_unique<AESDecrypter>();
 }
 
 void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
@@ -154,7 +154,7 @@ void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
                                    std::string_view manifestUpdateParam)
 {
   AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdateParam);
-  m_decrypter = std::make_unique<AESDecrypter>(CSrvBroker::GetKodiProps().GetLicenseKey());
+  m_decrypter = std::make_unique<AESDecrypter>();
 }
 
 bool adaptive::CHLSTree::Open(std::string_view url,
@@ -1001,24 +1001,19 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
 
       if (pssh.defaultKID_.empty())
       {
-      RETRY:
-        std::map<std::string, std::string> headers;
-        std::vector<std::string> keyParts = STRING::SplitToVec(m_decrypter->getLicenseKey(), '|');
-        std::string url = pssh.m_licenseUrl;
-
-        if (keyParts.size() > 0)
-        {
-          URL::AppendParameters(url, keyParts[0]);
-        }
-        if (keyParts.size() > 1)
-          ParseHeaderString(headers, keyParts[1]);
+      // RETRY:
+        auto& drmCfgProp = CSrvBroker::GetKodiProps().GetDrmConfig(DRM::KS_NONE);
 
         CURL::HTTPResponse resp;
 
-        if (DownloadKey(url, headers, {}, resp))
+        if (DownloadKey(pssh.m_licenseUrl, drmCfgProp.license.reqHeaders, {}, resp))
         {
           pssh.defaultKID_ = resp.data;
         }
+        /*
+         *! @todo: unclear if could be used by some old addon,
+         *!        for now all related code has been commented for a future removal
+         *
         else if (pssh.defaultKID_ != "0")
         {
           //! @todo: RenewLicense (addon) callback is not wiki documented, there are addons that could use this?
@@ -1029,14 +1024,18 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
               m_decrypter->RenewLicense(keyParts[4]))
             goto RETRY;
         }
+        */
       }
     }
+    /*
     if (pssh.defaultKID_ == "0")
     {
       segBuffer.resize(segBufferSize + srcDataSize, 0);
       return;
     }
     else if (!segBufferSize)
+    */
+    if (!segBufferSize)
     {
       if (pssh.iv.empty())
         m_decrypter->ivFromSequence(iv, segNum);

@@ -12,8 +12,18 @@
 
 #include <memory>
 
+namespace ADP
+{
+namespace KODI_PROPS
+{
+struct DrmCfg;
+}
+}
+
 namespace DRM
 {
+DRM::Config CreateDRMConfig(std::string_view keySystem, const ADP::KODI_PROPS::DrmCfg& propCfg);
+
 namespace FACTORY
 {
 std::shared_ptr<DRM::IDecrypter> GetDecrypter(STREAM_CRYPTO_KEY_SYSTEM keySystem);

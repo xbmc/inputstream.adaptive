@@ -83,23 +83,20 @@ std::vector<std::string_view> CWVDecrypter::SelectKeySystems(std::string_view ke
   return keySystems;
 }
 
-bool CWVDecrypter::OpenDRMSystem(std::string_view licenseURL,
-                                 const std::vector<uint8_t>& serverCertificate,
-                                 const uint8_t config)
+bool CWVDecrypter::OpenDRMSystem(const DRM::Config& config)
 {
-  if (licenseURL.empty())
+  if (config.license.serverUrl.empty())
   {
-    LOG::LogF(LOGERROR, "License Key property cannot be empty");
+    LOG::LogF(LOGERROR, "The DRM license server url has not been specified");
     return false;
   }
-  m_WVCdmAdapter = std::make_shared<CWVCdmAdapter>(licenseURL, serverCertificate, config, this);
+  m_WVCdmAdapter = std::make_shared<CWVCdmAdapter>(config, this);
 
   return m_WVCdmAdapter->GetCDM() != nullptr;
 }
 
 std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypter::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
-    std::string_view optionalKeyParameter,
     const std::vector<uint8_t>& defaultKeyId,
     std::string_view licenseUrl,
     bool skipSessionMessage,

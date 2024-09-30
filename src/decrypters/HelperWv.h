@@ -15,8 +15,17 @@
 #endif
 
 #include <cstdint>
+#include <map>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
+
+// forward
+namespace DRM
+{
+struct Config;
+}
 
 enum class CdmMessageType
 {
@@ -58,7 +67,7 @@ public:
 
   virtual std::shared_ptr<T> GetCDM() = 0;
 
-  virtual const std::string& GetLicenseUrl() = 0;
+  virtual const DRM::Config& GetConfig() = 0;
 
   virtual void SetCodecInstance(void* instance) {}
   virtual void ResetCodecInstance() {}
@@ -101,5 +110,24 @@ std::vector<uint8_t> MakeWidevinePsshData(const std::vector<std::vector<uint8_t>
  */
 void ParseWidevinePssh(const std::vector<uint8_t>& wvPsshData,
                        std::vector<std::vector<uint8_t>>& keyIds);
+
+bool WvWrapLicense(std::string& data,
+                   const std::vector<uint8_t>& challenge,
+                   std::string_view sessionId,
+                   const std::vector<uint8_t>& kid,
+                   const std::vector<uint8_t>& pssh,
+                   std::string_view wrapper,
+                   const bool isNewConfig);
+
+bool WvUnwrapLicense(std::string_view wrapper,
+                     const std::map<std::string, std::string>& params,
+                     std::string_view contentType,
+                     std::string data,
+                     std::string& dataOut,
+                     int& hdcpLimit);
+
+void TranslateLicenseUrlPh(std::string& url,
+                           const std::vector<uint8_t>& challenge,
+                           const bool isNewConfig);
 
 } // namespace DRM

@@ -18,7 +18,7 @@ CJNIMediaDrmKeyRequest::CJNIMediaDrmKeyRequest()
   m_object.setGlobal();
 }
 
-std::vector<char> CJNIMediaDrmKeyRequest::getData() const
+std::vector<uint8_t> CJNIMediaDrmKeyRequest::getData() const
 {
   JNIEnv *env = xbmc_jnienv();
   jhbyteArray array = call_method<jhbyteArray>(m_object,
@@ -26,7 +26,7 @@ std::vector<char> CJNIMediaDrmKeyRequest::getData() const
 
   jsize size = env->GetArrayLength(array.get());
 
-  std::vector<char> result;
+  std::vector<uint8_t> result;
   result.resize(size);
   env->GetByteArrayRegion(array.get(), 0, size, (jbyte*)result.data());
 

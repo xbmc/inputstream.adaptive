@@ -53,6 +53,25 @@ bool GetMapValue(const std::map<T, TValue>& map, const T& key, TValue& val)
 }
 
 /*!
+ * \brief Get map value of the specified key
+ * \param map The map where find the value
+ * \param key The key to find
+ * \param val[OUT] The value that match to the specified key, if found
+ * \return True if found, otherwise false.
+ */
+template<typename T, typename TValue>
+bool GetMapValue(const std::map<T, TValue>& map, const std::string_view& key, TValue& val)
+{
+  auto mapIt = map.find(key.data());
+  if (mapIt != map.cend())
+  {
+    val = mapIt->second;
+    return true;
+  }
+  return false;
+}
+
+/*!
  * \brief Replace the first string occurrence in a string
  * \param inputStr String to perform the replace
  * \param oldStr String to find
@@ -193,11 +212,18 @@ bool CompareNoCase(std::string_view str1, std::string_view str2);
 bool GetLine(std::stringstream& ss, std::string& line);
 
 /*!
- * \brief Convert a string to lower.
+ * \brief Convert a string to lower case.
  * \param str The string to be converted
  * \return The string in lowercase.
  */
 std::string ToLower(std::string str);
+
+/*!
+ * \brief Convert a string to upper case.
+ * \param str The string to be converted
+ * \return The string in uppercase.
+ */
+std::string ToUpper(std::string str);
 
 /*!
  * \brief Convert a hex value as string to unsigned integer.

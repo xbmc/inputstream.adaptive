@@ -62,7 +62,7 @@ void AESDecrypter::ivFromSequence(uint8_t *buffer, uint64_t sid)
   memset(buffer, 0, 16);
   AP4_BytesFromUInt64BE(buffer + 8, sid);
 }
-
+/*
 bool AESDecrypter::RenewLicense(const std::string &pluginUrl)
 {
   std::vector<kodi::vfs::CDirEntry> items;
@@ -73,3 +73,4 @@ bool AESDecrypter::RenewLicense(const std::string &pluginUrl)
   }
   return false;
 }
+*/

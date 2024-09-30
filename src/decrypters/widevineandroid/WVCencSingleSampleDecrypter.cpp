@@ -12,7 +12,6 @@
 #include "SrvBroker.h"
 #include "decrypters/HelperWv.h"
 #include "decrypters/Helpers.h"
-#include "jsmn.h"
 #include "utils/Base64Utils.h"
 #include "utils/CurlUtils.h"
 #include "utils/DigestMD5Utils.h"
@@ -30,7 +29,6 @@ using namespace UTILS;
 CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(
     IWVCdmAdapter<jni::CJNIMediaDrm>* cdmAdapter,
     std::vector<uint8_t>& pssh,
-    std::string_view optionalKeyParameter,
     const std::vector<uint8_t>& defaultKeyId)
   : m_cdmAdapter(cdmAdapter),
     m_pssh(pssh),
@@ -53,16 +51,23 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(
 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string debugFilePath =
-        FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
+    std::string fileName =
+        STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".init";
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
     std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
     FILESYS::SaveFile(debugFilePath, data, true);
   }
 
   m_initialPssh = m_pssh;
 
-  if (!optionalKeyParameter.empty())
-    m_optParams["PRCustomData"] = optionalKeyParameter;
+  if (m_cdmAdapter->GetKeySystem() == DRM::KS_PLAYREADY)
+  {
+    for (auto& [keyName, keyValue] : m_cdmAdapter->GetConfig().optKeyReqParams)
+    {
+      if (keyName == "custom_data")
+        m_optParams["PRCustomData"] = keyValue;
+    }
+  }
 
   /*
   std::vector<char> pui = m_cdmAdapter->GetCDM()->getPropertyByteArray("provisioningUniqueId");
@@ -159,7 +164,7 @@ const char* CWVCencSingleSampleDecrypterA::GetSessionId()
   return m_sessionId.c_str();
 }
 
-std::vector<char> CWVCencSingleSampleDecrypterA::GetChallengeData()
+std::vector<uint8_t> CWVCencSingleSampleDecrypterA::GetChallengeData()
 {
   return m_keyRequestData;
 }
@@ -218,13 +223,13 @@ bool CWVCencSingleSampleDecrypterA::ProvisionRequest()
     return false;
   }
 
-  std::vector<char> provData = request.getData();
+  std::vector<uint8_t> provData = request.getData();
   std::string url = request.getDefaultUrl();
 
   LOG::Log(LOGDEBUG, "Provision data size: %lu, url: %s", provData.size(), url.c_str());
 
   std::string reqData("{\"signedRequest\":\"");
-  reqData += std::string(provData.data(), provData.size());
+  reqData += std::string(provData.cbegin(), provData.cend());
   reqData += "\"}";
   reqData = BASE64::Encode(reqData);
 
@@ -259,7 +264,7 @@ bool CWVCencSingleSampleDecrypterA::ProvisionRequest()
   return true;
 }
 
-bool CWVCencSingleSampleDecrypterA::GetKeyRequest(std::vector<char>& keyRequestData)
+bool CWVCencSingleSampleDecrypterA::GetKeyRequest(std::vector<uint8_t>& keyRequestData)
 {
   jni::CJNIMediaDrmKeyRequest keyRequest = m_cdmAdapter->GetCDM()->getKeyRequest(
       m_sessionIdVec, m_pssh, "video/mp4", jni::CJNIMediaDrm::KEY_TYPE_STREAMING, m_optParams);
@@ -330,394 +335,142 @@ bool CWVCencSingleSampleDecrypterA::KeyUpdateRequest(bool waitKeys, bool skipSes
   return true;
 }
 
-bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<char>& keyRequestData)
+bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t>& challenge)
 {
-  std::vector<std::string> blocks{STRING::SplitToVec(m_cdmAdapter->GetLicenseUrl(), '|')};
-
-  if (blocks.size() != 4)
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    LOG::LogF(LOGERROR, "Wrong \"|\" blocks in license URL. Four blocks (req | header | body | "
-                        "response) are expected in license URL");
-    return false;
+    std::string fileName =
+        STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".challenge";
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
+    UTILS::FILESYS::SaveFile(debugFilePath, reinterpret_cast<const char*>(challenge.data()), true);
+  }
+
+  const DRM::Config drmCfg = m_cdmAdapter->GetConfig();
+  const DRM::Config::License& licConfig = drmCfg.license;
+  std::string reqData;
+
+  if (!licConfig.isHttpGetRequest) // Make HTTP POST request
+  {
+    if (licConfig.reqData.empty()) // By default add raw challenge
+    {
+      reqData.assign(challenge.cbegin(), challenge.cend());
+    }
+    else
+    {
+      if (BASE64::IsValidBase64(licConfig.reqData))
+        reqData = BASE64::DecodeToStr(licConfig.reqData);
+      else //! @todo: this fallback as plain text must be removed when the deprecated DRM properties are removed, and so replace it to return error
+        reqData = licConfig.reqData;
+
+      // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
+      // Here we provide a built-in way to customize the license data to be sent, this avoid force add-ons to integrate
+      // an HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
+      if (m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE &&
+          !DRM::WvWrapLicense(reqData, challenge, m_sessionId, m_defaultKeyId, m_pssh,
+                              licConfig.wrapper, drmCfg.isNewConfig))
+      {
+        return false;
+      }
+    }
   }
 
   if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string debugFilePath = FILESYS::PathCombine(
-        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.challenge");
-    FILESYS::SaveFile(debugFilePath, keyRequestData.data(), true);
+    std::string fileName =
+        STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".request";
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
+    UTILS::FILESYS::SaveFile(debugFilePath, reqData, true);
   }
 
-  //Process placeholder in GET String
-  std::string::size_type insPos(blocks[0].find("{SSM}"));
-  if (insPos != std::string::npos)
-  {
-    if (insPos > 0 && blocks[0][insPos - 1] == 'B')
-    {
-      std::string msgEncoded = BASE64::Encode(keyRequestData);
-      msgEncoded = STRING::URLEncode(msgEncoded);
-      blocks[0].replace(insPos - 1, 6, msgEncoded);
-    }
-    else
-    {
-      LOG::Log(LOGERROR, "Unsupported License request template (command)");
-      return false;
-    }
-  }
+  std::string url = licConfig.serverUrl;
+  DRM::TranslateLicenseUrlPh(url, challenge, drmCfg.isNewConfig);
 
-  insPos = blocks[0].find("{HASH}");
-  if (insPos != std::string::npos)
-  {
-    DIGEST::MD5 md5;
-    md5.Update(keyRequestData.data(), static_cast<uint32_t>(keyRequestData.size()));
-    md5.Finalize();
-    blocks[0].replace(insPos, 6, md5.HexDigest());
-  }
+  CURL::CUrl cUrl{url, reqData};
+  cUrl.AddHeaders(licConfig.reqHeaders);
 
-  CURL::CUrl file(blocks[0]);
-  std::string response;
-  std::string resLimit;
-  std::string contentType;
+  const int statusCode = cUrl.Open();
 
-  //Process headers
-  std::vector<std::string> headers{STRING::SplitToVec(blocks[1], '&')};
-  for (std::string& headerStr : headers)
-  {
-    std::vector<std::string> header{STRING::SplitToVec(headerStr, '=')};
-    if (!header.empty())
-    {
-      STRING::Trim(header[0]);
-      std::string value;
-      if (header.size() > 1)
-      {
-        STRING::Trim(header[1]);
-        value = STRING::URLDecode(header[1]);
-      }
-      file.AddHeader(header[0], value);
-    }
-  }
-
-  //Process body
-  if (!blocks[2].empty())
-  {
-    if (blocks[2][0] == '%')
-      blocks[2] = STRING::URLDecode(blocks[2]);
-
-    insPos = blocks[2].find("{SSM}");
-    if (insPos != std::string::npos)
-    {
-      std::string::size_type sidPos(blocks[2].find("{SID}"));
-      std::string::size_type kidPos(blocks[2].find("{KID}"));
-      std::string::size_type psshPos(blocks[2].find("{PSSH}"));
-
-      char fullDecode = 0;
-      if (insPos > 1 && sidPos > 1 && kidPos > 1 && (blocks[2][0] == 'b' || blocks[2][0] == 'B') &&
-          blocks[2][1] == '{')
-      {
-        fullDecode = blocks[2][0];
-        blocks[2] = blocks[2].substr(2, blocks[2].size() - 3);
-        insPos -= 2;
-        if (kidPos != std::string::npos)
-          kidPos -= 2;
-        if (sidPos != std::string::npos)
-          sidPos -= 2;
-        if (psshPos != std::string::npos)
-          psshPos -= 2;
-      }
-
-      size_t sizeWritten(0);
-
-      if (insPos > 0)
-      {
-        if (blocks[2][insPos - 1] == 'B' || blocks[2][insPos - 1] == 'b')
-        {
-          std::string msgEncoded = BASE64::Encode(keyRequestData);
-          if (blocks[2][insPos - 1] == 'B')
-          {
-            msgEncoded = STRING::URLEncode(msgEncoded);
-          }
-          blocks[2].replace(insPos - 1, 6, msgEncoded);
-          sizeWritten = msgEncoded.size();
-        }
-        else if (blocks[2][insPos - 1] == 'D')
-        {
-          std::string msgEncoded{STRING::ToDecimal(
-              reinterpret_cast<const uint8_t*>(keyRequestData.data()), keyRequestData.size())};
-          blocks[2].replace(insPos - 1, 6, msgEncoded);
-          sizeWritten = msgEncoded.size();
-        }
-        else
-        {
-          blocks[2].replace(insPos - 1, 6, keyRequestData.data(), keyRequestData.size());
-          sizeWritten = keyRequestData.size();
-        }
-      }
-      else
-      {
-        LOG::Log(LOGERROR, "Unsupported License request template (body / ?{SSM})");
-        return false;
-      }
-
-      if (sidPos != std::string::npos && insPos < sidPos)
-        sidPos += sizeWritten, sidPos -= 6;
-
-      if (kidPos != std::string::npos && insPos < kidPos)
-        kidPos += sizeWritten, kidPos -= 6;
-
-      if (psshPos != std::string::npos && insPos < psshPos)
-        psshPos += sizeWritten, psshPos -= 6;
-
-      sizeWritten = 0;
-
-      if (sidPos != std::string::npos)
-      {
-        if (sidPos > 0)
-        {
-          if (blocks[2][sidPos - 1] == 'B' || blocks[2][sidPos - 1] == 'b')
-          {
-            std::string msgEncoded = BASE64::Encode(m_sessionId);
-            if (blocks[2][sidPos - 1] == 'B')
-            {
-              msgEncoded = STRING::URLEncode(msgEncoded);
-            }
-            blocks[2].replace(sidPos - 1, 6, msgEncoded);
-            sizeWritten = msgEncoded.size();
-          }
-          else
-          {
-            blocks[2].replace(sidPos - 1, 6, m_sessionId.data(), m_sessionId.size());
-            sizeWritten = m_sessionId.size();
-          }
-        }
-        else
-        {
-          LOG::Log(LOGERROR, "Unsupported License request template (body / ?{SID})");
-          return false;
-        }
-      }
-
-      if (kidPos != std::string::npos && sidPos < kidPos)
-        kidPos += sizeWritten, kidPos -= 6;
-
-      if (psshPos != std::string::npos && sidPos < psshPos)
-        psshPos += sizeWritten, psshPos -= 6;
-
-      size_t kidPlaceholderLen = 6;
-      if (kidPos != std::string::npos)
-      {
-        if (blocks[2][kidPos - 1] == 'H')
-        {
-          std::string keyIdUUID{STRING::ToHexadecimal(m_defaultKeyId)};
-          blocks[2].replace(kidPos - 1, 6, keyIdUUID.c_str(), 32);
-        }
-        else
-        {
-          std::string kidUUID{DRM::ConvertKidBytesToUUID(m_defaultKeyId)};
-          blocks[2].replace(kidPos, 5, kidUUID.c_str(), 36);
-          kidPlaceholderLen = 5;
-        }
-      }
-
-      if (psshPos != std::string::npos && kidPos < psshPos)
-        psshPos += sizeWritten, psshPos -= kidPlaceholderLen;
-
-      if (psshPos != std::string::npos)
-      {
-        std::string msgEncoded = BASE64::Encode(m_initialPssh);
-        if (blocks[2][psshPos - 1] == 'B')
-        {
-          msgEncoded = STRING::URLEncode(msgEncoded);
-        }
-        blocks[2].replace(psshPos - 1, 7, msgEncoded);
-        sizeWritten = msgEncoded.size();
-      }
-
-      if (fullDecode)
-      {
-        std::string msgEncoded = BASE64::Encode(blocks[2]);
-        if (fullDecode == 'B')
-        {
-          msgEncoded = STRING::URLEncode(msgEncoded);
-        }
-        blocks[2] = msgEncoded;
-      }
-
-      if (CSrvBroker::GetSettings().IsDebugLicense())
-      {
-        std::string debugFilePath = FILESYS::PathCombine(
-            m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.postdata");
-        FILESYS::SaveFile(debugFilePath, blocks[2], true);
-      }
-    }
-
-    std::string encData{BASE64::Encode(blocks[2])};
-    file.AddHeader("postdata", encData.c_str());
-  }
-
-  int statusCode = file.Open();
   if (statusCode == -1 || statusCode >= 400)
   {
     LOG::Log(LOGERROR, "License server returned failure (HTTP error %i)", statusCode);
     return false;
   }
 
-  CURL::ReadStatus downloadStatus = CURL::ReadStatus::CHUNK_READ;
-  while (downloadStatus == CURL::ReadStatus::CHUNK_READ)
+  std::string respData;
+  if (cUrl.Read(respData) == CURL::ReadStatus::ERROR)
   {
-    downloadStatus = file.Read(response);
+    LOG::LogF(LOGERROR, "Cannot read license server response");
+    return false;
   }
 
-  resLimit = file.GetResponseHeader("X-Limit-Video");
-  contentType = file.GetResponseHeader("Content-Type");
+  const std::string resLimit = cUrl.GetResponseHeader("X-Limit-Video"); // Custom header
+  const std::string respContentType = cUrl.GetResponseHeader("Content-Type");
 
   if (!resLimit.empty())
   {
-    std::string::size_type posMax = resLimit.find("max=");
+    // To force limit playable streams resolutions
+    size_t posMax = resLimit.find("max=");
     if (posMax != std::string::npos)
       m_resolutionLimit = std::atoi(resLimit.data() + (posMax + 4));
   }
 
-  if (downloadStatus == CURL::ReadStatus::ERROR)
-  {
-    LOG::LogF(LOGERROR, "Could not read full SessionMessage response");
-    return false;
-  }
-  else if (response.empty())
-  {
-    LOG::LogF(LOGERROR, "Empty SessionMessage response - invalid");
-    return false;
-  }
+  // The first request could be the license certificate request
+  // this request is done by sending a challenge of 2 bytes, 0x08 0x04 (CAQ=)
+  const bool isCertRequest = challenge.size() == 2 && challenge[0] == 0x08 && challenge[1] == 0x04;
 
-  if (m_cdmAdapter->GetKeySystem() == DRM::KS_PLAYREADY &&
-      response.find("<LicenseNonce>") == std::string::npos)
+  int hdcpLimit{0};
+
+  if (!isCertRequest)
   {
-    std::string::size_type dstPos(response.find("</Licenses>"));
-    std::string challenge(keyRequestData.data(), keyRequestData.size());
-    std::string::size_type srcPosS(challenge.find("<LicenseNonce>"));
-    if (dstPos != std::string::npos && srcPosS != std::string::npos)
+    // Unwrap license response
+    if (m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
     {
-      LOG::Log(LOGDEBUG, "Inserting <LicenseNonce>");
-      std::string::size_type srcPosE(challenge.find("</LicenseNonce>", srcPosS));
-      if (srcPosE != std::string::npos)
-        response.insert(dstPos + 11, challenge.c_str() + srcPosS, srcPosE - srcPosS + 15);
-    }
-  }
-
-  if (CSrvBroker::GetSettings().IsDebugLicense())
-  {
-    std::string debugFilePath = FILESYS::PathCombine(
-        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
-    FILESYS::SaveFile(debugFilePath, response, true);
-  }
-
-  if (!blocks[3].empty() && blocks[3][0] != 'R' &&
-      (keyRequestData.size() > 2 ||
-       contentType.find("application/octet-stream") == std::string::npos))
-  {
-    if (blocks[3][0] == 'J' || (blocks[3].size() > 1 && blocks[3][0] == 'B' && blocks[3][1] == 'J'))
-    {
-      int dataPos = 2;
-
-      if (response.size() >= 3 && blocks[3][0] == 'B')
+      std::string unwrappedData;
+      // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
+      // Here we provide a built-in way to unwrap the license data received, this avoid force add-ons to integrate
+      // a HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
+      if (!DRM::WvUnwrapLicense(licConfig.unwrapper, licConfig.unwrapperParams, respContentType,
+                                respData, unwrappedData, hdcpLimit))
       {
-        response = BASE64::DecodeToStr(response);
-        dataPos = 3;
-      }
-
-      jsmn_parser jsn;
-      jsmntok_t tokens[256];
-
-      jsmn_init(&jsn);
-      int i(0), numTokens = jsmn_parse(&jsn, response.c_str(), response.size(), tokens, 256);
-
-      std::vector<std::string> jsonVals{STRING::SplitToVec(blocks[3].substr(dataPos), ';')};
-
-      // Find HDCP limit
-      if (jsonVals.size() > 1)
-      {
-        for (; i < numTokens; ++i)
-          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 &&
-              jsonVals[1].size() == static_cast<unsigned int>(tokens[i].end - tokens[i].start) &&
-              strncmp(response.c_str() + tokens[i].start, jsonVals[1].c_str(),
-                      tokens[i].end - tokens[i].start) == 0)
-            break;
-        if (i < numTokens)
-          m_hdcpLimit = atoi((response.c_str() + tokens[i + 1].start));
-      }
-      // Find license key
-      if (jsonVals.size() > 0)
-      {
-        for (i = 0; i < numTokens; ++i)
-          if (tokens[i].type == JSMN_STRING && tokens[i].size == 1 &&
-              jsonVals[0].size() == static_cast<unsigned int>(tokens[i].end - tokens[i].start) &&
-              strncmp(response.c_str() + tokens[i].start, jsonVals[0].c_str(),
-                      tokens[i].end - tokens[i].start) == 0)
-          {
-            if (i + 1 < numTokens && tokens[i + 1].type == JSMN_ARRAY && tokens[i + 1].size == 1)
-              ++i;
-            break;
-          }
-      }
-      else
-        i = numTokens;
-
-      if (i < numTokens)
-      {
-        response = response.substr(tokens[i + 1].start, tokens[i + 1].end - tokens[i + 1].start);
-
-        if (blocks[3][dataPos - 1] == 'B')
-        {
-          response = BASE64::DecodeToStr(response);
-        }
-      }
-      else
-      {
-        LOG::LogF(LOGERROR, "Unable to find %s in JSON string", blocks[3].c_str() + 2);
         return false;
       }
+      respData = unwrappedData;
     }
-    else if (blocks[3][0] == 'H' && blocks[3].size() >= 2)
+
+    if (m_cdmAdapter->GetKeySystem() == DRM::KS_PLAYREADY &&
+        respData.find("<LicenseNonce>") == std::string::npos)
     {
-      //Find the payload
-      std::string::size_type payloadPos = response.find("\r\n\r\n");
-      if (payloadPos != std::string::npos)
+      size_t dstPos = respData.find("</Licenses>");
+      std::string challengeStr(challenge.cbegin(), challenge.cend());
+      size_t srcPosS = challengeStr.find("<LicenseNonce>");
+      if (dstPos != std::string::npos && srcPosS != std::string::npos)
       {
-        payloadPos += 4;
-        if (blocks[3][1] == 'B')
-          response = std::string(response.c_str() + payloadPos, response.c_str() + response.size());
-        else
-        {
-          LOG::LogF(LOGERROR, "Unsupported HTTP payload data type definition");
-          return false;
-        }
-      }
-      else
-      {
-        LOG::LogF(LOGERROR, "Unable to find HTTP payload in response");
-        return false;
+        LOG::Log(LOGDEBUG, "Injecting missing PlayReady <LicenseNonce> tag to license response");
+        size_t srcPosE = challengeStr.find("</LicenseNonce>", srcPosS);
+        if (srcPosE != std::string::npos)
+          respData.insert(dstPos + 11, challengeStr.c_str() + srcPosS, srcPosE - srcPosS + 15);
       }
     }
-    else if (blocks[3][0] == 'B' && blocks[3].size() == 1)
-    {
-      response = BASE64::DecodeToStr(response);
-    }
-    else
-    {
-      LOG::LogF(LOGERROR, "Unsupported License request template (response)");
-      return false;
-    }
+  }
+
+  if (!isCertRequest && CSrvBroker::GetSettings().IsDebugLicense())
+  {
+    std::string fileName =
+        STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".response";
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
+    FILESYS::SaveFile(debugFilePath, respData, true);
   }
 
   m_keySetId = m_cdmAdapter->GetCDM()->provideKeyResponse(
-      m_sessionIdVec, std::vector<char>(response.data(), response.data() + response.size()));
+      m_sessionIdVec, std::vector<char>(respData.data(), respData.data() + respData.size()));
   if (xbmc_jnienv()->ExceptionCheck())
   {
-    LOG::LogF(LOGERROR, "provideKeyResponse has raised an exception");
+    LOG::LogF(LOGERROR, "MediaDrm: provideKeyResponse has raised an exception");
     xbmc_jnienv()->ExceptionClear();
     return false;
   }
 
-  if (keyRequestData.size() == 2)
+  if (isCertRequest)
     m_cdmAdapter->SaveServiceCertificate();
 
   LOG::Log(LOGDEBUG, "License update successful");

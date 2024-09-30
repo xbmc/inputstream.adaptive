@@ -122,7 +122,21 @@ const uint8_t* DRM::KeySystemToUUID(std::string_view ks)
     return nullptr;
 }
 
-bool DRM::IsKeySystemSupported(std::string_view keySystem)
+std::string DRM::KeySystemToUUIDstr(std::string_view ks)
+{
+  if (ks == KS_WIDEVINE)
+    return UUID_WIDEVINE.data();
+  else if (ks == KS_PLAYREADY)
+    return UUID_PLAYREADY.data();
+  else if (ks == KS_WISEPLAY)
+    return UUID_WISEPLAY.data();
+  else if (ks == KS_CLEARKEY)
+    return UUID_CLEARKEY.data();
+  else
+    return "unknown";
+}
+
+bool DRM::IsValidKeySystem(std::string_view keySystem)
 {
   return keySystem == DRM::KS_NONE || keySystem == DRM::KS_WIDEVINE ||
     keySystem == DRM::KS_PLAYREADY || keySystem == DRM::KS_WISEPLAY ||

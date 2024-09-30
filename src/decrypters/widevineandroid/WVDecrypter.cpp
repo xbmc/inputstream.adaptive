@@ -12,7 +12,6 @@
 #include "WVCencSingleSampleDecrypter.h"
 #include "common/AdaptiveDecrypter.h"
 #include "decrypters/Helpers.h"
-#include "jsmn.h"
 #include "utils/Base64Utils.h"
 #include "utils/log.h"
 
@@ -77,36 +76,28 @@ std::vector<std::string_view> CWVDecrypterA::SelectKeySystems(std::string_view k
   return {};
 }
 
-bool CWVDecrypterA::OpenDRMSystem(std::string_view licenseURL,
-                                  const std::vector<uint8_t>& serverCertificate,
-                                  const uint8_t config)
+bool CWVDecrypterA::OpenDRMSystem(const DRM::Config& config)
 {
-  if (m_keySystem.empty())
-    return false;
-
-  if (licenseURL.empty())
+  if (config.license.serverUrl.empty())
   {
-    LOG::LogF(LOGERROR, "License Key property cannot be empty");
+    LOG::LogF(LOGERROR, "The DRM license server url has not been specified");
     return false;
   }
 
-  m_WVCdmAdapter = std::make_shared<CWVCdmAdapterA>(m_keySystem, licenseURL, serverCertificate,
-                                                    m_classLoader, this);
+  m_WVCdmAdapter = std::make_shared<CWVCdmAdapterA>(m_keySystem, config, m_classLoader, this);
 
   return m_WVCdmAdapter->GetCDM() != nullptr;
 }
 
 std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypterA::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
-    std::string_view optionalKeyParameter,
     const std::vector<uint8_t>& defaultKeyId,
     std::string_view licenseUrl,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
 {
   std::shared_ptr<CWVCencSingleSampleDecrypterA> decrypter =
-      std::make_shared<CWVCencSingleSampleDecrypterA>(m_WVCdmAdapter.get(), initData,
-                                                      optionalKeyParameter, defaultKeyId);
+      std::make_shared<CWVCencSingleSampleDecrypterA>(m_WVCdmAdapter.get(), initData, defaultKeyId);
 
   if (!(*decrypter->GetSessionId() && decrypter->StartSession(skipSessionMessage)))
   {
@@ -154,7 +145,7 @@ std::string CWVDecrypterA::GetChallengeB64Data(std::shared_ptr<Adaptive_CencSing
   auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypterA>(decrypter);
   if (wvDecrypter)
   {
-    const std::vector<char> challengeData = wvDecrypter->GetChallengeData();
+    const std::vector<uint8_t> challengeData = wvDecrypter->GetChallengeData();
     return BASE64::Encode(challengeData);
   }
   else
