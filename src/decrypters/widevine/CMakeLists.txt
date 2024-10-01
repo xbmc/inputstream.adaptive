@@ -3,7 +3,6 @@ set(SOURCES
   WVCdmAdapter.cpp
   CdmFixedBuffer.cpp
   WVDecrypter.cpp
-  jsmn.c
   CdmTypeConversion.cpp
 )
 
@@ -12,7 +11,6 @@ set(HEADERS
   WVCdmAdapter.h
   CdmFixedBuffer.h
   WVDecrypter.h
-  jsmn.h
   CdmTypeConversion.h
 )
 

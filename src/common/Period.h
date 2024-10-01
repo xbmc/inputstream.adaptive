@@ -82,8 +82,8 @@ public:
   void SetEncryptionState(EncryptionState encryptState) { m_encryptionState = encryptState; }
 
   // Force the use of secure decoder only when parsed manifest specify it
-  uint64_t IsSecureDecodeNeeded() const { return m_isSecureDecoderNeeded; }
-  void SetSecureDecodeNeeded(uint64_t isSecureDecoderNeeded)
+  std::optional<bool> IsSecureDecodeNeeded() const { return m_isSecureDecoderNeeded; }
+  void SetSecureDecodeNeeded(std::optional<bool> isSecureDecoderNeeded)
   {
     m_isSecureDecoderNeeded = isSecureDecoderNeeded;
   };
@@ -141,7 +141,7 @@ protected:
   uint64_t m_start{NO_VALUE};
   uint64_t m_duration{0};
   EncryptionState m_encryptionState{EncryptionState::UNENCRYPTED};
-  bool m_isSecureDecoderNeeded{false};
+  std::optional<bool> m_isSecureDecoderNeeded;
   std::vector<uint32_t> m_segmentTimelineDuration;
 };
 

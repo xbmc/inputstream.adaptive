@@ -9,8 +9,6 @@
 #pragma once
 #include "decrypters/IDecrypter.h"
 
-#include <bento4/Ap4.h>
-
 using namespace DRM;
 
 class CClearKeyDecrypter : public IDecrypter
@@ -19,12 +17,9 @@ public:
   CClearKeyDecrypter(){};
   virtual ~CClearKeyDecrypter() override{};
   virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) override;
-  virtual bool OpenDRMSystem(std::string_view licenseURL,
-                             const std::vector<uint8_t>& serverCertificate,
-                             const uint8_t config) override;
+  virtual bool OpenDRMSystem(const DRM::Config& config) override;
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
-      std::string_view optionalKeyParameter,
       const std::vector<uint8_t>& defaultkeyid,
       std::string_view licenseUrl,
       bool skipSessionMessage,
@@ -38,7 +33,7 @@ public:
   }
   virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                              const std::vector<uint8_t>& keyid) override;
-  virtual bool IsInitialised() override { return true; }
+  virtual bool IsInitialised() override { return m_isInitialized; }
   virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override
   {
     return "";
@@ -68,16 +63,8 @@ public:
   virtual void ReleaseBuffer(void* instance, void* buffer) {}
   virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
 
-  void insertssd(AP4_CencSingleSampleDecrypter* ssd) { ssds.push_back(ssd); };
-  void removessd(AP4_CencSingleSampleDecrypter* ssd)
-  {
-    std::vector<AP4_CencSingleSampleDecrypter*>::iterator res(
-        std::find(ssds.begin(), ssds.end(), ssd));
-    if (res != ssds.end())
-      ssds.erase(res);
-  };
-
 private:
-  std::vector<AP4_CencSingleSampleDecrypter*> ssds;
+  bool m_isInitialized{false};
+  DRM::Config m_config;
   std::string m_libraryPath;
 };

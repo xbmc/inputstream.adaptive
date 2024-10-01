@@ -24,8 +24,8 @@ using namespace UTILS;
 namespace
 {
 // clang-format off
-constexpr std::string_view PROP_LICENSE_TYPE = "inputstream.adaptive.license_type";
-constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key";
+constexpr std::string_view PROP_LICENSE_TYPE = "inputstream.adaptive.license_type"; //! @todo: to be deprecated
+constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key"; //! @todo: to be deprecated
 // PROP_LICENSE_URL and PROP_LICENSE_URL_APPEND has been added as workaround for Kodi PVR API bug
 // where limit property values to max 1024 chars, if exceeds the string is truncated.
 // Since some services provide license urls that exceeds 1024 chars,
@@ -35,9 +35,9 @@ constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key"
 // -> this problem has been fixed on Kodi 22
 constexpr std::string_view PROP_LICENSE_URL = "inputstream.adaptive.license_url"; //! @todo: deprecated to be removed on Kodi 23
 constexpr std::string_view PROP_LICENSE_URL_APPEND = "inputstream.adaptive.license_url_append"; //! @todo: deprecated to be removed on Kodi 23
-constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_data";
-constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags";
-constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate";
+constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_data"; //! @todo: to be deprecated
+constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags"; //! @todo: to be deprecated
+constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate"; //! @todo: to be deprecated
 
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
@@ -50,7 +50,7 @@ constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_he
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay"; //! @todo: deprecated to be removed on Kodi 23
-constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
+constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data"; //! @todo: to be deprecated
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
 constexpr std::string_view PROP_DRM = "inputstream.adaptive.drm";
@@ -62,6 +62,32 @@ constexpr std::string_view PROP_CHOOSER_BANDWIDTH_MAX = "inputstream.adaptive.ch
 constexpr std::string_view PROP_CHOOSER_RES_MAX = "inputstream.adaptive.chooser_resolution_max";
 constexpr std::string_view PROP_CHOOSER_RES_SECURE_MAX = "inputstream.adaptive.chooser_resolution_secure_max";
 // clang-format on
+
+
+void LogProp(std::string_view name, std::string_view value, bool isValueRedacted = false)
+{
+  LOG::Log(LOGDEBUG, "Property found \"%s\" value: %s", name.data(),
+           isValueRedacted ? "[redacted]" : value.data());
+}
+
+void LogDrmJsonDictKeys(std::string_view keyName,
+                        const rapidjson::Value& dictValue,
+                        std::string_view keySystem)
+{
+  if (dictValue.IsObject())
+  {
+    std::string keys;
+    for (auto it = dictValue.MemberBegin(); it != dictValue.MemberEnd(); ++it)
+    {
+      if (!keys.empty())
+        keys += ", ";
+      keys += it->name.GetString();
+    }
+    LOG::Log(LOGDEBUG,
+             "Found DRM config for key system: \"%s\" -> Dictionary: \"%s\", Values: \"%s\"",
+             keySystem.data(), keyName.data(), keys.c_str());
+  }
+}
 } // unnamed namespace
 
 ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std::string>& props)
@@ -72,34 +98,33 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
        (STRING::KeyExists(props, PROP_DRM_LEGACY) || STRING::KeyExists(props, PROP_DRM))) ||
       (STRING::KeyExists(props, PROP_DRM_LEGACY) && STRING::KeyExists(props, PROP_DRM)))
   {
-    LOG::Log(LOGERROR, "WRONG DRM CONFIGURATION. A mixed use of DRM properties are not supported.\n"
-                       "Please fix your configuration by setting only one of these:\n"
-                       " - Simple method: \"inputstream.adaptive.drm_legacy\"\n"
-                       " - Advanced method: \"inputstream.adaptive.license_type\" with optional "
-                       "\"inputstream.adaptive.license_key\"\n"
-                       " - NEW Advanced method (WIP, test only): \"inputstream.adaptive.drm\"\n"
-                       "For more details, see the Github Wiki Integration page.");
+    LOG::Log(LOGERROR,
+             "<<<<<<<<< WRONG DRM CONFIGURATION >>>>>>>>>\n"
+             "A mixed use of DRM properties are not supported.\n"
+             "Please fix your configuration by using only one of these:\n"
+             " - Simple method: \"inputstream.adaptive.drm_legacy\"\n"
+             " - Advanced method (deprecated): \"inputstream.adaptive.license_type\" with optional "
+             "\"inputstream.adaptive.license_key\"\n"
+             " - NEW Advanced method: \"inputstream.adaptive.drm\"\n"
+             "FOR MORE INFO, PLEASE READ THE WIKI PAGE: "
+             "https://github.com/xbmc/inputstream.adaptive/wiki/Integration-DRM");
     return;
+  }
+
+  // If a new DRM property is used, ignore old properties
+  if (!STRING::KeyExists(props, PROP_DRM) && !STRING::KeyExists(props, PROP_DRM_LEGACY))
+  {
+    //! @todo: deprecated DRM properties, all them should be removed
+    ParseDrmOldProps(props);
   }
 
   for (const auto& prop : props)
   {
     bool logPropValRedacted{false};
 
-    if (prop.first == PROP_LICENSE_TYPE)
+    if (prop.first == PROP_LICENSE_URL) //! @todo: deprecated to be removed on Kodi 23
     {
-      if (DRM::IsKeySystemSupported(prop.second))
-        m_licenseType = prop.second;
-      else
-        LOG::LogF(LOGERROR, "License type \"%s\" is not supported", prop.second.c_str());
-    }
-    else if (prop.first == PROP_LICENSE_KEY)
-    {
-      m_licenseKey = prop.second;
-      logPropValRedacted = true;
-    }
-    else if (prop.first == PROP_LICENSE_URL)
-    {
+      LogProp(prop.first, prop.second, true);
       LOG::Log(
           LOGWARNING,
           "Warning \"inputstream.adaptive.license_url\" property for PVR API bug is deprecated and "
@@ -107,37 +132,20 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
           "Kodi v22. Please use the appropriate properties to set the DRM configuration.");
       // If PROP_LICENSE_URL_APPEND is parsed before this one, we need to append it
       licenseUrl = prop.second + licenseUrl;
-      logPropValRedacted = true;
     }
-    else if (prop.first == PROP_LICENSE_URL_APPEND)
+    else if (prop.first == PROP_LICENSE_URL_APPEND) //! @todo: deprecated to be removed on Kodi 23
     {
+      LogProp(prop.first, prop.second, true);
       LOG::Log(
           LOGWARNING,
           "Warning \"inputstream.adaptive.license_url_append\" property for PVR API bug is deprecated and "
           "will be removed on next Kodi version. This because the PVR API bug has been fixed on "
           "Kodi v22. Please use the appropriate properties to set the DRM configuration.");
       licenseUrl += prop.second;
-      logPropValRedacted = true;
-    }
-    else if (prop.first == PROP_LICENSE_DATA)
-    {
-      m_licenseData = prop.second;
-      logPropValRedacted = true;
-    }
-    else if (prop.first == PROP_LICENSE_FLAGS)
-    {
-      if (prop.second.find("persistent_storage") != std::string::npos)
-        m_isLicensePersistentStorage = true;
-      if (prop.second.find("force_secure_decoder") != std::string::npos)
-        m_isLicenseForceSecureDecoder = true;
-    }
-    else if (prop.first == PROP_SERVER_CERT)
-    {
-      m_serverCertificate = prop.second;
-      logPropValRedacted = true;
     }
     else if (prop.first == PROP_MANIFEST_UPD_PARAMS)
     {
+      LogProp(prop.first, prop.second);
       // Should not happen that an add-on try to force the old "full" parameter value
       // of PROP_MANIFEST_UPD_PARAM here but better verify it, in the future this can be removed
       if (prop.second == "full")
@@ -147,30 +155,37 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     }
     else if (prop.first == PROP_MANIFEST_PARAMS)
     {
+      LogProp(prop.first, prop.second);
       m_manifestParams = prop.second;
     }
     else if (prop.first == PROP_MANIFEST_HEADERS)
     {
+      LogProp(prop.first, prop.second);
       ParseHeaderString(m_manifestHeaders, prop.second);
     }
     else if (prop.first == PROP_STREAM_PARAMS)
     {
+      LogProp(prop.first, prop.second);
       m_streamParams = prop.second;
     }
     else if (prop.first == PROP_STREAM_HEADERS)
     {
+      LogProp(prop.first, prop.second);
       ParseHeaderString(m_streamHeaders, prop.second);
     }
     else if (prop.first == PROP_AUDIO_LANG_ORIG)
     {
+      LogProp(prop.first, prop.second);
       m_audioLanguageOrig = prop.second;
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
+      LogProp(prop.first, prop.second);
       m_playTimeshiftBuffer = STRING::CompareNoCase(prop.second, "true");
     }
     else if (prop.first == PROP_LIVE_DELAY) //! @todo: deprecated to be removed on Kodi 23
     {
+      LogProp(prop.first, prop.second);
       LOG::Log(LOGWARNING,
                "Warning \"inputstream.adaptive.live_delay\" property is deprecated and"
                " will be removed next Kodi version, use \"inputstream.adaptive.manifest_config\""
@@ -178,21 +193,19 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
 
       m_manifestConfig.liveDelay = STRING::ToUint64(prop.second);
     }
-    else if (prop.first == PROP_PRE_INIT_DATA)
-    {
-      m_drmPreInitData = prop.second;
-      logPropValRedacted = true;
-    }
     else if (prop.first == PROP_STREAM_SELECTION_TYPE)
     {
+      LogProp(prop.first, prop.second);
       m_chooserProps.m_chooserType = prop.second;
     }
     else if (prop.first == PROP_CHOOSER_BANDWIDTH_MAX)
     {
+      LogProp(prop.first, prop.second);
       m_chooserProps.m_bandwidthMax = static_cast<uint32_t>(std::stoi(prop.second));
     }
     else if (prop.first == PROP_CHOOSER_RES_MAX)
     {
+      LogProp(prop.first, prop.second);
       std::pair<int, int> res;
       if (STRING::GetMapValue(ADP::SETTINGS::RES_CONV_LIST, prop.second, res))
         m_chooserProps.m_resolutionMax = res;
@@ -201,6 +214,7 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     }
     else if (prop.first == PROP_CHOOSER_RES_SECURE_MAX)
     {
+      LogProp(prop.first, prop.second);
       std::pair<int, int> res;
       if (STRING::GetMapValue(ADP::SETTINGS::RES_CONV_LIST, prop.second, res))
         m_chooserProps.m_resolutionSecureMax = res;
@@ -209,55 +223,57 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     }
     else if (prop.first == PROP_CONFIG)
     {
+      LogProp(prop.first, prop.second);
       ParseConfig(prop.second);
     }
     else if (prop.first == PROP_MANIFEST_CONFIG)
     {
+      LogProp(prop.first, prop.second);
       ParseManifestConfig(prop.second);
     }
     else if (prop.first == PROP_DRM && !prop.second.empty())
     {
+      LogProp(prop.first, prop.second, true);
       if (!ParseDrmConfig(prop.second))
         LOG::LogF(LOGERROR, "Cannot parse \"%s\" property, wrong or malformed data.",
           prop.first.c_str());
-
-      logPropValRedacted = true;
     }
     else if (prop.first == PROP_DRM_LEGACY && !prop.second.empty())
     {
+      LogProp(prop.first, prop.second, true);
       if (!ParseDrmLegacyConfig(prop.second))
         LOG::LogF(LOGERROR, "Cannot parse \"%s\" property, wrong or malformed data.",
                   prop.first.c_str());
-
-      logPropValRedacted = true;
     }
     else
     {
+      // Ignore legacy DRM props, because has been parsed separately
+      if (prop.first == PROP_LICENSE_TYPE || prop.first == PROP_LICENSE_FLAGS ||
+          prop.first == PROP_LICENSE_DATA || prop.first == PROP_PRE_INIT_DATA ||
+          prop.first == PROP_SERVER_CERT || prop.first == PROP_LICENSE_KEY)
+      {
+        continue;
+      }
       LOG::Log(LOGWARNING, "Property found \"%s\" is not supported", prop.first.c_str());
       continue;
     }
-
-    LOG::Log(LOGDEBUG, "Property found \"%s\" value: %s", prop.first.c_str(),
-             logPropValRedacted ? "[redacted]" : prop.second.c_str());
   }
 
-  if (!licenseUrl.empty())
+  if (!licenseUrl.empty() && !m_drmConfigs.empty()) //! @todo: deprecated to be removed on Kodi 23
   {
-    // PROP_LICENSE_URL replace the license url contained into PROP_LICENSE_KEY
-    const size_t pipePos = m_licenseKey.find('|');
-    if (pipePos == std::string::npos)
-      m_licenseKey = licenseUrl;
+    // PROP_LICENSE_URL replace the license url on the DRM license config
+    if (m_drmConfigs.size() > 1)
+    {
+      LOG::Log(LOGERROR, "The \"inputstream.adaptive.license_url\" and "
+                         "\"inputstream.adaptive.license_url_append\" properties\n"
+                         "cannot be used with multiple DRM configurations,\n"
+                         "Please set a single DRM configuration.");
+    }
     else
-      m_licenseKey.replace(0, pipePos, licenseUrl);
-  }
-
-  if (m_licenseType == DRM::KS_CLEARKEY && !m_licenseKey.empty())
-  {
-    LOG::Log(
-      LOGERROR,
-      "The \"inputstream.adaptive.license_key\" property cannot be used to configure ClearKey DRM,\n"
-      "use \"inputstream.adaptive.drm_legacy\" instead.\nSee Wiki integration page for more details.");
-    m_licenseKey.clear();
+    {
+      auto first = m_drmConfigs.begin();
+      first->second.license.serverUrl = licenseUrl;
+    }
   }
 }
 
@@ -348,14 +364,215 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& dat
   }
 }
 
-//! @todo: inputstream.adaptive.drm in future will be used to set configs of all DRM's
-//!        and so will replace old props such as: license_type, license_key, license_data, etc...
+void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
+    const std::map<std::string, std::string>& props)
+{
+  // Translate data from old ISA properties to the new DRM config
+
+  if (!STRING::KeyExists(props, PROP_LICENSE_TYPE) && !STRING::KeyExists(props, PROP_LICENSE_KEY))
+    return;
+  /*
+   *! @todo: TO UNCOMMENT WHEN DRM AUTO-SELECTION WILL BE FULL IMPLEMENTED
+   *
+  LOG::Log(LOGWARNING, "<<<<<<<<< DEPRECATION NOTICE >>>>>>>>>\n"
+                       "DEPRECATED PROPERTIES HAS BEEN USED TO SET THE DRM CONFIGURATION.\n"
+                       "THE FOLLOWING PROPERTIES WILL BE REMOVED FROM FUTURE KODI VERSIONS:\n"
+                       "- inputstream.adaptive.license_type\n"
+                       "- inputstream.adaptive.license_key\n"
+                       "- inputstream.adaptive.license_data\n"
+                       "- inputstream.adaptive.license_flags\n"
+                       "- inputstream.adaptive.server_certificate\n"
+                       "- inputstream.adaptive.pre_init_data\n"
+                       "YOU SHOULD CONSIDER MIGRATING TO THE NEW PROPERTIES:\n"
+                       "- inputstream.adaptive.drm\n"
+                       "- inputstream.adaptive.drm_legacy\n"
+                       "FOR MORE INFO, PLEASE READ THE WIKI PAGE: "
+                       "https://github.com/xbmc/inputstream.adaptive/wiki/Integration-DRM");
+  */
+  std::string drmKeySystem{DRM::KS_NONE};
+  if (STRING::KeyExists(props, PROP_LICENSE_TYPE))
+    drmKeySystem = props.at(PROP_LICENSE_TYPE.data());
+
+  LogProp(PROP_LICENSE_TYPE, drmKeySystem);
+
+  if (!DRM::IsValidKeySystem(drmKeySystem))
+  {
+    LOG::LogF(LOGERROR,
+              "Cannot parse DRM configuration, unknown key system \"%s\" on license_type property",
+              drmKeySystem.c_str());
+    return;
+  }
+
+  if (drmKeySystem == DRM::KS_CLEARKEY && STRING::KeyExists(props, PROP_LICENSE_KEY))
+  {
+    LOG::Log(LOGERROR, "The \"inputstream.adaptive.license_key\" property cannot be used to "
+                       "configure ClearKey DRM,\n"
+                       "use \"inputstream.adaptive.drm_legacy\" or \"inputstream.adaptive.drm\" "
+                       "instead.\nSee Wiki integration page for more details.");
+    return;
+  }
+
+  // Create a DRM configuration for the specified key system
+  DrmCfg& drmCfg = m_drmConfigs[drmKeySystem];
+  drmCfg.isNewConfig = false;
+
+  // As legacy behaviour its expected to force the unique drm configuration available
+  drmCfg.priority = 1;
+
+  // Parse DRM properties
+  std::string propValue;
+
+  if (STRING::GetMapValue(props, PROP_LICENSE_FLAGS, propValue))
+  {
+    LogProp(PROP_LICENSE_FLAGS, propValue);
+
+    if (propValue.find("persistent_storage") != std::string::npos)
+      drmCfg.isPersistentStorage = true;
+    if (propValue.find("force_secure_decoder") != std::string::npos)
+      drmCfg.isSecureDecoderEnabled = true;
+  }
+
+  if (STRING::GetMapValue(props, PROP_LICENSE_DATA, propValue))
+  {
+    LogProp(PROP_LICENSE_DATA, propValue, true);
+    drmCfg.initData = propValue;
+  }
+
+  if (STRING::GetMapValue(props, PROP_PRE_INIT_DATA, propValue))
+  {
+    LogProp(PROP_PRE_INIT_DATA, propValue, true);
+    drmCfg.preInitData = propValue;
+  }
+
+  // Parse DRM license properties
+
+  if (STRING::GetMapValue(props, PROP_SERVER_CERT, propValue))
+  {
+    LogProp(PROP_SERVER_CERT, propValue, true);
+    drmCfg.license.serverCert = propValue;
+  }
+
+  if (STRING::GetMapValue(props, PROP_LICENSE_KEY, propValue))
+  {
+    LogProp(PROP_LICENSE_KEY, propValue, true);
+
+    std::vector<std::string> fields = STRING::SplitToVec(propValue, '|');
+    size_t fieldCount = fields.size();
+
+    if (drmKeySystem == DRM::KS_NONE)
+    {
+      // We assume its HLS AES-128 encrypted case
+      // where "inputstream.adaptive.license_key" have different fields
+
+      // Field 1: HTTP request params to append to key URL
+      if (fieldCount >= 1)
+        drmCfg.license.reqParams = fields[0];
+
+      // Field 2: HTTP request headers
+      if (fieldCount >= 2)
+        ParseHeaderString(drmCfg.license.reqHeaders, fields[1]);
+    }
+    else
+    {
+      // Field 1: License server url
+      if (fieldCount >= 1)
+        drmCfg.license.serverUrl = fields[0];
+
+      // Field 2: HTTP request headers
+      if (fieldCount >= 2)
+        ParseHeaderString(drmCfg.license.reqHeaders, fields[1]);
+
+      // Field 3: HTTP request data (POST request)
+      if (fieldCount >= 3)
+        drmCfg.license.reqData = fields[2];
+
+      // Field 4: HTTP response data (license wrappers)
+      if (fieldCount >= 4)
+      {
+        bool isJsonWrapper{false};
+        std::string jsonWrapperCfg;
+        std::string_view wrapperPrefix = fields[3];
+
+        if (wrapperPrefix.empty() || wrapperPrefix == "R")
+        {
+          // Raw, no wrapper, no-op
+        }
+        else if (wrapperPrefix == "B")
+        {
+          drmCfg.license.unwrapper = "base64";
+        }
+        else if (STRING::StartsWith(wrapperPrefix, "BJ"))
+        {
+          isJsonWrapper = true;
+          drmCfg.license.unwrapper = "base64+json";
+          jsonWrapperCfg = wrapperPrefix.substr(2);
+        }
+        else if (STRING::StartsWith(wrapperPrefix, "JB"))
+        {
+          isJsonWrapper = true;
+          drmCfg.license.unwrapper = "json+base64";
+          jsonWrapperCfg = wrapperPrefix.substr(2);
+        }
+        else if (STRING::StartsWith(wrapperPrefix, "J"))
+        {
+          isJsonWrapper = true;
+          drmCfg.license.unwrapper = "json";
+          jsonWrapperCfg = wrapperPrefix.substr(1);
+        }
+        else if (STRING::StartsWith(wrapperPrefix, "HB"))
+        {
+          // HB has been removed, we have no info about this use case
+          // if someone will open an issue we can try get more info for the reimplementation
+          //! @todo: if no feedbacks in future this can be removed, see also todo on decrypters/Helpers.cpp
+          LOG::Log(LOGERROR, "The support for \"HB\" parameter in the \"Response data\" field of "
+                             "license_key property has been removed. If this is a requirement for "
+                             "your video service, let us know by opening an issue on GitHub.");
+        }
+        else
+        {
+          LOG::Log(
+              LOGERROR,
+              "Unknown \"%s\" parameter in the \"response data\" field of license_key property",
+              wrapperPrefix.data());
+        }
+
+        // Parse JSON configuration
+        if (isJsonWrapper)
+        {
+          if (jsonWrapperCfg.empty())
+          {
+            LOG::Log(LOGERROR, "Missing JSON dict key names in the \"response data\" field of "
+                               "license_key property");
+          }
+          else
+          {
+            // Expected format as "KeyNameForData;KeyNameForHDCP" with exact order
+            std::vector<std::string> jPaths = STRING::SplitToVec(jsonWrapperCfg, ';');
+            // Position 1: The dict Key name to get license data
+            if (jPaths.size() >= 1)
+            {
+              drmCfg.license.unwrapperParams["path_data_traverse"] = "true";
+              drmCfg.license.unwrapperParams["path_data"] = jPaths[0];
+            }
+
+            // Position 2: The dict Key name to get HDCP value (optional)
+            if (jPaths.size() >= 2)
+            {
+              drmCfg.license.unwrapperParams["path_hdcp_traverse"] = "true";
+              drmCfg.license.unwrapperParams["path_hdcp"] = jPaths[1];
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
 {
   /* Expected JSON structure:
    * { "keysystem_name" : { "persistent_storage" : bool,
-   *                        "force_secure_decoder" : bool,
-   *                        "streams_pssh_data" : str,
+   *                        "init_data" : str,
    *                        "pre_init_data" : str,
    *                        "priority": int, 
    *                        "license": dict,
@@ -376,14 +593,11 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
   {
     const char* keySystem = jChildObj.name.GetString();
 
-    if (!DRM::IsKeySystemSupported(keySystem))
+    if (!DRM::IsValidKeySystem(keySystem))
     {
       LOG::LogF(LOGERROR, "Ignored unknown key system \"%s\" on DRM property", keySystem);
       continue;
     }
-
-    //! @todo: m_licenseType temporarily assigned, to remove with the DRM config rework
-    m_licenseType = keySystem;
 
     DrmCfg& drmCfg = m_drmConfigs[keySystem];
     auto& jDictVal = jChildObj.value;
@@ -395,15 +609,82 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       continue;
     }
 
+    // Parse main DRM config
+
+    LogDrmJsonDictKeys("main", jDictVal, keySystem);
+
+    if (jDictVal.HasMember("persistent_storage") && jDictVal["persistent_storage"].IsBool())
+      drmCfg.isPersistentStorage = jDictVal["persistent_storage"].GetBool();
+
+    if (jDictVal.HasMember("secure_decoder") && jDictVal["secure_decoder"].IsBool())
+      drmCfg.isSecureDecoderEnabled = jDictVal["secure_decoder"].GetBool();
+
+    if (jDictVal.HasMember("init_data") && jDictVal["init_data"].IsString())
+      drmCfg.initData = jDictVal["init_data"].GetString();
+
+    if (jDictVal.HasMember("pre_init_data") && jDictVal["pre_init_data"].IsString())
+      drmCfg.preInitData = jDictVal["pre_init_data"].GetString();
+
+    if (jDictVal.HasMember("optional_key_req_params") &&
+        jDictVal["optional_key_req_params"].IsObject())
+    {
+      for (auto& jPairOptKeyReqParam :
+           jDictVal["optional_key_req_params"].GetObject()) // Iterate JSON dict
+      {
+        if (jPairOptKeyReqParam.name.IsString() && jPairOptKeyReqParam.value.IsString())
+        {
+          drmCfg.optKeyReqParams.emplace(jPairOptKeyReqParam.name.GetString(),
+                                         jPairOptKeyReqParam.value.GetString());
+        }
+      }
+    }
+
+    if (jDictVal.HasMember("priority") && jDictVal["priority"].IsUint())
+      drmCfg.priority = jDictVal["priority"].GetUint();
+
+    // Parse license DRM config
+
     if (jDictVal.HasMember("license") && jDictVal["license"].IsObject())
     {
       auto& jDictLic = jDictVal["license"];
 
+      LogDrmJsonDictKeys("license", jDictLic, keySystem);
+
+      if (jDictLic.HasMember("server_certificate") && jDictLic["server_certificate"].IsString())
+        drmCfg.license.serverCert = jDictLic["server_certificate"].GetString();
+
       if (jDictLic.HasMember("server_url") && jDictLic["server_url"].IsString())
         drmCfg.license.serverUrl = jDictLic["server_url"].GetString();
 
+      if (jDictLic.HasMember("use_http_get_request") && jDictLic["use_http_get_request"].IsBool())
+        drmCfg.license.isHttpGetRequest = jDictLic["use_http_get_request"].GetBool();
+
       if (jDictLic.HasMember("req_headers") && jDictLic["req_headers"].IsString())
         ParseHeaderString(drmCfg.license.reqHeaders, jDictLic["req_headers"].GetString());
+
+      if (jDictLic.HasMember("req_params") && jDictLic["req_params"].IsString())
+        drmCfg.license.reqParams = jDictLic["req_params"].GetString();
+
+      if (jDictLic.HasMember("req_data") && jDictLic["req_data"].IsString())
+        drmCfg.license.reqData = jDictLic["req_data"].GetString();
+
+      if (jDictLic.HasMember("wrapper") && jDictLic["wrapper"].IsString())
+        drmCfg.license.wrapper = STRING::ToLower(jDictLic["wrapper"].GetString());
+
+      if (jDictLic.HasMember("unwrapper") && jDictLic["unwrapper"].IsString())
+        drmCfg.license.unwrapper = STRING::ToLower(jDictLic["unwrapper"].GetString());
+
+      if (jDictLic.HasMember("unwrapper_params") && jDictLic["unwrapper_params"].IsObject())
+      {
+        for (auto& jPairUnwrap : jDictLic["unwrapper_params"].GetObject()) // Iterate JSON dict
+        {
+          if (jPairUnwrap.name.IsString() && jPairUnwrap.value.IsString())
+          {
+            drmCfg.license.unwrapperParams.emplace(jPairUnwrap.name.GetString(),
+                                                   jPairUnwrap.value.GetString());
+          }
+        }
+      }
 
       if (jDictLic.HasMember("keyids") && jDictLic["keyids"].IsObject())
       {
@@ -415,7 +696,7 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       }
     }
 
-    //! @todo: temporary support only one DRM config
+    //! @todo: temporary support only one DRM config, must be reworked the CSession for DRM auto-selection
     break;
   }
 
@@ -450,25 +731,25 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
   if (pipedCfg.size() > 2)
     licenseHeaders = STRING::Trim(pipedCfg[2]);
 
-  if (!DRM::IsKeySystemSupported(keySystem))
+  if (!DRM::IsValidKeySystem(keySystem))
   {
     LOG::LogF(LOGERROR, "Unknown key system \"%s\" on DRM legacy property", keySystem.data());
     return false;
   }
 
-  m_licenseType = keySystem;
-  std::string licenseUrl;
+  DrmCfg drmCfg;
+  // As legacy behaviour its expected to force the unique drm configuration available
+  drmCfg.priority = 1;
 
   if (!licenseStr.empty())
   {
     if (URL::IsValidUrl(licenseStr)) // License server URL
     {
-      licenseUrl = licenseStr;
+      drmCfg.license.serverUrl = licenseStr;
     }
     else // Assume are keyid's for ClearKey DRM
     {
       // Expected TEXT structure: "kid1:key1,kid2:key2,..."
-      DrmCfg& drmCfg = m_drmConfigs[keySystem];
       std::vector<std::string> keyIdPair = STRING::SplitToVec(licenseStr, ',');
 
       for (const std::string& keyPairStr : keyIdPair)
@@ -484,31 +765,9 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
     }
   }
 
-  if (keySystem == DRM::KS_CLEARKEY)
-  {
-    DrmCfg& drmCfg = m_drmConfigs[keySystem];
+  ParseHeaderString(drmCfg.license.reqHeaders, licenseHeaders);
 
-    drmCfg.license.serverUrl = licenseUrl;
-    ParseHeaderString(drmCfg.license.reqHeaders, licenseHeaders);
-    // Until the future DRM config rework only the ClearKey DRM use the new properties
-    // so return now to keep m_licenseKey empty
-    return true;
-  }
-  else if (licenseHeaders.empty())
-  {
-    //! @todo: temporary stored default DRM values here just for convenience
-    //! since we need to construct the "license key" string
-    //! these values are stored also on DRM's implementation,
-    //! they must be placed in an appropriate place with the future DRM config rework
-    if (keySystem == DRM::KS_WIDEVINE)
-      licenseHeaders = "Content-Type=application%2Foctet-stream";
-    else if (keySystem == DRM::KS_PLAYREADY)
-      licenseHeaders = "Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%"
-                       "2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense";
-    else if (keySystem == DRM::KS_WISEPLAY)
-      licenseHeaders = "Content-Type=application/json";
-  }
+  m_drmConfigs[keySystem] = drmCfg;
 
-  m_licenseKey = licenseUrl + "|" + licenseHeaders + "|R{SSM}|R";
   return true;
 }

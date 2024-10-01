@@ -132,5 +132,14 @@ bool QueryAttrib(pugi::xml_node& node, std::string_view name, uint32_t& value);
  */
 bool QueryAttrib(pugi::xml_node& node, std::string_view name, uint64_t& value);
 
+/*!
+ * \brief Get value from an unknown XML nodes path,
+ *        then traverse all even nested XML tags to search for the tag name.
+ * \param node The XML node where find the tag
+ * \param tagName The tag name to search for
+ * \return The node if found, otherwise empty object.
+ */
+const pugi::xml_node GetNodeTraverseTags(pugi::xml_node node, const std::string& tagName);
+
 } // namespace XML
 }

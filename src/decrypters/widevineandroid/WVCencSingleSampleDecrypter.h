@@ -26,14 +26,13 @@ class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypterA : public Adaptive_CencSingleS
 public:
   CWVCencSingleSampleDecrypterA(IWVCdmAdapter<jni::CJNIMediaDrm>* cdmAdapter,
                                 std::vector<uint8_t>& pssh,
-                                std::string_view optionalKeyParameter,
                                 const std::vector<uint8_t>& defaultKeyId);
   virtual ~CWVCencSingleSampleDecrypterA();
 
   bool StartSession(bool skipSessionMessage) { return KeyUpdateRequest(true, skipSessionMessage); };
 
   virtual const char* GetSessionId() override;
-  std::vector<char> GetChallengeData();
+  std::vector<uint8_t> GetChallengeData();
   virtual bool HasLicenseKey(const std::vector<uint8_t>& keyId);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
@@ -73,9 +72,9 @@ public:
 
 private:
   bool ProvisionRequest();
-  bool GetKeyRequest(std::vector<char>& keyRequestData);
+  bool GetKeyRequest(std::vector<uint8_t>& keyRequestData);
   bool KeyUpdateRequest(bool waitForKeys, bool skipSessionMessage);
-  bool SendSessionMessage(const std::vector<char>& keyRequestData);
+  bool SendSessionMessage(const std::vector<uint8_t>& challenge);
 
   IWVCdmAdapter<jni::CJNIMediaDrm>* m_cdmAdapter;
 
@@ -86,7 +85,7 @@ private:
   std::string m_sessionId;
   std::vector<char> m_sessionIdVec;
   std::vector<char> m_keySetId;
-  std::vector<char> m_keyRequestData;
+  std::vector<uint8_t> m_keyRequestData;
 
   bool m_isProvisioningRequested;
   bool m_isKeyUpdateRequested;

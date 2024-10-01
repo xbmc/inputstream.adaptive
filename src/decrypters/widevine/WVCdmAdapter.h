@@ -11,6 +11,7 @@
 #include "CdmBuffer.h"
 #include "cdm/media/cdm/cdm_adapter.h"
 #include "decrypters/HelperWv.h"
+#include "decrypters/IDecrypter.h"
 
 #include <list>
 #include <mutex>
@@ -25,10 +26,7 @@ class ATTR_DLL_LOCAL CWVCdmAdapter : public media::CdmAdapterClient,
                                      public IWVCdmAdapter<media::CdmAdapter>
 {
 public:
-  CWVCdmAdapter(std::string_view licenseURL,
-                const std::vector<uint8_t>& serverCert,
-                const uint8_t config,
-                CWVDecrypter* host);
+  CWVCdmAdapter(const DRM::Config& config, CWVDecrypter* host);
   virtual ~CWVCdmAdapter();
 
   // media::CdmAdapterClient interface methods
@@ -44,7 +42,7 @@ public:
   // IWVCdmAdapter interface methods
 
   std::shared_ptr<media::CdmAdapter> GetCDM() override { return m_cdmAdapter; }
-  const std::string& GetLicenseUrl() override { return m_licenseUrl; }
+  const DRM::Config& GetConfig() override;
   void SetCodecInstance(void* instance) override;
   void ResetCodecInstance() override;
   std::string_view GetKeySystem() override;
@@ -57,8 +55,8 @@ public:
   void NotifyObservers(const CdmMessage& message) override;
 
 private:
+  DRM::Config m_config;
   std::shared_ptr<media::CdmAdapter> m_cdmAdapter;
-  std::string m_licenseUrl;
   kodi::addon::CInstanceVideoCodec* m_codecInstance{nullptr};
   CWVDecrypter* m_host;
   std::list<IWVObserver*> m_observers;

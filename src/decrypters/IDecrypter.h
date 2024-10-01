@@ -9,7 +9,9 @@
 #pragma once
 
 #include <cstdint>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include <kodi/addon-instance/VideoCodec.h>
@@ -44,6 +46,48 @@ struct DecrypterCapabilites
   int hdcpLimit{0}; // If set (> 0) streams that are greater than the multiplication of "Width x Height" cannot be played.
 };
 
+struct Config
+{
+  // To enable persistent state CDM behaviour
+  bool isPersistentStorage{false};
+  // Optional parameters to make the CDM key request (CDM specific parameters)
+  std::map<std::string, std::string> optKeyReqParams;
+
+  struct License
+  {
+    // The license server certificate
+    std::vector<uint8_t> serverCert;
+    // The license server url
+    std::string serverUrl;
+    // To force an HTTP GET request, instead that POST request
+    bool isHttpGetRequest{false};
+    // HTTP request headers
+    std::map<std::string, std::string> reqHeaders;
+    // HTTP parameters to append to the url
+    std::string reqParams;
+    // Custom license data encoded as base64 to make the HTTP license request
+    std::string reqData;
+    // License data wrappers
+    // Multiple wrappers supported e.g. "base64,json", the name order defines the order
+    // in which data will be wrapped, (1) base64 --> (2) url
+    std::string wrapper;
+    // License data unwrappers
+    // Multiple un-wrappers supported e.g. "base64,json", the name order defines the order
+    // in which data will be unwrapped, (1) base64 --> (2) json
+    std::string unwrapper;
+    // License data unwrappers parameters
+    std::map<std::string, std::string> unwrapperParams;
+    // Clear key's for ClearKey DRM (KID / KEY pair)
+    std::map<std::string, std::string> keys;
+  };
+
+  // The license configuration
+  License license;
+  // Specifies if has been parsed the new DRM config ("drm" or "drm_legacy" kodi property)
+  //! @todo: to remove when deprecated DRM properties will be removed
+  bool isNewConfig{true};
+};
+
 class IDecrypter
 {
 public:
@@ -66,19 +110,14 @@ public:
 
   /**
    * \brief Initialise the DRM system
-   * \param licenseURL The license URL to contact if applicable
-   * \param serverCertificate Server certificate to supply if applicable
-   * \param config Flags to be passed to the decrypter
+   * \param config The DRM configuration
    * \return true on success 
    */
-  virtual bool OpenDRMSystem(std::string_view licenseURL,
-                             const std::vector<uint8_t>& serverCertificate,
-                             const uint8_t config) = 0;
+  virtual bool OpenDRMSystem(const DRM::Config& config) = 0;
   
   /**
    * \brief Creates a Single Sample Decrypter for decrypting content 
    * \param initData The data for initialising the decrypter (e.g. PSSH)
-   * \param optionalKeyParameter License key data passed into IA as parameter
    * \param defaultkeyid The default KeyID to initialise with
    * \param licenseUrl The license server URL
    * \param skipSessionMessage False for preinitialisation case
@@ -87,7 +126,6 @@ public:
    */
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       std::vector<uint8_t>& initData,
-      std::string_view optionalKeyParameter,
       const std::vector<uint8_t>& defaultKeyId,
       std::string_view licenseUrl,
       bool skipSessionMessage,

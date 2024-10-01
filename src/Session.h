@@ -236,7 +236,7 @@ public:
   /*! \brief Get the type crypto key system in use
    *  \return enum of crypto key system
    */
-  STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem() const;
+  STREAM_CRYPTO_KEY_SYSTEM GetCryptoKeySystem(std::string_view keySystem) const;
 
   /*! \brief Check if there is an initial discontinuity sequence number
    *  \return True if there is an initial discontinuity sequence number
@@ -343,7 +343,6 @@ protected:
 
 private:
   std::string m_manifestUrl;
-  std::vector<uint8_t> m_serverCertificate;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   std::shared_ptr<DRM::IDecrypter> m_decrypter;
 
@@ -366,6 +365,5 @@ private:
   uint64_t m_chapterStartTime{0}; // In STREAM_TIME_BASE
   double m_chapterSeekTime{0.0}; // In seconds
   uint8_t m_mediaTypeMask{0};
-  uint8_t m_drmConfig{0};
 };
 } // namespace SESSION

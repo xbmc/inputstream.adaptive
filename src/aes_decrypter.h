@@ -24,7 +24,8 @@
 class ATTR_DLL_LOCAL AESDecrypter : public IAESDecrypter
 {
 public:
-  AESDecrypter(std::string_view licenseKey) : m_licenseKey(licenseKey) {}
+  AESDecrypter() = default;
+  // AESDecrypter(std::string_view licenseKey) : m_licenseKey(licenseKey) {}
   virtual ~AESDecrypter() = default;
 
   void decrypt(const AP4_UI08* aes_key,
@@ -36,9 +37,9 @@ public:
                bool lastChunk);
   std::string convertIV(const std::string& input);
   void ivFromSequence(uint8_t* buffer, uint64_t sid);
-  const std::string& getLicenseKey() const { return m_licenseKey; };
-  bool RenewLicense(const std::string& pluginUrl);
+  // const std::string& getLicenseKey() const { return m_licenseKey; };
+  // bool RenewLicense(const std::string& pluginUrl);
 
-private:
-  std::string m_licenseKey;
+  // private:
+  //   std::string m_licenseKey;
 };

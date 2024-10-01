@@ -19,7 +19,7 @@ public:
   CJNIMediaDrmProvisionRequest();
   CJNIMediaDrmProvisionRequest(const jni::jhobject &object) : CJNIBase(object) {};
 
-  std::vector<char> getData() const;
+  std::vector<uint8_t> getData() const;
   std::string getDefaultUrl() const;
 };
 

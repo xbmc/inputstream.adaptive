@@ -21,6 +21,30 @@ using namespace UTILS::XML;
 using namespace kodi::tools;
 using namespace pugi;
 
+namespace
+{
+const pugi::xml_node TraverseTags(const pugi::xml_node node, const std::string& tagName)
+{
+  if (node.name() == tagName)
+  {
+    return node;
+  }
+
+  // Recursively search the child nodes
+  for (pugi::xml_node child = node.first_child(); child; child = child.next_sibling())
+  {
+    const pugi::xml_node found_node = TraverseTags(child, tagName);
+    if (found_node)
+    {
+      return found_node;
+    }
+  }
+
+  // Tag not found
+  return pugi::xml_node();
+}
+} // unnamed namespace
+
 double UTILS::XML::ParseDate(std::string_view timeStr,
                              double fallback /* = std::numeric_limits<double>::max() */)
 {
@@ -172,4 +196,9 @@ bool UTILS::XML::QueryAttrib(pugi::xml_node& node, std::string_view name, uint64
     return true;
   }
   return false;
+}
+
+const pugi::xml_node UTILS::XML::GetNodeTraverseTags(pugi::xml_node node, const std::string& tagName)
+{
+  return TraverseTags(node, tagName);
 }

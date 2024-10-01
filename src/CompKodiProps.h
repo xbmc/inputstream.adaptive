@@ -64,15 +64,54 @@ struct ManifestConfig
 
 struct DrmCfg
 {
+  // Priority over other DRM configurations, a value of 0 means unset
+  std::optional<uint32_t> priority;
+  // Custom init data encoded as base64 to make the CDM initialization
+  std::string initData;
+  // Pre-init data encoded as base64 to make pre-initialization of Widevine CDM
+  // The data is represented as a string of base64 data splitted by a pipe char
+  // "{PSSH as base64}|{KID as base64}"
+  std::string preInitData;
+  // To enable persistent state CDM behaviour
+  bool isPersistentStorage{false};
+  // To force enable/disable the secure decoder (it could be overrided)
+  std::optional<bool> isSecureDecoderEnabled;
+  // Optional parameters to make the CDM key request (CDM specific parameters)
+  std::map<std::string, std::string> optKeyReqParams;
+
   struct License
   {
+    // The license server certificate encoded as base64
+    std::string serverCert;
+    // The license server url
     std::string serverUrl;
+    // To force an HTTP GET request, instead that POST request
+    bool isHttpGetRequest{false};
+    // HTTP request headers
     std::map<std::string, std::string> reqHeaders;
-
-    std::map<std::string, std::string> keys; // Clearkeys kid / key
+    // HTTP parameters to append to the url
+    std::string reqParams;
+    // Custom license data encoded as base64 to make the HTTP license request
+    std::string reqData;
+    // License data wrappers
+    // Multiple wrappers supported e.g. "base64,json", the name order defines the order
+    // in which data will be wrapped, (1) base64 --> (2) url
+    std::string wrapper;
+    // License data unwrappers
+    // Multiple un-wrappers supported e.g. "base64,json", the name order defines the order
+    // in which data will be unwrapped, (1) base64 --> (2) json
+    std::string unwrapper;
+    // License data unwrappers parameters
+    std::map<std::string, std::string> unwrapperParams;
+    // Clear key's for ClearKey DRM (KID / KEY pair)
+    std::map<std::string, std::string> keys;
   };
 
-  License license; // The license configuration
+  // The license configuration
+  License license;
+  // Specifies if has been parsed the new DRM config ("drm" or "drm_legacy" kodi property)
+  //! @todo: to remove when deprecated DRM properties will be removed
+  bool isNewConfig{true};
 };
 
 class ATTR_DLL_LOCAL CCompKodiProps
@@ -80,16 +119,6 @@ class ATTR_DLL_LOCAL CCompKodiProps
 public:
   CCompKodiProps(const std::map<std::string, std::string>& props);
   ~CCompKodiProps() = default;
-
-  std::string_view GetLicenseType() const { return m_licenseType; }
-  std::string_view GetLicenseKey() const { return m_licenseKey; }
-  // \brief Get custom PSSH initialization license data
-  std::string_view GetLicenseData() const { return m_licenseData; }
-
-  bool IsLicensePersistentStorage() const { return m_isLicensePersistentStorage; }
-  bool IsLicenseForceSecDecoder() const { return m_isLicenseForceSecureDecoder; }
-
-  std::string_view GetServerCertificate() const { return m_serverCertificate; }
 
   // \brief HTTP parameters used to download manifest updates
   std::string GetManifestUpdParams() const { return m_manifestUpdParams; }
@@ -109,12 +138,6 @@ public:
   // \brief Specify to start playing a LIVE stream from the beginning of the buffer instead of its end
   bool IsPlayTimeshift() const { return m_playTimeshiftBuffer; }
 
-  /*
-   * \brief Get data to "pre-initialize" the DRM, if set is represented as a string
-   *        of base64 data splitted by a pipe char as: "{PSSH as base64}|{KID as base64}".
-   */
-  std::string_view GetDrmPreInitData() const { return m_drmPreInitData; }
-
   // \brief Specifies the chooser properties that will override XML settings
   const ChooserProps& GetChooserProps() const { return m_chooserProps; }
 
@@ -124,8 +147,19 @@ public:
   // \brief Specifies the manifest configuration
   const ManifestConfig& GetManifestConfig() const { return m_manifestConfig; }
 
+
+  //! @todo: temporary method, for future rework
+  const std::string GetDrmKeySystem()
+  {
+    return m_drmConfigs.empty() ? "" : m_drmConfigs.begin()->first;
+  }
+  //! @todo: temporary method, for future rework
+  const DrmCfg& GetDrmConfig() { return m_drmConfigs[GetDrmKeySystem()]; }
+
+
   // \brief Get DRM configuration for specified keysystem, if not found will return default values
   const DrmCfg& GetDrmConfig(const std::string& keySystem) { return m_drmConfigs[keySystem]; }
+  const DrmCfg& GetDrmConfig(std::string_view keySystem) { return m_drmConfigs[std::string(keySystem)]; }
 
   const std::map<std::string, DrmCfg>& GetDrmConfigs() const { return m_drmConfigs; }
 
@@ -133,15 +167,10 @@ private:
   void ParseConfig(const std::string& data);
   void ParseManifestConfig(const std::string& data);
 
+  void ParseDrmOldProps(const std::map<std::string, std::string>& props);
   bool ParseDrmConfig(const std::string& data);
   bool ParseDrmLegacyConfig(const std::string& data);
 
-  std::string m_licenseType;
-  std::string m_licenseKey;
-  std::string m_licenseData;
-  bool m_isLicensePersistentStorage{false};
-  bool m_isLicenseForceSecureDecoder{false};
-  std::string m_serverCertificate;
   std::string m_manifestUpdParams;
   std::string m_manifestParams;
   std::map<std::string, std::string> m_manifestHeaders;
@@ -149,7 +178,6 @@ private:
   std::map<std::string, std::string> m_streamHeaders;
   std::string m_audioLanguageOrig;
   bool m_playTimeshiftBuffer{false};
-  std::string m_drmPreInitData;
   ChooserProps m_chooserProps;
   Config m_config;
   ManifestConfig m_manifestConfig;

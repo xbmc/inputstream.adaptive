@@ -30,11 +30,8 @@ constexpr const char* LIBRARY_FILENAME = "libwidevinecdm.so";
 #endif
 } // unnamed namespace
 
-CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
-                             const std::vector<uint8_t>& serverCert,
-                             const uint8_t config,
-                             CWVDecrypter* host)
-  : m_licenseUrl(licenseURL), m_host(host)
+CWVCdmAdapter::CWVCdmAdapter(const DRM::Config& config, CWVDecrypter* host)
+  : m_config(config), m_host(host)
 {
   if (m_host->GetLibraryPath().empty())
   {
@@ -43,15 +40,9 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
   }
   std::string cdmPath = FILESYS::PathCombine(m_host->GetLibraryPath(), LIBRARY_FILENAME);
 
-  if (licenseURL.empty())
-  {
-    LOG::LogF(LOGERROR, "No license URL path specified");
-    return;
-  }
-
   // The license url come from license_key kodi property
   // we have to kept only the url without the parameters specified after pipe "|" char
-  std::string licUrl = m_licenseUrl;
+  std::string licUrl = m_config.license.serverUrl;
   const size_t urlPipePos = licUrl.find('|');
   if (urlPipePos != std::string::npos)
     licUrl.erase(urlPipePos);
@@ -62,10 +53,10 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
   basePath = FILESYS::PathCombine(basePath, DRM::GenerateUrlDomainHash(licUrl));
   basePath += FILESYS::SEPARATOR;
 
-  m_cdmAdapter = std::make_shared<media::CdmAdapter>(
-      "com.widevine.alpha", cdmPath, basePath,
-      media::CdmConfig(false, (config & DRM::IDecrypter::CONFIG_PERSISTENTSTORAGE) != 0),
-      dynamic_cast<media::CdmAdapterClient*>(this));
+  m_cdmAdapter =
+      std::make_shared<media::CdmAdapter>("com.widevine.alpha", cdmPath, basePath,
+                                          media::CdmConfig(false, m_config.isPersistentStorage),
+                                          dynamic_cast<media::CdmAdapterClient*>(this));
 
   if (!m_cdmAdapter->valid())
   {
@@ -74,12 +65,11 @@ CWVCdmAdapter::CWVCdmAdapter(std::string_view licenseURL,
     return;
   }
 
-  if (!serverCert.empty())
-    m_cdmAdapter->SetServerCertificate(0, serverCert.data(), serverCert.size());
-
-  // For backward compatibility: If no | is found in URL, use the most common working config
-  if (m_licenseUrl.find('|') == std::string::npos)
-    m_licenseUrl += "|Content-Type=application%2Foctet-stream|R{SSM}|";
+  const std::vector<uint8_t>& cert = m_config.license.serverCert;
+  if (!cert.empty())
+  {
+    m_cdmAdapter->SetServerCertificate(0, cert.data(), cert.size());
+  }
 
   // m_cdmAdapter->GetStatusForPolicy();
   // m_cdmAdapter->QueryOutputProtectionStatus();
@@ -133,6 +123,11 @@ cdm::Buffer* CWVCdmAdapter::AllocateBuffer(size_t sz)
     return buf;
   }
   return nullptr;
+}
+
+const DRM::Config& CWVCdmAdapter::GetConfig()
+{
+  return m_config;
 }
 
 void CWVCdmAdapter::SetCodecInstance(void* instance)

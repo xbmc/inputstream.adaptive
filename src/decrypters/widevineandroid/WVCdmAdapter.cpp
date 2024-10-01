@@ -37,21 +37,14 @@ void CMediaDrmOnEventListener::onEvent(const jni::CJNIMediaDrm& mediaDrm,
 }
 
 CWVCdmAdapterA::CWVCdmAdapterA(std::string_view keySystem,
-                               std::string_view licenseURL,
-                               const std::vector<uint8_t>& serverCert,
+                               const DRM::Config& config,
                                std::shared_ptr<jni::CJNIClassLoader> jniClassLoader,
                                CWVDecrypterA* host)
-  : m_keySystem(keySystem), m_licenseUrl(licenseURL), m_host(host)
+  : m_keySystem(keySystem), m_config(config), m_host(host)
 {
-  if (licenseURL.empty())
-  {
-    LOG::LogF(LOGERROR, "No license URL path specified");
-    return;
-  }
-
   // The license url come from license_key kodi property
   // we have to kept only the url without the parameters specified after pipe "|" char
-  std::string licUrl = m_licenseUrl;
+  std::string licUrl = m_config.license.serverUrl;
   const size_t urlPipePos = licUrl.find('|');
   if (urlPipePos != std::string::npos)
     licUrl.erase(urlPipePos);
@@ -107,9 +100,9 @@ CWVCdmAdapterA::CWVCdmAdapterA(std::string_view keySystem,
   if (m_keySystem == DRM::KS_WIDEVINE)
   {
     //m_cdmAdapter->setPropertyString("sessionSharing", "enable");
-    if (!serverCert.empty())
+    if (!m_config.license.serverCert.empty())
     {
-      m_cdmAdapter->setPropertyByteArray("serviceCertificate", serverCert);
+      m_cdmAdapter->setPropertyByteArray("serviceCertificate", m_config.license.serverCert);
     }
     else
       LoadServiceCertificate();
@@ -126,17 +119,6 @@ CWVCdmAdapterA::CWVCdmAdapterA(std::string_view keySystem,
   LOG::Log(LOGDEBUG,
            "MediaDrm initialized (Device unique ID size: %zu, System ID: %s, Security level: %s)",
            strDeviceId.size(), strSystemId.c_str(), strSecurityLevel.c_str());
-
-  if (m_licenseUrl.find('|') == std::string::npos)
-  {
-    if (m_keySystem == DRM::KS_WIDEVINE)
-      m_licenseUrl += "|Content-Type=application%2Foctet-stream|R{SSM}|";
-    else if (m_keySystem == DRM::KS_PLAYREADY)
-      m_licenseUrl += "|Content-Type=text%2Fxml&SOAPAction=http%3A%2F%2Fschemas.microsoft.com%"
-                      "2FDRM%2F2007%2F03%2Fprotocols%2FAcquireLicense|R{SSM}|";
-    else
-      m_licenseUrl += "|Content-Type=application/json|R{SSM}|";
-  }
 }
 
 CWVCdmAdapterA::~CWVCdmAdapterA()
@@ -244,6 +226,11 @@ void CWVCdmAdapterA::SaveServiceCertificate()
     fwrite(sc.data(), 1, sc.size(), f);
     fclose(f);
   }
+}
+
+const DRM::Config& CWVCdmAdapterA::GetConfig()
+{
+  return m_config;
 }
 
 std::string_view CWVCdmAdapterA::GetKeySystem()

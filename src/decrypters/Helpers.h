@@ -25,6 +25,12 @@ constexpr std::string_view KS_CLEARKEY = "org.w3.clearkey";
 
 // DRM UUIDs
 
+constexpr std::string_view UUID_WIDEVINE = "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
+constexpr std::string_view UUID_PLAYREADY = "9a04f079-9840-4286-ab92-e65be0885f95";
+constexpr std::string_view UUID_WISEPLAY = "3d5e6d35-9b9a-41e8-b843-dd3c6e72c42c";
+constexpr std::string_view UUID_CLEARKEY = "e2719d58-a985-b3c9-781a-b030af78d30e";
+constexpr std::string_view UUID_COMMON = "1077efec-c0b2-4d02-ace3-3c1e52e2fb4b";
+
 constexpr std::string_view URN_WIDEVINE = "urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed";
 constexpr std::string_view URN_PLAYREADY = "urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95";
 constexpr std::string_view URN_WISEPLAY = "urn:uuid:3d5e6d35-9b9a-41e8-b843-dd3c6e72c42c";
@@ -46,7 +52,9 @@ std::string KeySystemToDrmName(std::string_view ks);
 
 const uint8_t* KeySystemToUUID(std::string_view ks);
 
-bool IsKeySystemSupported(std::string_view keySystem);
+std::string KeySystemToUUIDstr(std::string_view ks);
+
+bool IsValidKeySystem(std::string_view keySystem);
 
 /*!
  * \brief Generate an hash by using the base domain of an URL.

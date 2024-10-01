@@ -19,7 +19,7 @@ public:
   CJNIMediaDrmKeyRequest();
   CJNIMediaDrmKeyRequest(const jni::jhobject &object) : CJNIBase(object) {};
 
-  std::vector<char> getData() const;
+  std::vector<uint8_t> getData() const;
   int getRequestType() const;
 };
 

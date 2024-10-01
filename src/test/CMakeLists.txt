@@ -46,6 +46,7 @@ add_executable(${BINARY}
     ../utils/CurlUtils.cpp
     ../utils/DigestMD5Utils.cpp
     ../utils/FileUtils.cpp
+    ../utils/JsonUtils.cpp
     ../utils/StringUtils.cpp
     ../utils/UrlUtils.cpp
     ../utils/Utils.cpp

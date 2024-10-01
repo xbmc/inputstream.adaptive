@@ -265,6 +265,12 @@ std::string UTILS::STRING::ToLower(std::string str)
   return str;
 }
 
+std::string UTILS::STRING::ToUpper(std::string str)
+{
+  StringUtils::ToUpper(str);
+  return str;
+}
+
 uint32_t UTILS::STRING::HexStrToUint(std::string_view hexValue)
 {
   uint32_t val;

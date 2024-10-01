@@ -9,8 +9,6 @@
 #include "ClearKeyDecrypter.h"
 
 #include "ClearKeyCencSingleSampleDecrypter.h"
-#include "CompKodiProps.h"
-#include "SrvBroker.h"
 #include "decrypters/Helpers.h"
 #include "utils/log.h"
 
@@ -25,16 +23,15 @@ std::vector<std::string_view> CClearKeyDecrypter::SelectKeySystems(std::string_v
   return keySystems;
 }
 
-bool CClearKeyDecrypter::OpenDRMSystem(std::string_view licenseURL,
-                                       const std::vector<uint8_t>& serverCertificate,
-                                       const uint8_t config)
+bool CClearKeyDecrypter::OpenDRMSystem(const DRM::Config& config)
 {
+  m_config = config;
+  m_isInitialized = true;
   return true;
 }
 
 std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CClearKeyDecrypter::CreateSingleSampleDecrypter(
     std::vector<uint8_t>& initData,
-    std::string_view optionalKeyParameter,
     const std::vector<uint8_t>& defaultkeyid,
     std::string_view licenseUrl,
     bool skipSessionMessage,
@@ -47,21 +44,21 @@ std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CClearKeyDecrypter::CreateSi
   }
 
   std::shared_ptr<CClearKeyCencSingleSampleDecrypter> decrypter;
-  auto& cfgLic = CSrvBroker::GetKodiProps().GetDrmConfig(std::string(DRM::KS_CLEARKEY)).license;
+  const DRM::Config::License& licConfig = m_config.license;
 
   // If keys / license url are provided by Kodi property, those of the manifest will be overwritten
 
-  if (!cfgLic.serverUrl.empty())
-    licenseUrl = cfgLic.serverUrl;
+  if (!licConfig.serverUrl.empty())
+    licenseUrl = licConfig.serverUrl;
 
-  if ((!cfgLic.keys.empty() || !initData.empty()) && cfgLic.serverUrl.empty()) // Keys provided from manifest or Kodi property
+  if ((!licConfig.keys.empty() || !initData.empty()) && licConfig.serverUrl.empty()) // Keys provided from manifest or Kodi property
   {
     decrypter = std::make_shared<CClearKeyCencSingleSampleDecrypter>(initData, defaultkeyid,
-                                                                     cfgLic.keys, this);
+                                                                     licConfig.keys, this);
   }
   else // Clearkey license server URL provided
   {
-    decrypter = std::make_shared<CClearKeyCencSingleSampleDecrypter>(licenseUrl, cfgLic.reqHeaders,
+    decrypter = std::make_shared<CClearKeyCencSingleSampleDecrypter>(licenseUrl, licConfig.reqHeaders,
                                                                      defaultkeyid, this);
   }
 
