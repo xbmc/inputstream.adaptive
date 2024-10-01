@@ -1,3 +1,18 @@
+v22.1.5 (2024-10-01)
+- New DRM config property inputstream.adaptive.drm, future replacement to old properties
+- Add support to custom widevine XML wrapped license (new drm property)
+- [DASH] Add PSSH parsing from ContentProtection pro tag
+- inputstream.adaptive.license_data cannot be used anymore to set Playready CDM optional parameter PRCustomData (use new drm property)
+- The secure decoder add-on setting, now can be overrided/configured by add-ons (new drm property)
+- PSSH placeholder for license data is now available to all OS and not limited to android (new drm property)
+- [HLS] Removed undocumented feature, renew license key by using add-on callbacks
+- Removed HB type suport from [Response-Data] field on inputstream.adaptive.license_key
+- Widevine wrappers/unwrappers behaviours now can be debugged by using save license data setting
+- Many code cleanups about PSSH/KID
+- Decrypters changes/cleanups to use smartpointers
+- Updated wiki Integration DRM page: https://github.com/xbmc/inputstream.adaptive/wiki/Integration-DRM
+- Details about new drm property and breaking changes: https://github.com/xbmc/inputstream.adaptive/pull/1672
+
 v22.1.4 (2024-08-28)
 - [ClearKey] Fix bad license data encoding/decoding
 - Fix to prevent initialize decrypters already initialized
