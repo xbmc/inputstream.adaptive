@@ -13,8 +13,6 @@
 #include "common/AdaptiveTree.h"
 #include "decrypters/IDecrypter.h"
 
-#include <bento4/Ap4.h>
-
 #if defined(ANDROID)
 #include <kodi/platform/android/System.h>
 #endif
