@@ -14,7 +14,6 @@
 #include "decrypters/IDecrypter.h"
 
 #include <bento4/Ap4.h>
-#include <kodi/tools/DllHelper.h>
 
 #if defined(ANDROID)
 #include <kodi/platform/android/System.h>
@@ -342,7 +341,6 @@ protected:
                                    const std::vector<std::string_view>& keySystems);
 
 private:
-  std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   std::shared_ptr<DRM::IDecrypter> m_decrypter;
 
   struct CCdmSession
