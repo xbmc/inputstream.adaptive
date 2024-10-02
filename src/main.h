@@ -56,11 +56,7 @@ public:
   std::shared_ptr<SESSION::CSession> GetSession() { return m_session; };
 
 private:
-  std::shared_ptr<SESSION::CSession> m_session{nullptr};
-  int m_currentVideoWidth{0};
-  int m_currentVideoHeight{0};
-  int m_currentVideoMaxWidth{0};
-  int m_currentVideoMaxHeight{0};
+  std::shared_ptr<SESSION::CSession> m_session;
   std::map<INPUTSTREAM_TYPE, unsigned int> m_IncludedStreams;
   int m_failedSeekTime = ~0;
   std::string m_chapterName;

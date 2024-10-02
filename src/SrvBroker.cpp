@@ -14,14 +14,17 @@
 
 using namespace ADP;
 
-CSrvBroker::CSrvBroker() = default;
+CSrvBroker::CSrvBroker()
+{
+  m_compKodiProps = std::make_unique<KODI_PROPS::CCompKodiProps>();
+  m_compResources = std::make_unique<RESOURCES::CCompResources>();
+  m_compSettings = std::make_unique<SETTINGS::CCompSettings>();
+};
 CSrvBroker::~CSrvBroker() = default;
 
 void CSrvBroker::Init(const std::map<std::string, std::string>& kodiProps)
 {
-  m_compKodiProps = std::make_unique<KODI_PROPS::CCompKodiProps>(kodiProps);
-  m_compResources = std::make_unique<RESOURCES::CCompResources>();
-  m_compSettings = std::make_unique<SETTINGS::CCompSettings>();
+  m_compKodiProps->Init(kodiProps);
 }
 
 void CSrvBroker::InitStage2(adaptive::AdaptiveTree* tree)

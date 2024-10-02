@@ -29,15 +29,16 @@ namespace SESSION
 class ATTR_DLL_LOCAL CSession : public adaptive::AdaptiveStreamObserver
 {
 public:
-  CSession(const std::string& manifestUrl);
+  CSession() = default;
   virtual ~CSession();
 
   void DeleteStreams();
 
   /*! \brief Initialize the session
+   *  \param manifestUrl The manifest URL
    *  \return True if has success, false otherwise
    */
-  bool Initialize();
+  bool Initialize(std::string manifestUrl);
 
   /*
    * \brief Check HDCP parameters to remove unplayable representations
@@ -206,11 +207,10 @@ public:
     return ret;
   };
 
-  /*! \brief To inform of Kodi's current screen resolution
-   *  \param width The width in pixels
-   *  \param height The height in pixels
+  /*!
+   * \brief Callback for screen resolution change.
    */
-  void SetVideoResolution(int width, int height, int maxWidth, int maxHeight);
+  void OnScreenResChange();
 
   /*! \brief Seek streams and readers to a specified time
    *  \param seekTime The seek time in seconds
@@ -342,7 +342,6 @@ protected:
                                    const std::vector<std::string_view>& keySystems);
 
 private:
-  std::string m_manifestUrl;
   std::unique_ptr<kodi::tools::CDllHelper> m_dllHelper;
   std::shared_ptr<DRM::IDecrypter> m_decrypter;
 
@@ -355,7 +354,7 @@ private:
   std::vector<CCdmSession> m_cdmSessions;
 
   adaptive::AdaptiveTree* m_adaptiveTree{nullptr};
-  CHOOSER::IRepresentationChooser* m_reprChooser;
+  CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 
   std::vector<std::unique_ptr<CStream>> m_streams;
   CStream* m_timingStream{nullptr};

@@ -16,6 +16,7 @@
 #include <kodi/AddonBase.h>
 #endif
 
+#include <atomic>
 #include <mutex>
 #include <string>
 #include <unordered_set>
@@ -30,6 +31,22 @@ namespace ADP
 {
 namespace RESOURCES
 {
+struct ScreenInfo
+{
+  ScreenInfo() = default;
+  ScreenInfo(int widthPx, int heightPx, int maxWidthPx, int maxHeightPx)
+  {
+    width = widthPx;
+    height = heightPx;
+    maxWidth = maxWidthPx;
+    maxHeight = maxHeightPx;
+  }
+  int width{0};
+  int height{0};
+  int maxWidth{0};
+  int maxHeight{0};
+};
+
 class ATTR_DLL_LOCAL CCompResources
 {
 public:
@@ -37,6 +54,18 @@ public:
   ~CCompResources() = default;
 
   void InitStage2(adaptive::AdaptiveTree* tree) { m_tree = tree; }
+
+  /*!
+   * \brief Get the current screen info.
+   * \return The screen info.
+   */
+  ScreenInfo GetScreenInfo() const { return m_screenInfo.load(); }
+
+  /*!
+   * \brief Set the screen info.
+   * \param screenInfo The scren info
+   */
+  void SetScreenInfo(const ScreenInfo& screenInfo) { m_screenInfo = screenInfo; }
 
   /*!
    * \brief Cookies that can be shared along with HTTP requests.
@@ -58,6 +87,7 @@ public:
   const adaptive::AdaptiveTree& GetTree() const { return *m_tree; }
 
 private:
+  std::atomic<ScreenInfo> m_screenInfo;
   std::unordered_set<UTILS::CURL::Cookie> m_cookies;
   std::mutex m_cookiesMutex;
   adaptive::AdaptiveTree* m_tree{nullptr};

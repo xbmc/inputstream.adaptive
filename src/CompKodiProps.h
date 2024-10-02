@@ -117,8 +117,10 @@ struct DrmCfg
 class ATTR_DLL_LOCAL CCompKodiProps
 {
 public:
-  CCompKodiProps(const std::map<std::string, std::string>& props);
+  CCompKodiProps() = default;
   ~CCompKodiProps() = default;
+
+  void Init(const std::map<std::string, std::string>& props);
 
   // \brief HTTP parameters used to download manifest updates
   std::string GetManifestUpdParams() const { return m_manifestUpdParams; }

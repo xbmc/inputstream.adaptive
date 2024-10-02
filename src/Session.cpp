@@ -34,27 +34,6 @@ using namespace PLAYLIST;
 using namespace SESSION;
 using namespace UTILS;
 
-CSession::CSession(const std::string& manifestUrl) : m_manifestUrl(manifestUrl)
-{
-  m_reprChooser = CHOOSER::CreateRepresentationChooser();
-
-  switch (kodi::addon::GetSettingInt("MEDIATYPE"))
-  {
-    case 1:
-      m_mediaTypeMask = static_cast<uint8_t>(1U) << static_cast<int>(StreamType::AUDIO);
-      break;
-    case 2:
-      m_mediaTypeMask = static_cast<uint8_t>(1U) << static_cast<int>(StreamType::VIDEO);
-      break;
-    case 3:
-      m_mediaTypeMask = (static_cast<uint8_t>(1U) << static_cast<int>(StreamType::VIDEO)) |
-                        (static_cast<uint8_t>(1U) << static_cast<int>(StreamType::SUBTITLE));
-      break;
-    default:
-      m_mediaTypeMask = static_cast<uint8_t>(~0);
-  }
-}
-
 CSession::~CSession()
 {
   LOG::Log(LOGDEBUG, "CSession::~CSession()");
@@ -124,8 +103,26 @@ void CSession::DisposeDecrypter()
 |   initialize
 +---------------------------------------------------------------------*/
 
-bool CSession::Initialize()
+bool CSession::Initialize(std::string manifestUrl)
 {
+  m_reprChooser = CHOOSER::CreateRepresentationChooser();
+
+  switch (CSrvBroker::GetSettings().GetMediaType())
+  {
+    case 1:
+      m_mediaTypeMask = static_cast<uint8_t>(1U) << static_cast<int>(StreamType::AUDIO);
+      break;
+    case 2:
+      m_mediaTypeMask = static_cast<uint8_t>(1U) << static_cast<int>(StreamType::VIDEO);
+      break;
+    case 3:
+      m_mediaTypeMask = (static_cast<uint8_t>(1U) << static_cast<int>(StreamType::VIDEO)) |
+                        (static_cast<uint8_t>(1U) << static_cast<int>(StreamType::SUBTITLE));
+      break;
+    default:
+      m_mediaTypeMask = static_cast<uint8_t>(~0);
+  }
+
   auto& kodiProps = CSrvBroker::GetKodiProps();
 
   // Get URN's wich are supported by this addon
@@ -160,7 +157,6 @@ bool CSession::Initialize()
     }
   }
 
-  std::string manifestUrl = m_manifestUrl;
   URL::RemovePipePart(manifestUrl); // No pipe char uses, must be used Kodi properties only
 
   URL::AppendParameters(manifestUrl, kodiProps.GetManifestParams());
@@ -1017,9 +1013,9 @@ void CSession::StartReader(
     m_changed = true;
 }
 
-void CSession::SetVideoResolution(int width, int height, int maxWidth, int maxHeight)
+void CSession::OnScreenResChange()
 {
-  m_reprChooser->SetScreenResolution(width, height, maxWidth, maxHeight);
+  m_reprChooser->OnUpdateScreenRes();
 };
 
 bool CSession::GetNextSample(ISampleReader*& sampleReader)
