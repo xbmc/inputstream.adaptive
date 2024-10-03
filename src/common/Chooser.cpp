@@ -8,6 +8,7 @@
 
 #include "Chooser.h"
 
+#include "CompResources.h"
 #include "ChooserAskQuality.h"
 #include "ChooserDefault.h"
 #include "ChooserFixedRes.h"
@@ -70,6 +71,7 @@ IRepresentationChooser* CHOOSER::CreateRepresentationChooser()
   if (!reprChooser)
     reprChooser = new CRepresentationChooserDefault();
 
+  reprChooser->OnUpdateScreenRes();
   reprChooser->Initialize(props);
 
   return reprChooser;
@@ -84,14 +86,13 @@ CHOOSER::IRepresentationChooser::IRepresentationChooser()
     m_isAdjustRefreshRate = true;
 }
 
-void CHOOSER::IRepresentationChooser::SetScreenResolution(const int width,
-                                                          const int height,
-                                                          const int maxWidth,
-                                                          const int maxHeight)
+void CHOOSER::IRepresentationChooser::OnUpdateScreenRes()
 {
+  const auto sInfo = CSrvBroker::GetResources().GetScreenInfo();
+
   LOG::Log(LOGINFO,
            "[Repr. chooser] Resolution set: %dx%d, max allowed: %dx%d, Adjust refresh rate: %i",
-           width, height, maxWidth, maxHeight, m_isAdjustRefreshRate);
+           sInfo.width, sInfo.height, sInfo.maxWidth, sInfo.maxHeight, m_isAdjustRefreshRate);
 
   // Use case: User chooses to upscale Kodi GUI from TV instead of Kodi engine.
   // In this case "Adjust refresh rate" setting can be enabled and then
@@ -100,16 +101,16 @@ void CHOOSER::IRepresentationChooser::SetScreenResolution(const int width,
   // For example we can have the GUI at 1080p and when playback starts can be
   // auto-switched to 4k, but to allow Kodi do this we have to provide the
   // stream resolution that match the max allowed screen resolution.
-  if (m_isAdjustRefreshRate && width < maxWidth && height < maxHeight)
+  if (m_isAdjustRefreshRate && sInfo.width < sInfo.maxWidth && sInfo.height < sInfo.maxHeight)
   {
-    m_screenCurrentWidth = maxWidth;
-    m_screenCurrentHeight = maxHeight;
+    m_screenCurrentWidth = sInfo.maxWidth;
+    m_screenCurrentHeight = sInfo.maxHeight;
     m_isForceStartsMaxRes = true;
   }
   else
   {
-    m_screenCurrentWidth = width;
-    m_screenCurrentHeight = height;
+    m_screenCurrentWidth = sInfo.width;
+    m_screenCurrentHeight = sInfo.height;
   }
 }
 

@@ -60,17 +60,9 @@ public:
   virtual void PostInit() {}
 
   /*!
-   * \brief Set the current screen resolution.
-   *        To be called every time the screen resolution change.
-   * \param width Width resolution
-   * \param height Height resolution
-   * \param maxWidth Max width resolution
-   * \param maxHeight Max height resolution
+   * \brief Callback to update screen resolution.
    */
-  void SetScreenResolution(const int width,
-                           const int height,
-                           const int maxWidth,
-                           const int maxHeight);
+  void OnUpdateScreenRes();
 
   /*!
    * \brief Set the current download speed.

@@ -90,7 +90,7 @@ void LogDrmJsonDictKeys(std::string_view keyName,
 }
 } // unnamed namespace
 
-ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std::string>& props)
+void ADP::KODI_PROPS::CCompKodiProps::Init(const std::map<std::string, std::string>& props)
 {
   std::string licenseUrl;
 

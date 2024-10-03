@@ -8,6 +8,7 @@
 
 #include "main.h"
 
+#include "CompResources.h"
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
 #include "Stream.h"
@@ -37,15 +38,11 @@ bool CInputStreamAdaptive::Open(const kodi::addon::InputstreamProperty& props)
 {
   LOG::Log(LOGDEBUG, "Open()");
 
-  std::string url = props.GetURL();
-
   CSrvBroker::GetInstance()->Init(props.GetProperties());
 
-  m_session = std::make_shared<CSession>(url);
-  m_session->SetVideoResolution(m_currentVideoWidth, m_currentVideoHeight, m_currentVideoMaxWidth,
-                                m_currentVideoMaxHeight);
+  m_session = std::make_shared<CSession>();
 
-  if (!m_session->Initialize())
+  if (!m_session->Initialize(props.GetURL()))
   {
     m_session = nullptr;
     return false;
@@ -467,21 +464,19 @@ bool CInputStreamAdaptive::DemuxSeekTime(double time, bool backwards, double& st
   return true;
 }
 
-// Kodi callback, called just before CInputStreamAdaptive::Open method,
-// and every time the resolution change while in playback (e.g. window resize)
 void CInputStreamAdaptive::SetVideoResolution(unsigned int width,
                                               unsigned int height,
                                               unsigned int maxWidth,
                                               unsigned int maxHeight)
 {
-  m_currentVideoWidth = static_cast<int>(width);
-  m_currentVideoHeight = static_cast<int>(height);
-  m_currentVideoMaxWidth = static_cast<int>(maxWidth);
-  m_currentVideoMaxHeight = static_cast<int>(maxHeight);
+  CSrvBroker::GetResources().SetScreenInfo({static_cast<int>(width), static_cast<int>(height),
+                                            static_cast<int>(maxWidth),
+                                            static_cast<int>(maxHeight)});
 
-  // This can be called just after CInputStreamAdaptive::Open callback
+  // SetVideoResolution method is initially called before CInputStreamAdaptive::Open so there is no session yet
+  // After that, other callbacks may be made during playback (e.g. for window resize)
   if (m_session)
-     m_session->SetVideoResolution(width, height, maxWidth, maxHeight);
+    m_session->OnScreenResChange();
 }
 
 bool CInputStreamAdaptive::PosTime(int ms)
