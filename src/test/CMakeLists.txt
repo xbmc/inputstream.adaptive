@@ -53,7 +53,7 @@ add_executable(${BINARY}
     ../utils/XMLUtils.cpp
     )
 
-if(LINUX)
+if(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
   SET(ADD_LINK_LIBS "atomic")
 endif()
 

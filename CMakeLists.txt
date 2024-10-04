@@ -34,6 +34,10 @@ else()
   add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
+if(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+  list(APPEND DEPLIBS "atomic")
+endif()
+
 # Sources to build
 # (use add_dir_sources function to add source/header files from the CMakeLists files of subdirectories)
 add_subdirectory(src)
