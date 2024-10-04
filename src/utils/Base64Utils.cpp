@@ -20,7 +20,6 @@ constexpr char PADDING{'='};
 constexpr std::string_view CHARACTERS{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                       "abcdefghijklmnopqrstuvwxyz"
                                       "0123456789+/"};
-constexpr std::string_view REGEX("^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$");
 // clang-format off
 constexpr unsigned char BASE64_TABLE[] = {
     255,255,255,255, 255,255,255,255, 255,255,255,255, 255,255,255,255,
@@ -214,8 +213,36 @@ std::string UTILS::BASE64::DecodeToStr(std::string_view input)
 
 bool UTILS::BASE64::IsValidBase64(const std::string& input)
 {
-  std::regex base64Regex(REGEX.data());
-  return std::regex_match(input, base64Regex);
+  // Check for empty input or incorrect length
+  if (input.empty() || input.size() % 4 != 0)
+    return false;
+
+  // Use a lookup table for faster character checking
+  bool lookup[256]{};
+  for (char c : CHARACTERS)
+  {
+    lookup[static_cast<unsigned char>(c)] = true;
+  }
+
+  // Iterate over the input string and check each character
+  size_t paddingSize = 0;
+  for (size_t i = 0; i < input.size(); ++i)
+  {
+    if (input[i] == '=')
+    {
+      paddingSize++;
+    } // Check of characters after padding, and validity of characters
+    else if (paddingSize > 0 || !lookup[static_cast<unsigned char>(input[i])])
+    {
+      return false; // Invalid character
+    }
+  }
+
+  // Max allowed padding chars
+  if (paddingSize > 2)
+    return false;
+
+  return true;
 }
 
 bool UTILS::BASE64::AddPadding(std::string& base64str)
