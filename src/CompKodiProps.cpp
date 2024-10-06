@@ -39,6 +39,8 @@ constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_dat
 constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags"; //! @todo: to be deprecated
 constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate"; //! @todo: to be deprecated
 
+constexpr std::string_view PROP_COMMON_HEADERS = "inputstream.adaptive.common_headers";
+
 constexpr std::string_view PROP_MANIFEST_PARAMS = "inputstream.adaptive.manifest_params";
 constexpr std::string_view PROP_MANIFEST_HEADERS = "inputstream.adaptive.manifest_headers";
 constexpr std::string_view PROP_MANIFEST_UPD_PARAMS = "inputstream.adaptive.manifest_upd_params";
@@ -142,6 +144,11 @@ void ADP::KODI_PROPS::CCompKodiProps::Init(const std::map<std::string, std::stri
           "will be removed on next Kodi version. This because the PVR API bug has been fixed on "
           "Kodi v22. Please use the appropriate properties to set the DRM configuration.");
       licenseUrl += prop.second;
+    }
+    else if (prop.first == PROP_COMMON_HEADERS)
+    {
+      LogProp(prop.first, prop.second);
+      ParseHeaderString(m_commonHeaders, prop.second);
     }
     else if (prop.first == PROP_MANIFEST_UPD_PARAMS)
     {

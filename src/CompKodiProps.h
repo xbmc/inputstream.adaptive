@@ -122,6 +122,9 @@ public:
 
   void Init(const std::map<std::string, std::string>& props);
 
+  // \brief HTTP headers used for any HTTP request
+  const std::map<std::string, std::string>& GetCommonHeaders() const { return m_commonHeaders; }
+
   // \brief HTTP parameters used to download manifest updates
   std::string GetManifestUpdParams() const { return m_manifestUpdParams; }
   // \brief HTTP parameters used to download manifests
@@ -175,6 +178,7 @@ private:
 
   std::string m_manifestUpdParams;
   std::string m_manifestParams;
+  std::map<std::string, std::string> m_commonHeaders;
   std::map<std::string, std::string> m_manifestHeaders;
   std::string m_streamParams;
   std::map<std::string, std::string> m_streamHeaders;

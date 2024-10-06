@@ -194,6 +194,8 @@ UTILS::CURL::CUrl::CUrl(std::string_view url)
     if (!kodiProps.GetConfig().curlSSLVerifyPeer)
       m_file.CURLAddOption(ADDON_CURL_OPTION_PROTOCOL, "verifypeer", "false");
 
+    AddHeaders(kodiProps.GetCommonHeaders());
+
     // Add session cookies
     // NOTE: if kodi property inputstream.adaptive.stream_headers is set with "cookie" header
     // the cookies set by the property will replace these
