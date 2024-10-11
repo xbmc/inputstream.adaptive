@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings version="1">
+  <section id="default">
+    <category id="general" label="30000">
+      <group id="isa" label="30100">
+        <setting id="isa.adaptive.settings" type="action" label="30200">
+            <level>0</level>
+            <data>Addon.OpenSettings(inputstream.adaptive)</data>
+            <control type="button" format="action">
+                <close>true</close>
+            </control>
+        </setting>
+        <setting id="isa.drm.preferred.method" type="string" label="30101" help="30102">
+          <level>0</level>
+          <default>props</default>
+          <constraints>
+            <options>
+              <option label="30104">props</option>
+              <option label="30105">drm-legacy</option>
+              <option label="30106">drm</option>
+            </options>
+          </constraints>
+          <control type="spinner" format="string" />
+        </setting>
+	  </group>
+      <group id="menuoptions" label="30002">
+        <setting id="streams.show.featureflags" type="boolean" label="30003">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="streams.show.cryptoflags" type="boolean" label="30004">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
+        <setting id="streams.show.codecs" type="boolean" label="30005">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
+	  </group>
+	</category>
+  </section>
+</settings>

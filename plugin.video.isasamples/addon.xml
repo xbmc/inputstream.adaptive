@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.video.isasamples" name="InputStream Adaptive Samples" version="0.0.1" provider-name="Kodi Team">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0"/>
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="addon.py">
+    <provides>video</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <platform>all</platform>
+    <summary>InputStream Adaptive Samples</summary>
+    <description>This add-on provides sample streams for testing InputStream Adaptive demuxer. DRM libraries are not provided and must be installed separately.</description>
+    <disclaimer lang="en">This add-on includes links to websites that provide free unrestricted test streams; no files are hosted by us. These streams may be copyrighted by their respective authors.</disclaimer>
+    <license>GPL-2.0-or-later</license>
+    <website>https://github.com/xbmc/inputstream.adaptive/wiki</website>
+    <source>https://github.com/xbmc/inputstream.adaptive</source>
+    <assets>
+      <icon>resources/icon.png</icon>
+    </assets>
+    <reuselanguageinvoker>false</reuselanguageinvoker>
+  </extension>
+</addon>

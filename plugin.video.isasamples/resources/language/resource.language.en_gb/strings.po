@@ -1,0 +1,69 @@
+# Kodi Media Center language file
+msgid ""
+msgstr ""
+"Project-Id-Version: plugin.video.isasamples\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/inputstream.adaptive/issues\n"
+"POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: Kodi Translation Team\n"
+"Language-Team: English\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Settings window category "general"
+msgctxt "#30000"
+msgid "General"
+msgstr ""
+
+#. Group for menu settings
+msgctxt "#30002"
+msgid "Menu options"
+msgstr ""
+
+msgctxt "#30003"
+msgid "Show feature flags on streams titles"
+msgstr ""
+
+msgctxt "#30004"
+msgid "Show crypto flags on streams titles"
+msgstr ""
+
+msgctxt "#30005"
+msgid "Show codecs on streams titles"
+msgstr ""
+
+#. Group for ISA settings
+msgctxt "#30100"
+msgid "InputStream Adaptive settings"
+msgstr ""
+
+msgctxt "#30101"
+msgid "Preferred DRM config method"
+msgstr ""
+
+#. Help of 30101
+msgctxt "#30102"
+msgid "If are available multiple DRM configs methods on a stream, try to use the preferred one, otherwise the first available."
+msgstr ""
+
+#. Entry item of 30101
+msgctxt "#30104"
+msgid "Advanced method (properties/deprecated)"
+msgstr ""
+
+#. Entry item of 30101
+msgctxt "#30105"
+msgid "Simple method (drm_legacy)"
+msgstr ""
+
+#. Entry item of 30101
+msgctxt "#30106"
+msgid "Advanced method (drm)"
+msgstr ""
+
+msgctxt "#30200"
+msgid "Open settings"
+msgstr ""
