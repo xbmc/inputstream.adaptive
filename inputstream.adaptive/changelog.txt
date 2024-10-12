@@ -1,3 +1,7 @@
+v21.5.5 (2024-10-12)
+- Fix decoding with some out-of-spec mp4 DRM encrypted streams
+- Fix crash due to regex uses
+
 v21.5.4 (2024-08-28)
 - [Widevine] Improved synthesized PSSH for smooth streaming with Playready
 - [ClearKey] Fix bad license data encoding/decoding
