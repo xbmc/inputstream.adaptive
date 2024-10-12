@@ -1,3 +1,9 @@
+v22.1.6 (2024-10-12)
+- New property: inputstream.adaptive.common_headers, allow to set HTTP headers to all HTTP request
+- Fix decoding with some out-of-spec mp4 DRM encrypted streams
+- Fix crash due to regex uses
+- Code cleanups to session / service broker / chooser interface
+
 v22.1.5 (2024-10-01)
 - New DRM config property inputstream.adaptive.drm, future replacement to old properties
 - Add support to custom widevine XML wrapped license (new drm property)
