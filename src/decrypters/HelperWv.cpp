@@ -138,7 +138,7 @@ enum class Wrapper
 };
 
 // \brief Translate a wrapper string in to relative vector of enum values.
-//        e.g. "json+base64" --> JSON, BASE64
+//        e.g. "json,base64" --> JSON, BASE64
 std::vector<Wrapper> TranslateWrapper(std::string_view wrapper)
 {
   const std::vector<std::string> wrappers = STRING::SplitToVec(wrapper, ',');

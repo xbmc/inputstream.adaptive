@@ -511,13 +511,13 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
         else if (STRING::StartsWith(wrapperPrefix, "BJ"))
         {
           isJsonWrapper = true;
-          drmCfg.license.unwrapper = "base64+json";
+          drmCfg.license.unwrapper = "base64,json";
           jsonWrapperCfg = wrapperPrefix.substr(2);
         }
         else if (STRING::StartsWith(wrapperPrefix, "JB"))
         {
           isJsonWrapper = true;
-          drmCfg.license.unwrapper = "json+base64";
+          drmCfg.license.unwrapper = "json,base64";
           jsonWrapperCfg = wrapperPrefix.substr(2);
         }
         else if (STRING::StartsWith(wrapperPrefix, "J"))
