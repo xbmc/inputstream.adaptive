@@ -12,6 +12,7 @@
 #include "Helpers.h"
 #include "clearkey/ClearKeyDecrypter.h"
 #include "utils/Base64Utils.h"
+#include "utils/StringUtils.h"
 #include "utils/log.h"
 
 #if ANDROID
@@ -37,7 +38,7 @@ void FillDrmConfigDefaults(std::string_view keySystem, DRM::Config& cfg)
   {
     if (!licCfg.isHttpGetRequest)
     {
-      if (licCfg.reqHeaders.empty())
+      if (!STRING::KeyExists(licCfg.reqHeaders, "Content-Type"))
         licCfg.reqHeaders["Content-Type"] = "application/octet-stream";
     }
   }
@@ -45,19 +46,18 @@ void FillDrmConfigDefaults(std::string_view keySystem, DRM::Config& cfg)
   {
     if (!licCfg.isHttpGetRequest)
     {
-      if (licCfg.reqHeaders.empty())
-      {
+      if (!STRING::KeyExists(licCfg.reqHeaders, "Content-Type"))
         licCfg.reqHeaders["Content-Type"] = "text/xml";
+      if (!STRING::KeyExists(licCfg.reqHeaders, "SOAPAction"))
         licCfg.reqHeaders["SOAPAction"] =
             "http://schemas.microsoft.com/DRM/2007/03/protocols/AcquireLicense";
-      }
     }
   }
   else if (keySystem == DRM::KS_WISEPLAY)
   {
     if (!licCfg.isHttpGetRequest)
     {
-      if (licCfg.reqHeaders.empty())
+      if (!STRING::KeyExists(licCfg.reqHeaders, "Content-Type"))
         licCfg.reqHeaders["Content-Type"] = "application/json";
     }
   }
