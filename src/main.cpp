@@ -127,38 +127,13 @@ void CInputStreamAdaptive::GetCapabilities(kodi::addon::InputstreamCapabilities&
 
 bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo& info)
 {
+  // GetStream is called by Kodi twice times, before and after OpenStream.
   LOG::Log(LOGDEBUG, "GetStream(%d)", streamid);
 
-  CStream* stream(m_session->GetStream(streamid - m_session->GetPeriodId() * 1000));
-
-  if (stream)
-  {
-    // If the stream is encrypted, verify if the decrypter has been initialized
-    // this is important for HLS because the DRM it is initialized at later time
-    // so on the OpenStream, instead of CSession::Initialize->InitializePeriod->InitializeDRM
-    // Since kodi initialize one single stream at time, can happens that or another stream
-    // has been opened before this one, or another stream will be opened after this one (e.g. unencrypted)
-    // so if you dont delete all streams, the kodi demux reader still starts
-    // and a corrupted playback will starts.
-    // NOTE: GetStream is called by Kodi twice times, before and after OpenStream, on HLS
-    // the first time all streams are unencrypted because child manifest has not been downloaded
-    const uint16_t psshSetPos = stream->m_adStream.getRepresentation()->m_psshSetPos;
-    if (psshSetPos != PSSHSET_POS_DEFAULT ||
-        stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::NOT_SUPPORTED)
-    {
-      if (!m_session->GetSingleSampleDecryptor(psshSetPos))
-      {
-        LOG::Log(LOGERROR, "GetStream(%d): Decrypter for the stream not found");
-        m_session->DeleteStreams();
-        return false;
-      }
-    }
-
-    info = stream->m_info;
-    return true;
-  }
-
-  return false;
+  // Return false prevents this stream from loading, but does not stop playback,
+  // Kodi core will continue to request another stream of same type (a/v)
+  // as long as one is successful
+  return m_session->OnGetStream(streamid, info);
 }
 
 void CInputStreamAdaptive::UnlinkIncludedStreams(CStream* stream)

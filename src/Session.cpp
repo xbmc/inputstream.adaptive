@@ -24,17 +24,12 @@
 #include "utils/Utils.h"
 #include "utils/log.h"
 
-#include <array>
-
-#include <kodi/addon-instance/Inputstream.h>
-
-using namespace kodi::tools;
 using namespace adaptive;
 using namespace PLAYLIST;
 using namespace SESSION;
 using namespace UTILS;
 
-CSession::~CSession()
+SESSION::CSession::~CSession()
 {
   LOG::Log(LOGDEBUG, "CSession::~CSession()");
   DeleteStreams();
@@ -57,7 +52,7 @@ void SESSION::CSession::DeleteStreams()
   m_streams.clear();
 }
 
-void CSession::SetSupportedDecrypterURN(std::vector<std::string_view>& keySystems)
+void SESSION::CSession::SetSupportedDecrypterURN(std::vector<std::string_view>& keySystems)
 {
   std::string decrypterPath = CSrvBroker::GetSettings().GetDecrypterPath();
   if (decrypterPath.empty())
@@ -81,7 +76,7 @@ void CSession::SetSupportedDecrypterURN(std::vector<std::string_view>& keySystem
   m_decrypter->SetLibraryPath(decrypterPath);
 }
 
-void CSession::DisposeSampleDecrypter()
+void SESSION::CSession::DisposeSampleDecrypter()
 {
   if (m_decrypter)
   {
@@ -93,7 +88,7 @@ void CSession::DisposeSampleDecrypter()
   }
 }
 
-void CSession::DisposeDecrypter()
+void SESSION::CSession::DisposeDecrypter()
 {
   DisposeSampleDecrypter();
   m_decrypter = nullptr;
@@ -103,7 +98,7 @@ void CSession::DisposeDecrypter()
 |   initialize
 +---------------------------------------------------------------------*/
 
-bool CSession::Initialize(std::string manifestUrl)
+bool SESSION::CSession::Initialize(std::string manifestUrl)
 {
   m_reprChooser = CHOOSER::CreateRepresentationChooser();
 
@@ -196,7 +191,7 @@ bool CSession::Initialize(std::string manifestUrl)
   return InitializePeriod(isSessionOpened);
 }
 
-void CSession::CheckHDCP()
+void SESSION::CSession::CheckHDCP()
 {
   //! @todo: is needed to implement an appropriate CP check to
   //! remove HDCPOVERRIDE setting workaround
@@ -238,9 +233,9 @@ void CSession::CheckHDCP()
   }
 }
 
-bool CSession::PreInitializeDRM(std::string& challengeB64,
-                                std::string& sessionId,
-                                bool& isSessionOpened)
+bool SESSION::CSession::PreInitializeDRM(std::string& challengeB64,
+                                         std::string& sessionId,
+                                         bool& isSessionOpened)
 {
   auto& drmPropCfg = CSrvBroker::GetKodiProps().GetDrmConfig();
 
@@ -318,7 +313,7 @@ bool CSession::PreInitializeDRM(std::string& challengeB64,
   return true;
 }
 
-bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
+bool SESSION::CSession::InitializeDRM(bool addDefaultKID /* = false */)
 {
   bool isSecureVideoSession{false};
   m_cdmSessions.resize(m_adaptiveTree->m_currentPeriod->GetPSSHSets().size());
@@ -519,7 +514,7 @@ bool CSession::InitializeDRM(bool addDefaultKID /* = false */)
   return true;
 }
 
-bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
+bool SESSION::CSession::InitializePeriod(bool isSessionOpened /* = false */)
 {
   bool isPsshChanged{true};
   bool isReusePssh{true};
@@ -625,11 +620,11 @@ bool CSession::InitializePeriod(bool isSessionOpened /* = false */)
   return true;
 }
 
-void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
-                         PLAYLIST::CRepresentation* initialRepr,
-                         bool isDefaultRepr,
-                         uint32_t uniqueId,
-                         std::string_view audioLanguageOrig)
+void SESSION::CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
+                                  PLAYLIST::CRepresentation* initialRepr,
+                                  bool isDefaultRepr,
+                                  uint32_t uniqueId,
+                                  std::string_view audioLanguageOrig)
 {
   m_streams.push_back(std::make_unique<CStream>(m_adaptiveTree, adp, initialRepr));
 
@@ -687,7 +682,7 @@ void CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
   UpdateStream(stream);
 }
 
-void CSession::UpdateStream(CStream& stream)
+void SESSION::CSession::UpdateStream(CStream& stream)
 {
   // On this method we set stream info provided by manifest parsing, but these info could be
   // changed by sample readers just before the start of playback by using GetInformation() methods
@@ -877,7 +872,7 @@ void CSession::UpdateStream(CStream& stream)
   stream.m_info.SetCodecInternalName(codecStr);
 }
 
-void CSession::PrepareStream(CStream* stream)
+void SESSION::CSession::PrepareStream(CStream* stream)
 {
   if (!m_adaptiveTree->IsReqPrepareStream())
     return;
@@ -942,7 +937,7 @@ const char* SESSION::CSession::GetCDMSession(unsigned int index)
   return m_cdmSessions[index].m_cdmSessionStr;
 }
 
-uint64_t CSession::PTSToElapsed(uint64_t pts)
+uint64_t SESSION::CSession::PTSToElapsed(uint64_t pts)
 {
   if (m_timingStream)
   {
@@ -968,7 +963,7 @@ uint64_t CSession::PTSToElapsed(uint64_t pts)
     return pts;
 }
 
-uint64_t CSession::GetTimeshiftBufferStart()
+uint64_t SESSION::CSession::GetTimeshiftBufferStart()
 {
   if (m_timingStream)
   {
@@ -985,7 +980,7 @@ uint64_t CSession::GetTimeshiftBufferStart()
 }
 
 // TODO: clean this up along with seektime
-void CSession::StartReader(
+void SESSION::CSession::StartReader(
     CStream* stream, uint64_t seekTime, int64_t ptsDiff, bool preceeding, bool timing)
 {
   ISampleReader* streamReader = stream->GetReader();
@@ -1013,12 +1008,12 @@ void CSession::StartReader(
     m_changed = true;
 }
 
-void CSession::OnScreenResChange()
+void SESSION::CSession::OnScreenResChange()
 {
   m_reprChooser->OnUpdateScreenRes();
 };
 
-bool CSession::GetNextSample(ISampleReader*& sampleReader)
+bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
 {
   CStream* res{nullptr};
   CStream* waiting{nullptr};
@@ -1083,7 +1078,7 @@ bool CSession::GetNextSample(ISampleReader*& sampleReader)
   return false;
 }
 
-bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
+bool SESSION::CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 {
   bool ret{false};
 
@@ -1220,7 +1215,7 @@ bool CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
   return ret;
 }
 
-void CSession::OnDemuxRead()
+void SESSION::CSession::OnDemuxRead()
 {
   if (m_adaptiveTree->IsChangingPeriod() && m_adaptiveTree->IsChangingPeriodDone())
   {
@@ -1234,7 +1229,7 @@ void CSession::OnDemuxRead()
   }
 }
 
-void CSession::OnSegmentChanged(adaptive::AdaptiveStream* adStream)
+void SESSION::CSession::OnSegmentChanged(adaptive::AdaptiveStream* adStream)
 {
   for (auto& stream : m_streams)
   {
@@ -1251,7 +1246,7 @@ void CSession::OnSegmentChanged(adaptive::AdaptiveStream* adStream)
   }
 }
 
-void CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
+void SESSION::CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
 {
   for (auto& stream : m_streams)
   {
@@ -1263,7 +1258,38 @@ void CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
   }
 }
 
-std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CSession::GetSingleSampleDecrypter(std::string sessionId)
+bool SESSION::CSession::OnGetStream(int streamid, kodi::addon::InputstreamInfo& info)
+{
+  CStream* stream(GetStream(streamid - GetPeriodId() * 1000));
+
+  if (stream)
+  {
+    const uint16_t psshSetPos = stream->m_adStream.getRepresentation()->m_psshSetPos;
+    if (psshSetPos != PSSHSET_POS_DEFAULT ||
+        stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::NOT_SUPPORTED)
+    {
+      if (!GetSingleSampleDecryptor(psshSetPos))
+      {
+        // If the stream is protected with a unsupported DRM, we have to stop the playback,
+        // since there are no ways to stop playback when Kodi request streams
+        // we are forced to delete all CStream's here, so that when demux reader will starts
+        // will have no data to process, and so stop the playback
+        // (other streams may have been requested/opened before this one)
+        LOG::Log(LOGERROR, "GetStream(%d): Decrypter for the stream not found");
+        DeleteStreams();
+        return false;
+      }
+    }
+
+    info = stream->m_info;
+    return true;
+  }
+
+  return false;
+}
+
+std::shared_ptr<Adaptive_CencSingleSampleDecrypter> SESSION::CSession::GetSingleSampleDecrypter(
+    std::string sessionId)
 {
   for (std::vector<CCdmSession>::iterator b(m_cdmSessions.begin() + 1), e(m_cdmSessions.end());
        b != e; ++b)
@@ -1274,7 +1300,7 @@ std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CSession::GetSingleSampleDec
   return nullptr;
 }
 
-uint32_t CSession::GetIncludedStreamMask() const
+uint32_t SESSION::CSession::GetIncludedStreamMask() const
 {
   //! @todo: this conversion must be reworked can easily be broken and cause hidden problems
   const INPUTSTREAM_TYPE adp2ips[] = {INPUTSTREAM_TYPE_NONE, INPUTSTREAM_TYPE_VIDEO,
@@ -1288,7 +1314,7 @@ uint32_t CSession::GetIncludedStreamMask() const
   return res;
 }
 
-STREAM_CRYPTO_KEY_SYSTEM CSession::GetCryptoKeySystem(std::string_view keySystem) const
+STREAM_CRYPTO_KEY_SYSTEM SESSION::CSession::GetCryptoKeySystem(std::string_view keySystem) const
 {
   if (keySystem == DRM::KS_WIDEVINE)
     return STREAM_CRYPTO_KEY_SYSTEM_WIDEVINE;
@@ -1318,7 +1344,7 @@ int CSession::GetChapter() const
   return -1;
 }
 
-int CSession::GetChapterCount() const
+int SESSION::CSession::GetChapterCount() const
 {
   if (m_adaptiveTree && m_adaptiveTree->m_periods.size() > 1)
       return static_cast<int>(m_adaptiveTree->m_periods.size());
@@ -1326,7 +1352,7 @@ int CSession::GetChapterCount() const
   return 0;
 }
 
-std::string CSession::GetChapterName(int ch) const
+std::string SESSION::CSession::GetChapterName(int ch) const
 {
   if (m_adaptiveTree)
   {
@@ -1338,7 +1364,7 @@ std::string CSession::GetChapterName(int ch) const
   return "[Unknown]";
 }
 
-int64_t CSession::GetChapterPos(int ch) const
+int64_t SESSION::CSession::GetChapterPos(int ch) const
 {
   int64_t sum{0};
   --ch;
@@ -1352,7 +1378,7 @@ int64_t CSession::GetChapterPos(int ch) const
   return sum / STREAM_TIME_BASE;
 }
 
-uint64_t CSession::GetChapterStartTime() const
+uint64_t SESSION::CSession::GetChapterStartTime() const
 {
   uint64_t start_time = 0;
   for (std::unique_ptr<CPeriod>& p : m_adaptiveTree->m_periods)
@@ -1365,7 +1391,7 @@ uint64_t CSession::GetChapterStartTime() const
   return start_time;
 }
 
-int CSession::GetPeriodId() const
+int SESSION::CSession::GetPeriodId() const
 {
   if (m_adaptiveTree)
   {
@@ -1384,7 +1410,7 @@ int CSession::GetPeriodId() const
   return -1;
 }
 
-bool CSession::SeekChapter(int ch)
+bool SESSION::CSession::SeekChapter(int ch)
 {
   if (m_adaptiveTree->IsChangingPeriod())
     return true;
@@ -1412,10 +1438,10 @@ bool CSession::SeekChapter(int ch)
   return false;
 }
 
-void CSession::ExtractStreamProtectionData(const PLAYLIST::CPeriod::PSSHSet& psshSet,
-                                           std::string& defaultKid,
-                                           std::vector<uint8_t>& initData,
-                                           const std::vector<std::string_view>& keySystems)
+void SESSION::CSession::ExtractStreamProtectionData(const PLAYLIST::CPeriod::PSSHSet& psshSet,
+                                                    std::string& defaultKid,
+                                                    std::vector<uint8_t>& initData,
+                                                    const std::vector<std::string_view>& keySystems)
 {
   auto initialRepr = m_reprChooser->GetRepresentation(psshSet.adaptation_set_);
 

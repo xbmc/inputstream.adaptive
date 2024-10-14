@@ -318,6 +318,14 @@ public:
    */
   void OnStreamChange(adaptive::AdaptiveStream* adStream) override;
 
+  /*!
+   * \brief Callback from CInputStreamAdaptive::GetStream.
+   * \param streamid The requested stream id
+   * \param info The stream info object (can be updated)
+   * \return True to allow Kodi core to load the stream, otherwise false
+   */
+  bool OnGetStream(int streamid, kodi::addon::InputstreamInfo& info);
+
 protected:
   /*! \brief Check for and load decrypter module matching the supplied key system
    *  \param key_system [OUT] Will be assigned to if a decrypter is found matching
