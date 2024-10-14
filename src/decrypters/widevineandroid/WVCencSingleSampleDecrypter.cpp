@@ -28,7 +28,7 @@ using namespace UTILS;
 
 CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(
     IWVCdmAdapter<jni::CJNIMediaDrm>* cdmAdapter,
-    std::vector<uint8_t>& pssh,
+    const std::vector<uint8_t>& pssh,
     const std::vector<uint8_t>& defaultKeyId)
   : m_cdmAdapter(cdmAdapter),
     m_pssh(pssh),

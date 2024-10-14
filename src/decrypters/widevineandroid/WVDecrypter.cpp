@@ -90,7 +90,7 @@ bool CWVDecrypterA::OpenDRMSystem(const DRM::Config& config)
 }
 
 std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypterA::CreateSingleSampleDecrypter(
-    std::vector<uint8_t>& initData,
+    const std::vector<uint8_t>& initData,
     const std::vector<uint8_t>& defaultKeyId,
     std::string_view licenseUrl,
     bool skipSessionMessage,

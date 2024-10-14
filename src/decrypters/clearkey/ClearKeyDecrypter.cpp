@@ -31,7 +31,7 @@ bool CClearKeyDecrypter::OpenDRMSystem(const DRM::Config& config)
 }
 
 std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CClearKeyDecrypter::CreateSingleSampleDecrypter(
-    std::vector<uint8_t>& initData,
+    const std::vector<uint8_t>& initData,
     const std::vector<uint8_t>& defaultkeyid,
     std::string_view licenseUrl,
     bool skipSessionMessage,

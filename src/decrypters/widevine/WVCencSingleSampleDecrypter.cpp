@@ -42,7 +42,7 @@ void CWVCencSingleSampleDecrypter::SetSession(const std::string sessionId,
 
 CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(
     IWVCdmAdapter<media::CdmAdapter>* cdmAdapter,
-    std::vector<uint8_t>& pssh,
+    const std::vector<uint8_t>& pssh,
     const std::vector<uint8_t>& defaultKeyId,
     bool skipSessionMessage,
     CryptoMode cryptoMode)

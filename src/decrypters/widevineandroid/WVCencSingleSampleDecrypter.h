@@ -25,7 +25,7 @@ class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypterA : public Adaptive_CencSingleS
 {
 public:
   CWVCencSingleSampleDecrypterA(IWVCdmAdapter<jni::CJNIMediaDrm>* cdmAdapter,
-                                std::vector<uint8_t>& pssh,
+                                const std::vector<uint8_t>& pssh,
                                 const std::vector<uint8_t>& defaultKeyId);
   virtual ~CWVCencSingleSampleDecrypterA();
 

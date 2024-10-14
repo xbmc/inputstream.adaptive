@@ -125,7 +125,7 @@ public:
    * \return The single sample decrypter if successfully created
    */
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
-      std::vector<uint8_t>& initData,
+      const std::vector<uint8_t>& initData,
       const std::vector<uint8_t>& defaultKeyId,
       std::string_view licenseUrl,
       bool skipSessionMessage,
