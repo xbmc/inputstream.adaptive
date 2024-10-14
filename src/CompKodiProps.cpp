@@ -376,7 +376,7 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
 {
   // Translate data from old ISA properties to the new DRM config
 
-  if (!STRING::KeyExists(props, PROP_LICENSE_TYPE) && !STRING::KeyExists(props, PROP_LICENSE_KEY))
+  if (!STRING::KeyExists(props, PROP_LICENSE_TYPE))
     return;
   /*
    *! @todo: TO UNCOMMENT WHEN DRM AUTO-SELECTION WILL BE FULL IMPLEMENTED
