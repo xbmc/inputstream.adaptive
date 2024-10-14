@@ -24,11 +24,6 @@
 #include "utils/Utils.h"
 #include "utils/log.h"
 
-#include <array>
-
-#include <kodi/addon-instance/Inputstream.h>
-
-using namespace kodi::tools;
 using namespace adaptive;
 using namespace PLAYLIST;
 using namespace SESSION;
