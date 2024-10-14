@@ -1263,6 +1263,36 @@ void CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
   }
 }
 
+bool SESSION::CSession::OnGetStream(int streamid, kodi::addon::InputstreamInfo& info)
+{
+  CStream* stream(GetStream(streamid - GetPeriodId() * 1000));
+
+  if (stream)
+  {
+    const uint16_t psshSetPos = stream->m_adStream.getRepresentation()->m_psshSetPos;
+    if (psshSetPos != PSSHSET_POS_DEFAULT ||
+        stream->m_adStream.getPeriod()->GetEncryptionState() == EncryptionState::NOT_SUPPORTED)
+    {
+      if (!GetSingleSampleDecryptor(psshSetPos))
+      {
+        // If the stream is protected with a unsupported DRM, we have to stop the playback,
+        // since there are no ways to stop playback when Kodi request streams
+        // we are forced to delete all CStream's here, so that when demux reader will starts
+        // will have no data to process, and so stop the playback
+        // (other streams may have been requested/opened before this one)
+        LOG::Log(LOGERROR, "GetStream(%d): Decrypter for the stream not found");
+        DeleteStreams();
+        return false;
+      }
+    }
+
+    info = stream->m_info;
+    return true;
+  }
+
+  return false;
+}
+
 std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CSession::GetSingleSampleDecrypter(std::string sessionId)
 {
   for (std::vector<CCdmSession>::iterator b(m_cdmSessions.begin() + 1), e(m_cdmSessions.end());
