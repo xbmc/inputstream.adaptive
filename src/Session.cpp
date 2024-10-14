@@ -82,7 +82,7 @@ void SESSION::CSession::DisposeSampleDecrypter()
   {
     for (auto& cdmSession : m_cdmSessions)
     {
-      cdmSession.m_cdmSessionStr = nullptr;
+      cdmSession.m_sessionId.clear();
       cdmSession.m_cencSingleSampleDecrypter = nullptr;
     }
   }
@@ -293,8 +293,8 @@ bool SESSION::CSession::PreInitializeDRM(std::string& challengeB64,
                           m_decrypter->CreateSingleSampleDecrypter(initData, decKid, "", true,
                                                                    CryptoMode::AES_CTR)) != nullptr)
   {
-    session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
-    sessionId = session.m_cdmSessionStr;
+    session.m_sessionId = session.m_cencSingleSampleDecrypter->GetSessionId();
+    sessionId = session.m_sessionId;
     challengeB64 = m_decrypter->GetChallengeB64Data(session.m_cencSingleSampleDecrypter);
   }
   else
@@ -466,7 +466,7 @@ bool SESSION::CSession::InitializeDRM(bool addDefaultKID /* = false */)
         m_decrypter->GetCapabilities(session.m_cencSingleSampleDecrypter, defaultKid,
                                      sessionPsshset.media_, session.m_decrypterCaps);
 
-        session.m_cdmSessionStr = session.m_cencSingleSampleDecrypter->GetSessionId();
+        session.m_sessionId = session.m_cencSingleSampleDecrypter->GetSessionId();
 
         if (session.m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_INVALID)
         {
@@ -927,14 +927,14 @@ bool SESSION::CSession::IsCDMSessionSecurePath(size_t index)
           DRM::DecrypterCapabilites::SSD_SECURE_PATH) != 0;
 }
 
-const char* SESSION::CSession::GetCDMSession(unsigned int index)
+std::string SESSION::CSession::GetCDMSession(unsigned int index)
 {
   if (index >= m_cdmSessions.size())
   {
     LOG::LogF(LOGERROR, "No CDM session at index %u", index);
-    return nullptr;
+    return {};
   }
-  return m_cdmSessions[index].m_cdmSessionStr;
+  return m_cdmSessions[index].m_sessionId;
 }
 
 uint64_t SESSION::CSession::PTSToElapsed(uint64_t pts)
@@ -1294,7 +1294,7 @@ std::shared_ptr<Adaptive_CencSingleSampleDecrypter> SESSION::CSession::GetSingle
   for (std::vector<CCdmSession>::iterator b(m_cdmSessions.begin() + 1), e(m_cdmSessions.end());
        b != e; ++b)
   {
-    if (b->m_cdmSessionStr && sessionId == b->m_cdmSessionStr)
+    if (sessionId == b->m_sessionId)
       return b->m_cencSingleSampleDecrypter;
   }
   return nullptr;

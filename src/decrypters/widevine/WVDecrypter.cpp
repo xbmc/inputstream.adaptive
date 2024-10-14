@@ -104,7 +104,7 @@ std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypter::CreateSingleSa
 {
   auto decrypter = std::make_shared<CWVCencSingleSampleDecrypter>(
       m_WVCdmAdapter.get(), initData, defaultKeyId, skipSessionMessage, cryptoMode);
-  if (!decrypter->GetSessionId())
+  if (decrypter->GetSessionId().empty())
   {
     return nullptr;
   }

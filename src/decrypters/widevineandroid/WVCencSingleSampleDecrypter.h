@@ -31,7 +31,7 @@ public:
 
   bool StartSession(bool skipSessionMessage) { return KeyUpdateRequest(true, skipSessionMessage); };
 
-  virtual const char* GetSessionId() override;
+  virtual std::string GetSessionId() override;
   std::vector<uint8_t> GetChallengeData();
   virtual bool HasLicenseKey(const std::vector<uint8_t>& keyId);
 

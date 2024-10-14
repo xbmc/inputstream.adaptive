@@ -159,9 +159,9 @@ CWVCencSingleSampleDecrypterA::~CWVCencSingleSampleDecrypterA()
   m_cdmAdapter->DetachObserver(this);
 }
 
-const char* CWVCencSingleSampleDecrypterA::GetSessionId()
+std::string CWVCencSingleSampleDecrypterA::GetSessionId()
 {
-  return m_sessionId.c_str();
+  return m_sessionId;
 }
 
 std::vector<uint8_t> CWVCencSingleSampleDecrypterA::GetChallengeData()

@@ -125,7 +125,7 @@ public:
    *  \param index The index (psshSet number) of the cdm session
    *  \return The session string
    */
-  const char* GetCDMSession(unsigned int index);
+  std::string GetCDMSession(unsigned int index);
 
   /*! \brief Get the media type mask
    *  \return The media type mask
@@ -353,7 +353,7 @@ private:
   {
     DRM::DecrypterCapabilites m_decrypterCaps;
     std::shared_ptr<Adaptive_CencSingleSampleDecrypter> m_cencSingleSampleDecrypter;
-    const char* m_cdmSessionStr{nullptr};
+    std::string m_sessionId;
   };
   std::vector<CCdmSession> m_cdmSessions;
 

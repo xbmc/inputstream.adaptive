@@ -39,7 +39,7 @@ public:
   void GetCapabilities(const std::vector<uint8_t>& keyId,
                        uint32_t media,
                        DecrypterCapabilites& caps);
-  virtual const char* GetSessionId() override;
+  virtual std::string GetSessionId() override;
   void CloseSessionId();
   AP4_DataBuffer GetChallengeData();
 
