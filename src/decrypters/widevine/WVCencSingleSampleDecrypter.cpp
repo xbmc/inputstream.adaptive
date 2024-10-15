@@ -42,7 +42,7 @@ void CWVCencSingleSampleDecrypter::SetSession(const std::string sessionId,
 
 CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(
     IWVCdmAdapter<media::CdmAdapter>* cdmAdapter,
-    std::vector<uint8_t>& pssh,
+    const std::vector<uint8_t>& pssh,
     const std::vector<uint8_t>& defaultKeyId,
     bool skipSessionMessage,
     CryptoMode cryptoMode)
@@ -202,9 +202,9 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(const std::vector<uint8_t>& k
   }
 }
 
-const char* CWVCencSingleSampleDecrypter::GetSessionId()
+std::string CWVCencSingleSampleDecrypter::GetSessionId()
 {
-  return m_strSession.empty() ? nullptr : m_strSession.c_str();
+  return m_strSession;
 }
 
 void CWVCencSingleSampleDecrypter::CloseSessionId()

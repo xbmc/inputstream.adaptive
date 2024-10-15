@@ -90,7 +90,7 @@ bool CWVDecrypterA::OpenDRMSystem(const DRM::Config& config)
 }
 
 std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypterA::CreateSingleSampleDecrypter(
-    std::vector<uint8_t>& initData,
+    const std::vector<uint8_t>& initData,
     const std::vector<uint8_t>& defaultKeyId,
     std::string_view licenseUrl,
     bool skipSessionMessage,
@@ -99,7 +99,7 @@ std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CWVDecrypterA::CreateSingleS
   std::shared_ptr<CWVCencSingleSampleDecrypterA> decrypter =
       std::make_shared<CWVCencSingleSampleDecrypterA>(m_WVCdmAdapter.get(), initData, defaultKeyId);
 
-  if (!(*decrypter->GetSessionId() && decrypter->StartSession(skipSessionMessage)))
+  if (!(!decrypter->GetSessionId().empty() && decrypter->StartSession(skipSessionMessage)))
   {
     return nullptr;
   }

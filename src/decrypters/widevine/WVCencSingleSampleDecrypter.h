@@ -30,7 +30,7 @@ class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypter : public Adaptive_CencSingleSa
 {
 public:
   CWVCencSingleSampleDecrypter(IWVCdmAdapter<media::CdmAdapter>* cdmAdapter,
-                               std::vector<uint8_t>& pssh,
+                               const std::vector<uint8_t>& pssh,
                                const std::vector<uint8_t>& defaultKeyId,
                                bool skipSessionMessage,
                                CryptoMode cryptoMode);
@@ -39,7 +39,7 @@ public:
   void GetCapabilities(const std::vector<uint8_t>& keyId,
                        uint32_t media,
                        DecrypterCapabilites& caps);
-  virtual const char* GetSessionId() override;
+  virtual std::string GetSessionId() override;
   void CloseSessionId();
   AP4_DataBuffer GetChallengeData();
 

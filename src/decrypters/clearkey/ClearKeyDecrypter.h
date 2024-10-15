@@ -19,7 +19,7 @@ public:
   virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) override;
   virtual bool OpenDRMSystem(const DRM::Config& config) override;
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
-      std::vector<uint8_t>& initData,
+      const std::vector<uint8_t>& initData,
       const std::vector<uint8_t>& defaultkeyid,
       std::string_view licenseUrl,
       bool skipSessionMessage,

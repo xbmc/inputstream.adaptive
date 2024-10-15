@@ -11,6 +11,7 @@
 #include "utils/CryptoUtils.h"
 
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -54,5 +55,5 @@ public:
 
   virtual AP4_UI32 AddPool() { return 0; }
   virtual void RemovePool(AP4_UI32 poolId) {}
-  virtual const char* GetSessionId() { return nullptr; }
+  virtual std::string GetSessionId() { return {}; }
 };

@@ -306,8 +306,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     const std::string keySystem = CSrvBroker::GetKodiProps().GetDrmKeySystem();
     cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem(keySystem));
 
-    const char* sessionId(m_session->GetCDMSession(cdmSessionIndex));
-    cryptoSession.SetSessionId(sessionId);
+    cryptoSession.SetSessionId(m_session->GetCDMSession(cdmSessionIndex));
 
     if (m_session->GetDecrypterCaps(cdmSessionIndex).flags &
         DRM::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
@@ -581,7 +580,7 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   }
   m_name += ".decoder";
 
-  std::string sessionId(initData.GetCryptoSession().GetSessionId());
+  std::string sessionId = initData.GetCryptoSession().GetSessionId();
   std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd(m_session->GetSingleSampleDecrypter(sessionId));
 
   return m_session->GetDecrypter()->OpenVideoDecoder(

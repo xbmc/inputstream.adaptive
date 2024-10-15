@@ -25,13 +25,13 @@ class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypterA : public Adaptive_CencSingleS
 {
 public:
   CWVCencSingleSampleDecrypterA(IWVCdmAdapter<jni::CJNIMediaDrm>* cdmAdapter,
-                                std::vector<uint8_t>& pssh,
+                                const std::vector<uint8_t>& pssh,
                                 const std::vector<uint8_t>& defaultKeyId);
   virtual ~CWVCencSingleSampleDecrypterA();
 
   bool StartSession(bool skipSessionMessage) { return KeyUpdateRequest(true, skipSessionMessage); };
 
-  virtual const char* GetSessionId() override;
+  virtual std::string GetSessionId() override;
   std::vector<uint8_t> GetChallengeData();
   virtual bool HasLicenseKey(const std::vector<uint8_t>& keyId);
 
