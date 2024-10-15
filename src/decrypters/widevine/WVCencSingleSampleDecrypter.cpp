@@ -326,7 +326,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   int hdcpLimit{0};
 
   // Unwrap license response
-  if (!isCertRequest && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
+  if (!licConfig.unwrapper.empty() && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
   {
     std::string unwrappedData;
     // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
