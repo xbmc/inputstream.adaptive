@@ -54,8 +54,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(
     std::string fileName =
         STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".init";
     std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
-    std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
-    FILESYS::SaveFile(debugFilePath, data, true);
+    FILESYS::SaveFile(debugFilePath, {m_pssh.cbegin(), m_pssh.cend()}, true);
   }
 
   m_initialPssh = m_pssh;
@@ -342,7 +341,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
     std::string fileName =
         STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".challenge";
     std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
-    UTILS::FILESYS::SaveFile(debugFilePath, reinterpret_cast<const char*>(challenge.data()), true);
+    UTILS::FILESYS::SaveFile(debugFilePath, {challenge.cbegin(), challenge.cend()}, true);
   }
 
   const DRM::Config drmCfg = m_cdmAdapter->GetConfig();
@@ -420,23 +419,23 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
 
   int hdcpLimit{0};
 
+  // Unwrap license response
+  if (!licConfig.unwrapper.empty() && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
+  {
+    std::string unwrappedData;
+    // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
+    // Here we provide a built-in way to unwrap the license data received, this avoid force add-ons to integrate
+    // a HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
+    if (!DRM::WvUnwrapLicense(licConfig.unwrapper, licConfig.unwrapperParams, respContentType,
+                              respData, unwrappedData, hdcpLimit))
+    {
+      return false;
+    }
+    respData = unwrappedData;
+  }
+
   if (!isCertRequest)
   {
-    // Unwrap license response
-    if (m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
-    {
-      std::string unwrappedData;
-      // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
-      // Here we provide a built-in way to unwrap the license data received, this avoid force add-ons to integrate
-      // a HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
-      if (!DRM::WvUnwrapLicense(licConfig.unwrapper, licConfig.unwrapperParams, respContentType,
-                                respData, unwrappedData, hdcpLimit))
-      {
-        return false;
-      }
-      respData = unwrappedData;
-    }
-
     if (m_cdmAdapter->GetKeySystem() == DRM::KS_PLAYREADY &&
         respData.find("<LicenseNonce>") == std::string::npos)
     {
@@ -453,10 +452,14 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
     }
   }
 
-  if (!isCertRequest && CSrvBroker::GetSettings().IsDebugLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string fileName =
-        STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".response";
+    std::string fileName = STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem()));
+    if (isCertRequest)
+      fileName += ".cert.response";
+    else
+      fileName += ".response";
+
     std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
     FILESYS::SaveFile(debugFilePath, respData, true);
   }

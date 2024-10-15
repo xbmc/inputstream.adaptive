@@ -71,9 +71,7 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(
   {
     std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(),
                                                      "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.init");
-
-    std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
-    UTILS::FILESYS::SaveFile(debugFilePath, data, true);
+    UTILS::FILESYS::SaveFile(debugFilePath, {m_pssh.cbegin(), m_pssh.cend()}, true);
   }
 
   m_cdmAdapter->GetCDM()->CreateSessionAndGenerateRequest(
@@ -328,7 +326,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   int hdcpLimit{0};
 
   // Unwrap license response
-  if (!isCertRequest && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
+  if (!licConfig.unwrapper.empty() && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
   {
     std::string unwrappedData;
     // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
@@ -342,10 +340,15 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     respData = unwrappedData;
   }
 
-  if (!isCertRequest && CSrvBroker::GetSettings().IsDebugLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string debugFilePath = FILESYS::PathCombine(
-        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(),
+                                                     "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED");
+    if (isCertRequest)
+      debugFilePath += ".cert.response";
+    else
+      debugFilePath += ".response";
+
     FILESYS::SaveFile(debugFilePath, respData, true);
   }
 
