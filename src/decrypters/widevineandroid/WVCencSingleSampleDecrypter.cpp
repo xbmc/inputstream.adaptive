@@ -420,23 +420,22 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
 
   int hdcpLimit{0};
 
-  if (!isCertRequest)
+  if (!licConfig.unwrapper.empty() && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
   {
     // Unwrap license response
-    if (m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
+    std::string unwrappedData;
+    // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
+    // Here we provide a built-in way to unwrap the license data received, this avoid force add-ons to integrate
+    // a HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
+    if (!DRM::WvUnwrapLicense(licConfig.unwrapper, licConfig.unwrapperParams, respContentType,
+                              respData, unwrappedData, hdcpLimit))
     {
-      std::string unwrappedData;
-      // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
-      // Here we provide a built-in way to unwrap the license data received, this avoid force add-ons to integrate
-      // a HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
-      if (!DRM::WvUnwrapLicense(licConfig.unwrapper, licConfig.unwrapperParams, respContentType,
-                                respData, unwrappedData, hdcpLimit))
-      {
-        return false;
-      }
-      respData = unwrappedData;
+      return false;
     }
-
+    respData = unwrappedData;
+  }
+  if (!isCertRequest)
+  {
     if (m_cdmAdapter->GetKeySystem() == DRM::KS_PLAYREADY &&
         respData.find("<LicenseNonce>") == std::string::npos)
     {
