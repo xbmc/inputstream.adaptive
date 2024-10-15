@@ -54,8 +54,7 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(
     std::string fileName =
         STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".init";
     std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
-    std::string data{reinterpret_cast<const char*>(m_pssh.data()), m_pssh.size()};
-    FILESYS::SaveFile(debugFilePath, data, true);
+    FILESYS::SaveFile(debugFilePath, {m_pssh.cbegin(), m_pssh.cend()}, true);
   }
 
   m_initialPssh = m_pssh;
@@ -342,7 +341,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
     std::string fileName =
         STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".challenge";
     std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
-    UTILS::FILESYS::SaveFile(debugFilePath, reinterpret_cast<const char*>(challenge.data()), true);
+    UTILS::FILESYS::SaveFile(debugFilePath, {challenge.cbegin(), challenge.cend()}, true);
   }
 
   const DRM::Config drmCfg = m_cdmAdapter->GetConfig();
@@ -417,6 +416,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
   // The first request could be the license certificate request
   // this request is done by sending a challenge of 2 bytes, 0x08 0x04 (CAQ=)
   const bool isCertRequest = challenge.size() == 2 && challenge[0] == 0x08 && challenge[1] == 0x04;
+  LOG::LogF(LOGDEBUG, "IS CERT REQ? %i", isCertRequest);
 
   int hdcpLimit{0};
 
@@ -453,6 +453,13 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
     }
   }
 
+  if (isCertRequest && CSrvBroker::GetSettings().IsDebugLicense())
+  {
+    std::string fileName =
+        STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".response.cert";
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
+    FILESYS::SaveFile(debugFilePath, respData, true);
+  }
   if (!isCertRequest && CSrvBroker::GetSettings().IsDebugLicense())
   {
     std::string fileName =
