@@ -452,10 +452,14 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
     }
   }
 
-  if (!isCertRequest && CSrvBroker::GetSettings().IsDebugLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string fileName =
-        STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem())) + ".response";
+    std::string fileName = STRING::ToUpper(DRM::KeySystemToUUIDstr(m_cdmAdapter->GetKeySystem()));
+    if (isCertRequest)
+      fileName += ".cert.response";
+    else
+      fileName += ".response";
+
     std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(), fileName);
     FILESYS::SaveFile(debugFilePath, respData, true);
   }

@@ -340,10 +340,15 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     respData = unwrappedData;
   }
 
-  if (!isCertRequest && CSrvBroker::GetSettings().IsDebugLicense())
+  if (CSrvBroker::GetSettings().IsDebugLicense())
   {
-    std::string debugFilePath = FILESYS::PathCombine(
-        m_cdmAdapter->GetLibraryPath(), "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED.response");
+    std::string debugFilePath = FILESYS::PathCombine(m_cdmAdapter->GetLibraryPath(),
+                                                     "EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED");
+    if (isCertRequest)
+      debugFilePath += ".cert.response";
+    else
+      debugFilePath += ".response";
+
     FILESYS::SaveFile(debugFilePath, respData, true);
   }
 
