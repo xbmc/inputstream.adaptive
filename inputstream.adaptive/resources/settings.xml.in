@@ -248,6 +248,11 @@
           <default>false</default>
           <control type="toggle" />
         </setting>
+        <setting id="debug.verbose" type="boolean" label="30242" help="30243">
+          <level>0</level>
+          <default>false</default>
+          <control type="toggle" />
+        </setting>
       </group>
     </category>
   </section>

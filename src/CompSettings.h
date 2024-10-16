@@ -73,6 +73,7 @@ public:
 
   bool IsDebugLicense() const;
   bool IsDebugManifest() const;
+  bool IsDebugVerbose() const;
 };
 
 } // namespace SETTINGS

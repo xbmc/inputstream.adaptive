@@ -9,6 +9,7 @@
 #include "CompKodiProps.h"
 
 #include "CompSettings.h"
+#include "SrvBroker.h"
 #include "decrypters/Helpers.h"
 #include "utils/StringUtils.h"
 #include "utils/UrlUtils.h"
@@ -122,11 +123,11 @@ void ADP::KODI_PROPS::CCompKodiProps::Init(const std::map<std::string, std::stri
 
   for (const auto& prop : props)
   {
-    bool logPropValRedacted{false};
+    const bool isRedacted = !CSrvBroker::GetSettings().IsDebugVerbose();
 
     if (prop.first == PROP_LICENSE_URL) //! @todo: deprecated to be removed on Kodi 23
     {
-      LogProp(prop.first, prop.second, true);
+      LogProp(prop.first, prop.second, isRedacted);
       LOG::Log(
           LOGWARNING,
           "Warning \"inputstream.adaptive.license_url\" property for PVR API bug is deprecated and "
@@ -137,7 +138,7 @@ void ADP::KODI_PROPS::CCompKodiProps::Init(const std::map<std::string, std::stri
     }
     else if (prop.first == PROP_LICENSE_URL_APPEND) //! @todo: deprecated to be removed on Kodi 23
     {
-      LogProp(prop.first, prop.second, true);
+      LogProp(prop.first, prop.second, isRedacted);
       LOG::Log(
           LOGWARNING,
           "Warning \"inputstream.adaptive.license_url_append\" property for PVR API bug is deprecated and "
@@ -240,14 +241,14 @@ void ADP::KODI_PROPS::CCompKodiProps::Init(const std::map<std::string, std::stri
     }
     else if (prop.first == PROP_DRM && !prop.second.empty())
     {
-      LogProp(prop.first, prop.second, true);
+      LogProp(prop.first, prop.second, isRedacted);
       if (!ParseDrmConfig(prop.second))
         LOG::LogF(LOGERROR, "Cannot parse \"%s\" property, wrong or malformed data.",
           prop.first.c_str());
     }
     else if (prop.first == PROP_DRM_LEGACY && !prop.second.empty())
     {
-      LogProp(prop.first, prop.second, true);
+      LogProp(prop.first, prop.second, isRedacted);
       if (!ParseDrmLegacyConfig(prop.second))
         LOG::LogF(LOGERROR, "Cannot parse \"%s\" property, wrong or malformed data.",
                   prop.first.c_str());
@@ -427,6 +428,7 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
   drmCfg.priority = 1;
 
   // Parse DRM properties
+  const bool isRedacted = !CSrvBroker::GetSettings().IsDebugVerbose();
   std::string propValue;
 
   if (STRING::GetMapValue(props, PROP_LICENSE_FLAGS, propValue))
@@ -441,13 +443,13 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
 
   if (STRING::GetMapValue(props, PROP_LICENSE_DATA, propValue))
   {
-    LogProp(PROP_LICENSE_DATA, propValue, true);
+    LogProp(PROP_LICENSE_DATA, propValue, isRedacted);
     drmCfg.initData = propValue;
   }
 
   if (STRING::GetMapValue(props, PROP_PRE_INIT_DATA, propValue))
   {
-    LogProp(PROP_PRE_INIT_DATA, propValue, true);
+    LogProp(PROP_PRE_INIT_DATA, propValue, isRedacted);
     drmCfg.preInitData = propValue;
   }
 
@@ -455,13 +457,13 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
 
   if (STRING::GetMapValue(props, PROP_SERVER_CERT, propValue))
   {
-    LogProp(PROP_SERVER_CERT, propValue, true);
+    LogProp(PROP_SERVER_CERT, propValue, isRedacted);
     drmCfg.license.serverCert = propValue;
   }
 
   if (STRING::GetMapValue(props, PROP_LICENSE_KEY, propValue))
   {
-    LogProp(PROP_LICENSE_KEY, propValue, true);
+    LogProp(PROP_LICENSE_KEY, propValue, isRedacted);
 
     std::vector<std::string> fields = STRING::SplitToVec(propValue, '|');
     size_t fieldCount = fields.size();
