@@ -53,11 +53,7 @@ add_executable(${BINARY}
     ../utils/XMLUtils.cpp
     )
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
-  SET(ADD_LINK_LIBS "atomic")
-endif()
-
-target_link_libraries(${BINARY} PRIVATE ${BENTO4_LIBRARIES} ${PUGIXML_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS} ${ADD_LINK_LIBS})
+target_link_libraries(${BINARY} PRIVATE ${BENTO4_LIBRARIES} ${PUGIXML_LIBRARIES} ${GTEST_LIBRARIES} Threads::Threads ${CMAKE_DL_LIBS})
 
 set(TEST_DATA_DIR "${CMAKE_SOURCE_DIR}/src/test/manifests")
 add_test(NAME manifest_tests COMMAND ${BINARY} "${TEST_DATA_DIR}")
