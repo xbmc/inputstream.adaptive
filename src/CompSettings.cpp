@@ -124,3 +124,8 @@ bool ADP::SETTINGS::CCompSettings::IsDebugManifest() const
 {
   return kodi::addon::GetSettingBoolean("debug.save.manifest");
 }
+
+bool ADP::SETTINGS::CCompSettings::IsDebugVerbose() const
+{
+  return kodi::addon::GetSettingBoolean("debug.verbose");
+}
