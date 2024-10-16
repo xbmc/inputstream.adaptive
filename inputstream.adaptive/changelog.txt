@@ -1,3 +1,12 @@
+v22.1.7 (2024-10-16)
+- Default DRM headers are always added to prevent possible license request errors
+- Fix old DRM config backward compatibilty for cases such as playready
+- [widevine] fix a problem that caused error: cannot translate license wrapper
+- [widevine] fix malformed saved debug license files
+- [widevine] fix regression that prevent unwrapping of license certificate response
+- Add new verbose debug expert setting
+- Removed atomic library linking (solve linux build problems)
+
 v22.1.6 (2024-10-12)
 - New property: inputstream.adaptive.common_headers, allow to set HTTP headers to all HTTP request
 - Fix decoding with some out-of-spec mp4 DRM encrypted streams
