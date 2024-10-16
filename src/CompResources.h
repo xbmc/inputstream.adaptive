@@ -59,13 +59,21 @@ public:
    * \brief Get the current screen info.
    * \return The screen info.
    */
-  ScreenInfo GetScreenInfo() const { return m_screenInfo.load(); }
+  const ScreenInfo& GetScreenInfo()
+  {
+    std::lock_guard<std::mutex> lock(m_screenInfoMutex);
+    return m_screenInfo;
+  }
 
   /*!
    * \brief Set the screen info.
    * \param screenInfo The scren info
    */
-  void SetScreenInfo(const ScreenInfo& screenInfo) { m_screenInfo = screenInfo; }
+  void SetScreenInfo(const ScreenInfo& screenInfo)
+  {
+    std::lock_guard<std::mutex> lock(m_screenInfoMutex);
+    m_screenInfo = screenInfo;
+  }
 
   /*!
    * \brief Cookies that can be shared along with HTTP requests.
@@ -87,7 +95,8 @@ public:
   const adaptive::AdaptiveTree& GetTree() const { return *m_tree; }
 
 private:
-  std::atomic<ScreenInfo> m_screenInfo;
+  ScreenInfo m_screenInfo;
+  std::mutex m_screenInfoMutex;
   std::unordered_set<UTILS::CURL::Cookie> m_cookies;
   std::mutex m_cookiesMutex;
   adaptive::AdaptiveTree* m_tree{nullptr};
