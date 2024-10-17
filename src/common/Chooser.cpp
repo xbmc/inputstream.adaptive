@@ -88,7 +88,7 @@ CHOOSER::IRepresentationChooser::IRepresentationChooser()
 
 void CHOOSER::IRepresentationChooser::OnUpdateScreenRes()
 {
-  const auto& sInfo = CSrvBroker::GetResources().GetScreenInfo();
+  const auto sInfo = CSrvBroker::GetResources().GetScreenInfo();
 
   LOG::Log(LOGINFO,
            "[Repr. chooser] Resolution set: %dx%d, max allowed: %dx%d, Adjust refresh rate: %i",
