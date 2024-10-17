@@ -12,6 +12,7 @@
 #include "CompSettings.h"
 #include "SrvBroker.h"
 #include "aes_decrypter.h"
+#include "common/AdaptationSet.h"
 #include "common/AdaptiveDecrypter.h"
 #include "common/AdaptiveTreeFactory.h"
 #include "common/Chooser.h"
@@ -1092,7 +1093,7 @@ bool SESSION::CSession::SeekTime(double seekTime, unsigned int streamId, bool pr
 
   for (; pi != m_adaptiveTree->m_periods.cend(); pi++)
   {
-    chapterTime += double((*pi)->GetDuration()) / (*pi)->GetTimescale();
+    chapterTime += double((*pi)->GetSegDuration()) / (*pi)->GetTimescale();
     if (chapterTime > seekTime)
       break;
   }
@@ -1100,7 +1101,7 @@ bool SESSION::CSession::SeekTime(double seekTime, unsigned int streamId, bool pr
   if (pi == m_adaptiveTree->m_periods.cend())
     --pi;
 
-  chapterTime -= double((*pi)->GetDuration()) / (*pi)->GetTimescale();
+  chapterTime -= double((*pi)->GetSegDuration()) / (*pi)->GetTimescale();
 
   if ((*pi).get() != m_adaptiveTree->m_currentPeriod)
   {
@@ -1371,7 +1372,7 @@ int64_t SESSION::CSession::GetChapterPos(int ch) const
 
   for (; ch; --ch)
   {
-    sum += (m_adaptiveTree->m_periods[ch - 1]->GetDuration() * STREAM_TIME_BASE) /
+    sum += (m_adaptiveTree->m_periods[ch - 1]->GetSegDuration() * STREAM_TIME_BASE) /
            m_adaptiveTree->m_periods[ch - 1]->GetTimescale();
   }
 
@@ -1386,7 +1387,7 @@ uint64_t SESSION::CSession::GetChapterStartTime() const
     if (p.get() == m_adaptiveTree->m_currentPeriod)
       break;
     else
-      start_time += (p->GetDuration() * STREAM_TIME_BASE) / p->GetTimescale();
+      start_time += (p->GetSegDuration() * STREAM_TIME_BASE) / p->GetTimescale();
   }
   return start_time;
 }
