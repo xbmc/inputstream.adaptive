@@ -59,7 +59,7 @@ public:
    * \brief Get the current screen info.
    * \return The screen info.
    */
-  const ScreenInfo& GetScreenInfo()
+  ScreenInfo GetScreenInfo()
   {
     std::lock_guard<std::mutex> lock(m_screenInfoMutex);
     return m_screenInfo;
