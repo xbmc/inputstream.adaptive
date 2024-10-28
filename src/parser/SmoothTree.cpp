@@ -95,7 +95,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
   if (nodeProt)
   {
     period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
-    period->SetSecureDecodeNeeded(true);
+    //period->SetSecureDecodeNeeded(true);
 
     pugi::xml_node nodeProtHead = nodeProt.child("ProtectionHeader");
     if (nodeProtHead)
