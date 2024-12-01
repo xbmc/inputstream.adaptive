@@ -26,7 +26,7 @@ std::vector<uint8_t> HvccToAnnexb(const std::vector<uint8_t>& hvcc);
 std::vector<uint8_t> AnnexbToHvcc(const std::vector<uint8_t>& annexb);
 std::vector<uint8_t> AnnexbToAvc(const std::vector<uint8_t>& annexb);
 bool IsAnnexB(const std::vector<uint8_t>& data);
-std::vector<uint8_t> AvcToAnnexb(const std::vector<uint8_t>& avc);
+std::vector<uint8_t> AvcToAnnexb(const std::vector<uint8_t>& avcc);
 
 void ParseHeaderString(std::map<std::string, std::string>& headerMap, const std::string& header);
 

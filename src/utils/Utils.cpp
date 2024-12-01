@@ -207,57 +207,91 @@ bool UTILS::IsAnnexB(const std::vector<uint8_t>& data)
   return false;
 }
 
-std::vector<uint8_t> UTILS::AvcToAnnexb(const std::vector<uint8_t>& avc)
+std::vector<uint8_t> UTILS::AvcToAnnexb(const std::vector<uint8_t>& avcc)
 {
-  if (avc.size() < 8)
-    return {};
-
-  // check if's already annexb, avc starts with 1
-  if (avc[0] == 0)
-    return avc;
-
-  // calculate size
-  std::vector<uint8_t> buffer(1024); //! @todo: fixed size should be removed
-  uint8_t buffer_size = 4;
-  buffer[0] = buffer[1] = buffer[2] = 0;
-  buffer[3] = 1;
-
-  //skip avc header
-  size_t avc_data_size = avc.size();
-  const uint8_t* avc_data = avc.data() + 6;
-  avc_data_size -= 6;
-
-  //sizeof SPS
-  uint16_t sz = *avc_data;
-  ++avc_data;
-  --avc_data_size;
-  sz = (sz << 8) | *avc_data;
-  ++avc_data;
-  --avc_data_size;
-  //SPS
-  memcpy(buffer.data() + buffer_size, avc_data, sz);
-  buffer_size += sz, avc_data_size -= sz, avc_data += sz;
-
-  // Number PPS
-  sz = *avc_data, ++avc_data, --avc_data_size;
-
-  while (sz--)
+  if (avcc.size() < 7)
   {
-    buffer[buffer_size] = buffer[buffer_size + 1] = buffer[buffer_size + 2] = 0;
-    buffer[buffer_size + 3] = 1;
-    buffer_size += 4;
-    std::uint16_t ppssz(*avc_data);
-    ++avc_data;
-    --avc_data_size;
-    ppssz = (ppssz << 8) | *avc_data;
-    ++avc_data;
-    --avc_data_size;
-    std::memcpy(buffer.data() + buffer_size, avc_data, ppssz);
-    buffer_size += ppssz;
-    avc_data_size -= ppssz;
-    avc_data += ppssz;
+    LOG::LogF(LOGWARNING, "Cannot convert AVCC to annex B, malformed header");
+    return {};
   }
-  return {buffer.begin(), buffer.begin() + buffer_size};
+  if (avcc[0] != 0x01)
+  {
+    LOG::LogF(LOGWARNING, "Cannot convert AVCC to annex B, wrong header version");
+    return {};
+  }
+
+  std::vector<uint8_t> annexB;
+  size_t pos = 4; // Skip the first 4 bytes
+  // The NALU length unit size is encoded in the 2 least significant bits of the byte
+  // 00 -> 1 byte, 01 -> 2 bytes, 10 or 11 -> 4 bytes
+  const int naluLenUnitSize = (avcc[pos]) & 0x3 + 1;
+  pos++;
+  const int spsCount =
+      (avcc[pos]) & 0x1F; // SPS count is encoded in the 5 least significant bits of the byte
+  pos++;
+
+  // Copy SPS NALUs
+  for (int i = 0; i < spsCount; i++)
+  {
+    const int spsLen = (avcc[pos] << 8) + avcc[pos + 1];
+    pos += 2;
+    if (pos + spsLen <= avcc.size())
+    {
+      annexB.insert(annexB.end(), {0x00, 0x00, 0x00, 0x01});
+      annexB.insert(annexB.end(), avcc.begin() + pos, avcc.begin() + pos + spsLen);
+      pos += spsLen;
+    }
+    else
+    {
+      LOG::LogF(LOGWARNING, "Cannot convert AVCC to annex B, wrong SPS data size");
+      return annexB;
+    }
+  }
+
+  if (pos >= avcc.size())
+    return annexB; // no PPS
+
+  // Copy PPS NALUs
+  const int ppsCount = avcc[pos]; // PPS count is encoded in the entire byte
+  pos++;
+  for (int i = 0; i < ppsCount; i++)
+  {
+    const int ppsLen = (avcc[pos] << 8) + avcc[pos + 1];
+    pos += 2;
+    if (pos + ppsLen <= avcc.size())
+    {
+      annexB.insert(annexB.end(), {0x00, 0x00, 0x00, 0x01});
+      annexB.insert(annexB.end(), avcc.begin() + pos, avcc.begin() + pos + ppsLen);
+      pos += ppsLen;
+    }
+    else
+    {
+      LOG::LogF(LOGWARNING, "Cannot convert AVCC to annex B, wrong PPS data size");
+      return annexB;
+    }
+  }
+
+  // Copy the remaining NALUs
+  while (pos < avcc.size())
+  {
+    size_t naluLen = 0;
+    for (int i = 0; i < naluLenUnitSize; i++)
+    {
+      if (pos >= avcc.size())
+        break;
+      naluLen = (naluLen << 8) + avcc[pos++];
+    }
+    if (pos + naluLen <= avcc.size())
+    {
+      annexB.insert(annexB.end(), {0x00, 0x00, 0x00, 0x01});
+      annexB.insert(annexB.end(), avcc.begin() + pos, avcc.begin() + pos + naluLen);
+      pos += naluLen;
+    }
+    else // not enough data? ignore it
+      break;
+  }
+
+  return annexB;
 }
 
 void UTILS::ParseHeaderString(std::map<std::string, std::string>& headerMap,
