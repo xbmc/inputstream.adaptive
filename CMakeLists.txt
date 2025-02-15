@@ -32,11 +32,11 @@ else()
   list(APPEND DEPLIBS ${CMAKE_DL_LIBS})
   # Required on some old linux platforms to use macro like PRIu64
   add_definitions(-D__STDC_FORMAT_MACROS)
-  # Force symbol visibility hidden by default for operative systems different than Windows,
-  # by default on Windows is hidden, on linux is the opposite, and lead to have singleton static objects
-  # stored in memory in a persistent way between all ISAdaptive instances (kodi core dlopen/dlclose)
-  add_compile_options(-fvisibility=hidden)
 endif()
+
+# Force symbol visibility hidden by default otherwise you will have singleton static objects
+# stored in memory in a persistent way between all ISAdaptive instances (kodi core dlopen/dlclose)
+add_compile_options(-fvisibility=hidden)
 
 # Sources to build
 # (use add_dir_sources function to add source/header files from the CMakeLists files of subdirectories)
