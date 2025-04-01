@@ -1,4 +1,5 @@
 set(SOURCES
+  DrmEngine.cpp
   DrmFactory.cpp
   Helpers.cpp
   HelperPr.cpp
@@ -6,6 +7,8 @@ set(SOURCES
 )
 
 set(HEADERS
+  DrmEngine.h
+  DrmEngineDefines.h
   DrmFactory.h
   Helpers.h
   HelperPr.h

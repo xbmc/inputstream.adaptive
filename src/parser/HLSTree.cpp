@@ -162,10 +162,9 @@ adaptive::CHLSTree::CHLSTree(const CHLSTree& left) : AdaptiveTree(left)
 }
 
 void adaptive::CHLSTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                   std::vector<std::string_view> supportedKeySystems,
                                    std::string_view manifestUpdateParam)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdateParam);
+  AdaptiveTree::Configure(reprChooser, manifestUpdateParam);
   m_decrypter = std::make_unique<AESDecrypter>();
 }
 
@@ -486,8 +485,9 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
   CSegContainer newSegments;
   std::optional<CSegment> newSegment;
 
-  // Pssh set used between segments
-  uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
+  // Encryptions used between segments
+  std::unordered_map<std::string_view, DRM::DRMInfo> drmInfos; // Key System - DRM info
+  std::optional<CAesKeyInfo> aesKey;
 
   uint32_t discontCount{0};
 
@@ -522,54 +522,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
     {
       auto attribs = ParseTagAttributes(tagValue);
       // NOTE: Multiple EXT-X-KEYs can be parsed sequentially
-      const EncryptionType encryptType = ProcessEncryption(rep->GetBaseUrl(), attribs);
-      switch (encryptType)
-      {
-        case EncryptionType::NONE:
-          currentEncryptionType = EncryptionType::NONE;
-          period->SetEncryptionState(EncryptionState::UNENCRYPTED);
-          psshSetPos = PSSHSET_POS_DEFAULT;
-          break;
-        case EncryptionType::AES128:
-          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_DRM)
-          {
-            currentEncryptionType = EncryptionType::AES128;
-            period->SetEncryptionState(EncryptionState::ENCRYPTED_CK);
-            psshSetPos = PSSHSET_POS_DEFAULT;
-          }
-          break;
-        case EncryptionType::WIDEVINE:
-        case EncryptionType::PLAYREADY:
-          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
-          {
-            currentEncryptionType = encryptType;
-            period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
-            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-                                              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-          }
-          break;
-        case EncryptionType::CLEARKEY:
-          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
-          {
-            currentEncryptionType = EncryptionType::CLEARKEY;
-            period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
-            rep->m_psshSetPos = InsertPsshSet(adp->GetStreamType(), period, adp, m_currentPssh,
-              m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-          }
-          break;
-        case EncryptionType::NOT_SUPPORTED:
-          // Set only if a supported encryption has not previously been parsed
-          if (period->GetEncryptionState() != EncryptionState::ENCRYPTED_DRM &&
-              period->GetEncryptionState() != EncryptionState::ENCRYPTED_CK)
-          {
-            currentEncryptionType = EncryptionType::NOT_SUPPORTED;
-            period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
-          }
-          break;
-        default:
-          LOG::LogF(LOGFATAL, "Unhandled EncryptionType");
-          break;
-      }
+      ProcessEncryption(rep->GetBaseUrl(), attribs, aesKey, drmInfos);
     }
     else if (tagName == "#EXT-X-MAP")
     {
@@ -589,7 +542,6 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
         segInit.SetIsInitialization(true);
         segInit.url = attribs["URI"];
         segInit.startPTS_ = NO_PTS_VALUE;
-        segInit.pssh_set_ = PSSHSET_POS_DEFAULT;
         rep->SetInitSegment(segInit);
         rep->SetContainerType(ContainerType::MP4);
       }
@@ -722,16 +674,8 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       newSegment->url = line;
 
       // The EXT-X-KEY tag might appear before or after the EXTINF tag
-      // so its needed process it just before add the segment to timeline
-      if (currentEncryptionType == EncryptionType::AES128 && psshSetPos == PSSHSET_POS_DEFAULT)
-      {
-        if (!m_currentKidUrl.empty())
-        {
-          psshSetPos = InsertPsshSet(StreamType::NOTYPE, period, adp, m_currentPssh,
-                                     m_currentDefaultKID, m_currentKidUrl, m_currentIV);
-        }
-      }
-      newSegment->pssh_set_ = psshSetPos;
+      // so its needed set the encryption info just before add the segment to timeline
+      newSegment->AESKeyInfo() = aesKey;
 
       newSegments.Add(*newSegment);
       newSegment.reset();
@@ -804,6 +748,12 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
     {
       if (!newSegments.IsEmpty() && !isSkipUntilDiscont)
       {
+        // Set the DRM info
+        for (const auto& info : drmInfos)
+        {
+          rep->AddDrmInfo(info.second);
+        }
+
         period->SetSequence(m_discontSeq + discontCount);
 
         rep->SetDuration(newSegments.GetDuration());
@@ -815,7 +765,7 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
           period->SetDuration(periodDuration);
         }
 
-        FreeSegments(period, rep);
+        FreeSegments(rep);
 
         rep->SetStartNumber(mediaSequenceNbr);
 
@@ -856,17 +806,6 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       {
         newRep->SetInitSegment(*rep->GetInitSegment());
         newRep->SetContainerType(rep->GetContainerType());
-      }
-
-      // Copy encryption data from previous period/representation
-      // it must persist until overrided by a new EXT-X-KEY tag
-      newPeriod->SetEncryptionState(period->GetEncryptionState());
-      if (currentEncryptionType == EncryptionType::WIDEVINE ||
-          currentEncryptionType == EncryptionType::PLAYREADY)
-      {
-        newRep->m_psshSetPos =
-            InsertPsshSet(newAdpSet->GetStreamType(), newPeriod, newAdpSet, m_currentPssh,
-                          m_currentDefaultKID, m_currentKidUrl, m_currentIV);
       }
 
       // Set the new period as current
@@ -914,7 +853,13 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
     return ParseStatus::ERROR;
   }
 
-  FreeSegments(period, rep);
+  // Set the DRM info
+  for (const auto& info : drmInfos)
+  {
+    rep->AddDrmInfo(info.second);
+  }
+
+  FreeSegments(rep);
   rep->Timeline().Swap(newSegments);
   rep->SetStartNumber(mediaSequenceNbr);
 
@@ -983,7 +928,7 @@ void adaptive::CHLSTree::PrepareSegments(PLAYLIST::CPeriod* period,
 }
 
 void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
-                                       uint16_t psshSet,
+                                       std::optional<CAesKeyInfo>& aesKey,
                                        uint8_t iv[16],
                                        const uint8_t* srcData,
                                        size_t srcDataSize,
@@ -991,47 +936,28 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
                                        size_t segBufferSize,
                                        bool isLastChunk)
 {
-  if (psshSet && m_currentPeriod->GetEncryptionState() == EncryptionState::ENCRYPTED_CK)
+  if (aesKey.has_value()) // Encrypted media, decrypt it
   {
     std::lock_guard<TreeUpdateThread> lckUpdTree(GetTreeUpdMutex());
 
-    std::vector<CPeriod::PSSHSet>& psshSets = m_currentPeriod->GetPSSHSets();
-
-    if (psshSet >= psshSets.size())
+    if (aesKey->key.empty())
     {
-      LOG::LogF(LOGERROR, "Cannot get PSSHSet at position %u", psshSet);
-      return;
-    }
+      if (STRING::KeyExists(m_aesUrlKeyCache, aesKey->keyUrl))
+        aesKey->key = m_aesUrlKeyCache[aesKey->keyUrl];
 
-    CPeriod::PSSHSet& pssh = psshSets[psshSet];
-
-    //Encrypted media, decrypt it
-    if (pssh.defaultKID_.empty())
-    {
-      if (!pssh.m_licenseUrl.empty())
+      if (aesKey->key.empty())
       {
-        // Try check if we already obtained KID from this KID URL
-        for (const CPeriod::PSSHSet& psshSet : m_currentPeriod->GetPSSHSets())
-        {
-          if (!psshSet.defaultKID_.empty() && psshSet.m_licenseUrl == pssh.m_licenseUrl)
-          {
-            pssh.defaultKID_ = psshSet.defaultKID_;
-            break;
-          }
-        }
-      }
-
-      if (pssh.defaultKID_.empty())
-      {
-      // RETRY:
-        auto& drmCfgProp = CSrvBroker::GetKodiProps().GetDrmConfig(DRM::KS_NONE);
+        // RETRY:
+        auto drmCfgProp = CSrvBroker::GetKodiProps().GetDrmConfig(DRM::KS_NONE);
 
         CURL::HTTPResponse resp;
 
-        if (DownloadKey(pssh.m_licenseUrl, drmCfgProp.license.reqHeaders, {}, resp))
+        if (DownloadKey(aesKey->keyUrl, drmCfgProp.license.reqHeaders, {}, resp))
         {
-          pssh.defaultKID_ = resp.data;
+          aesKey->key.assign(resp.data.begin(), resp.data.end());
+          m_aesUrlKeyCache[aesKey->keyUrl] = aesKey->key;
         }
+
         /*
          *! @todo: unclear if could be used by some old addon,
          *!        for now all related code has been commented for a future removal
@@ -1049,6 +975,7 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
         */
       }
     }
+
     /*
     if (pssh.defaultKID_ == "0")
     {
@@ -1059,26 +986,26 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
     */
     if (!segBufferSize)
     {
-      if (pssh.iv.empty())
+      if (aesKey->iv.empty())
         m_decrypter->ivFromSequence(iv, segNum);
       else
       {
         memset(iv, 0, 16);
-        memcpy(iv, pssh.iv.data(), pssh.iv.size() < 16 ? pssh.iv.size() : 16);
+        memcpy(iv, aesKey->iv.data(), aesKey->iv.size() < 16 ? aesKey->iv.size() : 16);
       }
     }
 
     // Decrypter needs preallocated data
     segBuffer.resize(segBufferSize + srcDataSize);
 
-    m_decrypter->decrypt(reinterpret_cast<const uint8_t*>(pssh.defaultKID_.data()), iv,
+    m_decrypter->decrypt(aesKey->key.data(), iv,
                          reinterpret_cast<const AP4_UI08*>(srcData), segBuffer, segBufferSize,
                          srcDataSize, isLastChunk);
     if (srcDataSize >= 16)
       memcpy(iv, srcData + (srcDataSize - 16), 16);
   }
   else
-    AdaptiveTree::OnDataArrived(segNum, psshSet, iv, srcData, srcDataSize, segBuffer, segBufferSize,
+    AdaptiveTree::OnDataArrived(segNum, aesKey, iv, srcData, srcDataSize, segBuffer, segBufferSize,
                                 isLastChunk);
 }
 
@@ -1107,6 +1034,12 @@ void adaptive::CHLSTree::OnRequestSegments(PLAYLIST::CPeriod* period,
   const uint64_t segNumber = rep->GetCurrentSegNumber();
 
   ProcessChildManifest(period, adp, rep, segNumber);
+}
+
+void adaptive::CHLSTree::OnPeriodChange()
+{
+  if (m_isLive)
+    m_aesUrlKeyCache.clear();
 }
 
 bool adaptive::CHLSTree::DownloadKey(std::string_view url,
@@ -1219,10 +1152,22 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
   return true;
 }
 
-PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
-    std::string_view baseUrl, std::map<std::string, std::string>& attribs)
+void adaptive::CHLSTree::ProcessEncryption(
+    std::string baseUrl,
+    std::map<std::string, std::string>& attribs,
+    std::optional<CAesKeyInfo>& aesKey,
+    std::unordered_map<std::string_view, DRM::DRMInfo>& drmInfos)
 {
   std::string_view encryptMethod = attribs["METHOD"];
+
+  // NO ENCRYPTION
+  if (encryptMethod == "NONE")
+  {
+    aesKey.reset();
+    drmInfos.clear();
+    return;
+  }
+
   // According to specs KEYFORMAT is optional and if not specified defaults implicitly to "identity"
   const std::string keyFormat = attribs["KEYFORMAT"].empty() ? "identity" : attribs["KEYFORMAT"];
 
@@ -1231,45 +1176,40 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
 
   if (STRING::KeyExists(attribs, "URI"))
   {
-    if (!GetUriByteData(attribs["URI"], uriData))
+    if (!URL::GetUriByteData(attribs["URI"], uriData))
     {
       // No URI with data format, but an URL
       uriUrl = attribs["URI"];
     }
   }
 
-  // NO ENCRYPTION
-  if (encryptMethod == "NONE")
-  {
-    m_currentPssh.clear();
-
-    return EncryptionType::NONE;
-  }
-
   // AES-128
   if (encryptMethod == "AES-128")
   {
+    aesKey = CAesKeyInfo();
+
     if (!uriData.empty())
     {
-      std::vector<uint8_t> kid = UTILS::ZeroPadding(uriData, 16);
-      m_currentDefaultKID = std::string(kid.begin(), kid.end());
+      aesKey->key = UTILS::ZeroPadding(uriData, 16);
     }
 
-    m_currentKidUrl = uriUrl;
-    if (URL::IsUrlRelative(m_currentKidUrl))
-      m_currentKidUrl = URL::Join(baseUrl.data(), m_currentKidUrl);
+    if (!uriUrl.empty())
+    {
+      if (URL::IsUrlRelative(uriUrl))
+        uriUrl = URL::Join(baseUrl, uriUrl);
 
-    m_currentIV = m_decrypter->convertIV(attribs["IV"]);
+      aesKey->keyUrl = uriUrl;
+    }
 
-    return EncryptionType::AES128;
+    aesKey->iv = m_decrypter->convertIV(attribs["IV"]);
   }
-
   // WIDEVINE
-  if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE) &&
-      (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_WIDEVINE) !=
-          m_supportedKeySystems.end()))
+  else if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE))
   {
-    m_currentPssh = uriData;
+    
+    DRM::DRMInfo& drmInfo = drmInfos[DRM::KS_WIDEVINE]; // Create or update
+    drmInfo.keySystem = DRM::KS_WIDEVINE;
+    drmInfo.initData = uriData;
 
     if (STRING::KeyExists(attribs, "KEYID"))
     {
@@ -1277,129 +1217,78 @@ PLAYLIST::EncryptionType adaptive::CHLSTree::ProcessEncryption(
       STRING::ToLower(keyid);
 
       if (STRING::StartsWith(keyid, "0x"))
-        m_currentDefaultKID = keyid.substr(2); // To remove "0x"
+      {
+        keyid.erase(0, 2); // To remove "0x"
+        STRING::ReplaceAll(keyid, "-", ""); // UUID format should not be allowed
+        drmInfo.defaultKid = keyid;
+      }
       else
         LOG::LogF(LOGERROR, "Incorrect KEYID tag format");
     }
 
     if (encryptMethod == "SAMPLE-AES-CTR")
-      m_cryptoMode = CryptoMode::AES_CTR;
+      drmInfo.cryptoMode = CryptoMode::AES_CTR;
     else if (encryptMethod == "SAMPLE-AES")
-      m_cryptoMode = CryptoMode::AES_CBC;
-
-    return EncryptionType::WIDEVINE;
+      drmInfo.cryptoMode = CryptoMode::AES_CBC;
   }
-
   // PLAYREADY
-  if (STRING::CompareNoCase(keyFormat, DRM::KS_PLAYREADY) &&
-      (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_PLAYREADY) !=
-       m_supportedKeySystems.end()))
+  else if (STRING::CompareNoCase(keyFormat, DRM::KS_PLAYREADY))
   {
     if (uriData.empty())
     {
       LOG::LogF(LOGERROR, "Incorrect or unsupported URI tag format");
-      return EncryptionType::NOT_SUPPORTED;
+      return;
     }
 
-    m_currentPssh = DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, uriData);
+    DRM::DRMInfo& drmInfo = drmInfos[DRM::KS_PLAYREADY]; // Create or update
+    drmInfo.keySystem = DRM::KS_PLAYREADY;
+    drmInfo.initData = DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, uriData);
 
     DRM::PRHeaderParser parser;
 
     if (parser.Parse(uriData) && !parser.GetKID().empty())
     {
-      m_licenseUrl = parser.GetLicenseURL();
-      m_currentDefaultKID = STRING::ToHexadecimal(parser.GetKID());
+      drmInfo.licenseServerUri = parser.GetLicenseURL();
+      drmInfo.defaultKid = STRING::ToLower(STRING::ToHexadecimal(parser.GetKID()));
 
       auto encryptionType = parser.GetEncryption();
       if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCTR)
-        m_cryptoMode = CryptoMode::AES_CTR;
+        drmInfo.cryptoMode = CryptoMode::AES_CTR;
       else if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCBC)
-        m_cryptoMode = CryptoMode::AES_CBC;
+        drmInfo.cryptoMode = CryptoMode::AES_CBC;
     }
     else
       LOG::LogF(LOGERROR, "Cannot parse Playready header");
-
-    return EncryptionType::PLAYREADY;
   }
-
   // CLEARKEY
-  if (std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_CLEARKEY) !=
-      m_supportedKeySystems.end() && std::find(m_supportedKeySystems.begin(), m_supportedKeySystems.end(), DRM::URN_COMMON) !=
-    m_supportedKeySystems.end())
+  else if (STRING::CompareNoCase(keyFormat, "identity"))
   {
-    if (STRING::CompareNoCase(keyFormat, "identity"))
+    DRM::DRMInfo& drmInfo = drmInfos[DRM::KS_CLEARKEY]; // Create or update
+    drmInfo.keySystem = DRM::KS_CLEARKEY;
+
+    if (uriUrl.empty())
     {
-      if (uriUrl.empty())
-      {
-        m_currentPssh = uriData;
-      }
-      else
-      {
-        if (URL::IsUrlRelative(uriUrl))
-          uriUrl = URL::Join(baseUrl.data(), uriUrl);
-
-        UTILS::CURL::HTTPResponse resp;
-        if (DownloadKey(uriUrl, {}, {}, resp))
-          m_currentPssh = STRING::ToVecUint8(resp.data);
-      }
-
-      if (uriUrl.empty()) // No kid provided, assume key == kid
-        m_currentDefaultKID = STRING::ToHexadecimal(uriData);
-
+      drmInfo.initData = uriData;
     }
-    else if (STRING::CompareNoCase(keyFormat, DRM::URN_WIDEVINE))
+    else
     {
-      // Take only the KID
-      if (STRING::KeyExists(attribs, "KEYID"))
-      {
-        std::string keyid = attribs["KEYID"];
-        STRING::ToLower(keyid);
+      if (URL::IsUrlRelative(uriUrl))
+        uriUrl = URL::Join(baseUrl, uriUrl);
 
-        if (STRING::StartsWith(keyid, "0x"))
-          m_currentDefaultKID = keyid.substr(2); // To remove "0x"
-        else
-          LOG::LogF(LOGERROR, "Incorret KEYID tag format");
-      }
+      UTILS::CURL::HTTPResponse resp;
+      if (DownloadKey(uriUrl, {}, {}, resp))
+        drmInfo.initData = STRING::ToVecUint8(resp.data);
     }
 
     if (encryptMethod == "SAMPLE-AES-CTR")
-      m_cryptoMode = CryptoMode::AES_CTR;
+      drmInfo.cryptoMode = CryptoMode::AES_CTR;
     else if (encryptMethod == "SAMPLE-AES")
-      m_cryptoMode = CryptoMode::AES_CBC;
-
-    return EncryptionType::CLEARKEY;
+      drmInfo.cryptoMode = CryptoMode::AES_CBC;
   }
-
-  // Unsupported encryption
-  LOG::Log(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", keyFormat.c_str());
-  return EncryptionType::NOT_SUPPORTED;
-}
-
-bool adaptive::CHLSTree::GetUriByteData(std::string_view uri, std::vector<uint8_t>& data)
-{
-  // Uri data format: "data:[media type][;attribute=value][;base64],<data>"
-  std::vector<std::string> colonSplit = STRING::SplitToVec(uri, ':');
-  if (colonSplit.size() == 2 && colonSplit[0] == "data")
+  else // Unsupported encryption
   {
-    std::vector<std::string> semiColonSplit = STRING::SplitToVec(colonSplit[1], ';');
-    if (semiColonSplit.size() > 0)
-    {
-      std::vector<std::string> comSplit = STRING::SplitToVec(semiColonSplit.back(), ',');
-      if (comSplit.size() == 2)
-      {
-        const bool isBase64 = comSplit[0] == "base64";
-        const std::string dataStr = comSplit[1];
-        if (isBase64)
-          data = BASE64::Decode(dataStr);
-        else
-          data = STRING::ToVecUint8(dataStr);
-        return true;
-      }
-    }
-    LOG::Log(LOGERROR, "Cannot parse URI: %s", uri.data());
-    return true;
+    LOG::LogF(LOGDEBUG, "Unsupported EXT-X-KEY keyformat \"%s\"", keyFormat.c_str());
   }
-  return false;
 }
 
 bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,
@@ -1463,7 +1352,6 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
 {
   std::stringstream streamData{data};
   MultivariantPlaylist pl;
-  std::vector<EncryptionType> encryptionTypes;
 
   // Parse text data
 
@@ -1569,22 +1457,6 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
 
       pl.m_variants.emplace_back(var);
     }
-    else if (tagName == "#EXT-X-SESSION-KEY")
-    {
-      auto attribs = ParseTagAttributes(tagValue);
-      encryptionTypes.emplace_back(ProcessEncryption(base_url_, attribs));
-    }
-  }
-
-  if (!encryptionTypes.empty())
-  {
-    // Check if there is at least one EXT-X-SESSION-KEY supported
-    bool isNotSupported =
-        std::all_of(encryptionTypes.begin(), encryptionTypes.end(),
-                    [](EncryptionType type) { return type == EncryptionType::NOT_SUPPORTED; });
-
-    if (isNotSupported)
-      return false;
   }
 
   // Create Period / Adaptation sets / Representations

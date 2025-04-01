@@ -124,10 +124,18 @@ bool WvUnwrapLicense(std::string_view wrapper,
                      std::string_view contentType,
                      std::string data,
                      std::string& dataOut,
-                     int& hdcpLimit);
+                     int& hdcpResLimit,
+                     uint16_t& hdcpVerLimit);
 
 void TranslateLicenseUrlPh(std::string& url,
                            const std::vector<uint8_t>& challenge,
                            const bool isNewConfig);
+
+/*!
+ * \brief Parse the value of "X-Limit-Video" HTTP header.
+ * \param value The header value
+ * \return The value of "max" parameter, otherwise 0
+ */
+int ParseXLimitVideoHeader(std::string_view value);
 
 } // namespace DRM

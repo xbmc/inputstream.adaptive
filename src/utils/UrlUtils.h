@@ -8,8 +8,10 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace UTILS
 {
@@ -98,6 +100,20 @@ void EnsureEndingBackslash(std::string& url);
  * \param url[IN][OUT] An URL.
  */
 void RemovePipePart(std::string& url);
+
+/*!
+ * \brief Check if a string contains a valid URI scheme.
+ * \param uri An URI.
+ * \param scheme[OPT] A scheme, by default "data".
+ */
+bool IsValidUri(const std::string& uri, std::string_view scheme = "data");
+
+/*!
+ * \brief Get the byte data from an URI.
+ * \param uri[IN] An URL.
+ * \param data[OUT] The byte read.
+ */
+bool GetUriByteData(std::string_view uri, std::vector<uint8_t>& data);
 
 } // namespace URL
 } // namespace UTILS

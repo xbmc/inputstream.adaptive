@@ -11,6 +11,7 @@
 #include "Stream.h"
 #include "common/AdaptiveStream.h"
 #include "common/AdaptiveTree.h"
+#include "decrypters/DrmEngine.h"
 #include "decrypters/IDecrypter.h"
 
 #if defined(ANDROID)
@@ -37,31 +38,12 @@ public:
    */
   bool Initialize(std::string manifestUrl);
 
-  /*
-   * \brief Check HDCP parameters to remove unplayable representations
-   */
-  void CheckHDCP();
+  void CheckPlayableStreams();
 
-  /*! \brief Pre-Initialize the DRM
-   *  \param challengeB64 [OUT] Provide the challenge data as base64
-   *  \param sessionId [OUT] Provide the session ID
-   *  \param isSessionOpened [OUT] Will be true if the DRM session has been opened
-   *  \return True if has success, false otherwise
+  /*!
+   * \brief Initialize adaptive tree period
    */
-  bool PreInitializeDRM(std::string& challengeB64, std::string& sessionId, bool& isSessionOpened);
-
-  /*! \brief Initialize the DRM
-   *  \param addDefaultKID Set True to add the default KID to the first session
-   *  \return True if has success, false otherwise
-   */
-  bool InitializeDRM(bool addDefaultKID = false);
-
-  /*! \brief Initialize adaptive tree period
-   *  \param isSessionOpened Set True to kept and re-use the DRM session opened,
-   *         otherwise False to reinitialize the DRM session
-   *  \return True if has success, false otherwise
-   */
-  bool InitializePeriod(bool isSessionOpened = false);
+  void InitializePeriod();
 
   /*! \brief Get the sample reader of the next sample stream. This also set flags
    *         if the stream has changed, use CheckChange method to check it.
@@ -93,7 +75,7 @@ public:
    * \brief Update stream's InputstreamInfo
    * \param stream The stream to prepare
    */
-  void PrepareStream(CStream* stream);
+  bool PrepareStream(CStream* stream, uint64_t startPts);
 
   /*! \brief Get a stream by index (starting at 1)
    *  \param sid The one-indexed stream id
@@ -115,49 +97,10 @@ public:
    */
   unsigned int GetStreamCount() const { return static_cast<unsigned int>(m_streams.size()); }
 
-  /*!
-   * \brief Determines if the CDM session at specified index require Secure Path (TEE).
-   * \return True if Secure Path is required, otherwise false.
-   */
-  bool IsCDMSessionSecurePath(size_t index);
-
-  /*! \brief Get a session string (session id) by index from the cdm sessions
-   *  \param index The index (psshSet number) of the cdm session
-   *  \return The session string
-   */
-  std::string GetCDMSession(unsigned int index);
-
   /*! \brief Get the media type mask
    *  \return The media type mask
    */
   uint8_t GetMediaTypeMask() const { return m_mediaTypeMask; }
-
-  /*! \brief Get a single sample decrypter by index from the cdm sessions
-   *  \param index The index (psshSet number) of the cdm session
-   *  \return The single sample decrypter
-   */
-  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> GetSingleSampleDecryptor(
-      unsigned int index) const;
-
-  /*! \brief Get the decrypter (DRM lib)
-   *  \return The decrypter
-   */
-  DRM::IDecrypter* GetDecrypter() { return m_decrypter.get(); }
-
-  /*! \brief Get a single sample decrypter matching the session id provided
-   *  \param sessionId The session id string to match
-   *  \return The single sample decrypter
-   */
-  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> GetSingleSampleDecrypter(std::string sessionId);
-
-  /*! \brief Get decrypter capabilities for a single sample decrypter
-   *  \param index The index (psshSet number) of the cdm session
-   *  \return The single sample decrypter capabilities
-   */
-  const DRM::DecrypterCapabilites& GetDecrypterCaps(unsigned int index) const
-  {
-    return m_cdmSessions[index].m_decrypterCaps;
-  };
 
   /*! \brief Get the total time in ms of the stream
    *  \return The total time in ms of the stream
@@ -324,36 +267,18 @@ public:
    */
   bool OnGetStream(int streamid, kodi::addon::InputstreamInfo& info);
 
+  const DRM::CDRMEngine& GetDRMEngine() const { return m_drmEngine; }
+
 protected:
-  /*! \brief Check for and load decrypter module matching the supplied key system
-   *  \param key_system [OUT] Will be assigned to if a decrypter is found matching
-   *                    the set license type
+  /*!
+   * \brief Determine the AdaptationSet that should be the default to be played,
+   *        the behavior is mainly based on codec types
+   * \return The AdaptationSet, or nullptr if unhandled
    */
-  void SetSupportedDecrypterURN(std::vector<std::string_view>& keySystems);
-
-  /*! \brief Destroy all CencSingleSampleDecrypter instances
-   */
-  void DisposeSampleDecrypter();
-
-  /*! \brief Destroy the decrypter module instance
-   */
-  void DisposeDecrypter();
-
-  void ExtractStreamProtectionData(const PLAYLIST::CPeriod::PSSHSet& psshSet,
-                                   std::string& defaultKid,
-                                   std::vector<uint8_t>& initData,
-                                   const std::vector<std::string_view>& keySystems);
+  PLAYLIST::CAdaptationSet* DetermineDefaultAdpSet();
 
 private:
-  std::shared_ptr<DRM::IDecrypter> m_decrypter;
-
-  struct CCdmSession
-  {
-    DRM::DecrypterCapabilites m_decrypterCaps;
-    std::shared_ptr<Adaptive_CencSingleSampleDecrypter> m_cencSingleSampleDecrypter;
-    std::string m_sessionId;
-  };
-  std::vector<CCdmSession> m_cdmSessions;
+  DRM::CDRMEngine m_drmEngine;
 
   adaptive::AdaptiveTree* m_adaptiveTree{nullptr};
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};

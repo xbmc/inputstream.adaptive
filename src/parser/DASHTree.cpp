@@ -102,15 +102,12 @@ std::string DetectCodecFromMimeType(std::string_view mimeType)
 
 adaptive::CDashTree::CDashTree(const CDashTree& left) : AdaptiveTree(left)
 {
-  m_isCustomInitPssh = left.m_isCustomInitPssh;
 }
 
 void adaptive::CDashTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                                    std::vector<std::string_view> supportedKeySystems,
                                     std::string_view manifestUpdParams)
 {
-  AdaptiveTree::Configure(reprChooser, supportedKeySystems, manifestUpdParams);
-  m_isCustomInitPssh = !CSrvBroker::GetKodiProps().GetDrmConfig().initData.empty();
+  AdaptiveTree::Configure(reprChooser, manifestUpdParams);
 }
 
 bool adaptive::CDashTree::Open(std::string_view url,
@@ -654,7 +651,6 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   // Parse <ContentProtection> child tags
   if (nodeAdp.child("ContentProtection"))
   {
-    period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
     ParseTagContentProtection(nodeAdp, adpSet->ProtectionSchemes());
     period->SetSecureDecodeNeeded(ParseTagContentProtectionSecDec(nodeAdp));
   }
@@ -947,40 +943,13 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   // Parse <ContentProtection> child tags
   if (nodeRepr.child("ContentProtection"))
   {
-    period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
     ParseTagContentProtection(nodeRepr, repr->ProtectionSchemes());
   }
 
   // Store the protection data
   if (adpSet->HasProtectionSchemes() || repr->HasProtectionSchemes())
   {
-    std::vector<uint8_t> pssh;
-    std::string kid;
-    std::string licenseUrl;
-    // If a custom init PSSH is provided, should mean that a certain content protection tag
-    // is missing, in this case we ignore the content protection tags and we add a PsshSet without data
-    if (m_isCustomInitPssh || GetProtectionData(adpSet->ProtectionSchemes(),
-                                                repr->ProtectionSchemes(), pssh, kid, licenseUrl))
-    {
-      period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
-
-      uint16_t psshSetPos =
-          InsertPsshSet(adpSet->GetStreamType(), period, adpSet, pssh, kid, licenseUrl);
-
-      if (psshSetPos == PSSHSET_POS_INVALID)
-      {
-        LOG::LogF(LOGWARNING, "Skipped representation with id: \"%s\", due to not valid PSSH",
-                  repr->GetId().data());
-        return;
-      }
-      repr->m_psshSetPos = psshSetPos;
-
-      if (ParseTagContentProtectionSecDec(nodeRepr).has_value())
-      {
-        LOG::LogF(LOGERROR, "The <ContentProtection><widevine:license> tag must be child of "
-                            "the <AdaptationSet> tag.");
-      }
-    }
+    GetProtectionData(adpSet->ProtectionSchemes(), repr->ProtectionSchemes(), *repr.get());
   }
 
   // Parse <AudioChannelConfiguration> tag
@@ -1274,10 +1243,10 @@ void adaptive::CDashTree::ParseTagContentProtection(
   // Parse each ContentProtection tag to collect encryption schemes
   for (xml_node nodeCP : nodeParent.children("ContentProtection"))
   {
-    std::string_view schemeIdUri = XML::GetAttrib(nodeCP, "schemeIdUri");
+    const std::string schemeIdUri{XML::GetAttrib(nodeCP, "schemeIdUri")};
 
     ProtectionScheme protScheme;
-    protScheme.idUri = schemeIdUri;
+    protScheme.idUri = STRING::ToLower(schemeIdUri);
     protScheme.value = XML::GetAttrib(nodeCP, "value");
 
     // Get optional default KID
@@ -1302,139 +1271,98 @@ void adaptive::CDashTree::ParseTagContentProtection(
       }
       else if (childName == "mspr:pro" || childName == "pro")
       {
-        if (protScheme.kid.empty() || protScheme.pssh.empty())
+        DRM::PRHeaderParser parser;
+        if (parser.Parse(node.child_value()))
         {
-          DRM::PRHeaderParser parser;
-          if (parser.Parse(node.child_value()))
-          {
-            protScheme.kid = STRING::ToHexadecimal(parser.GetKID());
-            protScheme.pssh =
-                BASE64::Encode(DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, parser.GetInitData()));
-          }
+          protScheme.kid = STRING::ToHexadecimal(parser.GetKID());
+          protScheme.pssh =
+              BASE64::Encode(DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, parser.GetInitData()));
+          protScheme.licenseUrl = parser.GetLicenseURL();
+
+          auto encryptionType = parser.GetEncryption();
+          if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCTR)
+            protScheme.value = "cenc";
+          else if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCBC)
+            protScheme.value = "cbcs";
         }
       }
     }
+
+    // There are no constraints on the Kid format, it is recommended to be as UUID but not mandatory
+    STRING::ReplaceAll(protScheme.kid, "-", "");
+    protScheme.kid = STRING::ToLower(protScheme.kid);
 
     protSchemes.emplace_back(protScheme);
   }
 }
 
-bool adaptive::CDashTree::GetProtectionData(
+void adaptive::CDashTree::GetProtectionData(
     const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
-    const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
-    std::vector<uint8_t>& pssh,
-    std::string& kid,
-    std::string& licenseUrl)
+    std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
+    PLAYLIST::CRepresentation& repr)
 {
-  // Try find a protection scheme compatible for the current systemid
-  const ProtectionScheme* protSelected = nullptr;
-  const ProtectionScheme* protCommon = nullptr;
+  reprProtSchemes.insert(reprProtSchemes.end(), adpProtSchemes.begin(), adpProtSchemes.end());
 
-  for (std::string_view supportedKeySystem : m_supportedKeySystems)
+  CryptoMode cryptoMode = CryptoMode::AES_CTR; // default cenc
+  bool isCencSchemeOnly{false}; // ContentProtection with cenc only, no DRM scheme provided
+
+  // Find the encryption scheme
+  for (const ProtectionScheme& protScheme : reprProtSchemes)
   {
-    for (const ProtectionScheme& protScheme : reprProtSchemes)
+    if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
     {
-      if (STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
-      {
-        protSelected = &protScheme;
-      }
-      else if (protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
-      {
-        protCommon = &protScheme;
-      }
-    }
+      std::string_view encryptionScheme = protScheme.value;
+      if (encryptionScheme == "cenc")
+        cryptoMode = CryptoMode::AES_CTR;
+      else if (encryptionScheme == "cbcs")
+        cryptoMode = CryptoMode::AES_CBC;
+      else if (!encryptionScheme.empty())
+        LOG::LogF(LOGERROR, "Unsupported encryption scheme: %s", encryptionScheme.data());
 
-    if (!protSelected || !protCommon)
-    {
-      for (const ProtectionScheme& protScheme : adpProtSchemes)
-      {
-        if (!protSelected && STRING::CompareNoCase(protScheme.idUri, supportedKeySystem))
-        {
-          protSelected = &protScheme;
-        }
-        else if (!protCommon && protScheme.idUri == "urn:mpeg:dash:mp4protection:2011")
-        {
-          protCommon = &protScheme;
-        }
-      }
+      isCencSchemeOnly = reprProtSchemes.size() == 1;
+      break;
     }
   }
 
-  // Workaround for ClearKey:
-  // if license type ClearKey is set and a manifest dont contains ClearKey protection scheme
-  // in any case the KID is required to allow decryption (with clear keys or license URLs provided by Kodi props)
-  //! @todo: this should not be a task of parser, moreover missing an appropriate KID extraction from mp4 box
-  auto& kodiProps = CSrvBroker::GetKodiProps();
-  ProtectionScheme ckProtScheme;
-  if (kodiProps.GetDrmKeySystem() == DRM::KS_CLEARKEY)
+  // Find the default KeyId, if there are multiple they must be all the same
+  std::set<std::string> keyIds;
+  for (const ProtectionScheme& protScheme : reprProtSchemes)
   {
-    std::string_view defaultKid;
-    if (protSelected)
-      defaultKid = protSelected->kid;
-    if (defaultKid.empty() && protCommon)
-      defaultKid = protCommon->kid;
+    if (!protScheme.kid.empty())
+      keyIds.emplace(protScheme.kid);
+  }
 
-    if (defaultKid.empty())
+  if (keyIds.size() > 1)
+  {
+    LOG::LogF(LOGERROR, "Conflicting KeyId's on ContentProtection tags");
+    return;
+  }
+
+  for (const ProtectionScheme& protScheme : reprProtSchemes)
+  {
+    std::string_view keySystem = DRM::UrnToKeySystem(protScheme.idUri);
+
+    if (!keySystem.empty() || isCencSchemeOnly)
     {
-      for (const ProtectionScheme& protScheme : reprProtSchemes)
-      {
-        if (!protScheme.kid.empty())
-        {
-          defaultKid = protScheme.kid;
-          break;
-        }
-      }
-      if (defaultKid.empty())
-      {
-        for (const ProtectionScheme& protScheme : adpProtSchemes)
-        {
-          if (!protScheme.kid.empty())
-          {
-            defaultKid = protScheme.kid;
-            break;
-          }
-        }
-      }
-      if (protCommon)
-        ckProtScheme = *protCommon;
+      DRM::DRMInfo drmInfo;
+      drmInfo.keySystem = keySystem;
 
-      ckProtScheme.kid = defaultKid;
-      protCommon = &ckProtScheme;
+      std::vector<uint8_t> initData = BASE64::Decode(protScheme.pssh);
+      if (!keySystem.empty() && !initData.empty() && !DRM::IsValidPsshHeader(initData))
+      {
+        // Fix missing PSSH box (e.g. Amazon video service dont provide a CENC PSSH on ContentProtection)
+        initData = DRM::PSSH::Make(DRM::KeySystemToUUID(keySystem), {}, initData);
+      }
+
+      drmInfo.initData = initData;
+      drmInfo.licenseServerUri = protScheme.licenseUrl;
+      drmInfo.cryptoMode = cryptoMode;
+      if (!keyIds.empty())
+        drmInfo.defaultKid = *keyIds.begin();
+
+      repr.AddDrmInfo(drmInfo);
     }
   }
-
-  bool isEncrypted{false};
-  std::string selectedKid;
-  std::string selectedPssh;
-
-  if (protSelected)
-  {
-    isEncrypted = true;
-    selectedKid = protSelected->kid;
-    selectedPssh = protSelected->pssh;
-    licenseUrl = protSelected->licenseUrl;
-  }
-  if (protCommon)
-  {
-    isEncrypted = true;
-    if (selectedKid.empty())
-      selectedKid = protCommon->kid;
-
-    // Set crypto mode
-    if (protCommon->value == "cenc")
-      m_cryptoMode = CryptoMode::AES_CTR;
-    else if (protCommon->value == "cbcs")
-      m_cryptoMode = CryptoMode::AES_CBC;
-  }
-
-  if (!selectedPssh.empty())
-    pssh = BASE64::Decode(selectedPssh);
-
-  // There are no constraints on the Kid format, it is recommended to be as UUID but not mandatory
-  STRING::ReplaceAll(selectedKid, "-", "");
-  kid = selectedKid;
-
-  return isEncrypted;
 }
 
 std::optional<bool> adaptive::CDashTree::ParseTagContentProtectionSecDec(pugi::xml_node nodeParent)
@@ -1549,7 +1477,7 @@ void adaptive::CDashTree::MergeAdpSets()
         CAdaptationSet* nextAdpSet = itNextAdpSet->get();
         // IsMergeable:
         //  Some services (e.g. amazon) may have several AdaptationSets of the exact same audio track
-        //  the only difference is in the ContentProtection selectedKid/selectedPssh and the base url,
+        //  the only difference is in the ContentProtection kid/pssh and the base url,
         //  in order not to show several identical audio tracks in the Kodi GUI, we must merge adaptation sets
         // CompareSwitchingId:
         //  Some services can provide switchable video adp sets, these could havedifferent codecs, and could be
@@ -1559,12 +1487,6 @@ void adaptive::CDashTree::MergeAdpSets()
         //  we cannot merge adp sets with different codecs otherwise playback will not work
         if (adpSet->CompareSwitchingId(nextAdpSet) || adpSet->IsMergeable(nextAdpSet))
         {
-          // Sanitize adaptation set references to selectedPssh sets
-          for (CPeriod::PSSHSet& psshSet : period->GetPSSHSets())
-          {
-            if (psshSet.adaptation_set_ == nextAdpSet)
-              psshSet.adaptation_set_ = adpSet;
-          }
           // Move representations to the first switchable adaptation set
           for (auto itRepr = nextAdpSet->GetRepresentations().begin();
                itRepr < nextAdpSet->GetRepresentations().end(); ++itRepr)

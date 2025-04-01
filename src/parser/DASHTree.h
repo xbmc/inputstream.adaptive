@@ -35,7 +35,6 @@ public:
   CDashTree(const CDashTree& left);
 
   void Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                 std::vector<std::string_view> supportedKeySystems,
                  std::string_view manifestUpdParams) override;
 
   virtual TreeType GetTreeType() const override { return TreeType::DASH; }
@@ -84,11 +83,9 @@ protected:
    * \param licenseUrl[OUT] The license url (if any)
    * \return True if a protection has been found, otherwise false
    */
-  bool GetProtectionData(const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
-                         const std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
-                         std::vector<uint8_t>& pssh,
-                         std::string& kid,
-                         std::string& licenseUrl);
+  void GetProtectionData(const std::vector<PLAYLIST::ProtectionScheme>& adpProtSchemes,
+                         std::vector<PLAYLIST::ProtectionScheme>& reprProtSchemes,
+                         PLAYLIST::CRepresentation& repr);
 
   std::optional<bool> ParseTagContentProtectionSecDec(pugi::xml_node nodeParent);
 
@@ -122,8 +119,5 @@ protected:
   uint64_t m_mediaPresDuration{0}; // MPD Media presentation duration attribute value, in ms (may be not provided)
 
   uint64_t m_minimumUpdatePeriod{PLAYLIST::NO_VALUE}; // in seconds, NO_VALUE if not set
-
-  // Determines if a custom PSSH initialization license data is provided
-  bool m_isCustomInitPssh{false};
 };
 } // namespace adaptive

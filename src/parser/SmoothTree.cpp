@@ -91,34 +91,48 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
 
   // Parse <Protection> tag
   DRM::PRHeaderParser protParser;
+  std::vector<DRM::DRMInfo> drmInfos;
   xml_node nodeProt = nodeSSM.child("Protection");
   if (nodeProt)
   {
-    period->SetEncryptionState(EncryptionState::NOT_SUPPORTED);
     period->SetSecureDecodeNeeded(true);
 
-    pugi::xml_node nodeProtHead = nodeProt.child("ProtectionHeader");
-    if (nodeProtHead)
+    for (xml_node nodePH : nodeProt.children("ProtectionHeader"))
     {
       // SystemID can be wrapped by {}
-      if (STRING::Contains(XML::GetAttrib(nodeProtHead, "SystemID"),
-                           "9A04F079-9840-4286-AB92-E65BE0885F95"))
+      std::string_view systemId = XML::GetAttrib(nodePH, "SystemID");
+      if (STRING::Contains(systemId, "9A04F079-9840-4286-AB92-E65BE0885F95"))
       {
-        if (protParser.Parse(nodeProtHead.child_value()))
+        if (protParser.Parse(nodePH.child_value()))
         {
-          period->SetEncryptionState(EncryptionState::ENCRYPTED_DRM);
-          m_licenseUrl = protParser.GetLicenseURL();
+          DRM::DRMInfo drmInfo;
+          drmInfo.keySystem = DRM::KS_PLAYREADY;
+          drmInfo.licenseServerUri = protParser.GetLicenseURL();
+          drmInfo.initData = DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, protParser.GetInitData());
+          drmInfo.defaultKid = STRING::ToLower(STRING::ToHexadecimal(protParser.GetKID()));
+
+          auto encryptionType = protParser.GetEncryption();
+          if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCTR)
+            drmInfo.cryptoMode = CryptoMode::AES_CTR;
+          else if (encryptionType == DRM::PRHeaderParser::EncryptionType::AESCBC)
+            drmInfo.cryptoMode = CryptoMode::AES_CBC;
+
+          drmInfos.emplace_back(drmInfo);
         }
       }
-      else
-        LOG::LogF(LOGERROR, "Protection header with a SystemID not supported or not implemented.");
+      else // Several SystemID's should be supported, but it is not clear which ones
+      {
+        LOG::LogF(LOGWARNING,
+                  "Not implemented or unsupported \"ProtectionHeader\" with SystemID \"%s\"",
+                  systemId.data());
+      }
     }
   }
 
   // Parse <StreamIndex> tags
   for (xml_node node : nodeSSM.children("StreamIndex"))
   {
-    ParseTagStreamIndex(node, period.get(), protParser);
+    ParseTagStreamIndex(node, period.get(), drmInfos);
   }
 
   if (period->GetAdaptationSets().empty())
@@ -134,7 +148,7 @@ bool adaptive::CSmoothTree::ParseManifest(const std::string& data)
 
 void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
                                                 PLAYLIST::CPeriod* period,
-                                                const DRM::PRHeaderParser& protParser)
+                                                const std::vector<DRM::DRMInfo>& drmInfos)
 {
   std::unique_ptr<CAdaptationSet> adpSet = CAdaptationSet::MakeUniquePtr(period);
 
@@ -183,17 +197,6 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
       adpSet->SetIsImpaired(true);
     }
     adpSet->SetStreamType(StreamType::SUBTITLE);
-  }
-
-  uint16_t psshSetPos = PSSHSET_POS_DEFAULT;
-
-  if (protParser.HasProtection() && (adpSet->GetStreamType() == StreamType::VIDEO ||
-                                     adpSet->GetStreamType() == StreamType::AUDIO))
-  {
-    const std::vector<uint8_t> initData = DRM::PSSH::Make(DRM::ID_PLAYREADY, {}, protParser.GetInitData());
-
-    psshSetPos = InsertPsshSet(StreamType::VIDEO_AUDIO, period, adpSet.get(), initData,
-                               STRING::ToHexadecimal(protParser.GetKID()));
   }
 
   // Language code format ISO 639-2
@@ -271,13 +274,18 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
   // Parse <QualityLevel> tags
   for (xml_node node : nodeSI.children("QualityLevel"))
   {
-    ParseTagQualityLevel(node, adpSet.get(), timescale, psshSetPos);
+    ParseTagQualityLevel(node, adpSet.get(), timescale, drmInfos);
   }
 
   if (adpSet->GetRepresentations().empty())
   {
     LOG::LogF(LOGDEBUG, "No generated representations, adaptation set skipped.");
     return;
+  }
+
+  if (adpSet->GetCodecs().empty())
+  {
+    adpSet->AddCodecs(adpSet->GetRepresentations().front()->GetCodecs());
   }
 
   if (m_ptsBase == NO_PTS_VALUE || adpSet->GetStartPTS() < m_ptsBase)
@@ -289,7 +297,7 @@ void adaptive::CSmoothTree::ParseTagStreamIndex(pugi::xml_node nodeSI,
 void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
                                                  PLAYLIST::CAdaptationSet* adpSet,
                                                  const uint32_t timescale,
-                                                 const uint16_t psshSetPos)
+                                                 const std::vector<DRM::DRMInfo>& drmInfos)
 {
   std::unique_ptr<CRepresentation> repr = CRepresentation::MakeUniquePtr(adpSet);
 
@@ -306,7 +314,13 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
   if (XML::QueryAttrib(nodeQI, "FourCC", fourCc))
     repr->AddCodecs(fourCc);
 
-  repr->m_psshSetPos = psshSetPos;
+  if (!drmInfos.empty())
+  {
+    for (auto& drmInfo : drmInfos)
+    {
+      repr->AddDrmInfo(drmInfo);
+    }
+  }
 
   repr->SetResWidth(XML::GetAttribInt(nodeQI, "MaxWidth"));
   repr->SetResHeight(XML::GetAttribInt(nodeQI, "MaxHeight"));

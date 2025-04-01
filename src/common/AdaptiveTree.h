@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "utils/CryptoUtils.h"
 #include "AdaptationSet.h"
 #include "Period.h"
 #include "Representation.h"
@@ -73,10 +72,7 @@ public:
   uint64_t available_time_{0}; // in ms
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
 
-  std::vector<std::string_view> m_supportedKeySystems;
   std::string location_;
-
-  CryptoMode m_cryptoMode{CryptoMode::NONE};
 
   AdaptiveTree() = default;
   AdaptiveTree(const AdaptiveTree& left);
@@ -86,11 +82,10 @@ public:
 
   /*!
    * \brief Configure the adaptive tree.
-   * \param kodiProps The Kodi properties
+   * \param reprChooser The representation chooser
    * \param manifestUpdParams Parameters to be add to manifest request url, depends on manifest implementation
    */
   virtual void Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                         std::vector<std::string_view> supportedKeySystems,
                          std::string_view manifestUpdParams);
 
   /*
@@ -137,7 +132,7 @@ public:
   }
 
   virtual void OnDataArrived(uint64_t segNum,
-                             uint16_t psshSet,
+                             std::optional<CAesKeyInfo>& aesKey,
                              uint8_t iv[16],
                              const uint8_t* srcData,
                              size_t srcDataSize,
@@ -172,7 +167,12 @@ public:
   {
   }
 
-  void FreeSegments(PLAYLIST::CPeriod* period, PLAYLIST::CRepresentation* repr);
+  /*!
+   * \brief Callback done when the period has been changed.
+   */
+  virtual void OnPeriodChange() {}
+
+  void FreeSegments(PLAYLIST::CRepresentation* repr);
 
   /*!
    * \brief Some types of live manifests do not include segments, so the client must create them,
@@ -208,15 +208,6 @@ public:
   {
     return false;
   }
-
-  // Insert a PSSHSet to the specified Period and return the position
-  uint16_t InsertPsshSet(PLAYLIST::StreamType streamType,
-                         PLAYLIST::CPeriod* period,
-                         PLAYLIST::CAdaptationSet* adp,
-                         const std::vector<uint8_t>& pssh,
-                         std::string_view defaultKID,
-                         std::string_view licenseUrl = "",
-                         std::string_view iv = "");
 
   PLAYLIST::CAdaptationSet* GetAdaptationSet(size_t pos) const
   {
@@ -328,12 +319,6 @@ public:
   TreeUpdateThread& GetTreeUpdMutex() { return m_updThread; };
 
   /*!
-   * \brief Get the license URL, some DRM-encrypted manifests (e.g. SmoothStreaming) can provide it.
-   * \return The license URL if found, otherwise empty string.
-   */
-  std::string_view GetLicenseUrl() { return m_licenseUrl; }
-
-  /*!
    * \brief Specifies if TTML subtitle time is relative to sample time.
    * \return True if relative to sample time, otherwise false.
    */
@@ -396,8 +381,6 @@ protected:
 
   // Provide the path where the manifests will be saved, if debug enabled
   std::string m_pathSaveManifest;
-
-  std::string m_licenseUrl;
 
   bool m_isTTMLTimeRelative{false};
   bool m_isReqPrepareStream{false};

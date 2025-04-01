@@ -35,6 +35,12 @@ struct ChooserProps
   std::pair<int, int> m_resolutionSecureMax; // Res. limit for DRM protected videos (values 0 means auto)
 };
 
+enum class HdcpCheckType
+{
+  DEFAULT,
+  LICENSE, // To check HDCP values from DRM license response
+};
+
 // Generic add-on configuration
 struct Config
 {
@@ -43,6 +49,10 @@ struct Config
   bool curlSSLVerifyPeer{true};
   // Determines if cookies are internally handled by InputStream Adaptive add-on
   bool internalCookies{false};
+  // Determines how HDCP should be checked
+  HdcpCheckType hdcpCheck{HdcpCheckType::DEFAULT};
+  // Force limit resolutions of manifest streams to the specified value included (value in px, height x width)
+  int resolutionLimit{0};
 };
 
 struct ManifestConfig
@@ -78,13 +88,15 @@ struct DrmCfg
   std::optional<bool> isSecureDecoderEnabled;
   // Optional parameters to make the CDM key request (CDM specific parameters)
   std::map<std::string, std::string> optKeyReqParams;
+  // Enforce the use of a single session (license is assumed to return all keys in one request)
+  bool isForceSingleSession{false};
 
   struct License
   {
     // The license server certificate encoded as base64
     std::string serverCert;
-    // The license server url
-    std::string serverUrl;
+    // The license server uri
+    std::string serverUri;
     // To force an HTTP GET request, instead that POST request
     bool isHttpGetRequest{false};
     // HTTP request headers
@@ -152,20 +164,13 @@ public:
   // \brief Specifies the manifest configuration
   const ManifestConfig& GetManifestConfig() const { return m_manifestConfig; }
 
+  // \brief Checks whether there is a DRM configuration for the specified key system
+  bool HasDrmConfig(std::string_view keySystem) const;
 
-  //! @todo: temporary method, for future rework
-  const std::string GetDrmKeySystem()
-  {
-    return m_drmConfigs.empty() ? "" : m_drmConfigs.begin()->first;
-  }
-  //! @todo: temporary method, for future rework
-  const DrmCfg& GetDrmConfig() { return m_drmConfigs[GetDrmKeySystem()]; }
+  // \brief Gets the DRM configuration for the specified keysystem. If not found, returns default values.
+  const DrmCfg GetDrmConfig(std::string_view keySystem) const;
 
-
-  // \brief Get DRM configuration for specified keysystem, if not found will return default values
-  const DrmCfg& GetDrmConfig(const std::string& keySystem) { return m_drmConfigs[keySystem]; }
-  const DrmCfg& GetDrmConfig(std::string_view keySystem) { return m_drmConfigs[std::string(keySystem)]; }
-
+  // \brief Gets the DRM configurations (Key System, DRM config)
   const std::map<std::string, DrmCfg>& GetDrmConfigs() const { return m_drmConfigs; }
 
 private:

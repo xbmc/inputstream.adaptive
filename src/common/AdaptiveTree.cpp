@@ -40,7 +40,6 @@ namespace adaptive
     m_manifestParams = left.m_manifestParams;
     m_manifestHeaders = left.m_manifestHeaders;
     m_settings = left.m_settings;
-    m_supportedKeySystems = left.m_supportedKeySystems;
     m_pathSaveManifest = left.m_pathSaveManifest;
     stream_start_ = left.stream_start_;
 
@@ -49,11 +48,9 @@ namespace adaptive
   }
 
   void AdaptiveTree::Configure(CHOOSER::IRepresentationChooser* reprChooser,
-                               std::vector<std::string_view> supportedKeySystems,
                                std::string_view manifestUpdParams)
   {
     m_reprChooser = reprChooser;
-    m_supportedKeySystems = supportedKeySystems;
 
     auto srvBroker = CSrvBroker::GetInstance();
 
@@ -112,19 +109,14 @@ namespace adaptive
              m_isLive ? "live" : "VOD");
   }
 
-  void AdaptiveTree::FreeSegments(CPeriod* period, CRepresentation* repr)
+  void AdaptiveTree::FreeSegments(CRepresentation* repr)
   {
-    for (const CSegment& segment : repr->Timeline())
-    {
-      period->DecreasePSSHSetUsageCount(segment.pssh_set_);
-    }
-
     repr->Timeline().Clear();
     repr->current_segment_ = nullptr;
   }
 
   void AdaptiveTree::OnDataArrived(uint64_t segNum,
-                                   uint16_t psshSet,
+                                   std::optional<CAesKeyInfo>& aesKey,
                                    uint8_t iv[16],
                                    const uint8_t* srcData,
                                    size_t srcDataSize,
@@ -133,34 +125,6 @@ namespace adaptive
                                    bool isLastChunk)
   {
     segBuffer.insert(segBuffer.end(), srcData, srcData + srcDataSize);
-  }
-
-  uint16_t AdaptiveTree::InsertPsshSet(PLAYLIST::StreamType streamType,
-                                       PLAYLIST::CPeriod* period,
-                                       PLAYLIST::CAdaptationSet* adp,
-                                       const std::vector<uint8_t>& pssh,
-                                       std::string_view defaultKID,
-                                       std::string_view licenseUrl /* = "" */,
-                                       std::string_view iv /* = "" */)
-  {
-    CPeriod::PSSHSet psshSet;
-    psshSet.pssh_ = pssh;
-    psshSet.defaultKID_ = defaultKID;
-    psshSet.m_licenseUrl = licenseUrl;
-    psshSet.iv = iv;
-    psshSet.m_cryptoMode = m_cryptoMode;
-    psshSet.adaptation_set_ = adp;
-
-    if (streamType == StreamType::VIDEO)
-      psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO;
-    else if (streamType == StreamType::VIDEO_AUDIO)
-      psshSet.media_ = CPeriod::PSSHSet::MEDIA_VIDEO | CPeriod::PSSHSet::MEDIA_AUDIO;
-    else if (streamType == StreamType::AUDIO)
-      psshSet.media_ = CPeriod::PSSHSet::MEDIA_AUDIO;
-    else
-      psshSet.media_ = CPeriod::PSSHSet::MEDIA_UNSPECIFIED;
-
-    return period->InsertPSSHSet(psshSet);
   }
 
   void AdaptiveTree::SortTree()

@@ -136,16 +136,15 @@ AP4_Movie* PLAYLIST::CreateMovieAtom(adaptive::AdaptiveStream& adStream,
     sampleDesc = new AP4_SampleDescription(AP4_SampleDescription::TYPE_UNKNOWN, 0, 0);
   }
 
-  if (repr->GetPsshSetPos() != PSSHSET_POS_DEFAULT)
+  if (!repr->DrmInfos().empty())
   {
-    const PLAYLIST::CPeriod::PSSHSet& psshSet =
-        adStream.getPeriod()->GetPSSHSets()[repr->GetPsshSetPos()];
+    DRM::DRMInfo& drmInfo = repr->DrmInfos()[0];
 
     std::vector<uint8_t> defaultKid;
-    if (psshSet.defaultKID_.empty())
+    if (drmInfo.defaultKid.empty())
       defaultKid.assign(DEFAULT_KEYID, DEFAULT_KEYID + 16);
     else
-      defaultKid = DRM::ConvertKidStrToBytes(psshSet.defaultKID_);
+      defaultKid = DRM::ConvertKidStrToBytes(drmInfo.defaultKid);
 
     AP4_ContainerAtom schi{AP4_ATOM_TYPE_SCHI};
     // Note TENC default_isProtected parameter is intentionally set to 0 (not encrypted)

@@ -19,7 +19,6 @@ public:
 
   virtual bool Initialize() override;
 
-  virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) override;
   virtual bool OpenDRMSystem(const DRM::Config& config) override;
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       const std::vector<uint8_t>& initData,
@@ -32,8 +31,9 @@ public:
                                const std::vector<uint8_t>& keyId,
                                uint32_t media,
                                DRM::DecrypterCapabilites& caps) override;
-  virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
-                             const std::vector<uint8_t>& keyId) override;
+  virtual std::optional<bool> HasLicenseKey(
+      std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+      const std::vector<uint8_t>& keyId) override;
   virtual bool IsInitialised() override { return m_WVCdmAdapter != nullptr; }
   virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override;
   virtual bool OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
@@ -43,6 +43,7 @@ public:
   virtual VIDEOCODEC_RETVAL VideoFrameDataToPicture(kodi::addon::CInstanceVideoCodec* codecInstance,
                                                     VIDEOCODEC_PICTURE* picture) override;
   virtual void ResetVideo() override;
+  virtual void Dispose() override;
   virtual void SetLibraryPath(std::string_view libraryPath) override;
   virtual bool GetBuffer(void* instance, VIDEOCODEC_PICTURE& picture);
   virtual void ReleaseBuffer(void* instance, void* buffer);

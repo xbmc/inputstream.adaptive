@@ -25,6 +25,9 @@ public:
 
   void PostInit() override;
 
+  PLAYLIST::CAdaptationSet* GetPreferredVideoAdpSet(
+      PLAYLIST::CPeriod* period, PLAYLIST::CAdaptationSet* adpSetPreferred) override;
+
   PLAYLIST::CRepresentation* GetNextRepresentation(PLAYLIST::CAdaptationSet* adp,
                                                    PLAYLIST::CRepresentation* currentRep) override;
 
@@ -32,6 +35,7 @@ private:
   bool m_isDialogShown{false};
   int m_selectedResWidth{0};
   int m_selectedResHeight{0};
+  std::string m_selectedVideoCodecDesc;
 };
 
 } // namespace CHOOSER

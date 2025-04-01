@@ -42,7 +42,7 @@ CWVCdmAdapter::CWVCdmAdapter(const DRM::Config& config, CWVDecrypter* host)
 
   // The license url come from license_key kodi property
   // we have to kept only the url without the parameters specified after pipe "|" char
-  std::string licUrl = m_config.license.serverUrl;
+  std::string licUrl = m_config.license.serverUri;
   const size_t urlPipePos = licUrl.find('|');
   if (urlPipePos != std::string::npos)
     licUrl.erase(urlPipePos);

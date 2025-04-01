@@ -48,9 +48,6 @@ CWVCencSingleSampleDecrypter::CWVCencSingleSampleDecrypter(
     CryptoMode cryptoMode)
   : m_cdmAdapter(cdmAdapter),
     m_pssh(pssh),
-    m_hdcpVersion(99),
-    m_hdcpLimit(0),
-    m_resolutionLimit(0),
     m_promiseId(1),
     m_isDrained(true),
     m_defaultKeyId(defaultKeyId),
@@ -182,7 +179,7 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(const std::vector<uint8_t>& k
       {
         LOG::LogF(LOGDEBUG, "Single decrypt possible");
         caps.flags |= DecrypterCapabilites::SSD_SINGLE_DECRYPT;
-        caps.hdcpVersion = 99;
+        caps.hdcpVersion = DRM::HDCP_V_MAX;
         caps.hdcpLimit = m_resolutionLimit;
       }
     }
@@ -284,7 +281,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     UTILS::FILESYS::SaveFile(debugFilePath, reqData, true);
   }
 
-  std::string url = licConfig.serverUrl;
+  std::string url = licConfig.serverUri;
   DRM::TranslateLicenseUrlPh(url, challenge, drmCfg.isNewConfig);
 
   CURL::CUrl cUrl{url, reqData};
@@ -308,12 +305,10 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   const std::string resLimit = cUrl.GetResponseHeader("X-Limit-Video"); // Custom header
   const std::string respContentType = cUrl.GetResponseHeader("Content-Type");
 
-  if (!resLimit.empty())
+  if (m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
   {
-    // To force limit playable streams resolutions
-    size_t posMax = resLimit.find("max=");
-    if (posMax != std::string::npos)
-      m_resolutionLimit = std::atoi(resLimit.data() + (posMax + 4));
+    // Force limit playable streams resolutions
+    m_resolutionLimit = DRM::ParseXLimitVideoHeader(resLimit);
   }
 
   // The first request could be the license certificate request
@@ -323,8 +318,6 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
       m_challenge.GetDataSize() == 2 && respContentType == "application/octet-stream";
   m_challenge.SetDataSize(0);
 
-  int hdcpLimit{0};
-
   // Unwrap license response
   if (!licConfig.unwrapper.empty() && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
   {
@@ -333,7 +326,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     // Here we provide a built-in way to unwrap the license data received, this avoid force add-ons to integrate
     // a HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
     if (!DRM::WvUnwrapLicense(licConfig.unwrapper, licConfig.unwrapperParams, respContentType,
-                              respData, unwrappedData, hdcpLimit))
+                              respData, unwrappedData, m_hdcpLimit, m_hdcpVersion))
     {
       return false;
     }

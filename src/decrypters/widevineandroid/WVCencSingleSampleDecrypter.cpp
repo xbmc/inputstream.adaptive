@@ -34,8 +34,6 @@ CWVCencSingleSampleDecrypterA::CWVCencSingleSampleDecrypterA(
     m_pssh(pssh),
     m_isProvisioningRequested(false),
     m_isKeyUpdateRequested(false),
-    m_hdcpLimit(0),
-    m_resolutionLimit(0),
     m_defaultKeyId{defaultKeyId}
 {
   SetParentIsOwner(false);
@@ -168,20 +166,13 @@ std::vector<uint8_t> CWVCencSingleSampleDecrypterA::GetChallengeData()
   return m_keyRequestData;
 }
 
-bool CWVCencSingleSampleDecrypterA::HasLicenseKey(const std::vector<uint8_t>& keyId)
-{
-  // true = one session for all streams, false = one sessions per stream
-  // false fixes pixaltion issues on some devices when manifest has multiple encrypted streams
-  return true;
-}
-
 void CWVCencSingleSampleDecrypterA::GetCapabilities(const std::vector<uint8_t>& keyId,
                                                     uint32_t media,
                                                     DRM::DecrypterCapabilites& caps)
 {
   caps = {DRM::DecrypterCapabilites::SSD_SECURE_PATH |
               DRM::DecrypterCapabilites::SSD_ANNEXB_REQUIRED,
-          0, m_hdcpLimit};
+          m_hdcpVersion, m_hdcpLimit};
 
   if (caps.hdcpLimit == 0)
     caps.hdcpLimit = m_resolutionLimit;
@@ -195,8 +186,6 @@ void CWVCencSingleSampleDecrypterA::GetCapabilities(const std::vector<uint8_t>& 
     caps.flags |= DRM::DecrypterCapabilites::SSD_SECURE_DECODER;
   }
   LOG::LogF(LOGDEBUG, "hdcpLimit: %i", caps.hdcpLimit);
-
-  caps.hdcpVersion = 99;
 }
 
 void CWVCencSingleSampleDecrypterA::OnNotify(const CdmMessage& message)
@@ -381,7 +370,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
     UTILS::FILESYS::SaveFile(debugFilePath, reqData, true);
   }
 
-  std::string url = licConfig.serverUrl;
+  std::string url = licConfig.serverUri;
   DRM::TranslateLicenseUrlPh(url, challenge, drmCfg.isNewConfig);
 
   CURL::CUrl cUrl{url, reqData};
@@ -405,19 +394,15 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
   const std::string resLimit = cUrl.GetResponseHeader("X-Limit-Video"); // Custom header
   const std::string respContentType = cUrl.GetResponseHeader("Content-Type");
 
-  if (!resLimit.empty())
+  if (m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
   {
-    // To force limit playable streams resolutions
-    size_t posMax = resLimit.find("max=");
-    if (posMax != std::string::npos)
-      m_resolutionLimit = std::atoi(resLimit.data() + (posMax + 4));
+    // Force limit playable streams resolutions
+    m_resolutionLimit = DRM::ParseXLimitVideoHeader(resLimit);
   }
 
   // The first request could be the license certificate request
   // this request is done by sending a challenge of 2 bytes, 0x08 0x04 (CAQ=)
   const bool isCertRequest = challenge.size() == 2 && challenge[0] == 0x08 && challenge[1] == 0x04;
-
-  int hdcpLimit{0};
 
   // Unwrap license response
   if (!licConfig.unwrapper.empty() && m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE)
@@ -427,7 +412,7 @@ bool CWVCencSingleSampleDecrypterA::SendSessionMessage(const std::vector<uint8_t
     // Here we provide a built-in way to unwrap the license data received, this avoid force add-ons to integrate
     // a HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
     if (!DRM::WvUnwrapLicense(licConfig.unwrapper, licConfig.unwrapperParams, respContentType,
-                              respData, unwrappedData, hdcpLimit))
+                              respData, unwrappedData, m_hdcpLimit, m_hdcpVersion))
     {
       return false;
     }

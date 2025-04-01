@@ -35,7 +35,7 @@ public:
                size_t dstOffset,
                size_t& dataSize,
                bool lastChunk);
-  std::string convertIV(const std::string& input);
+  std::vector<uint8_t> convertIV(const std::string& input);
   void ivFromSequence(uint8_t* buffer, uint64_t sid);
   // const std::string& getLicenseKey() const { return m_licenseKey; };
   // bool RenewLicense(const std::string& pluginUrl);

@@ -8,10 +8,12 @@
 
 #include "Base64Utils.h"
 
+#include "StringUtils.h"
 #include "log.h"
 
 #include <regex>
 
+using namespace UTILS;
 using namespace UTILS::BASE64;
 
 namespace
@@ -257,4 +259,18 @@ bool UTILS::BASE64::AddPadding(std::string& base64str)
     return true;
   }
   return false;
+}
+
+std::string UTILS::BASE64::UrlSafeEncode(std::string base64)
+{
+  STRING::ReplaceAll(base64, "+", "-");
+  STRING::ReplaceAll(base64, "/", "_");
+  return base64;
+}
+
+std::string UTILS::BASE64::UrlSafeDecode(std::string base64)
+{
+  STRING::ReplaceAll(base64, "-", "+");
+  STRING::ReplaceAll(base64, "_", "/");
+  return base64;
 }

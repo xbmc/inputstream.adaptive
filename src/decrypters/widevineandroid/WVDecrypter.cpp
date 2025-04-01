@@ -52,39 +52,15 @@ void JNIThread(JavaVM* vm)
 }
 #endif
 
-std::vector<std::string_view> CWVDecrypterA::SelectKeySystems(std::string_view keySystem)
-{
-  LOG::Log(LOGDEBUG, "Key system request: %s", keySystem);
-
-  if (keySystem == KS_WIDEVINE)
-  {
-    m_keySystem = keySystem;
-    return {URN_WIDEVINE};
-  }
-  else if (keySystem == KS_WISEPLAY)
-  {
-    m_keySystem = keySystem;
-    return {URN_WISEPLAY};
-  }
-  else if (keySystem == KS_PLAYREADY)
-  {
-    m_keySystem = keySystem;
-    return {URN_PLAYREADY};
-  }
-
-  m_keySystem.clear();
-  return {};
-}
-
 bool CWVDecrypterA::OpenDRMSystem(const DRM::Config& config)
 {
-  if (config.license.serverUrl.empty())
+  if (config.license.serverUri.empty())
   {
     LOG::LogF(LOGERROR, "The DRM license server url has not been specified");
     return false;
   }
 
-  m_WVCdmAdapter = std::make_shared<CWVCdmAdapterA>(m_keySystem, config, m_classLoader, this);
+  m_WVCdmAdapter = std::make_shared<CWVCdmAdapterA>(config.keySystem, config, m_classLoader, this);
 
   return m_WVCdmAdapter->GetCDM() != nullptr;
 }
@@ -124,20 +100,6 @@ void CWVDecrypterA::GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDec
   }
   else
     LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
-}
-
-bool CWVDecrypterA::HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
-                                  const std::vector<uint8_t>& keyId)
-{
-  auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypterA>(decrypter);
-  if (wvDecrypter)
-  {
-    return wvDecrypter->HasLicenseKey(keyId);
-  }
-  else
-    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
-
-  return false;
 }
 
 std::string CWVDecrypterA::GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter)

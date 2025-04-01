@@ -36,6 +36,9 @@ PLAYLIST::CRepresentation* CRepresentationSelector::Highest(
 
   for (auto& rep : adaptSet->GetRepresentations())
   {
+    if (!rep->isPlayable)
+      continue;
+
     if (rep->GetWidth() <= m_screenWidth && rep->GetHeight() <= m_screenHeight)
     {
       if (!highestRep || (highestRep->GetWidth() <= rep->GetWidth() &&
@@ -60,6 +63,9 @@ PLAYLIST::CRepresentation* CRepresentationSelector::HighestBw(
 
   for (auto& rep : adaptSet->GetRepresentations())
   {
+    if (!rep->isPlayable)
+      continue;
+
     if (!repHigherBw || rep->GetBandwidth() > repHigherBw->GetBandwidth())
     {
       repHigherBw = rep.get();
@@ -73,8 +79,9 @@ PLAYLIST::CRepresentation* CRepresentationSelector::Higher(PLAYLIST::CAdaptation
                                                            PLAYLIST::CRepresentation* currRep) const
 {
   auto reps = adaptSet->GetRepresentationsPtr();
-  auto repIt{
-      std::upper_bound(reps.begin(), reps.end(), currRep, CRepresentation::CompareBandwidthPtr)};
+  auto repIt = std::find_if(
+      reps.begin(), reps.end(), [currRep](const auto& rep)
+      { return rep->isPlayable && CRepresentation::CompareBandwidthPtr(rep, currRep); });
 
   if (repIt == reps.end())
     return currRep;

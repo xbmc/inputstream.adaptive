@@ -74,18 +74,9 @@ bool CWVDecrypter::Initialize()
   return true;
 }
 
-std::vector<std::string_view> CWVDecrypter::SelectKeySystems(std::string_view keySystem)
-{
-  std::vector<std::string_view> keySystems;
-  if (keySystem == KS_WIDEVINE)
-    keySystems.push_back(URN_WIDEVINE);
-
-  return keySystems;
-}
-
 bool CWVDecrypter::OpenDRMSystem(const DRM::Config& config)
 {
-  if (config.license.serverUrl.empty())
+  if (config.license.serverUri.empty())
   {
     LOG::LogF(LOGERROR, "The DRM license server url has not been specified");
     return false;
@@ -131,8 +122,9 @@ void CWVDecrypter::GetCapabilities(std::shared_ptr<Adaptive_CencSingleSampleDecr
     LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
 }
 
-bool CWVDecrypter::HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
-                                 const std::vector<uint8_t>& keyId)
+std::optional<bool> CWVDecrypter::HasLicenseKey(
+    std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+    const std::vector<uint8_t>& keyId)
 {
   auto wvDecrypter = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypter>(decrypter);
   if (wvDecrypter)
@@ -201,10 +193,12 @@ VIDEOCODEC_RETVAL CWVDecrypter::VideoFrameDataToPicture(
 void CWVDecrypter::ResetVideo()
 {
   if (m_decodingDecrypter)
-  {
     m_decodingDecrypter->ResetVideo();
-    m_decodingDecrypter = nullptr;
-  }
+}
+
+void CWVDecrypter::Dispose()
+{
+  m_decodingDecrypter = nullptr;
 }
 
 void CWVDecrypter::SetLibraryPath(std::string_view libraryPath)

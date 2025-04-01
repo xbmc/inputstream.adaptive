@@ -44,16 +44,16 @@ void AESDecrypter::decrypt(const AP4_UI08* aes_key,
   dst.resize(dstOffset + dataSize);
 }
 
-std::string AESDecrypter::convertIV(const std::string &input)
+std::vector<uint8_t> AESDecrypter::convertIV(const std::string& input)
 {
-  std::string result;
+  std::vector<uint8_t> result;
   result.resize(16);
   AP4_Result ret(AP4_ERROR_INVALID_FORMAT);
 
   if (input.size() == 34)
-    ret = AP4_ParseHex(input.c_str() + 2, reinterpret_cast<unsigned char*>(&result[0]), 16);
+    ret = AP4_ParseHex(input.c_str() + 2, &result[0], 16);
   else if (input.size() == 32)
-    ret = AP4_ParseHex(input.c_str(), reinterpret_cast<unsigned char*>(&result[0]), 16);
+    ret = AP4_ParseHex(input.c_str(), &result[0], 16);
   if (!AP4_SUCCEEDED(ret))
     result.clear();
   return result;

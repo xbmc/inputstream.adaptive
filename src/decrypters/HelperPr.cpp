@@ -194,7 +194,6 @@ bool DRM::PRHeaderParser::Parse(const std::vector<uint8_t>& prHeader)
   }
 
   std::string_view ver = XML::GetAttrib(nodeWRM, "version");
-  LOG::Log(LOGDEBUG, "Parsing Playready header version %s", ver.data());
 
   xml_node nodeDATA = nodeWRM.child("DATA");
   if (!nodeDATA)

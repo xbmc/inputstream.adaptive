@@ -26,7 +26,7 @@ public:
                        size_t dstOffset,
                        size_t& dataSize,
                        bool lastChunk) = 0;
-  virtual std::string convertIV(const std::string& input) = 0;
+  virtual std::vector<uint8_t> convertIV(const std::string& input) = 0;
   virtual void ivFromSequence(uint8_t* buffer, uint64_t sid) = 0;
   // virtual const std::string& getLicenseKey() const = 0;
   // virtual bool RenewLicense(const std::string& pluginUrl) = 0;

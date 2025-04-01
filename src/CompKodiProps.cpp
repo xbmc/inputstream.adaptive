@@ -21,12 +21,13 @@
 #include <rapidjson/document.h>
 
 using namespace UTILS;
+using namespace ADP::KODI_PROPS;
 
 namespace
 {
 // clang-format off
-constexpr std::string_view PROP_LICENSE_TYPE = "inputstream.adaptive.license_type"; //! @todo: to be deprecated
-constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key"; //! @todo: to be deprecated
+constexpr std::string_view PROP_LICENSE_TYPE = "inputstream.adaptive.license_type"; //! @todo: deprecated to be removed on Kodi 23
+constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key"; //! @todo: deprecated to be removed on Kodi 23
 // PROP_LICENSE_URL and PROP_LICENSE_URL_APPEND has been added as workaround for Kodi PVR API bug
 // where limit property values to max 1024 chars, if exceeds the string is truncated.
 // Since some services provide license urls that exceeds 1024 chars,
@@ -36,9 +37,9 @@ constexpr std::string_view PROP_LICENSE_KEY = "inputstream.adaptive.license_key"
 // -> this problem has been fixed on Kodi 22
 constexpr std::string_view PROP_LICENSE_URL = "inputstream.adaptive.license_url"; //! @todo: deprecated to be removed on Kodi 23
 constexpr std::string_view PROP_LICENSE_URL_APPEND = "inputstream.adaptive.license_url_append"; //! @todo: deprecated to be removed on Kodi 23
-constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_data"; //! @todo: to be deprecated
-constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags"; //! @todo: to be deprecated
-constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate"; //! @todo: to be deprecated
+constexpr std::string_view PROP_LICENSE_DATA = "inputstream.adaptive.license_data"; //! @todo: deprecated to be removed on Kodi 23
+constexpr std::string_view PROP_LICENSE_FLAGS = "inputstream.adaptive.license_flags"; //! @todo: deprecated to be removed on Kodi 23
+constexpr std::string_view PROP_SERVER_CERT = "inputstream.adaptive.server_certificate"; //! @todo: deprecated to be removed on Kodi 23
 
 constexpr std::string_view PROP_COMMON_HEADERS = "inputstream.adaptive.common_headers";
 
@@ -53,7 +54,7 @@ constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_he
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay"; //! @todo: deprecated to be removed on Kodi 23
-constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data"; //! @todo: to be deprecated
+constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data"; //! @todo: deprecated to be removed on Kodi 23
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
 constexpr std::string_view PROP_DRM = "inputstream.adaptive.drm";
@@ -280,9 +281,23 @@ void ADP::KODI_PROPS::CCompKodiProps::InitStage1(const std::map<std::string, std
     else
     {
       auto first = m_drmConfigs.begin();
-      first->second.license.serverUrl = licenseUrl;
+      first->second.license.serverUri = licenseUrl;
     }
   }
+}
+
+bool ADP::KODI_PROPS::CCompKodiProps::HasDrmConfig(std::string_view keySystem) const
+{
+  return STRING::KeyExists(m_drmConfigs, keySystem);
+}
+
+const ADP::KODI_PROPS::DrmCfg ADP::KODI_PROPS::CCompKodiProps::GetDrmConfig(
+    std::string_view keySystem) const
+{
+  if (STRING::KeyExists(m_drmConfigs, keySystem))
+    return m_drmConfigs.at(keySystem.data());
+
+  return {}; // default values
 }
 
 void ADP::KODI_PROPS::CCompKodiProps::ParseConfig(const std::string& data)
@@ -313,6 +328,38 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseConfig(const std::string& data)
     else if (configName == "internal_cookies" && jDictVal.IsBool())
     {
       m_config.internalCookies = jDictVal.GetBool();
+    }
+    else if (configName == "check_hdcp" && jDictVal.IsString())
+    {
+      std::string_view value = jDictVal.GetString();
+
+      if (value.empty() || value == "default")
+        m_config.hdcpCheck = HdcpCheckType::DEFAULT;
+      else if (value == "license")
+        m_config.hdcpCheck = HdcpCheckType::LICENSE;
+      else
+        LOG::LogF(LOGERROR, "Value \"%s\" isnt supported on \"%s\" config of \"%s\" property",
+                  value.data(), configName.c_str(), PROP_MANIFEST_CONFIG.data());
+    }
+    else if (configName == "resolution_limit" && jDictVal.IsString())
+    {
+      std::string_view value = jDictVal.GetString();
+      if (!value.empty())
+      {
+        auto pos = value.find('x');
+        if (pos != std::string_view::npos)
+        {
+          const int width = STRING::ToInt32(value.substr(0, pos));
+          const int height = STRING::ToInt32(value.substr(pos + 1));
+          m_config.resolutionLimit = width * height;
+        }
+        else
+        {
+          LOG::LogF(LOGERROR,
+                    "Invalid resolution format \"%s\" on \"%s\" config of \"%s\" property",
+                    value.data(), configName.c_str(), PROP_MANIFEST_CONFIG.data());
+        }
+      }
     }
     else
     {
@@ -379,9 +426,7 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
 
   if (!STRING::KeyExists(props, PROP_LICENSE_TYPE))
     return;
-  /*
-   *! @todo: TO UNCOMMENT WHEN DRM AUTO-SELECTION WILL BE FULL IMPLEMENTED
-   *
+
   LOG::Log(LOGWARNING, "<<<<<<<<< DEPRECATION NOTICE >>>>>>>>>\n"
                        "DEPRECATED PROPERTIES HAS BEEN USED TO SET THE DRM CONFIGURATION.\n"
                        "THE FOLLOWING PROPERTIES WILL BE REMOVED FROM FUTURE KODI VERSIONS:\n"
@@ -392,11 +437,11 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
                        "- inputstream.adaptive.server_certificate\n"
                        "- inputstream.adaptive.pre_init_data\n"
                        "YOU SHOULD CONSIDER MIGRATING TO THE NEW PROPERTIES:\n"
-                       "- inputstream.adaptive.drm\n"
                        "- inputstream.adaptive.drm_legacy\n"
+                       "- inputstream.adaptive.drm\n"
                        "FOR MORE INFO, PLEASE READ THE WIKI PAGE: "
                        "https://github.com/xbmc/inputstream.adaptive/wiki/Integration-DRM");
-  */
+
   std::string drmKeySystem{DRM::KS_NONE};
   if (STRING::KeyExists(props, PROP_LICENSE_TYPE))
     drmKeySystem = props.at(PROP_LICENSE_TYPE.data());
@@ -426,6 +471,8 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
 
   // As legacy behaviour its expected to force the unique drm configuration available
   drmCfg.priority = 1;
+  // As legacy behaviour force single session (as in the old ISA versions <= v21)
+  drmCfg.isForceSingleSession = true;
 
   // Parse DRM properties
   const bool isRedacted = !CSrvBroker::GetSettings().IsDebugVerbose();
@@ -485,7 +532,7 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
     {
       // Field 1: License server url
       if (fieldCount >= 1)
-        drmCfg.license.serverUrl = fields[0];
+        drmCfg.license.serverUri = fields[0];
 
       // Field 2: HTTP request headers
       if (fieldCount >= 2)
@@ -567,8 +614,8 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
             // Position 2: The dict Key name to get HDCP value (optional)
             if (jPaths.size() >= 2)
             {
-              drmCfg.license.unwrapperParams["path_hdcp_traverse"] = "true";
-              drmCfg.license.unwrapperParams["path_hdcp"] = jPaths[1];
+              drmCfg.license.unwrapperParams["path_hdcp_res_traverse"] = "true";
+              drmCfg.license.unwrapperParams["path_hdcp_res"] = jPaths[1];
             }
           }
         }
@@ -608,7 +655,7 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       continue;
     }
 
-    DrmCfg& drmCfg = m_drmConfigs[keySystem];
+    DrmCfg& drmCfg = m_drmConfigs[keySystem]; // create new configuration
     auto& jDictVal = jChildObj.value;
 
     if (!jDictVal.IsObject())
@@ -621,6 +668,9 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
     // Parse main DRM config
 
     LogDrmJsonDictKeys("main", jDictVal, keySystem);
+
+    if (jDictVal.HasMember("force_single_session") && jDictVal["force_single_session"].IsBool())
+      drmCfg.isForceSingleSession = jDictVal["force_single_session"].GetBool();
 
     if (jDictVal.HasMember("persistent_storage") && jDictVal["persistent_storage"].IsBool())
       drmCfg.isPersistentStorage = jDictVal["persistent_storage"].GetBool();
@@ -663,7 +713,7 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
         drmCfg.license.serverCert = jDictLic["server_certificate"].GetString();
 
       if (jDictLic.HasMember("server_url") && jDictLic["server_url"].IsString())
-        drmCfg.license.serverUrl = jDictLic["server_url"].GetString();
+        drmCfg.license.serverUri = jDictLic["server_url"].GetString();
 
       if (jDictLic.HasMember("use_http_get_request") && jDictLic["use_http_get_request"].IsBool())
         drmCfg.license.isHttpGetRequest = jDictLic["use_http_get_request"].GetBool();
@@ -704,9 +754,6 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
         }
       }
     }
-
-    //! @todo: temporary support only one DRM config, must be reworked the CSession for DRM auto-selection
-    break;
   }
 
   return true;
@@ -749,12 +796,14 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmLegacyConfig(const std::string& da
   DrmCfg drmCfg;
   // As legacy behaviour its expected to force the unique drm configuration available
   drmCfg.priority = 1;
+  // As legacy behaviour force single session (as in the old ISA versions <= v21)
+  drmCfg.isForceSingleSession = true;
 
   if (!licenseStr.empty())
   {
-    if (URL::IsValidUrl(licenseStr)) // License server URL
+    if (URL::IsValidUrl(licenseStr) || URL::IsValidUri(licenseStr)) // License server URI
     {
-      drmCfg.license.serverUrl = licenseStr;
+      drmCfg.license.serverUri = licenseStr;
     }
     else // Assume are keyid's for ClearKey DRM
     {

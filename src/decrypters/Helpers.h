@@ -78,6 +78,13 @@ std::string UrnToSystemId(std::string_view urn);
 std::vector<std::string> UrnsToSystemIds(const std::vector<std::string_view>& urns);
 
 /*!
+ * \brief Convert DRM URN to Key System.
+ * \param urn The URN
+ * \return The Key System, otherwise empty if fails.
+ */
+std::string_view UrnToKeySystem(std::string_view urn);
+
+/*!
  * \brief Convert a hexdecimal KeyId of 32 chars to 16 bytes.
  * \param kidStr The hexdecimal KeyId
  * \return KeyId as bytes, otherwise empty if fails.

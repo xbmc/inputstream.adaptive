@@ -18,11 +18,6 @@
 using namespace ADP::SETTINGS;
 using namespace UTILS;
 
-bool ADP::SETTINGS::CCompSettings::IsHdcpOverride() const
-{
-  return kodi::addon::GetSettingBoolean("HDCPOVERRIDE");
-}
-
 StreamSelMode ADP::SETTINGS::CCompSettings::GetStreamSelMode() const
 {
   const std::string mode = kodi::addon::GetSettingString("adaptivestream.streamselection.mode");

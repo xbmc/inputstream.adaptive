@@ -115,7 +115,7 @@ bool TestAdaptiveStream::DownloadSegment(const DownloadInfo& downloadInfo)
         break;
 
       m_tree->OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
-                            downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
+                            downloadInfo.m_segmentBuffer->segment.AESKeyInfo(), m_decrypterIv,
                             bufferData, bytesRead, segmentBuffer, segmentBuffer.size(), false);
 
       totalByteRead += bytesRead;
@@ -151,9 +151,9 @@ void AESDecrypterTest::decrypt(const AP4_UI08* aes_key,
 {
 }
 
-std::string AESDecrypterTest::convertIV(const std::string& input)
+std::vector<uint8_t> AESDecrypterTest::convertIV(const std::string& input)
 {
-  std::string result;
+  std::vector<uint8_t> result;
   return result;
 }
 

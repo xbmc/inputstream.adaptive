@@ -48,11 +48,11 @@ protected:
 
   void ParseTagStreamIndex(pugi::xml_node nodeSI,
                            PLAYLIST::CPeriod* period,
-                           const DRM::PRHeaderParser& protParser);
+                           const std::vector<DRM::DRMInfo>& drmInfos);
   void ParseTagQualityLevel(pugi::xml_node nodeQI,
                             PLAYLIST::CAdaptationSet* adpSet,
                             const uint32_t timescale,
-                            const uint16_t psshSetPos);
+                            const std::vector<DRM::DRMInfo>& drmInfos);
   void CreateSegmentTimeline();
 
   uint64_t m_ptsBase{PLAYLIST::NO_PTS_VALUE}; // The lower start PTS time between all StreamIndex tags

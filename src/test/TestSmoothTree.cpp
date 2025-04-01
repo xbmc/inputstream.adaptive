@@ -60,7 +60,7 @@ protected:
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_reprChooser, std::vector<std::string_view>{DRM::URN_WIDEVINE}, "");
+    tree->Configure(m_reprChooser, "");
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))

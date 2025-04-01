@@ -164,14 +164,7 @@ msgctxt "#30171"
 msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
 msgstr ""
 
-msgctxt "#30172"
-msgid "Ignore HDCP status"
-msgstr ""
-
-#. Description of setting with label #30172
-msgctxt "#30173"
-msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
-msgstr ""
+#empty strings from id 30171 to 30173
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"

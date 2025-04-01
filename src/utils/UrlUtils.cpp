@@ -8,11 +8,13 @@
 
 #include "UrlUtils.h"
 
+#include "Base64Utils.h"
 #include "StringUtils.h"
+#include "log.h"
 
 #include "kodi/tools/StringUtils.h"
 
-using namespace UTILS::URL;
+using namespace UTILS;
 using namespace kodi::tools;
 
 namespace
@@ -102,9 +104,9 @@ std::string RemoveDotSegments(std::string url)
   UTILS::STRING::ReplaceAll(url, PREFIX_SINGLE_DOT, "");
 
   size_t addrsStartPos{0};
-  if (IsUrlAbsolute(url))
+  if (URL::IsUrlAbsolute(url))
     addrsStartPos = url.find("://") + 3;
-  else if (IsUrlRelativeLevel(url))
+  else if (URL::IsUrlRelativeLevel(url))
     addrsStartPos = 3;
 
   // Remove segments from the end (if any)
@@ -335,4 +337,36 @@ void UTILS::URL::RemovePipePart(std::string& url)
   const size_t urlPipePos = url.find("|");
   if (urlPipePos != std::string::npos)
     url.erase(urlPipePos);
+}
+
+bool UTILS::URL::IsValidUri(const std::string& uri, std::string_view scheme /* = "data" */)
+{
+  return uri.find("data:", 0) == 0;
+}
+
+bool UTILS::URL::GetUriByteData(std::string_view uri, std::vector<uint8_t>& data)
+{
+  // Uri data format: "data:[media type][;attribute=value][;base64],<data>"
+  std::vector<std::string> colonSplit = STRING::SplitToVec(uri, ':');
+  if (colonSplit.size() == 2 && colonSplit[0] == "data")
+  {
+    std::vector<std::string> semiColonSplit = STRING::SplitToVec(colonSplit[1], ';');
+    if (semiColonSplit.size() > 0)
+    {
+      std::vector<std::string> comSplit = STRING::SplitToVec(semiColonSplit.back(), ',');
+      if (comSplit.size() == 2)
+      {
+        const bool isBase64 = comSplit[0] == "base64";
+        const std::string dataStr = comSplit[1];
+        if (isBase64)
+          data = BASE64::Decode(dataStr);
+        else
+          data = STRING::ToVecUint8(dataStr);
+        return true;
+      }
+    }
+    LOG::Log(LOGERROR, "Cannot parse URI: %s", uri.data());
+    return true;
+  }
+  return false;
 }

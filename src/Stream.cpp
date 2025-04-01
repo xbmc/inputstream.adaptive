@@ -26,7 +26,6 @@ void CStream::Disable()
     Reset();
 
     m_isEnabled = false;
-    m_isEncrypted = false;
   }
 }
 

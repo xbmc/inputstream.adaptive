@@ -15,6 +15,7 @@
 #include "SegmentBase.h"
 #include "SegTemplate.h"
 #include "SegmentList.h"
+#include "decrypters/DrmEngineDefines.h"
 
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "test/KodiStubs.h"
@@ -96,6 +97,10 @@ public:
   uint32_t GetBandwidth() const { return m_bandwidth; }
   void SetBandwidth(uint32_t bandwidth) { m_bandwidth = bandwidth; }
 
+  /*!
+   * \brief Get the HDCP version required.
+   *        The value is concatenated, example HDCP 2.2 value is 22.
+   */
   uint16_t GetHdcpVersion() const { return m_hdcpVersion; }
   void SetHdcpVersion(uint16_t hdcpVersion) { m_hdcpVersion = hdcpVersion; }
 
@@ -158,6 +163,9 @@ public:
   bool IsIncludedStream() const { return m_isIncludedStream; }
   void SetIsIncludedStream(bool isIncludedStream) { m_isIncludedStream = isIncludedStream; }
 
+  std::vector<DRM::DRMInfo>& DrmInfos() { return m_drmInfo; }
+  void AddDrmInfo(DRM::DRMInfo drmInfo) { m_drmInfo.emplace_back(drmInfo); }
+
   void CopyHLSData(const CRepresentation* other);
 
   static bool CompareBandwidth(std::unique_ptr<CRepresentation>& left,
@@ -170,9 +178,6 @@ public:
   {
     return left->m_bandwidth < right->m_bandwidth;
   }
-
-  uint16_t m_psshSetPos{PSSHSET_POS_DEFAULT}; // Index position of the PSSHSet
-  const uint16_t GetPsshSetPos() const { return m_psshSetPos; }
 
   size_t expired_segments_{0};
 
@@ -211,6 +216,8 @@ public:
   uint32_t assured_buffer_duration_{0};
   uint32_t max_buffer_duration_{0};
 
+  bool isPlayable{true}; //! @todo: decouple "adaptivetree" with a kind of new streams interface could remove it
+
 protected:
   std::string m_id;
   std::string m_sourceUrl;
@@ -239,6 +246,7 @@ protected:
   bool m_isWaitForSegment{false};
 
   bool m_isIncludedStream{false};
+  std::vector<DRM::DRMInfo> m_drmInfo;
 };
 
 } // namespace PLAYLIST

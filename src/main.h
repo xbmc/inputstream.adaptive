@@ -92,6 +92,7 @@ private:
   };
 
   std::shared_ptr<SESSION::CSession> m_session;
+  std::shared_ptr<DRM::IDecrypter> m_drm;
   unsigned int m_state;
   std::string m_name;
 };

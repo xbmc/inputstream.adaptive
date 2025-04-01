@@ -19,8 +19,9 @@
 // forwards
 namespace PLAYLIST
 {
-class CRepresentation;
+class CPeriod;
 class CAdaptationSet;
+class CRepresentation;
 }
 
 namespace ADP::KODI_PROPS
@@ -94,6 +95,19 @@ public:
       PLAYLIST::CAdaptationSet* adp)
   {
     return GetNextRepresentation(adp, nullptr);
+  }
+
+  /*!
+   * \brief Get the preferred adaptation set from a period
+   *        (a representation may be preselected internally the Chooser)
+   * \param period The period where choose the adaptation set / representation
+   * \param adpSetPreferred The preferred adaptation set
+   * \return The adaptation set or nullptr, the behaviour depend on Chooser implementation
+   */
+  virtual PLAYLIST::CAdaptationSet* GetPreferredVideoAdpSet(
+      PLAYLIST::CPeriod* period, PLAYLIST::CAdaptationSet* adpSetPreferred)
+  {
+    return adpSetPreferred;
   }
 
   /*!

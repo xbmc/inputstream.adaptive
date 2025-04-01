@@ -33,7 +33,6 @@ public:
 
   virtual std::string GetSessionId() override;
   std::vector<uint8_t> GetChallengeData();
-  virtual bool HasLicenseKey(const std::vector<uint8_t>& keyId);
 
   virtual AP4_Result SetFragmentInfo(AP4_UI32 poolId,
                                      const std::vector<uint8_t>& keyId,
@@ -100,6 +99,8 @@ private:
     AP4_DataBuffer m_annexbSpsPps;
   };
   std::vector<FINFO> m_fragmentPool;
-  int m_hdcpLimit;
-  int m_resolutionLimit;
+
+  uint16_t m_hdcpVersion{DRM::HDCP_V_MAX};
+  int m_hdcpLimit{0};
+  int m_resolutionLimit{0};
 };

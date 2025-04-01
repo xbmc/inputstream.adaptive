@@ -7,6 +7,7 @@
  */
 
 #include "TestHelper.h"
+#include "../decrypters/Helpers.h"
 #include "../CompKodiProps.h"
 #include "../SrvBroker.h"
 
@@ -40,13 +41,12 @@ protected:
 
   bool OpenTestFileMaster(std::string filePath, std::string url)
   {
-    return OpenTestFileMaster(filePath, url, {}, std::vector<std::string_view>{});
+    return OpenTestFileMaster(filePath, url, {});
   }
 
   bool OpenTestFileMaster(std::string filePath,
                           std::string url,
-                          std::map<std::string, std::string> manifestHeaders,
-                          std::vector<std::string_view> supportedKeySystems)
+                          std::map<std::string, std::string> manifestHeaders)
   {
     testHelper::testFile = filePath;
 
@@ -65,7 +65,7 @@ protected:
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_reprChooser, supportedKeySystems, "");
+    tree->Configure(m_reprChooser, "");
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
@@ -213,8 +213,11 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlash)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
-  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+
+  auto& timeline = tree->m_currentRepr->Timeline();
+  EXPECT_EQ(timeline.GetSize(), 6);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo().has_value(), true);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo()->keyUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
@@ -229,8 +232,11 @@ TEST_F(HLSTreeTest, ParseKeyUriStartingWithSlashFromRedirect)
       tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
-  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+
+  auto& timeline = tree->m_currentRepr->Timeline();
+  EXPECT_EQ(timeline.GetSize(), 6);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo().has_value(), true);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo()->keyUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
@@ -242,8 +248,11 @@ TEST_F(HLSTreeTest, ParseKeyUriAbsolute)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  EXPECT_EQ(tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl,
-            "https://foo.bar/hls/key/key.php?stream=stream_name");
+
+  auto& timeline = tree->m_currentRepr->Timeline();
+  EXPECT_EQ(timeline.GetSize(), 6);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo().has_value(), true);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo()->keyUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelative)
@@ -255,8 +264,11 @@ TEST_F(HLSTreeTest, ParseKeyUriRelative)
       "https://foo.bar/hls/video/stream_name/chunklist.m3u8", tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
-  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+
+  auto& timeline = tree->m_currentRepr->Timeline();
+  EXPECT_EQ(timeline.GetSize(), 6);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo().has_value(), true);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo()->keyUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
@@ -273,8 +285,11 @@ TEST_F(HLSTreeTest, ParseKeyUriRelativeFromRedirect)
       tree->m_currentAdpSet, tree->m_currentRepr);
 
   EXPECT_EQ(ret, true);
-  std::string licUrl = tree->m_currentPeriod->GetPSSHSets()[1].m_licenseUrl;
-  EXPECT_EQ(licUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
+
+  auto& timeline = tree->m_currentRepr->Timeline();
+  EXPECT_EQ(timeline.GetSize(), 6);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo().has_value(), true);
+  EXPECT_EQ(timeline.GetFront()->AESKeyInfo()->keyUrl, "https://foo.bar/hls/key/key.php?stream=stream_name");
 }
 
 TEST_F(HLSTreeTest, PtsSetInMultiPeriod)
@@ -330,59 +345,52 @@ TEST_F(HLSTreeTest, MultipleEncryptionSequence)
   auto& periods = tree->m_periods;
   EXPECT_EQ(periods.size(), 3);
 
-  // Check if each period has the period encryption state
-  EXPECT_EQ(periods[0]->GetEncryptionState(), PLAYLIST::EncryptionState::UNENCRYPTED);
-  EXPECT_EQ(periods[1]->GetEncryptionState(), PLAYLIST::EncryptionState::ENCRYPTED_CK);
-  EXPECT_EQ(periods[2]->GetEncryptionState(), PLAYLIST::EncryptionState::UNENCRYPTED);
+  // the first period have unencrypted segments
+  auto& p1repr = periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0];
+  EXPECT_EQ(p1repr->Timeline().GetSize(), 4);
+  for (auto& seg : p1repr->Timeline())
+  {
+    EXPECT_EQ(seg.AESKeyInfo().has_value(), false);
+  }
+
+  // the second period have segments AES-128 encrypted
+  auto& p2repr = periods[1]->GetAdaptationSets()[0]->GetRepresentations()[0];
+  EXPECT_EQ(p2repr->Timeline().GetSize(), 2);
+  for (auto& seg : p2repr->Timeline())
+  {
+    EXPECT_EQ(seg.AESKeyInfo().has_value(), true);
+    EXPECT_EQ(seg.AESKeyInfo()->keyUrl.empty(), false);
+    EXPECT_EQ(seg.AESKeyInfo()->iv.empty(), false);
+  }
+
+  // the third period have unencrypted segments
+  auto& p3repr = periods[2]->GetAdaptationSets()[0]->GetRepresentations()[0];
+  EXPECT_EQ(p3repr->Timeline().GetSize(), 4);
+  for (auto& seg : p3repr->Timeline())
+  {
+    EXPECT_EQ(seg.AESKeyInfo().has_value(), false);
+  }
 }
 
 TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrmNoKSMaster)
 {
-  // Open the master manifest without any supported key system
-  // OpenTestFileMaster must return false to prevent ISA to process child manifests
-  // since master manifest contains EXT-X-SESSION-KEY used to check supported ks's
+  // master manifest contains EXT-X-SESSION-KEY that can be used to check supported DRM's
+  // but currently this check is not performed, so the open operation return true
   testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
   bool ret = OpenTestFileMaster("hls/encrypt_master_drm.m3u8",
-                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, std::vector<std::string_view>{});
-  EXPECT_EQ(ret, false);
-}
-
-TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrmNoKS)
-{
-  // Open the master manifest without any supported key system
-  // OpenTestFileMaster must return true and process child manifests
-  // since master manifest DO NOT contains EXT-X-SESSION-KEY
-  testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
-
-  bool ret = OpenTestFileMaster("hls/encrypt_master.m3u8",
-                                "https://baz.qux/hls/video/stream_name/master.m3u8", {}, std::vector<std::string_view>{});
-
+                                "https://baz.qux/hls/video/stream_name/master.m3u8", {});
   EXPECT_EQ(ret, true);
-
-  std::string var_download_url =
-      tree->m_currentPeriod->GetAdaptationSets()[0]->GetRepresentations()[0]->GetSourceUrl();
-
-  ret = OpenTestFileVariant("hls/encrypt_seq_stream_drm.m3u8", var_download_url,
-                            tree->m_currentPeriod, tree->m_currentAdpSet, tree->m_currentRepr);
-
-  EXPECT_EQ(ret, true);
-  auto& periods = tree->m_periods;
-  EXPECT_EQ(periods.size(), 2);
-
-  // Check if each period has the period encryption state
-  EXPECT_EQ(periods[0]->GetEncryptionState(), PLAYLIST::EncryptionState::NOT_SUPPORTED);
-  EXPECT_EQ(periods[1]->GetEncryptionState(), PLAYLIST::EncryptionState::NOT_SUPPORTED);
 }
 
 TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrm)
 {
-  // Open the master manifest with the supported Widevine key system
-  // OpenTestFileMaster must return true and process child manifests
+  // The child manifest support multiple DRM's, but have an unsupported KEYFORMAT that should be ignored
+  // the representation's of each period must contains the DRM info
   testHelper::effectiveUrl = "https://foo.bar/hls/video/stream_name/master.m3u8";
 
-  bool ret = OpenTestFileMaster("hls/encrypt_master_drm.m3u8",
-    "https://baz.qux/hls/video/stream_name/master.m3u8", {}, std::vector<std::string_view>{URN_WIDEVINE});
+  bool ret = OpenTestFileMaster("hls/encrypt_master.m3u8",
+                                "https://baz.qux/hls/video/stream_name/master.m3u8", {});
 
   EXPECT_EQ(ret, true);
 
@@ -396,7 +404,21 @@ TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrm)
   auto& periods = tree->m_periods;
   EXPECT_EQ(periods.size(), 2);
 
-  // Check if each period has the period encryption state
-  EXPECT_EQ(periods[0]->GetEncryptionState(), PLAYLIST::EncryptionState::ENCRYPTED_DRM);
-  EXPECT_EQ(periods[1]->GetEncryptionState(), PLAYLIST::EncryptionState::ENCRYPTED_DRM);
+  auto& p1rep = periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0];
+  EXPECT_EQ(p1rep->DrmInfos().size(), 2);
+  std::set<std::string_view> ks1{DRM::KS_WIDEVINE, DRM::KS_PLAYREADY};
+  for (auto& drmInfo : p1rep->DrmInfos()) // Do not rely on the order of DrmInfos items
+  {
+    ks1.erase(drmInfo.keySystem);
+  }
+  EXPECT_TRUE(ks1.empty());
+
+  auto& p2rep = periods[1]->GetAdaptationSets()[0]->GetRepresentations()[0];
+  EXPECT_EQ(p2rep->DrmInfos().size(), 2);
+  std::set<std::string_view> ks2{DRM::KS_WIDEVINE, DRM::KS_PLAYREADY};
+  for (auto& drmInfo : p1rep->DrmInfos()) // Do not rely on the order of DrmInfos items
+  {
+    ks2.erase(drmInfo.keySystem);
+  }
+  EXPECT_TRUE(ks2.empty());
 }

@@ -44,8 +44,6 @@ public:
   }
 #endif
 
-  virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) override;
-
   virtual bool OpenDRMSystem(const DRM::Config& config) override;
 
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
@@ -59,9 +57,6 @@ public:
                                const std::vector<uint8_t>& keyId,
                                uint32_t media,
                                DRM::DecrypterCapabilites& caps) override;
-
-  virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
-                             const std::vector<uint8_t>& keyId) override;
 
   virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override;
 
@@ -96,7 +91,6 @@ public:
 private:
   std::string m_libraryPath;
   kodi::platform::CInterfaceAndroidSystem m_androidSystem;
-  std::string m_keySystem;
   std::shared_ptr<CWVCdmAdapterA> m_WVCdmAdapter;
   std::shared_ptr<jni::CJNIClassLoader> m_classLoader;
   std::string m_retvalHelper;

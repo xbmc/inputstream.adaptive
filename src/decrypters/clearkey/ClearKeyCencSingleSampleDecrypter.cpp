@@ -15,6 +15,7 @@
 #include "utils/CurlUtils.h"
 #include "utils/FileUtils.h"
 #include "utils/StringUtils.h"
+#include "utils/UrlUtils.h"
 #include "utils/log.h"
 
 #include <algorithm>
@@ -25,121 +26,111 @@
 
 using namespace UTILS;
 
-namespace
-{
-void CkB64Encode(std::string& str)
-{
-  STRING::ReplaceAll(str, "+", "-");
-  STRING::ReplaceAll(str, "/", "_");
-}
-
-void CkB64Decode(std::string& str)
-{
-  STRING::ReplaceAll(str, "-", "+");
-  STRING::ReplaceAll(str, "_", "/");
-}
-}
+uint32_t CClearKeyCencSingleSampleDecrypter::g_sessionIdCount = 1;
 
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
-    std::string_view licenseUrl,
+    std::string_view licenseUri,
     const std::map<std::string, std::string>& licenseHeaders,
     const std::vector<uint8_t>& defaultKeyId,
     CClearKeyDecrypter* host)
   : m_host(host)
 {
-  if (licenseUrl.empty())
+  if (licenseUri.empty())
   {
-    LOG::LogF(LOGERROR, "License server URL not found");
+    LOG::LogF(LOGERROR, "Cannot decrypt, the license server URI is missing");
     return;
   }
 
-  const std::string postData = CreateLicenseRequest(defaultKeyId);
+  std::string licenseData;
+  std::vector<uint8_t> uriData;
 
-  if (CSrvBroker::GetSettings().IsDebugLicense())
+  if (URL::GetUriByteData(licenseUri, uriData)) // Provided license data in URI format
   {
-    const std::string debugFilePath =
-        FILESYS::PathCombine(m_host->GetLibraryPath(), "ClearKey.init");
-    FILESYS::SaveFile(debugFilePath, postData.c_str(), true);
+    licenseData.assign(uriData.begin(), uriData.end());
+  }
+  else // Make the request to the server by using URL
+  {
+    const std::string postData = CreateLicenseRequest(defaultKeyId);
+
+    if (CSrvBroker::GetSettings().IsDebugLicense())
+    {
+      const std::string debugFilePath =
+          FILESYS::PathCombine(m_host->GetLibraryPath(), "ClearKey.init");
+      FILESYS::SaveFile(debugFilePath, postData.c_str(), true);
+    }
+
+    CURL::CUrl curl{licenseUri, postData};
+    curl.AddHeader("Accept", "application/json");
+    curl.AddHeader("Content-Type", "application/json");
+    curl.AddHeaders(licenseHeaders);
+
+    std::string response;
+    int statusCode = curl.Open();
+    if (statusCode == -1 || statusCode >= 400)
+    {
+      LOG::Log(LOGERROR, "License server returned failure (HTTP error %i)", statusCode);
+      return;
+    }
+
+    if (curl.Read(response) != CURL::ReadStatus::IS_EOF)
+    {
+      LOG::LogF(LOGERROR, "Could not read the license server response");
+      return;
+    }
+
+    if (CSrvBroker::GetSettings().IsDebugLicense())
+    {
+      const std::string debugFilePath =
+          FILESYS::PathCombine(m_host->GetLibraryPath(), "ClearKey.response");
+      FILESYS::SaveFile(debugFilePath, response, true);
+    }
+
+    licenseData = response;
   }
 
-  CURL::CUrl curl{licenseUrl, postData};
-  curl.AddHeader("Accept", "application/json");
-  curl.AddHeader("Content-Type", "application/json");
-  curl.AddHeaders(licenseHeaders);
-
-  std::string response;
-  int statusCode = curl.Open();
-  if (statusCode == -1 || statusCode >= 400)
+  if (!ParseLicenseResponse(licenseData))
   {
-    LOG::Log(LOGERROR, "License server returned failure (HTTP error %i)", statusCode);
-    return;
-  }
-
-  if (curl.Read(response) != CURL::ReadStatus::IS_EOF)
-  {
-    LOG::LogF(LOGERROR, "Could not read the license server response");
-    return;
-  }
-
-  if (CSrvBroker::GetSettings().IsDebugLicense())
-  {
-    const std::string debugFilePath =
-        FILESYS::PathCombine(m_host->GetLibraryPath(), "ClearKey.response");
-    FILESYS::SaveFile(debugFilePath, response, true);
-  }
-
-  if (!ParseLicenseResponse(response))
-  {
-    LOG::LogF(LOGERROR, "Could not parse the license server response");
+    LOG::LogF(LOGERROR, "Could not parse the license data");
     return;
   }
 
   const std::string b64DefaultKeyId = BASE64::Encode(defaultKeyId);
   if (!STRING::KeyExists(m_keyPairs, b64DefaultKeyId))
   {
-    LOG::LogF(LOGERROR, "Key not found on license server response");
+    LOG::LogF(LOGERROR, "Key not found on license data");
     return;
   }
 
   const std::vector<uint8_t> keyBytes = BASE64::Decode(m_keyPairs[b64DefaultKeyId]);
-  if (AP4_FAILED(AP4_CencSingleSampleDecrypter::Create(AP4_CENC_CIPHER_AES_128_CTR, keyBytes.data(),
-                                                       static_cast<AP4_Size>(keyBytes.size()), 0, 0,
-                                                       nullptr, false, m_singleSampleDecrypter)))
-  {
-    LOG::LogF(LOGERROR, "Failed to create AP4_CencSingleSampleDecrypter");
-  }
-  SetParentIsOwner(false);
-  AddSessionKey(defaultKeyId);
+
+  InitDecrypter(defaultKeyId, keyBytes);
 }
 
 CClearKeyCencSingleSampleDecrypter::CClearKeyCencSingleSampleDecrypter(
     const std::vector<uint8_t>& initData,
     const std::vector<uint8_t>& defaultKeyId,
-    const std::map<std::string, std::string>& keys,
     CClearKeyDecrypter* host)
   : m_host(host)
 {
   std::vector<uint8_t> hexKey;
+  // Currently HLS manifest only support this
+  // and the init data should contain only the key
+  hexKey = initData;
 
-  if (keys.empty()) // Assume key is provided from the manifest
-  {
-    hexKey = initData;
-  }
-  else // Key provided in Kodi props
-  {
-    const std::string hexDefKid = STRING::ToHexadecimal(defaultKeyId);
+  InitDecrypter(defaultKeyId, hexKey);
+}
 
-    if (STRING::KeyExists(keys, hexDefKid))
-      STRING::ToHexBytes(keys.at(hexDefKid), hexKey);
-    else
-      LOG::LogF(LOGERROR, "Missing KeyId \"%s\" on DRM configuration", defaultKeyId.data());
-  }
-
-  AP4_CencSingleSampleDecrypter::Create(AP4_CENC_CIPHER_AES_128_CTR, hexKey.data(),
-                                        static_cast<AP4_Size>(hexKey.size()), 0, 0, nullptr, false,
+void CClearKeyCencSingleSampleDecrypter::InitDecrypter(const std::vector<uint8_t>& defaultKeyId,
+                                                         const std::vector<uint8_t>& key)
+{
+  AP4_CencSingleSampleDecrypter::Create(AP4_CENC_CIPHER_AES_128_CTR, key.data(),
+                                        static_cast<AP4_Size>(key.size()), 0, 0, nullptr, false,
                                         m_singleSampleDecrypter);
   SetParentIsOwner(false);
   AddSessionKey(defaultKeyId);
+
+  // Define a session id
+  m_sessionId = "ck_" + std::to_string(g_sessionIdCount++);
 }
 
 void CClearKeyCencSingleSampleDecrypter::AddSessionKey(const std::vector<uint8_t>& keyId)
@@ -191,8 +182,7 @@ std::string CClearKeyCencSingleSampleDecrypter::CreateLicenseRequest(
    * "type":"temporary" }
    */
 
-  std::string b64Kid = BASE64::Encode(defaultKeyId, false);
-  CkB64Encode(b64Kid);
+  std::string b64Kid = BASE64::UrlSafeEncode(BASE64::Encode(defaultKeyId, false));
 
   rapidjson::Document jDoc;
   jDoc.SetObject();
@@ -255,7 +245,6 @@ bool CClearKeyCencSingleSampleDecrypter::ParseLicenseResponse(std::string data)
 
     if (keyName == "keys" && jDictVal.IsArray())
     {
-      // NOTE: for now we assume that one key only is requested and one only will come in the license response
       for (auto const& jArrayKey : jDictVal.GetArray())
       {
         if (jArrayKey.IsObject())
@@ -269,14 +258,13 @@ bool CClearKeyCencSingleSampleDecrypter::ParseLicenseResponse(std::string data)
 
         if (!b64Key.empty() && !b64KeyId.empty())
         {
-          CkB64Decode(b64Key);
+          b64Key = BASE64::UrlSafeDecode(b64Key);
           BASE64::AddPadding(b64Key);
 
-          CkB64Decode(b64KeyId);
+          b64KeyId = BASE64::UrlSafeDecode(b64KeyId);
           BASE64::AddPadding(b64KeyId);
 
           m_keyPairs.emplace(b64KeyId, b64Key);
-          break;
         }
       }
     }

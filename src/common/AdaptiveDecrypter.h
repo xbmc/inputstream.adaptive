@@ -55,5 +55,9 @@ public:
 
   virtual AP4_UI32 AddPool() { return 0; }
   virtual void RemovePool(AP4_UI32 poolId) {}
-  virtual std::string GetSessionId() { return {}; }
+
+  /*!
+   * \brief The session ID, is mandatory to distinguish sessions.
+   */
+  virtual std::string GetSessionId() = 0;
 };

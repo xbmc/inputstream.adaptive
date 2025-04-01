@@ -69,8 +69,7 @@ protected:
     // We set the download speed to calculate the initial network bandwidth
     m_reprChooser->SetDownloadSpeed(500000);
 
-    tree->Configure(m_reprChooser, std::vector<std::string_view>{DRM::URN_WIDEVINE},
-                    manifestUpdParams);
+    tree->Configure(m_reprChooser, manifestUpdParams);
 
     // Parse the manifest
     if (!tree->Open(resp.effectiveUrl, resp.headers, resp.data))
@@ -394,14 +393,58 @@ TEST_F(DASHTreeTest, CalculatePsshDefaultKid)
 {
   OpenTestFile("mpd/pssh_default_kid.mpd");
 
+  const std::string kid1 = "0101f49e117cec8ed60627d7cb46ae38";
   const std::vector<uint8_t> pssh1 = BASE64::Decode("AAAANHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABQIARIQblodJidXR9eARuql0dNLWg==");
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].pssh_, pssh1);
+  auto& adp1repr1 = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0];
+  
+  EXPECT_EQ(adp1repr1->DrmInfos().size(), 1);
   // The following KID on manifest is represented as UUID and dashes must be deleted (string size 36 to 32)
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[1].defaultKID_.size(), 32);
+  EXPECT_EQ(adp1repr1->DrmInfos()[0].defaultKid.size(), 32);
+  EXPECT_EQ(adp1repr1->DrmInfos()[0].defaultKid, kid1);
+  EXPECT_EQ(adp1repr1->DrmInfos()[0].initData, pssh1);
 
+  const std::string kid2 = "01004b6f0835b8079098c070dc30a6c7";
   const std::vector<uint8_t> pssh2 = BASE64::Decode("AAAANHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABQIARIQnrQFDeRLSAKTLifXUIPiZg==");
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].pssh_, pssh2);
-  EXPECT_EQ(tree->m_periods[0]->GetPSSHSets()[2].defaultKID_.size(), 32);
+  auto& adp2repr1 = tree->m_periods[0]->GetAdaptationSets()[1]->GetRepresentations()[0];
+
+  EXPECT_EQ(adp2repr1->DrmInfos().size(), 1);
+  EXPECT_EQ(adp2repr1->DrmInfos()[0].defaultKid.size(), 32);
+  EXPECT_EQ(adp2repr1->DrmInfos()[0].defaultKid, kid2);
+  EXPECT_EQ(adp2repr1->DrmInfos()[0].initData, pssh2);
+}
+
+TEST_F(DASHTreeTest, PsshNoCenc)
+{
+  OpenTestFile("mpd/adaptation_set_merge.mpd");
+
+  // This manifest provides on ContentProtection the PSSH data without using the CENC PSSH format,
+  // on parsing the PSSH is expected to be converted to the CENC standard
+
+  const std::string kidCommon = "16b2ee1ac691450ea19c84e40f8e6221";
+  const std::vector<uint8_t> psshWidevine = BASE64::Decode("AAAAeXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAFkIARIQFrLuGsaRRQ6hnITkD45iIRoGYW1hem9uIjVjaWQ6RnJMdUdzYVJSUTZobklUa0Q0NWlJUT09LDgwdVhRbEhiVENTenI1K25RcU5MclE9PSoCU0QyAA==");
+  const std::vector<uint8_t> psshPlayready = BASE64::Decode("AAACjHBzc2gAAAAAmgTweZhAQoarkuZb4IhflQAAAmxsAgAAAQABAGICPABXAFIATQBIAEUAQQBEAEUAUgAgAHgAbQBsAG4AcwA9ACIAaAB0AHQAcAA6AC8ALwBzAGMAaABlAG0AYQBzAC4AbQBpAGMAcgBvAHMAbwBmAHQALgBjAG8AbQAvAEQAUgBNAC8AMgAwADAANwAvADAAMwAvAFAAbABhAHkAUgBlAGEAZAB5AEgAZQBhAGQAZQByACIAIAB2AGUAcgBzAGkAbwBuAD0AIgA0AC4AMAAuADAALgAwACIAPgA8AEQAQQBUAEEAPgA8AFAAUgBPAFQARQBDAFQASQBOAEYATwA+ADwASwBFAFkATABFAE4APgAxADYAPAAvAEsARQBZAEwARQBOAD4APABBAEwARwBJAEQAPgBBAEUAUwBDAFQAUgA8AC8AQQBMAEcASQBEAD4APAAvAFAAUgBPAFQARQBDAFQASQBOAEYATwA+ADwASwBJAEQAPgBHAHUANgB5AEYAcABIAEcARABrAFcAaABuAEkAVABrAEQANAA1AGkASQBRAD0APQA8AC8ASwBJAEQAPgA8AEMASABFAEMASwBTAFUATQA+AFAAUwBFAFEAcQA1ADAASgAzAHcAZwA9ADwALwBDAEgARQBDAEsAUwBVAE0APgA8AEwAQQBfAFUAUgBMAD4AaAB0AHQAcABzADoALwAvAHAAcgBsAHMALgBhAHQAdgAtAHAAcwAuAGEAbQBhAHoAbwBuAC4AYwBvAG0ALwBjAGQAcAA8AC8ATABBAF8AVQBSAEwAPgA8AC8ARABBAFQAQQA+ADwALwBXAFIATQBIAEUAQQBEAEUAUgA+AA==");
+  auto& adp1repr1 = tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0];
+
+  EXPECT_EQ(adp1repr1->DrmInfos().size(), 2);
+  for (auto& drmInfo : adp1repr1->DrmInfos())
+  {
+    if (drmInfo.keySystem == DRM::KS_WIDEVINE)
+    {
+      EXPECT_EQ(drmInfo.defaultKid.size(), 32);
+      EXPECT_EQ(drmInfo.defaultKid, kidCommon);
+      EXPECT_EQ(drmInfo.initData, psshWidevine);
+    }
+    else if (drmInfo.keySystem == DRM::KS_PLAYREADY)
+    {
+      EXPECT_EQ(drmInfo.defaultKid.size(), 32);
+      EXPECT_EQ(drmInfo.defaultKid, kidCommon);
+      EXPECT_EQ(drmInfo.initData, psshPlayready);
+    }
+    else
+    {
+      FAIL() << "Error unexpected Key System";
+    }
+  }
 }
 
 TEST_F(DASHTreeAdaptiveStreamTest, subtitles)

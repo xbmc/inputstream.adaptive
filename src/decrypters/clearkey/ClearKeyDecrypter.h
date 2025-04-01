@@ -16,7 +16,6 @@ class CClearKeyDecrypter : public IDecrypter
 public:
   CClearKeyDecrypter(){};
   virtual ~CClearKeyDecrypter() override{};
-  virtual std::vector<std::string_view> SelectKeySystems(std::string_view keySystem) override;
   virtual bool OpenDRMSystem(const DRM::Config& config) override;
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
       const std::vector<uint8_t>& initData,
@@ -31,8 +30,9 @@ public:
                                DRM::DecrypterCapabilites& caps) override
   {
   }
-  virtual bool HasLicenseKey(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
-                             const std::vector<uint8_t>& keyid) override;
+  virtual std::optional<bool> HasLicenseKey(
+      std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+      const std::vector<uint8_t>& keyid) override;
   virtual bool IsInitialised() override { return m_isInitialized; }
   virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override
   {

@@ -13,6 +13,7 @@
 #include "ReprSelector.h"
 #include "Representation.h"
 #include "SrvBroker.h"
+#include "Period.h"
 #include "kodi/tools/StringUtils.h"
 #include "utils/StringUtils.h"
 #include "utils/Utils.h"
@@ -58,43 +59,53 @@ void CRepresentationChooserAskQuality::PostInit()
 {
 }
 
-PLAYLIST::CRepresentation* CRepresentationChooserAskQuality::GetNextRepresentation(
-    PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
+PLAYLIST::CAdaptationSet* CHOOSER::CRepresentationChooserAskQuality::GetPreferredVideoAdpSet(
+    PLAYLIST::CPeriod* period, PLAYLIST::CAdaptationSet* adpSetPreferred)
 {
-  if (currentRep)
-    return currentRep;
-
-  if (adp->GetStreamType() != StreamType::VIDEO)
+  // If the dialog box has already been displayed, then the period has changed
+  if (m_isDialogShown)
   {
-    CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
-    return selector.HighestBw(adp);
-  }
-
-  //! @todo: currently we dont handle in any way a codec priority and selection
-  //! that can happens when a manifest have multi-codec videos, therefore
-  //! we sent to Kodi the video stream of each codec, but only the
-  //! first one (in index order) will be choosen for the playback
-  //! with the potential to poorly manage a bandwidth optimisation.
-  //! So we ask to the user to select the quality only for the first video
-  //! AdaptationSet and we try to select the same quality (resolution)
-  //! on all other video AdaptationSet's (codecs)
-  if (!m_isDialogShown)
-  {
-    // We find the best quality for the current resolution, to pre-select this entry
-    CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
-    CRepresentation* bestRep{selector.Highest(adp)};
-
-    std::vector<std::string> entries;
-    int preselIndex{-1};
-    int selIndex{0};
-    const size_t reprSize = adp->GetRepresentations().size();
-
-    if (reprSize > 1)
+    // Try find the adaptation set with same codec or fallback to the preferred
+    PLAYLIST::CAdaptationSet* selAdpSet = adpSetPreferred;
+    for (auto& adpSet : period->GetAdaptationSets())
     {
-      // Add available qualities
-      for (auto itRep = adp->GetRepresentations().begin(); itRep  !=  adp->GetRepresentations().end(); itRep++)
+      if (adpSet->GetStreamType() != StreamType::VIDEO || adpSet->GetRepresentations().size() == 0)
+        continue;
+
+      if (CODEC::GetVideoDesc(adpSet->GetCodecs()) != m_selectedVideoCodecDesc)
+        continue;
+    
+      selAdpSet = adpSet.get();
+      break;
+    }
+
+    return selAdpSet;
+  }
+  else
+  {
+    CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
+    std::vector<std::string> entries;
+    std::vector<std::pair<CAdaptationSet*, CRepresentation*>> entriesOjb;
+    int preselIndex{-1}; // Preselected list item
+    int selIndex{0};
+
+    for (auto& adpSet : period->GetAdaptationSets())
+    {
+      if (adpSet->GetStreamType() != StreamType::VIDEO || adpSet->GetRepresentations().size() == 0)
+        continue;
+
+      CRepresentation* bestRep{nullptr};
+
+      // preferred adaptation set, in order to have a preferred codec for multi-codec manifests
+      if (adpSetPreferred == adpSet.get())
       {
-        CRepresentation* repr = (*itRep).get();
+        bestRep = selector.Highest(adpSetPreferred);
+      }
+
+      for (auto& repr : adpSet->GetRepresentations())
+      {
+        if (!repr->isPlayable)
+          continue;
 
         std::string entryName{kodi::addon::GetLocalizedString(30232)};
         STRING::ReplaceFirst(entryName, "{codec}", CODEC::GetVideoDesc(repr->GetCodecs()));
@@ -112,36 +123,58 @@ PLAYLIST::CRepresentation* CRepresentationChooserAskQuality::GetNextRepresentati
         quality += StringUtils::Format("%u Kbps)", repr->GetBandwidth() / 1000);
         STRING::ReplaceFirst(entryName, "{quality}", quality);
 
-        if (repr == bestRep)
-          preselIndex = static_cast<int>(std::distance(adp->GetRepresentations().begin(), itRep));
+        entries.emplace_back(entryName);
+        entriesOjb.emplace_back(adpSet.get(), repr.get());
 
-        entries.emplace_back(entryName);        
+        if (repr.get() == bestRep)
+          preselIndex = static_cast<int>(entries.size()) - 1;
       }
-      
+    }
+
+    if (entries.size() > 1)
+    {
       selIndex = kodi::gui::dialogs::Select::Show(kodi::addon::GetLocalizedString(30231), entries,
                                                   preselIndex, 10000);
     }
 
-    CRepresentation* selRep{bestRep};
+    if (!entries.empty())
+    {
+      CAdaptationSet* selAdpSet{entriesOjb[preselIndex].first};
+      CRepresentation* selRep{entriesOjb[preselIndex].second};
 
-    if (selIndex >= 0) // If was <0 has been cancelled by the user
-      selRep = adp->GetRepresentations()[selIndex].get();
+      if (selIndex >= 0) // If selIndex is <0 has been cancelled by the user
+      {
+        selAdpSet = entriesOjb[selIndex].first;
+        selRep = entriesOjb[selIndex].second;
+      }
 
-    m_selectedResWidth = selRep->GetWidth();
-    m_selectedResHeight = selRep->GetHeight();
-    m_isDialogShown = true;
+      m_selectedResWidth = selRep->GetWidth();
+      m_selectedResHeight = selRep->GetHeight();
+      // Convert codec to description, as the codec string may be slightly different
+      // when using ISO BMFF format, and the comparison may fail
+      m_selectedVideoCodecDesc = CODEC::GetVideoDesc(selAdpSet->GetCodecs());
 
-    LogDetails(nullptr, selRep);
-    return selRep;
+      m_isDialogShown = true;
+
+      LogDetails(nullptr, selRep);
+      return selAdpSet;
+    }
   }
-  else
+  return adpSetPreferred;
+}
+
+PLAYLIST::CRepresentation* CRepresentationChooserAskQuality::GetNextRepresentation(
+    PLAYLIST::CAdaptationSet* adp, PLAYLIST::CRepresentation* currentRep)
+{
+  if (currentRep)
+    return currentRep;
+
+  if (adp->GetStreamType() != StreamType::VIDEO)
   {
-    // We fall here when:
-    // - First start, but we have a multi-codec manifest (workaround)
-    //   then we have to try select the same resolution for each other video codec
-    //   these streams will be choosable for now via Kodi OSD video settings.
-    // - Switched to next period, then we try select the same resolution
-    CRepresentationSelector selector{m_selectedResWidth, m_selectedResHeight};
-    return selector.Highest(adp);
+    CRepresentationSelector selector{m_screenCurrentWidth, m_screenCurrentHeight};
+    return selector.HighestBw(adp);
   }
+
+  CRepresentationSelector selector{m_selectedResWidth, m_selectedResHeight};
+  return selector.Highest(adp);
 }

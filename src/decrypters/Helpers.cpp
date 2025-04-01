@@ -94,6 +94,20 @@ std::vector<std::string> DRM::UrnsToSystemIds(const std::vector<std::string_view
   return sids;
 }
 
+std::string_view DRM::UrnToKeySystem(std::string_view urn)
+{
+  if (urn == URN_WIDEVINE)
+    return KS_WIDEVINE;
+  else if (urn == URN_PLAYREADY)
+    return KS_PLAYREADY;
+  else if (urn == URN_WISEPLAY)
+    return KS_WISEPLAY;
+  else if (urn == URN_CLEARKEY || urn == URN_COMMON)
+    return KS_CLEARKEY;
+  else
+    return "";
+}
+
 std::string DRM::KeySystemToDrmName(std::string_view ks)
 {
   if (ks == KS_WIDEVINE)

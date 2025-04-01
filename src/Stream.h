@@ -23,14 +23,11 @@ public:
   CStream(adaptive::AdaptiveTree* tree,
           PLAYLIST::CAdaptationSet* adp,
           PLAYLIST::CRepresentation* initialRepr)
-    : m_isEnabled{false},
-      m_isEncrypted{false},
-      m_mainId{0},
-      m_adStream{tree, adp, initialRepr},
-      m_isValid{true} {};
+    : m_isEnabled{false}, m_mainId{0}, m_adStream{tree, adp, initialRepr}, m_isValid{true}
+  {
+  }
 
-
-  ~CStream() { Disable(); };
+  ~CStream() { Disable(); }
 
   /*!
    * \brief Stop/disable the AdaptiveStream and reset
@@ -82,7 +79,6 @@ public:
   }
 
   bool m_isEnabled;
-  bool m_isEncrypted;
   uint16_t m_mainId;
   adaptive::AdaptiveStream m_adStream;
   kodi::addon::InputstreamInfo m_info;

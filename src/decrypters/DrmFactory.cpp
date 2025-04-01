@@ -68,6 +68,7 @@ DRM::Config DRM::CreateDRMConfig(std::string_view keySystem, const ADP::KODI_PRO
 {
   DRM::Config cfg;
 
+  cfg.keySystem = keySystem;
   cfg.isPersistentStorage = propCfg.isPersistentStorage;
   cfg.optKeyReqParams = propCfg.optKeyReqParams;
   cfg.isNewConfig = propCfg.isNewConfig;
@@ -76,7 +77,7 @@ DRM::Config DRM::CreateDRMConfig(std::string_view keySystem, const ADP::KODI_PRO
   auto& licCfg = cfg.license;
 
   licCfg.serverCert = BASE64::Decode(propLicCfg.serverCert);
-  licCfg.serverUrl = propLicCfg.serverUrl;
+  licCfg.serverUri = propLicCfg.serverUri;
   licCfg.isHttpGetRequest = propLicCfg.isHttpGetRequest;
 
   if (!propLicCfg.reqData.empty() && !BASE64::IsValidBase64(propLicCfg.reqData) &&

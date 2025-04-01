@@ -354,3 +354,16 @@ std::vector<uint8_t> UTILS::STRING::HexToBytes(const std::string& hex)
 
   return bytes;
 }
+
+int UTILS::STRING::GetNumbers(std::string_view str)
+{
+  std::string extractedNbr;
+
+  for (auto c : str)
+  {
+    if (std::isdigit(c))
+      extractedNbr += c;
+  }
+
+  return ToInt32(extractedNbr);
+}

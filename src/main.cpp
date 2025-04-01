@@ -12,7 +12,6 @@
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
 #include "Stream.h"
-#include "samplereader/SampleReaderFactory.h"
 #include "utils/ThreadPool.h"
 #include "utils/log.h"
 
@@ -82,7 +81,6 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
         continue;
       }
 
-      uint8_t cdmId(static_cast<uint8_t>(stream->m_adStream.getRepresentation()->m_psshSetPos));
       if (stream->m_isValid && (m_session->GetMediaTypeMask() &
                                 static_cast<uint8_t>(1) << static_cast<int>(stream->m_adStream.GetStreamType())))
       {
@@ -138,6 +136,18 @@ bool CInputStreamAdaptive::GetStream(int streamid, kodi::addon::InputstreamInfo&
   // Kodi core will continue to request another stream of same type (a/v)
   // as long as one is successful
   return m_session->OnGetStream(streamid, info);
+
+  //! @todo: Kodi VideoPlayer stream fallback bug / problem:
+  //! if a video stream for some reason does not start (OpenStream/GetStream fails) VideoPlayer has no logic to open the next video stream based of stream ID
+  //! this is a big problem (can be reproduced using "Stream selection type" to "Manual OSD" and hack a bit the code)
+  //! because VP seem to always take the first stream ID (1001) in index order, instead to continue with the next stream ID.
+  //! For example if you are playing stream ID 1022 and fails, VP try to play always 1001 instead of 1023.
+  //! This causes the following problems:
+  //! - impossibility to keep a consistent video codec to be used
+  //! - impossibility to have a stable video quality fallback in a decreasing manner. We could sort the list of streams decreasingly by resolution and bandwidth
+  //!   but dont solve in full the problem in case of multicodec's because VP will mix all.
+  //!   I'm talking about "decreasing manner" quality also because with DRM if 4k / FULLHD doesn't work you need a fallback to lower quality.
+  //! this needs to be fixed in the Kodi core VP
 }
 
 void CInputStreamAdaptive::UnlinkIncludedStreams(CStream* stream)
@@ -245,37 +255,13 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     return false;
   }
 
-  m_session->PrepareStream(stream);
-
-  stream->m_adStream.start_stream(m_lastPts);
-  stream->SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream->m_adStream));
-
-  ContainerType reprContainerType = rep->GetContainerType();
-  uint32_t mask = (1U << stream->m_info.GetStreamType()) | m_session->GetIncludedStreamMask();
-  auto reader = ADP::CreateStreamReader(reprContainerType, stream, mask);
-
-  if (!reader)
+  if (!m_session->PrepareStream(stream, m_lastPts))
   {
     m_session->EnableStream(stream, false);
     return false;
   }
 
-  reader->SetStreamId(stream->m_info.GetStreamType(), streamid);
-
-  uint16_t psshSetPos = stream->m_adStream.getRepresentation()->m_psshSetPos;
-  reader->SetDecrypter(m_session->GetSingleSampleDecryptor(psshSetPos),
-                       m_session->GetDecrypterCaps(psshSetPos));
-
-  stream->SetReader(std::move(reader));
-
-  if (reprContainerType == ContainerType::TS)
-  {
-    // With TS streams the elapsed time would be calculated incorrectly as during the tree refresh,
-    // nextSegment would be deleted by the FreeSegments/newsegments swap. Do this now before the tree refresh.
-    // Also, when reopening a stream (switching reps) the elapsed time would be incorrectly set until the
-    // second segment plays, now force a correct calculation at the start of the stream.
-    m_session->OnSegmentChanged(&stream->m_adStream);
-  }
+  stream->GetReader()->SetStreamId(stream->m_info.GetStreamType(), streamid);
 
   if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
   {
@@ -296,43 +282,14 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       }
     }
   }
+
   m_session->EnableStream(stream, true);
 
-  bool isInfoChanged = stream->GetReader()->GetInformation(stream->m_info);
-
-  uint16_t cdmSessionIndex = stream->m_adStream.getRepresentation()->m_psshSetPos;
-
-  if (stream->m_isEncrypted && m_session->IsCDMSessionSecurePath(cdmSessionIndex))
-  {
-    LOG::Log(LOGDEBUG, "OpenStream(%d): Create secure crypto session", streamid);
-
-    // StreamCryptoSession enable the use of ISA VideoCodecAdaptive decoder
-    kodi::addon::StreamCryptoSession cryptoSession;
-
-    const std::string keySystem = CSrvBroker::GetKodiProps().GetDrmKeySystem();
-    cryptoSession.SetKeySystem(m_session->GetCryptoKeySystem(keySystem));
-
-    cryptoSession.SetSessionId(m_session->GetCDMSession(cdmSessionIndex));
-
-    if (m_session->GetDecrypterCaps(cdmSessionIndex).flags &
-        DRM::DecrypterCapabilites::SSD_SUPPORTS_DECODING)
-      stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_DECODE);
-    else
-      stream->m_info.SetFeatures(INPUTSTREAM_FEATURE_NONE);
-
-    if (m_session->GetDecrypterCaps(cdmSessionIndex).flags &
-        DRM::DecrypterCapabilites::SSD_SECURE_DECODER)
-      cryptoSession.SetFlags(STREAM_CRYPTO_FLAG_SECURE_DECODER);
-    else
-      cryptoSession.SetFlags(STREAM_CRYPTO_FLAG_NONE);
-
-    stream->m_info.SetCryptoSession(cryptoSession);
-    isInfoChanged = true;
-  }
-
+  // If stream use DRM always update stream info
+  const bool isInfoChanged = stream->GetReader()->GetInformation(stream->m_info) ||
+                             !stream->m_info.GetCryptoSession().GetSessionId().empty();
   return isInfoChanged;
 }
-
 
 DEMUX_PACKET* CInputStreamAdaptive::DemuxRead(void)
 {
@@ -548,13 +505,18 @@ CVideoCodecAdaptive::CVideoCodecAdaptive(const kodi::addon::IInstanceInfo& insta
 
 CVideoCodecAdaptive::~CVideoCodecAdaptive()
 {
+  // When the addon is about to be terminated
+  // CVideoCodecAdaptive instance will be destroyed before of CInputStreamAdaptive::Close() call
+  LOG::Log(LOGDEBUG, "CVideoCodecAdaptive::~CVideoCodecAdaptive");
+  m_drm->Dispose();
+  m_drm = nullptr;
 }
 
 bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
 {
-  if (!m_session || !m_session->GetDecrypter())
+  if (!m_session)
     return false;
- 
+
   if ((initData.GetCodecType() == VIDEOCODEC_H264 || initData.GetCodecType() == VIDEOCODEC_AV1) &&
       !initData.GetExtraDataSize() && !(m_state & STATE_WAIT_EXTRADATA))
   {
@@ -586,11 +548,17 @@ bool CVideoCodecAdaptive::Open(const kodi::addon::VideoCodecInitdata& initData)
   }
   m_name += ".decoder";
 
-  std::string sessionId = initData.GetCryptoSession().GetSessionId();
-  std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd(m_session->GetSingleSampleDecrypter(sessionId));
+  const std::string sessionId = initData.GetCryptoSession().GetSessionId();
 
-  return m_session->GetDecrypter()->OpenVideoDecoder(
-      ssd, initData.GetCStructure());
+  auto drmSession = m_session->GetDRMEngine().GetSession(sessionId);
+  if (!drmSession)
+  {
+    LOG::LogF(LOGERROR, "Cannot get DRM session id: %s", sessionId.c_str());
+    return false;
+  }
+
+  m_drm = drmSession->drm;
+  return m_drm->OpenVideoDecoder(drmSession->decrypter, initData.GetCStructure());
 }
 
 bool CVideoCodecAdaptive::Reconfigure(const kodi::addon::VideoCodecInitdata& initData)
@@ -600,32 +568,32 @@ bool CVideoCodecAdaptive::Reconfigure(const kodi::addon::VideoCodecInitdata& ini
 
 bool CVideoCodecAdaptive::AddData(const DEMUX_PACKET& packet)
 {
-  if (!m_session || !m_session->GetDecrypter())
+  if (!m_drm)
     return false;
 
-  return m_session->GetDecrypter()->DecryptAndDecodeVideo(
-             dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &packet) != VC_ERROR;
+  return m_drm->DecryptAndDecodeVideo(dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this),
+                                      &packet) != VC_ERROR;
 }
 
 VIDEOCODEC_RETVAL CVideoCodecAdaptive::GetPicture(VIDEOCODEC_PICTURE& picture)
 {
-  if (!m_session || !m_session->GetDecrypter())
+  if (!m_drm)
     return VIDEOCODEC_RETVAL::VC_ERROR;
 
   static VIDEOCODEC_RETVAL vrvm[] = {VIDEOCODEC_RETVAL::VC_NONE, VIDEOCODEC_RETVAL::VC_ERROR,
                                      VIDEOCODEC_RETVAL::VC_BUFFER, VIDEOCODEC_RETVAL::VC_PICTURE,
                                      VIDEOCODEC_RETVAL::VC_EOF};
 
-  return vrvm[m_session->GetDecrypter()->VideoFrameDataToPicture(
-      dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this), &picture)];
+  return vrvm[m_drm->VideoFrameDataToPicture(dynamic_cast<kodi::addon::CInstanceVideoCodec*>(this),
+                                             &picture)];
 }
 
 void CVideoCodecAdaptive::Reset()
 {
-  if (!m_session || !m_session->GetDecrypter())
+  if (!m_drm)
     return;
 
-  m_session->GetDecrypter()->ResetVideo();
+  m_drm->ResetVideo();
 }
 
 /*****************************************************************************************************/

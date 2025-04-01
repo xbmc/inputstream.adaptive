@@ -176,7 +176,8 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
             std::vector<uint8_t>& segmentBuffer = downloadInfo.m_segmentBuffer->buffer;
 
             m_tree->OnDataArrived(downloadInfo.m_segmentBuffer->segment_number,
-                                  downloadInfo.m_segmentBuffer->segment.pssh_set_, m_decrypterIv,
+                                  downloadInfo.m_segmentBuffer->segment.AESKeyInfo(),
+                                  m_decrypterIv,
                                   bufferData.data(), bytesRead, segmentBuffer, segmentBuffer.size(),
                                   isLastChunk);
           }

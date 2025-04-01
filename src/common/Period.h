@@ -10,7 +10,6 @@
 
 #include "CommonSegAttribs.h"
 #include "SegTemplate.h"
-#include "utils/CryptoUtils.h"
 
 #ifdef INPUTSTREAM_TEST_BUILD
 #include "test/KodiStubs.h"
@@ -78,9 +77,6 @@ public:
    */
   void SetTimescale(uint32_t timescale) { m_timescale = timescale; }
 
-  EncryptionState GetEncryptionState() const { return m_encryptionState; }
-  void SetEncryptionState(EncryptionState encryptState) { m_encryptionState = encryptState; }
-
   // Force the use of secure decoder only when parsed manifest specify it
   std::optional<bool> IsSecureDecodeNeeded() const { return m_isSecureDecoderNeeded; }
   void SetSecureDecodeNeeded(std::optional<bool> isSecureDecoderNeeded)
@@ -96,43 +92,11 @@ public:
   void AddAdaptationSet(std::unique_ptr<CAdaptationSet>& adaptationSet);
   std::vector<std::unique_ptr<CAdaptationSet>>& GetAdaptationSets() { return m_adaptationSets; }
 
-  struct ATTR_DLL_LOCAL PSSHSet
-  {
-    static constexpr uint32_t MEDIA_UNSPECIFIED = 0;
-    static constexpr uint32_t MEDIA_VIDEO = 1;
-    static constexpr uint32_t MEDIA_AUDIO = 2;
-
-    // Custom comparator for std::find
-    bool operator==(const PSSHSet& other) const
-    {
-      return media_ == other.media_ && pssh_ == other.pssh_ && defaultKID_ == other.defaultKID_ &&
-             iv == other.iv;
-    }
-
-    //! @todo: create getter/setters
-    std::vector<uint8_t> pssh_; // Data as bytes (not base64)
-    std::string m_licenseUrl; // License server URL
-    std::string defaultKID_;
-    std::string iv;
-    uint32_t media_{0};
-    // Specify how many times the same PSSH is used between AdaptationSets or Representations
-    uint32_t m_usageCount{0};
-    CryptoMode m_cryptoMode{CryptoMode::NONE};
-    CAdaptationSet* adaptation_set_{nullptr};
-  };
-
-  uint16_t InsertPSSHSet(const PSSHSet& pssh);
-  void RemovePSSHSet(uint16_t pssh_set);
-  void DecreasePSSHSetUsageCount(uint16_t pssh_set);
-  std::vector<PSSHSet>& GetPSSHSets() { return m_psshSets; }
-
   // Make use of PLAYLIST::StreamType flags
   uint32_t m_includedStreamType{0}; //! @todo: part of this need a rework
 
 protected:
   std::vector<std::unique_ptr<CAdaptationSet>> m_adaptationSets;
-  
-  std::vector<PSSHSet> m_psshSets;
 
   std::string m_id;
   std::string m_baseUrl;
@@ -140,7 +104,7 @@ protected:
   uint32_t m_sequence{0};
   uint64_t m_start{NO_VALUE};
   uint64_t m_duration{0};
-  EncryptionState m_encryptionState{EncryptionState::UNENCRYPTED};
+
   std::optional<bool> m_isSecureDecoderNeeded;
   std::vector<uint32_t> m_segmentTimelineDuration;
 };

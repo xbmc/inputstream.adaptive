@@ -42,8 +42,6 @@ public:
   CCompSettings() = default;
   ~CCompSettings() = default;
 
-  bool IsHdcpOverride() const;
-
   // Chooser's settings
 
   StreamSelMode GetStreamSelMode() const;

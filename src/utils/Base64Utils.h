@@ -32,5 +32,17 @@ bool IsValidBase64(const std::string& input);
 
 bool AddPadding(std::string& base64str);
 
+/*!
+ * \brief Encode a base64 into URL-safe format.
+ * \return The base64 URL-safe format.
+ */
+std::string UrlSafeEncode(std::string base64);
+
+/*!
+ * \brief Decode a URL-safe base64 format into standard base64.
+ * \return The base64.
+ */
+std::string UrlSafeDecode(std::string base64);
+
 } // namespace BASE64
 } // namespace UTILS

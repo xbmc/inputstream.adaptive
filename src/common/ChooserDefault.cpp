@@ -202,6 +202,9 @@ PLAYLIST::CRepresentation* CRepresentationChooserDefault::GetNextRepresentation(
 
   for (auto& rep : adp->GetRepresentations())
   {
+    if (!rep->isPlayable)
+      continue;
+
     int score{std::abs(rep->GetWidth() * rep->GetHeight() - m_screenWidth * m_screenHeight)};
 
     if (!m_isForceStartsMaxRes)

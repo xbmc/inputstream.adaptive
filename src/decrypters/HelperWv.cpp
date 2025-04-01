@@ -428,7 +428,8 @@ bool DRM::WvUnwrapLicense(std::string_view wrapper,
                           std::string_view contentType,
                           std::string data,
                           std::string& dataOut,
-                          int& hdcpLimit)
+                          int& hdcpResLimit,
+                          uint16_t& hdcpVerLimit)
 {
   // The license response must be in binary data format
   // but many services have a proprietary implementations therefore
@@ -528,31 +529,88 @@ bool DRM::WvUnwrapLicense(std::string_view wrapper,
 
       data = jDataObjValue->GetString();
 
-      if (STRING::KeyExists(params, "path_hdcp"))
+      if (STRING::KeyExists(params, "path_hdcp_res"))
       {
         bool isJsonHdcpTraverse{false};
-        if (STRING::KeyExists(params, "path_hdcp_traverse"))
-          isJsonHdcpTraverse = STRING::ToLower(params.at("path_hdcp_traverse")) == "true";
+        if (STRING::KeyExists(params, "path_hdcp_res_traverse"))
+          isJsonHdcpTraverse = STRING::ToLower(params.at("path_hdcp_res_traverse")) == "true";
 
         const rapidjson::Value* jHdcpObjValue;
         if (isJsonHdcpTraverse)
-          jHdcpObjValue = JSON::GetValueTraversePaths(jDoc, params.at("path_hdcp"));
+          jHdcpObjValue = JSON::GetValueTraversePaths(jDoc, params.at("path_hdcp_res"));
         else
-          jHdcpObjValue = JSON::GetValueAtPath(jDoc, params.at("path_hdcp"));
+          jHdcpObjValue = JSON::GetValueAtPath(jDoc, params.at("path_hdcp_res"));
 
         if (!jHdcpObjValue)
         {
-          LOG::LogF(LOGERROR, "Unable to parse JSON HDCP value, path \"%s\" not found",
-                    params.at("path_hdcp").c_str());
+          LOG::LogF(LOGWARNING, "Unable to parse JSON HDCP resolution, path \"%s\" not found",
+                    params.at("path_hdcp_res").c_str());
         }
-        else if (!jHdcpObjValue->IsInt())
+        else if (jHdcpObjValue->IsInt())
         {
-          LOG::LogF(LOGERROR,
-                    "Unable to parse JSON HDCP value, value with wrong data type on path \"%s\"",
-                    params.at("path_hdcp").c_str());
+          hdcpResLimit = jHdcpObjValue->GetInt();
+        }
+        else if (jHdcpObjValue->IsDouble())
+        {
+          hdcpResLimit = static_cast<int>(jHdcpObjValue->GetDouble());
+        }
+        else if (jHdcpObjValue->IsString())
+        {
+          std::string_view resValue = jHdcpObjValue->GetString();
+
+          auto pos = resValue.find('x');
+          if (pos != std::string_view::npos) // Expected format width x height (e.g. "1280x720")
+          {
+            const int width = STRING::ToInt32(resValue.substr(0, pos));
+            const int height = STRING::ToInt32(resValue.substr(pos + 1));
+            hdcpResLimit = width * height;
+          }
+          else // Expected format multiplication of width x height (e.g. 921600 stands for "1280x720")
+          {
+            hdcpResLimit = STRING::ToInt32(resValue);
+          }
         }
         else
-          hdcpLimit = jHdcpObjValue->GetInt();
+          LOG::LogF(LOGERROR,
+                    "Unable to parse JSON HDCP resolution, wrong data type on path \"%s\"",
+                    params.at("path_hdcp_res").c_str());
+      }
+
+      if (STRING::KeyExists(params, "path_hdcp_ver"))
+      {
+        bool isJsonHdcpTraverse{false};
+        if (STRING::KeyExists(params, "path_hdcp_ver_traverse"))
+          isJsonHdcpTraverse = STRING::ToLower(params.at("path_hdcp_ver_traverse")) == "true";
+
+        const rapidjson::Value* jHdcpObjValue;
+        if (isJsonHdcpTraverse)
+          jHdcpObjValue = JSON::GetValueTraversePaths(jDoc, params.at("path_hdcp_ver"));
+        else
+          jHdcpObjValue = JSON::GetValueAtPath(jDoc, params.at("path_hdcp_ver"));
+
+        if (!jHdcpObjValue)
+        {
+          LOG::LogF(LOGWARNING, "Unable to parse JSON HDCP version, path \"%s\" not found",
+                    params.at("path_hdcp_ver").c_str());
+        }
+        else if (jHdcpObjValue->IsInt())
+        {
+          hdcpVerLimit = jHdcpObjValue->GetInt();
+        }
+        else if (jHdcpObjValue->IsDouble())
+        {
+          hdcpVerLimit = static_cast<int>(jHdcpObjValue->GetDouble() * 10);
+        }
+        else if (jHdcpObjValue->IsString())
+        {
+          // Try convert the string value e.g. "HDCP_NONE" --> 0, "HDCP_V2_2" --> 22
+          hdcpVerLimit = STRING::GetNumbers(jHdcpObjValue->GetString());
+        }
+        else
+        {
+          LOG::LogF(LOGERROR, "Unable to parse JSON HDCP version, wrong data type on path \"%s\"",
+                    params.at("path_hdcp_ver").c_str());
+        }
       }
 
       if (isAuto && BASE64::IsValidBase64(data))
@@ -656,5 +714,32 @@ void DRM::TranslateLicenseUrlPh(std::string& url,
     md5.Update(challenge.data(), static_cast<uint32_t>(challenge.size()));
     md5.Finalize();
     STRING::ReplaceFirst(url, "{CHA-MD5}", md5.HexDigest());
+  }
+}
+
+int DRM::ParseXLimitVideoHeader(std::string_view value)
+{
+  if (value.empty())
+    return 0;
+
+  // Only supported "max" parameter
+  if (!STRING::StartsWith(value, "max="))
+  {
+    LOG::LogF(LOGERROR, "Cannot parse \"X-Limit-Video\" header, missing \"max\" parameter");
+    return 0;
+  }
+
+  value.remove_prefix(4);
+
+  auto pos = value.find('x');
+  if (pos != std::string_view::npos) // Expected format width x height (e.g. "1280x720")
+  {
+    const int width = STRING::ToInt32(value.substr(0, pos));
+    const int height = STRING::ToInt32(value.substr(pos + 1));
+    return width * height;
+  }
+  else // Expected format multiplication of width x height (e.g. 921600 stands for "1280x720"), backward compatibility Kodi <= 21
+  {
+    return STRING::ToInt32(value);
   }
 }

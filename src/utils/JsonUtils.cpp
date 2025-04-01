@@ -18,7 +18,23 @@ const rapidjson::Value* TraversePaths(const rapidjson::Value& node, const std::s
     {
       if (itr->name.GetString() == keyName)
       {
-        return &itr->value;
+        if (itr->value.IsString() || itr->value.IsNumber())
+          return &itr->value;
+        else if (itr->value.IsObject() || itr->value.IsArray())
+        {
+          const rapidjson::Value* ret = TraversePaths(itr->value, keyName);
+          if (ret)
+            return ret;
+        }
+      }
+      else if (itr->value.IsArray())
+      {
+        for (auto& item : itr->value.GetArray())
+        {
+          const rapidjson::Value* ret = TraversePaths(item, keyName);
+          if (ret)
+            return ret;
+        }
       }
       else if (itr->value.IsObject())
       {
@@ -26,6 +42,15 @@ const rapidjson::Value* TraversePaths(const rapidjson::Value& node, const std::s
         if (ret)
           return ret;
       }
+    }
+  }
+  else if (node.IsArray())
+  {
+    for (auto& item : node.GetArray())
+    {
+      const rapidjson::Value* ret = TraversePaths(item, keyName);
+      if (ret)
+        return ret;
     }
   }
 

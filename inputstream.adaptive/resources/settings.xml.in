@@ -161,13 +161,6 @@
           </control>
         </setting>
       </group>
-      <group id="misc">
-        <setting id="HDCPOVERRIDE" type="boolean" label="30172" help="30173">
-          <level>1</level>
-          <default>false</default>
-          <control type="toggle" />
-        </setting>
-      </group>
     </category>
     <category id="expert" label="30120">
       <group id="misc">

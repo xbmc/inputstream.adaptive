@@ -290,5 +290,12 @@ std::string Trim(std::string value);
  */
 std::vector<uint8_t> HexToBytes(const std::string& hex);
 
+/*!
+ * \brief Finds and concatenates all the numbers contained in the string
+ * \param str The string to be parsed
+ * \return The concatenated numbers
+ */
+int GetNumbers(std::string_view str);
+
 } // namespace STRING
 } // namespace UTILS
