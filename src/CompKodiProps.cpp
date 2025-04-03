@@ -737,11 +737,21 @@ bool ADP::KODI_PROPS::CCompKodiProps::ParseDrmConfig(const std::string& data)
       {
         for (auto& jPairUnwrap : jDictLic["unwrapper_params"].GetObject()) // Iterate JSON dict
         {
-          if (jPairUnwrap.name.IsString() && jPairUnwrap.value.IsString())
+          if (!jPairUnwrap.name.IsString() ||
+              !(jPairUnwrap.value.IsString() || jPairUnwrap.value.IsBool()))
           {
-            drmCfg.license.unwrapperParams.emplace(jPairUnwrap.name.GetString(),
-                                                   jPairUnwrap.value.GetString());
+            LOG::LogF(LOGERROR,
+                      "The license parameter \"unwrapper_params\" contains invalid values");
+            break;
           }
+
+          std::string value;
+          if (jPairUnwrap.value.IsString())
+            value = jPairUnwrap.value.GetString();
+          else if (jPairUnwrap.value.IsBool())
+            value = jPairUnwrap.value.GetBool() ? "true" : "false";
+
+          drmCfg.license.unwrapperParams.emplace(jPairUnwrap.name.GetString(), value);
         }
       }
 
