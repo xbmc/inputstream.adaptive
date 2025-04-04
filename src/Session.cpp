@@ -52,6 +52,7 @@ void SESSION::CSession::DeleteStreams()
 {
   LOG::Log(LOGDEBUG, "CSession::DeleteStreams()");
   m_streams.clear();
+  m_timingStream = nullptr;
 }
 
 /*----------------------------------------------------------------------
@@ -776,6 +777,9 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
 bool SESSION::CSession::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
 {
   bool ret{false};
+
+  if (m_streams.empty())
+    return false;
 
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)

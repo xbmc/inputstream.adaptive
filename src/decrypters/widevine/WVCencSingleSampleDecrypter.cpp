@@ -168,12 +168,17 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(const std::vector<uint8_t>& k
       clearBytes[0] = 0;
       if (DecryptSampleData(poolId, in, out, iv, 1, clearBytes, encryptedBytes) != AP4_SUCCESS)
       {
-        LOG::LogF(LOGDEBUG, "Single decrypt failed, secure path only");
         if (media == DecrypterCapabilites::SSD_MEDIA_VIDEO)
-          caps.flags |= (DecrypterCapabilites::SSD_SECURE_PATH |
-                         DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
+        {
+          LOG::LogF(LOGDEBUG, "Single decrypt failed, secure path only");
+          caps.flags |=
+              (DecrypterCapabilites::SSD_SECURE_PATH | DecrypterCapabilites::SSD_ANNEXB_REQUIRED);
+        }
         else
+        {
+          LOG::LogF(LOGWARNING, "Single decrypt failed, secure path not supported to audio media");
           caps.flags = DecrypterCapabilites::SSD_INVALID;
+        }
       }
       else
       {
