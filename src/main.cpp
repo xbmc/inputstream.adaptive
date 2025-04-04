@@ -288,6 +288,10 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   // If stream use DRM always update stream info
   const bool isInfoChanged = stream->GetReader()->GetInformation(stream->m_info) ||
                              !stream->m_info.GetCryptoSession().GetSessionId().empty();
+
+  LOG::LogF(LOGERROR, "CRYPTO FLAGS %u",
+            stream->m_info.GetCryptoSession().GetFlags());
+  
   return isInfoChanged;
 }
 

@@ -497,6 +497,8 @@ bool DRM::CDRMEngine::InitializeSession(std::vector<DRM::DRMInfo> drmInfos,
 
   streamInfo.SetCryptoSession(cryptoSession);
 
+  LOG::LogF(LOGERROR, "CRYPTO FLAGS %u", streamInfo.GetCryptoSession().GetFlags());
+
   return true;
 }
 
