@@ -7,6 +7,7 @@
  */
 
 #include <bento4/Ap4Ac3Parser.h>
+#include <bento4/Ap4Ac4Parser.h>
 #include <bento4/Ap4AdtsParser.h>
 #include <bento4/Ap4Eac3Parser.h>
 #include <kodi/addon-instance/Inputstream.h>
@@ -42,6 +43,13 @@ class ATTR_DLL_LOCAL CAdaptiveAc3Parser : public AP4_Ac3Parser
 public:
   CAdaptiveAc3Parser() {}
   AP4_Result FindFrameHeader(AP4_Ac3Frame& frame);
+};
+
+class ATTR_DLL_LOCAL CAdaptiveAc4Parser : public AP4_Ac4Parser
+{
+public:
+  CAdaptiveAc4Parser() {}
+  AP4_Result FindFrameHeader(AP4_Ac4Frame& frame);
 };
 
 class ATTR_DLL_LOCAL CAdaptiveEac3Parser : public AP4_Eac3Parser

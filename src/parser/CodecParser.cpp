@@ -157,6 +157,175 @@ AP4_Result CAdaptiveAc3Parser::FindFrameHeader(AP4_Ac3Frame& frame)
   return AP4_SUCCESS;
 }
 
+AP4_Result CAdaptiveAc4Parser::FindFrameHeader(AP4_Ac4Frame& frame)
+{
+  unsigned int available;
+  unsigned char raw_header[AP4_AC4_HEADER_SIZE];
+  AP4_Result result;
+
+  /* align to the start of the next byte */
+  m_Bits.ByteAlign();
+
+  /* find a frame header */
+  result = FindHeader(raw_header);
+  if (AP4_FAILED(result))
+    return result;
+
+  // duplicated work, just to get the frame size
+  AP4_BitReader tmp_bits(raw_header, AP4_AC4_HEADER_SIZE);
+  unsigned int sync_frame_size = GetSyncFrameSize(tmp_bits);
+  if (sync_frame_size > (AP4_BITSTREAM_BUFFER_SIZE - 1))
+  {
+    return AP4_ERROR_NOT_ENOUGH_DATA;
+  }
+
+  /*
+   * Error handling to skip the 'fake' sync word. 
+   * - the maximum sync frame size is about (AP4_BITSTREAM_BUFFER_SIZE - 1) bytes.
+   */
+  if (m_Bits.GetBytesAvailable() < sync_frame_size)
+  {
+    if (m_Bits.GetBytesAvailable() == (AP4_BITSTREAM_BUFFER_SIZE - 1))
+    {
+      // skip the sync word, assume it's 'fake' sync word
+      m_Bits.SkipBytes(2);
+    }
+    return AP4_ERROR_NOT_ENOUGH_DATA;
+  }
+
+  unsigned char* rawframe = new unsigned char[sync_frame_size];
+
+  // copy the whole frame becasue toc size is unknown
+  m_Bits.PeekBytes(rawframe, sync_frame_size);
+  /* parse the header */
+  AP4_Ac4Header ac4_header(rawframe, sync_frame_size);
+
+  delete[] rawframe;
+
+  // Place before goto statement to resolve Xcode compiler issue
+  unsigned int bit_rate_mode = 0;
+
+  /* check the header */
+  result = ac4_header.Check();
+  if (AP4_FAILED(result))
+  {
+    m_Bits.SkipBytes(sync_frame_size);
+    goto fail;
+  }
+
+  /* check if we have enough data to peek at the next header */
+  available = m_Bits.GetBytesAvailable();
+  // TODO: find the proper AP4_AC4_MAX_TOC_SIZE or just parse what this step need ?
+  if (available >= ac4_header.m_FrameSize + ac4_header.m_HeaderSize + ac4_header.m_CrcSize +
+                       AP4_AC4_HEADER_SIZE + AP4_AC4_MAX_TOC_SIZE)
+  {
+    // enough to peek at the header of the next frame
+
+    m_Bits.SkipBytes(ac4_header.m_FrameSize + ac4_header.m_HeaderSize + ac4_header.m_CrcSize);
+    m_Bits.PeekBytes(raw_header, AP4_AC4_HEADER_SIZE);
+
+    // duplicated work, just to get the frame size
+    AP4_BitReader peak_tmp_bits(raw_header, AP4_AC4_HEADER_SIZE);
+    unsigned int next_sync_frame_size = GetSyncFrameSize(peak_tmp_bits);
+
+    unsigned char* next_rawframe = new unsigned char[next_sync_frame_size];
+
+    // copy the whole frame becasue toc size is unknown
+    if (m_Bits.GetBytesAvailable() < (next_sync_frame_size))
+    {
+      next_sync_frame_size = m_Bits.GetBytesAvailable();
+    }
+    m_Bits.PeekBytes(next_rawframe, next_sync_frame_size);
+
+    m_Bits.SkipBytes(
+        -((int)(ac4_header.m_FrameSize + ac4_header.m_HeaderSize + ac4_header.m_CrcSize)));
+
+    /* check the header */
+    AP4_Ac4Header peek_ac4_header(next_rawframe, next_sync_frame_size);
+
+    delete[] next_rawframe;
+
+    result = peek_ac4_header.Check();
+    if (AP4_FAILED(result))
+    {
+      // TODO: need to reserve current sync frame ?
+      m_Bits.SkipBytes(sync_frame_size + next_sync_frame_size);
+      goto fail;
+    }
+
+    /* check that the fixed part of this header is the same as the */
+    /* fixed part of the previous header                           */
+    if (!AP4_Ac4Header::MatchFixed(ac4_header, peek_ac4_header))
+    {
+      // TODO: need to reserve current sync frame ?
+      m_Bits.SkipBytes(sync_frame_size + next_sync_frame_size);
+      goto fail;
+    }
+  }
+  else if (available < (ac4_header.m_FrameSize + ac4_header.m_HeaderSize + ac4_header.m_CrcSize) ||
+           (m_Bits.m_Flags & AP4_BITSTREAM_FLAG_EOS) == 0)
+  {
+    // not enough for a frame, or not at the end (in which case we'll want to peek at the next header)
+    return AP4_ERROR_NOT_ENOUGH_DATA;
+  }
+
+  m_Bits.SkipBytes(ac4_header.m_HeaderSize);
+
+  /* fill in the frame info */
+  frame.m_Info.m_HeaderSize = ac4_header.m_HeaderSize;
+  frame.m_Info.m_FrameSize = ac4_header.m_FrameSize;
+  frame.m_Info.m_CRCSize = ac4_header.m_CrcSize;
+  frame.m_Info.m_ChannelCount = ac4_header.m_ChannelCount;
+  frame.m_Info.m_SampleDuration =
+      (ac4_header.m_FsIndex == 0) ? 2048 : AP4_Ac4SampleDeltaTable[ac4_header.m_FrameRateIndex];
+  frame.m_Info.m_MediaTimeScale =
+      (ac4_header.m_FsIndex == 0) ? 44100 : AP4_Ac4MediaTimeScaleTable[ac4_header.m_FrameRateIndex];
+  frame.m_Info.m_Iframe = ac4_header.m_BIframeGlobal;
+
+  /* fill the AC4 DSI info */
+  frame.m_Info.m_Ac4Dsi.ac4_dsi_version = 1;
+  frame.m_Info.m_Ac4Dsi.d.v1.bitstream_version = ac4_header.m_BitstreamVersion;
+  frame.m_Info.m_Ac4Dsi.d.v1.fs_index = ac4_header.m_FsIndex;
+  frame.m_Info.m_Ac4Dsi.d.v1.fs =
+      AP4_Ac4SamplingFrequencyTable[frame.m_Info.m_Ac4Dsi.d.v1.fs_index];
+  frame.m_Info.m_Ac4Dsi.d.v1.frame_rate_index = ac4_header.m_FrameRateIndex;
+  frame.m_Info.m_Ac4Dsi.d.v1.b_program_id = ac4_header.m_BProgramId;
+  frame.m_Info.m_Ac4Dsi.d.v1.short_program_id = ac4_header.m_ShortProgramId;
+  frame.m_Info.m_Ac4Dsi.d.v1.b_uuid = ac4_header.m_BProgramUuidPresent;
+  AP4_CopyMemory(frame.m_Info.m_Ac4Dsi.d.v1.program_uuid, ac4_header.m_ProgramUuid, 16);
+
+  // Calcuate the bit rate mode according to ETSI TS 103 190-2 V1.2.1 Annex B
+  if (ac4_header.m_WaitFrames == 0)
+  {
+    bit_rate_mode = 1;
+  }
+  else if (ac4_header.m_WaitFrames >= 1 && ac4_header.m_WaitFrames <= 6)
+  {
+    bit_rate_mode = 2;
+  }
+  else if (ac4_header.m_WaitFrames > 6)
+  {
+    bit_rate_mode = 3;
+  }
+
+  frame.m_Info.m_Ac4Dsi.d.v1.ac4_bitrate_dsi.bit_rate_mode = bit_rate_mode;
+  frame.m_Info.m_Ac4Dsi.d.v1.ac4_bitrate_dsi.bit_rate = 0; // unknown, fixed value now
+  frame.m_Info.m_Ac4Dsi.d.v1.ac4_bitrate_dsi.bit_rate_precision =
+      0xffffffff; // unknown, fixed value now
+  frame.m_Info.m_Ac4Dsi.d.v1.n_presentations = ac4_header.m_NPresentations;
+  frame.m_Info.m_Ac4Dsi.d.v1.presentations = ac4_header.m_PresentationV1;
+
+  /* set the frame source */
+  frame.m_Source = &m_Bits;
+
+  return AP4_SUCCESS;
+
+fail:
+  /* skip the header and return (only skip the first byte in  */
+  /* case this was a false header that hides one just after)  */
+  return AP4_ERROR_CORRUPTED_BITSTREAM;
+}
+
 AP4_Result CAdaptiveEac3Parser::FindFrameHeader(AP4_Eac3Frame& frame)
 {
   bool dependent_stream_exist = false;

@@ -137,10 +137,11 @@ ADTSFrame::ADTSFrameInfo ADTSFrame::GetFrameInfo(AP4_ByteStream* stream)
     case AdtsType::AC3:
       ParseAc3Header(stream, frameInfo);
       break;
+    case AdtsType::AC4:
+      ParseAc4Header(stream, frameInfo);
+      break;
     case AdtsType::EAC3:
       ParseEc3Header(stream, frameInfo);
-      break;
-    case AdtsType::AC4:
       break;
     default:
       break;
@@ -157,10 +158,10 @@ bool ADTSFrame::parse(AP4_ByteStream* stream)
       return ParseAac(stream);
     case AdtsType::AC3:
       return ParseAc3(stream);
+    case AdtsType::AC4:
+      return ParseAc4(stream);
     case AdtsType::EAC3:
       return ParseEc3(stream);
-    case AdtsType::AC4:
-      return false;
     default:
       return false;
   }
@@ -232,6 +233,50 @@ bool ADTSFrame::ParseAc3(AP4_ByteStream* stream)
 }
 
 bool ADTSFrame::ParseAc3Header(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo)
+{
+  AP4_DataBuffer buffer;
+  buffer.SetDataSize(AP4_AC3_HEADER_SIZE);
+
+  if (!AP4_SUCCEEDED(stream->Read(buffer.UseData(), AP4_AC3_HEADER_SIZE)))
+    return false;
+
+  CAdaptiveAc3Parser parser;
+  AP4_Size sz = buffer.GetDataSize();
+  parser.Feed(buffer.GetData(), &sz);
+
+  AP4_Ac3Frame frame;
+  AP4_Result result = parser.FindFrameHeader(frame);
+  if (!AP4_SUCCEEDED(result))
+    return false;
+
+  frameInfo.m_frameSize = frame.m_Info.m_FrameSize;
+  frameInfo.m_frameCount = 256u * frame.m_Info.m_ChannelCount;
+  frameInfo.m_sampleRate = frame.m_Info.m_SampleRate;
+  frameInfo.m_channels = frame.m_Info.m_ChannelCount;
+  return true;
+}
+
+bool ADTSFrame::ParseAc4(AP4_ByteStream* stream)
+{
+  if (!ParseAc4Header(stream, m_frameInfo))
+    return false;
+
+  m_summedFrameCount += m_frameInfo.m_frameCount;
+
+  // rewind stream to beginning of syncframe
+  AP4_Position currentPos;
+  stream->Tell(currentPos);
+  stream->Seek(currentPos - (AP4_AC4_HEADER_SIZE));
+
+  m_dataBuffer.SetDataSize(m_frameInfo.m_frameSize);
+  if (!AP4_SUCCEEDED(stream->Read(m_dataBuffer.UseData(), m_dataBuffer.GetDataSize())))
+    return false;
+
+  AdjustStreamForPadding(stream);
+  return true;
+}
+
+bool ADTSFrame::ParseAc4Header(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo)
 {
   AP4_DataBuffer buffer;
   buffer.SetDataSize(AP4_AC3_HEADER_SIZE);
@@ -378,6 +423,10 @@ bool ADTSReader::GetInformation(kodi::addon::InputstreamInfo& info)
   else if (frameInfo.m_codecType == AdtsType::AC3)
   {
     codecName = CODEC::NAME_AC3;
+  }
+  else if (frameInfo.m_codecType == AdtsType::AC4)
+  {
+    codecName = CODEC::NAME_AC4;
   }
   else if (frameInfo.m_codecType == AdtsType::EAC3)
   {

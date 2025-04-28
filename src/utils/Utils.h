@@ -93,11 +93,12 @@ constexpr std::array VIDEO_NAME_LIST = {NAME_MPEG1, NAME_MPEG2, NAME_MPEG4, NAME
 constexpr const char* NAME_AAC = "aac";
 constexpr const char* NAME_DTS = "dca";
 constexpr const char* NAME_AC3 = "ac3";
+constexpr const char* NAME_AC4 = "ac4";
 constexpr const char* NAME_EAC3 = "eac3"; // Enhanced AC-3
 constexpr const char* NAME_OPUS = "opus";
 constexpr const char* NAME_VORBIS = "vorbis";
 
-constexpr std::array AUDIO_NAME_LIST = {NAME_AAC,  NAME_DTS,  NAME_AC3,
+constexpr std::array AUDIO_NAME_LIST = {NAME_AAC,  NAME_DTS,  NAME_AC3,   NAME_AC4,
                                         NAME_EAC3, NAME_OPUS, NAME_VORBIS};
 
 // Subtitles definitions
@@ -132,6 +133,7 @@ constexpr const char* FOURCC_MP4A = "mp4a";
 constexpr const char* FOURCC_AAC_ = "aac"; // Generic prefix for all aac* fourcc, e.g. aac, aacl...
 constexpr const char* FOURCC_AACL = "aacl";
 constexpr const char* FOURCC_AC_3 = "ac-3";
+constexpr const char* FOURCC_AC_4 = "ac-4";
 constexpr const char* FOURCC_EC_3 = "ec-3"; // Enhanced AC-3
 constexpr const char* FOURCC_OPUS = "opus";
 constexpr const char* FOURCC_VORB = "vorb"; // Vorbis
@@ -143,10 +145,10 @@ constexpr const char* FOURCC_VORB3 = "vor3"; // Vorbis 3
 constexpr const char* FOURCC_VORB3P = "vo3+"; // Vorbis 3+
 constexpr const char* FOURCC_DTS_ = "dts"; // Generic prefix for all dts* fourcc, e.g. dtsx
 
-constexpr std::array AUDIO_FOURCC_LIST = {FOURCC_MP4A, FOURCC_AAC_, FOURCC_AACL,
-                                          FOURCC_AC_3, FOURCC_EC_3, FOURCC_OPUS, FOURCC_VORB, FOURCC_VORB1,
-                                          FOURCC_VORB1P, FOURCC_VORB2, FOURCC_VORB2P, FOURCC_VORB3,
-                                          FOURCC_VORB3P, FOURCC_DTS_};
+constexpr std::array AUDIO_FOURCC_LIST = {FOURCC_MP4A,  FOURCC_AAC_,   FOURCC_AACL,  FOURCC_AC_3,
+                                          FOURCC_AC_4,  FOURCC_EC_3,   FOURCC_OPUS,  FOURCC_VORB,
+                                          FOURCC_VORB1, FOURCC_VORB1P, FOURCC_VORB2, FOURCC_VORB2P,
+                                          FOURCC_VORB3, FOURCC_VORB3P, FOURCC_DTS_};
 
 // Fourcc subtitles definitions
 
