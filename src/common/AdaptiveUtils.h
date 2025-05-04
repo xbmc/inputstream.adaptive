@@ -13,6 +13,7 @@
 #include <memory>
 #include <string_view>
 #include <vector>
+#include <cstdint>
 
 // forwards
 class AP4_Movie;
