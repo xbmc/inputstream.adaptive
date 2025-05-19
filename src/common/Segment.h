@@ -158,10 +158,22 @@ public:
    */
   uint64_t GetDuration() const { return m_duration; }
 
-  std::deque<CSegment>::const_iterator begin() const { return m_segments.begin(); }
-  std::deque<CSegment>::const_iterator end() const { return m_segments.end(); }
+  std::deque<CSegment>::iterator begin() { return m_segments.begin(); }
+  std::deque<CSegment>::iterator end() { return m_segments.end(); }
+//  std::deque<CSegment>::const_iterator begin() const { return m_segments.begin(); }
+//  std::deque<CSegment>::const_iterator end() const { return m_segments.end(); }
   std::deque<CSegment>::const_reverse_iterator rbegin() const { return m_segments.rbegin(); }
   std::deque<CSegment>::const_reverse_iterator rend() const { return m_segments.rend(); }
+  std::deque<CSegment>::iterator erase(std::deque<CSegment>::const_iterator pos)
+  {
+    return m_segments.erase(pos);
+  }
+
+  std::deque<CSegment>::iterator erase(std::deque<CSegment>::const_iterator first,
+                                       std::deque<CSegment>::const_iterator last)
+  {
+    return m_segments.erase(first, last);
+  }
 
 private:
   // Has been used std::deque because there are uses of pointer references

@@ -375,7 +375,24 @@ void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, const std::s
 
   std::string_view start = XML::GetAttrib(nodePeriod, "start");
   if (!start.empty())
-    period->SetStart(static_cast<uint64_t>(XML::ParseDuration(start) * 1000));
+    period->SetStart(static_cast<uint64_t>(XML::ParseDuration(start) * 1000) + available_time_);
+  else if (m_isLive)
+  {
+    // "start" attribute on first period is mandatory on dynamic manifest type to help mapping periods on updates
+    // on subsequent periods it can be determined
+    if (m_periods.empty())
+    {
+      LOG::LogF(LOGWARNING, "Period ID \"%s\" has no \"start\" attribute, assumed 0.", period->GetId().c_str());
+      period->SetStart(available_time_);
+    }
+    else
+    {
+      auto& lastPeriod = m_periods.back();
+      //! @todo: if no duration get it from a timeline
+      uint64_t pStartMs = lastPeriod->GetStart() + (lastPeriod->GetDuration() * 1000 / lastPeriod->GetTimescale());
+      period->SetStart(pStartMs);
+    }
+  }
 
   period->SetDuration(
       static_cast<uint64_t>(XML::ParseDuration(XML::GetAttrib(nodePeriod, "duration")) * 1000));
@@ -390,7 +407,8 @@ void adaptive::CDashTree::ParseTagPeriod(pugi::xml_node nodePeriod, const std::s
       uint64_t nextStart{0};
 
       if (!nextStartStr.empty())
-        nextStart = static_cast<uint64_t>(XML::ParseDuration(nextStartStr) * 1000);
+        nextStart =
+            static_cast<uint64_t>(XML::ParseDuration(nextStartStr) * 1000) + available_time_;
 
       if (nextStart > 0)
         period->SetDuration((nextStart - period->GetStart()) * period->GetTimescale() / 1000);
@@ -1058,7 +1076,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
       const uint64_t periodStartScaled = periodStartMs * segTemplate->GetTimescale() / 1000;
 
       //! @todo: PTO a/v sync to be implemented on session/demuxers
-      const bool hasPTO = segTemplate->HasPresTimeOffset();
+      // const bool hasPTO = segTemplate->HasPresTimeOffset();
 
       if (segTemplate->HasTimeline()) // Generate segments from template timeline
       {
@@ -1073,12 +1091,7 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
           do
           {
             CSegment seg;
-            seg.startPTS_ = time;
-            // If no PTO, the "t" value on <SegmentTimeline><S> element should be relative to period start
-            // this may be wrong, has been added to try fix following sample stream
-            // https://d24rwxnt7vw9qb.cloudfront.net/v1/dash/e6d234965645b411ad572802b6c9d5a10799c9c1/All_Reference_Streams//6e16c26536564c2f9dbc5f725a820cff/index.mpd
-            if (!hasPTO)
-              seg.startPTS_ += periodStartScaled;
+            seg.startPTS_ = time + periodStartScaled + *m_clockOffset;
             seg.m_endPts = seg.startPTS_ + tlElem.duration;
 
             if (hasMediaNumber)
@@ -1645,6 +1658,7 @@ void adaptive::CDashTree::OnRequestSegments(PLAYLIST::CPeriod* period,
 void adaptive::CDashTree::OnUpdateSegments()
 {
   lastUpdated_ = std::chrono::system_clock::now();
+  const uint64_t liveEdge = GetTimestampMs() - m_timeShiftBufferDepth + *m_clockOffset; // live edge in ms
 
   std::unique_ptr<CDashTree> updateTree{std::move(Clone())};
 
@@ -1689,38 +1703,24 @@ void adaptive::CDashTree::OnUpdateSegments()
   m_manifestRespHeaders = resp.headers;
   location_ = updateTree->location_;
 
+  std::set<uint64_t> updatedPeriodStarts;
+
   for (size_t index{0}; index < updateTree->m_periods.size(); index++)
   {
     auto& updPeriod = updateTree->m_periods[index];
 
-    // find matching period based on ID
-    auto itPeriod =
-        std::find_if(m_periods.begin(), m_periods.end(),
-                      [&updPeriod](const std::unique_ptr<CPeriod>& item)
-                      { return !item->GetId().empty() && item->GetId() == updPeriod->GetId(); });
-    // if not found, try matching period based on start
-    if (itPeriod == m_periods.end())
-    {
-      itPeriod =
-          std::find_if(m_periods.begin(), m_periods.end(),
-                        [&updPeriod](const std::unique_ptr<CPeriod>& item)
-                        { return item->GetStart() != NO_VALUE && item->GetStart() == updPeriod->GetStart(); });
-    }
+    updatedPeriodStarts.insert(updPeriod->GetStart());
+
+    // The periods mapping between local data and the update is done by using period "start" attribute,
+    // since the "start" attribute is mandatory and must not change over MPD updates
+
+    auto itPeriod = std::find_if(
+        m_periods.begin(), m_periods.end(), [&updPeriod](const std::unique_ptr<CPeriod>& item)
+        { return item->GetStart() == updPeriod->GetStart(); });
 
     CPeriod* period{nullptr};
 
-    if (itPeriod != m_periods.end())
-      period = (*itPeriod).get();
-
-    if (!period && updPeriod->GetId().empty() && (updPeriod->GetStart() == NO_VALUE))
-    {
-      // not found, fallback match based on position
-      if (index < m_periods.size())
-        period = m_periods[index].get();
-    }
-
-    // new period, insert it
-    if (!period)
+    if (itPeriod == m_periods.end()) // New period
     {
       LOG::LogF(LOGDEBUG, "Inserting new Period (id=%s, start=%llu)", updPeriod->GetId().c_str(),
                 updPeriod->GetStart());
@@ -1728,9 +1728,13 @@ void adaptive::CDashTree::OnUpdateSegments()
       updPeriod->SetSequence(m_periodCurrentSeq++);
       m_periods.push_back(std::move(updPeriod));
       continue;
+
     }
-    else // Update period data that may be added or changed
+    else // Update existing one
     {
+      period = (*itPeriod).get();
+
+      // Update period data that may be added or changed
       if (updPeriod->GetDuration() > 0)
         period->SetDuration(updPeriod->GetDuration());
     }
@@ -1827,6 +1831,16 @@ void adaptive::CDashTree::OnUpdateSegments()
                   repr->Timeline().Swap(updRepr->Timeline());
                   repr->current_segment_ = foundSeg;
 
+                  // Delete segments that fall outside the TSB,
+                  // The reason is that AdaptiveStream class point the absolute PTS offset to the first timeline segment
+                  const uint64_t liveEdgeScaled = (liveEdge * repr->GetTimescale()) / 1000;
+
+                  auto& timeline = repr->Timeline();
+                  auto it = std::remove_if(timeline.begin(), timeline.end(),
+                                           [&liveEdgeScaled](const CSegment& seg)
+                                           { return seg.startPTS_ < liveEdgeScaled; });
+                  timeline.erase(it, timeline.end());
+
                   LOG::LogF(LOGDEBUG, "MPD update - Done (repr. id \"%s\", period id \"%s\")",
                             updRepr->GetId().c_str(), period->GetId().c_str());
                 }
@@ -1845,6 +1859,24 @@ void adaptive::CDashTree::OnUpdateSegments()
       }
     }
   }
+
+  // Delete removed periods
+  auto it = std::remove_if(m_periods.begin(), m_periods.end(),
+                           [this, &updatedPeriodStarts](const std::unique_ptr<CPeriod>& period)
+                           {
+                             if (period.get() == m_currentPeriod) // dont delete current period
+                               return false;
+
+                             if (updatedPeriodStarts.find(period->GetStart()) ==
+                                 updatedPeriodStarts.end())
+                             {
+                               LOG::Log(LOGDEBUG, "Deleted period (ID: \"%s\", start: %llu)",
+                                        period->GetId().c_str(), period->GetStart());
+                               return true;
+                             }
+                             return false;
+                           });
+  m_periods.erase(it, m_periods.end());
 }
 
 bool adaptive::CDashTree::InsertLiveSegment(PLAYLIST::CPeriod* period,
