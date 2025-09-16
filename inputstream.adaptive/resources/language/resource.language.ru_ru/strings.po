@@ -5,15 +5,15 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2025-01-17 02:09+0000\n"
-"Last-Translator: Christian Gade <gade@kodi.tv>\n"
+"PO-Revision-Date: 2025-08-28 06:29+0000\n"
+"Last-Translator: Alexey <signfinder@gmail.com>\n"
 "Language-Team: Russian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/ru_ru/>\n"
 "Language: ru_ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Weblate 5.9.2\n"
+"X-Generator: Weblate 5.13\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -88,12 +88,12 @@ msgstr "Экспертные"
 # empty string with id 30121
 msgctxt "#30122"
 msgid "Disable secure decoder"
-msgstr ""
+msgstr "Отключить безопасный декодер"
 
 #. Description of setting with label #30122
 msgctxt "#30123"
 msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it. This setting may be overridden by the video add-on used."
-msgstr ""
+msgstr "Некоторые устройства Android, определяемые как Widevine L1, могут работать некорректно, что может приводить к чёрному экрану при воспроизведении. В этом случае попробуйте включить эту функцию. Эта настройка может быть переопределена используемым видеодополнением."
 
 # empty strings from id 30124 to 30155
 #. Item list value of setting with label #30117
@@ -161,12 +161,12 @@ msgstr "Определяет начальную полосу пропускан�
 
 msgctxt "#30172"
 msgid "Resolution limit"
-msgstr ""
+msgstr "Предел разрешения"
 
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "If set, based on the capabilities of the video stream an attempt will be made to limit the range of resolutions to the one chosen."
-msgstr ""
+msgstr "Если включено, то на основе возможностей видеопотока будет предпринята попытка ограничить диапазон разрешений выбранным значением."
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
@@ -233,7 +233,7 @@ msgstr "Путь к дешифратору"
 #. Item list value of setting with label #30172
 msgctxt "#30209"
 msgid "Disabled"
-msgstr ""
+msgstr "Выключено"
 
 # empty strings from id 30205 to 30209
 #. Item list value of setting with label #30110, #30113
@@ -287,7 +287,7 @@ msgstr "Выберите видеопоток"
 #. Use of double graphes e.g. {whatyouwant{hdr-type}whatyouwant} allows you to add additional text printed only when a value is present
 msgctxt "#30232"
 msgid "Video stream {codec}{ [{hdr-type}]} {quality}"
-msgstr ""
+msgstr "Видео поток {codec}{ [{hdr-type}]} {quality}"
 
 #. Enum setting to set the test mode
 msgctxt "#30233"
@@ -337,57 +337,57 @@ msgstr "Сохранять данные лицензии, например: на
 #. Setting to enable verbose debug
 msgctxt "#30242"
 msgid "Enable verbose debug"
-msgstr ""
+msgstr "Включить подробную отладку"
 
 #. Description of setting with label #30242
 msgctxt "#30243"
 msgid "Verbose debugging can be useful for debugging components, but in some cases it may expose sensitive information in the log."
-msgstr ""
+msgstr "Подробная отладка может быть полезна для отладки компонентов, но иногда может раскрыть конфиденциальную информацию в журнале."
 
 # empty strings reserved for settings from id 30244 to 30299
 #. A GUI window title, "InputStream Adaptive" its the add-on name, not to be translated
 msgctxt "#30300"
 msgid "InputStream Adaptive error"
-msgstr ""
+msgstr "Ошибка адаптивного InputStream"
 
 #. A GUI message that is displayed when there is a problem playing a stream
 #. Do not translate placeholders: {error-details}
 #. Use of double graphes e.g. {whatyouwant{error-details}whatyouwant} allows you to add additional text printed only when a value is present
 msgctxt "#30301"
 msgid "Unable to play the stream.{[CR]Error: {error-details}}"
-msgstr ""
+msgstr "Невозможно воспроизвести трансляцию.{[CR]Error: {error-details}}"
 
 msgctxt "#30302"
 msgid "The decryptor path is not set in the add-on settings."
-msgstr ""
+msgstr "В настройках дополнения не указан путь к декриптору."
 
 msgctxt "#30303"
 msgid "A problem occurred with the DRM decryptor."
-msgstr ""
+msgstr "Возникла проблема с декриптором DRM."
 
 msgctxt "#30304"
 msgid "Cannot load Widevine CDM library."
-msgstr ""
+msgstr "Невозможно загрузить библиотеку Widevine CDM."
 
 msgctxt "#30305"
 msgid "Cannot initialize Widevine CDM library."
-msgstr ""
+msgstr "Невозможно инициализировать библиотеку Widevine CDM."
 
 msgctxt "#30306"
 msgid "The configuration to play the stream is incomplete or missing."
-msgstr ""
+msgstr "Конфигурация для воспроизведения потока неполная или отсутствует."
 
 msgctxt "#30307"
 msgid "Cannot download the stream manifest file."
-msgstr ""
+msgstr "Невозможно загрузить файл манифеста потока."
 
 msgctxt "#30308"
 msgid "A problem occurred in the stream initialization."
-msgstr ""
+msgstr "Произошла ошибка при инициализации потока."
 
 msgctxt "#30309"
 msgid "No audio/video stream can be played."
-msgstr ""
+msgstr "Невозможно воспроизвести аудио/видеопоток."
 
 #~ msgctxt "#30232"
 #~ msgid "Video stream {codec} {quality}"

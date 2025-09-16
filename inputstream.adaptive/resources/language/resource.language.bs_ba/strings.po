@@ -5,386 +5,386 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2025-01-17 02:09+0000\n"
-"Last-Translator: Anonymous <noreply@weblate.org>\n"
+"PO-Revision-Date: 2025-08-28 06:29+0000\n"
+"Last-Translator: SecularSteve <fairfull.playing@gmail.com>\n"
 "Language-Team: Bosnian (Bosnia and Herzegovina) <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/bs_ba/>\n"
 "Language: bs_ba\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.9.2\n"
+"X-Generator: Weblate 5.13\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr ""
+msgstr "InputStream klijent za adaptivne tokove"
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
-msgstr ""
+msgstr "InputStream klijent za adaptivne tokove. Podržani su uobičajeni protokoli tokinga kao što su MPEG-DASH, HLS i Microsoft Smooth Streaming.[CR][CR]Dodatak također ima podršku za DRM zaštićene tokove, kao što su Google Widevine, Microsoft PlayReady i drugi.[CR][CR]Za dokumentaciju posjetite: https://github.com/xbmc/inputtok.adaptive"
 
 #. Category title
 msgctxt "#30100"
 msgid "General"
-msgstr ""
+msgstr "Općenito"
 
 #. The minimum bandwidth which should not be deceeded
 msgctxt "#30101"
 msgid "Minimum bandwidth (Kbps)"
-msgstr ""
+msgstr "Minimalni propusni opseg (Kbps)"
 
 #. The maximum bandwidth which should not be exceeded
 msgctxt "#30102"
 msgid "Maximum bandwidth (Kbps)"
-msgstr ""
+msgstr "Maksimalni propusni opseg (Kbps)"
 
 #. Description of setting with label #30101, 30102
 msgctxt "#30103"
 msgid "Establishes the bandwidth limit not to be exceeded with the audio / video streams. Set to 0 to disable it."
-msgstr ""
+msgstr "Postavlja ograničenje propusnosti koje se ne smije prekoračiti audio/video tokovima. Postavite na 0 da biste ga onemogućili."
 
 # empty strings from id 30104 to 30109
 #. Maximum video resolution non-protected videos
 msgctxt "#30110"
 msgid "Maximum resolution"
-msgstr ""
+msgstr "Maksimalna rezolucija"
 
 # empty string with id 30111
 #. Type of media streams that will be handled for the playback
 msgctxt "#30112"
 msgid "Type of media streams played"
-msgstr ""
+msgstr "Vrsta reprodukovanih medijskih tokova"
 
 #. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
 msgid "Maximum resolution for DRM videos"
-msgstr ""
+msgstr "Maksimalna rezolucija za DRM videozapise"
 
 # empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore screen resolution"
-msgstr ""
+msgstr "Negiraj rezoluciju ekrana"
 
 #. Description of setting with label #30115
 msgctxt "#30116"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
-msgstr ""
+msgstr "Ako je omogućeno, rezolucija ekrana (ili veličina prozora u režimu s prozorom) više se neće uzimati u obzir prilikom odabira najbolje rezolucije video toka kada se video pokrene i tokom reprodukcije."
 
 msgctxt "#30117"
 msgid "Manual stream selection mode"
-msgstr ""
+msgstr "Ručni način odabira toka"
 
 #. Description of setting with label #30117
 msgctxt "#30118"
 msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
-msgstr ""
+msgstr "Definira koje vrste tokova treba učiniti dostupnim za ručni odabir u postavkama Kodi OSD-a tokom reprodukcije."
 
 #. Category title
 msgctxt "#30120"
 msgid "Expert"
-msgstr ""
+msgstr "Stručno"
 
 # empty string with id 30121
 msgctxt "#30122"
 msgid "Disable secure decoder"
-msgstr ""
+msgstr "Onemogući sigurni dekoder"
 
 #. Description of setting with label #30122
 msgctxt "#30123"
 msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it. This setting may be overridden by the video add-on used."
-msgstr ""
+msgstr "Neki Android uređaji definirani kao Widevine L1 možda neće ispravno raditi, što može rezultirati crnim ekranom tokom reprodukcije. U tom slučaju pokušajte ga omogućiti. Ovu postavku može poništiti korišteni video dodatak."
 
 # empty strings from id 30124 to 30155
 #. Item list value of setting with label #30117
 msgctxt "#30156"
 msgid "Audio / Video streams"
-msgstr ""
+msgstr "Audio / Video tokovi"
 
 #. Item list value of setting with label #30112
 msgctxt "#30157"
 msgid "All"
-msgstr ""
+msgstr "Sve"
 
 #. Item list value of setting with label #30112
 msgctxt "#30158"
 msgid "Audio"
-msgstr ""
+msgstr "Audio"
 
 #. Item list value of setting with label #30112
 msgctxt "#30159"
 msgid "Video"
-msgstr ""
+msgstr "Video"
 
 #. Item list value of setting with label #30117
 msgctxt "#30160"
 msgid "Video streams"
-msgstr ""
+msgstr "Video tokovi"
 
 #. Item list value of setting with label #30112
 msgctxt "#30161"
 msgid "Video / Subtitles"
-msgstr ""
+msgstr "Video / Titlovi"
 
 #. Category group title
 msgctxt "#30162"
 msgid "Adaptive stream"
-msgstr ""
+msgstr "Adaptivni tok"
 
 # empty strings from id 30163 to 30165
 #. Category group title
 msgctxt "#30166"
 msgid "DRM Widevine"
-msgstr ""
+msgstr "DRM Widevine"
 
 msgctxt "#30167"
 msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
-msgstr ""
+msgstr "UPOZORENJE: Ovo je TESTNA funkcija, možda neće ispravno raditi i može se promijeniti u budućim verzijama."
 
 msgctxt "#30168"
 msgid "Auto determines initial bandwidth"
-msgstr ""
+msgstr "Automatski određuje početni propusni opseg"
 
 #. Description of setting with label #30168
 msgctxt "#30169"
 msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
-msgstr ""
+msgstr "Ako je omogućeno, propusnost će biti određena prvim preuzimanjem, međutim, možda neće biti tačna. Ako je kvalitet videa na početku reprodukcije prenizak, pokušajte ga onemogućiti."
 
 msgctxt "#30170"
 msgid "Initial bandwidth (Kbps)"
-msgstr ""
+msgstr "Početni propusni opseg (Kbps)"
 
 #. Description of setting with label #30170
 msgctxt "#30171"
 msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
-msgstr ""
+msgstr "Definira početnu propusnost kada se ne može automatski odrediti. Ovu vrijednost može nadjačati postavka minimalne propusnosti."
 
 msgctxt "#30172"
 msgid "Resolution limit"
-msgstr ""
+msgstr "Ograničenje rezolucije"
 
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "If set, based on the capabilities of the video stream an attempt will be made to limit the range of resolutions to the one chosen."
-msgstr ""
+msgstr "Ako je postavljeno, na osnovu mogućnosti video toka, pokušat će se ograničiti raspon rezolucija na odabranu."
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
 msgid "Stream selection type"
-msgstr ""
+msgstr "Vrsta odabira toka"
 
 #. Description of setting with label #30174
 msgctxt "#30175"
 msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
-msgstr ""
+msgstr "Postavite kako će se birati kvalitet audio/video tokova tokom reprodukcije. Ovu postavku može poništiti korišteni video dodatak. Za više informacija pogledajte Wiki."
 
 #. Item list value of setting with label #30174
 msgctxt "#30176"
 msgid "Adaptive (default)"
-msgstr ""
+msgstr "Adaptivno (zadano)"
 
 #. Item list value of setting with label #30174
 msgctxt "#30177"
 msgid "Manual OSD"
-msgstr ""
+msgstr "Ručni OSD"
 
 #. Item list value of setting with label #30174
 msgctxt "#30178"
 msgid "Fixed resolution"
-msgstr ""
+msgstr "Fiksna rezolucija"
 
 #. Item list value of setting with label #30174
 msgctxt "#30179"
 msgid "Ask quality"
-msgstr ""
+msgstr "Pitajte za kvalitet"
 
 #. Item list value of setting with label #30174
 msgctxt "#30180"
 msgid "Test"
-msgstr ""
+msgstr "Test"
 
 # empty strings reserved for "stream selection types" from id 30181 to 30190
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
 msgid "Assured buffer duration (sec)"
-msgstr ""
+msgstr "Zagarantovano trajanje bafera (sek)"
 
 #. Max buffer length duration (seconds)
 msgctxt "#30201"
 msgid "Maximum buffer duration (sec)"
-msgstr ""
+msgstr "Maksimalno trajanje baferovanja (sekunde)"
 
 #. Ignore screen resolution change e.g. window resize
 msgctxt "#30202"
 msgid "Ignore screen resolution change"
-msgstr ""
+msgstr "Negiraj promjenu rezolucije ekrana"
 
 #. Description of setting with label #30202
 msgctxt "#30203"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
-msgstr ""
+msgstr "Ako je omogućeno, rezolucija ekrana (ili veličina prozora u režimu s prozorom) više se neće uzimati u obzir prilikom odabira najbolje rezolucije video toka tokom reprodukcije."
 
 #. Absolute path to the folder containing the DRM binary files
 msgctxt "#30204"
 msgid "Decrypter path"
-msgstr ""
+msgstr "Putanja dekriptora"
 
 # empty strings from id 30205 to 30208
 #. Item list value of setting with label #30172
 msgctxt "#30209"
 msgid "Disabled"
-msgstr ""
+msgstr "Onemogućeno"
 
 # empty strings from id 30205 to 30209
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30210"
 msgid "Auto"
-msgstr ""
+msgstr "Auto"
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30211"
 msgid "480p"
-msgstr ""
+msgstr "480p"
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30212"
 msgid "640p"
-msgstr ""
+msgstr "640p"
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30213"
 msgid "720p"
-msgstr ""
+msgstr "720p"
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30214"
 msgid "1080p"
-msgstr ""
+msgstr "1080p"
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30215"
 msgid "2K"
-msgstr ""
+msgstr "2K"
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30216"
 msgid "1440p"
-msgstr ""
+msgstr "1440p"
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30217"
 msgid "4K"
-msgstr ""
+msgstr "4K"
 
 # empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
 #. Dialog window to select the video stream
 msgctxt "#30231"
 msgid "Select video stream"
-msgstr ""
+msgstr "Odaberite video tok"
 
 #. Description of each list item in #30231 dialog window
 #. Do not translate placeholders: {codec} {quality} {hdr-type}
 #. Use of double graphes e.g. {whatyouwant{hdr-type}whatyouwant} allows you to add additional text printed only when a value is present
 msgctxt "#30232"
 msgid "Video stream {codec}{ [{hdr-type}]} {quality}"
-msgstr ""
+msgstr "Video tok {codec}{ [{hdr-type}]} {quality}"
 
 #. Enum setting to set the test mode
 msgctxt "#30233"
 msgid "Test mode"
-msgstr ""
+msgstr "Testni način rada"
 
 #. Item list value of setting with label #30233
 msgctxt "#30234"
 msgid "Switch by segments"
-msgstr ""
+msgstr "Prebacivanje po segmentima"
 
 #. Stand for stream segments, referred to setting with label #30234
 msgctxt "#30235"
 msgid "Segments"
-msgstr ""
+msgstr "Segmenti"
 
 #. Category group title
 msgctxt "#30236"
 msgid "Override settings"
-msgstr ""
+msgstr "Poništi postavke"
 
 #. Category group title for debug settings
 msgctxt "#30237"
 msgid "Debug logging"
-msgstr ""
+msgstr "Zapisivanje grešaka u zapisniku"
 
 #. Debug setting to save stream manifests
 msgctxt "#30238"
 msgid "Save stream manifests"
-msgstr ""
+msgstr "Sačuvaj manifeste toka"
 
 #. Description of setting with label #30238
 msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
-msgstr ""
+msgstr "Sprema manifeste toka preuzete tokom reprodukcije u mapu korisničkih podataka InputStream Adaptive-a."
 
 #. Debug setting to save license data
 msgctxt "#30240"
 msgid "Save license data"
-msgstr ""
+msgstr "Sačuvaj podatke o licenci"
 
 #. Description of setting with label #30240
 msgctxt "#30241"
 msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
-msgstr ""
+msgstr "Sprema podatke o licenci, na primjer: početne podatke, podatke o izazovu i podatke o odgovoru, u mapu \"cdm\" u mapi Kodi podataka."
 
 #. Setting to enable verbose debug
 msgctxt "#30242"
 msgid "Enable verbose debug"
-msgstr ""
+msgstr "Omogući detaljno otklanjanje grešaka"
 
 #. Description of setting with label #30242
 msgctxt "#30243"
 msgid "Verbose debugging can be useful for debugging components, but in some cases it may expose sensitive information in the log."
-msgstr ""
+msgstr "Detaljno otklanjanje grešaka može biti korisno za otklanjanje grešaka komponenti, ali u nekim slučajevima može otkriti osjetljive informacije u dnevniku."
 
 # empty strings reserved for settings from id 30244 to 30299
 #. A GUI window title, "InputStream Adaptive" its the add-on name, not to be translated
 msgctxt "#30300"
 msgid "InputStream Adaptive error"
-msgstr ""
+msgstr "Greška adaptivnog InputStream-a"
 
 #. A GUI message that is displayed when there is a problem playing a stream
 #. Do not translate placeholders: {error-details}
 #. Use of double graphes e.g. {whatyouwant{error-details}whatyouwant} allows you to add additional text printed only when a value is present
 msgctxt "#30301"
 msgid "Unable to play the stream.{[CR]Error: {error-details}}"
-msgstr ""
+msgstr "Nije moguće reproducirati tok. {[CR]Greška: {error-details}}"
 
 msgctxt "#30302"
 msgid "The decryptor path is not set in the add-on settings."
-msgstr ""
+msgstr "Putanja dekriptora nije postavljena u postavkama dodatka."
 
 msgctxt "#30303"
 msgid "A problem occurred with the DRM decryptor."
-msgstr ""
+msgstr "Došlo je do problema s DRM dekriptorom."
 
 msgctxt "#30304"
 msgid "Cannot load Widevine CDM library."
-msgstr ""
+msgstr "Nije moguće učitati Widevine CDM biblioteku."
 
 msgctxt "#30305"
 msgid "Cannot initialize Widevine CDM library."
-msgstr ""
+msgstr "Nije moguće inicijalizirati Widevine CDM biblioteku."
 
 msgctxt "#30306"
 msgid "The configuration to play the stream is incomplete or missing."
-msgstr ""
+msgstr "Konfiguracija za reprodukciju toka je nepotpuna ili nedostaje."
 
 msgctxt "#30307"
 msgid "Cannot download the stream manifest file."
-msgstr ""
+msgstr "Nije moguće preuzeti datoteku manifesta toka."
 
 msgctxt "#30308"
 msgid "A problem occurred in the stream initialization."
-msgstr ""
+msgstr "Došlo je do problema prilikom inicijalizacije toka."
 
 msgctxt "#30309"
 msgid "No audio/video stream can be played."
-msgstr ""
+msgstr "Nije moguće reprodukovati audio/video tok."

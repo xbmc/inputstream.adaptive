@@ -4,287 +4,286 @@
 # Addon Provider: peak3d
 msgid ""
 msgstr ""
-"Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2025-09-06 11:09+0000\n"
-"Last-Translator: rimasx <riks_12@hot.ee>\n"
-"Language-Team: Estonian <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/et_ee/>\n"
-"Language: et_ee\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: te_in\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.13.1\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
-msgstr "InputStream klient kohanduvate voogude jaoks"
+msgstr ""
 
 msgctxt "Addon Description"
 msgid "InputStream client for adaptive streams. Common streaming protocols such as MPEG-DASH, HLS and Microsoft Smooth Streaming are supported.[CR][CR]The add-on also has support for DRM protected streams, such as Google Widevine, Microsoft PlayReady and others.[CR][CR]For documentation visit: https://github.com/xbmc/inputstream.adaptive"
-msgstr "InputStream klient adaptiivsete voogude jaoks. Toetatakse levinud voogedastusprotokolle, nagu MPEG-DASH, HLS ja Microsoft Smooth Streaming.[CR][CR]Lisamoodul toetab ka DRM-iga kaitstud vooge, nagu Google Widevine, Microsoft PlayReady ja teised.[CR][CR]Dokumentatsiooni saamiseks külasta aadressi https://github.com/xbmc/inputstream.adaptive"
+msgstr ""
 
 #. Category title
 msgctxt "#30100"
 msgid "General"
-msgstr "Üldseaded"
+msgstr ""
 
 #. The minimum bandwidth which should not be deceeded
 msgctxt "#30101"
 msgid "Minimum bandwidth (Kbps)"
-msgstr "Minimaalne ribalaius (Kbps)"
+msgstr ""
 
 #. The maximum bandwidth which should not be exceeded
 msgctxt "#30102"
 msgid "Maximum bandwidth (Kbps)"
-msgstr "Maksimaalne ribalaius (Kbps)"
+msgstr ""
 
 #. Description of setting with label #30101, 30102
 msgctxt "#30103"
 msgid "Establishes the bandwidth limit not to be exceeded with the audio / video streams. Set to 0 to disable it."
-msgstr "Kehtestab ribalaiuse piirangu, mida heli-/videovoogudega ei tohi ületada. Selle keelamiseks sea väärtuseks 0."
+msgstr ""
 
-# empty strings from id 30104 to 30109
+#empty strings from id 30104 to 30109
 #. Maximum video resolution non-protected videos
 msgctxt "#30110"
 msgid "Maximum resolution"
-msgstr "Maksimaalne eraldusvõime"
+msgstr ""
 
-# empty string with id 30111
+#empty string with id 30111
 #. Type of media streams that will be handled for the playback
 msgctxt "#30112"
 msgid "Type of media streams played"
-msgstr "Esitatud meediavoogude tüüp"
+msgstr ""
 
 #. Maximum video resolution for DRM-protected videos
 msgctxt "#30113"
 msgid "Maximum resolution for DRM videos"
-msgstr "Maksimaalne eraldusvõime DRM-videote jaoks"
+msgstr ""
 
-# empty string with id 30114
+#empty string with id 30114
 # Do not respect display resolution when selecting streams
 msgctxt "#30115"
 msgid "Ignore screen resolution"
-msgstr "Ignoreeri ekraani eraldusvõimet"
+msgstr ""
 
 #. Description of setting with label #30115
 msgctxt "#30116"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution when video starts and while in playback."
-msgstr "Kui lubatud, ei võeta video käivitamisel ja taasesituse ajal enam arvesse ekraani eraldusvõimet (või akna suurust aknarežiimis) parima videovoo eraldusvõime valimisel."
+msgstr ""
 
 msgctxt "#30117"
 msgid "Manual stream selection mode"
-msgstr "Voo käsitsi valimise režiim"
+msgstr ""
 
 #. Description of setting with label #30117
 msgctxt "#30118"
 msgid "Defines which type of streams to make available for manual selection on Kodi OSD settings during playback."
-msgstr "Määrab, millist tüüpi voogusid teha Kodi OSD seadetes käsitsi valitavaks taasesituse ajal."
+msgstr ""
 
+#empty string with id 30119
 #. Category title
 msgctxt "#30120"
 msgid "Expert"
-msgstr "Ekspert"
+msgstr ""
 
-# empty string with id 30121
+#empty string with id 30121
 msgctxt "#30122"
 msgid "Disable secure decoder"
-msgstr "Keela turvaline dekooder"
+msgstr ""
 
 #. Description of setting with label #30122
 msgctxt "#30123"
 msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it. This setting may be overridden by the video add-on used."
-msgstr "Mõned Android seadmed, mis on määratletud kui Widevine L1, ei pruugi korralikult töötada. See võib taasesituse ajal põhjustada musta ekraani. Sel juhul proovi see lubada. Kasutatav video lisamoodul võib selle sätte tühistada."
+msgstr ""
 
-# empty strings from id 30124 to 30155
+#empty strings from id 30124 to 30155
 #. Item list value of setting with label #30117
 msgctxt "#30156"
 msgid "Audio / Video streams"
-msgstr "Heli-/videovood"
+msgstr ""
 
 #. Item list value of setting with label #30112
 msgctxt "#30157"
 msgid "All"
-msgstr "Kõik"
+msgstr ""
 
 #. Item list value of setting with label #30112
 msgctxt "#30158"
 msgid "Audio"
-msgstr "Heli"
+msgstr ""
 
 #. Item list value of setting with label #30112
 msgctxt "#30159"
 msgid "Video"
-msgstr "Video"
+msgstr ""
 
 #. Item list value of setting with label #30117
 msgctxt "#30160"
 msgid "Video streams"
-msgstr "Videovood"
+msgstr ""
 
 #. Item list value of setting with label #30112
 msgctxt "#30161"
 msgid "Video / Subtitles"
-msgstr "Video / Subtiitrid"
+msgstr ""
 
 #. Category group title
 msgctxt "#30162"
 msgid "Adaptive stream"
-msgstr "Kohanduv voog"
+msgstr ""
 
-# empty strings from id 30163 to 30165
+#empty strings from id 30163 to 30165
 #. Category group title
 msgctxt "#30166"
 msgid "DRM Widevine"
-msgstr "DRM Widevine"
+msgstr ""
 
 msgctxt "#30167"
 msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
-msgstr "HOIATUS: See on KATSELINE funktsioon, mis ei pruugi korralikult töötada ja võib tulevastes versioonides muutuda."
+msgstr ""
 
 msgctxt "#30168"
 msgid "Auto determines initial bandwidth"
-msgstr "Automaatne määrab esialgse ribalaiuse"
+msgstr ""
 
 #. Description of setting with label #30168
 msgctxt "#30169"
 msgid "If enabled, the bandwidth will be determined by the first download, however it may not be accurate. If the video quality at the start of playback is too low try disabling it."
-msgstr "Kui lubatud, määratakse ribalaius esimesel allalaadimisel, kuid see ei pruugi olla täpne. Kui video kvaliteet on taasesituse alguses liiga madal, proovi see valik keelata."
+msgstr ""
 
 msgctxt "#30170"
 msgid "Initial bandwidth (Kbps)"
-msgstr "Esialgne ribalaius (Kbps)"
+msgstr ""
 
 #. Description of setting with label #30170
 msgctxt "#30171"
 msgid "Defines the initial bandwidth when it cannot be automatically determined. This value can be overridden by the minimum bandwidth setting."
-msgstr "Määrab esialgse ribalaiuse, kui seda ei saa automaatselt määrata. Selle väärtuse saab alistada minimaalse ribalaiuse sättega."
+msgstr ""
 
 msgctxt "#30172"
 msgid "Resolution limit"
-msgstr "Eraldusvõime piir"
+msgstr ""
 
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "If set, based on the capabilities of the video stream an attempt will be made to limit the range of resolutions to the one chosen."
-msgstr "Kui lubatud, proovitakse videovoo võimalustest lähtuvalt piirata eraldusvõime vahemikku valitud eraldusvõimega."
+msgstr ""
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
 msgid "Stream selection type"
-msgstr "Voo valiku tüüp"
+msgstr ""
 
 #. Description of setting with label #30174
 msgctxt "#30175"
 msgid "Set how the audio / video streams quality will be chosen during playback. This setting may be overridden by the video add-on used. See Wiki for more information."
-msgstr "Määra, kuidas taasesituse ajal valitakse heli-/videovoo kvaliteet. Kasutatav video lisamoodul võib selle sätte tühistada. Lisateavet leiab Wikist."
+msgstr ""
 
 #. Item list value of setting with label #30174
 msgctxt "#30176"
 msgid "Adaptive (default)"
-msgstr "Kohanduv (vaikimisi)"
+msgstr ""
 
 #. Item list value of setting with label #30174
 msgctxt "#30177"
 msgid "Manual OSD"
-msgstr "Käsitsi ekraanil"
+msgstr ""
 
 #. Item list value of setting with label #30174
 msgctxt "#30178"
 msgid "Fixed resolution"
-msgstr "Fikseeritud eraldusvõime"
+msgstr ""
 
 #. Item list value of setting with label #30174
 msgctxt "#30179"
 msgid "Ask quality"
-msgstr "Küsi kvaliteeti"
+msgstr ""
 
 #. Item list value of setting with label #30174
 msgctxt "#30180"
 msgid "Test"
-msgstr "Proovi"
+msgstr ""
 
-# empty strings reserved for "stream selection types" from id 30181 to 30190
+#empty strings reserved for "stream selection types" from id 30181 to 30190
 #. Assured buffer length duration (seconds)
 msgctxt "#30200"
 msgid "Assured buffer duration (sec)"
-msgstr "Tagatud puhvri kestus (s)"
+msgstr ""
 
 #. Max buffer length duration (seconds)
 msgctxt "#30201"
 msgid "Maximum buffer duration (sec)"
-msgstr "Puhvri maksimaalne kestus (s)"
+msgstr ""
 
 #. Ignore screen resolution change e.g. window resize
 msgctxt "#30202"
 msgid "Ignore screen resolution change"
-msgstr "Eira ekraanilahutuse muutust"
+msgstr ""
 
 #. Description of setting with label #30202
 msgctxt "#30203"
 msgid "If enabled, the screen resolution (or window size when in windowed mode) will no longer be considered when selecting the best video stream resolution while in playback."
-msgstr "Kui lubatud, ei võeta taasesituse ajal parima videovoo eraldusvõime valimisel enam arvesse ekraani eraldusvõimet (või akna suurust aknarežiimis)."
+msgstr ""
 
 #. Absolute path to the folder containing the DRM binary files
 msgctxt "#30204"
 msgid "Decrypter path"
-msgstr "Dekrüptija asukoht"
+msgstr ""
 
-# empty strings from id 30205 to 30208
+#empty strings from id 30205 to 30208
 #. Item list value of setting with label #30172
 msgctxt "#30209"
 msgid "Disabled"
-msgstr "Keelatud"
+msgstr ""
 
-# empty strings from id 30205 to 30209
 #. Item list value of setting with label #30110, #30113
 msgctxt "#30210"
 msgid "Auto"
-msgstr "Automaatne"
+msgstr ""
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30211"
 msgid "480p"
-msgstr "480p"
+msgstr ""
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30212"
 msgid "640p"
-msgstr "640p"
+msgstr ""
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30213"
 msgid "720p"
-msgstr "720p"
+msgstr ""
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30214"
 msgid "1080p"
-msgstr "1080p"
+msgstr ""
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30215"
 msgid "2K"
-msgstr "2K"
+msgstr ""
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30216"
 msgid "1440p"
-msgstr "1440p"
+msgstr ""
 
 #. Item list value of setting with label #30110, #30113, #30172
 msgctxt "#30217"
 msgid "4K"
-msgstr "4K"
+msgstr ""
 
-# empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
+#empty strings reserved for resolution values of id #30110, #30113, from id 30217 to 30230
 #. Dialog window to select the video stream
+#: src/common/RepresentationChooserAskQuality.cpp
 msgctxt "#30231"
 msgid "Select video stream"
-msgstr "Vali videovoog"
+msgstr ""
 
 #. Description of each list item in #30231 dialog window
 #. Do not translate placeholders: {codec} {quality} {hdr-type}
 #. Use of double graphes e.g. {whatyouwant{hdr-type}whatyouwant} allows you to add additional text printed only when a value is present
+#: src/common/RepresentationChooserAskQuality.cpp
 msgctxt "#30232"
 msgid "Video stream {codec}{ [{hdr-type}]} {quality}"
 msgstr ""
@@ -292,59 +291,59 @@ msgstr ""
 #. Enum setting to set the test mode
 msgctxt "#30233"
 msgid "Test mode"
-msgstr "Katserežiim"
+msgstr ""
 
 #. Item list value of setting with label #30233
 msgctxt "#30234"
 msgid "Switch by segments"
-msgstr "Lülitu segmentide kaupa"
+msgstr ""
 
 #. Stand for stream segments, referred to setting with label #30234
 msgctxt "#30235"
 msgid "Segments"
-msgstr "Segmendid"
+msgstr ""
 
 #. Category group title
 msgctxt "#30236"
 msgid "Override settings"
-msgstr "Alista seaded"
+msgstr ""
 
 #. Category group title for debug settings
 msgctxt "#30237"
 msgid "Debug logging"
-msgstr "Silumise logimine"
+msgstr ""
 
 #. Debug setting to save stream manifests
 msgctxt "#30238"
 msgid "Save stream manifests"
-msgstr "Salvesta voomanifestid"
+msgstr ""
 
 #. Description of setting with label #30238
 msgctxt "#30239"
 msgid "Saves stream manifests downloaded during playback in the user data folder of InputStream Adaptive."
-msgstr "Salvestab taasesituse ajal allalaaditud voomanifestid rakenduse InputStream Adaptive kasutajaandmete kausta."
+msgstr ""
 
 #. Debug setting to save license data
 msgctxt "#30240"
 msgid "Save license data"
-msgstr "Salvesta litsentsiandmed"
+msgstr ""
 
 #. Description of setting with label #30240
 msgctxt "#30241"
 msgid "Saves the license data for example: initial data, challenge data and response data, in the \"cdm\" folder of the Kodi data folder."
-msgstr "Salvestab litsentsiandmed näiteks: algandmed, väljakutse ja vastuse andmed Kodi kausta data/cdm."
+msgstr ""
 
 #. Setting to enable verbose debug
 msgctxt "#30242"
 msgid "Enable verbose debug"
-msgstr "Luba üksikasjalik silumine"
+msgstr ""
 
 #. Description of setting with label #30242
 msgctxt "#30243"
 msgid "Verbose debugging can be useful for debugging components, but in some cases it may expose sensitive information in the log."
-msgstr "Üksikasjalik silumine võib olla kasulik komponentide silumiseks, kuid mõnel juhul võib see paljastada logis tundlikku teavet."
+msgstr ""
 
-# empty strings reserved for settings from id 30244 to 30299
+#empty strings reserved for settings from id 30244 to 30299
 #. A GUI window title, "InputStream Adaptive" its the add-on name, not to be translated
 msgctxt "#30300"
 msgid "InputStream Adaptive error"
@@ -355,7 +354,7 @@ msgstr ""
 #. Use of double graphes e.g. {whatyouwant{error-details}whatyouwant} allows you to add additional text printed only when a value is present
 msgctxt "#30301"
 msgid "Unable to play the stream.{[CR]Error: {error-details}}"
-msgstr "Voogu ei õnnestunud esitada.{[CR]Viga: {error-details}}"
+msgstr ""
 
 msgctxt "#30302"
 msgid "The decryptor path is not set in the add-on settings."
@@ -375,7 +374,7 @@ msgstr ""
 
 msgctxt "#30306"
 msgid "The configuration to play the stream is incomplete or missing."
-msgstr "Voo esitamise seadistus on puudulik või puudub."
+msgstr ""
 
 msgctxt "#30307"
 msgid "Cannot download the stream manifest file."
@@ -387,25 +386,4 @@ msgstr ""
 
 msgctxt "#30309"
 msgid "No audio/video stream can be played."
-msgstr "Heli-/videovoogu ei saa esitada."
-
-#~ msgctxt "#30232"
-#~ msgid "Video stream {codec} {quality}"
-#~ msgstr "Videovoog {codec} {quality}"
-
-# empty string with id 30121
-#~ msgctxt "#30122"
-#~ msgid "Try avoiding the use of secure decoder"
-#~ msgstr "Püüa vältida turvalise dekoodri kasutamist"
-
-#~ msgctxt "#30123"
-#~ msgid "Some Android devices defined as Widevine L1, may not work properly, which may result in a black screen during playback. In this case try to enable it."
-#~ msgstr "Mõned Widevine L1 määratlusega Android seadmed ei pruugi korralikult töötada, mis võib taasesituse ajal põhjustada musta ekraani. Sel juhul proovi see lubada."
-
-#~ msgctxt "#30172"
-#~ msgid "Ignore HDCP status"
-#~ msgstr "Eira HDCP olekut"
-
-#~ msgctxt "#30173"
-#~ msgid "Some DRM-protected HD / UHD videos may only be played if the HDCP status is ignored."
-#~ msgstr "Mõnda DRM kaitsega HD/UHD videot saab esitada ainult siis, kui HDCP olekut eiratakse."
+msgstr ""

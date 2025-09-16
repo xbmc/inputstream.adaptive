@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: translations@kodi.tv\n"
-"PO-Revision-Date: 2025-04-12 12:25+0000\n"
+"PO-Revision-Date: 2025-08-13 12:29+0000\n"
 "Last-Translator: Havok Dan <havokdan@yahoo.com.br>\n"
 "Language-Team: Portuguese (Brazil) <https://kodi.weblate.cloud/projects/kodi-add-ons-videoplayer-inputstream/inputstream-adaptive/pt_br/>\n"
 "Language: pt_br\n"
@@ -13,7 +13,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.10.4\n"
+"X-Generator: Weblate 5.12.2\n"
 
 msgctxt "Addon Summary"
 msgid "InputStream client for adaptive streams"
@@ -161,12 +161,12 @@ msgstr "Define a largura de banda inicial quando ela não pode ser determinada a
 
 msgctxt "#30172"
 msgid "Resolution limit"
-msgstr ""
+msgstr "Limite da resolução"
 
 #. Description of setting with label #30172
 msgctxt "#30173"
 msgid "If set, based on the capabilities of the video stream an attempt will be made to limit the range of resolutions to the one chosen."
-msgstr ""
+msgstr "se definido, com base nos recursos do fluxo de vídeo, será feita uma tentativa de limitar o intervalo de resoluções ao escolhido."
 
 #. To set the stream selection type (refer to RepresentationChooser's)
 msgctxt "#30174"
@@ -233,7 +233,7 @@ msgstr "Caminho do decodificador"
 #. Item list value of setting with label #30172
 msgctxt "#30209"
 msgid "Disabled"
-msgstr ""
+msgstr "Desabilitado"
 
 # empty strings from id 30205 to 30209
 #. Item list value of setting with label #30110, #30113
@@ -287,7 +287,7 @@ msgstr "Selecionar faixa de vídeo"
 #. Use of double graphes e.g. {whatyouwant{hdr-type}whatyouwant} allows you to add additional text printed only when a value is present
 msgctxt "#30232"
 msgid "Video stream {codec}{ [{hdr-type}]} {quality}"
-msgstr ""
+msgstr "Fluxo de vídeo {codec}{ [{hdr-type}]} {quality}"
 
 #. Enum setting to set the test mode
 msgctxt "#30233"
@@ -337,12 +337,12 @@ msgstr "Salva os dados da licença, por exemplo: dados iniciais, dados de desafi
 #. Setting to enable verbose debug
 msgctxt "#30242"
 msgid "Enable verbose debug"
-msgstr ""
+msgstr "Habilitar depuração detalhada"
 
 #. Description of setting with label #30242
 msgctxt "#30243"
 msgid "Verbose debugging can be useful for debugging components, but in some cases it may expose sensitive information in the log."
-msgstr ""
+msgstr "A depuração detalhada pode ser útil para depurar componentes, mas, em alguns casos, pode expor informações confidenciais no log."
 
 # empty strings reserved for settings from id 30244 to 30299
 #. A GUI window title, "InputStream Adaptive" its the add-on name, not to be translated
