@@ -662,7 +662,7 @@ void DRM::CDRMEngine::ExtractStreamProtectionData(PLAYLIST::CRepresentation* rep
   SESSION::CStream stream{
       const_cast<adaptive::AdaptiveTree*>(&CSrvBroker::GetResources().GetTree()), adp, repr};
 
-  stream.m_isEnabled = true;
+  stream.SetIsEnabled(true);
   stream.m_adStream.start_stream();
   stream.SetAdByteStream(std::make_unique<CAdaptiveByteStream>(&stream.m_adStream));
   stream.SetStreamFile(std::make_unique<AP4_File>(*stream.GetAdByteStream(),

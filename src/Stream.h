@@ -25,11 +25,23 @@ public:
   CStream(adaptive::AdaptiveTree* tree,
           PLAYLIST::CAdaptationSet* adp,
           PLAYLIST::CRepresentation* initialRepr)
-    : m_isEnabled{false}, m_adStream{tree, adp, initialRepr}, m_isValid{true}
+    : m_adStream{tree, adp, initialRepr}, m_isValid{true}
   {
   }
 
   ~CStream() { Disable(); }
+
+  /*!
+   * \brief Determines whether the stream is enabled for playback
+   * \return True if the stream is enabled, otherwise false
+   */
+  bool IsEnabled() const { return m_isEnabled; }
+
+  /*!
+   * \brief Set if the stream is enabled for playback
+   * \param isEnabled Set to true to enable the stream
+   */
+  void SetIsEnabled(bool isEnabled) { m_isEnabled = isEnabled; };
 
   /*!
    * \brief Stop/disable the AdaptiveStream and reset
@@ -80,13 +92,13 @@ public:
     m_adByteStream = std::move(adByteStream);
   }
 
-  bool m_isEnabled;
   std::optional<unsigned int> m_mainStreamIndex; // Used when this stream is "included" to video (main stream)
   adaptive::AdaptiveStream m_adStream;
   kodi::addon::InputstreamInfo m_info;
   bool m_isValid;
 
 private:
+  bool m_isEnabled{false};
   std::unique_ptr<ISampleReader> m_streamReader;
   std::unique_ptr<CAdaptiveByteStream> m_adByteStream;
   std::unique_ptr<AP4_File> m_streamFile;

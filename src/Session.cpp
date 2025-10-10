@@ -713,7 +713,7 @@ void CSession::EnableStream(CStream* stream, bool enable)
     if (!m_timingStream || stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       m_timingStream = stream;
 
-    stream->m_isEnabled = true;
+    stream->SetIsEnabled(true);
   }
   else
   {
@@ -821,7 +821,7 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     if (!streamReader)
       continue;
 
-    if (stream->m_isEnabled)
+    if (stream->IsEnabled())
     {
       // Advice is that VP does not want to wait longer than 10ms for a return from
       // DemuxRead() - here we ask to not wait at all and if ReadSample has not yet
@@ -914,7 +914,7 @@ bool SESSION::CSession::SeekTime(double seekTime, unsigned int streamId, bool pr
     uint64_t maxTime{0};
     for (auto& stream : m_streams)
     {
-      if (stream->m_isEnabled && (curTime = stream->m_adStream.getMaxTimeMs()) && curTime > maxTime)
+      if (stream->IsEnabled() && (curTime = stream->m_adStream.getMaxTimeMs()) && curTime > maxTime)
       {
         maxTime = curTime;
       }
@@ -961,7 +961,7 @@ bool SESSION::CSession::SeekTime(double seekTime, unsigned int streamId, bool pr
       continue;
 
     streamReader->WaitReadSampleAsyncComplete();
-    if (stream->m_isEnabled && (streamId == 0 || stream->m_info.GetPhysicalIndex() == streamId))
+    if (stream->IsEnabled() && (streamId == 0 || stream->m_info.GetPhysicalIndex() == streamId))
     {
       bool reset{true};
       // all streams must be started before seeking to ensure cross chapter seeks
@@ -1043,7 +1043,7 @@ void SESSION::CSession::OnStreamChange(adaptive::AdaptiveStream* adStream)
 {
   for (auto& stream : m_streams)
   {
-    if (stream->m_isEnabled && &stream->m_adStream == adStream)
+    if (stream->IsEnabled() && &stream->m_adStream == adStream)
     {
       UpdateStream(*stream);
       m_changed = true;

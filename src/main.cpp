@@ -172,7 +172,7 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
 
   CStream* stream{m_session->GetStream(m_session->GetStreamIndexFromId(streamid))};
 
-  if (!enable && stream && stream->m_isEnabled)
+  if (!enable && stream && stream->IsEnabled())
   {
     UnlinkIncludedStreams(stream);
     m_session->EnableStream(stream, false);
@@ -226,7 +226,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     }
   }
 
-  stream->m_isEnabled = true;
+  stream->SetIsEnabled(true);
 
   CRepresentation* rep = stream->m_adStream.getRepresentation();
 
@@ -239,7 +239,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
 
     while ((mainStream = m_session->GetStream(mainStreamIndex++)))
     {
-      if (mainStream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO && mainStream->m_isEnabled)
+      if (mainStream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO && mainStream->IsEnabled())
         break;
     }
 
