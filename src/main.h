@@ -65,6 +65,9 @@ private:
   std::atomic<uint64_t> m_lastPts{PLAYLIST::NO_PTS_VALUE};
 
   void UnlinkIncludedStreams(SESSION::CStream* stream);
+
+  bool m_checkCoreReopen{false}; // Check if Kodi core will reopen all streams
+  std::map<int, size_t> m_streamOpenCount; // Count how many times a stream has been opened (Stream ID - count)
 };
 
 /*******************************************************/

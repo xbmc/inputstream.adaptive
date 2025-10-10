@@ -70,6 +70,11 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
   if (!m_session)
     return false;
 
+  // You need to reset "stream open" count at each GetStreamIds callback
+  // because after this event all streams will be opened
+  m_streamOpenCount.clear();
+  m_checkCoreReopen = false;
+
   const unsigned int streamCount = m_session->GetStreamCount();
   if (streamCount > INPUTSTREAM_MAX_STREAM_COUNT)
   {
@@ -99,7 +104,9 @@ bool CInputStreamAdaptive::GetStreamIds(std::vector<unsigned int>& ids)
           continue;
       }
 
-      ids.emplace_back(m_session->GetStreamIdFromIndex(i));
+      const int id = m_session->GetStreamIdFromIndex(i);
+      ids.emplace_back(id);
+      m_streamOpenCount[id] = 0;
     }
   }
 
@@ -172,19 +179,26 @@ void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
   }
 }
 
-// If we change some Kodi stream property we must to return true
-// to allow Kodi demuxer to reset with our changes the stream properties.
+// OpenStream method notes:
+// - This method is called:
+//    - At playback start
+//    - At chapter/period change (DEMUX_SPECIALID_STREAMCHANGE)
+//    - At stream quality change (DEMUX_SPECIALID_STREAMCHANGE) by "adaptive" streaming or from Kodi OSD
+// - The "streamid" requested can be influenced from preferences set in Kodi settings (e.g. language).
+// - If the requested "streamid" fails to open on the Kodi core side (after OpenStream callback, e.g. for missing extradata)
+//   Kodi core will try to (fallback) open another video "streamid", this will happen recursively until success.
+// - The OpenStream method not only opens the stream, but also implicitly enables it
+//     so don't exists a EnableStream callback to explicitly enable the stream after the opening,
+//     EnableStream method is used by VP only to disable the stream
+//     which can happen immediately after opening (e.g. subtitles disabled on playback startup).
+// - If a stream info property has been changed, you need to return "true" on OpenStream
+//   to allow Kodi core to update its internal properties with our changes.
+// - If you return "true" (it doesn't matter for which stream)
+//   in any case will cause Kodi core to REOPEN ALL STREAMS TWICE TIMES,
+//   so OpenStream method will be called again for all streams.
 bool CInputStreamAdaptive::OpenStream(int streamid)
 {
   LOG::Log(LOGDEBUG, "OpenStream(%d)", streamid);
-  // This method can be called when:
-  // - Stream first start
-  // - Chapter/period change
-  // - Automatic stream (representation) quality change (such as adaptive)
-  // - Manual stream (representation) quality change (from OSD)
-  // streamid behaviour:
-  // - The streamid can be influenced by Kodi core based on preferences set in Kodi settings (e.g. language)
-  // - Fallback calls, e.g. if the opened video streamid fails, Kodi core will try to open another video streamid
 
   if (!m_session)
     return false;
@@ -194,15 +208,18 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   if (!stream)
     return false;
 
-  if (stream->m_isEnabled)
+  m_streamOpenCount[streamid]++;
+
+  if (stream->m_adStream.StreamChanged())
   {
-    if (stream->m_adStream.StreamChanged())
-    {
-      UnlinkIncludedStreams(stream);
-      stream->Reset();
-      stream->m_adStream.Reset();
-    }
-    else
+    UnlinkIncludedStreams(stream);
+    stream->Reset();
+    stream->m_adStream.Reset();
+  }
+  else
+  {
+    // Check to prevent Kodi core from attempting to open stream twice times (read OpenStream method note)
+    if (m_checkCoreReopen && m_streamOpenCount[streamid] == 2)
     {
       LOG::Log(LOGDEBUG, "OpenStream(%d): The stream has already been opened", streamid);
       return false;
@@ -210,12 +227,6 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   }
 
   stream->m_isEnabled = true;
-
-  //! @todo: for live with multiple periods (like HLS DISCONTINUITIES) for subtitle case
-  //! when the subtitle has been disabled from video start, and happens a period change,
-  //! kodi call OpenStream to the subtitle stream as if it were enabled, and disable it with EnableStream
-  //! just after it, this lead to log error "GenerateSidxSegments: [AS-x] Cannot generate segments from SIDX on repr..."
-  //! need to find a solution to avoid open the stream when previously disabled from previous period
 
   CRepresentation* rep = stream->m_adStream.getRepresentation();
 
@@ -288,6 +299,10 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
   // If stream use DRM always update stream info
   const bool isInfoChanged = stream->GetReader()->GetInformation(stream->m_info) ||
                              !stream->m_info.GetCryptoSession().GetSessionId().empty();
+
+  if (isInfoChanged)
+    m_checkCoreReopen = true;
+
   return isInfoChanged;
 }
 
