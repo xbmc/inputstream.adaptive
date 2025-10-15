@@ -1,3 +1,6 @@
+v22.3.0 (2025-10-15)
+- Kodi inputstream API update to version 3.4.0
+
 v22.2.9 (2025-09-29)
 - [HLS] Fix case of misdetection of impaired subtitles
 - Fix no picture on MP4 videos with mixed encrypted/unencrypted contents
