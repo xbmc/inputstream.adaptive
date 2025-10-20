@@ -55,11 +55,10 @@ bool CFragmentedSampleReader::Initialize(SESSION::CStream* stream)
   AP4_SampleDescription* desc{m_track->GetSampleDescription(0)};
   if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
   {
-    m_protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(desc);
+    auto protectedDesc = static_cast<AP4_ProtectedSampleDescription*>(desc);
 
     AP4_ContainerAtom* schi;
-    if (m_protectedDesc->GetSchemeInfo() &&
-        (schi = m_protectedDesc->GetSchemeInfo()->GetSchiAtom()))
+    if (protectedDesc->GetSchemeInfo() && (schi = protectedDesc->GetSchemeInfo()->GetSchiAtom()))
     {
       AP4_TencAtom* tenc(AP4_DYNAMIC_CAST(AP4_TencAtom, schi->GetChild(AP4_ATOM_TYPE_TENC, 0)));
       if (tenc && tenc->GetDefaultKid())
@@ -163,7 +162,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
 
     //Protection could have changed in ProcessMoof
     bool useDecryptingDecoder =
-        m_protectedDesc &&
+        m_singleSampleDecryptor &&
         (m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_SECURE_PATH) != 0;
     //bool decrypterPresent{m_decrypter != nullptr};
 
@@ -177,6 +176,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
       */
     if (m_decrypter)
     {
+      LOG::Log(LOGERROR, "READSAMPLE USE m_decrypter");
       m_sampleData.Reserve(sampleData.GetDataSize());
       if (AP4_FAILED(result = m_decrypter->DecryptSampleData(m_poolId, sampleData, m_sampleData,
                                                         NULL, streamType)))
@@ -199,12 +199,16 @@ AP4_Result CFragmentedSampleReader::ReadSample()
     }
     else if (useDecryptingDecoder)
     {
+      LOG::Log(LOGERROR, "READSAMPLE USE useDecryptingDecoder");
       m_sampleData.Reserve(sampleData.GetDataSize());
       m_singleSampleDecryptor->DecryptSampleData(m_poolId, sampleData, m_sampleData, nullptr, 0,
                                                  nullptr, nullptr, streamType);
     }
     else
+    {
+      LOG::Log(LOGERROR, "READSAMPLE USE nothing");
       m_sampleData.SetData(sampleData.GetData(), sampleData.GetDataSize());
+    }
 
     if (m_codecHandler->Transform(m_sample.GetDts(), m_sample.GetDuration(), m_sampleData,
                                   m_track->GetMediaTimeScale()))
@@ -485,7 +489,7 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
     }
   }
 SUCCESS:
-  if (m_singleSampleDecryptor && m_decrypter && m_codecHandler)
+  if (m_singleSampleDecryptor && m_codecHandler)
   {
     if (AP4_FAILED(m_singleSampleDecryptor->SetFragmentInfo(
             m_poolId, m_defaultKey, m_codecHandler->m_naluLengthSize, m_codecHandler->m_extraData,
@@ -522,9 +526,11 @@ void CFragmentedSampleReader::UpdateSampleDescription()
       LOG::LogF(LOGERROR, "Cannot sample description from protected sample description");
       return;
     }
+    LOG::LogF(LOGWARNING, "m_protectedDesc PRESENT");
   }
   else {
     m_protectedDesc = nullptr;
+    LOG::LogF(LOGWARNING, "m_protectedDesc NOT-PRESENT");
   }
 
   LOG::LogF(LOGDEBUG, "Codec fourcc: %s (%u)", CODEC::FourCCToString(desc->GetFormat()).c_str(),
