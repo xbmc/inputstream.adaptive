@@ -495,12 +495,21 @@ bool CInputStreamAdaptive::IsRealTimeStream()
 #if INPUTSTREAM_VERSION_LEVEL > 1
 int CInputStreamAdaptive::GetChapter()
 {
+  // Provide the current chapter number
+  // chapter numbering starts from 1, specify 0 for no chapter
   return m_session ? m_session->GetChapter() : 0;
 }
 
 int CInputStreamAdaptive::GetChapterCount()
 {
-  return m_session ? m_session->GetChapterCount() : 0;
+  if (m_session)
+  {
+    const int count = m_session->GetChapterCount();
+    if (count > 1)
+      return count;
+  }
+  // Return 0 to prevent Kodi core from handling chapters
+  return 0;
 }
 
 const char* CInputStreamAdaptive::GetChapterName(int ch)
