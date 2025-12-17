@@ -352,7 +352,6 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
 
     if (!traf)
     {
-      LOG::LogF(LOGERROR, "Cannot get TRAF atom");
       return AP4_ERROR_NO_SUCH_ITEM;
     }
 
