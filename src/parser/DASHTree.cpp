@@ -1262,6 +1262,19 @@ void adaptive::CDashTree::GetProtectionData(
     }
   }
 
+  auto& manifestCfg = CSrvBroker::GetKodiProps().GetManifestConfig();
+  if (manifestCfg.ignoreDrmInfo)
+  {
+    for (auto& ks : DRM::KEY_SYSTEMS)
+    {
+      DRM::DRMInfo drmInfo;
+      drmInfo.keySystem = ks;
+      drmInfo.cryptoMode = cryptoMode;
+      repr.AddDrmInfo(drmInfo);
+    }
+    return;
+  }
+
   // Find the default KeyId, if there are multiple they must be all the same
   std::set<std::string> keyIds;
   for (const ProtectionScheme& protScheme : reprProtSchemes)

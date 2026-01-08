@@ -72,6 +72,9 @@ struct ManifestConfig
   uint64_t liveDelay{0};
   // Allows to set a custom UTC Timing for DASH live streams (schemeIdUri, value)
   std::optional<std::pair<std::string, std::string>> dashUTCTiming;
+  // If true will cause manifest parsers to ignore DRM info specified by the manifest
+  // will be treated as if it supports any DRM, without any default KID/PSSH specified
+  bool ignoreDrmInfo{false};
 };
 
 struct DrmCfg

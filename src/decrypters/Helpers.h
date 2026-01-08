@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -23,6 +24,9 @@ constexpr std::string_view KS_PLAYREADY = "com.microsoft.playready";
 constexpr std::string_view KS_WISEPLAY = "com.huawei.wiseplay";
 constexpr std::string_view KS_CLEARKEY = "org.w3.clearkey";
 constexpr std::string_view KS_FAIRPLAY = "com.apple.fairplay";
+
+constexpr std::array<std::string_view, 5> KEY_SYSTEMS = {KS_WIDEVINE, KS_PLAYREADY, KS_WISEPLAY,
+                                                         KS_CLEARKEY, KS_FAIRPLAY};
 
 // DRM UUIDs
 

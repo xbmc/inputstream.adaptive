@@ -418,6 +418,10 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& dat
         break;
       }
     }
+    else if (configName == "ignore_drminfo" && jValue.is_boolean())
+    {
+      m_manifestConfig.ignoreDrmInfo = jValue.get<bool>();
+    }
     else
     {
       LOG::LogF(LOGERROR, "Unsupported \"%s\" config or wrong data type on \"%s\" property",
