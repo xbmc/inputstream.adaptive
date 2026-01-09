@@ -64,6 +64,7 @@ bool CFragmentedSampleReader::Initialize(SESSION::CStream* stream)
 {
   m_lReader->EnableTrack(m_track->GetId());
 
+  /*
   AP4_SampleDescription* desc{m_track->GetSampleDescription(0)};
   if (desc->GetType() == AP4_SampleDescription::TYPE_PROTECTED)
   {
@@ -84,6 +85,7 @@ bool CFragmentedSampleReader::Initialize(SESSION::CStream* stream)
       }
     }
   }
+  */
 
   m_timeBaseExt = STREAM_TIME_BASE;
   m_timeBaseInt = m_track->GetMediaTimeScale();
@@ -112,7 +114,8 @@ bool CFragmentedSampleReader::Initialize(SESSION::CStream* stream)
 }
 
 void CFragmentedSampleReader::SetDecrypter(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd,
-                                           const DRM::DecrypterCapabilites& dcaps)
+                                           const DRM::DecrypterCapabilites& dcaps,
+                                           const std::vector<uint8_t>& defaultKid)
 {
   if (ssd)
   {
@@ -121,6 +124,7 @@ void CFragmentedSampleReader::SetDecrypter(std::shared_ptr<Adaptive_CencSingleSa
   }
   
   m_decrypterCaps = dcaps;
+  m_defaultKey = defaultKid;
 }
 
 AP4_Result CFragmentedSampleReader::Start(bool& bStarted)
@@ -344,7 +348,7 @@ std::unique_ptr<ISampleReader> CFragmentedSampleReader::CreateReaderByTrack()
   }
 
   auto newFragReader = std::make_unique<CFragmentedSampleReader>(m_lReader, selTrack);
-  newFragReader->SetDecrypter(m_singleSampleDecryptor, m_decrypterCaps);
+  newFragReader->SetDecrypter(m_singleSampleDecryptor, m_decrypterCaps, m_defaultKey);
 
   LOG::LogF(LOGDEBUG, "Created shared reader for audio track id %u", selTrack->GetId());
 

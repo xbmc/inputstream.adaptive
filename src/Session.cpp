@@ -716,7 +716,10 @@ bool SESSION::CSession::PrepareStream(CStream& stream, uint64_t startPts)
   }
 
   if (session)
-    reader->SetDecrypter(session->decrypter, session->capabilities);
+  {
+    reader->SetDecrypter(session->decrypter, session->capabilities,
+                         DRM::ConvertKidStrToBytes(session->kid));
+  }
 
   stream.SetReader(std::move(reader));
 

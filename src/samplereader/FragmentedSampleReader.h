@@ -97,7 +97,8 @@ public:
 
   virtual bool Initialize(SESSION::CStream* stream) override;
   virtual void SetDecrypter(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> ssd,
-                            const DRM::DecrypterCapabilites& dcaps) override;
+                            const DRM::DecrypterCapabilites& dcaps,
+                            const std::vector<uint8_t>& defaultKid) override;
 
   AP4_Result Start(bool& bStarted) override;
   AP4_Result ReadSample() override;
