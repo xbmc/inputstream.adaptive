@@ -26,6 +26,7 @@
 #include "utils/log.h"
 
 #include <array>
+#include <limits>
 
 #include <kodi/addon-instance/Inputstream.h>
 
@@ -1449,7 +1450,10 @@ int CSession::GetChapterCount() const
   if (!m_adaptiveTree)
     return 0;
 
-  return static_cast<int>(m_adaptiveTree->m_periods.size());
+  int count = static_cast<int>(m_adaptiveTree->m_periods.size());
+  if (count > 0 && m_adaptiveTree->IsLive())
+    count += 1;
+  return count;
 }
 
 std::string CSession::GetChapterName(int ch) const
@@ -1459,6 +1463,8 @@ std::string CSession::GetChapterName(int ch) const
     --ch;
     if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->m_periods.size()))
       return m_adaptiveTree->m_periods[ch]->GetId().data();
+    if (ch == static_cast<int>(m_adaptiveTree->m_periods.size()) && m_adaptiveTree->IsLive())
+      return "Live";
   }
 
   return "[Unknown]";
@@ -1468,6 +1474,10 @@ int64_t CSession::GetChapterPos(int ch) const
 {
   int64_t sum{0};
   --ch;
+
+  if (m_adaptiveTree && ch == static_cast<int>(m_adaptiveTree->m_periods.size()) &&
+      m_adaptiveTree->IsLive())
+    return static_cast<int64_t>(m_adaptiveTree->m_totalTime / 1000);
 
   for (; ch; --ch)
   {
@@ -1516,22 +1526,39 @@ bool CSession::SeekChapter(int ch)
     return true;
 
   --ch;
-  if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->m_periods.size()) &&
-      m_adaptiveTree->m_periods[ch].get() != m_adaptiveTree->m_currentPeriod)
-  {
-    CPeriod* nextPeriod = m_adaptiveTree->m_periods[ch].get();
-    m_adaptiveTree->m_nextPeriod = nextPeriod;
-    LOG::LogF(LOGDEBUG, "Switching to new Period (id=%s, start=%llu, seq=%u)",
-              nextPeriod->GetId().data(), nextPeriod->GetStart(), nextPeriod->GetSequence());
 
-    for (auto& stream : m_streams)
+  if (ch == static_cast<int>(m_adaptiveTree->m_periods.size()) && m_adaptiveTree->IsLive())
+  {
+    LOG::LogF(LOGDEBUG, "Seeking to live edge (virtual chapter)");
+    SeekTime(std::numeric_limits<double>::max(), 0, false);
+    return true;
+  }
+
+  if (ch >= 0 && ch < static_cast<int>(m_adaptiveTree->m_periods.size()))
+  {
+    CPeriod* targetPeriod = m_adaptiveTree->m_periods[ch].get();
+    if (targetPeriod != m_adaptiveTree->m_currentPeriod)
     {
-      ISampleReader* sr{stream->GetReader()};
-      if (sr)
+      m_adaptiveTree->m_nextPeriod = targetPeriod;
+      LOG::LogF(LOGDEBUG, "Switching to new Period (id=%s, start=%llu, seq=%u)",
+                targetPeriod->GetId().data(), targetPeriod->GetStart(),
+                targetPeriod->GetSequence());
+
+      for (auto& stream : m_streams)
       {
-        sr->WaitReadSampleAsyncComplete();
-        sr->Reset(true);
+        ISampleReader* sr{stream->GetReader()};
+        if (sr)
+        {
+          sr->WaitReadSampleAsyncComplete();
+          sr->Reset(true);
+        }
       }
+    }
+    else
+    {
+      double startTime = GetChapterPos(ch + 1);
+      LOG::LogF(LOGDEBUG, "Seeking to start of current Period (startTime=%.3f)", startTime);
+      SeekTime(startTime, 0, false);
     }
     return true;
   }
