@@ -118,6 +118,8 @@ public:
   bool IsPlayTimeshift() const { return m_playTimeshiftBuffer; }
   // \brief Get a custom delay from LIVE edge in seconds
   uint64_t GetLiveDelay() const { return m_liveDelay; }
+  // \brief Get a custom offset from LIVE start in seconds
+  uint64_t GetLiveOffset() const { return m_liveOffset; }
 
   /*
    * \brief Get data to "pre-initialize" the DRM, if set is represented as a string
@@ -162,6 +164,7 @@ private:
   std::string m_audioLanguageOrig;
   bool m_playTimeshiftBuffer{false};
   uint64_t m_liveDelay{0};
+  uint64_t m_liveOffset{0};
   std::string m_drmPreInitData;
   ChooserProps m_chooserProps;
   Config m_config;

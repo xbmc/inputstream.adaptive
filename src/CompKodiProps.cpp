@@ -52,6 +52,7 @@ constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_he
 constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language";
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay";
+constexpr std::string_view PROP_LIVE_OFFSET = "inputstream.adaptive.live_offset";
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data";
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
@@ -199,6 +200,10 @@ ADP::KODI_PROPS::CCompKodiProps::CCompKodiProps(const std::map<std::string, std:
     else if (prop.first == PROP_LIVE_DELAY)
     {
       m_liveDelay = STRING::ToUint64(prop.second); //! @todo: move to PROP_MANIFEST_CONFIG
+    }
+    else if (prop.first == PROP_LIVE_OFFSET)
+    {
+      m_liveOffset = STRING::ToUint64(prop.second); //! @todo: move to PROP_MANIFEST_CONFIG
     }
     else if (prop.first == PROP_PRE_INIT_DATA)
     {

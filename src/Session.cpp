@@ -1479,6 +1479,10 @@ int64_t CSession::GetChapterPos(int ch) const
       m_adaptiveTree->IsLive())
     return static_cast<int64_t>(m_adaptiveTree->m_totalTime / 1000);
 
+  // Chapter 1 of a live stream: return configured start offset
+  if (ch == 0 && m_adaptiveTree && m_adaptiveTree->IsLive())
+    return static_cast<int64_t>(CSrvBroker::GetKodiProps().GetLiveOffset());
+
   for (; ch; --ch)
   {
     sum += (m_adaptiveTree->m_periods[ch - 1]->GetDuration() * STREAM_TIME_BASE) /
