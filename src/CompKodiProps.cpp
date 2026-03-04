@@ -402,6 +402,10 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& dat
     {
       m_manifestConfig.liveDelay = jValue.get<uint64_t>();
     }
+    else if (configName == "live_offset" && jValue.is_number_unsigned())
+    {
+      m_manifestConfig.liveOffset = jValue.get<uint64_t>();
+    }
     else if (configName == "dash_utctiming" && jValue.is_object())
     {
       for (auto& [schemeId, jValue] : jValue.items()) // Iterate JSON dict

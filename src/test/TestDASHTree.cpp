@@ -700,6 +700,13 @@ TEST_F(DASHTreeTest, SuggestedPresentationDelay)
   EXPECT_EQ(tree->m_liveDelay, 32);
 }
 
+TEST_F(DASHTreeTest, LiveOffsetFromManifestConfig)
+{
+  m_kodiProps["inputstream.adaptive.manifest_config"] = R"({"live_offset": 30})";
+  OpenTestFile("mpd/segtimeline_live_pd.mpd");
+  EXPECT_EQ(tree->m_liveOffset, 30u);
+}
+
 TEST_F(DASHTreeTest, SegmentTemplateStartNumber)
 {
   OpenTestFile("mpd/segmenttemplate_startnumber.mpd", "https://vod.service.net/SGP1/highlightpost/1234567890/1/web/dash/segtpl_sn.mpd");

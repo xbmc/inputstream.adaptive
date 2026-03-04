@@ -70,6 +70,7 @@ public:
   uint64_t stream_start_{0}; // in ms
   uint64_t available_time_{0}; // in ms
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
+  uint64_t m_liveOffset{0}; // Apply an offset in seconds from the live start
 
   AdaptiveTree() = default;
   AdaptiveTree(const AdaptiveTree& left);

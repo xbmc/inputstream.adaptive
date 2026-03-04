@@ -94,6 +94,8 @@ namespace adaptive
     else if (m_liveDelay < 16)
       m_liveDelay = 16;
 
+    m_liveOffset = CSrvBroker::GetKodiProps().GetManifestConfig().liveOffset;
+
     StartUpdateThread();
 
     LOG::Log(LOGINFO,

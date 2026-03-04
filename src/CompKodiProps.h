@@ -70,6 +70,8 @@ struct ManifestConfig
   bool hlsFixDiscontSequence{false};
   // Custom delay from LIVE edge in seconds
   uint64_t liveDelay{0};
+  // Apply an offset in seconds from the live start (e.g. to skip pre-program buffered content)
+  uint64_t liveOffset{0};
   // Allows to set a custom UTC Timing for DASH live streams (schemeIdUri, value)
   std::optional<std::pair<std::string, std::string>> dashUTCTiming;
   // If true will ignore default KID provided from FMP4 init segment
