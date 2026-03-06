@@ -700,11 +700,25 @@ TEST_F(DASHTreeTest, SuggestedPresentationDelay)
   EXPECT_EQ(tree->m_liveDelay, 32);
 }
 
+TEST_F(DASHTreeTest, LiveDelayFromManifestConfig)
+{
+  m_kodiProps["inputstream.adaptive.manifest_config"] = R"({"live_delay": 60})";
+  OpenTestFile("mpd/segtpl_spd.mpd", "https://foo.bar/segtpl_spd.mpd");
+  EXPECT_EQ(tree->m_liveDelay, 60u);
+}
+
 TEST_F(DASHTreeTest, LiveOffsetFromManifestConfig)
 {
   m_kodiProps["inputstream.adaptive.manifest_config"] = R"({"live_offset": 30})";
   OpenTestFile("mpd/segtimeline_live_pd.mpd");
   EXPECT_EQ(tree->m_liveOffset, 30u);
+}
+
+TEST_F(DASHTreeTest, LiveStreamTotalTimeIsSet)
+{
+  // m_totalTime drives GetChapterPos for the virtual live chapter (jump-to-live)
+  OpenTestFile("mpd/segtimeline_live_pd.mpd");
+  EXPECT_EQ(tree->m_totalTime, 9000000u); // mediaPresentationDuration="PT9000S" -> 9000000ms
 }
 
 TEST_F(DASHTreeTest, SegmentTemplateStartNumber)
