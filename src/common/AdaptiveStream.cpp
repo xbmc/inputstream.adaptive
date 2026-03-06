@@ -1133,7 +1133,7 @@ bool adaptive::AdaptiveStream::seek(uint64_t const pos, bool& isEos)
   return true;
 }
 
-uint64_t adaptive::AdaptiveStream::getMaxTimeMs()
+uint64_t adaptive::AdaptiveStream::getMaxTimeMs() const
 {
   const CSegment* lastSeg = current_rep_->Timeline().GetBack();
   if (!lastSeg)
