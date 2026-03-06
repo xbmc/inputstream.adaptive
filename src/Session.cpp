@@ -1225,20 +1225,28 @@ int SESSION::CSession::GetChapterCount() const
   if (!m_adaptiveTree)
     return 0;
 
-  return static_cast<int>(m_adaptiveTree->m_periods.size());
+  int count = static_cast<int>(m_adaptiveTree->m_periods.size());
+  if (count > 0 && m_adaptiveTree->IsLive())
+    count += 1;
+  return count;
 }
 
 const char* SESSION::CSession::GetChapterName(int number) const
 {
+  if (!m_adaptiveTree)
+    return nullptr;
+
+  --number; // To convert chapter number to index
+  if (m_adaptiveTree->IsLive() && number == static_cast<int>(m_adaptiveTree->m_periods.size()))
+    return "Live";
+
   // Chapter name is shown on GUI info window
   // Manifests usually dont provide this info
   // so show the period ID for debugging purpose at request
-  if (CSrvBroker::GetSettings().IsDebugVerbose() && m_adaptiveTree)
+  if (CSrvBroker::GetSettings().IsDebugVerbose())
   {
-    --number; // To convert chapter number to index
     if (number >= 0 && number < static_cast<int>(m_adaptiveTree->m_periods.size()))
       return m_adaptiveTree->m_periods[number]->GetId().c_str();
-
     return CHAPTER_NAME_UNKNOWN;
   }
   return nullptr;
@@ -1251,6 +1259,9 @@ int64_t SESSION::CSession::GetChapterPos(int number) const
 
   --number; // To convert chapter number to index
 
+  if (m_adaptiveTree->IsLive() && number == static_cast<int>(m_adaptiveTree->m_periods.size()))
+    return static_cast<int64_t>(GetLiveEdgeMs() / 1000);
+
   //! @todo: Fragile check, accessing to m_periods can potentially cause problems because
   //! manifest updates can make changes (add/remove) to periods asynchronously.
   //! An appropriate solution must be found, taking into account that these methods
@@ -1258,6 +1269,10 @@ int64_t SESSION::CSession::GetChapterPos(int number) const
   //! all other CSession methods on which Kodi core makes callbacks.
   if (number < 0 || number >= static_cast<int>(m_adaptiveTree->m_periods.size()))
     return 0;
+
+  if (number == 0 && m_adaptiveTree->IsLive() && m_adaptiveTree->m_periods.size() == 1 &&
+      m_adaptiveTree->m_liveOffset > 0)
+    return static_cast<int64_t>(m_adaptiveTree->m_liveOffset);
 
   int64_t sum{0};
 
@@ -1268,6 +1283,21 @@ int64_t SESSION::CSession::GetChapterPos(int number) const
   }
 
   return sum / STREAM_TIME_BASE;
+}
+
+uint64_t SESSION::CSession::GetLiveEdgeMs() const
+{
+  uint64_t maxTime{0};
+  for (const auto& stream : m_streams)
+  {
+    if (stream->IsEnabled())
+    {
+      uint64_t curTime = stream->m_adStream.getMaxTimeMs();
+      if (curTime > maxTime)
+        maxTime = curTime;
+    }
+  }
+  return maxTime > 0 ? maxTime : m_adaptiveTree->m_totalTime;
 }
 
 uint64_t SESSION::CSession::GetChapterStartTime() const
@@ -1300,6 +1330,14 @@ bool SESSION::CSession::SeekChapter(int number)
     return true;
 
   --number; // To convert chapter number to index
+
+  if (m_adaptiveTree->IsLive() && number == static_cast<int>(m_adaptiveTree->m_periods.size()))
+  {
+    LOG::LogF(LOGDEBUG, "Seeking to live edge (virtual chapter)");
+    SeekTime(static_cast<double>(GetLiveEdgeMs()) / 1000, 0, false);
+    return true;
+  }
+
   if (number >= 0 && number < static_cast<int>(m_adaptiveTree->m_periods.size()) &&
       m_adaptiveTree->m_periods[number].get() != m_adaptiveTree->m_currentPeriod)
   {
@@ -1317,6 +1355,13 @@ bool SESSION::CSession::SeekChapter(int number)
         sr->Reset(true);
       }
     }
+    return true;
+  }
+  else if (m_adaptiveTree->IsLive() && number >= 0 && number < static_cast<int>(m_adaptiveTree->m_periods.size()))
+  {
+    double startTime = static_cast<double>(GetChapterPos(number + 1));
+    LOG::LogF(LOGDEBUG, "Seeking to start of current Period (startTime=%.3f)", startTime);
+    SeekTime(startTime, 0, false);
     return true;
   }
   return false;

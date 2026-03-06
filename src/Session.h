@@ -270,6 +270,8 @@ protected:
   uint64_t GetMediaDurationMs();
 
 private:
+  uint64_t GetLiveEdgeMs() const;
+
   DRM::CDRMEngine m_drmEngine;
 
   adaptive::AdaptiveTree* m_adaptiveTree{nullptr};
