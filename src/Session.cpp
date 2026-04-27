@@ -760,7 +760,9 @@ bool SESSION::CSession::PrepareStream(CStream& stream, uint64_t startPts)
   {
     // Sidecar subtitle files have no segment loop, so OnSegmentChanged never fires for them.
     // Apply the timing stream's PTS offset so subtitle PTS matches video PTS.
-    ISampleReader* reader = stream.GetReader();
+    ISampleReader* subReader = stream.GetReader();
+    if (subReader)
+      subReader->SetPTSOffset(m_timingStream->m_adStream.GetCurrentPTSOffset());
     if (reader)
       reader->SetPTSOffset(m_timingStream->m_adStream.GetCurrentPTSOffset());
   }
