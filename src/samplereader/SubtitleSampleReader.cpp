@@ -172,6 +172,8 @@ AP4_Result CSubtitleSampleReader::ReadSample()
           m_codecHandler->Transform(pts, duration, segData, 1000);
           if (m_codecHandler->ReadNextSample(m_sample, m_sampleData))
           {
+            // m_ptsOffset is intentionally not applied here — segmented subtitle PTS is already
+            // absolute, derived from the segment's own startPTS_ passed to Transform above.
             m_pts = m_sample.GetCts();
             return AP4_SUCCESS;
           }
