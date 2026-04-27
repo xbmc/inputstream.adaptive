@@ -140,7 +140,7 @@ AP4_Result CSubtitleSampleReader::ReadSample()
   if (m_codecHandler->ReadNextSample(m_sample,
                                      m_sampleData)) // Read the sample data from a file url
   {
-    m_pts = m_sample.GetCts() * 1000;
+    m_pts = m_sample.GetCts() * 1000 + m_ptsOffset;
     return AP4_SUCCESS;
   }
   else if (m_adByteStream && m_adStream) // Read the sample data from a segment file stream (e.g. HLS)

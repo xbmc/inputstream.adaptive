@@ -756,6 +756,14 @@ bool SESSION::CSession::PrepareStream(CStream& stream, uint64_t startPts)
     // second segment plays, now force a correct calculation at the start of the stream.
     OnSegmentChanged(&stream.m_adStream);
   }
+  else if (reprContainerType == ContainerType::TEXT && m_timingStream)
+  {
+    // Sidecar subtitle files have no segment loop, so OnSegmentChanged never fires for them.
+    // Apply the timing stream's PTS offset so subtitle PTS matches video PTS.
+    ISampleReader* reader = stream.GetReader();
+    if (reader)
+      reader->SetPTSOffset(m_timingStream->m_adStream.GetCurrentPTSOffset());
+  }
 
   return true;
 }
