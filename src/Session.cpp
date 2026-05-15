@@ -629,6 +629,8 @@ void SESSION::CSession::UpdateStream(CStream& stream)
       stream.m_info.SetCodecName(CODEC::NAME_DTS);
     else if (CODEC::Contains(codecs, CODEC::FOURCC_AC_3, codecStr))
       stream.m_info.SetCodecName(CODEC::NAME_AC3);
+    else if (CODEC::Contains(codecs, CODEC::FOURCC_AC_4, codecStr))
+      stream.m_info.SetCodecName(CODEC::NAME_AC4);
     else if (CODEC::Contains(codecs, CODEC::FOURCC_EC_3, codecStr))
     {
       stream.m_info.SetCodecName(CODEC::NAME_EAC3);

@@ -80,6 +80,8 @@ public:
   bool ParseAacHeader(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo);
   bool ParseAc3(AP4_ByteStream* stream);
   bool ParseAc3Header(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo);
+  bool ParseAc4(AP4_ByteStream* stream);
+  bool ParseAc4Header(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo);
   bool ParseEc3(AP4_ByteStream* stream);
   bool ParseEc3Header(AP4_ByteStream* stream, ADTSFrameInfo& frameInfo);
   void reset();
