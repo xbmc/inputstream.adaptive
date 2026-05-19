@@ -780,25 +780,45 @@ void CSession::UpdateStream(CStream& stream)
 
   stream.m_isEncrypted = rep->GetPsshSetPos() != PSSHSET_POS_DEFAULT;
   stream.m_info.SetExtraData(nullptr, 0);
-
   if (!rep->GetCodecPrivateData().empty())
   {
-    std::vector<uint8_t> annexb;
-    const std::vector<uint8_t>* extraData(&annexb);
-
+    const auto& cpd = rep->GetCodecPrivateData();
     const DRM::DecrypterCapabilites& caps{GetDecrypterCaps(rep->m_psshSetPos)};
+    bool isAvcC = !cpd.empty() && cpd[0] == 0x01;
+    bool hasNoSPS = isAvcC && cpd.size() >= 6 && (cpd[5] & 0x1f) == 0;
 
-    if ((caps.flags & DRM::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) &&
-        stream.m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
+    if ((caps.flags & DRM::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) && !hasNoSPS)
     {
-      LOG::Log(LOGDEBUG, "UpdateStream: Convert avc -> annexb");
-      annexb = AvcToAnnexb(rep->GetCodecPrivateData());
+      std::vector<uint8_t> annexb = AvcToAnnexb(cpd);
+      if (!annexb.empty())
+        stream.m_info.SetExtraData(annexb.data(), annexb.size());
+      else
+      {
+        LOG::LogF(LOGWARNING, "UpdateStream: AvcToAnnexb failed, using raw CPD");
+        stream.m_info.SetExtraData(cpd.data(), cpd.size());
+      }
+    }
+    else if (isAvcC && hasNoSPS)
+    {
+      // avcC with 0 SPS (AVC3 in-band) - skip extradata as V4L2 h264_xd_copy
+      // rejects avcC with 0 SPS/0 PPS; decoder gets SPS/PPS from in-band NALUs
+      stream.m_info.SetExtraData(nullptr, 0);
+    }
+    else if (isAvcC)
+    {
+      std::vector<uint8_t> annexb = AvcToAnnexb(cpd);
+      if (!annexb.empty())
+        stream.m_info.SetExtraData(annexb.data(), annexb.size());
+      else
+      {
+        LOG::LogF(LOGWARNING, "UpdateStream: AvcToAnnexb failed, using raw CPD");
+        stream.m_info.SetExtraData(cpd.data(), cpd.size());
+      }
     }
     else
     {
-      extraData = &rep->GetCodecPrivateData();
+      stream.m_info.SetExtraData(cpd.data(), cpd.size());
     }
-    stream.m_info.SetExtraData(extraData->data(), extraData->size());
   }
 
   stream.m_info.SetCodecFourCC(0);

@@ -521,7 +521,32 @@ void CFragmentedSampleReader::UpdateSampleDescription()
   }
 
   if ((m_decrypterCaps.flags & DRM::DecrypterCapabilites::SSD_ANNEXB_REQUIRED) != 0)
+  {
     m_codecHandler->ExtraDataToAnnexB();
+  }
+  else if (desc->GetFormat() == AP4_SAMPLE_FORMAT_AVC1 ||
+           desc->GetFormat() == AP4_SAMPLE_FORMAT_AVC2 ||
+           desc->GetFormat() == AP4_SAMPLE_FORMAT_AVC3 ||
+           desc->GetFormat() == AP4_SAMPLE_FORMAT_AVC4)
+  {
+    bool hasNoSPS = m_codecHandler->m_extraData.GetDataSize() >= 6 &&
+                    m_codecHandler->m_extraData.GetData()[0] == 0x01 &&
+                    (m_codecHandler->m_extraData.GetData()[5] & 0x1f) == 0;
+    if (hasNoSPS)
+    {
+      m_codecHandler->m_extraData.SetDataSize(0);
+      static_cast<AVCCodecHandler*>(m_codecHandler)->SetAnnexBTransformNeeded(true);
+    }
+    else
+    {
+      if (!m_codecHandler->ExtraDataToAnnexB() || m_codecHandler->m_extraData.GetDataSize() == 0)
+      {
+        LOG::LogF(LOGWARNING, "UpdateSampleDescription: ExtraDataToAnnexB failed, clearing extradata");
+        m_codecHandler->m_extraData.SetDataSize(0);
+      }
+      static_cast<AVCCodecHandler*>(m_codecHandler)->SetAnnexBTransformNeeded(true);
+    }
+  }
 }
 
 void CFragmentedSampleReader::ParseTrafTfrf(AP4_UuidAtom* uuidAtom)

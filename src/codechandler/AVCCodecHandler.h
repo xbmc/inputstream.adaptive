@@ -18,9 +18,12 @@ public:
   void UpdatePPSId(const AP4_DataBuffer& buffer) override;
   bool GetInformation(kodi::addon::InputstreamInfo& info) override;
   STREAMCODEC_PROFILE GetProfile() override { return m_codecProfile; };
+  bool Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer& buf, AP4_UI64 timescale) override;
+  void SetAnnexBTransformNeeded(bool needed) { m_needAnnexBTransform = needed; }
 
 private:
   unsigned int m_countPictureSetIds;
   STREAMCODEC_PROFILE m_codecProfile;
   bool m_needSliceInfo;
+  bool m_needAnnexBTransform = false;
 };

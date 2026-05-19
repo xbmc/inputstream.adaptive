@@ -238,3 +238,68 @@ bool AVCCodecHandler::GetInformation(kodi::addon::InputstreamInfo& info)
   }
   return isChanged;
 };
+
+bool AVCCodecHandler::Transform(AP4_UI64 pts, AP4_UI32 duration, AP4_DataBuffer& buf, AP4_UI64 timescale)
+{
+  if (!m_needAnnexBTransform || m_naluLengthSize == 0)
+    return false;
+
+  const AP4_Byte* src = buf.GetData();
+  AP4_Size srcSize = buf.GetDataSize();
+  if (srcSize < m_naluLengthSize)
+    return false;
+
+  // Calculate output size: each NALU loses naluLengthSize bytes and gains 4 bytes (start code)
+  // Worst case: many small NALUs -> output grows. Allocate conservatively.
+  AP4_Size outSize = srcSize + (srcSize / m_naluLengthSize) * (4 - m_naluLengthSize) + 64;
+  AP4_DataBuffer outBuf;
+  outBuf.SetDataSize(outSize);
+  AP4_Byte* dst = outBuf.UseData();
+  AP4_Size dstUsed = 0;
+
+  const AP4_Byte startCode[4] = {0x00, 0x00, 0x00, 0x01};
+
+  while (srcSize >= m_naluLengthSize)
+  {
+    AP4_UI32 naluSize = 0;
+    switch (m_naluLengthSize)
+    {
+      case 1: naluSize = src[0]; break;
+      case 2: naluSize = (src[0] << 8) | src[1]; break;
+      case 4: naluSize = (src[0] << 24) | (src[1] << 16) | (src[2] << 8) | src[3]; break;
+      default: return false;
+    }
+
+    if (naluSize == 0 || naluSize > srcSize - m_naluLengthSize)
+      break;
+
+    // Ensure enough space in output buffer
+    AP4_Size needed = dstUsed + 4 + naluSize;
+    if (needed > outBuf.GetDataSize())
+    {
+      outBuf.SetDataSize(needed + 256);
+      dst = outBuf.UseData();
+    }
+
+    // Write Annex B start code
+    memcpy(dst + dstUsed, startCode, 4);
+    dstUsed += 4;
+
+    // Copy NALU data
+    memcpy(dst + dstUsed, src + m_naluLengthSize, naluSize);
+    dstUsed += naluSize;
+
+    // Advance source
+    src += m_naluLengthSize + naluSize;
+    srcSize -= m_naluLengthSize + naluSize;
+  }
+
+  if (dstUsed > 0)
+  {
+    buf.SetDataSize(dstUsed);
+    memcpy(buf.UseData(), outBuf.GetData(), dstUsed);
+    return true;
+  }
+
+  return false;
+}
