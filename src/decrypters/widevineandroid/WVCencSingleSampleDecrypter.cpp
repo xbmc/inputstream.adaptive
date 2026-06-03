@@ -190,8 +190,12 @@ bool CWVCencSingleSampleDecrypterA::HasKeyId(const std::vector<uint8_t>& keyid)
   {
     for (const DRM::KeyInfo& key : m_keys)
     {
-      if (key.kid == keyid)
+      if (key.kid == keyid &&
+          (key.status == DRM::KeyStatus::USABLE || key.status == DRM::KeyStatus::USABLE_IN_FUTURE ||
+           key.status == DRM::KeyStatus::PENDING))
+      {
         return true;
+      }
     }
   }
   return false;
