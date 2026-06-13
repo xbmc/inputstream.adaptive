@@ -620,15 +620,6 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseDrmOldProps(
           drmCfg.license.unwrapper = "json";
           jsonWrapperCfg = wrapperPrefix.substr(1);
         }
-        else if (STRING::StartsWith(wrapperPrefix, "HB"))
-        {
-          // HB has been removed, we have no info about this use case
-          // if someone will open an issue we can try get more info for the reimplementation
-          //! @todo: if no feedbacks in future this can be removed, see also todo on decrypters/Helpers.cpp
-          LOG::Log(LOGERROR, "The support for \"HB\" parameter in the \"Response data\" field of "
-                             "license_key property has been removed. If this is a requirement for "
-                             "your video service, let us know by opening an issue on GitHub.");
-        }
         else
         {
           LOG::Log(

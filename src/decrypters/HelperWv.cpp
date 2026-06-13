@@ -677,13 +677,6 @@ bool DRM::WvUnwrapLicense(std::string_view wrapper,
     return false;
   }
 
-  //! @todo: the support to binary license data (with HB) that start with "\r\n\r\n" has not been reintroduced with the
-  //! rework of this code, this is a old unclear addition, seem there are no info about this on web,
-  //! and seem no addons use it, so for now is removed, if in the future someone complain about this lack
-  //! will be possible reintroduce it and include more clear info about this use case.
-  // if (data.compare(0, 4, "\r\n\r\n") == 0)
-  //   data.erase(0, 4);
-
   dataOut = data;
 
   return true;
