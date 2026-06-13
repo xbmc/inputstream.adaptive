@@ -53,7 +53,6 @@ constexpr std::string_view PROP_STREAM_PARAMS = "inputstream.adaptive.stream_par
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
 
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
-constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay"; //! @todo: deprecated to be removed on Kodi 23
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data"; //! @todo: deprecated to be removed on Kodi 23
 
 constexpr std::string_view PROP_CONFIG = "inputstream.adaptive.config";
@@ -186,16 +185,6 @@ void ADP::KODI_PROPS::CCompKodiProps::InitStage1(const std::map<std::string, std
     {
       LogProp(prop.first, prop.second);
       m_playTimeshiftBuffer = STRING::CompareNoCase(prop.second, "true");
-    }
-    else if (prop.first == PROP_LIVE_DELAY) //! @todo: deprecated to be removed on Kodi 23
-    {
-      LogProp(prop.first, prop.second);
-      LOG::Log(LOGWARNING,
-               "Warning \"inputstream.adaptive.live_delay\" property is deprecated and"
-               " will be removed next Kodi version, use \"inputstream.adaptive.manifest_config\""
-               " instead.\nSee Wiki integration page for more details.");
-
-      m_manifestConfig.liveDelay = STRING::ToUint64(prop.second);
     }
     else if (prop.first == PROP_STREAM_SELECTION_TYPE)
     {
