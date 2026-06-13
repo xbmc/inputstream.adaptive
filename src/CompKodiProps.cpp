@@ -52,7 +52,6 @@ constexpr std::string_view PROP_MANIFEST_CONFIG = "inputstream.adaptive.manifest
 constexpr std::string_view PROP_STREAM_PARAMS = "inputstream.adaptive.stream_params";
 constexpr std::string_view PROP_STREAM_HEADERS = "inputstream.adaptive.stream_headers";
 
-constexpr std::string_view PROP_AUDIO_LANG_ORIG = "inputstream.adaptive.original_audio_language"; //! @todo: deprecated, to be removed on Kodi 23
 constexpr std::string_view PROP_PLAY_TIMESHIFT_BUFFER = "inputstream.adaptive.play_timeshift_buffer";
 constexpr std::string_view PROP_LIVE_DELAY = "inputstream.adaptive.live_delay"; //! @todo: deprecated to be removed on Kodi 23
 constexpr std::string_view PROP_PRE_INIT_DATA = "inputstream.adaptive.pre_init_data"; //! @todo: deprecated to be removed on Kodi 23
@@ -182,15 +181,6 @@ void ADP::KODI_PROPS::CCompKodiProps::InitStage1(const std::map<std::string, std
     {
       LogProp(prop.first, prop.second);
       ParseHeaderString(m_streamHeaders, prop.second);
-    }
-    else if (prop.first == PROP_AUDIO_LANG_ORIG) //! @todo: deprecated, to be removed on Kodi 23
-    {
-      LOG::Log(LOGWARNING, "Warning \"inputstream.adaptive.original_audio_language\" property is "
-                           "deprecated and will be removed on next Kodi version.\n"
-                           "Please read Wiki \"Integration\" page to learn more about the new "
-                           "parameters of \"inputstream.adaptive.config\".");
-      LogProp(prop.first, prop.second);
-      m_config.mediaAudioLangCodeOrig = prop.second;
     }
     else if (prop.first == PROP_PLAY_TIMESHIFT_BUFFER)
     {
