@@ -962,7 +962,6 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
 
       if (aesKey->key.empty())
       {
-        // RETRY:
         auto drmCfgProp = CSrvBroker::GetKodiProps().GetDrmConfig(DRM::KS_NONE);
 
         CURL::HTTPResponse resp;
@@ -972,33 +971,9 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
           aesKey->key.assign(resp.data.begin(), resp.data.end());
           m_aesUrlKeyCache[aesKey->keyUrl] = aesKey->key;
         }
-
-        /*
-         *! @todo: unclear if could be used by some old addon,
-         *!        for now all related code has been commented for a future removal
-         *
-        else if (pssh.defaultKID_ != "0")
-        {
-          //! @todo: RenewLicense (addon) callback is not wiki documented, there are addons that could use this?
-          //!        currently code fall here when the above download fail, there is no a better behaviour to avoid to do a broken download?
-          //!        the defaultKID_ is set with a single "0" instead of provide 16 chars, reason?
-          pssh.defaultKID_ = "0";
-          if (keyParts.size() >= 5 && !keyParts[4].empty() &&
-              m_decrypter->RenewLicense(keyParts[4]))
-            goto RETRY;
-        }
-        */
       }
     }
 
-    /*
-    if (pssh.defaultKID_ == "0")
-    {
-      segBuffer.resize(segBufferSize + srcDataSize, 0);
-      return;
-    }
-    else if (!segBufferSize)
-    */
     if (!segBufferSize)
     {
       if (aesKey->iv.empty())
