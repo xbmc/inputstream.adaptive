@@ -157,6 +157,26 @@ bool CWVDecrypter::OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDec
   return false;
 }
 
+bool CWVDecrypter::OpenAudioDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+                                    const AUDIOCODEC_INITDATA* initData)
+{
+  if (!initData)
+  {
+    LOG::LogF(LOGERROR, "Cannot open audio decoder, missing init data");
+    return false;
+  }
+
+  m_decodingDecrypterAudio = std::dynamic_pointer_cast<CWVCencSingleSampleDecrypter>(decrypter);
+  if (m_decodingDecrypterAudio)
+  {
+    return m_decodingDecrypterAudio->OpenAudioDecoder(initData);
+  }
+  else
+    LOG::LogF(LOGFATAL, "Cannot cast the decrypter shared pointer.");
+
+  return false;
+}
+
 VIDEOCODEC_RETVAL CWVDecrypter::DecryptAndDecodeVideo(
     kodi::addon::CInstanceVideoCodec* codecInstance, const DEMUX_PACKET* sample)
 {
@@ -164,6 +184,15 @@ VIDEOCODEC_RETVAL CWVDecrypter::DecryptAndDecodeVideo(
     return VC_ERROR;
 
   return m_decodingDecrypter->DecryptAndDecodeVideo(codecInstance, sample);
+}
+
+AUDIOCODEC_RETVAL CWVDecrypter::DecryptAndDecodeAudio(
+    kodi::addon::CInstanceAudioCodec* codecInstance, const DEMUX_PACKET* sample)
+{
+  if (!m_decodingDecrypterAudio)
+    return AC_ERROR;
+
+  return m_decodingDecrypterAudio->DecryptAndDecodeAudio(codecInstance, sample);
 }
 
 VIDEOCODEC_RETVAL CWVDecrypter::VideoFrameDataToPicture(
@@ -175,10 +204,25 @@ VIDEOCODEC_RETVAL CWVDecrypter::VideoFrameDataToPicture(
   return m_decodingDecrypter->VideoFrameDataToPicture(codecInstance, picture);
 }
 
+AUDIOCODEC_RETVAL CWVDecrypter::AudioFrameDataToFrame(
+    kodi::addon::CInstanceAudioCodec* codecInstance, AUDIOCODEC_FRAME* frame)
+{
+  if (!m_decodingDecrypterAudio)
+    return AC_ERROR;
+
+  return m_decodingDecrypterAudio->AudioFrameDataToFrame(codecInstance, frame);
+}
+
 void CWVDecrypter::ResetVideo()
 {
   if (m_decodingDecrypter)
     m_decodingDecrypter->ResetVideo();
+}
+
+void CWVDecrypter::ResetAudio()
+{
+  if (m_decodingDecrypterAudio)
+    m_decodingDecrypterAudio->ResetAudio();
 }
 
 void CWVDecrypter::DisposeDecoder()
@@ -202,4 +246,17 @@ void CWVDecrypter::ReleaseBuffer(void* instance, void* buffer)
 {
   if (instance)
     static_cast<kodi::addon::CInstanceVideoCodec*>(instance)->ReleaseFrameBuffer(buffer);
+}
+
+bool CWVDecrypter::GetBufferAudio(void* instance, AUDIOCODEC_FRAME& buffer)
+{
+  return instance ? static_cast<kodi::addon::CInstanceAudioCodec*>(instance)->GetFrameBuffer(
+                        *reinterpret_cast<AUDIOCODEC_FRAME*>(&buffer))
+                  : false;
+}
+
+void CWVDecrypter::ReleaseBufferAudio(void* instance, void* buffer)
+{
+  if (instance)
+    static_cast<kodi::addon::CInstanceAudioCodec*>(instance)->ReleaseFrameBuffer(buffer);
 }

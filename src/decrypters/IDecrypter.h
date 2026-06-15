@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include <kodi/addon-instance/VideoCodec.h>
+#include <kodi/addon-instance/AudioCodec.h>
 
 class Adaptive_CencSingleSampleDecrypter;
 enum class CryptoMode;
@@ -39,12 +40,30 @@ public:
                                 const VIDEOCODEC_INITDATA* initData) = 0;
 
   /*
+   * \brief Open AudioCodec for decoding audio in a secure pathway to Kodi
+   * \param decrypter The single sample decrypter to use
+   * \param initData The data for initialising the codec
+   * \return True if the decoder was opened successfully otherwise false
+   */
+  virtual bool OpenAudioDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+                                const AUDIOCODEC_INITDATA* initData) = 0;
+
+  /*
    * \brief Decrypt and decode the video packet with the supplied VideoCodec instance
    * \param codecInstance The instance of VideoCodec to use
    * \param sample The video sample/packet to decrypt and decode
    * \return Return status of the decrypt/decode action
    */
   virtual VIDEOCODEC_RETVAL DecryptAndDecodeVideo(kodi::addon::CInstanceVideoCodec* codecInstance,
+                                                  const DEMUX_PACKET* sample) = 0;
+
+  /*
+   * \brief Decrypt and decode the audio packet with the supplied AudioCodec instance
+   * \param codecInstance The instance of AudioCodec to use
+   * \param sample The audio sample/packet to decrypt and decode
+   * \return Return status of the decrypt/decode action
+   */
+  virtual AUDIOCODEC_RETVAL DecryptAndDecodeAudio(kodi::addon::CInstanceAudioCodec* codecInstance,
                                                   const DEMUX_PACKET* sample) = 0;
 
   /*
@@ -57,9 +76,23 @@ public:
                                                     VIDEOCODEC_PICTURE* picture) = 0;
 
   /*
+   * \brief Get CDM audio frame data
+   * \param codecInstance The instance of AudioCodec to use
+   * \param frame The frame object to populate
+   * \return status of the resulting frame
+   */
+  virtual AUDIOCODEC_RETVAL AudioFrameDataToFrame(kodi::addon::CInstanceAudioCodec* codecInstance,
+                                                  AUDIOCODEC_FRAME* frame) = 0;
+
+  /*
    * \brief Reset the decoder
    */
   virtual void ResetVideo() = 0;
+
+  /*
+   * \brief Reset the decoder audio
+   */
+  virtual void ResetAudio() = 0;
 
   /*
    * \brief Unload decoder resources.
@@ -145,11 +178,5 @@ public:
    * \return The auxillary library path
    */
   virtual std::string_view GetLibraryPath() const = 0;
-
-  /*
-   * \brief Workaround to missing secure decoder implementation.
-   */
-  virtual bool IsSecureDecoderAudioSupported() { return true; }
-
 };
 }; // namespace DRM
