@@ -427,9 +427,6 @@ void adaptive::CSmoothTree::ParseTagQualityLevel(pugi::xml_node nodeQI,
 
   repr->SetSegmentTemplate(segTpl);
 
-  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
-
   repr->SetScaling();
 
   adpSet->AddRepresentation(repr);

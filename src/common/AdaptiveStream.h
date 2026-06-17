@@ -269,11 +269,6 @@ enum class EVENT_TYPE
     // We need to store here because linked to representation
     uint8_t m_decrypterIv[16]{0};
 
-    // Minimum segment buffer size (segment_buffers_)
-    uint32_t assured_buffer_length_{0};
-    // The segment buffer size (segment_buffers_), so the max number of segments that can be downloaded and stored in memory
-    uint32_t max_buffer_length_{0};
-
     std::size_t segment_read_pos_{0};
     uint64_t absolute_position_{0}; // The absolute position is the segment range begin (if available), and will be increased with each reading
     uint64_t currentPTSOffset_{0};

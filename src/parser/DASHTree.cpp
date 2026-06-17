@@ -659,8 +659,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   std::unique_ptr<CRepresentation> repr = CRepresentation::MakeUniquePtr(adpSet);
 
   repr->SetStartNumber(adpSet->GetStartNumber());
-  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
   repr->SetId(XML::GetAttrib(nodeRepr, "id"));
 

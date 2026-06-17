@@ -1142,9 +1142,6 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
     repr->SetSourceUrl(manifest_url_);
     repr->AddCodecs(CODEC::FOURCC_H264);
 
-    repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-    repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
-
     repr->SetScaling();
 
     newAdpSet->AddCodecs(repr->GetCodecs());
@@ -1363,9 +1360,6 @@ bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,
     if ((r.m_features & REND_FEATURE_EC3_JOC) == REND_FEATURE_EC3_JOC)
       repr->AddCodecs(CODEC::NAME_EAC3_JOC);
   }
-
-  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
   repr->SetScaling();
 
@@ -1706,8 +1700,6 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
         repr->SetFrameRateScale(1000);
       }
 
-      repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
       repr->SetScaling();
 
       std::string uri = var.m_uri;
@@ -1757,9 +1749,6 @@ void adaptive::CHLSTree::AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPerio
   repr->AddCodecs(codec);
   repr->SetAudioChannels(2);
   repr->SetIsIncludedStream(true);
-
-  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
   repr->SetScaling();
 

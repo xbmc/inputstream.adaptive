@@ -199,10 +199,6 @@ public:
 
   std::chrono::time_point<std::chrono::system_clock> repLastUpdated_;
 
-  //! @todo: to be reworked or deleted
-  uint32_t assured_buffer_duration_{0};
-  uint32_t max_buffer_duration_{0};
-
   bool isPlayable{true}; //! @todo: decouple "adaptivetree" with a kind of new streams interface could remove it
 
 protected:
