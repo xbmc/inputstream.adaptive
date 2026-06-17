@@ -1318,15 +1318,6 @@ bool adaptive::AdaptiveStream::GenerateSidxSegments(PLAYLIST::CRepresentation* r
               "due to missing data range positions",
               clsId, rep->GetId().data());
     return false;
-    /*
-     *! @todo: This part is not clear for which manifest use it should be
-     *         if there are no new issues about it, this code can be deleted in the future
-     *
-    // We dont know the range positions for the index segment
-    static const uint64_t indexRangeEnd = 1024 * 200;
-    seg.range_begin_ = 0;
-    seg.range_end_ = indexRangeEnd;
-    */
   }
 
   std::vector<uint8_t> sidxBuffer;
