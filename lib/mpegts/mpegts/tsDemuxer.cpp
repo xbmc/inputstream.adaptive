@@ -473,14 +473,26 @@ int AVContext::ProcessTSPacket()
   it = this->packets.find(this->pid);
   if (it == this->packets.end()) // Not registered PID.
   {
-    // Only auto-register if this payload_unit_start actually contains a PSI table
-    if (this->payload_unit_start && this->payload && this->payload_len > 1)
+    // Auto-register a first-seen PID only when it carries the start of a *PAT*
+    // section. PMT PIDs are discovered from the PAT (see parse_ts_psi, table_id
+    // 0x00) and are registered before any PMT packet arrives, so they never reach
+    // this branch. Registering an arbitrary PID as PSI just because its payload
+    // bytes match a PMT table_id (0x02) false-positives on discontinuous/corrupt
+    // TS, corrupts the demux state and crashes on the next TSResync(). Validate
+    // the section header before trusting it.
+    if (this->payload_unit_start && this->payload)
     {
-      const uint8_t pointerField = av_rb8(this->payload); // pointer_field is at payload[0];
-      if (static_cast<size_t>(pointerField) + 1 < this->payload_len)
+      const uint8_t pointerField = av_rb8(this->payload); // pointer_field is at payload[0]
+      // need pointer_field + table_id (1 byte) + section length field (2 bytes)
+      if (static_cast<size_t>(pointerField) + 4 <= this->payload_len)
       {
-        const uint8_t tableId = av_rb8(this->payload + 1 + pointerField); // table_id is at payload + 1 + pointer_field
-        if (tableId == 0x00 || tableId == 0x02) // table_id 0x00 = PAT, 0x02 = PMT
+        const unsigned char* section = this->payload + 1 + pointerField;
+        const uint8_t tableId = av_rb8(section);              // table_id
+        const uint16_t sectionHeader = av_rb16(section + 1);  // syntax + reserved + section_length
+        // table_id 0x00 = PAT; reserved bits must be set ('11'); sane section_length
+        if (tableId == 0x00 &&
+            (sectionHeader & 0x3000) == 0x3000 &&
+            (sectionHeader & 0x0fff) <= 1021)
         {
           Packet p;
           p.pid = this->pid;
