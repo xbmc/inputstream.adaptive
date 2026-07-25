@@ -1012,6 +1012,10 @@ uint32_t adaptive::AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
 
     SegmentBuffer& currSegBuffer = m_segBuffers.Front();
 
+    // The subtraction below is unsigned
+    if (segment_read_pos_ > currSegBuffer.BufferSize())
+      return 0;
+
     size_t avail = currSegBuffer.BufferSize() - segment_read_pos_;
 
     {
@@ -1030,14 +1034,16 @@ uint32_t adaptive::AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
     if (avail > bytesToRead)
       avail = bytesToRead;
 
+    if (avail == 0)
+      return 0;
+
+    // Partial read, the caller asks again for the remainder
+    currSegBuffer.CopyBufferTo(buffer, segment_read_pos_, avail);
+
     segment_read_pos_ += avail;
     absolute_position_ += avail;
 
-    if (avail == bytesToRead)
-    {
-      currSegBuffer.CopyBufferTo(buffer, segment_read_pos_ - avail, avail);
-      return static_cast<uint32_t>(avail);
-    }
+    return static_cast<uint32_t>(avail);
   }
 
   return 0;
