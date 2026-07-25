@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <optional>
 
 using namespace adaptive;
 using namespace PLAYLIST;
@@ -935,6 +936,14 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 
   // NOTE: It is assumed that the streams are ordered by video type (on m_streams), so we will seek first the video stream
   // to get the closest sample PTS to the requested seek time, then we will use to seek/align the other streams
+
+  // PTS of the video sample actually delivered (reader/native domain). Once known, audio
+  // streams are aligned directly to it instead of via the manifest timing: Kodi synchronises
+  // on the emitted PTS, and audio/video share the source PTS clock, so this avoids the drift
+  // between the audio and video manifest timelines that would otherwise leave audio starting
+  // seconds after the picture on a seek.
+  std::optional<uint64_t> videoReaderPts;
+
   for (auto& stream : m_streams)
   {
     ISampleReader* streamReader{stream->GetReader()};
@@ -967,7 +976,38 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
 
-    if (!SeekReader(*stream, seekTimePts))
+    // Align the audio to the video sample actually delivered (co-timed in the reader PTS
+    // domain Kodi uses for A/V sync), rather than seeking it independently through its own
+    // manifest timing which drifts from the video timeline deep into the recording. This also
+    // covers resume-from-position, where Kodi issues the seek before the readers are started.
+    // hasAdStream excludes fMP4 audio muxed into the video stream (it has no own segment buffer
+    // and is seeked through the video reader); such a stream keeps its existing behaviour.
+    const ISampleReader::Type readerType{streamReader->GetType()};
+    const bool alignToVideoPts = videoReaderPts.has_value() && hasAdStream &&
+                                 stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO &&
+                                 (readerType == ISampleReader::Type::TS ||
+                                  readerType == ISampleReader::Type::ADTS ||
+                                  readerType == ISampleReader::Type::FMP4);
+
+    bool seekOk;
+    if (alignToVideoPts)
+    {
+      // SeekAdStream above reset the audio segment to its start, so a single forward scan
+      // lands straight on the video PTS whether or not the reader was already running.
+      const bool wasStarted = streamReader->IsStarted();
+      seekOk = streamReader->TimeSeekReaderPts(*videoReaderPts);
+
+      // Reproduce Start()'s first-start bookkeeping when the reader was not running yet
+      // (resume-from-position seeks before the first DemuxRead started the readers).
+      if (seekOk && !wasStarted && streamReader->GetInformation(stream->m_info))
+        m_changed = true;
+    }
+    else
+    {
+      seekOk = SeekReader(*stream, seekTimePts);
+    }
+
+    if (!seekOk)
     {
       streamReader->Reset(true);
 
@@ -988,6 +1028,25 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       LOG::Log(LOGINFO, "Seek time %0.1lf for stream: %i continues at %0.1lf (PTS: %llu)", seekTime,
                streamReader->GetStreamId(), destTimeSecs, streamReader->PTS());
 
+      // Report the residual A/V offset for streams aligned to the video PTS, so a bad landing
+      // (e.g. the audio segment did not contain the target and the reader snapped to a segment
+      // boundary) is immediately visible in the log instead of only as audible desync.
+      if (alignToVideoPts)
+      {
+        const int64_t avDeltaPts{static_cast<int64_t>(streamReader->PTS()) -
+                                 static_cast<int64_t>(*videoReaderPts)};
+        // 0.5s: comfortably above one audio frame, below one segment - a larger delta means
+        // the co-timing did not land and playback will still be out of sync.
+        constexpr int64_t avDeltaWarnPts{STREAM_TIME_BASE / 2};
+        const int64_t avDeltaAbs{avDeltaPts < 0 ? -avDeltaPts : avDeltaPts};
+
+        LOG::Log(avDeltaAbs > avDeltaWarnPts ? LOGWARNING : LOGINFO,
+                 "Seek A/V align: audio stream %i landed at PTS %llu, target (video) PTS %llu, "
+                 "delta %lld (%0.3lfs)",
+                 streamReader->GetStreamId(), streamReader->PTS(), *videoReaderPts, avDeltaPts,
+                 static_cast<double>(avDeltaPts) / STREAM_TIME_BASE);
+      }
+
       // We replace the seek time PTS initially requested with the PTS of the video sample found
       // in order to search the audio/subtitle sample packet more accurately.
       // f.e. in the case of MP4 the video packet has very few sample sync points
@@ -997,6 +1056,8 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       {
         seekTime = destTimeSecs;
+        // Remember the native PTS delivered so the audio streams can be co-timed with it.
+        videoReaderPts = streamReader->PTS();
 
         if (seekTimeCorrected != destTimePts)
         {
