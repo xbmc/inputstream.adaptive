@@ -220,21 +220,27 @@ bool TSReader::SeekTime(uint64_t timeInTs)
       break;
     }
 
-  uint64_t lastRecovery(static_cast<uint64_t>(m_startPos));
-  while (m_pkt.pts == PTS_UNSET || static_cast<uint64_t>(m_pkt.pts) < timeInTs)
+  if (hasVideo)
   {
-    uint64_t thisFrameStart(m_AVContext->GetRecoveryPos());
-    if (!ReadPacket())
-      return false;
-    if (!hasVideo || m_pkt.recoveryPoint || thisFrameStart >= m_startPos)
+    // Stop at the first video I-frame of the segment, or at timeInTs if none is flagged
+    // (only the H.264 parser flags recovery points)
+    while (m_pkt.pts == PTS_UNSET || GetStreamType() != INPUTSTREAM_TYPE_VIDEO ||
+           (!m_pkt.recoveryPoint && static_cast<uint64_t>(m_pkt.pts) < timeInTs))
     {
-      lastRecovery = thisFrameStart;
-      if (static_cast<uint64_t>(m_pkt.pts) >= timeInTs)
-        break;
+      if (!ReadPacket())
+        return false;
     }
   }
-  m_AVContext->GoPosition(lastRecovery, true);
+  else
+  {
+    while (m_pkt.pts == PTS_UNSET || static_cast<uint64_t>(m_pkt.pts) < timeInTs)
+    {
+      if (!ReadPacket())
+        return false;
+    }
+  }
 
+  // m_pkt is delivered as the first sample, do not reposition the AVContext
   return true;
 }
 
