@@ -25,14 +25,14 @@ bool CWebmSampleReader::Initialize(SESSION::CStream* stream)
   return ret;
 }
 
-AP4_Result CWebmSampleReader::Start(std::optional<uint64_t> pts)
+AP4_Result CWebmSampleReader::Start(std::optional<uint64_t> pts, PtsType ptsType)
 {
   if (m_started)
     return AP4_SUCCESS;
 
   AP4_Result ret;
   if (pts.has_value())
-    TimeSeek(*pts) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
+    TimeSeek(*pts, ptsType) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
   else
     ret = ReadSample();
 
@@ -77,10 +77,11 @@ void CWebmSampleReader::Reset(bool bEOS)
   m_eos = bEOS;
 }
 
-bool CWebmSampleReader::TimeSeek(uint64_t pts)
+bool CWebmSampleReader::TimeSeek(uint64_t pts, PtsType ptsType)
 {
+  const bool isManifestPts{ptsType == PtsType::MANIFEST};
   // compensate the pts diff with the manifest timing
-  AP4_UI64 seekPos(((pts + m_ptsDiff) * 9) / 100);
+  AP4_UI64 seekPos(((isManifestPts ? pts + m_ptsDiff : pts) * 9) / 100);
   if (WebmReader::SeekTime(seekPos))
   {
     m_started = true;
@@ -90,7 +91,7 @@ bool CWebmSampleReader::TimeSeek(uint64_t pts)
     // Reading resumes at the start of the segment, a key frame for video. Audio may start
     // anywhere, so its samples before the seek time are skipped to start along with the video.
     // The first sample read may only now have set the pts diff.
-    const uint64_t seekPts{pts + m_ptsDiff};
+    const uint64_t seekPts{isManifestPts ? pts + m_ptsDiff : pts};
     // Where no further sample can be read yet, the sample read last starts playback a little
     // early. The reader cannot tell this apart from the end of the stream here, and ending the
     // stream would silence it for the rest of the playback.

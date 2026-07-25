@@ -37,11 +37,11 @@ public:
   bool IsReady() override;
   uint64_t DTS() const override { return m_pts; }
   uint64_t PTS() const override { return m_pts; }
-  AP4_Result Start(std::optional<uint64_t> pts) override;
+  AP4_Result Start(std::optional<uint64_t> pts, PtsType ptsType) override;
   AP4_Result ReadSample() override;
   void Reset(bool bEOS) override;
   bool GetInformation(kodi::addon::InputstreamInfo& info) override;
-  bool TimeSeek(uint64_t pts) override;
+  bool TimeSeek(uint64_t pts, PtsType ptsType) override;
   void SetPTSOffset(uint64_t offset) override { }
   int64_t GetPTSDiff() const override { return 0; }
   uint32_t GetTimeScale() const override { return 1000; }
