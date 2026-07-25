@@ -140,12 +140,18 @@ const CSegment* PLAYLIST::CSegContainer::FindByPTSOrNext(uint64_t pts) const
 {
   for (const CSegment& seg : m_segments)
   {
-    if (seg.startPTS_ <= pts && pts <= seg.m_endPts)
+    // m_endPts is exclusive, a pts on a boundary belongs to the segment starting there
+    if (seg.startPTS_ <= pts && pts < seg.m_endPts)
       return &seg;
 
     if (seg.startPTS_ > pts)
       return &seg;
   }
+
+  // Seek to the stream end
+  if (!m_segments.empty() && pts == m_segments.back().m_endPts)
+    return &m_segments.back();
+
   return nullptr;
 }
 
