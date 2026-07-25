@@ -95,6 +95,19 @@ public:
    */
   virtual bool TimeSeek(uint64_t pts) = 0;
 
+  /*!
+   * \brief Seek to a PTS in the reader domain (as returned by PTS()),
+   *        not in the manifest timing that TimeSeek() expects.
+   * \param pts The reader PTS.
+   * \return True if has success, otherwise false.
+   */
+  virtual bool TimeSeekReaderPts(uint64_t pts)
+  {
+    // Valid only if TimeSeek applies GetPTSDiff() before reading a sample
+    const int64_t manifestPts{static_cast<int64_t>(pts) - GetPTSDiff()};
+    return TimeSeek(manifestPts < 0 ? 0 : static_cast<uint64_t>(manifestPts));
+  }
+
   virtual void SetPTSOffset(uint64_t offset) = 0;
   virtual int64_t GetPTSDiff() const = 0;
 

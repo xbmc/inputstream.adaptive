@@ -33,6 +33,7 @@ public:
     return ADTSReader::GetInformation(info);
   }
   bool TimeSeek(uint64_t pts) override;
+  bool TimeSeekReaderPts(uint64_t pts) override;
   void SetPTSOffset(uint64_t offset) override { m_ptsOffs = offset; }
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
   uint32_t GetTimeScale() const override { return 90000; }
@@ -43,6 +44,7 @@ public:
 
 private:
   void UpdatePts();
+  bool SeekToPts(uint64_t pts, bool isManifestPts);
   bool m_eos{false};
   bool m_started{false};
   uint64_t m_pts{0};

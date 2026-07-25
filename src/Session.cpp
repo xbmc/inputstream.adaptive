@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <optional>
 
 using namespace adaptive;
 using namespace PLAYLIST;
@@ -961,6 +962,10 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 
   // NOTE: It is assumed that the streams are ordered by video type (on m_streams), so we will seek first the video stream
   // to get the closest sample PTS to the requested seek time, then we will use to seek/align the other streams
+
+  // Reader PTS of the video sample delivered, used to align the audio streams
+  std::optional<uint64_t> videoReaderPts;
+
   for (auto& stream : m_streams)
   {
     ISampleReader* streamReader{stream->GetReader()};
@@ -993,7 +998,30 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
 
-    if (!SeekReader(*stream, seekTimePts))
+    // Align audio to the delivered video PTS instead of its own manifest timing, which drifts
+    const ISampleReader::Type readerType{streamReader->GetType()};
+    const bool alignToVideoPts = videoReaderPts.has_value() && hasAdStream &&
+                                 stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO &&
+                                 (readerType == ISampleReader::Type::TS ||
+                                  readerType == ISampleReader::Type::ADTS ||
+                                  readerType == ISampleReader::Type::FMP4);
+
+    bool seekOk;
+    if (alignToVideoPts)
+    {
+      const bool wasStarted = streamReader->IsStarted();
+      seekOk = streamReader->TimeSeekReaderPts(*videoReaderPts);
+
+      // As Start() does, e.g. on resume before the readers are started
+      if (seekOk && !wasStarted && streamReader->GetInformation(stream->m_info))
+        m_changed = true;
+    }
+    else
+    {
+      seekOk = SeekReader(*stream, seekTimePts);
+    }
+
+    if (!seekOk)
     {
       streamReader->Reset(true);
 
@@ -1014,6 +1042,20 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       LOG::Log(LOGINFO, "Seek time %0.1lf for stream: %i continues at %0.1lf (PTS: %llu)", seekTime,
                streamReader->GetStreamId(), destTimeSecs, streamReader->PTS());
 
+      if (alignToVideoPts)
+      {
+        const int64_t avDeltaPts{static_cast<int64_t>(streamReader->PTS()) -
+                                 static_cast<int64_t>(*videoReaderPts)};
+        constexpr int64_t avDeltaWarnPts{STREAM_TIME_BASE / 2};
+        const int64_t avDeltaAbs{avDeltaPts < 0 ? -avDeltaPts : avDeltaPts};
+
+        LOG::Log(avDeltaAbs > avDeltaWarnPts ? LOGWARNING : LOGINFO,
+                 "Seek A/V align: audio stream %i landed at PTS %llu, target (video) PTS %llu, "
+                 "delta %lld (%0.3lfs)",
+                 streamReader->GetStreamId(), streamReader->PTS(), *videoReaderPts, avDeltaPts,
+                 static_cast<double>(avDeltaPts) / STREAM_TIME_BASE);
+      }
+
       // We replace the seek time PTS initially requested with the PTS of the video sample found
       // in order to search the audio/subtitle sample packet more accurately.
       // f.e. in the case of MP4 the video packet has very few sample sync points
@@ -1023,6 +1065,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       {
         seekTime = destTimeSecs;
+        videoReaderPts = streamReader->PTS();
 
         if (seekTimeCorrected != destTimePts)
         {

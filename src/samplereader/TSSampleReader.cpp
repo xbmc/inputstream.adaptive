@@ -125,6 +125,17 @@ void CTSSampleReader::Reset(bool bEOS)
 
 bool CTSSampleReader::TimeSeek(uint64_t pts)
 {
+  return SeekToPts(pts, true);
+}
+
+bool CTSSampleReader::TimeSeekReaderPts(uint64_t pts)
+{
+  // The sample read in SeekToPts can refresh m_ptsDiff, so do not compensate it
+  return SeekToPts(pts, false);
+}
+
+bool CTSSampleReader::SeekToPts(uint64_t pts, bool isManifestPts)
+{
   if (!StartStreaming(m_typeMask))
     return false;
 
@@ -133,7 +144,8 @@ bool CTSSampleReader::TimeSeek(uint64_t pts)
       return false;
 
   // compensate the pts diff with the manifest timing
-  pts += m_ptsDiff;
+  if (isManifestPts)
+    pts += m_ptsDiff;
 
   AP4_UI64 seekPos((pts * 9) / 100);
   if (TSReader::SeekTime(seekPos))
