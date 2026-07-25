@@ -224,21 +224,44 @@ bool TSReader::SeekTime(uint64_t timeInTs)
       break;
     }
 
-  uint64_t lastRecovery(static_cast<uint64_t>(m_startPos));
-  while (m_pkt.pts == PTS_UNSET || static_cast<uint64_t>(m_pkt.pts) < timeInTs)
+  if (hasVideo)
   {
-    uint64_t thisFrameStart(m_AVContext->GetRecoveryPos());
-    if (!ReadPacket())
-      return false;
-    if (!hasVideo || m_pkt.recoveryPoint || thisFrameStart >= m_startPos)
+    // Stop at the first recovery point (keyframe), which is the one that starts the segment
+    // AdaptiveStream::seek_time already selected as containing the requested time.
+    //
+    // Scanning on to the first keyframe at/after timeInTs - the previous behaviour - cannot land
+    // inside the current segment at all: this content carries a single keyframe per segment, at its
+    // start (verified on a sample segment: one random_access_indicator, at the first video packet,
+    // followed by a 250 frame / 10 second GOP). The scan therefore always ran into the *next*
+    // segment, downloading the whole remainder of the current one and overshooting the requested
+    // time by up to a full segment.
+    //
+    // Bounded by timeInTs so a stream that never flags a recovery point degrades to the previous
+    // behaviour instead of scanning to EOS.
+    while (m_pkt.pts == PTS_UNSET ||
+           (!m_pkt.recoveryPoint && static_cast<uint64_t>(m_pkt.pts) < timeInTs))
     {
-      lastRecovery = thisFrameStart;
-      if (static_cast<uint64_t>(m_pkt.pts) >= timeInTs)
-        break;
+      if (!ReadPacket())
+        return false;
     }
   }
-  m_AVContext->GoPosition(lastRecovery, true);
+  else
+  {
+    // Audio-only TS has no keyframes, so land as close to the requested time as possible.
+    while (m_pkt.pts == PTS_UNSET || static_cast<uint64_t>(m_pkt.pts) < timeInTs)
+    {
+      if (!ReadPacket())
+        return false;
+    }
+  }
 
+  // Do not reposition to the recovery position afterwards. The packet we want is already read and
+  // CTSSampleReader::TimeSeek hands this m_pkt to Kodi as the first sample, while the packets that
+  // follow it are queued in the elementary stream buffers and are drained in order. Seeking the
+  // AVContext back to GetRecoveryPos() instead loses them: the MPEG-TS parser reads ahead, so that
+  // position lies *behind* the packet just delivered, and reading resumed a full GOP later - the
+  // video stream got a hole of seconds right after every seek while audio kept feeding, which
+  // starves Kodi's video player into a stillframe and a decoder reset.
   return true;
 }
 
