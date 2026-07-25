@@ -77,7 +77,10 @@ TSReader::~TSReader()
 
 bool TSReader::ReadAV(uint64_t pos, unsigned char * data, size_t len)
 {
-  m_stream->Seek(pos);
+  // A failed seek would read from a different position than requested
+  if (AP4_FAILED(m_stream->Seek(pos)))
+    return false;
+
   return AP4_SUCCEEDED(m_stream->Read(data, static_cast<AP4_Size>(len)));
 }
 

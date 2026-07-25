@@ -1169,7 +1169,12 @@ bool adaptive::AdaptiveStream::seek(uint64_t const pos, bool& isEos)
     }
   }
 
-  segment_read_pos_ = static_cast<size_t>(pos - (absolute_position_ - segment_read_pos_));
+  // A position before the current segment cannot be served (and would wrap below)
+  const uint64_t segStartPos{absolute_position_ - segment_read_pos_};
+  if (pos < segStartPos)
+    return false;
+
+  segment_read_pos_ = static_cast<size_t>(pos - segStartPos);
 
   if (segment_read_pos_ > currSegBuffer.BufferSize())
   {
