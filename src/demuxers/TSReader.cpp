@@ -77,7 +77,14 @@ TSReader::~TSReader()
 
 bool TSReader::ReadAV(uint64_t pos, unsigned char * data, size_t len)
 {
-  m_stream->Seek(pos);
+  // The seek result must be honoured: a position that is no longer reachable (before the start of
+  // the segment currently buffered) leaves the stream clamped to the end of that segment. Reading
+  // there and reporting success hands the demuxer data from an entirely different point in the
+  // timeline than the position it asked for - the parser then continues in the *next* segment and
+  // the delivered stream loses everything in between.
+  if (AP4_FAILED(m_stream->Seek(pos)))
+    return false;
+
   return AP4_SUCCEEDED(m_stream->Read(data, static_cast<AP4_Size>(len)));
 }
 

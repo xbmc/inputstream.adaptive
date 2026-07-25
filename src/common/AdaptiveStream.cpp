@@ -1189,7 +1189,15 @@ bool adaptive::AdaptiveStream::seek(uint64_t const pos, bool& isEos)
     }
   }
 
-  segment_read_pos_ = static_cast<size_t>(pos - (absolute_position_ - segment_read_pos_));
+  // Positions are absolute over the whole stream while only the current segment is buffered, so a
+  // position before that segment cannot be served. Reject it explicitly: the subtraction below is
+  // unsigned, so letting it through wraps around to a huge offset that the clamp then turns into
+  // "end of the current segment" - a silent jump to a completely different point in the timeline.
+  const uint64_t segStartPos{absolute_position_ - segment_read_pos_};
+  if (pos < segStartPos)
+    return false;
+
+  segment_read_pos_ = static_cast<size_t>(pos - segStartPos);
 
   if (segment_read_pos_ > currSegBuffer.BufferSize())
   {
