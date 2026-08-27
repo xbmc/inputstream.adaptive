@@ -62,6 +62,13 @@ public:
   {
   }
 
+  bool PrepareResource(const PLAYLIST::CRepresentation* rep,
+                       const PLAYLIST::CSegment& segment,
+                       std::string& url,
+                       uint64_t& rangeBegin,
+                       uint64_t& rangeEnd);
+  bool DownloadStoppedResource(const std::string& url);
+
   std::chrono::system_clock::time_point mock_time_stream = std::chrono::system_clock::now();
   void SetLastUpdated(const std::chrono::system_clock::time_point tm) override
   {

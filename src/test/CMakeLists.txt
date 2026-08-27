@@ -6,6 +6,7 @@ add_definitions(-DINPUTSTREAM_TEST_BUILD)
 
 add_executable(${BINARY}
     TestMain.cpp
+    TestChooser.cpp
     TestCurlUtils.cpp
     TestDASHTree.cpp
     TestHLSTree.cpp
