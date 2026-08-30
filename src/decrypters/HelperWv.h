@@ -100,6 +100,9 @@ public:
   virtual void SetCodecInstance(void* instance) {}
   virtual void ResetCodecInstance() {}
 
+  virtual void SetAudioCodecInstance(void* instance) {}
+  virtual void ResetAudioCodecInstance() {}
+
   virtual std::string_view GetKeySystem() = 0;
 
   virtual std::string_view GetLibraryPath() const { return ""; }

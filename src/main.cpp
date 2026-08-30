@@ -28,9 +28,17 @@ CInputStreamAdaptive::CInputStreamAdaptive(const kodi::addon::IInstanceInfo& ins
 ADDON_STATUS CInputStreamAdaptive::CreateInstance(const kodi::addon::IInstanceInfo& instance,
                                                   KODI_ADDON_INSTANCE_HDL& hdl)
 {
+  LOG::Log(LOGWARNING, "CInputStreamAdaptive::CreateInstance");
   if (instance.IsType(ADDON_INSTANCE_VIDEOCODEC))
   {
+    LOG::Log(LOGWARNING, "CInputStreamAdaptive::CreateInstance VIDEO");
     hdl = new CVideoCodecAdaptive(instance, this);
+    return ADDON_STATUS_OK;
+  }
+  if (instance.IsType(ADDON_INSTANCE_AUDIOCODEC))
+  {
+    LOG::Log(LOGWARNING, "CInputStreamAdaptive::CreateInstance AUDIO");
+    hdl = new CAudioCodecAdaptive(instance, this);
     return ADDON_STATUS_OK;
   }
   return ADDON_STATUS_NOT_IMPLEMENTED;
@@ -544,7 +552,10 @@ bool CInputStreamAdaptive::SeekChapter(int ch)
   return m_session ? m_session->SeekChapter(ch) : false;
 }
 #endif
-/*****************************************************************************************************/
+
+/*******************************************************/
+/*                     VideoCodec                      */
+/*******************************************************/
 
 CVideoCodecAdaptive::CVideoCodecAdaptive(const kodi::addon::IInstanceInfo& instance)
   : CInstanceVideoCodec(instance), m_name("inputstream.adaptive.decoder")
@@ -648,6 +659,84 @@ void CVideoCodecAdaptive::Reset()
     return;
 
   m_drmDecoder->ResetVideo();
+}
+
+/*******************************************************/
+/*                     AudioCodec                      */
+/*******************************************************/
+
+CAudioCodecAdaptive::CAudioCodecAdaptive(const kodi::addon::IInstanceInfo& instance)
+  : CInstanceAudioCodec(instance), m_name("inputstream.adaptive.decoder")
+{
+}
+
+CAudioCodecAdaptive::CAudioCodecAdaptive(const kodi::addon::IInstanceInfo& instance,
+                                         CInputStreamAdaptive* parent)
+  : CInstanceAudioCodec(instance), m_session(parent->GetSession())
+{
+}
+
+CAudioCodecAdaptive::~CAudioCodecAdaptive()
+{
+  // When the addon is about to be terminated
+  // CAudioCodecAdaptive instance will be destroyed before of CInputStreamAdaptive::Close() call
+  LOG::Log(LOGDEBUG, "CAudioCodecAdaptive::~CAudioCodecAdaptive");
+  if (m_drmDecoderAudio)
+    m_drmDecoderAudio->DisposeDecoder();
+
+  m_drmDecoderAudio = nullptr;
+}
+
+bool CAudioCodecAdaptive::Open(const kodi::addon::AudioCodecInitdata& initData)
+{
+  if (!m_session)
+    return false;
+
+  LOG::Log(LOGINFO, "CAudioCodecAdaptive::Open");
+
+  m_name = "inputstream.adaptive.audio.decoder";
+
+  const std::string sessionId = initData.GetCryptoSession().GetSessionId();
+
+  auto drmSession = m_session->GetDRMEngine().GetSession(sessionId);
+  if (!drmSession)
+  {
+    LOG::LogF(LOGERROR, "Cannot get DRM session id: %s", sessionId.c_str());
+    return false;
+  }
+
+  m_drmDecoderAudio = drmSession->drm;
+  return m_drmDecoderAudio->OpenAudioDecoder(drmSession->decrypter, initData.GetCStructure());
+}
+
+bool CAudioCodecAdaptive::AddData(const DEMUX_PACKET& packet)
+{
+  if (!m_drmDecoderAudio)
+    return false;
+
+  return m_drmDecoderAudio->DecryptAndDecodeAudio(
+             dynamic_cast<kodi::addon::CInstanceAudioCodec*>(this), &packet) != AC_ERROR;
+}
+
+AUDIOCODEC_RETVAL CAudioCodecAdaptive::GetFrame(AUDIOCODEC_FRAME& frame)
+{
+  if (!m_drmDecoderAudio)
+    return AUDIOCODEC_RETVAL::AC_ERROR;
+
+  static AUDIOCODEC_RETVAL arvm[] = {AUDIOCODEC_RETVAL::AC_NONE, AUDIOCODEC_RETVAL::AC_ERROR,
+                                     AUDIOCODEC_RETVAL::AC_BUFFER, AUDIOCODEC_RETVAL::AC_FRAME,
+                                     AUDIOCODEC_RETVAL::AC_EOF};
+
+  return arvm[m_drmDecoderAudio->AudioFrameDataToFrame(
+      dynamic_cast<kodi::addon::CInstanceAudioCodec*>(this), &frame)];
+}
+
+void CAudioCodecAdaptive::Reset()
+{
+  if (!m_drmDecoderAudio)
+    return;
+
+  m_drmDecoderAudio->ResetAudio();
 }
 
 /*****************************************************************************************************/

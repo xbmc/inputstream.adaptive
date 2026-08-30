@@ -40,27 +40,32 @@ public:
   virtual std::string GetChallengeB64Data(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter) override;
   virtual bool OpenVideoDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
                                 const VIDEOCODEC_INITDATA* initData) override;
+  virtual bool OpenAudioDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+                                const AUDIOCODEC_INITDATA* initData) override;
   virtual VIDEOCODEC_RETVAL DecryptAndDecodeVideo(kodi::addon::CInstanceVideoCodec* codecInstance,
                                                   const DEMUX_PACKET* sample) override;
+  virtual AUDIOCODEC_RETVAL DecryptAndDecodeAudio(kodi::addon::CInstanceAudioCodec* codecInstance,
+                                                  const DEMUX_PACKET* sample) override;
+
   virtual VIDEOCODEC_RETVAL VideoFrameDataToPicture(kodi::addon::CInstanceVideoCodec* codecInstance,
                                                     VIDEOCODEC_PICTURE* picture) override;
+  virtual AUDIOCODEC_RETVAL AudioFrameDataToFrame(kodi::addon::CInstanceAudioCodec* codecInstance,
+                                                  AUDIOCODEC_FRAME* frame) override;
   virtual void ResetVideo() override;
+  virtual void ResetAudio() override;
   virtual void DisposeDecoder() override;
   virtual void SetLibraryPath(std::string_view libraryPath) override;
   virtual bool GetBuffer(void* instance, VIDEOCODEC_PICTURE& picture);
   virtual void ReleaseBuffer(void* instance, void* buffer);
-  virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
+  virtual bool GetBufferAudio(void* instance, AUDIOCODEC_FRAME& buffer);
+  virtual void ReleaseBufferAudio(void* instance, void* buffer);
 
-#ifdef TARGET_WEBOS
-  virtual bool IsSecureDecoderAudioSupported() override { return true; }
-#else
-  //! @todo: Secure path for audio is not implemented
-  virtual bool IsSecureDecoderAudioSupported() override { return false; }
-#endif
+  virtual std::string_view GetLibraryPath() const override { return m_libraryPath; }
 
 private:
   std::shared_ptr<CWVCdmAdapter> m_WVCdmAdapter;
   std::shared_ptr<CWVCencSingleSampleDecrypter> m_decodingDecrypter;
+  std::shared_ptr<CWVCencSingleSampleDecrypter> m_decodingDecrypterAudio;
   std::string m_libraryPath;
 #if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
   void* m_hdlLibLoader{nullptr}; // Aarch64 loader library handle
