@@ -20,8 +20,6 @@ public:
 
   virtual const std::string GetName() const override { return "Widevine-CDM"; }
 
-  virtual bool Initialize() override;
-
   virtual bool IsKeySystemSupported(std::string_view keySystem) override;
 
   virtual std::shared_ptr<Adaptive_CencSingleSampleDecrypter> CreateSingleSampleDecrypter(
@@ -62,7 +60,4 @@ private:
   std::shared_ptr<CWVCdmAdapter> m_WVCdmAdapter;
   std::shared_ptr<CWVCencSingleSampleDecrypter> m_decodingDecrypter;
   std::string m_libraryPath;
-#if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
-  void* m_hdlLibLoader{nullptr}; // Aarch64 loader library handle
-#endif
 };
