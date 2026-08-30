@@ -15,7 +15,6 @@
 #include "Chooser.h"
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
-#include "utils/StringUtils.h"
 #include "utils/CurlUtils.h"
 #include "utils/UrlUtils.h"
 #include "utils/log.h"
@@ -107,6 +106,13 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
 
   CURL::CUrl curl{url};
   curl.AddHeaders(headers);
+  if (downloadInfo.m_rangeBegin != NO_VALUE)
+  {
+    if (downloadInfo.m_rangeEnd == NO_VALUE)
+      curl.SetByteRange(downloadInfo.m_rangeBegin);
+    else
+      curl.SetByteRange(downloadInfo.m_rangeBegin, downloadInfo.m_rangeEnd);
+  }
 
   int statusCode = curl.Open();
 
@@ -118,10 +124,28 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
   else // Start the download
   {
     CURL::ReadStatus downloadStatus = CURL::ReadStatus::CHUNK_READ;
-    bool isChunked = curl.IsChunked();
+    std::vector<uint8_t> pendingData;
+
+    const auto appendSegmentData = [&](const std::vector<uint8_t>& data, bool isLastChunk) {
+      // The status can be changed e.g. by a video seek or stop.
+      if (thread_data_->State() == THREADDATA::ThState::STOPPED)
+        return false;
+
+      std::vector<uint8_t> bufferOutput;
+      m_tree->OnDataArrived(downloadInfo.m_segmentBuffer->segment.m_number,
+                            downloadInfo.m_segmentBuffer->segment.AESKeyInfo(), m_decrypterIv,
+                            data.data(), data.size(), bufferOutput,
+                            downloadInfo.m_segmentBuffer->BufferSize(), isLastChunk);
+      downloadInfo.m_segmentBuffer->AppendBuffer(bufferOutput);
+      thread_data_->cvRW.notify_all();
+      return true;
+    };
 
     while (downloadStatus == CURL::ReadStatus::CHUNK_READ)
     {
+      if (!downloadData && thread_data_->State() == THREADDATA::ThState::STOPPED)
+        break;
+
       std::vector<uint8_t> bufferData(CURL::BUFFER_SIZE_32);
       size_t bytesRead{0};
 
@@ -131,31 +155,21 @@ bool adaptive::AdaptiveStream::DownloadImpl(const DownloadInfo& downloadInfo,
       {
         if (downloadData) // Write the data in to the string
         {
-          downloadData->insert(downloadData->end(), bufferData.begin(), bufferData.end());
+          downloadData->insert(downloadData->end(), bufferData.begin(),
+                               bufferData.begin() + bytesRead);
         }
         else // Write the data to the segment buffer
         {
-          // We only set lastChunk to true in the case of non-chunked transfers, the
-          // current structure does not allow for knowing the file has finished for
-          // chunked transfers here - IsEOF() will return true while doing chunked transfers
-          bool isLastChunk = !isChunked && curl.IsEOF();
-
-          // The status can be changed after waiting for the lock_guard e.g. video seek/stop
-          if (thread_data_->State() == THREADDATA::ThState::STOPPED)
+          if (!pendingData.empty() && !appendSegmentData(pendingData, false))
             break;
-
-          std::vector<uint8_t> bufferOutput;
-
-          m_tree->OnDataArrived(downloadInfo.m_segmentBuffer->segment.m_number,
-                                downloadInfo.m_segmentBuffer->segment.AESKeyInfo(), m_decrypterIv,
-                                bufferData.data(), bytesRead, bufferOutput,
-                                downloadInfo.m_segmentBuffer->BufferSize(), isLastChunk);
-
-          downloadInfo.m_segmentBuffer->AppendBuffer(bufferOutput);
-          thread_data_->cvRW.notify_all();
+          pendingData.assign(bufferData.begin(), bufferData.begin() + bytesRead);
         }
       }
     }
+
+    if (downloadStatus == CURL::ReadStatus::IS_EOF && !downloadData && !pendingData.empty() &&
+        !appendSegmentData(pendingData, true))
+      downloadStatus = CURL::ReadStatus::CHUNK_READ;
 
     if (downloadStatus == CURL::ReadStatus::ERROR)
     {
@@ -241,20 +255,10 @@ bool adaptive::AdaptiveStream::PrepareDownload(const PLAYLIST::CRepresentation* 
 
   if (seg.HasByteRange())
   {
-    std::string rangeHeader;
-    uint64_t fileOffset = seg.IsInitialization() ? 0 : m_segmentFileOffset;
-
+    const uint64_t fileOffset = seg.IsInitialization() ? 0 : m_segmentFileOffset;
+    downloadInfo.m_rangeBegin = seg.range_begin_ + fileOffset;
     if (seg.range_end_ != NO_VALUE)
-    {
-      rangeHeader = STRING::Format("bytes=%llu-%llu", seg.range_begin_ + fileOffset,
-                                   seg.range_end_ + fileOffset);
-    }
-    else
-    {
-      rangeHeader = STRING::Format("bytes=%llu-", seg.range_begin_ + fileOffset);
-    }
-
-    downloadInfo.m_addHeaders["Range"] = rangeHeader;
+      downloadInfo.m_rangeEnd = seg.range_end_ + fileOffset;
   }
 
   downloadInfo.m_url = streamUrl;

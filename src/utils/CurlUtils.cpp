@@ -18,6 +18,9 @@
 #include "CompKodiProps.h"
 #include "SrvBroker.h"
 
+#include <algorithm>
+#include <limits>
+
 using namespace UTILS;
 using namespace UTILS::CURL;
 
@@ -186,7 +189,11 @@ void StoreCookies(const std::string& url, const std::vector<std::string>& cookie
 } // unnamed namespace
 
 UTILS::CURL::CUrl::CUrl(const std::string& url, const RequestType reqType /* = RequestType::AUTO */)
+  : m_url(url), m_isHttp(URL::IsHttpUrl(url))
 {
+  if (!m_isHttp)
+    return;
+
   if (m_file.CURLCreate(url))
   {
     auto& kodiProps = CSrvBroker::GetKodiProps();
@@ -224,7 +231,7 @@ UTILS::CURL::CUrl::CUrl(const std::string& url, const std::string& postData) : C
 
 UTILS::CURL::CUrl::~CUrl()
 {
-  if (CSrvBroker::GetKodiProps().GetConfig().internalCookies)
+  if (m_isHttp && CSrvBroker::GetKodiProps().GetConfig().internalCookies)
     StoreCookies(GetEffectiveUrl(), GetResponseHeaders("set-cookie"));
 
   m_file.Close();
@@ -232,46 +239,95 @@ UTILS::CURL::CUrl::~CUrl()
 
 int UTILS::CURL::CUrl::Open()
 {
-  if (!m_file.CURLOpen(ADDON_READ_NO_CACHE | ADDON_READ_NO_BUFFER))
+  if (m_isHttp)
   {
-    LOG::LogF(LOGERROR, "CURLOpen failed");
+    if (!m_file.CURLOpen(ADDON_READ_NO_CACHE | ADDON_READ_NO_BUFFER))
+    {
+      LOG::LogF(LOGERROR, "CURLOpen failed");
+      return -1;
+    }
+
+    // Get HTTP response status line (e.g. "HTTP/1.1 200 OK")
+    std::string statusLine = m_file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
+    if (!statusLine.empty())
+      return STRING::ToInt32(statusLine.substr(statusLine.find(' ') + 1), -1);
+
     return -1;
   }
 
-  // Get HTTP response status line (e.g. "HTTP/1.1 200 OK")
-  std::string statusLine = m_file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL, "");
-  if (!statusLine.empty())
-    return STRING::ToInt32(statusLine.substr(statusLine.find(' ') + 1), -1);
+  const uint64_t maxOffset{static_cast<uint64_t>(std::numeric_limits<int64_t>::max())};
+  if ((m_rangeBegin && *m_rangeBegin > maxOffset) || (m_rangeEnd && *m_rangeEnd > maxOffset) ||
+      (m_rangeBegin && m_rangeEnd && *m_rangeEnd < *m_rangeBegin))
+  {
+    LOG::Log(LOGERROR, "Cannot open VFS resource, invalid byte range: %s", m_url.c_str());
+    return -1;
+  }
 
-  return -1;
+  if (!m_file.OpenFile(m_url, ADDON_READ_NO_CACHE | ADDON_READ_NO_BUFFER))
+  {
+    LOG::Log(LOGERROR, "Cannot open VFS resource: %s", m_url.c_str());
+    return -1;
+  }
+
+  if (m_rangeBegin && *m_rangeBegin > 0 &&
+      m_file.Seek(static_cast<int64_t>(*m_rangeBegin), SEEK_SET) !=
+          static_cast<int64_t>(*m_rangeBegin))
+  {
+    LOG::Log(LOGERROR, "Cannot seek VFS resource: %s", m_url.c_str());
+    m_file.Close();
+    return -1;
+  }
+
+  m_bytesRead = 0;
+  m_bytesRemaining.reset();
+  m_reachedEof = false;
+  if (m_rangeBegin && m_rangeEnd)
+    m_bytesRemaining = *m_rangeEnd - *m_rangeBegin + 1;
+  m_fileLength = m_file.GetLength();
+  return 200;
 }
 
 void UTILS::CURL::CUrl::AddHeader(const std::string& name, const std::string& value)
 {
-  m_file.CURLAddOption(ADDON_CURL_OPTION_HEADER, name, value);
+  if (m_isHttp)
+    m_file.CURLAddOption(ADDON_CURL_OPTION_HEADER, name, value);
 }
 
 void UTILS::CURL::CUrl::AddHeaders(const std::map<std::string, std::string>& headers)
 {
   for (auto& header : headers)
+    AddHeader(header.first, header.second);
+}
+
+void UTILS::CURL::CUrl::SetByteRange(uint64_t begin, std::optional<uint64_t> end)
+{
+  if (m_isHttp)
   {
-    m_file.CURLAddOption(ADDON_CURL_OPTION_HEADER, header.first, header.second);
+    std::string value{"bytes=" + std::to_string(begin) + "-"};
+    if (end)
+      value += std::to_string(*end);
+    AddHeader("Range", value);
+    return;
   }
+
+  m_rangeBegin = begin;
+  m_rangeEnd = end;
 }
 
 std::string UTILS::CURL::CUrl::GetResponseHeader(const std::string& name)
 {
-  return m_file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, name);
+  return m_isHttp ? m_file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, name) : "";
 }
 
 std::vector<std::string> UTILS::CURL::CUrl::GetResponseHeaders(const std::string& name)
 {
-  return m_file.GetPropertyValues(ADDON_FILE_PROPERTY_RESPONSE_HEADER, name);
+  return m_isHttp ? m_file.GetPropertyValues(ADDON_FILE_PROPERTY_RESPONSE_HEADER, name)
+                  : std::vector<std::string>{};
 }
 
 std::string UTILS::CURL::CUrl::GetEffectiveUrl()
 {
-  return m_file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "");
+  return m_isHttp ? m_file.GetPropertyValue(ADDON_FILE_PROPERTY_EFFECTIVE_URL, "") : m_url;
 }
 
 ReadStatus UTILS::CURL::CUrl::Read(std::string& data, size_t chunkBufferSize /* = BUFFER_SIZE_32 */)
@@ -279,38 +335,50 @@ ReadStatus UTILS::CURL::CUrl::Read(std::string& data, size_t chunkBufferSize /* 
   while (true)
   {
     std::vector<char> bufferData(chunkBufferSize);
-    ssize_t ret = m_file.Read(bufferData.data(), chunkBufferSize);
-
-    if (ret == -1)
-      return ReadStatus::ERROR;
-    else if (ret == 0)
-      return ReadStatus::IS_EOF;
-
-    data.append(bufferData.data(), static_cast<size_t>(ret));
-    m_bytesRead += static_cast<size_t>(ret);
+    size_t bytesRead{0};
+    const ReadStatus status = ReadChunk(bufferData.data(), chunkBufferSize, bytesRead);
+    if (status != ReadStatus::CHUNK_READ)
+      return status;
+    data.append(bufferData.data(), bytesRead);
   }
 }
 
 ReadStatus UTILS::CURL::CUrl::ReadChunk(void* buffer, size_t bufferSize, size_t& bytesRead)
 {
-  ssize_t ret = m_file.Read(buffer, bufferSize);
+  bytesRead = 0;
+  if (m_bytesRemaining && *m_bytesRemaining == 0)
+    return ReadStatus::IS_EOF;
+
+  size_t readSize{bufferSize};
+  if (m_bytesRemaining)
+    readSize = static_cast<size_t>(std::min<uint64_t>(*m_bytesRemaining, bufferSize));
+
+  ssize_t ret = m_file.Read(buffer, readSize);
   if (ret == -1)
     return ReadStatus::ERROR;
   else if (ret == 0)
+  {
+    m_reachedEof = true;
     return ReadStatus::IS_EOF;
+  }
 
   bytesRead = static_cast<size_t>(ret);
   m_bytesRead += static_cast<size_t>(ret);
+  if (m_bytesRemaining)
+    *m_bytesRemaining -= bytesRead;
   return ReadStatus::CHUNK_READ;
 }
 
 double UTILS::CURL::CUrl::GetDownloadSpeed()
 {
-  return m_file.GetFileDownloadSpeed();
+  return m_isHttp ? m_file.GetFileDownloadSpeed() : 0.0;
 }
 
 bool UTILS::CURL::CUrl::IsChunked()
 {
+  if (!m_isHttp)
+    return false;
+
   std::string transferEncodingStr{
       m_file.GetPropertyValue(ADDON_FILE_PROPERTY_RESPONSE_HEADER, "Transfer-Encoding")};
   std::string contentLengthStr{
@@ -322,6 +390,14 @@ bool UTILS::CURL::CUrl::IsChunked()
 
 bool UTILS::CURL::CUrl::IsEOF()
 {
+  if (m_bytesRemaining && *m_bytesRemaining == 0)
+    return true;
+  if (!m_isHttp)
+  {
+    if (m_fileLength >= 0)
+      return m_file.GetPosition() >= m_fileLength;
+    return m_reachedEof;
+  }
   return m_file.AtEnd();
 }
 

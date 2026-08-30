@@ -6,10 +6,13 @@ add_definitions(-DINPUTSTREAM_TEST_BUILD)
 
 add_executable(${BINARY}
     TestMain.cpp
+    TestChooser.cpp
+    TestCurlUtils.cpp
     TestDASHTree.cpp
     TestHLSTree.cpp
     TestSmoothTree.cpp
     TestHelper.cpp
+    TestUrlUtils.cpp
     TestUtils.cpp
     ../aes_decrypter.cpp
     ../decrypters/Helpers.cpp
