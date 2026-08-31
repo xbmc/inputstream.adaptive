@@ -297,15 +297,18 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
     {
       if (BASE64::IsValidBase64(licConfig.reqData))
         reqData = BASE64::DecodeToStr(licConfig.reqData);
-      else //! @todo: this fallback as plain text must be removed when the deprecated DRM properties are removed, and so replace it to return error
-        reqData = licConfig.reqData;
+      else
+      {
+        LOG::Log(LOGERROR, "The license request data is not in a valid base64 format");
+        return false;
+      }
 
       // Some services have a customized license server that require data to be wrapped with their formats (e.g. JSON).
       // Here we provide a built-in way to customize the license data to be sent, this avoid force add-ons to integrate
       // an HTTP server proxy to manage the license data request/response, and so use Kodi properties to set wrappers.
       if (m_cdmAdapter->GetKeySystem() == DRM::KS_WIDEVINE &&
           !DRM::WvWrapLicense(reqData, challenge, m_strSession, m_defaultKeyId, m_pssh,
-                              licConfig.wrapper, drmCfg.isNewConfig))
+                              licConfig.wrapper))
       {
         return false;
       }
@@ -320,7 +323,7 @@ bool CWVCencSingleSampleDecrypter::SendSessionMessage()
   }
 
   std::string url = licConfig.serverUri;
-  DRM::TranslateLicenseUrlPh(url, challenge, drmCfg.isNewConfig);
+  DRM::TranslateLicenseUrlPh(url, challenge);
 
   CURL::CUrl cUrl{url, reqData};
   cUrl.AddHeaders(licConfig.reqHeaders);

@@ -149,9 +149,6 @@ struct DrmCfg
 
   // The license configuration
   License license;
-  // Specifies if has been parsed the new DRM config ("drm" or "drm_legacy" kodi property)
-  //! @todo: to remove when deprecated DRM properties will be removed
-  bool isNewConfig{true};
 };
 
 class ATTR_DLL_LOCAL CCompKodiProps
@@ -202,7 +199,6 @@ private:
   void ParseConfig(const std::string& data);
   void ParseManifestConfig(const std::string& data);
 
-  void ParseDrmOldProps(const std::map<std::string, std::string>& props);
   bool ParseDrmConfig(const std::string& data);
   bool ParseDrmLegacyConfig(const std::string& data);
 

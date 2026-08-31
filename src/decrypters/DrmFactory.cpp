@@ -71,7 +71,6 @@ DRM::Config DRM::CreateDRMConfig(std::string_view keySystem, const ADP::KODI_PRO
   cfg.keySystem = keySystem;
   cfg.isPersistentStorage = propCfg.isPersistentStorage;
   cfg.optKeyReqParams = propCfg.optKeyReqParams;
-  cfg.isNewConfig = propCfg.isNewConfig;
 
   auto& propLicCfg = propCfg.license;
   auto& licCfg = cfg.license;
@@ -80,8 +79,7 @@ DRM::Config DRM::CreateDRMConfig(std::string_view keySystem, const ADP::KODI_PRO
   licCfg.serverUri = propLicCfg.serverUri;
   licCfg.isHttpGetRequest = propLicCfg.isHttpGetRequest;
 
-  if (!propLicCfg.reqData.empty() && !BASE64::IsValidBase64(propLicCfg.reqData) &&
-      propCfg.isNewConfig)
+  if (!propLicCfg.reqData.empty() && !BASE64::IsValidBase64(propLicCfg.reqData))
   {
     LOG::LogF(LOGERROR, "The license \"req_data\" parameter must have data encoded as base 64.");
   }

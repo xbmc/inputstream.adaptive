@@ -959,7 +959,6 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
 
       if (aesKey->key.empty())
       {
-        // RETRY:
         auto drmCfgProp = CSrvBroker::GetKodiProps().GetDrmConfig(DRM::KS_NONE);
 
         CURL::HTTPResponse resp;
@@ -969,33 +968,9 @@ void adaptive::CHLSTree::OnDataArrived(uint64_t segNum,
           aesKey->key.assign(resp.data.begin(), resp.data.end());
           m_aesUrlKeyCache[aesKey->keyUrl] = aesKey->key;
         }
-
-        /*
-         *! @todo: unclear if could be used by some old addon,
-         *!        for now all related code has been commented for a future removal
-         *
-        else if (pssh.defaultKID_ != "0")
-        {
-          //! @todo: RenewLicense (addon) callback is not wiki documented, there are addons that could use this?
-          //!        currently code fall here when the above download fail, there is no a better behaviour to avoid to do a broken download?
-          //!        the defaultKID_ is set with a single "0" instead of provide 16 chars, reason?
-          pssh.defaultKID_ = "0";
-          if (keyParts.size() >= 5 && !keyParts[4].empty() &&
-              m_decrypter->RenewLicense(keyParts[4]))
-            goto RETRY;
-        }
-        */
       }
     }
 
-    /*
-    if (pssh.defaultKID_ == "0")
-    {
-      segBuffer.resize(segBufferSize + srcDataSize, 0);
-      return;
-    }
-    else if (!segBufferSize)
-    */
     if (!segBufferSize)
     {
       if (aesKey->iv.empty())
@@ -1163,9 +1138,6 @@ bool adaptive::CHLSTree::ParseManifest(const std::string& data)
     repr->SetTimescale(TIMESCALE);
     repr->SetSourceUrl(manifest_url_);
     repr->AddCodecs(CODEC::FOURCC_H264);
-
-    repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-    repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
     repr->SetScaling();
 
@@ -1407,9 +1379,6 @@ bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,
     if ((r.m_features & REND_FEATURE_EC3_JOC) == REND_FEATURE_EC3_JOC)
       repr->AddCodecs(CODEC::NAME_EAC3_JOC);
   }
-
-  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
   repr->SetScaling();
 
@@ -1750,8 +1719,6 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
         repr->SetFrameRateScale(1000);
       }
 
-      repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-      repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
       repr->SetScaling();
 
       std::string uri = var.m_uri;
@@ -1801,9 +1768,6 @@ void adaptive::CHLSTree::AddIncludedAudioStream(std::unique_ptr<PLAYLIST::CPerio
   repr->AddCodecs(codec);
   repr->SetAudioChannels(2);
   repr->SetIsIncludedStream(true);
-
-  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
   repr->SetScaling();
 
