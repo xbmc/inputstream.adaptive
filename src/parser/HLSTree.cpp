@@ -1418,6 +1418,7 @@ bool adaptive::CHLSTree::ParseRenditon(const Rendition& r,
 
 bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
 {
+  const auto& manifestCfg = CSrvBroker::GetKodiProps().GetManifestConfig();
   std::stringstream streamData{data};
   MultivariantPlaylist pl;
 
@@ -1555,7 +1556,18 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
     if (varFound)
       codecStr = GetAudioCodec(varFound->m_codecs);
     else
-      LOG::LogF(LOGERROR, "Cannot find variant for AUDIO GROUP-ID: %s", r.m_groupId.c_str());
+    {
+      if (manifestCfg.hlsAddOrphansRenditions)
+      {
+        LOG::LogF(LOGDEBUG, "Add AUDIO type variant with orphan GROUP-ID: %s", r.m_groupId.c_str());
+      }
+      else
+      {
+        LOG::LogF(LOGWARNING, "Skipped AUDIO type variant with orphan GROUP-ID: %s",
+                  r.m_groupId.c_str());
+        continue;
+      }
+    }
 
     if (codecStr.empty())
       codecStr = CODEC::FOURCC_MP4A; // Fallback
@@ -1607,6 +1619,21 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
     std::string codecStr;
     if (varFound)
       codecStr = GetSubtitleCodec(varFound->m_codecs);
+    else
+    {
+      if (manifestCfg.hlsAddOrphansRenditions)
+      {
+        LOG::LogF(LOGDEBUG, "Add SUBTITLE type variant with orphan GROUP-ID: %s",
+                  r.m_groupId.c_str());
+      }
+      else
+      {
+        LOG::LogF(LOGWARNING, "Skipped SUBTITLE type variant with orphan GROUP-ID: %s",
+                  r.m_groupId.c_str());
+        continue;
+      }
+    }
+
     if (codecStr.empty())
       codecStr = CODEC::FOURCC_WVTT; // WebVTT as default subtitle codec
 

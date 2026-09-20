@@ -91,6 +91,9 @@ struct ManifestConfig
   // Faulty HLS live services can send manifest updates with inconsistent EXT-X-DISCONTINUITY-SEQUENCE
   // enabling this will correct the value by using EXT-X-PROGRAM-DATE-TIME tags
   bool hlsFixDiscontSequence{false};
+  // Some HLS can contains orphaned renditions not linked to any variant stream,
+  // enabling this will allow to include them for playback
+  bool hlsAddOrphansRenditions{false};
   // Custom delay from LIVE edge in seconds
   uint64_t liveDelay{0};
   // Allows to set a custom UTC Timing for DASH live streams (schemeIdUri, value)
