@@ -410,15 +410,19 @@ TEST_F(HLSTreeTest, MultipleEncryptionSequenceDrm)
   for (auto& drmInfo : p1rep->DrmInfos()) // Do not rely on the order of DrmInfos items
   {
     ks1.erase(drmInfo.keySystem);
+    if (drmInfo.keySystem == DRM::KS_WIDEVINE)
+      EXPECT_EQ(drmInfo.defaultKid, "331a38f924c94b5f94de613de7992e38");
   }
   EXPECT_TRUE(ks1.empty());
 
   auto& p2rep = periods[1]->GetAdaptationSets()[0]->GetRepresentations()[0];
   EXPECT_EQ(p2rep->DrmInfos().size(), 2);
   std::set<std::string_view> ks2{DRM::KS_WIDEVINE, DRM::KS_PLAYREADY};
-  for (auto& drmInfo : p1rep->DrmInfos()) // Do not rely on the order of DrmInfos items
+  for (auto& drmInfo : p2rep->DrmInfos()) // Do not rely on the order of DrmInfos items
   {
     ks2.erase(drmInfo.keySystem);
+    if (drmInfo.keySystem == DRM::KS_WIDEVINE)
+      EXPECT_EQ(drmInfo.defaultKid, "331a38f924c94b5f94de613de7992e38");
   }
   EXPECT_TRUE(ks2.empty());
 }

@@ -1259,6 +1259,15 @@ void adaptive::CHLSTree::ProcessEncryption(
       else
         LOG::LogF(LOGERROR, "Incorrect KEYID tag format");
     }
+    else if (DRM::IsValidPsshHeader(uriData))
+    {
+      DRM::PSSH psshParser;
+      if (psshParser.Parse(uriData) && psshParser.GetKeyIds().size() == 1)
+      {
+        drmInfo.defaultKid =
+            STRING::ToLower(STRING::ToHexadecimal(psshParser.GetKeyIds().front()));
+      }
+    }
 
     if (encryptMethod == "SAMPLE-AES-CTR")
       drmInfo.cryptoMode = CryptoMode::AES_CTR;
