@@ -436,6 +436,10 @@ void ADP::KODI_PROPS::CCompKodiProps::ParseManifestConfig(const std::string& dat
     {
       m_manifestConfig.hlsFixDiscontSequence = jValue.get<bool>();
     }
+    else if (configName == "hls_add_orphans_renditions" && jValue.is_boolean())
+    {
+      m_manifestConfig.hlsAddOrphansRenditions = jValue.get<bool>();
+    }
     else if (configName == "live_delay" && jValue.is_number_unsigned())
     {
       m_manifestConfig.liveDelay = jValue.get<uint64_t>();
