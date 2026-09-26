@@ -14,6 +14,8 @@
 #include "../utils/Utils.h"
 #include "TestHelper.h"
 
+#include <filesystem>
+
 #include <gtest/gtest.h>
 
 using namespace UTILS;
@@ -262,6 +264,53 @@ TEST_F(DASHTreeTest, CalculateBaseURLInRepRangeBytes)
   OpenTestFile("mpd/segmentbase.mpd", "https://foo.bar/test.mpd");
   EXPECT_EQ(tree->m_periods[0]->GetAdaptationSets()[0]->GetRepresentations()[0]->GetBaseUrl(),
             "https://foo.bar/video/23.98p/r0/vid10.mp4");
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, PreparesVfsByteRanges)
+{
+  OpenTestFile("mpd/segmentbase.mpd", "file:///fixtures/test.mpd");
+
+  auto* adaptationSet = tree->m_periods[0]->GetAdaptationSets()[0].get();
+  auto* representation = adaptationSet->GetRepresentations()[0].get();
+  SetTestStream(NewStream(adaptationSet, representation));
+  testStream->SetSegmentFileOffset(1000);
+
+  PLAYLIST::CSegment mediaSegment;
+  mediaSegment.range_begin_ = 10;
+  mediaSegment.range_end_ = 19;
+
+  std::string url;
+  uint64_t rangeBegin;
+  uint64_t rangeEnd;
+  ASSERT_TRUE(
+      testStream->PrepareResource(representation, mediaSegment, url, rangeBegin, rangeEnd));
+  EXPECT_EQ(url, "file:///fixtures/video/23.98p/r0/vid10.mp4");
+  EXPECT_EQ(rangeBegin, 1010U);
+  EXPECT_EQ(rangeEnd, 1019U);
+
+  PLAYLIST::CSegment initSegment;
+  initSegment.SetIsInitialization(true);
+  initSegment.range_begin_ = 20;
+
+  ASSERT_TRUE(testStream->PrepareResource(representation, initSegment, url, rangeBegin, rangeEnd));
+  EXPECT_EQ(rangeBegin, 20U);
+  EXPECT_EQ(rangeEnd, PLAYLIST::NO_VALUE);
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, DoesNotReadVfsResourceWhenStopped)
+{
+  OpenTestFile("mpd/segmentbase.mpd");
+  auto* adaptationSet = tree->m_periods[0]->GetAdaptationSets()[0].get();
+  SetTestStream(NewStream(adaptationSet));
+
+  std::filesystem::path path{GetEnv("DATADIR")};
+  path /= "resources/bytes.txt";
+  std::string url{std::filesystem::absolute(path).lexically_normal().generic_string()};
+  url.insert(0, url.starts_with('/') ? "file://" : "file:///");
+
+  kodi::vfs::ResetCFileTestState();
+  EXPECT_FALSE(testStream->DownloadStoppedResource(url));
+  EXPECT_EQ(kodi::vfs::GetCFileTestState().readCalls, 0U);
 }
 
 TEST_F(DASHTreeTest, CalculateCorrectSegmentNumbersFromSegmentTimeline)

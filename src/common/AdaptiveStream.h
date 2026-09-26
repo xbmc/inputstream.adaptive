@@ -160,6 +160,8 @@ enum class EVENT_TYPE
     {
       std::string m_url;
       std::map<std::string, std::string> m_addHeaders; // Additional headers
+      uint64_t m_rangeBegin{PLAYLIST::NO_VALUE};
+      uint64_t m_rangeEnd{PLAYLIST::NO_VALUE};
       ADP::SegmentBuffer* m_segmentBuffer{nullptr}; // Optional, the segment buffer where to store the data
     };
 

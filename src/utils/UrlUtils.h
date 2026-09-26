@@ -22,6 +22,9 @@ namespace URL
  */
 bool IsValidUrl(const std::string& url);
 
+/*! \brief Check if an URL uses the HTTP or HTTPS scheme. */
+bool IsHttpUrl(std::string_view url);
+
 /*! \brief Check if it is an absolute URL
  *  \return True if it is an absolute URL, false otherwise
  */
