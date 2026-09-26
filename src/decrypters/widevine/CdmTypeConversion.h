@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <kodi/addon-instance/VideoCodec.h>
+#include <kodi/addon-instance/AudioCodec.h>
 
 enum class CryptoMode;
 
@@ -28,6 +29,8 @@ cdm::EncryptionScheme ToCdmEncryptionScheme(const CryptoMode cryptoMode);
 
 cdm::VideoCodec ToCdmVideoCodec(const VIDEOCODEC_TYPE codec);
 
+cdm::AudioCodec ToCdmAudioCodec(const AUDIOCODEC_TYPE codec);
+
 cdm::VideoCodecProfile ToCdmVideoCodecProfile(const STREAMCODEC_PROFILE profile);
 
 // Video Converters
@@ -35,6 +38,7 @@ cdm::VideoCodecProfile ToCdmVideoCodecProfile(const STREAMCODEC_PROFILE profile)
 cdm::VideoFormat ToCdmVideoFormat(const VIDEOCODEC_FORMAT videoFormat);
 
 VIDEOCODEC_FORMAT ToSSDVideoFormat(const cdm::VideoFormat format);
+AUDIOCODEC_FORMAT ToSSDAudioFormat(const cdm::AudioFormat format);
 
 // Aggregated Types
 
@@ -42,6 +46,9 @@ VIDEOCODEC_FORMAT ToSSDVideoFormat(const cdm::VideoFormat format);
 // input |config|. Hence, the caller must make sure the input |config| outlives
 // the returned config.
 cdm::VideoDecoderConfig_3 ToCdmVideoDecoderConfig(const VIDEOCODEC_INITDATA* initData,
+                                                  const CryptoMode cryptoMode);
+
+cdm::AudioDecoderConfig_2 ToCdmAudioDecoderConfig(const AUDIOCODEC_INITDATA* initData,
                                                   const CryptoMode cryptoMode);
 
 // Fill |input_buffer| based on the values in |encrypted|. |subsamples|

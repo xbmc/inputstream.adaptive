@@ -695,17 +695,6 @@ const std::shared_ptr<DRMSession> DRM::CDRMEngine::InitializeSession(
 
   auto& caps = session->capabilities;
 
-  //! @todo: Secure decoder on audio stream is not implemented on CDM Widevine (non-android)
-  //! since audio streams that require Secure path decoder cannot be played
-  //! we have no way to distinguish which ones they are other than to do a KID test with the DRM
-  if (!session->drm->IsSecureDecoderAudioSupported() && session->mediaType == DRMMediaType::AUDIO &&
-      caps.flags & DRM::Capabilities::SECURE_PATH)
-  {
-    LOG::Log(LOGWARNING, "Secure decoder on audio stream is not supported");
-    m_status = EngineStatus::NOT_SUPPORTED;
-    return nullptr;
-  }
-
   // Create crypto session
   kodi::addon::StreamCryptoSession cryptoSession;
 

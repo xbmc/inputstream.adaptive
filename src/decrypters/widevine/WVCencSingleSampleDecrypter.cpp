@@ -209,7 +209,11 @@ void CWVCencSingleSampleDecrypter::GetCapabilities(const std::vector<uint8_t>& k
           AP4_SUCCESS)
       {
         LOG::LogF(LOGDEBUG, "Single decrypt failed, secure path only");
-        caps.flags |= (Capabilities::SECURE_PATH | Capabilities::ANNEXB_REQUIRED);
+
+        caps.flags |= Capabilities::SECURE_PATH;
+
+        if (mediaType == DRMMediaType::VIDEO)
+          caps.flags |= Capabilities::ANNEXB_REQUIRED;
       }
       else
       {
@@ -949,7 +953,30 @@ bool CWVCencSingleSampleDecrypter::OpenVideoDecoder(const VIDEOCODEC_INITDATA* i
   m_videoFrames.clear();
   m_isDrained = true;
 
-  LOG::LogF(LOGDEBUG, "Initialization returned status: %s", media::CdmStatusToString(ret).c_str());
+  LOG::LogF(LOGDEBUG, "Video decoder initialization returned status: %s", media::CdmStatusToString(ret).c_str());
+  return ret == cdm::Status::kSuccess;
+}
+
+bool CWVCencSingleSampleDecrypter::OpenAudioDecoder(const AUDIOCODEC_INITDATA* initData)
+{
+  cdm::AudioDecoderConfig_2 aconfig = media::ToCdmAudioDecoderConfig(initData, m_EncryptionMode);
+
+  // InputStream interface call OpenAudioDecoder also during playback when stream quality
+  // change, so we reinitialize the decoder only when the codec change
+  if (m_currentAudioDecConfig.has_value())
+  {
+    cdm::AudioDecoderConfig_2& currAudConfig = *m_currentAudioDecConfig;
+    if (currAudConfig.codec == aconfig.codec)
+      return true;
+
+    m_cdmAdapter->GetCDM()->DeinitializeDecoder(cdm::StreamType::kStreamTypeAudio);
+  }
+
+  m_currentAudioDecConfig = aconfig;
+
+  cdm::Status ret = m_cdmAdapter->GetCDM()->InitializeAudioDecoder(aconfig);
+
+  LOG::LogF(LOGDEBUG, "Audio decoder initialization returned status: %s", media::CdmStatusToString(ret).c_str());
   return ret == cdm::Status::kSuccess;
 }
 
@@ -1012,6 +1039,47 @@ VIDEOCODEC_RETVAL CWVCencSingleSampleDecrypter::DecryptAndDecodeVideo(
   return VC_ERROR;
 }
 
+AUDIOCODEC_RETVAL CWVCencSingleSampleDecrypter::DecryptAndDecodeAudio(
+    kodi::addon::CInstanceAudioCodec* codecInstance, const DEMUX_PACKET* sample)
+{
+  if (sample->cryptoInfo && sample->cryptoInfo->numSubSamples > 0 &&
+      (!sample->cryptoInfo->clearBytes || !sample->cryptoInfo->cipherBytes))
+  {
+    LOG::LogF(LOGERROR, "Missing audio crypting clear/cipher bytes info");
+    return AC_ERROR;
+  }
+
+  cdm::InputBuffer_2 inputBuffer{};
+  std::vector<cdm::SubsampleEntry> subsamples;
+
+  media::ToCdmInputBuffer(sample, &subsamples, &inputBuffer);
+
+  media::CdmAudioFrames audioFrames;
+
+  m_cdmAdapter->SetAudioCodecInstance(codecInstance);
+  cdm::Status status = m_cdmAdapter->GetCDM()->DecryptAndDecodeSamples(inputBuffer, &audioFrames);
+  m_cdmAdapter->ResetAudioCodecInstance();
+
+  if (status == cdm::Status::kSuccess)
+  {
+    m_audioFrames = std::move(audioFrames);
+    return AC_NONE;
+  }
+  else if (status == cdm::Status::kNeedMoreData && inputBuffer.data)
+  {
+    return AC_NONE;
+  }
+  else if (status == cdm::Status::kNoKey)
+  {
+    LOG::LogF(LOGERROR, "Returned CDM status \"kNoKey\" for KID: %s",
+              STRING::ToHexadecimal(inputBuffer.key_id, inputBuffer.key_id_size).c_str());
+    return AC_EOF;
+  }
+
+  LOG::LogF(LOGDEBUG, "Returned CDM status: %i", status);
+  return AC_ERROR;
+}
+
 VIDEOCODEC_RETVAL CWVCencSingleSampleDecrypter::VideoFrameDataToPicture(
     kodi::addon::CInstanceVideoCodec* codecInstance, VIDEOCODEC_PICTURE* picture)
 {
@@ -1033,9 +1101,16 @@ VIDEOCODEC_RETVAL CWVCencSingleSampleDecrypter::VideoFrameDataToPicture(
       picture->stride[i] = videoFrame.Stride(static_cast<cdm::VideoPlane>(i));
     }
     picture->videoFormat = media::ToSSDVideoFormat(videoFrame.Format());
+    /*
     videoFrame.SetFrameBuffer(nullptr); //marker for "No Picture"
 
     delete (CdmFixedBuffer*)(videoFrame.FrameBuffer());
+    */
+
+    CdmFixedBuffer* frameBuf = static_cast<CdmFixedBuffer*>(videoFrame.FrameBuffer());
+    videoFrame.SetFrameBuffer(nullptr); //marker for "No Picture"
+    delete frameBuf;
+
     m_videoFrames.pop_front();
 
     return VC_PICTURE;
@@ -1055,10 +1130,39 @@ VIDEOCODEC_RETVAL CWVCencSingleSampleDecrypter::VideoFrameDataToPicture(
   return VC_BUFFER;
 }
 
+AUDIOCODEC_RETVAL CWVCencSingleSampleDecrypter::AudioFrameDataToFrame(
+    kodi::addon::CInstanceAudioCodec* codecInstance, AUDIOCODEC_FRAME* frame)
+{
+  if (m_audioFrames.has_value())
+  {
+    cdm::AudioFrames& audioFrames = *m_audioFrames;
+
+    frame->decodedData = audioFrames.FrameBuffer()->Data();
+    frame->decodedDataSize = audioFrames.FrameBuffer()->Size();
+    frame->audioBufferHandle = static_cast<CdmFixedBuffer*>(audioFrames.FrameBuffer())->Buffer();
+
+    frame->audioFormat = media::ToSSDAudioFormat(audioFrames.Format());
+
+    CdmFixedBuffer* frameBuf = static_cast<CdmFixedBuffer*>(audioFrames.FrameBuffer());
+    audioFrames.SetFrameBuffer(nullptr); //marker for "No Frame"
+    delete frameBuf;
+
+    m_audioFrames.reset();
+    return AC_FRAME;
+  }
+
+  return AC_BUFFER;
+}
+
 void CWVCencSingleSampleDecrypter::ResetVideo()
 {
   m_cdmAdapter->GetCDM()->ResetDecoder(cdm::kStreamTypeVideo);
   m_isDrained = true;
+}
+
+void CWVCencSingleSampleDecrypter::ResetAudio()
+{
+  m_cdmAdapter->GetCDM()->ResetDecoder(cdm::kStreamTypeAudio);
 }
 
 void CWVCencSingleSampleDecrypter::SetDefaultKeyId(const std::vector<uint8_t>& keyId)
