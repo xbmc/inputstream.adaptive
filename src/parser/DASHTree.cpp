@@ -436,19 +436,7 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
     if (schemeIdUri == "urn:mpeg:dash:role:2011")
     {
-      //! @todo: If no complains, remove commented lines on Kodi 23
-      // if ((value == "subtitle" || value == "caption") && contentType.empty())
-      //   contentType = "text";
-
-      //! @todo: Remove custom "forced" value support on Kodi 23
-      if (value == "forced") // ISA custom attribute
-      {
-        LOG::LogF(LOGWARNING, "The support for the custom \"forced\" value on \"Role\" tag is now "
-                              "deprecated, it will be removed on Kodi v23.\n"
-                              "Please use the \"forced-subtitle\" standard value.");
-        adpSet->SetIsForced(true);
-      }
-      else if (value == "forced-subtitle")
+      if (value == "forced-subtitle")
         adpSet->SetIsForced(true);
       else if (value == "main")
         adpSet->SetIsDefault(true);
@@ -671,8 +659,6 @@ void adaptive::CDashTree::ParseTagRepresentation(pugi::xml_node nodeRepr,
   std::unique_ptr<CRepresentation> repr = CRepresentation::MakeUniquePtr(adpSet);
 
   repr->SetStartNumber(adpSet->GetStartNumber());
-  repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
-  repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
 
   repr->SetId(XML::GetAttrib(nodeRepr, "id"));
 
