@@ -1,3 +1,8 @@
+v22.3.22 (2026-09-26)
+[Widevine] Removed ARM64 CDM workaround, official WV library is now available
+[HLS] EXT-X-MEDIA with orphaned ID groups are now ignored by default
+[inputstream.adaptive.manifest_config] New hls_add_orphans_renditions parameter, see wiki
+
 v22.3.21 (2026-08-30)
 - Fix potential crashes on multi-periods live streams when updating manifest
 - [HLS] Fix manifest update intervals when a manifest update fails
