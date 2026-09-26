@@ -18,10 +18,6 @@
 
 #include <kodi/Filesystem.h>
 
-#if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
-#include <dlfcn.h>
-#endif
-
 using namespace DRM;
 using namespace UTILS;
 using namespace kodi::tools;
@@ -31,50 +27,6 @@ CWVDecrypter::~CWVDecrypter()
 {
   delete m_WVCdmAdapter;
   m_WVCdmAdapter = nullptr;
-#if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
-  if (m_hdlLibLoader)
-    dlclose(m_hdlLibLoader);
-#endif
-}
-
-bool CWVDecrypter::Initialize()
-{
-#if defined(__linux__) && (defined(__aarch64__) || defined(__arm64__))
-  // On linux arm64, libwidevinecdm.so depends on two dynamic symbols:
-  //   __aarch64_ldadd4_acq_rel
-  //   __aarch64_swp4_acq_rel
-  // These are defined from a separate library cdm_aarch64_loader,
-  // but to make them available in the main binary's PLT, we need RTLD_GLOBAL.
-  // Kodi kodi::tools::CDllHelper LoadDll() cannot be used because use RTLD_LOCAL,
-  // and we need the RTLD_GLOBAL flag.
-  std::string binaryPath;
-  std::vector<kodi::vfs::CDirEntry> items;
-  if (kodi::vfs::GetDirectory(FILESYS::GetAddonPath(), "", items))
-  {
-    for (auto item : items)
-    {
-      if (!STRING::Contains(item.Label(), "cdm_aarch64_loader"))
-        continue;
-
-      binaryPath = item.Path();
-      break;
-    }
-  }
-  if (binaryPath.empty())
-  {
-    LOG::Log(LOGERROR, "Cannot find the cdm_aarch64_loader file");
-    return false;
-  }
-
-  m_hdlLibLoader = dlopen(binaryPath.c_str(), RTLD_GLOBAL | RTLD_LAZY);
-  if (!m_hdlLibLoader)
-  {
-    LOG::LogF(LOGERROR, "Failed to load CDM aarch64 loader from path \"%s\", error: %s",
-              binaryPath.c_str(), dlerror());
-    return false;
-  }
-#endif
-  return true;
 }
 
 std::vector<std::string_view> CWVDecrypter::SelectKeySystems(std::string_view keySystem)
