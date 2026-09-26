@@ -1,3 +1,6 @@
+v21.5.25 (2026-09-26)
+[Widevine] Removed ARM64 CDM workaround, official WV library is now available
+
 v21.5.24 (2026-08-30)
 - Fix potential crashes on multi-periods live streams when updating manifest
 - [HLS] Fix manifest update intervals when a manifest update fails
