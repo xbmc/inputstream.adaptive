@@ -1461,19 +1461,6 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       rend.m_isForced = attribs["FORCED"] == "YES";
       rend.m_characteristics = attribs["CHARACTERISTICS"];
       rend.m_uri = attribs["URI"];
-      std::string uri = attribs["URI"];
-
-      if (!uri.empty())
-      {
-        // Check if this uri has been already added
-        if (std::any_of(pl.m_audioRenditions.cbegin(), pl.m_audioRenditions.cend(),
-                        [&uri](const Rendition& v) { return v.m_uri == uri; }) ||
-            std::any_of(pl.m_subtitleRenditions.cbegin(), pl.m_subtitleRenditions.cend(),
-                        [&uri](const Rendition& v) { return v.m_uri == uri; }))
-        {
-          rend.m_isUriDuplicate = true;
-        }
-      }
 
       if (streamType == StreamType::AUDIO)
         pl.m_audioRenditions.emplace_back(rend);
@@ -1536,6 +1523,45 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
   // In case of missing EXT-X-PROGRAM-DATE-TIME set start period to 0
   period->SetStart(0);
   period->SetTimescale(TIMESCALE);
+
+  // Renditions sharing a uri are de-duplicated here rather than while parsing, so
+  // that one a variant references claims it ahead of an orphan. It cannot be done
+  // while parsing: EXT-X-MEDIA may precede EXT-X-STREAM-INF, so the variant
+  // references are not known yet.
+  {
+    std::vector<std::string> claimedUris;
+    auto claim = [&claimedUris](Rendition& r)
+    {
+      if (r.m_uri.empty())
+        return;
+      const bool isClaimed =
+          std::find(claimedUris.cbegin(), claimedUris.cend(), r.m_uri) != claimedUris.cend();
+      r.m_isUriDuplicate = isClaimed;
+      if (!isClaimed)
+        claimedUris.emplace_back(r.m_uri);
+    };
+
+    for (Rendition& r : pl.m_audioRenditions)
+    {
+      if (FindVariantByAudioGroupId(r.m_groupId, pl.m_variants))
+        claim(r);
+    }
+    for (Rendition& r : pl.m_subtitleRenditions)
+    {
+      if (FindVariantBySubtitleGroupId(r.m_groupId, pl.m_variants))
+        claim(r);
+    }
+    for (Rendition& r : pl.m_audioRenditions)
+    {
+      if (!FindVariantByAudioGroupId(r.m_groupId, pl.m_variants))
+        claim(r);
+    }
+    for (Rendition& r : pl.m_subtitleRenditions)
+    {
+      if (!FindVariantBySubtitleGroupId(r.m_groupId, pl.m_variants))
+        claim(r);
+    }
+  }
 
   // Add audio renditions (do not take in account variants references)
   for (const Rendition& r : pl.m_audioRenditions)

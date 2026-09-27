@@ -446,3 +446,19 @@ TEST_F(HLSTreeTest, FairPlaySkdUriProvidesClearKeyKid)
   EXPECT_EQ(drmInfos[0].defaultKid, "11111111123412341234000000000000");
   EXPECT_EQ(drmInfos[0].cryptoMode, CryptoMode::AES_CBC);
 }
+
+TEST_F(HLSTreeTest, ReferencedRenditionSurvivesSharedUriWithOrphan)
+{
+  // The orphaned group is listed first and shares its uri with the referenced one,
+  // so skipping both would leave the period with no audio at all.
+  OpenTestFileMaster("hls/1a1v_master_orphan_shared_uri.m3u8");
+
+  size_t audioAdpSets = 0;
+  for (const auto& adpSet : tree->m_periods[0]->GetAdaptationSets())
+  {
+    if (adpSet->GetStreamType() == PLAYLIST::StreamType::AUDIO)
+      audioAdpSets++;
+  }
+
+  EXPECT_EQ(audioAdpSets, 1);
+}
