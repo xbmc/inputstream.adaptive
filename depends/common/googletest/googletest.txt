@@ -1,1 +1,1 @@
-googletest https://github.com/google/googletest/archive/refs/tags/v1.17.0.tar.gz
+googletest https://github.com/google/googletest/archive/refs/tags/v1.18.0.tar.gz
