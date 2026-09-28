@@ -1,0 +1,3 @@
+# Patches must match upstream CRLF files; blank context lines contain a space.
+depends/windows/dlfcn-win32/*.patch text eol=crlf whitespace=-blank-at-eol
+depends/windowsstore/dlfcn-win32/*.patch text eol=crlf whitespace=-blank-at-eol
