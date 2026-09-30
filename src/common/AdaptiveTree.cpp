@@ -445,19 +445,13 @@ namespace adaptive
   void AdaptiveTree::TreeUpdateThread::Worker()
   {
     std::unique_lock<std::mutex> updLck(m_updMutex);
+    auto nextUpdate = std::chrono::steady_clock::now();
 
     while (m_tree->m_updateInterval != NO_VALUE && m_tree->m_updateInterval > 0 && !m_threadStop)
     {
-      auto nowTime = std::chrono::steady_clock::now();
-
       std::chrono::milliseconds intervalMs = std::chrono::milliseconds(m_tree->m_updateInterval);
-      // Wait for the interval time, the predicate method is used to avoid spurious wakeups
-      // and to allow exit early when notify_all is called to force stop operations
-      m_cvUpdInterval.wait_for(updLck, intervalMs,
-                               [&nowTime, &intervalMs, this] {
-                                 return std::chrono::steady_clock::now() - nowTime >= intervalMs ||
-                                        m_threadStop;
-                               });
+      nextUpdate += intervalMs;
+      m_cvUpdInterval.wait_until(updLck, nextUpdate, [this] { return m_threadStop; });
 
       updLck.unlock();
       // If paused, wait until last "Resume" will be called
@@ -467,6 +461,8 @@ namespace adaptive
         break;
 
       updLck.lock();
+      // Schedule from the start of this update so download and parse time do not add drift.
+      nextUpdate = std::chrono::steady_clock::now();
 
       // Store the interval before it is cleared, skipping a value that a parser
       // lowered as a temporary backoff
