@@ -819,7 +819,7 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
       if (streamReader->IsReadSampleAsyncWorking())
       {
         waiting = stream.get();
-        break;
+        continue;
       }
       else if (!streamReader->EOS())
       {
@@ -841,20 +841,32 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     }
   }
 
-  if (waiting)
+  // Do not let a ready track run arbitrarily far ahead while another track
+  // finishes an asynchronous read. Kodi's video queue can otherwise empty
+  // while audio is several seconds ahead of the pending video sample.
+  if (res && waiting)
   {
-    return true;
+    // The waiting reader is being updated by another thread. Use the last
+    // timestamp handed to Kodi instead of reading its mutable sample fields.
+    const auto& lastWaitingDts = waiting->m_lastEmittedDtsManifest;
+    if (!lastWaitingDts ||
+        res->GetReader()->DTSorPTSManifest() > *lastWaitingDts + STREAM_TIME_BASE / 2)
+      return true;
   }
-  else if (res)
+
+  if (res)
   {
     ISampleReader* sr{res->GetReader()};
 
     if (sr->PTS() != STREAM_NOPTS_VALUE && m_timingStream.get() == res)
       m_elapsedTime = PTSToElapsed(sr->PTS(), res) + GetChapterStartTime();
 
+    res->m_lastEmittedDtsManifest = sr->DTSorPTSManifest();
     sampleReader = sr;
     return true;
   }
+  if (waiting)
+    return true;
   return false;
 }
 
@@ -862,6 +874,9 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 {
   if (m_streams.empty())
     return false;
+
+  for (auto& stream : m_streams)
+    stream->m_lastEmittedDtsManifest.reset();
 
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)
@@ -1267,6 +1282,7 @@ bool SESSION::CSession::SeekChapter(int number)
 
     for (auto& stream : m_streams)
     {
+      stream->m_lastEmittedDtsManifest.reset();
       ISampleReader* sr{stream->GetReader()};
       if (sr)
       {
