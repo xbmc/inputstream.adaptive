@@ -1241,7 +1241,7 @@ PLAYLIST::StreamType adaptive::AdaptiveStream::GetStreamType() const
   return current_adp_->GetStreamType();
 }
 
-bool adaptive::AdaptiveStream::seek_time(double seek_seconds)
+bool adaptive::AdaptiveStream::seek_time(double seek_seconds, bool include_previous_segment)
 {
   if (!current_rep_)
     return false;
@@ -1252,7 +1252,21 @@ bool adaptive::AdaptiveStream::seek_time(double seek_seconds)
   std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
   const uint64_t pts = static_cast<uint64_t>(seek_seconds * current_rep_->GetTimescale());
-  const CSegment* seekSeg = current_rep_->Timeline().FindByPTSOrNext(pts);
+  const auto& timeline = current_rep_->Timeline();
+  const CSegment* seekSeg = timeline.FindByPTSOrNext(pts);
+
+  // A fragmented audio reader can start only at the beginning of a downloaded
+  // fragment. Keep the preceding fragment available for sample-accurate seeks
+  // near a video keyframe, even if the audio segment boundary is slightly later.
+  if (seekSeg && include_previous_segment)
+  {
+    if (const CSegment* previousSeg = timeline.GetPrevious(*seekSeg))
+    {
+      LOG::LogF(LOGDEBUG, "[AS-%u] Audio seek includes preceding segment (%llu before %llu)",
+                clsId, previousSeg->startPTS_, seekSeg->startPTS_);
+      seekSeg = previousSeg;
+    }
+  }
 
   if (!seekSeg)
     return false;

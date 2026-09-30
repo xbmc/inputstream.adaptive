@@ -118,7 +118,7 @@ enum class EVENT_TYPE
      */
     bool seek(uint64_t const pos, bool& isEos);
 
-    bool seek_time(double seek_seconds);
+    bool seek_time(double seek_seconds, bool include_previous_segment = false);
     PLAYLIST::CPeriod* getPeriod() { return current_period_; };
     PLAYLIST::CAdaptationSet* getAdaptationSet() { return current_adp_; };
     PLAYLIST::CRepresentation* getRepresentation() { return current_rep_; };

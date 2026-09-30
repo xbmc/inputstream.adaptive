@@ -1035,9 +1035,9 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
   };
 
   // Helper lambda to perform seek on adaptive stream segment buffer
-  auto SeekAdStream = [](CStream& stream, double seekSecs) -> bool
+  auto SeekAdStream = [](CStream& stream, double seekSecs, bool includePreviousSegment) -> bool
   {
-    if (!stream.m_adStream.seek_time(seekSecs))
+    if (!stream.m_adStream.seek_time(seekSecs, includePreviousSegment))
     {
       stream.GetReader()->Reset(true);
       return false;
@@ -1077,11 +1077,15 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     const bool hasAdStream = !(streamReader->GetType() == ISampleReader::Type::FMP4 &&
                                stream->m_adStream.getRepresentation()->IsIncludedStream());
 
+    const double seekSecs{static_cast<double>(seekTimePts) / STREAM_TIME_BASE};
+    const bool includePreviousSegment =
+        hasAdStream && m_adaptiveTree->IsLive() &&
+        stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO &&
+        streamReader->GetType() == ISampleReader::Type::FMP4;
+
     if (hasAdStream)
     {
-      const double seekSecs{static_cast<double>(seekTimePts) / STREAM_TIME_BASE};
-
-      if (!SeekAdStream(*stream, seekSecs))
+      if (!SeekAdStream(*stream, seekSecs, includePreviousSegment))
       {
         if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_SUBTITLE)
           continue; // Subtitles failure should not block the seek operations
@@ -1091,7 +1095,48 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
 
-    if (!SeekReader(*stream, seekTimePts))
+    bool seeked = SeekReader(*stream, seekTimePts);
+    if (seeked && includePreviousSegment)
+    {
+      // SeekSample can land at the beginning of the preceding audio fragment.
+      // Discard its samples before the video keyframe so Kodi receives aligned
+      // audio instead of waiting several seconds for the video to catch up.
+      size_t skippedSamples = 0;
+      uint64_t audioTime = PTSToElapsed(streamReader->PTS(), stream.get());
+      while (audioTime + streamReader->GetDuration() < seekTimeCorrected &&
+             skippedSamples < 512)
+      {
+        if (AP4_FAILED(streamReader->ReadSample()))
+          break;
+
+        const uint64_t nextAudioTime = PTSToElapsed(streamReader->PTS(), stream.get());
+        if (nextAudioTime <= audioTime)
+          break;
+
+        audioTime = nextAudioTime;
+        ++skippedSamples;
+      }
+
+      if (audioTime + streamReader->GetDuration() < seekTimeCorrected)
+      {
+        // If this reader cannot advance through the fragment, retain the
+        // original seek behavior rather than feeding audio far ahead of video.
+        LOG::LogF(LOGDEBUG, "Audio preroll could not reach the video seek point; retrying");
+        seeked = false;
+      }
+      else if (skippedSamples > 0)
+      {
+        LOG::LogF(LOGDEBUG, "Discarded %zu audio samples before video seek point",
+                  skippedSamples);
+      }
+    }
+
+    if (!seeked && includePreviousSegment)
+    {
+      seeked = SeekAdStream(*stream, seekSecs, false) && SeekReader(*stream, seekTimePts);
+    }
+
+    if (!seeked)
     {
       streamReader->Reset(true);
 
