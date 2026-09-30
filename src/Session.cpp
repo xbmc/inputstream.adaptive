@@ -290,6 +290,40 @@ bool SESSION::CSession::CheckPlayableStreams(PLAYLIST::CPeriod* period)
 
 void SESSION::CSession::InitializePeriod()
 {
+  struct AudioSelection
+  {
+    size_t index;
+    std::string codec;
+    std::string codecInternalName;
+    STREAMCODEC_PROFILE profile;
+    std::string language;
+    unsigned int channels;
+    std::string name;
+  };
+  std::optional<AudioSelection> audioSelection;
+  if (auto selectedAudio = m_selectedAudioStream.lock())
+  {
+    size_t audioIndex = 0;
+    for (const auto& stream : m_streams)
+    {
+      if (stream == selectedAudio)
+      {
+        const auto& info = stream->m_info;
+        audioSelection = AudioSelection{audioIndex,
+                                        info.GetCodecName(),
+                                        info.GetCodecInternalName(),
+                                        info.GetCodecProfile(),
+                                        info.GetLanguage(),
+                                        info.GetChannels(),
+                                        info.GetName()};
+        break;
+      }
+      if (stream->m_isValid && stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO)
+        ++audioIndex;
+    }
+  }
+  m_selectedAudioStream.reset();
+
   if (m_adaptiveTree->IsChangingPeriod())
   {
     // Complete the transition into the new period
@@ -413,6 +447,52 @@ void SESSION::CSession::InitializePeriod()
                      const bool bIsVideo = b && b->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO;
                      return aIsVideo && !bIsVideo;
                    });
+
+  // VideoPlayer remembers the selected audio by its position in the audio list.
+  // DASH periods can list the same tracks in a different order, so keep the
+  // selected track at that position when it is available in the new period.
+  if (audioSelection)
+  {
+    std::vector<size_t> audioIndices;
+    for (size_t i = 0; i < m_streams.size(); ++i)
+    {
+      if (m_streams[i]->m_isValid &&
+          m_streams[i]->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO)
+        audioIndices.push_back(i);
+    }
+
+    if (audioSelection->index < audioIndices.size())
+    {
+      size_t bestIndex = audioIndices.size();
+      int bestScore = -1;
+      for (size_t i = 0; i < audioIndices.size(); ++i)
+      {
+        const auto& info = m_streams[audioIndices[i]]->m_info;
+        if (info.GetCodecName() != audioSelection->codec)
+          continue;
+
+        const int score =
+            (info.GetCodecProfile() == audioSelection->profile ? 32 : 0) +
+            (info.GetChannels() == audioSelection->channels ? 16 : 0) +
+            (info.GetLanguage() == audioSelection->language ? 8 : 0) +
+            (info.GetCodecInternalName() == audioSelection->codecInternalName ? 4 : 0) +
+            (info.GetName() == audioSelection->name ? 2 : 0);
+        if (score > bestScore)
+        {
+          bestIndex = i;
+          bestScore = score;
+        }
+      }
+
+      if (bestIndex < audioIndices.size() && bestIndex != audioSelection->index)
+      {
+        std::swap(m_streams[audioIndices[bestIndex]],
+                  m_streams[audioIndices[audioSelection->index]]);
+        LOG::LogF(LOGDEBUG, "Preserved selected audio at index %zu across period change",
+                  audioSelection->index);
+      }
+    }
+  }
 }
 
 void SESSION::CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
@@ -772,6 +852,9 @@ void CSession::EnableStream(std::shared_ptr<CStream> stream, bool enable)
 {
   if (enable)
   {
+    if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO)
+      m_selectedAudioStream = stream;
+
     if (!m_timingStream || stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       m_timingStream = stream;
 

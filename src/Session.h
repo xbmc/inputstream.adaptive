@@ -263,6 +263,7 @@ private:
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
 
   std::vector<std::shared_ptr<CStream>> m_streams;
+  std::weak_ptr<CStream> m_selectedAudioStream;
   std::shared_ptr<CStream> m_timingStream;
 
   bool m_changed{false};
