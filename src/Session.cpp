@@ -1061,6 +1061,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 
   // correct for starting segment pts value of chapter and chapter offset within program
   uint64_t seekTimeCorrected{static_cast<uint64_t>(seekTime * STREAM_TIME_BASE)};
+  uint64_t videoSeekPts{STREAM_NOPTS_VALUE};
 
   // Note: At the end of the seek operations, you may notice on Kodi debug log "dropping packets" prints
   // this happens because we cannot always guarantee a precise seek, for example
@@ -1114,14 +1115,21 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       // Discard its samples before the video keyframe so Kodi receives aligned
       // audio instead of waiting several seconds for the video to catch up.
       size_t skippedSamples = 0;
-      uint64_t audioTime = PTSToElapsed(streamReader->PTS(), stream.get());
-      while (audioTime + streamReader->GetDuration() < seekTimeCorrected &&
+      // HLS audio and video playlists can map the same media PTS to different
+      // manifest times. Compare the reader PTS values after seeking both tracks.
+      const bool useMediaPts = m_adaptiveTree->GetTreeType() == TreeType::HLS &&
+                               videoSeekPts != STREAM_NOPTS_VALUE;
+      const uint64_t seekPoint = useMediaPts ? videoSeekPts : seekTimeCorrected;
+      uint64_t audioTime = useMediaPts ? streamReader->PTS()
+                                       : PTSToElapsed(streamReader->PTS(), stream.get());
+      while (audioTime + streamReader->GetDuration() < seekPoint &&
              skippedSamples < 512)
       {
         if (AP4_FAILED(streamReader->ReadSample()))
           break;
 
-        const uint64_t nextAudioTime = PTSToElapsed(streamReader->PTS(), stream.get());
+        const uint64_t nextAudioTime = useMediaPts ? streamReader->PTS()
+                                                   : PTSToElapsed(streamReader->PTS(), stream.get());
         if (nextAudioTime <= audioTime)
           break;
 
@@ -1129,7 +1137,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
         ++skippedSamples;
       }
 
-      if (audioTime + streamReader->GetDuration() < seekTimeCorrected)
+      if (audioTime + streamReader->GetDuration() < seekPoint)
       {
         // If this reader cannot advance through the fragment, retain the
         // original seek behavior rather than feeding audio far ahead of video.
@@ -1177,6 +1185,8 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       // Then get the nearest PTS found for the video, then align the audio/subtitles with it.
       if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       {
+        if (m_adaptiveTree->GetTreeType() == TreeType::HLS)
+          videoSeekPts = streamReader->PTS();
         seekTime = destTimeSecs;
 
         if (seekTimeCorrected != destTimePts)

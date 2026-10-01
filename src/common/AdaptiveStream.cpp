@@ -704,12 +704,42 @@ bool adaptive::AdaptiveStream::start_stream()
     }
   }
 
+  if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->GetTreeType() == TreeType::HLS &&
+      m_tree->IsLive() && current_adp_->GetStreamType() == StreamType::AUDIO)
+  {
+    // The audio child playlist is often fetched after video. Selecting both
+    // independently from the live edge can start audio one segment later.
+    if (auto videoStartMs = m_tree->GetLiveStartTimestamp(current_period_))
+    {
+      const uint64_t videoStartPts = *videoStartMs * current_rep_->GetTimescale() / 1000;
+      if (const CSegment* aligned = current_rep_->Timeline().FindByPTSOrNext(videoStartPts))
+      {
+        if (const CSegment* previous = current_rep_->Timeline().GetPrevious(*aligned))
+          current_rep_->current_segment_ = *previous;
+        else
+          current_rep_->current_segment_.reset();
+      }
+    }
+  }
+
   const CSegment* next_segment{nullptr};
 
   if (current_rep_->current_segment_)
     next_segment = &*current_rep_->current_segment_;
   else
     next_segment = current_rep_->Timeline().GetFront();
+
+  if (m_tree->GetTreeType() == TreeType::HLS && m_tree->IsLive() &&
+      m_startEvent == EVENT_TYPE::STREAM_START &&
+      current_adp_->GetStreamType() == StreamType::VIDEO && next_segment)
+  {
+    const CSegment* playSegment = current_rep_->current_segment_
+                                      ? current_rep_->Timeline().GetNext(*current_rep_->current_segment_)
+                                      : current_rep_->Timeline().GetFront();
+    if (playSegment)
+      m_tree->SetLiveStartTimestamp(current_period_,
+                                    playSegment->startPTS_ * 1000 / current_rep_->GetTimescale());
+  }
 
   if (!next_segment && current_adp_->GetStreamType() != StreamType::SUBTITLE)
   {
