@@ -714,7 +714,22 @@ bool adaptive::AdaptiveStream::start_stream()
       const uint64_t videoStartPts = *videoStartMs * current_rep_->GetTimescale() / 1000;
       if (const CSegment* aligned = current_rep_->Timeline().FindByPTSOrNext(videoStartPts))
       {
-        if (const CSegment* previous = current_rep_->Timeline().GetPrevious(*aligned))
+        const auto distance = [videoStartPts](const CSegment* segment) {
+          return segment->startPTS_ > videoStartPts ? segment->startPTS_ - videoStartPts
+                                                    : videoStartPts - segment->startPTS_;
+        };
+        // A segment that contains the video start can begin almost a full
+        // segment earlier. Compare its neighbours to avoid starting audio
+        // several seconds ahead when the next segment starts alongside video.
+        const CSegment* closest = aligned;
+        if (const CSegment* previous = current_rep_->Timeline().GetPrevious(*aligned);
+            previous && distance(previous) < distance(closest))
+          closest = previous;
+        if (const CSegment* next = current_rep_->Timeline().GetNext(*aligned);
+            next && distance(next) < distance(closest))
+          closest = next;
+
+        if (const CSegment* previous = current_rep_->Timeline().GetPrevious(*closest))
           current_rep_->current_segment_ = *previous;
         else
           current_rep_->current_segment_.reset();

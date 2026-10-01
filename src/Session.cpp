@@ -1108,7 +1108,19 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
 
-    bool seeked = SeekReader(*stream, seekTimePts);
+    uint64_t readerSeekPts = seekTimePts;
+    if (includePreviousSegment && m_adaptiveTree->GetTreeType() == TreeType::HLS &&
+        videoSeekPts != STREAM_NOPTS_VALUE)
+    {
+      // The reader converts this manifest PTS back to media PTS. Use the
+      // video keyframe as that target because HLS tracks can map the same
+      // media time to different positions in their playlists.
+      const int64_t alignedPts = static_cast<int64_t>(videoSeekPts) - streamReader->GetPTSDiff();
+      if (alignedPts >= 0)
+        readerSeekPts = static_cast<uint64_t>(alignedPts);
+    }
+
+    bool seeked = SeekReader(*stream, readerSeekPts);
     if (seeked && includePreviousSegment)
     {
       // SeekSample can land at the beginning of the preceding audio fragment.
