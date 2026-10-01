@@ -894,6 +894,7 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
 {
   CStream* res{nullptr};
   CStream* waiting{nullptr};
+  CStream* waitingMedia{nullptr};
 
   for (auto& stream : m_streams)
   {
@@ -909,6 +910,8 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
       if (streamReader->IsReadSampleAsyncWorking())
       {
         waiting = stream.get();
+        if (stream->m_info.GetStreamType() != INPUTSTREAM_TYPE_SUBTITLE)
+          waitingMedia = stream.get();
         continue;
       }
       else if (!streamReader->EOS())
@@ -920,6 +923,8 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
             if (stream->m_adStream.OnSampleRequested())
             {
               waiting = stream.get();
+              if (stream->m_info.GetStreamType() != INPUTSTREAM_TYPE_SUBTITLE)
+                waitingMedia = stream.get();
             }
             else
             {
@@ -934,11 +939,11 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
   // Do not let a ready track run arbitrarily far ahead while another track
   // finishes an asynchronous read. Kodi's video queue can otherwise empty
   // while audio is several seconds ahead of the pending video sample.
-  if (res && waiting)
+  if (res && waitingMedia)
   {
     // The waiting reader is being updated by another thread. Use the last
     // timestamp handed to Kodi instead of reading its mutable sample fields.
-    const auto& lastWaitingDts = waiting->m_lastEmittedDtsManifest;
+    const auto& lastWaitingDts = waitingMedia->m_lastEmittedDtsManifest;
     if (!lastWaitingDts ||
         res->GetReader()->DTSorPTSManifest() > *lastWaitingDts + STREAM_TIME_BASE / 2)
       return true;
