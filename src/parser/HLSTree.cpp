@@ -442,21 +442,9 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
     if (!DownloadChildManifest(adp, rep, resp))
       return false;
 
-    status = ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep);
+    status = ApplyChildManifestResponse(resp, period, adp, rep, currentSegNumber);
 
-    if (status == ParseStatus::SUCCESS)
-    {
-      // If current segment number is not set, we need to set it in order to sync the current segment between playlist updates
-      // This is done here because ParseChildManifest in the event of discontinuity can clear the current "outdated" period
-      // and so invalidate the current segment
-      if (currentSegNumber == PLAYLIST::SEGMENT_NO_NUMBER && rep->current_segment_.has_value())
-      {
-        currentSegNumber = rep->current_segment_->m_number;
-      }
-
-      PrepareSegments(period, adp, rep, currentSegNumber);
-    }
-    else if (status == ParseStatus::INVALID)
+    if (status == ParseStatus::INVALID)
     {
       // Give the provider a minimum amount of time before trying to download it again
       std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -465,6 +453,26 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
   }
 
   return status == ParseStatus::SUCCESS;
+}
+
+adaptive::CHLSTree::ParseStatus adaptive::CHLSTree::ApplyChildManifestResponse(
+    const UTILS::CURL::HTTPResponse& resp,
+    PLAYLIST::CPeriod* period,
+    PLAYLIST::CAdaptationSet* adp,
+    PLAYLIST::CRepresentation* rep,
+    uint64_t currentSegNumber)
+{
+  ParseStatus status =
+      ParseChildManifest(resp.data, URL::GetUrlPath(resp.effectiveUrl), period, adp, rep);
+  if (status == ParseStatus::SUCCESS)
+  {
+    // A discontinuity can replace the current period during parsing. Preserve
+    // the segment number so the new timeline stays aligned with playback.
+    if (currentSegNumber == PLAYLIST::SEGMENT_NO_NUMBER && rep->current_segment_.has_value())
+      currentSegNumber = rep->current_segment_->m_number;
+    PrepareSegments(period, adp, rep, currentSegNumber);
+  }
+  return status;
 }
 
  adaptive::CHLSTree::ParseStatus adaptive::CHLSTree::ParseChildManifest(
@@ -1128,6 +1136,94 @@ void adaptive::CHLSTree::OnUpdateSegments()
     // so try halve the interval time in a temporary way
     m_updateInterval = std::max<uint64_t>(m_lastValidUpdateInterval / 2, MIN_UPDATE_INTERVAL_MS);
     // Reset the interval on the next update, to restore the original value
+    m_updThread.ResetInterval();
+  }
+}
+
+void adaptive::CHLSTree::OnUpdateSegments(std::unique_lock<std::mutex>& updateLock)
+{
+  lastUpdated_ = std::chrono::system_clock::now();
+
+  struct RefreshRequest
+  {
+    CPeriod* period;
+    CAdaptationSet* adp;
+    CRepresentation* rep;
+    std::string url;
+  };
+
+  std::vector<RefreshRequest> requests;
+  for (auto& adp : m_currentPeriod->GetAdaptationSets())
+  {
+    for (auto& rep : adp->GetRepresentations())
+    {
+      if (!rep->IsEnabled())
+        continue;
+
+      std::string url = rep->GetSourceUrl();
+      URL::AppendParameters(url, m_manifestParams);
+      requests.push_back({m_currentPeriod, adp.get(), rep.get(), std::move(url)});
+    }
+  }
+
+  // A playlist download can take several seconds. Let segment readers advance
+  // while the response is in flight, then apply it under the tree lock.
+  const auto headers = m_manifestHeaders;
+  bool isInvalidUpdate = false;
+  for (const auto& request : requests)
+  {
+    ParseStatus status = ParseStatus::INVALID;
+    size_t attemptsLeft = 3;
+    while (status == ParseStatus::INVALID && attemptsLeft > 0)
+    {
+      UTILS::CURL::HTTPResponse resp;
+      updateLock.unlock();
+      const bool downloaded = !request.url.empty() &&
+                              DownloadManifestChild(request.url, headers, {}, resp);
+      updateLock.lock();
+      if (!m_updThread.WaitForResume(updateLock))
+        break;
+
+      // A period or representation can change while the download is in flight.
+      // Never apply a response to an object that has been removed from the tree.
+      if (m_currentPeriod != request.period)
+        break;
+      const auto& adps = m_currentPeriod->GetAdaptationSets();
+      auto adpIt = std::find_if(adps.begin(), adps.end(), [&](const auto& adp) {
+        return adp.get() == request.adp;
+      });
+      if (adpIt == adps.end())
+        break;
+      const auto& reps = (*adpIt)->GetRepresentations();
+      if (std::none_of(reps.begin(), reps.end(), [&](const auto& rep) {
+            return rep.get() == request.rep;
+          }))
+        break;
+
+      if (!downloaded)
+        break;
+
+      SaveManifest(request.adp, resp.data, request.url);
+      status = ApplyChildManifestResponse(resp, request.period, request.adp, request.rep,
+                                          PLAYLIST::SEGMENT_NO_NUMBER);
+      if (status == ParseStatus::INVALID)
+      {
+        --attemptsLeft;
+        if (attemptsLeft > 0)
+        {
+          updateLock.unlock();
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          updateLock.lock();
+        }
+      }
+    }
+    if (status != ParseStatus::SUCCESS)
+      isInvalidUpdate = true;
+  }
+
+  if (isInvalidUpdate)
+  {
+    m_updateInterval = std::max<uint64_t>(m_lastValidUpdateInterval / 2, MIN_UPDATE_INTERVAL_MS);
     m_updThread.ResetInterval();
   }
 }
