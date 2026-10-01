@@ -862,6 +862,13 @@ void CSession::EnableStream(std::shared_ptr<CStream> stream, bool enable)
   }
   else
   {
+    // During a period change Kodi disables all old streams before InitializePeriod
+    // matches the selected audio with the new period's streams.
+    const bool isLeavingPeriod = m_adaptiveTree->IsChangingPeriod() &&
+                                 !m_adaptiveTree->IsChangingPeriodDone();
+    if (!isLeavingPeriod && m_selectedAudioStream.lock() == stream)
+      m_selectedAudioStream.reset();
+
     if (stream == m_timingStream)
       m_timingStream = nullptr;
 
