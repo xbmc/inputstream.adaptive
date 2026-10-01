@@ -480,6 +480,14 @@ namespace adaptive
       // Periods may have been added or removed, refresh while updates are still
       // blocked so readers never observe a half updated m_periods
       m_tree->RefreshChaptersSnapshot();
+
+      // An update that exceeds its interval should not trigger another update
+      // immediately. Keep the original schedule when the deadline is still ahead.
+      const auto updateEnd = std::chrono::steady_clock::now();
+      const uint64_t nextInterval = m_tree->m_updateInterval.load();
+      if (nextInterval != NO_VALUE && nextInterval > 0 &&
+          updateEnd >= nextUpdate + std::chrono::milliseconds(nextInterval))
+        nextUpdate = updateEnd;
     }
   }
 
