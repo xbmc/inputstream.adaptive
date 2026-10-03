@@ -50,7 +50,7 @@ protected:
   {
     testHelper::testFile = filePath;
 
-    CSrvBroker::GetInstance()->InitStage1({});
+    CSrvBroker::GetInstance()->InitStage1(m_kodiProps);
 
     // Download the manifest
     UTILS::CURL::HTTPResponse resp;
@@ -93,8 +93,17 @@ protected:
     return tree->PrepareRepresentation(per, adp, rep);
   }
 
+  // To set custom Kodi properties, must be called before OpenTestFile method
+  void SetKodiProps(bool hlsAddOrphansRenditions)
+  {
+    const std::string hlsAddOrphansRenditionsStr = hlsAddOrphansRenditions ? "true" : "false";
+    m_kodiProps.emplace("inputstream.adaptive.manifest_config",
+                        "{\"hls_add_orphans_renditions\":" + hlsAddOrphansRenditionsStr + "}");
+  }
+
   adaptive::CHLSTree* tree;
   CHOOSER::IRepresentationChooser* m_reprChooser{nullptr};
+  std::map<std::string, std::string> m_kodiProps;
 };
 
 
@@ -445,4 +454,67 @@ TEST_F(HLSTreeTest, FairPlaySkdUriProvidesClearKeyKid)
   EXPECT_EQ(drmInfos[0].keySystem, DRM::KS_FAIRPLAY);
   EXPECT_EQ(drmInfos[0].defaultKid, "11111111123412341234000000000000");
   EXPECT_EQ(drmInfos[0].cryptoMode, CryptoMode::AES_CBC);
+}
+
+TEST_F(HLSTreeTest, ReferencedRenditionSharedUriWithOrphanGroup)
+{
+  // The orphaned group is listed first and shares its uri with the referenced one,
+  // the orphaned group should be skipped and the referenced one should be used.
+  SetKodiProps(false); // explicit hls_add_orphans_renditions to false, to ensure the test is not affected by the default value
+  OpenTestFileMaster("hls/1a1v_master_orphan_shared_uri.m3u8");
+
+  size_t audioAdpSets = 0;
+  for (const auto& adpSet : tree->m_periods[0]->GetAdaptationSets())
+  {
+    if (adpSet->GetStreamType() == PLAYLIST::StreamType::AUDIO)
+      audioAdpSets++;
+  }
+
+  EXPECT_EQ(audioAdpSets, 1);
+}
+
+TEST_F(HLSTreeTest, ReferencedRenditionOrphanGroup)
+{
+  // The orphaned group should be skipped and the referenced one should be used.
+  SetKodiProps(false); // explicit hls_add_orphans_renditions to false, to ensure the test is not affected by the default value
+  OpenTestFileMaster("hls/1a1v_master_orphan_audio_group.m3u8");
+
+  size_t audioAdpSets = 0;
+  PLAYLIST::CAdaptationSet* audioAdpSet{nullptr};
+
+  for (const auto& adpSet : tree->m_periods[0]->GetAdaptationSets())
+  {
+    if (adpSet->GetStreamType() == PLAYLIST::StreamType::AUDIO)
+    {
+      ++audioAdpSets;
+      audioAdpSet = adpSet.get();
+    }
+  }
+
+  EXPECT_EQ(audioAdpSets, 1);
+  if (audioAdpSet)
+  {
+    auto& repr = audioAdpSet->GetRepresentations()[0];
+    EXPECT_EQ(repr->GetSourceUrl(), "http://foo.bar/hls/stream_0/out_low.m3u8");
+  }
+}
+
+TEST_F(HLSTreeTest, ReferencedRenditionOrphanGroupIncluded)
+{
+  // The orphaned group is listed,
+  // the orphaned group should be included as set by hls_add_orphans_renditions.
+  SetKodiProps(true); // set hls_add_orphans_renditions to include orphaned renditions
+  OpenTestFileMaster("hls/1a1v_master_orphan_audio_group.m3u8");
+
+  size_t audioAdpSets = 0;
+
+  for (const auto& adpSet : tree->m_periods[0]->GetAdaptationSets())
+  {
+    if (adpSet->GetStreamType() == PLAYLIST::StreamType::AUDIO)
+    {
+      ++audioAdpSets;
+    }
+  }
+
+  EXPECT_EQ(audioAdpSets, 2);
 }
