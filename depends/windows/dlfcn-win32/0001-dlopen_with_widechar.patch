@@ -1,23 +1,28 @@
-diff --git a/src/dlfcn.c b/src/dlfcn.c
-index cb9f9bb..1b8808c 100644
 --- a/src/dlfcn.c
 +++ b/src/dlfcn.c
-@@ -415,7 +415,17 @@ void *dlopen( const char *file, int mode )
+@@ -415,7 +415,24 @@
               * to UNIX's search paths (start with system folders instead of current
               * folder).
               */
 -            hModule = LoadLibraryExA( lpFileName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
-+            int wide_len = MultiByteToWideChar(CP_UTF8, 0, lpFileName, -1, 0, 0);
++            int wide_len = MultiByteToWideChar(CP_UTF8, 0, lpFileName, -1, NULL, 0);
++            hModule = NULL;
 +            if (wide_len > 0)
 +            {
 +                wchar_t* lpFileNameW = (wchar_t*)malloc(wide_len * sizeof(wchar_t));
-+                MultiByteToWideChar(CP_UTF8, 0, lpFileName, -1, lpFileNameW, wide_len);
-+
-+                hModule = LoadLibraryExW(lpFileNameW, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-+                free(lpFileNameW);
++                if (lpFileNameW)
++                {
++                    DWORD error;
++                    if (MultiByteToWideChar(CP_UTF8, 0, lpFileName, -1, lpFileNameW, wide_len))
++                        hModule = LoadLibraryExW(lpFileNameW, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
++                    error = GetLastError();
++                    free(lpFileNameW);
++                    if (!hModule)
++                        SetLastError(error);
++                }
++                else
++                    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
 +            }
-+            else
-+                hModule = 0;
  
              if( !hModule )
              {
