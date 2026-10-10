@@ -18,6 +18,7 @@
 
 #include <bento4/Ap4.h>
 #include <kodi/addon-instance/VideoCodec.h>
+#include <kodi/addon-instance/AudioCodec.h>
 
 class CWVDecrypter;
 class CWVCencSingleSampleDecrypter;
@@ -49,6 +50,10 @@ public:
   const DRM::Config& GetConfig() override;
   void SetCodecInstance(void* instance) override;
   void ResetCodecInstance() override;
+
+  void SetAudioCodecInstance(void* instance) override;
+  void ResetAudioCodecInstance() override;
+
   std::string_view GetKeySystem() override;
   std::string_view GetLibraryPath() const override;
 
@@ -64,6 +69,7 @@ private:
   DRM::Config m_config;
   std::shared_ptr<media::CdmAdapter> m_cdmAdapter;
   kodi::addon::CInstanceVideoCodec* m_codecInstance{nullptr};
+  kodi::addon::CInstanceAudioCodec* m_audioCodecInstance{nullptr};
   CWVDecrypter* m_host{nullptr};
   std::list<IWVObserver*> m_observers;
   std::mutex m_observer_mutex;

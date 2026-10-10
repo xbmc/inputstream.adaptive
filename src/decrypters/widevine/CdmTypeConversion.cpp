@@ -9,6 +9,7 @@
 #include "CdmTypeConversion.h"
 
 #include "utils/CryptoUtils.h"
+#include "utils/Base64Utils.h"
 #include "utils/log.h"
 
 using namespace media;
@@ -66,6 +67,20 @@ cdm::VideoCodec media::ToCdmVideoCodec(const VIDEOCODEC_TYPE codec)
     default:
       LOG::LogF(LOGWARNING, "Unknown video codec %i", codec);
       return cdm::VideoCodec::kUnknownVideoCodec;
+  }
+}
+
+cdm::AudioCodec media::ToCdmAudioCodec(const AUDIOCODEC_TYPE codec)
+{
+  switch (codec)
+  {
+    case AUDIOCODEC_AAC:
+    case AUDIOCODEC_AAC_LATM:
+      return cdm::AudioCodec::kCodecAac;
+    case AUDIOCODEC_VORBIS:
+      return cdm::AudioCodec::kCodecVorbis;
+    default:
+      return cdm::AudioCodec::kUnknownAudioCodec;
   }
 }
 
@@ -173,6 +188,30 @@ VIDEOCODEC_FORMAT media::ToSSDVideoFormat(const cdm::VideoFormat format)
   }
 }
 
+AUDIOCODEC_FORMAT media::ToSSDAudioFormat(const cdm::AudioFormat format)
+{
+  switch (format)
+  {
+    case cdm::AudioFormat::kAudioFormatU8:
+      return AUDIOCODEC_FMT_U8;
+    case cdm::AudioFormat::kAudioFormatS16:
+      return AUDIOCODEC_FMT_S16NE;
+    case cdm::AudioFormat::kAudioFormatS32:
+      return AUDIOCODEC_FMT_S32NE;
+    case cdm::AudioFormat::kAudioFormatF32:
+      return AUDIOCODEC_FMT_FLOAT;
+    case cdm::AudioFormat::kAudioFormatPlanarS16:
+      return AUDIOCODEC_FMT_S16NEP;
+    case cdm::AudioFormat::kAudioFormatPlanarF32:
+      return AUDIOCODEC_FMT_FLOATP;
+    default:
+    {
+      LOG::LogF(LOGWARNING, "Unknown audio format %i", format);
+      return AUDIOCODEC_FMT_UNKNOWN;
+    }
+  }
+}
+
 // Warning: The returned config contains raw pointers to the extra data in the
 // input |config|. Hence, the caller must make sure the input |config| outlives
 // the returned config.
@@ -193,6 +232,29 @@ cdm::VideoDecoderConfig_3 media::ToCdmVideoDecoderConfig(const VIDEOCODEC_INITDA
   cdmConfig.extra_data = const_cast<uint8_t*>(initData->extraData);
   cdmConfig.extra_data_size = initData->extraDataSize;
   cdmConfig.encryption_scheme = ToCdmEncryptionScheme(cryptoMode);
+  return cdmConfig;
+}
+
+cdm::AudioDecoderConfig_2 media::ToCdmAudioDecoderConfig(const AUDIOCODEC_INITDATA* initData,
+                                                         const CryptoMode cryptoMode)
+{
+  cdm::AudioDecoderConfig_2 cdmConfig{};
+  cdmConfig.codec = ToCdmAudioCodec(initData->codec);
+  cdmConfig.channel_count = initData->channels;
+  cdmConfig.samples_per_second = initData->sampleRate;
+  cdmConfig.extra_data = const_cast<uint8_t*>(initData->extraData);
+  cdmConfig.extra_data_size = initData->extraDataSize;
+  cdmConfig.encryption_scheme = ToCdmEncryptionScheme(cryptoMode);
+  
+  LOG::LogF(LOGWARNING, "cdmConfig.codec %i", cdmConfig.codec);
+  LOG::LogF(LOGWARNING, "cdmConfig.channel_count %i", cdmConfig.channel_count);
+  LOG::LogF(LOGWARNING, "cdmConfig.samples_per_second %i", cdmConfig.samples_per_second);
+  LOG::LogF(LOGWARNING, "cdmConfig.extra_data %p", cdmConfig.extra_data);
+  LOG::LogF(LOGWARNING, "cdmConfig.extra_data_size %u", cdmConfig.extra_data_size);
+  LOG::LogF(LOGWARNING, "cdmConfig.extra_data (base64) %s",
+            UTILS::BASE64::Encode(cdmConfig.extra_data, cdmConfig.extra_data_size).c_str());
+  LOG::LogF(LOGWARNING, "cdmConfig.encryption_scheme %i", cdmConfig.encryption_scheme);
+
   return cdmConfig;
 }
 
