@@ -172,68 +172,6 @@ std::vector<Wrapper> TranslateWrapper(std::string_view wrapper)
   }
   return result;
 }
-
-//! @todo: to be removed in future when the old DRM properties will be removed
-void ConvertDeprecatedPlaceholders(std::string& data)
-{
-  if (data.empty())
-    return;
-
-  if (STRING::Contains(data, "R{SSM}", false)) // Raw data
-  {
-    STRING::ReplaceFirst(data, "R{SSM}", "{CHA-RAW}");
-  }
-  else if (STRING::Contains(data, "b{SSM}", false)) // Base64 encoded
-  {
-    STRING::ReplaceFirst(data, "b{SSM}", "{CHA-B64}");
-  }
-  else if (STRING::Contains(data, "B{SSM}", false)) // Base64 and URL encoded
-  {
-    STRING::ReplaceFirst(data, "B{SSM}", "{CHA-B64U}");
-  }
-  else if (STRING::Contains(data, "D{SSM}", false)) // Decimal converted
-  {
-    STRING::ReplaceFirst(data, "D{SSM}", "{CHA-DEC}");
-  }
-
-  // SESSION ID - Placeholder {SID-?}
-
-  if (STRING::Contains(data, "R{SID}", false)) // Raw
-  {
-    STRING::ReplaceFirst(data, "R{SID}", "{SID-RAW}");
-  }
-  else if (STRING::Contains(data, "b{SID}", false)) // Base64 encoded
-  {
-    STRING::ReplaceFirst(data, "b{SID}", "{SID-B64}");
-  }
-  else if (STRING::Contains(data, "B{SID}", false)) // Base64 and URL encoded
-  {
-    STRING::ReplaceFirst(data, "B{SID}", "{SID-B64U}");
-  }
-
-  // KEY ID - Placeholder {KID-?}
-
-  if (STRING::Contains(data, "R{KID}", false)) // KID converted to UUID format
-  {
-    STRING::ReplaceFirst(data, "R{KID}", "{KID-UUID}");
-  }
-  else if (STRING::Contains(data, "H{KID}", false)) // Hexadecimal converted
-  {
-    STRING::ReplaceFirst(data, "H{KID}", "{KID-HEX}");
-  }
-
-  // PSSH - Placeholder {PSSH-?}
-
-  if (STRING::Contains(data, "b{PSSH}", false)) // Base64 encoded
-  {
-    STRING::ReplaceFirst(data, "b{PSSH}", "{PSSH-B64}");
-  }
-  else if (STRING::Contains(data, "B{PSSH}", false)) // Base64 and URL encoded
-  {
-    STRING::ReplaceFirst(data, "B{PSSH}", "{PSSH-B64U}");
-  }
-}
-
 } // unnamed namespace
 
 std::vector<uint8_t> DRM::MakeWidevinePsshData(const std::vector<std::vector<uint8_t>>& keyIds,
@@ -325,13 +263,8 @@ bool DRM::WvWrapLicense(std::string& data,
                         std::string_view sessionId,
                         const std::vector<uint8_t>& kid,
                         const std::vector<uint8_t>& pssh,
-                        std::string_view wrapper,
-                        const bool isNewConfig)
+                        std::string_view wrapper)
 {
-  //! @todo: to be removed in future when the old DRM properties will be removed
-  if (!isNewConfig)
-    ConvertDeprecatedPlaceholders(data);
-
   // By default raw key request (challenge) data
   if (data.empty())
     data = "{CHA-RAW}";
@@ -677,32 +610,13 @@ bool DRM::WvUnwrapLicense(std::string_view wrapper,
     return false;
   }
 
-  //! @todo: the support to binary license data (with HB) that start with "\r\n\r\n" has not been reintroduced with the
-  //! rework of this code, this is a old unclear addition, seem there are no info about this on web,
-  //! and seem no addons use it, so for now is removed, if in the future someone complain about this lack
-  //! will be possible reintroduce it and include more clear info about this use case.
-  // if (data.compare(0, 4, "\r\n\r\n") == 0)
-  //   data.erase(0, 4);
-
   dataOut = data;
 
   return true;
 }
 
-void DRM::TranslateLicenseUrlPh(std::string& url,
-                                const std::vector<uint8_t>& challenge,
-                                const bool isNewConfig)
+void DRM::TranslateLicenseUrlPh(std::string& url, const std::vector<uint8_t>& challenge)
 {
-  if (!isNewConfig)
-  {
-    // Replace deprecated placeholders
-    //! @todo: to be removed in future when the old DRM properties will be removed
-    if (STRING::Contains(url, "B{SSM}", false)) // Base64 and URL encoded
-      STRING::ReplaceFirst(url, "B{SSM}", "{CHA-B64U}");
-    if (STRING::Contains(url, "{HASH}", false)) // MD5 hash
-      STRING::ReplaceFirst(url, "{HASH}", "{CHA-MD5}");
-  }
-
   if (STRING::Contains(url, "{CHA-B64U}", false))  // Base64 and URL encoded
   {
     const std::string krEnc = STRING::URLEncode(BASE64::Encode(challenge));
