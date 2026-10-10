@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <optional>
 #include <sstream>
+#include <unordered_set>
 
 using namespace PLAYLIST;
 using namespace UTILS;
@@ -1461,19 +1462,6 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       rend.m_isForced = attribs["FORCED"] == "YES";
       rend.m_characteristics = attribs["CHARACTERISTICS"];
       rend.m_uri = attribs["URI"];
-      std::string uri = attribs["URI"];
-
-      if (!uri.empty())
-      {
-        // Check if this uri has been already added
-        if (std::any_of(pl.m_audioRenditions.cbegin(), pl.m_audioRenditions.cend(),
-                        [&uri](const Rendition& v) { return v.m_uri == uri; }) ||
-            std::any_of(pl.m_subtitleRenditions.cbegin(), pl.m_subtitleRenditions.cend(),
-                        [&uri](const Rendition& v) { return v.m_uri == uri; }))
-        {
-          rend.m_isUriDuplicate = true;
-        }
-      }
 
       if (streamType == StreamType::AUDIO)
         pl.m_audioRenditions.emplace_back(rend);
@@ -1518,13 +1506,6 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       var.m_videoRange = attribs["VIDEO-RANGE"];
       var.m_uri = uri;
 
-      // Check if this uri has been already added
-      if (std::any_of(pl.m_variants.cbegin(), pl.m_variants.cend(),
-                      [&uri](const Variant& v) { return v.m_uri == uri; }))
-      {
-        var.m_isUriDuplicate = true;
-      }
-
       pl.m_variants.emplace_back(var);
     }
   }
@@ -1537,11 +1518,31 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
   period->SetStart(0);
   period->SetTimescale(TIMESCALE);
 
-  // Add audio renditions (do not take in account variants references)
+  for (Rendition& r : pl.m_audioRenditions)
+  {
+    r.m_variant = FindVariantByAudioGroupId(r.m_groupId, pl.m_variants);
+  }
+  // Sort to give priority to those have a referenced variant
+  std::stable_sort(pl.m_audioRenditions.begin(), pl.m_audioRenditions.end(),
+                   [](const Rendition& a, const Rendition& b)
+                   { return a.m_variant != nullptr && b.m_variant == nullptr; });
+
+  for (Rendition& r : pl.m_subtitleRenditions)
+  {
+    r.m_variant = FindVariantBySubtitleGroupId(r.m_groupId, pl.m_variants);
+  }
+  // Sort to give priority to those have a referenced variant
+  std::stable_sort(pl.m_subtitleRenditions.begin(), pl.m_subtitleRenditions.end(),
+                   [](const Rendition& a, const Rendition& b)
+                   { return a.m_variant != nullptr && b.m_variant == nullptr; });
+
+  std::unordered_set<std::string> collectedUris;
+
+  // Add audio renditions
   for (const Rendition& r : pl.m_audioRenditions)
   {
     // There may be multiple renditions with the same uri but different GROUP-ID
-    if (r.m_isUriDuplicate)
+    if (collectedUris.contains(r.m_uri))
       continue;
 
     auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
@@ -1550,11 +1551,9 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
     if (!ParseRenditon(r, newAdpSet, newRepr))
       continue;
 
-    // Find the codec string from a variant that references it
-    const Variant* varFound = FindVariantByAudioGroupId(r.m_groupId, pl.m_variants);
     std::string codecStr;
-    if (varFound)
-      codecStr = GetAudioCodec(varFound->m_codecs);
+    if (r.m_variant)
+      codecStr = GetAudioCodec(r.m_variant->m_codecs);
     else
     {
       if (manifestCfg.hlsAddOrphansRenditions)
@@ -1568,6 +1567,9 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
         continue;
       }
     }
+
+    if (!r.m_uri.empty())
+      collectedUris.insert(r.m_uri);
 
     if (codecStr.empty())
       codecStr = CODEC::FOURCC_MP4A; // Fallback
@@ -1601,11 +1603,12 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
     }
   }
 
-  // Add subtitles renditions (do not take in account variants references)
+  // Add subtitles renditions
+  collectedUris.clear();
   for (const Rendition& r : pl.m_subtitleRenditions)
   {
     // There may be multiple renditions with the same uri but different GROUP-ID
-    if (r.m_isUriDuplicate)
+    if (collectedUris.contains(r.m_uri))
       continue;
 
     auto newAdpSet = CAdaptationSet::MakeUniquePtr(period.get());
@@ -1614,11 +1617,9 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
     if (!ParseRenditon(r, newAdpSet, newRepr))
       continue;
 
-    // Find the codec string from a variant that references it
-    const Variant* varFound = FindVariantBySubtitleGroupId(r.m_groupId, pl.m_variants);
     std::string codecStr;
-    if (varFound)
-      codecStr = GetSubtitleCodec(varFound->m_codecs);
+    if (r.m_variant)
+      codecStr = GetSubtitleCodec(r.m_variant->m_codecs);
     else
     {
       if (manifestCfg.hlsAddOrphansRenditions)
@@ -1634,6 +1635,9 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       }
     }
 
+    if (!r.m_uri.empty())
+      collectedUris.insert(r.m_uri);
+
     if (codecStr.empty())
       codecStr = CODEC::FOURCC_WVTT; // WebVTT as default subtitle codec
 
@@ -1645,10 +1649,11 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
   }
 
   // Add variants
+  collectedUris.clear();
   for (const Variant& var : pl.m_variants)
   {
     // There may be multiple variants with the same uri but different AUDIO group
-    if (var.m_isUriDuplicate)
+    if (collectedUris.contains(var.m_uri))
       continue;
 
     if (var.m_bandwidth == 0)
@@ -1708,6 +1713,8 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
 
       if (!ParseRenditon(r, newAdpSet, newRepr))
         continue;
+
+      collectedUris.insert(var.m_uri);
 
       newAdpSet->AddCodecs(codecAudio);
       newRepr->AddCodecs(codecAudio);
@@ -1780,6 +1787,8 @@ bool adaptive::CHLSTree::ParseMultivariantPlaylist(const std::string& data)
       repr->assured_buffer_duration_ = m_settings.m_bufferAssuredDuration;
       repr->max_buffer_duration_ = m_settings.m_bufferMaxDuration;
       repr->SetScaling();
+
+      collectedUris.insert(var.m_uri);
 
       std::string uri = var.m_uri;
       if (URL::IsUrlRelative(uri))

@@ -83,10 +83,13 @@ protected:
   };
 
   // \brief Usually refer to an EXT-X-MEDIA tag
+  struct Variant;
+
   struct Rendition
   {
     std::string m_type;
     std::string m_groupId;
+    const Variant* m_variant{nullptr}; // The first variant found related to GROUP-ID, if any
     std::string m_language;
     std::string m_name;
     bool m_isDefault{false};
@@ -95,7 +98,6 @@ protected:
     std::string m_characteristics;
     std::string m_uri;
     int m_features{REND_FEATURE_NONE};
-    bool m_isUriDuplicate{false}; // Another rendition have same uri
   };
 
   // \brief Usually refer to an EXT-X-STREAM-INF tag
@@ -109,7 +111,6 @@ protected:
     std::string m_groupIdSubtitles;
     std::string m_videoRange;
     std::string m_uri;
-    bool m_isUriDuplicate{false}; // Another variant have same uri
   };
 
   struct MultivariantPlaylist
