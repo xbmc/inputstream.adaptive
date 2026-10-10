@@ -1,3 +1,9 @@
+v22.3.23 (2026-10-10)
+[HLS] Fix no audio due to orphan rendition with same URI
+Fix dlfcn-win32 UTF-8 loader error handling on Windows and WindowsStore
+Updated libandroidjni library
+Updated GoogleTest to 1.18.0
+
 v22.3.22 (2026-09-26)
 [Widevine] Removed ARM64 CDM workaround, official WV library is now available
 [HLS] EXT-X-MEDIA with orphaned ID groups are now ignored by default
