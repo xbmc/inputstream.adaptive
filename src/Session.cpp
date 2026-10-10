@@ -290,6 +290,40 @@ bool SESSION::CSession::CheckPlayableStreams(PLAYLIST::CPeriod* period)
 
 void SESSION::CSession::InitializePeriod()
 {
+  struct AudioSelection
+  {
+    size_t index;
+    std::string codec;
+    std::string codecInternalName;
+    STREAMCODEC_PROFILE profile;
+    std::string language;
+    unsigned int channels;
+    std::string name;
+  };
+  std::optional<AudioSelection> audioSelection;
+  if (auto selectedAudio = m_selectedAudioStream.lock())
+  {
+    size_t audioIndex = 0;
+    for (const auto& stream : m_streams)
+    {
+      if (stream == selectedAudio)
+      {
+        const auto& info = stream->m_info;
+        audioSelection = AudioSelection{audioIndex,
+                                        info.GetCodecName(),
+                                        info.GetCodecInternalName(),
+                                        info.GetCodecProfile(),
+                                        info.GetLanguage(),
+                                        info.GetChannels(),
+                                        info.GetName()};
+        break;
+      }
+      if (stream->m_isValid && stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO)
+        ++audioIndex;
+    }
+  }
+  m_selectedAudioStream.reset();
+
   if (m_adaptiveTree->IsChangingPeriod())
   {
     // Complete the transition into the new period
@@ -413,6 +447,52 @@ void SESSION::CSession::InitializePeriod()
                      const bool bIsVideo = b && b->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO;
                      return aIsVideo && !bIsVideo;
                    });
+
+  // VideoPlayer remembers the selected audio by its position in the audio list.
+  // DASH periods can list the same tracks in a different order, so keep the
+  // selected track at that position when it is available in the new period.
+  if (audioSelection)
+  {
+    std::vector<size_t> audioIndices;
+    for (size_t i = 0; i < m_streams.size(); ++i)
+    {
+      if (m_streams[i]->m_isValid &&
+          m_streams[i]->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO)
+        audioIndices.push_back(i);
+    }
+
+    if (audioSelection->index < audioIndices.size())
+    {
+      size_t bestIndex = audioIndices.size();
+      int bestScore = -1;
+      for (size_t i = 0; i < audioIndices.size(); ++i)
+      {
+        const auto& info = m_streams[audioIndices[i]]->m_info;
+        if (info.GetCodecName() != audioSelection->codec)
+          continue;
+
+        const int score =
+            (info.GetCodecProfile() == audioSelection->profile ? 32 : 0) +
+            (info.GetChannels() == audioSelection->channels ? 16 : 0) +
+            (info.GetLanguage() == audioSelection->language ? 8 : 0) +
+            (info.GetCodecInternalName() == audioSelection->codecInternalName ? 4 : 0) +
+            (info.GetName() == audioSelection->name ? 2 : 0);
+        if (score > bestScore)
+        {
+          bestIndex = i;
+          bestScore = score;
+        }
+      }
+
+      if (bestIndex < audioIndices.size() && bestIndex != audioSelection->index)
+      {
+        std::swap(m_streams[audioIndices[bestIndex]],
+                  m_streams[audioIndices[audioSelection->index]]);
+        LOG::LogF(LOGDEBUG, "Preserved selected audio at index %zu across period change",
+                  audioSelection->index);
+      }
+    }
+  }
 }
 
 void SESSION::CSession::AddStream(PLAYLIST::CAdaptationSet* adp,
@@ -772,6 +852,9 @@ void CSession::EnableStream(std::shared_ptr<CStream> stream, bool enable)
 {
   if (enable)
   {
+    if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO)
+      m_selectedAudioStream = stream;
+
     if (!m_timingStream || stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       m_timingStream = stream;
 
@@ -779,6 +862,13 @@ void CSession::EnableStream(std::shared_ptr<CStream> stream, bool enable)
   }
   else
   {
+    // During a period change Kodi disables all old streams before InitializePeriod
+    // matches the selected audio with the new period's streams.
+    const bool isLeavingPeriod = m_adaptiveTree->IsChangingPeriod() &&
+                                 !m_adaptiveTree->IsChangingPeriodDone();
+    if (!isLeavingPeriod && m_selectedAudioStream.lock() == stream)
+      m_selectedAudioStream.reset();
+
     if (stream == m_timingStream)
       m_timingStream = nullptr;
 
@@ -804,6 +894,7 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
 {
   CStream* res{nullptr};
   CStream* waiting{nullptr};
+  CStream* waitingMedia{nullptr};
 
   for (auto& stream : m_streams)
   {
@@ -819,7 +910,9 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
       if (streamReader->IsReadSampleAsyncWorking())
       {
         waiting = stream.get();
-        break;
+        if (stream->m_info.GetStreamType() != INPUTSTREAM_TYPE_SUBTITLE)
+          waitingMedia = stream.get();
+        continue;
       }
       else if (!streamReader->EOS())
       {
@@ -830,6 +923,8 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
             if (stream->m_adStream.OnSampleRequested())
             {
               waiting = stream.get();
+              if (stream->m_info.GetStreamType() != INPUTSTREAM_TYPE_SUBTITLE)
+                waitingMedia = stream.get();
             }
             else
             {
@@ -841,20 +936,32 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     }
   }
 
-  if (waiting)
+  // Do not let a ready track run arbitrarily far ahead while another track
+  // finishes an asynchronous read. Kodi's video queue can otherwise empty
+  // while audio is several seconds ahead of the pending video sample.
+  if (res && waitingMedia)
   {
-    return true;
+    // The waiting reader is being updated by another thread. Use the last
+    // timestamp handed to Kodi instead of reading its mutable sample fields.
+    const auto& lastWaitingDts = waitingMedia->m_lastEmittedDtsManifest;
+    if (!lastWaitingDts ||
+        res->GetReader()->DTSorPTSManifest() > *lastWaitingDts + STREAM_TIME_BASE / 2)
+      return true;
   }
-  else if (res)
+
+  if (res)
   {
     ISampleReader* sr{res->GetReader()};
 
     if (sr->PTS() != STREAM_NOPTS_VALUE && m_timingStream.get() == res)
       m_elapsedTime = PTSToElapsed(sr->PTS(), res) + GetChapterStartTime();
 
+    res->m_lastEmittedDtsManifest = sr->DTSorPTSManifest();
     sampleReader = sr;
     return true;
   }
+  if (waiting)
+    return true;
   return false;
 }
 
@@ -862,6 +969,9 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 {
   if (m_streams.empty())
     return false;
+
+  for (auto& stream : m_streams)
+    stream->m_lastEmittedDtsManifest.reset();
 
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)
@@ -937,9 +1047,9 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
   };
 
   // Helper lambda to perform seek on adaptive stream segment buffer
-  auto SeekAdStream = [](CStream& stream, double seekSecs) -> bool
+  auto SeekAdStream = [](CStream& stream, double seekSecs, bool includePreviousSegment) -> bool
   {
-    if (!stream.m_adStream.seek_time(seekSecs))
+    if (!stream.m_adStream.seek_time(seekSecs, includePreviousSegment))
     {
       stream.GetReader()->Reset(true);
       return false;
@@ -951,6 +1061,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 
   // correct for starting segment pts value of chapter and chapter offset within program
   uint64_t seekTimeCorrected{static_cast<uint64_t>(seekTime * STREAM_TIME_BASE)};
+  uint64_t videoSeekPts{STREAM_NOPTS_VALUE};
 
   // Note: At the end of the seek operations, you may notice on Kodi debug log "dropping packets" prints
   // this happens because we cannot always guarantee a precise seek, for example
@@ -979,11 +1090,15 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     const bool hasAdStream = !(streamReader->GetType() == ISampleReader::Type::FMP4 &&
                                stream->m_adStream.getRepresentation()->IsIncludedStream());
 
+    const double seekSecs{static_cast<double>(seekTimePts) / STREAM_TIME_BASE};
+    const bool includePreviousSegment =
+        hasAdStream && m_adaptiveTree->IsLive() &&
+        stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO &&
+        streamReader->GetType() == ISampleReader::Type::FMP4;
+
     if (hasAdStream)
     {
-      const double seekSecs{static_cast<double>(seekTimePts) / STREAM_TIME_BASE};
-
-      if (!SeekAdStream(*stream, seekSecs))
+      if (!SeekAdStream(*stream, seekSecs, includePreviousSegment))
       {
         if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_SUBTITLE)
           continue; // Subtitles failure should not block the seek operations
@@ -993,7 +1108,67 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
 
-    if (!SeekReader(*stream, seekTimePts))
+    uint64_t readerSeekPts = seekTimePts;
+    if (includePreviousSegment && m_adaptiveTree->GetTreeType() == TreeType::HLS &&
+        videoSeekPts != STREAM_NOPTS_VALUE)
+    {
+      // The reader converts this manifest PTS back to media PTS. Use the
+      // video keyframe as that target because HLS tracks can map the same
+      // media time to different positions in their playlists.
+      const int64_t alignedPts = static_cast<int64_t>(videoSeekPts) - streamReader->GetPTSDiff();
+      if (alignedPts >= 0)
+        readerSeekPts = static_cast<uint64_t>(alignedPts);
+    }
+
+    bool seeked = SeekReader(*stream, readerSeekPts);
+    if (seeked && includePreviousSegment)
+    {
+      // SeekSample can land at the beginning of the preceding audio fragment.
+      // Discard its samples before the video keyframe so Kodi receives aligned
+      // audio instead of waiting several seconds for the video to catch up.
+      size_t skippedSamples = 0;
+      // HLS audio and video playlists can map the same media PTS to different
+      // manifest times. Compare the reader PTS values after seeking both tracks.
+      const bool useMediaPts = m_adaptiveTree->GetTreeType() == TreeType::HLS &&
+                               videoSeekPts != STREAM_NOPTS_VALUE;
+      const uint64_t seekPoint = useMediaPts ? videoSeekPts : seekTimeCorrected;
+      uint64_t audioTime = useMediaPts ? streamReader->PTS()
+                                       : PTSToElapsed(streamReader->PTS(), stream.get());
+      while (audioTime + streamReader->GetDuration() < seekPoint &&
+             skippedSamples < 512)
+      {
+        if (AP4_FAILED(streamReader->ReadSample()))
+          break;
+
+        const uint64_t nextAudioTime = useMediaPts ? streamReader->PTS()
+                                                   : PTSToElapsed(streamReader->PTS(), stream.get());
+        if (nextAudioTime <= audioTime)
+          break;
+
+        audioTime = nextAudioTime;
+        ++skippedSamples;
+      }
+
+      if (audioTime + streamReader->GetDuration() < seekPoint)
+      {
+        // If this reader cannot advance through the fragment, retain the
+        // original seek behavior rather than feeding audio far ahead of video.
+        LOG::LogF(LOGDEBUG, "Audio preroll could not reach the video seek point; retrying");
+        seeked = false;
+      }
+      else if (skippedSamples > 0)
+      {
+        LOG::LogF(LOGDEBUG, "Discarded %zu audio samples before video seek point",
+                  skippedSamples);
+      }
+    }
+
+    if (!seeked && includePreviousSegment)
+    {
+      seeked = SeekAdStream(*stream, seekSecs, false) && SeekReader(*stream, seekTimePts);
+    }
+
+    if (!seeked)
     {
       streamReader->Reset(true);
 
@@ -1022,6 +1197,8 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       // Then get the nearest PTS found for the video, then align the audio/subtitles with it.
       if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       {
+        if (m_adaptiveTree->GetTreeType() == TreeType::HLS)
+          videoSeekPts = streamReader->PTS();
         seekTime = destTimeSecs;
 
         if (seekTimeCorrected != destTimePts)
@@ -1267,6 +1444,7 @@ bool SESSION::CSession::SeekChapter(int number)
 
     for (auto& stream : m_streams)
     {
+      stream->m_lastEmittedDtsManifest.reset();
       ISampleReader* sr{stream->GetReader()};
       if (sr)
       {

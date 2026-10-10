@@ -165,6 +165,12 @@ protected:
                             PLAYLIST::CRepresentation* rep,
                             uint64_t currentSegNumber = PLAYLIST::SEGMENT_NO_NUMBER);
 
+  ParseStatus ApplyChildManifestResponse(const UTILS::CURL::HTTPResponse& resp,
+                                         PLAYLIST::CPeriod* period,
+                                         PLAYLIST::CAdaptationSet* adp,
+                                         PLAYLIST::CRepresentation* rep,
+                                         uint64_t currentSegNumber);
+
   ParseStatus ParseChildManifest(const std::string& data,
                                  std::string_view sourceUrl,
                                  PLAYLIST::CPeriod* period,
@@ -177,6 +183,7 @@ protected:
                        uint64_t segNumber);
 
   virtual void OnUpdateSegments() override;
+  void OnUpdateSegments(std::unique_lock<std::mutex>& updateLock) override;
 
   virtual bool ParseManifest(const std::string& stream);
 
