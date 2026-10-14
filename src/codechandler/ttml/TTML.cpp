@@ -444,7 +444,7 @@ uint64_t TTML2SRT::GetTime(std::string timeExpr)
   unsigned long long h{0};
   unsigned long long m{0};
   unsigned long long s{0};
-  unsigned long long ms{0};
+  unsigned long long fs{0};
   unsigned long long f{0};
   unsigned long long sf{0};
 
@@ -512,9 +512,13 @@ uint64_t TTML2SRT::GetTime(std::string timeExpr)
       ts += (m_timescale * sf * m_frameRateDen / m_subFrameRate) / m_frameRateNum;
     }
   }
-  else if (sscanf(timeExpr.c_str(), "%llu:%llu:%llu.%llu", &h, &m, &s, &ms) == 4)
+  else if (sscanf(timeExpr.c_str(), "%llu:%llu:%llu.%9llu", &h, &m, &s, &fs) == 4)
   {
-    ts = (h * 3600 + m * 60 + s) * m_timescale + ms;
+    // pad to 9 digits: ".5" -> 500000000, ".05" -> 50000000
+    for (size_t n = timeExpr.size() - timeExpr.find('.') - 1; n < 9; ++n)
+      fs *= 10;
+
+    ts = (h * 3600 + m * 60 + s) * m_timescale + fs * m_timescale / 1000000000ULL;
   }
   else if (sscanf(timeExpr.c_str(), "%llu:%llu:%llu:%llu.%llu", &h, &m, &s, &f, &sf) == 5)
   {
