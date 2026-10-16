@@ -97,6 +97,22 @@ private:
   uint64_t m_pts;
 };
 
+class CdmAudioFrames : public cdm::AudioFrames
+{
+public:
+  CdmAudioFrames() = default;
+
+  void SetFormat(cdm::AudioFormat format) override { m_format = format; }
+  cdm::AudioFormat Format() const override { return m_format; }
+
+  void SetFrameBuffer(cdm::Buffer* frame_buffer) override { m_buffer = frame_buffer; }
+  cdm::Buffer* FrameBuffer() override { return m_buffer; }
+
+private:
+  cdm::AudioFormat m_format;
+  cdm::Buffer* m_buffer{nullptr};
+};
+
 class CdmAdapter : public std::enable_shared_from_this<CdmAdapter>,
                    public cdm::Host_10,
                    public cdm::Host_11,
