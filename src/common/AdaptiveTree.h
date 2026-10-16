@@ -71,6 +71,17 @@ public:
   uint64_t available_time_{0}; // in ms
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
 
+  void SetLiveStartTimestamp(PLAYLIST::CPeriod* period, uint64_t ptsMs)
+  {
+    m_liveStartPeriod = period;
+    m_liveStartPtsMs = ptsMs;
+  }
+
+  std::optional<uint64_t> GetLiveStartTimestamp(PLAYLIST::CPeriod* period) const
+  {
+    return m_liveStartPeriod == period ? m_liveStartPtsMs : std::nullopt;
+  }
+
   AdaptiveTree() = default;
   AdaptiveTree(const AdaptiveTree& left);
   virtual ~AdaptiveTree() = default;
@@ -295,6 +306,10 @@ public:
     // \brief Stop performing new updates.
     void Stop();
 
+    // Wait before applying an update if a reader paused manifest changes while
+    // the update thread was downloading without the tree lock.
+    bool WaitForResume(std::unique_lock<std::mutex>& updateLock);
+
   private:
     void Worker();
     void Pause();
@@ -313,7 +328,7 @@ public:
     std::condition_variable m_cvUpdInterval;
     std::mutex m_waitMutex;
     std::condition_variable m_cvWait;
-    bool m_threadStop{false};
+    std::atomic<bool> m_threadStop{false};
     bool m_resetInterval{false};
   };
 
@@ -417,6 +432,13 @@ protected:
    *        Intended for live streaming that does have a defined update time interval.
    */
   virtual void OnUpdateSegments() { lastUpdated_ = std::chrono::system_clock::now(); }
+  virtual void OnUpdateSegments(std::unique_lock<std::mutex>& updateLock)
+  {
+    OnUpdateSegments();
+  }
+
+  PLAYLIST::CPeriod* m_liveStartPeriod{nullptr};
+  std::optional<uint64_t> m_liveStartPtsMs;
 
   // Manifest update interval in ms,
   // Non-zero value: refresh interval starting from the moment mpd download was initiated

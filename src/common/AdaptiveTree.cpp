@@ -445,28 +445,30 @@ namespace adaptive
   void AdaptiveTree::TreeUpdateThread::Worker()
   {
     std::unique_lock<std::mutex> updLck(m_updMutex);
+    auto nextUpdate = std::chrono::steady_clock::now();
+    const bool scheduleFromUpdateStart = m_tree->GetTreeType() == TreeType::DASH;
 
     while (m_tree->m_updateInterval != NO_VALUE && m_tree->m_updateInterval > 0 && !m_threadStop)
     {
-      auto nowTime = std::chrono::steady_clock::now();
-
       std::chrono::milliseconds intervalMs = std::chrono::milliseconds(m_tree->m_updateInterval);
-      // Wait for the interval time, the predicate method is used to avoid spurious wakeups
-      // and to allow exit early when notify_all is called to force stop operations
-      m_cvUpdInterval.wait_for(updLck, intervalMs,
-                               [&nowTime, &intervalMs, this] {
-                                 return std::chrono::steady_clock::now() - nowTime >= intervalMs ||
-                                        m_threadStop;
-                               });
+      nextUpdate += intervalMs;
+      m_cvUpdInterval.wait_until(updLck, nextUpdate, [this] { return m_threadStop.load(); });
 
       updLck.unlock();
       // If paused, wait until last "Resume" will be called
       std::unique_lock<std::mutex> lckWait(m_waitMutex);
-      m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0; });
+      m_cvWait.wait(lckWait, [&] { return m_waitQueue == 0 || m_threadStop; });
+      lckWait.unlock();
       if (m_threadStop)
         break;
 
       updLck.lock();
+      if (!WaitForResume(updLck))
+        break;
+      // DASH updates need a steady cadence. Other manifests keep the interval
+      // after each update so their downloads do not crowd segment readers.
+      if (scheduleFromUpdateStart)
+        nextUpdate = std::chrono::steady_clock::now();
 
       // Store the interval before it is cleared, skipping a value that a parser
       // lowered as a temporary backoff
@@ -480,10 +482,24 @@ namespace adaptive
         m_resetInterval = false;
       }
 
-      m_tree->OnUpdateSegments();
+      m_tree->OnUpdateSegments(updLck);
       // Periods may have been added or removed, refresh while updates are still
       // blocked so readers never observe a half updated m_periods
       m_tree->RefreshChaptersSnapshot();
+
+      if (!scheduleFromUpdateStart)
+      {
+        nextUpdate = std::chrono::steady_clock::now();
+        continue;
+      }
+
+      // An update that exceeds its interval should not trigger another update
+      // immediately. Keep the original schedule when the deadline is still ahead.
+      const auto updateEnd = std::chrono::steady_clock::now();
+      const uint64_t nextInterval = m_tree->m_updateInterval.load();
+      if (nextInterval != NO_VALUE && nextInterval > 0 &&
+          updateEnd >= nextUpdate + std::chrono::milliseconds(nextInterval))
+        nextUpdate = updateEnd;
     }
   }
 
@@ -497,6 +513,7 @@ namespace adaptive
   void AdaptiveTree::TreeUpdateThread::Resume()
   {
     // assert(m_waitQueue != 0); // Debug only, resume without any pause
+    std::lock_guard<std::mutex> waitLck{m_waitMutex};
     m_waitQueue--;
     // If there are no more pauses, unblock the update thread
     if (m_waitQueue == 0)
@@ -506,10 +523,31 @@ namespace adaptive
   void AdaptiveTree::TreeUpdateThread::Stop()
   {
     m_threadStop = true;
-    // If an update is already in progress wait until exit
-    std::lock_guard<std::mutex> updLck{m_updMutex};
-    m_cvUpdInterval.notify_all();
-    m_cvWait.notify_all();
+    {
+      std::lock_guard<std::mutex> updLck{m_updMutex};
+      m_cvUpdInterval.notify_all();
+    }
+    {
+      std::lock_guard<std::mutex> waitLck{m_waitMutex};
+      m_cvWait.notify_all();
+    }
+    // HLS can release m_updMutex while downloading. Join before the tree's
+    // derived state is destroyed, even when a request was still in flight.
+    if (m_thread.joinable())
+      m_thread.join();
+  }
+
+  bool AdaptiveTree::TreeUpdateThread::WaitForResume(std::unique_lock<std::mutex>& updateLock)
+  {
+    if (m_waitQueue > 0)
+    {
+      updateLock.unlock();
+      std::unique_lock<std::mutex> waitLck(m_waitMutex);
+      m_cvWait.wait(waitLck, [&] { return m_waitQueue == 0 || m_threadStop; });
+      waitLck.unlock();
+      updateLock.lock();
+    }
+    return !m_threadStop;
   }
 
   } // namespace adaptive

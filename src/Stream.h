@@ -116,6 +116,8 @@ public:
 
   adaptive::AdaptiveStream m_adStream;
   kodi::addon::InputstreamInfo m_info;
+  // Updated on the demux thread before the reader starts its next async read.
+  std::optional<uint64_t> m_lastEmittedDtsManifest;
   bool m_isValid;
 
 private:

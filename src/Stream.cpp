@@ -35,6 +35,7 @@ void CStream::Disable()
 void CStream::Reset()
 {
   m_isEnabled = false;
+  m_lastEmittedDtsManifest.reset();
 
   if (m_streamReader)
     m_streamReader->WaitReadSampleAsyncComplete();
@@ -45,12 +46,14 @@ void CStream::Reset()
 
 void SESSION::CStream::SetReader(std::unique_ptr<ISampleReader> reader)
 {
+  m_lastEmittedDtsManifest.reset();
   m_streamReader = std::move(reader);
   m_streamReader->SetObserver(&m_adStream);
 }
 
 void SESSION::CStream::LinkStream(std::shared_ptr<CStream> mainStream, int streamId)
 {
+  m_lastEmittedDtsManifest.reset();
   ISampleReader* mainStreamReader = mainStream->GetReader();
   if (!mainStreamReader)
   {
@@ -89,6 +92,7 @@ void SESSION::CStream::LinkStream(std::shared_ptr<CStream> mainStream, int strea
 
 void SESSION::CStream::UnlinkStream()
 {
+  m_lastEmittedDtsManifest.reset();
   if (auto linkStream = m_linkedStream.lock()) // check pointer validity
   {
     ISampleReader* linkStreamReader = linkStream->GetReader();

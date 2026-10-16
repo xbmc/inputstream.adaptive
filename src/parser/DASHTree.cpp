@@ -159,12 +159,18 @@ bool adaptive::CDashTree::Open(const std::string& url,
   //! can potentially fall on the previous period and so its needed to set in advance the right period
   //! so live delay and period selection could be merged
   //! to do this its needed to test also the behaviour of HLS streams with discontinuities
-  uint64_t now = stream_start_ + *m_clockOffset - available_time_;
+  const uint64_t now = stream_start_ + *m_clockOffset;
   if (m_isLive && !kodiProps.IsPlayTimeshift())
   {
+    const uint64_t configuredDelay = kodiProps.GetManifestConfig().liveDelay;
+    const uint64_t liveDelay =
+        configuredDelay >= 16 ? configuredDelay : std::max<uint64_t>(m_liveDelay, 16);
+    const uint64_t delayMs = liveDelay * 1000;
+    const uint64_t playbackTime = now > delayMs ? now - delayMs : 0;
+
     for (auto& period : m_periods)
     {
-      if (period->GetStart() != NO_VALUE && now >= period->GetStart() &&
+      if (period->GetStart() != NO_VALUE && playbackTime >= period->GetStart() &&
           period->GetTlDuration() > 0)
       {
         m_currentPeriod = period.get();

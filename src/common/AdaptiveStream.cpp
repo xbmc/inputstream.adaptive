@@ -704,12 +704,57 @@ bool adaptive::AdaptiveStream::start_stream()
     }
   }
 
+  if (m_startEvent == EVENT_TYPE::STREAM_START && m_tree->GetTreeType() == TreeType::HLS &&
+      m_tree->IsLive() && current_adp_->GetStreamType() == StreamType::AUDIO)
+  {
+    // The audio child playlist is often fetched after video. Selecting both
+    // independently from the live edge can start audio one segment later.
+    if (auto videoStartMs = m_tree->GetLiveStartTimestamp(current_period_))
+    {
+      const uint64_t videoStartPts = *videoStartMs * current_rep_->GetTimescale() / 1000;
+      if (const CSegment* aligned = current_rep_->Timeline().FindByPTSOrNext(videoStartPts))
+      {
+        const auto distance = [videoStartPts](const CSegment* segment) {
+          return segment->startPTS_ > videoStartPts ? segment->startPTS_ - videoStartPts
+                                                    : videoStartPts - segment->startPTS_;
+        };
+        // A segment that contains the video start can begin almost a full
+        // segment earlier. Compare its neighbours to avoid starting audio
+        // several seconds ahead when the next segment starts alongside video.
+        const CSegment* closest = aligned;
+        if (const CSegment* previous = current_rep_->Timeline().GetPrevious(*aligned);
+            previous && distance(previous) < distance(closest))
+          closest = previous;
+        if (const CSegment* next = current_rep_->Timeline().GetNext(*aligned);
+            next && distance(next) < distance(closest))
+          closest = next;
+
+        if (const CSegment* previous = current_rep_->Timeline().GetPrevious(*closest))
+          current_rep_->current_segment_ = *previous;
+        else
+          current_rep_->current_segment_.reset();
+      }
+    }
+  }
+
   const CSegment* next_segment{nullptr};
 
   if (current_rep_->current_segment_)
     next_segment = &*current_rep_->current_segment_;
   else
     next_segment = current_rep_->Timeline().GetFront();
+
+  if (m_tree->GetTreeType() == TreeType::HLS && m_tree->IsLive() &&
+      m_startEvent == EVENT_TYPE::STREAM_START &&
+      current_adp_->GetStreamType() == StreamType::VIDEO && next_segment)
+  {
+    const CSegment* playSegment = current_rep_->current_segment_
+                                      ? current_rep_->Timeline().GetNext(*current_rep_->current_segment_)
+                                      : current_rep_->Timeline().GetFront();
+    if (playSegment)
+      m_tree->SetLiveStartTimestamp(current_period_,
+                                    playSegment->startPTS_ * 1000 / current_rep_->GetTimescale());
+  }
 
   if (!next_segment && current_adp_->GetStreamType() != StreamType::SUBTITLE)
   {
@@ -1241,7 +1286,7 @@ PLAYLIST::StreamType adaptive::AdaptiveStream::GetStreamType() const
   return current_adp_->GetStreamType();
 }
 
-bool adaptive::AdaptiveStream::seek_time(double seek_seconds)
+bool adaptive::AdaptiveStream::seek_time(double seek_seconds, bool include_previous_segment)
 {
   if (!current_rep_)
     return false;
@@ -1252,7 +1297,21 @@ bool adaptive::AdaptiveStream::seek_time(double seek_seconds)
   std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
   const uint64_t pts = static_cast<uint64_t>(seek_seconds * current_rep_->GetTimescale());
-  const CSegment* seekSeg = current_rep_->Timeline().FindByPTSOrNext(pts);
+  const auto& timeline = current_rep_->Timeline();
+  const CSegment* seekSeg = timeline.FindByPTSOrNext(pts);
+
+  // A fragmented audio reader can start only at the beginning of a downloaded
+  // fragment. Keep the preceding fragment available for sample-accurate seeks
+  // near a video keyframe, even if the audio segment boundary is slightly later.
+  if (seekSeg && include_previous_segment)
+  {
+    if (const CSegment* previousSeg = timeline.GetPrevious(*seekSeg))
+    {
+      LOG::LogF(LOGDEBUG, "[AS-%u] Audio seek includes preceding segment (%llu before %llu)",
+                clsId, previousSeg->startPTS_, seekSeg->startPTS_);
+      seekSeg = previousSeg;
+    }
+  }
 
   if (!seekSeg)
     return false;
