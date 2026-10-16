@@ -776,6 +776,44 @@ bool adaptive::AdaptiveStream::ensureSegment()
   if (m_segBuffers.IsEmpty() || (m_segBuffers.Front().BufferSize() != 0 &&
                                  segment_read_pos_ >= m_segBuffers.Front().BufferSize()))
   {
+    // BufferSize() is how much of the segment has been downloaded so far, not how large the segment
+    // is. When the reader catches up with an ongoing download the read position reaches that end
+    // while the segment is far from complete - dropping it here discards everything that had not
+    // arrived yet, and reading silently continues in the *next* segment: the delivered stream loses
+    // seconds of media without any read or seek ever failing. Wait for the download to deliver more
+    // data (or to finish) before concluding that the segment has been consumed.
+    if (!m_segBuffers.IsEmpty())
+    {
+      // Poll rather than wait indefinitely. The download thread changes the buffer state and
+      // notifies without holding mutexRW, so a notification issued between our predicate check and
+      // the wait is lost and we would never wake up - and downloads can also be paused, in which
+      // case no notification is coming at all. Re-evaluating on a timeout covers both, and the
+      // overall bound guarantees that this can never hang the demuxer thread: on expiry we fall
+      // through to the previous behaviour rather than block playback.
+      constexpr auto pollInterval{std::chrono::milliseconds(50)};
+      constexpr auto maxWait{std::chrono::seconds(5)};
+
+      std::unique_lock<std::mutex> lckrw(thread_data_->mutexRW);
+      const SegmentBuffer& frontBuffer = m_segBuffers.Front();
+      const auto waitUntil{std::chrono::steady_clock::now() + maxWait};
+
+      while (segment_read_pos_ >= frontBuffer.BufferSize() &&
+             (frontBuffer.State() == BufferState::QUEUED ||
+              frontBuffer.State() == BufferState::DOWNLOADING) &&
+             thread_data_->State() == THREADDATA::ThState::RUNNING &&
+             std::chrono::steady_clock::now() < waitUntil)
+      {
+        thread_data_->cvRW.wait_for(lckrw, pollInterval);
+      }
+    }
+
+    // Re-check: the wait above may have made more data available, so the segment is not consumed
+    if (!m_segBuffers.IsEmpty() && m_segBuffers.Front().BufferSize() != 0 &&
+        segment_read_pos_ < m_segBuffers.Front().BufferSize())
+    {
+      return true;
+    }
+
     if (!m_segBuffers.IsEmpty() && m_segBuffers.Front().State() == BufferState::DOWNLOADING)
     {
       // Although the reading position has reached the end, the segment status may not yet be updated
@@ -1008,6 +1046,12 @@ uint32_t adaptive::AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
 
     SegmentBuffer& currSegBuffer = m_segBuffers.Front();
 
+    // The subtraction below is unsigned: a read position past the downloaded end would wrap to a
+    // huge count and read beyond the buffer. Equality is legitimate (nothing available yet, the
+    // wait below may still deliver data), only a position beyond it is not.
+    if (segment_read_pos_ > currSegBuffer.BufferSize())
+      return 0;
+
     size_t avail = currSegBuffer.BufferSize() - segment_read_pos_;
 
     {
@@ -1026,14 +1070,20 @@ uint32_t adaptive::AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
     if (avail > bytesToRead)
       avail = bytesToRead;
 
+    if (avail == 0)
+      return 0;
+
+    // Deliver what is available rather than requiring the full amount: this is a partial read and
+    // the caller is expected to ask again for the remainder. Advancing the positions for bytes that
+    // are then neither copied nor reported discards the tail of every segment - and the read error
+    // it produces sends the caller into its IO error recovery, which re-anchors on the *next*
+    // segment and drops everything the demuxer had not yet emitted from the current one.
+    currSegBuffer.CopyBufferTo(buffer, segment_read_pos_, avail);
+
     segment_read_pos_ += avail;
     absolute_position_ += avail;
 
-    if (avail == bytesToRead)
-    {
-      currSegBuffer.CopyBufferTo(buffer, segment_read_pos_ - avail, avail);
-      return static_cast<uint32_t>(avail);
-    }
+    return static_cast<uint32_t>(avail);
   }
 
   return 0;
@@ -1146,7 +1196,15 @@ bool adaptive::AdaptiveStream::seek(uint64_t const pos, bool& isEos)
     }
   }
 
-  segment_read_pos_ = static_cast<size_t>(pos - (absolute_position_ - segment_read_pos_));
+  // Positions are absolute over the whole stream while only the current segment is buffered, so a
+  // position before that segment cannot be served. Reject it explicitly: the subtraction below is
+  // unsigned, so letting it through wraps around to a huge offset that the clamp then turns into
+  // "end of the current segment" - a silent jump to a completely different point in the timeline.
+  const uint64_t segStartPos{absolute_position_ - segment_read_pos_};
+  if (pos < segStartPos)
+    return false;
+
+  segment_read_pos_ = static_cast<size_t>(pos - segStartPos);
 
   if (segment_read_pos_ > currSegBuffer.BufferSize())
   {

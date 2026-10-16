@@ -140,12 +140,23 @@ const CSegment* PLAYLIST::CSegContainer::FindByPTSOrNext(uint64_t pts) const
 {
   for (const CSegment& seg : m_segments)
   {
-    if (seg.startPTS_ <= pts && pts <= seg.m_endPts)
+    // m_endPts is the exclusive end of the segment (== start of the next one for
+    // contiguous timelines). Use a half-open range [startPTS_, m_endPts) so that a
+    // pts landing exactly on a segment boundary selects the segment that *starts*
+    // there, not the one that ends there. Otherwise aligning audio to a video seek
+    // that lands on a segment-start keyframe (an exact boundary) picks the previous
+    // audio segment, starting audio a full segment ahead of the picture.
+    if (seg.startPTS_ <= pts && pts < seg.m_endPts)
       return &seg;
 
     if (seg.startPTS_ > pts)
       return &seg;
   }
+
+  // pts is at/after the end of the last segment: fall back to it (seek to stream end)
+  if (!m_segments.empty() && pts == m_segments.back().m_endPts)
+    return &m_segments.back();
+
   return nullptr;
 }
 

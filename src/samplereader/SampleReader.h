@@ -95,6 +95,24 @@ public:
    */
   virtual bool TimeSeek(uint64_t pts) = 0;
 
+  /*!
+   * \brief Seek the reader to an absolute reader PTS - the value domain returned by
+   *        PTS() (native to this reader), not the manifest timing that TimeSeek() expects.
+   *        Used after a seek to co-time a secondary stream (audio) with the video sample
+   *        actually delivered: Kodi synchronises on the emitted PTS, and the audio/video
+   *        share the source PTS clock, so aligning directly to the video's reader PTS avoids
+   *        the drift between the audio and video manifest timelines that a manifest-domain
+   *        seek (TimeSeek) reintroduces via GetPTSDiff().
+   * \param pts The absolute reader PTS to align to.
+   * \return True if has success, otherwise false.
+   */
+  virtual bool TimeSeekReaderPts(uint64_t pts)
+  {
+    // Default: remove the manifest compensation so TimeSeek lands on the given reader PTS.
+    const int64_t manifestPts{static_cast<int64_t>(pts) - GetPTSDiff()};
+    return TimeSeek(manifestPts < 0 ? 0 : static_cast<uint64_t>(manifestPts));
+  }
+
   virtual void SetPTSOffset(uint64_t offset) = 0;
   virtual int64_t GetPTSDiff() const = 0;
 
