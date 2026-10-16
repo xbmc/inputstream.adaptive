@@ -81,6 +81,32 @@ std::string GetEnv(const std::string& var)
     return val;
 }
 
+bool TestAdaptiveStream::PrepareResource(const PLAYLIST::CRepresentation* rep,
+                                         const PLAYLIST::CSegment& segment,
+                                         std::string& url,
+                                         uint64_t& rangeBegin,
+                                         uint64_t& rangeEnd)
+{
+  DownloadInfo downloadInfo;
+  if (!PrepareDownload(rep, segment, downloadInfo))
+    return false;
+
+  url = downloadInfo.m_url;
+  rangeBegin = downloadInfo.m_rangeBegin;
+  rangeEnd = downloadInfo.m_rangeEnd;
+  return true;
+}
+
+bool TestAdaptiveStream::DownloadStoppedResource(const std::string& url)
+{
+  thread_data_ = new THREADDATA();
+  ADP::SegmentBuffer segmentBuffer;
+  DownloadInfo downloadInfo;
+  downloadInfo.m_url = url;
+  downloadInfo.m_segmentBuffer = &segmentBuffer;
+  return adaptive::AdaptiveStream::DownloadSegment(downloadInfo);
+}
+
 void SetFileName(std::string& file, std::string name)
 {
   file = GetEnv("DATADIR") + "/" + name;

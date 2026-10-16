@@ -10,7 +10,9 @@
 
  // Kodi interface stubs
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include <vector>
 #include <map>
@@ -147,6 +149,32 @@ struct VFSDirEntry
 
 namespace vfs
 {
+struct CFileTestState
+{
+  bool forceUnknownLength{false};
+  bool failSeek{false};
+  bool curlCreateResult{false};
+  bool curlOpenResult{false};
+  bool curlCreateCalled{false};
+  bool curlOpenCalled{false};
+  bool openFileCalled{false};
+  size_t readCalls{0};
+  std::string responseProtocol;
+  std::string effectiveUrl;
+  std::map<std::string, std::string> curlHeaders;
+};
+
+inline CFileTestState& GetCFileTestState()
+{
+  static CFileTestState state;
+  return state;
+}
+
+inline void ResetCFileTestState()
+{
+  GetCFileTestState() = {};
+}
+
 class ATTR_DLL_LOCAL CDirEntry
 {
 public:
@@ -198,22 +226,63 @@ class CFile
 public:
   CFile() = default;
   virtual ~CFile() { Close(); }
-  bool OpenFile(const std::string& filename, unsigned int flags = 0) { return false; }
+  bool OpenFile(const std::string& filename, unsigned int flags = 0)
+  {
+    auto& state = GetCFileTestState();
+    state.openFileCalled = true;
+    Close();
+    std::string path{filename};
+    if (path.starts_with("file://"))
+      path.erase(0, 7);
+#ifdef _WIN32
+    if (path.size() > 2 && path.front() == '/' && path[2] == ':')
+      path.erase(0, 1);
+    std::replace(path.begin(), path.end(), '/', '\\');
+#endif
+    m_file = std::fopen(path.c_str(), "rb");
+    return m_file != nullptr;
+  }
 
   bool OpenFileForWrite(const std::string& filename, bool overwrite = false) { return false; }
 
-  bool IsOpen() const { return false; }
-  void Close() {}
-
-  bool CURLCreate(const std::string& url) { return false; }
-  bool CURLAddOption(CURLOptiontype type, const std::string& name, const std::string& value)
+  bool IsOpen() const { return m_file != nullptr; }
+  void Close()
   {
-    return false;
+    if (m_file)
+    {
+      std::fclose(m_file);
+      m_file = nullptr;
+    }
   }
 
-  bool CURLOpen(unsigned int flags = 0) { return false; }
+  bool CURLCreate(const std::string& url)
+  {
+    auto& state = GetCFileTestState();
+    state.curlCreateCalled = true;
+    return state.curlCreateResult;
+  }
+  bool CURLAddOption(CURLOptiontype type, const std::string& name, const std::string& value)
+  {
+    if (type == ADDON_CURL_OPTION_HEADER)
+      GetCFileTestState().curlHeaders[name] = value;
+    return true;
+  }
 
-  ssize_t Read(void* ptr, size_t size) { return 0; }
+  bool CURLOpen(unsigned int flags = 0)
+  {
+    auto& state = GetCFileTestState();
+    state.curlOpenCalled = true;
+    return state.curlOpenResult;
+  }
+
+  ssize_t Read(void* ptr, size_t size)
+  {
+    ++GetCFileTestState().readCalls;
+    if (!m_file)
+      return -1;
+    const size_t bytesRead = std::fread(ptr, 1, size, m_file);
+    return bytesRead == 0 && std::ferror(m_file) ? -1 : static_cast<ssize_t>(bytesRead);
+  }
 
   bool ReadLine(std::string& line) { return false; }
 
@@ -221,15 +290,59 @@ public:
 
   void Flush() {}
 
-  int64_t Seek(int64_t position, int whence = SEEK_SET) { return 0; }
+  int64_t Seek(int64_t position, int whence = SEEK_SET)
+  {
+    if (GetCFileTestState().failSeek)
+      return -1;
+    if (!m_file)
+      return -1;
+#ifdef _WIN32
+    return _fseeki64(m_file, position, whence) == 0 ? _ftelli64(m_file) : -1;
+#else
+    return fseeko(m_file, position, whence) == 0 ? ftello(m_file) : -1;
+#endif
+  }
 
   int Truncate(int64_t size) { return 0; }
 
-  int64_t GetPosition() const { return 0; }
+  int64_t GetPosition() const
+  {
+    if (!m_file)
+      return -1;
+#ifdef _WIN32
+    return _ftelli64(m_file);
+#else
+    return ftello(m_file);
+#endif
+  }
 
-  int64_t GetLength() const { return 0; }
+  int64_t GetLength() const
+  {
+    if (GetCFileTestState().forceUnknownLength)
+      return -1;
+    const int64_t position = GetPosition();
+    if (position < 0)
+      return -1;
+#ifdef _WIN32
+    if (_fseeki64(m_file, 0, SEEK_END) != 0)
+      return -1;
+    const int64_t length = _ftelli64(m_file);
+    _fseeki64(m_file, position, SEEK_SET);
+#else
+    if (fseeko(m_file, 0, SEEK_END) != 0)
+      return -1;
+    const int64_t length = ftello(m_file);
+    fseeko(m_file, position, SEEK_SET);
+#endif
+    return length;
+  }
 
-  bool AtEnd() const { return true; }
+  bool AtEnd() const
+  {
+    const int64_t position = GetPosition();
+    const int64_t length = GetLength();
+    return position < 0 || length < 0 || position >= length;
+  }
 
   int GetChunkSize() const { return 0; }
 
@@ -243,6 +356,11 @@ public:
 
   const std::string GetPropertyValue(FilePropertyTypes type, const std::string& name) const
   {
+    const auto& state = GetCFileTestState();
+    if (type == ADDON_FILE_PROPERTY_RESPONSE_PROTOCOL)
+      return state.responseProtocol;
+    if (type == ADDON_FILE_PROPERTY_EFFECTIVE_URL)
+      return state.effectiveUrl;
     return "";
   }
 
@@ -253,6 +371,9 @@ public:
   }
 
   double GetFileDownloadSpeed() const { return 0.0; }
+
+private:
+  std::FILE* m_file{nullptr};
 };
 
 inline bool FileExists(const std::string& filename, bool usecache = false)

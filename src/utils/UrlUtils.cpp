@@ -12,12 +12,79 @@
 #include "StringUtils.h"
 #include "log.h"
 
+#include <cctype>
+
 using namespace UTILS;
 
 namespace
 {
 constexpr std::string_view PREFIX_SINGLE_DOT{"./"};
 constexpr std::string_view PREFIX_DOUBLE_DOT{"../"};
+
+size_t GetSchemeSeparator(std::string_view url)
+{
+  if (url.empty() || !std::isalpha(static_cast<unsigned char>(url.front())))
+    return std::string_view::npos;
+
+  for (size_t pos = 1; pos < url.size(); ++pos)
+  {
+    const unsigned char value = static_cast<unsigned char>(url[pos]);
+    if (url[pos] == ':')
+      return pos;
+    if (!std::isalnum(value) && url[pos] != '+' && url[pos] != '-' && url[pos] != '.')
+      return std::string_view::npos;
+  }
+  return std::string_view::npos;
+}
+
+bool IsScheme(std::string_view url, std::string_view scheme)
+{
+  const size_t separator = GetSchemeSeparator(url);
+  return separator == scheme.size() && STRING::CompareNoCase(url.substr(0, separator), scheme);
+}
+
+bool IsMagnetUrl(std::string_view url)
+{
+  return IsScheme(url, "magnet");
+}
+
+size_t GetPathStart(std::string_view url)
+{
+  const size_t schemeSeparator = GetSchemeSeparator(url);
+  if (schemeSeparator == std::string_view::npos)
+    return 0;
+
+  if (IsMagnetUrl(url))
+  {
+    const size_t pathStart = url.find_first_not_of('/', schemeSeparator + 1);
+    return pathStart == std::string_view::npos ? url.size() : pathStart;
+  }
+
+  if (url.substr(schemeSeparator + 1).starts_with("//"))
+  {
+    const size_t pathStart = url.find('/', schemeSeparator + 3);
+    return pathStart == std::string_view::npos ? url.size() : pathStart;
+  }
+  return schemeSeparator + 1;
+}
+
+void RemoveFragment(std::string& url)
+{
+  const size_t fragmentPos = url.find('#');
+  if (fragmentPos != std::string::npos)
+    url.erase(fragmentPos);
+}
+
+std::string RemoveQuery(std::string& url)
+{
+  const size_t queryPos = url.find('?');
+  if (queryPos == std::string::npos)
+    return {};
+
+  std::string query{url.substr(queryPos)};
+  url.erase(queryPos);
+  return query;
+}
 
 bool isUrl(std::string url,
            bool allowFragments,
@@ -106,6 +173,9 @@ void RemovePrefixDoubleDot(std::string& url)
  */
 std::string RemoveDotSegments(std::string url)
 {
+  if (url.size() < 2)
+    return url;
+
   // Count amount of special prefixes with double dots on the right side
   size_t numSegsRemove{0};
   size_t currPos{0};
@@ -123,19 +193,21 @@ std::string RemoveDotSegments(std::string url)
   RemovePrefixSingleDot(url);
   RemovePrefixDoubleDot(url);
 
-  size_t addrsStartPos{0};
-  if (URL::IsUrlAbsolute(url))
-    addrsStartPos = url.find("://") + 3;
+  const size_t pathStart = GetPathStart(url);
+  size_t pathRootEnd{0};
+  if (GetSchemeSeparator(url) != std::string_view::npos)
+    pathRootEnd = pathStart < url.size() && url[pathStart] == '/' ? pathStart + 1 : pathStart;
   else if (URL::IsUrlRelativeLevel(url))
-    addrsStartPos = 3;
+    pathRootEnd = 3;
 
   // Remove segments from the end (if any)
   for (; numSegsRemove > 0; numSegsRemove--)
   {
     std::size_t lastSlashPos = url.find_last_of('/', url.size() - 2);
-    if ((lastSlashPos + 1) == addrsStartPos)
-      break;
-    url = url.substr(0, lastSlashPos + 1);
+    if (lastSlashPos == std::string::npos || lastSlashPos + 1 < pathRootEnd)
+      url.resize(pathRootEnd);
+    else
+      url.resize(lastSlashPos + 1);
   }
 
   return url;
@@ -148,9 +220,16 @@ bool UTILS::URL::IsValidUrl(const std::string& url)
   return isUrl(url, false, true, true, true, true, false);
 }
 
+bool UTILS::URL::IsHttpUrl(std::string_view url)
+{
+  const size_t separator = GetSchemeSeparator(url);
+  return (IsScheme(url, "http") || IsScheme(url, "https")) &&
+         url.substr(separator + 1).starts_with("//");
+}
+
 bool UTILS::URL::IsUrlAbsolute(std::string_view url)
 {
-  return (url.compare(0, 7, "http://") == 0 || url.compare(0, 8, "https://") == 0);
+  return GetSchemeSeparator(url) != std::string_view::npos;
 }
 
 bool UTILS::URL::IsUrlRelative(std::string_view url)
@@ -210,19 +289,28 @@ std::string UTILS::URL::GetUrlPath(std::string url)
   if (url.empty())
     return url;
 
-  size_t paramsPos = url.find('?');
-  if (paramsPos != std::string::npos)
-    url.resize(paramsPos);
+  const bool preserveQuery = IsMagnetUrl(url);
+  RemoveFragment(url);
+  std::string query = RemoveQuery(url);
+  if (!preserveQuery)
+    query.clear();
+
+  const size_t schemeSeparator = GetSchemeSeparator(url);
+  const size_t pathStart = GetPathStart(url);
 
   // The part of the base url after last / is not a directory so will not be taken into account
-  if (url.back() != '/')
+  if (!url.empty() && url.back() != '/')
   {
-    size_t slashPos = url.rfind("/");
-    if (slashPos > url.find("://") + 3)
+    const size_t slashPos = url.rfind('/');
+    if (slashPos != std::string::npos && slashPos >= pathStart)
       url.erase(slashPos + 1);
+    else if (schemeSeparator != std::string::npos)
+      url.erase(pathStart);
+    else
+      url.clear();
   }
 
-  return url;
+  return url + query;
 }
 
 void UTILS::URL::AppendParameters(std::string& url, std::string_view params)
@@ -287,6 +375,15 @@ std::string UTILS::URL::Join(std::string baseUrl, std::string relativeUrl)
   if (relativeUrl.empty())
     return baseUrl;
 
+  if (IsUrlAbsolute(relativeUrl))
+    return relativeUrl;
+
+  const bool inheritBaseQuery = IsMagnetUrl(baseUrl);
+  RemoveFragment(baseUrl);
+  std::string baseQuery = RemoveQuery(baseUrl);
+  if (!inheritBaseQuery)
+    baseQuery.clear();
+
   if (relativeUrl == ".") // Ignore single dot
     relativeUrl.clear();
 
@@ -295,14 +392,19 @@ std::string UTILS::URL::Join(std::string baseUrl, std::string relativeUrl)
     relativeUrl += "/";
 
   // The part of the base url after last / is not a directory so will not be taken into account
-  if (baseUrl.back() != '/')
+  if (!baseUrl.empty() && baseUrl.back() != '/')
   {
-    size_t slashPos = baseUrl.rfind("/");
-    if (slashPos > baseUrl.find("://") + 3)
+    const size_t pathStart = GetPathStart(baseUrl);
+    const size_t slashPos = baseUrl.rfind('/');
+    if (slashPos != std::string::npos && slashPos >= pathStart)
       baseUrl.erase(slashPos + 1);
+    else if (GetSchemeSeparator(baseUrl) != std::string_view::npos)
+      baseUrl.erase(pathStart);
+    else
+      baseUrl.clear();
   }
 
-  if (baseUrl.back() != '/')
+  if (!baseUrl.empty() && baseUrl.back() != '/')
     baseUrl += "/";
 
   bool skipRemovingSegs{true};
@@ -337,7 +439,17 @@ std::string UTILS::URL::Join(std::string baseUrl, std::string relativeUrl)
     relativeUrl.erase(0, startPos);
   }
 
-  return RemoveDotSegments(baseUrl + relativeUrl);
+  std::string result = RemoveDotSegments(baseUrl + relativeUrl);
+  if (baseQuery.size() > 1)
+  {
+    const size_t fragmentPos = result.find('#');
+    const size_t queryPos = result.find('?');
+    if (queryPos != std::string::npos &&
+        (fragmentPos == std::string::npos || queryPos < fragmentPos))
+      baseQuery.front() = '&';
+    result.insert(fragmentPos == std::string::npos ? result.size() : fragmentPos, baseQuery);
+  }
+  return result;
 }
 
 void UTILS::URL::EnsureEndingBackslash(std::string& url)
