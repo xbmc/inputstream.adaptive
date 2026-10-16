@@ -614,39 +614,10 @@ bool adaptive::AdaptiveStream::start_stream()
   if (!current_rep_ || current_rep_->IsSubtitleFileStream())
     return false;
 
-  //! @todo: the assured_buffer_duration_ and max_buffer_duration_
-  //! isnt implemeted correctly and need to be reworked,
-  //! these properties are intended to determine the amount of buffer
-  //! customizable in seconds, but segments do not ensure that they always have
-  //! a fixed duration of 1 sec moreover these properties currently works for
-  //! the DASH manifest with "SegmentTemplate" tags defined only,
-  //! in all other type of manifest cases always fallback on hardcoded values
-  /*
-   * Adaptive/custom buffering code disabled
-   * currently cause a bad memory management especially for 4k content
-   * too much buffer length leads to filling the RAM and cause kodi to crash
-   * required to implement a way to determine the max length of the buffer
-   * by taking in account also the device RAM
-   *
-  assured_buffer_length_ = current_rep_->assured_buffer_duration_;
-  max_buffer_length_ = current_rep_->max_buffer_duration_;
-
-  if (current_rep_->HasSegmentTemplate())
-  {
-    const auto& segTemplate = current_rep_->GetSegmentTemplate();
-    assured_buffer_length_ = std::ceil((assured_buffer_length_ * segTemplate->GetTimescale()) /
-                                       static_cast<float>(segTemplate->GetDuration()));
-    max_buffer_length_ = std::ceil((max_buffer_length_ * segTemplate->GetTimescale()) /
-                                   static_cast<float>(segTemplate->GetDuration()));
-  }
-
-  assured_buffer_length_  = assured_buffer_length_ <4 ? 4:assured_buffer_length_;//for incorrect settings input
-  if(max_buffer_length_<=assured_buffer_length_)//for incorrect settings input
-    max_buffer_length_=assured_buffer_length_+4u;
-
-  m_segBuffers.SetMaxSize(max_buffer_length_);
-  */
-
+  //! @todo: its hardcoded the buffer size to 4 segments
+  //! originally introduced to ensure smooth 4K playback
+  //! this is a temporary solution until we implement a better adaptive buffer management
+  //! its important to note that set the buffer too high can cause RAM to become saturated resulting in a crash
   m_segBuffers.SetMaxSize(4);
 
   if (!thread_data_)
@@ -1354,15 +1325,6 @@ bool adaptive::AdaptiveStream::GenerateSidxSegments(PLAYLIST::CRepresentation* r
               "due to missing data range positions",
               clsId, rep->GetId().data());
     return false;
-    /*
-     *! @todo: This part is not clear for which manifest use it should be
-     *         if there are no new issues about it, this code can be deleted in the future
-     *
-    // We dont know the range positions for the index segment
-    static const uint64_t indexRangeEnd = 1024 * 200;
-    seg.range_begin_ = 0;
-    seg.range_end_ = indexRangeEnd;
-    */
   }
 
   std::vector<uint8_t> sidxBuffer;

@@ -142,9 +142,7 @@ msgctxt "#30166"
 msgid "DRM Widevine"
 msgstr ""
 
-msgctxt "#30167"
-msgid "WARNING: This is a TEST feature, may not work appropriately and may change on future versions."
-msgstr ""
+#empty strings from id 30167
 
 msgctxt "#30168"
 msgid "Auto determines initial bandwidth"
@@ -209,16 +207,7 @@ msgid "Test"
 msgstr ""
 
 #empty strings reserved for "stream selection types" from id 30181 to 30190
-
-#. Assured buffer length duration (seconds)
-msgctxt "#30200"
-msgid "Assured buffer duration (sec)"
-msgstr ""
-
-#. Max buffer length duration (seconds)
-msgctxt "#30201"
-msgid "Maximum buffer duration (sec)"
-msgstr ""
+#empty strings from id 30200 to 30201
 
 #. Ignore screen resolution change e.g. window resize
 msgctxt "#30202"

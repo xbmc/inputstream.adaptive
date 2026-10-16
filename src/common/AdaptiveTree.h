@@ -51,12 +51,6 @@ enum class TreeType
 class ATTR_DLL_LOCAL AdaptiveTree
 {
 public:
-  struct Settings
-  {
-    uint32_t m_bufferAssuredDuration{60};
-    uint32_t m_bufferMaxDuration{120};
-  };
-
   std::vector<std::unique_ptr<PLAYLIST::CPeriod>> m_periods;
   PLAYLIST::CPeriod* m_currentPeriod{nullptr};
   PLAYLIST::CPeriod* m_nextPeriod{nullptr};
@@ -268,8 +262,6 @@ public:
   }
 
   virtual AdaptiveTree* Clone() const = 0;
-
-  Settings m_settings;
 
   class TreeUpdateThread
   {
