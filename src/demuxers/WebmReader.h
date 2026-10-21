@@ -62,6 +62,7 @@ public:
   const AP4_Byte *GetPacketData() const { return m_frameBuffer.GetData(); }
   AP4_Size GetPacketSize() const { return m_frameBuffer.GetDataSize(); }
   uint64_t GetCueOffset()  const { return m_cueOffset; }
+  bool IsVideo() const { return m_isVideo; }
 
 private:
   WebmAP4Reader *m_reader = nullptr;
@@ -74,6 +75,7 @@ private:
   AP4_DataBuffer m_frameBuffer, m_codecPrivate;
 
   //Video section
+  bool m_isVideo = false;
   uint32_t m_width = 0;
   uint32_t m_height = 0;
   std::string m_codecId;

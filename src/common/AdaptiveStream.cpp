@@ -781,6 +781,10 @@ bool adaptive::AdaptiveStream::ensureSegment()
       // Although the reading position has reached the end, the segment status may not yet be updated
       // so wait for the mutex release, otherwise segment buffers PopFront will cause incorrect buffer updates
       std::lock_guard<std::mutex> lckWorker(thread_data_->mutexWorker);
+      // The download may have continued meanwhile, its data is still to be read
+      if (m_segBuffers.Front().State() == BufferState::DOWNLOADED &&
+          segment_read_pos_ < m_segBuffers.Front().BufferSize())
+        return true;
     }
 
     if (m_fixateInitialization && !m_segBuffers.IsEmpty() &&
