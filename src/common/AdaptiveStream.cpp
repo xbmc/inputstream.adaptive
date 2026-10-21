@@ -1284,8 +1284,14 @@ bool adaptive::AdaptiveStream::OnSampleRequested()
   // Sample are requested in a very fast way, limit the requests to a minimum interval of 500 ms
   if (elapsedMs >= 500)
   {
+    // This runs on the player thread, so never wait for a manifest update in progress:
+    // its download can take seconds, try again on the next call instead
+    std::unique_lock<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex(),
+                                                                          std::try_to_lock);
+    if (!lckUpdTree.owns_lock())
+      return m_isWaitingForSegment;
+
     m_tsOnSampleRequest = now;
-    std::lock_guard<adaptive::AdaptiveTree::TreeUpdateThread> lckUpdTree(m_tree->GetTreeUpdMutex());
 
     // Some manifests require segments to be generated and managed by the client
     // so they are not provided by the server through periodic manifest updates

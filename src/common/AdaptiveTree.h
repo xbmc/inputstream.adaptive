@@ -292,6 +292,10 @@ public:
     // \brief As "std::mutex" unlock, but resume the manifest updates (support std::lock_guard).
     void unlock() { Resume(); }
 
+    // \brief As "std::mutex" try_lock: pause the manifest updates unless one is in progress,
+    //        in which case return false without waiting (support std::unique_lock try_to_lock).
+    bool try_lock();
+
     // \brief Stop performing new updates.
     void Stop();
 
