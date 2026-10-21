@@ -299,6 +299,7 @@ webm::Status WebmReader::OnTrackEntry(const webm::ElementMetadata& metadata, con
   else if (track_entry.video.is_present())
   {
     m_metadataChanged = true;
+    m_isVideo = true;
 
     const webm::Video &video = track_entry.video.value();
 
