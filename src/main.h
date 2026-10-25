@@ -12,6 +12,7 @@
 
 #include <kodi/addon-instance/Inputstream.h>
 #include <kodi/addon-instance/VideoCodec.h>
+#include <kodi/addon-instance/AudioCodec.h>
 
 #include <map>
 #include <memory>
@@ -83,5 +84,28 @@ private:
   std::shared_ptr<SESSION::CSession> m_session;
   std::shared_ptr<DRM::IDecrypterDecoder> m_drmDecoder;
   bool m_waitExtraData{false};
+  std::string m_name;
+};
+
+/*******************************************************/
+/*                     AudioCodec                      */
+/*******************************************************/
+
+class ATTR_DLL_LOCAL CAudioCodecAdaptive : public kodi::addon::CInstanceAudioCodec
+{
+public:
+  CAudioCodecAdaptive(const kodi::addon::IInstanceInfo& instance);
+  CAudioCodecAdaptive(const kodi::addon::IInstanceInfo& instance, CInputStreamAdaptive* parent);
+  virtual ~CAudioCodecAdaptive();
+
+  bool Open(const kodi::addon::AudioCodecInitdata& initData) override;
+  bool AddData(const DEMUX_PACKET& packet) override;
+  AUDIOCODEC_RETVAL GetFrame(AUDIOCODEC_FRAME& frame) override;
+  const char* GetName() override { return m_name.c_str(); };
+  void Reset() override;
+
+private:
+  std::shared_ptr<SESSION::CSession> m_session;
+  std::shared_ptr<DRM::IDecrypterDecoder> m_drmDecoderAudio;
   std::string m_name;
 };
