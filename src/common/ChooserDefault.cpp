@@ -108,6 +108,9 @@ void CRepresentationChooserDefault::PostInit()
         "[Repr. chooser] The initial bandwidth cannot be determined due to download speed at 0. "
         "Fallback to default user setting.");
     m_bandwidthCurrent = std::max(m_bandwidthInit, m_bandwidthMin);
+    m_bandwidthCurrentLimited = m_bandwidthCurrent;
+    if (m_bandwidthMax > 0 && m_bandwidthCurrentLimited > m_bandwidthMax)
+      m_bandwidthCurrentLimited = m_bandwidthMax;
   }
 
   LOG::Log(LOGDEBUG,
@@ -159,6 +162,9 @@ void CRepresentationChooserDefault::RefreshResolution()
 
 void CRepresentationChooserDefault::SetDownloadSpeed(const double speed)
 {
+  if (speed <= 0)
+    return;
+
   m_downloadSpeedChron.push_back(speed);
 
   // Calculate the average speed of last 10 download speeds
