@@ -41,6 +41,8 @@ public:
   bool IsEncrypted() const override { return false; }
 
 private:
+  void SetTimestamps();
+
   uint64_t m_pts{0};
   uint64_t m_dts{0};
   uint64_t m_ptsOffs{~0ULL};
