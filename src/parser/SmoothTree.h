@@ -40,13 +40,6 @@ public:
 
   virtual CSmoothTree* Clone() const override { return new CSmoothTree{*this}; }
 
-  //! @todo: commented for future removal
-  // virtual bool InsertLiveFragment(PLAYLIST::CAdaptationSet* adpSet,
-  //                                 PLAYLIST::CRepresentation* repr,
-  //                                 uint64_t fTimestamp,
-  //                                 uint64_t fDuration,
-  //                                 uint32_t fTimescale) override;
-
   virtual void OnUpdateSegments() override;
 
 protected:

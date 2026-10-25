@@ -93,9 +93,6 @@ struct Config
 
   // The license configuration
   License license;
-  // Specifies if has been parsed the new DRM config ("drm" or "drm_legacy" kodi property)
-  //! @todo: to remove when deprecated DRM properties will be removed
-  bool isNewConfig{true};
 };
 
 constexpr std::string_view ROBUSTNESS_HW_SECDEC = "HW_SECURE_DECODE";

@@ -32,7 +32,6 @@ namespace adaptive
     m_reprChooser = left.m_reprChooser;
     m_manifestParams = left.m_manifestParams;
     m_manifestHeaders = left.m_manifestHeaders;
-    m_settings = left.m_settings;
     m_pathSaveManifest = left.m_pathSaveManifest;
     stream_start_ = left.stream_start_;
 
@@ -58,15 +57,6 @@ namespace adaptive
     m_manifestHeaders = srvBroker->GetKodiProps().GetManifestHeaders();
     m_manifestUpdParams = manifestUpdParams;
     stream_start_ = GetTimestamp();
-
-    // Convenience way to share common addon settings we avoid
-    // calling the API many times to improve parsing performance
-    /*
-    m_settings.m_bufferAssuredDuration =
-        static_cast<uint32_t>(kodi::addon::GetSettingInt("ASSUREDBUFFERDURATION"));
-    m_settings.m_bufferMaxDuration =
-        static_cast<uint32_t>(kodi::addon::GetSettingInt("MAXBUFFERDURATION"));
-    */
   }
 
   uint64_t AdaptiveTree::GetTimestamp()
