@@ -250,7 +250,14 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     }
   }
 
-  if (m_checkCoreReopen && !isStreamChanged)
+  // In the same reopen round Kodi core can also switch to another stream of the same type,
+  // e.g. when CDVDDemuxClient::ParsePacket detects changed audio properties and VideoPlayer
+  // runs the stream selection again. Kodi core then considers the stream opened and disables
+  // the previous one with EnableStream(false), so a stream not yet enabled must be opened here,
+  // otherwise no stream of this type would be left enabled.
+  // Subtitles are excluded because their enabled state is not reliable (see above).
+  if ((m_checkCoreReopen && !isStreamChanged) &&
+      (stream->IsEnabled() || stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_SUBTITLE))
   {
     LOG::Log(LOGDEBUG, "OpenStream(%d): The stream has already been opened", streamid);
     return false;
