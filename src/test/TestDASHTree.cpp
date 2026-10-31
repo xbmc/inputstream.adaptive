@@ -830,3 +830,15 @@ TEST_F(DASHTreeTest, TSBUTCTimingDirect3)
   EXPECT_EQ(segments.GetSize(), 450);
   EXPECT_EQ(segments.Get(0)->m_number, 404305539);
 }
+
+TEST_F(DASHTreeTest, SkipTrickModeAdaptationSet)
+{
+  OpenTestFile("mpd/trickmode.mpd");
+
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
+
+  EXPECT_EQ(adpSets.size(), 2);
+  EXPECT_EQ(adpSets[0]->GetId(), "2");
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetId(), "2");
+  EXPECT_EQ(adpSets[1]->GetId(), "3");
+}
