@@ -37,6 +37,8 @@ using namespace UTILS;
 namespace
 {
 constexpr const char* CHAPTER_NAME_UNKNOWN = "[Unknown]";
+// How long GetNextSample may wait for sample reads in flight, half of what VP tolerates
+constexpr auto SAMPLE_WAIT_BUDGET = std::chrono::milliseconds(5);
 
 // \brief Make an unique ID based on period index and stream index.
 // \param periodIndex The max value accepted by period index is uint16_t type max value.
@@ -804,6 +806,7 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
 {
   CStream* res{nullptr};
   CStream* waiting{nullptr};
+  const auto waitDeadline = std::chrono::steady_clock::now() + SAMPLE_WAIT_BUDGET;
 
   for (auto& stream : m_streams)
   {
@@ -814,9 +817,10 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     if (stream->IsEnabled())
     {
       // Advice is that VP does not want to wait longer than 10ms for a return from
-      // DemuxRead() - here we ask to not wait at all and if ReadSample has not yet
-      // finished will return "true" to feed an empty packet
-      if (streamReader->IsReadSampleAsyncWorking())
+      // DemuxRead() - here we wait until the deadline, so a slow read (e.g. software
+      // decryption) is handed over as soon as it finishes, and if ReadSample has still
+      // not finished will return "true" to feed an empty packet
+      if (streamReader->IsReadSampleAsyncWorking(waitDeadline))
       {
         waiting = stream.get();
         break;
