@@ -415,6 +415,18 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
   if (XML::QueryAttrib(nodeAdp, "id", id) || XML::QueryAttrib(nodeAdp, "audioTrackId", id))
     adpSet->SetId(id);
 
+  // DASH-IF trick mode sets are low framerate tracks for fast forward/rewind only,
+  // trick play is not supported, so skip them or they can be played as the main video stream
+  for (xml_node nodeEP : nodeAdp.children("EssentialProperty"))
+  {
+    if (XML::GetAttrib(nodeEP, "schemeIdUri") == "http://dashif.org/guidelines/trickmode")
+    {
+      LOG::LogF(LOGDEBUG, "Skipped AdaptationSet with id: \"%s\", trick mode not supported.",
+                adpSet->GetId().c_str());
+      return;
+    }
+  }
+
   std::string contentType;
 
   // Parse <ContentComponent> child tag
@@ -546,6 +558,12 @@ void adaptive::CDashTree::ParseTagAdaptationSet(pugi::xml_node nodeAdp, PLAYLIST
 
     if (schemeIdUri == "urn:mpeg:dash:adaptation-set-switching:2016")
       adpSet->AddSwitchingIds(value);
+    else if (schemeIdUri == "http://dashif.org/guidelines/trickmode")
+    {
+      LOG::LogF(LOGDEBUG, "Skipped AdaptationSet with id: \"%s\", trick mode not supported.",
+                adpSet->GetId().c_str());
+      return;
+    }
     else if (schemeIdUri == "http://dashif.org/guidelines/last-segment-number")
       adpSet->SetSegmentEndNr(STRING::ToUint64(value));
     else if (schemeIdUri == "urn:mpeg:mpegB:cicp:TransferCharacteristics")
