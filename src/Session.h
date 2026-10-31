@@ -19,7 +19,9 @@
 #include <kodi/platform/android/System.h>
 #endif
 
+#include <ctime>
 #include <memory>
+#include <optional>
 
 class Adaptive_CencSingleSampleDecrypter;
 
@@ -117,6 +119,14 @@ public:
    *  \return The elapsed time in ms of the stream including all chapters
    */
   uint64_t GetElapsedTimeMs() const { return m_elapsedTime / 1000; };
+
+  /*! \brief Get the times of a live stream, to map the elapsed time to the wall clock time
+   *  \param ptsStart [OUT] The PTS corresponding to the elapsed time 0, in STREAM_TIME_BASE
+   *  \param ptsEnd [OUT] The PTS of the seekable live position, in STREAM_TIME_BASE
+   *  \param startTime [OUT] The wall clock time corresponding to ptsStart, in seconds
+   *  \return True if the times are available, otherwise false
+   */
+  bool GetLiveTimes(uint64_t& ptsStart, uint64_t& ptsEnd, time_t& startTime) const;
 
   /*! \brief Check if the stream has changed, reset changed status
    *  \param bSet True to keep m_changed value true
@@ -257,6 +267,11 @@ protected:
   uint64_t GetMediaDurationMs();
 
 private:
+  /*! \brief Get the PTS of the timing stream corresponding to the elapsed time 0
+   *  \return The PTS in STREAM_TIME_BASE, otherwise std::nullopt if not available
+   */
+  std::optional<int64_t> GetTimingStreamStartPts() const;
+
   DRM::CDRMEngine m_drmEngine;
 
   adaptive::AdaptiveTree* m_adaptiveTree{nullptr};
@@ -268,6 +283,7 @@ private:
   bool m_changed{false};
   uint64_t m_elapsedTime{0};
   uint64_t m_chapterStartTime{0}; // In STREAM_TIME_BASE
+  std::optional<int64_t> m_ptsWallClockOffset; // PTS to wall clock offset, in STREAM_TIME_BASE
   double m_chapterSeekTime{0.0}; // In seconds
   uint8_t m_mediaTypeMask{0};
 

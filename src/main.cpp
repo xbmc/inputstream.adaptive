@@ -115,6 +115,8 @@ void CInputStreamAdaptive::GetCapabilities(kodi::addon::InputstreamCapabilities&
 #if INPUTSTREAM_VERSION_LEVEL > 1
   mask |= INPUTSTREAM_SUPPORTS_ICHAPTER;
 #endif
+  if (m_session && m_session->IsLive())
+    mask |= INPUTSTREAM_SUPPORTS_ITIME;
   caps.SetMask(mask);
 }
 
@@ -506,6 +508,24 @@ int CInputStreamAdaptive::GetTime()
 
   int timeMs = static_cast<int>(m_session->GetElapsedTimeMs());
   return timeMs;
+}
+
+bool CInputStreamAdaptive::GetTimes(kodi::addon::InputstreamTimes& times)
+{
+  if (!m_session)
+    return false;
+
+  uint64_t ptsStart{0};
+  uint64_t ptsEnd{0};
+  time_t startTime{0};
+  if (!m_session->GetLiveTimes(ptsStart, ptsEnd, startTime))
+    return false;
+
+  times.SetStartTime(startTime);
+  times.SetPtsStart(static_cast<double>(ptsStart));
+  times.SetPtsBegin(static_cast<double>(ptsStart));
+  times.SetPtsEnd(static_cast<double>(ptsEnd));
+  return true;
 }
 
 bool CInputStreamAdaptive::IsRealTimeStream()
