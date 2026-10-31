@@ -753,3 +753,15 @@ TEST_F(DASHTreeTest, TSBAvailabilityStartTime)
   EXPECT_EQ(tl.GetFront()->m_number, 129069);
   EXPECT_EQ(tl.GetBack()->m_number, 130268);
 }
+
+TEST_F(DASHTreeTest, SkipTrickModeAdaptationSet)
+{
+  OpenTestFile("mpd/trickmode.mpd");
+
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
+
+  EXPECT_EQ(adpSets.size(), 2);
+  EXPECT_EQ(adpSets[0]->GetId(), "2");
+  EXPECT_EQ(adpSets[0]->GetRepresentations()[0]->GetId(), "2");
+  EXPECT_EQ(adpSets[1]->GetId(), "3");
+}
