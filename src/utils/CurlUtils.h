@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -65,6 +66,7 @@ public:
 
   void AddHeader(const std::string& name, const std::string& value);
   void AddHeaders(const std::map<std::string, std::string>& headers);
+  void SetByteRange(uint64_t begin, std::optional<uint64_t> end = std::nullopt);
 
  /*!
   * \brief Get an header from the HTTP response.
@@ -120,6 +122,13 @@ public:
 
 private:
   kodi::vfs::CFile m_file;
+  std::string m_url;
+  bool m_isHttp{false};
+  std::optional<uint64_t> m_rangeBegin;
+  std::optional<uint64_t> m_rangeEnd;
+  std::optional<uint64_t> m_bytesRemaining;
+  int64_t m_fileLength{-1};
+  bool m_reachedEof{false};
   size_t m_bytesRead{0};
 };
 
