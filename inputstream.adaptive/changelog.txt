@@ -1,3 +1,7 @@
+v21.5.26 (2026-11-01)
+- Fix TTML subtitles problem caused by wrong parsing of cue timing
+- [Dash] Ignore unsupported trick-mode streams
+
 v21.5.25 (2026-09-26)
 [Widevine] Removed ARM64 CDM workaround, official WV library is now available
 
