@@ -59,11 +59,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install libxml2-utils xmlstarlet
 
-      # Setup python version 3.9
+      # Setup python version
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.9'
+          python-version: '3.15.2'
 
       # Run the python script to increment the version, changelog and news
       - name: Increment version and update changelogs
