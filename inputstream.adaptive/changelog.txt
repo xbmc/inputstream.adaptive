@@ -1,3 +1,9 @@
+v22.3.24 (2026-11-01)
+- Fix TTML subtitles problem caused by wrong parsing of cue timing
+- Improved audio/video seek with WebM
+- Fix possible no audio problem when Kodi core try reopen streams
+- [Dash] Ignore unsupported trick-mode streams
+
 v22.3.23 (2026-10-10)
 [HLS] Fix no audio due to orphan rendition with same URI
 Fix dlfcn-win32 UTF-8 loader error handling on Windows and WindowsStore
