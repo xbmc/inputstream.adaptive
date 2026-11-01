@@ -45,17 +45,33 @@ public:
   {
     return false;
   }
+  virtual bool OpenAudioDecoder(std::shared_ptr<Adaptive_CencSingleSampleDecrypter> decrypter,
+                                const AUDIOCODEC_INITDATA* initData) override
+  {
+    return false;
+  }
   virtual VIDEOCODEC_RETVAL DecryptAndDecodeVideo(kodi::addon::CInstanceVideoCodec* hostInstance,
                                                   const DEMUX_PACKET* sample) override
   {
     return VC_NONE;
+  }
+  virtual AUDIOCODEC_RETVAL DecryptAndDecodeAudio(kodi::addon::CInstanceAudioCodec* hostInstance,
+                                                  const DEMUX_PACKET* sample) override
+  {
+    return AC_NONE;
   }
   virtual VIDEOCODEC_RETVAL VideoFrameDataToPicture(kodi::addon::CInstanceVideoCodec* hostInstance,
                                                     VIDEOCODEC_PICTURE* picture) override
   {
     return VC_NONE;
   }
+  virtual AUDIOCODEC_RETVAL AudioFrameDataToFrame(kodi::addon::CInstanceAudioCodec* codecInstance,
+                                                  AUDIOCODEC_FRAME* frame) override
+  {
+    return AC_NONE;
+  }
   virtual void ResetVideo() override {}
+  virtual void ResetAudio() override {}
   virtual void SetLibraryPath(std::string_view libraryPath) override
   {
     m_libraryPath = libraryPath;

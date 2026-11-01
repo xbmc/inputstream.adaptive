@@ -9,6 +9,7 @@
 #pragma once
 
 #include "cdm/media/cdm/api/content_decryption_module.h"
+#include "cdm/media/cdm/cdm_adapter.h" // added just for CdmAudioFrames due to std::optional maybe cleanup to avoid this dependency
 #include "common/AdaptiveCencSampleDecrypter.h"
 #include "decrypters/HelperWv.h"
 #include "decrypters/IDecrypter.h"
@@ -16,13 +17,14 @@
 #include <list>
 #include <mutex>
 #include <optional>
-
+/*
 namespace media
 {
 class CdmAdapter;
 class CdmVideoFrame;
+class CdmAudioFrames;
 }
-
+*/
 using namespace DRM;
 
 class ATTR_DLL_LOCAL CWVCencSingleSampleDecrypter : public Adaptive_CencSingleSampleDecrypter,
@@ -78,11 +80,17 @@ public:
       DRM::DRMMediaType streamType) override;
 
   bool OpenVideoDecoder(const VIDEOCODEC_INITDATA* initData);
+  bool OpenAudioDecoder(const AUDIOCODEC_INITDATA* initData);
   VIDEOCODEC_RETVAL DecryptAndDecodeVideo(kodi::addon::CInstanceVideoCodec* codecInstance,
+                                          const DEMUX_PACKET* sample);
+  AUDIOCODEC_RETVAL DecryptAndDecodeAudio(kodi::addon::CInstanceAudioCodec* codecInstance,
                                           const DEMUX_PACKET* sample);
   VIDEOCODEC_RETVAL VideoFrameDataToPicture(kodi::addon::CInstanceVideoCodec* codecInstance,
                                             VIDEOCODEC_PICTURE* picture);
+  AUDIOCODEC_RETVAL AudioFrameDataToFrame(kodi::addon::CInstanceAudioCodec* codecInstance,
+                                          AUDIOCODEC_FRAME* frame);
   void ResetVideo();
+  void ResetAudio();
   void SetDefaultKeyId(const std::vector<uint8_t>& keyId) override;
   void AddKeyId(const std::vector<uint8_t>& keyId) override;
 
@@ -152,9 +160,12 @@ private:
   bool m_isDrained;
 
   std::list<media::CdmVideoFrame> m_videoFrames;
+  std::optional<media::CdmAudioFrames> m_audioFrames;
   std::mutex m_renewalLock;
   CryptoMode m_EncryptionMode;
 
   std::optional<cdm::VideoDecoderConfig_3> m_currentVideoDecConfig;
+  std::optional<cdm::AudioDecoderConfig_2> m_currentAudioDecConfig;
+
   bool m_isTestingCapabilities{false};
 };
