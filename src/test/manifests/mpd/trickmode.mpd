@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MPD mediaPresentationDuration="PT28M8.160S" minBufferTime="PT10S" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" xmlns="urn:mpeg:dash:schema:mpd:2011">
+  <Period id="1" start="PT0S">
+    <AdaptationSet id="1" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="2"/>
+      <SegmentTemplate timescale="25" duration="100" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.mp4" startNumber="1" />
+      <Representation id="1" width="480" height="270" frameRate="25/50" bandwidth="19433" codecs="avc1.4D401F" maxPlayoutRate="50" />
+    </AdaptationSet>
+    <AdaptationSet id="2" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate timescale="25" duration="100" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.mp4" startNumber="1" />
+      <Representation id="2" width="480" height="270" frameRate="25" bandwidth="310931" codecs="avc1.4D401F" />
+      <Representation id="3" width="960" height="540" frameRate="25" bandwidth="1159186" codecs="avc1.4D401F" />
+    </AdaptationSet>
+    <AdaptationSet id="4" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+      <SupplementalProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="2"/>
+      <SegmentTemplate timescale="25" duration="100" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.mp4" startNumber="1" />
+      <Representation id="5" width="480" height="270" frameRate="25/50" bandwidth="19433" codecs="avc1.4D401F" maxPlayoutRate="50" />
+    </AdaptationSet>
+    <AdaptationSet id="3" mimeType="audio/mp4" segmentAlignment="true" startWithSAP="1" lang="fr">
+      <SegmentTemplate timescale="48000" duration="192000" initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/$Number$.mp4" startNumber="1" />
+      <Representation id="4" bandwidth="128000" audioSamplingRate="48000" codecs="mp4a.40.2" />
+    </AdaptationSet>
+  </Period>
+</MPD>
