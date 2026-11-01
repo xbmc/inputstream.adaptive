@@ -315,6 +315,7 @@ void SESSION::CSession::InitializePeriod()
   }
 
   m_chapterStartTime = GetChapterStartTime();
+  m_ptsWallClockOffset.reset();
 
   // Note: this could initialize DRM on all streams right here, instead of CInputStreamAdaptive::OpenStream
   if (!CheckPlayableStreams(currPeriod))
@@ -795,6 +796,45 @@ uint64_t SESSION::CSession::GetTotalTimeMs() const
     return m_adaptiveTree->m_totalTime;
 }
 
+bool SESSION::CSession::GetLiveTimes(uint64_t& ptsStart, uint64_t& ptsEnd, time_t& startTime) const
+{
+  // PTS of different periods are not necessarily continuous
+  if (!m_adaptiveTree->IsLive() || GetChapterCount() > 1 || !m_ptsWallClockOffset.has_value())
+    return false;
+
+  const std::optional<int64_t> pts = GetTimingStreamStartPts();
+  if (!pts.has_value())
+    return false;
+
+  // The live position advances in real time, also while no segments are read (e.g. paused)
+  const int64_t liveEdgePts = static_cast<int64_t>(GetTimestampMs() * 1000) - *m_ptsWallClockOffset;
+  const int64_t seekableEndPts =
+      liveEdgePts - static_cast<int64_t>(m_adaptiveTree->m_liveDelay * STREAM_TIME_BASE);
+
+  ptsStart = static_cast<uint64_t>(*pts);
+  ptsEnd = static_cast<uint64_t>(std::max(seekableEndPts, *pts));
+  startTime = static_cast<time_t>((*pts + *m_ptsWallClockOffset) / STREAM_TIME_BASE);
+  return true;
+}
+
+std::optional<int64_t> SESSION::CSession::GetTimingStreamStartPts() const
+{
+  if (!m_timingStream)
+    return std::nullopt;
+
+  const ISampleReader* timingReader{m_timingStream->GetReader()};
+  if (!timingReader || !timingReader->IsStarted())
+    return std::nullopt;
+
+  // Inverse of PTSToElapsed for the elapsed time 0
+  const int64_t pts = static_cast<int64_t>(m_timingStream->m_adStream.GetAbsolutePTSOffset()) +
+                      timingReader->GetPTSDiff();
+  if (pts < 0)
+    return std::nullopt;
+
+  return pts;
+}
+
 void SESSION::CSession::OnScreenResChange()
 {
   m_reprChooser->OnUpdateScreenRes();
@@ -850,7 +890,22 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     ISampleReader* sr{res->GetReader()};
 
     if (sr->PTS() != STREAM_NOPTS_VALUE && m_timingStream.get() == res)
+    {
       m_elapsedTime = PTSToElapsed(sr->PTS(), res) + GetChapterStartTime();
+
+      // Not all manifest types provide the wall clock time, so assume that the end of the
+      // timeline is the live position. As PTS values increase in real time, set it once.
+      if (m_adaptiveTree->IsLive() && !m_ptsWallClockOffset.has_value())
+      {
+        if (const std::optional<int64_t> pts = GetTimingStreamStartPts(); pts.has_value())
+        {
+          const int64_t liveEdgePts =
+              *pts + static_cast<int64_t>(m_adaptiveTree->m_totalTime * 1000);
+          m_ptsWallClockOffset = static_cast<int64_t>(GetTimestampMs() * 1000) - liveEdgePts;
+          LOG::Log(LOGDEBUG, "Live times: PTS to wall clock offset %lli", *m_ptsWallClockOffset);
+        }
+      }
+    }
 
     sampleReader = sr;
     return true;
