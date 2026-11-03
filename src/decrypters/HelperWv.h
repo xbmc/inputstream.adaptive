@@ -144,8 +144,7 @@ bool WvWrapLicense(std::string& data,
                    std::string_view sessionId,
                    const std::vector<uint8_t>& kid,
                    const std::vector<uint8_t>& pssh,
-                   std::string_view wrapper,
-                   const bool isNewConfig);
+                   std::string_view wrapper);
 
 bool WvUnwrapLicense(std::string_view wrapper,
                      const std::map<std::string, std::string>& params,
@@ -155,9 +154,7 @@ bool WvUnwrapLicense(std::string_view wrapper,
                      int& hdcpResLimit,
                      uint16_t& hdcpVerLimit);
 
-void TranslateLicenseUrlPh(std::string& url,
-                           const std::vector<uint8_t>& challenge,
-                           const bool isNewConfig);
+void TranslateLicenseUrlPh(std::string& url, const std::vector<uint8_t>& challenge);
 
 /*!
  * \brief Parse the value of "X-Limit-Video" HTTP header.
