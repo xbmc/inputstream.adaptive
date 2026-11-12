@@ -69,12 +69,24 @@ void CADTSSampleReader::Reset(bool bEOS)
 
 bool CADTSSampleReader::TimeSeek(uint64_t pts)
 {
+  return SeekToPts(pts, true);
+}
+
+bool CADTSSampleReader::TimeSeekReaderPts(uint64_t pts)
+{
+  // The sample read in SeekToPts can refresh m_ptsDiff, so do not compensate it
+  return SeekToPts(pts, false);
+}
+
+bool CADTSSampleReader::SeekToPts(uint64_t pts, bool isManifestPts)
+{
   // ADTSReader::SeekTime expect a sample already read to be able to find the correct position of the requested PTS
   if (AP4_FAILED(ReadSample()))
     return false;
 
   // compensate the pts diff with the manifest timing
-  pts += m_ptsDiff;
+  if (isManifestPts)
+    pts += m_ptsDiff;
 
   AP4_UI64 seekPos{(pts * 9) / 100};
   if (ADTSReader::SeekTime(seekPos))

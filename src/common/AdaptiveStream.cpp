@@ -390,8 +390,12 @@ void adaptive::AdaptiveStream::worker()
       }
 
       m_segBuffers.NotifyDownloadCompleted();
-      downloadInfo.m_segmentBuffer->ChangeState(isSegmentDownloaded ? BufferState::DOWNLOADED
-                                                                    : BufferState::INVALID);
+      {
+        // Under mutexRW, so that a reader waiting on cvRW cannot miss it
+        std::lock_guard<std::mutex> lckrw(thread_data_->mutexRW);
+        downloadInfo.m_segmentBuffer->ChangeState(isSegmentDownloaded ? BufferState::DOWNLOADED
+                                                                      : BufferState::INVALID);
+      }
 
       // Stop the playback if the data cant be downloaded
       // is not the case for subtitles where in the case of missing files they can be ignored
@@ -776,7 +780,14 @@ bool adaptive::AdaptiveStream::ensureSegment()
   if (m_segBuffers.IsEmpty() || (m_segBuffers.Front().BufferSize() != 0 &&
                                  segment_read_pos_ >= m_segBuffers.Front().BufferSize()))
   {
-    if (!m_segBuffers.IsEmpty() && m_segBuffers.Front().State() == BufferState::DOWNLOADING)
+    // More data may have arrived since the check above. Read the state first: the worker appends
+    // all data before the final state change, so once it is not DOWNLOADING the size is final
+    const BufferState frontState{m_segBuffers.IsEmpty() ? BufferState::NONE
+                                                        : m_segBuffers.Front().State()};
+    if (!m_segBuffers.IsEmpty() && segment_read_pos_ < m_segBuffers.Front().BufferSize())
+      return true;
+
+    if (frontState == BufferState::DOWNLOADING)
     {
       // Although the reading position has reached the end, the segment status may not yet be updated
       // so wait for the mutex release, otherwise segment buffers PopFront will cause incorrect buffer updates
@@ -1012,10 +1023,16 @@ uint32_t adaptive::AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
 
     SegmentBuffer& currSegBuffer = m_segBuffers.Front();
 
-    size_t avail = currSegBuffer.BufferSize() - segment_read_pos_;
+    // The subtraction below is unsigned
+    if (segment_read_pos_ > currSegBuffer.BufferSize())
+      return 0;
+
+    size_t avail;
 
     {
       std::unique_lock<std::mutex> lckrw(thread_data_->mutexRW);
+      // Under mutexRW, the download could complete in between
+      avail = currSegBuffer.BufferSize() - segment_read_pos_;
       // Wait until we have all data from the chunked download
       while (avail < bytesToRead &&
              (currSegBuffer.State() == BufferState::QUEUED ||
@@ -1030,14 +1047,16 @@ uint32_t adaptive::AdaptiveStream::read(void* buffer, uint32_t bytesToRead)
     if (avail > bytesToRead)
       avail = bytesToRead;
 
+    if (avail == 0)
+      return 0;
+
+    // Partial read, the caller asks again for the remainder
+    currSegBuffer.CopyBufferTo(buffer, segment_read_pos_, avail);
+
     segment_read_pos_ += avail;
     absolute_position_ += avail;
 
-    if (avail == bytesToRead)
-    {
-      currSegBuffer.CopyBufferTo(buffer, segment_read_pos_ - avail, avail);
-      return static_cast<uint32_t>(avail);
-    }
+    return static_cast<uint32_t>(avail);
   }
 
   return 0;
@@ -1150,7 +1169,12 @@ bool adaptive::AdaptiveStream::seek(uint64_t const pos, bool& isEos)
     }
   }
 
-  segment_read_pos_ = static_cast<size_t>(pos - (absolute_position_ - segment_read_pos_));
+  // A position before the current segment cannot be served (and would wrap below)
+  const uint64_t segStartPos{absolute_position_ - segment_read_pos_};
+  if (pos < segStartPos)
+    return false;
+
+  segment_read_pos_ = static_cast<size_t>(pos - segStartPos);
 
   if (segment_read_pos_ > currSegBuffer.BufferSize())
   {
