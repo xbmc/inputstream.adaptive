@@ -132,9 +132,12 @@ std::vector<uint8_t> MakeWidevinePsshData(const std::vector<std::vector<uint8_t>
  *        Malformed data does not read out of bounds, the parsing stops at the bad field.
  * \param wvPsshData The PSSH Data field (without the box header)
  * \param keyIds[OUT] The key ids found, in order
+ * \param hasCryptoPeriodIndex[OUT][OPT] Set true if the crypto_period_index field
+ *        (key rotation) is found, otherwise false
  */
 void ParseWidevinePssh(const std::vector<uint8_t>& wvPsshData,
-                       std::vector<std::vector<uint8_t>>& keyIds);
+                       std::vector<std::vector<uint8_t>>& keyIds,
+                       bool* hasCryptoPeriodIndex = nullptr);
 
 bool WvWrapLicense(std::string& data,
                    const std::vector<uint8_t>& challenge,

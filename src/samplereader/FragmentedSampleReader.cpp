@@ -28,6 +28,7 @@
 
 #include <bento4/Ap4SencAtom.h>
 
+#include <chrono>
 #include <limits>
 #include <memory>
 
@@ -39,6 +40,12 @@ constexpr uint8_t MP4_TFRFBOX_UUID[] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46
                                         0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f};
 
 constexpr AP4_UI32 FMP4_SAMPLE_FORMAT_WVTT = AP4_ATOM_TYPE('w', 'v', 't', 't');
+
+// In-band key rotation: max wait for the license of a new key. The demuxer is blocked
+// meanwhile, the player keeps playing what it has buffered (usually a few seconds).
+// Enough for a license request and its first retry, a longer stall is not hidden
+// by the buffer anyway and the decrypter gives up the request on its own
+constexpr std::chrono::milliseconds KEY_WAIT_MAX{10000};
 
 // Max number of top-level atoms inspected after the MOOV while looking for the first MOOF
 // (usually only STYP/SIDX/PRFT/EMSG precede it)
@@ -364,6 +371,29 @@ AP4_Result CFragmentedSampleReader::ReadSample()
     bool useDecryptingDecoder =
         m_drmSession && (m_drmSession->capabilities.HasFlag(DRM::Capabilities::SECURE_PATH));
 
+    const std::vector<uint8_t> keyId = GetKeyId();
+    if (m_drmSession && !keyId.empty() && keyId != m_keyWaitedFor)
+    {
+      // In-band key rotation: the license of a new key may be still requested,
+      // wait for it once per KID, without the key the samples cannot be decrypted
+      m_keyWaitedFor = keyId;
+      const auto waitStart = std::chrono::steady_clock::now();
+      const bool isKeyUsable = m_drmSession->decrypter->WaitForKey(keyId, KEY_WAIT_MAX);
+      const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                              std::chrono::steady_clock::now() - waitStart)
+                              .count();
+      if (!isKeyUsable)
+      {
+        LOG::LogF(LOGWARNING, "The key of KID %s is not usable (waited %lld ms)",
+                  STRING::ToHexadecimal(keyId).c_str(), static_cast<long long>(waitMs));
+      }
+      else if (waitMs > 0)
+      {
+        LOG::LogF(LOGDEBUG, "Waited %lld ms for the key of KID %s", static_cast<long long>(waitMs),
+                  STRING::ToHexadecimal(keyId).c_str());
+      }
+    }
+
     if (m_decrypter)
     {
       m_sampleData.Reserve(sampleData.GetDataSize());
@@ -371,6 +401,12 @@ AP4_Result CFragmentedSampleReader::ReadSample()
                                                         NULL, streamType)))
       {
         LOG::Log(LOGERROR, "Decrypt Sample returns failure!");
+        // The key can still come with a license being requested, wait for it once more
+        if (m_keyRewaitedFor != m_keyWaitedFor)
+        {
+          m_keyRewaitedFor = m_keyWaitedFor;
+          m_keyWaitedFor.clear();
+        }
         if (++m_failCount > 50)
         {
           Reset(true);
@@ -384,6 +420,7 @@ AP4_Result CFragmentedSampleReader::ReadSample()
       else
       {
         m_failCount = 0;
+        m_keyRewaitedFor.clear();
       }
     }
     else if (useDecryptingDecoder)
@@ -427,6 +464,7 @@ void CFragmentedSampleReader::Reset(bool bEOS)
   m_lReader->Reset(); // Note: all shared readers call the same shared reader reset
 
   m_eos = bEOS;
+  m_keyWaitedFor.clear();
   if (m_codecHandler)
     m_codecHandler->Reset();
 }
@@ -478,6 +516,7 @@ bool CFragmentedSampleReader::TimeSeek(uint64_t pts)
 {
   // compensate the pts diff with the manifest timing
   pts += m_ptsDiff;
+  m_keyWaitedFor.clear();
 
   AP4_Ordinal sampleIndex;
   AP4_UI64 seekPos(static_cast<AP4_UI64>((pts * m_timeBaseInt) / m_timeBaseExt));
@@ -649,8 +688,16 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
       if (!traf)
         return AP4_ERROR_INVALID_FORMAT;
 
-      ParseMoofPssh(moof);
       ParseTrafSeig(traf);
+
+      const uint8_t* renewalSystemId =
+          m_drmSession ? m_drmSession->decrypter->GetRenewalSystemId() : nullptr;
+      const std::vector<uint8_t> keyId = GetKeyId();
+      if (renewalSystemId && !keyId.empty())
+      {
+        m_drmSession->decrypter->RenewSessionForKey(keyId, ParseMoofPssh(moof, renewalSystemId),
+                                                    !m_fragmentKid.empty());
+      }
 
       bool isDefaultProtected{true};
       AP4_ContainerAtom* schi = m_protectedDesc->GetSchemeInfo()->GetSchiAtom();
@@ -729,6 +776,18 @@ SUCCESS:
     }
   }
   return AP4_SUCCESS;
+}
+
+std::vector<uint8_t> CFragmentedSampleReader::GetKeyId() const
+{
+  // The KID of the SEIG sample group has precedence over the default KID (key rotation)
+  if (!m_fragmentKid.empty() || !m_drmSession)
+    return m_fragmentKid;
+
+  std::vector<uint8_t> keyId = DRM::ConvertKidStrToBytes(m_drmSession->kid);
+  if (DRM::IsAllZeroKey(keyId))
+    keyId.clear();
+  return keyId;
 }
 
 void CFragmentedSampleReader::UpdateSampleDescription()
@@ -876,28 +935,18 @@ void CFragmentedSampleReader::ParseTrafSeig(AP4_ContainerAtom* traf)
   m_fragmentKid = std::move(kid);
 }
 
-void CFragmentedSampleReader::ParseMoofPssh(AP4_ContainerAtom* moof)
+std::vector<uint8_t> CFragmentedSampleReader::ParseMoofPssh(AP4_ContainerAtom* moof,
+                                                            const uint8_t* systemId)
 {
-  std::vector<AP4_PsshAtom*> psshEntries;
+  std::vector<uint8_t> psshData = BENTO4::FindMoofPsshData(moof, systemId);
 
-  AP4_Atom* childAtom{nullptr};
-  unsigned int atomIndex{0};
-
-  while ((childAtom = moof->GetChild(AP4_ATOM_TYPE_PSSH, atomIndex++)) != nullptr)
+  if (psshData != m_lastMoofPssh)
   {
-    auto psshAtom = static_cast<AP4_PsshAtom*>(childAtom);
-    psshEntries.emplace_back(psshAtom);
+    if (!psshData.empty())
+      LOG::LogF(LOGDEBUG, "New PSSH in the media segment (%zu bytes)", psshData.size());
+    m_lastMoofPssh = psshData;
   }
-
-  if (!psshEntries.empty())
-  {
-    //! @todo: Media segments can contains PSSH also when there is no Key rotation
-    //! @todo: Key rotation feature not implemented
-    //! Possible use case: MPD dont provide KID/PSSH and init segment has default KID 00000000000000000000000000000000
-    //! a placeholder that means no default KID, so its needed initialize DRM later time when we can
-    //! parse a media segment with a PSSH (or SEIG box)
-    LOG::LogF(LOGDEBUG, "Found %zu PSSH on media segment", psshEntries.size());
-  }
+  return psshData;
 }
 
 CLinearReader::CLinearReader(AP4_ByteStream* input, AP4_Movie* movie)

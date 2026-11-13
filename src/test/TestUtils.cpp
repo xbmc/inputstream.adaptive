@@ -538,6 +538,24 @@ TEST_F(UtilsTest, ParseWidevinePssh)
   EXPECT_EQ(keyIds[0], kid1);
 }
 
+TEST_F(UtilsTest, ParseWidevinePsshCryptoPeriodIndex)
+{
+  const std::vector<uint8_t> kid1 = MakeKid(0x01);
+  std::vector<std::vector<uint8_t>> keyIds;
+  bool hasCryptoPeriodIndex{true};
+
+  DRM::ParseWidevinePssh(DRM::MakeWidevinePsshData({kid1}, {}), keyIds, &hasCryptoPeriodIndex);
+  EXPECT_FALSE(hasCryptoPeriodIndex);
+
+  // key_id, then crypto_period_index (7, varint) set to 300
+  std::vector<uint8_t> data = {0x12, 0x10};
+  data.insert(data.end(), kid1.begin(), kid1.end());
+  data.insert(data.end(), {0x38, 0xAC, 0x02});
+  DRM::ParseWidevinePssh(data, keyIds, &hasCryptoPeriodIndex);
+  ASSERT_EQ(keyIds.size(), 1u);
+  EXPECT_TRUE(hasCryptoPeriodIndex);
+}
+
 TEST_F(UtilsTest, ParseWidevinePsshMalformed)
 {
   const std::vector<uint8_t> kid1 = MakeKid(0x01);

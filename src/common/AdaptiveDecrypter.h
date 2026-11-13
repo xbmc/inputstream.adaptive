@@ -12,6 +12,7 @@
 #include "utils/CryptoUtils.h"
 #include "utils/ResultType.h"
 
+#include <chrono>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -75,4 +76,37 @@ public:
    * \brief The session ID, is mandatory to distinguish sessions.
    */
   virtual std::string GetSessionId() = 0;
+
+  /*!
+   * \brief In-band key rotation: the DRM system ID of the PSSH boxes that the decrypter
+   *        uses to renew the license, see RenewSessionForKey.
+   * \return The system ID, nullptr if the decrypter does not support the in-band renewal
+   */
+  virtual const uint8_t* GetRenewalSystemId() const { return nullptr; }
+
+  /*!
+   * \brief In-band key rotation: called for each fragment that has a KID, with the PSSH data
+   *        of its media segment. It must not block, the license is requested asynchronously.
+   * \param keyId The KID of the fragment
+   * \param psshData The PSSH data (Data field of the PSSH box), empty if not found
+   * \param isSeigKid True if the KID is from the SEIG sample group of the fragment, otherwise
+   *        it is the default KID, which cannot start the key rotation by itself
+   */
+  virtual void RenewSessionForKey(const std::vector<uint8_t>& keyId,
+                                  const std::vector<uint8_t>& psshData,
+                                  bool isSeigKid)
+  {
+  }
+
+  /*!
+   * \brief In-band key rotation: wait for the key of a KID while its license is requested.
+   *        Returns at once when no license request is pending for the KID.
+   * \param keyId The KID
+   * \param timeout The max time to wait
+   * \return True if the key is usable, otherwise false.
+   */
+  virtual bool WaitForKey(const std::vector<uint8_t>& keyId, std::chrono::milliseconds timeout)
+  {
+    return true;
+  }
 };

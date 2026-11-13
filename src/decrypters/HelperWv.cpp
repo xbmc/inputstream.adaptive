@@ -295,9 +295,12 @@ std::vector<uint8_t> DRM::MakeWidevinePsshData(const std::vector<std::vector<uin
 }
 
 void DRM::ParseWidevinePssh(const std::vector<uint8_t>& wvPsshData,
-                            std::vector<std::vector<uint8_t>>& keyIds)
+                            std::vector<std::vector<uint8_t>>& keyIds,
+                            bool* hasCryptoPeriodIndex)
 {
   keyIds.clear();
+  if (hasCryptoPeriodIndex)
+    *hasCryptoPeriodIndex = false;
 
   // The data can come from a media segment, so it is not trusted: a malformed
   // field stops the parsing, the key ids read so far are kept
@@ -316,6 +319,8 @@ void DRM::ParseWidevinePssh(const std::vector<uint8_t>& wvPsshData,
       uint64_t value;
       if (!ReadProtobufVarint(wvPsshData, offset, value))
         break;
+      if (fieldNumber == 7 && hasCryptoPeriodIndex) // "crypto_period_index" field, id: 7
+        *hasCryptoPeriodIndex = true;
     }
     else if (wireType == 2) // Length-delimited
     {
