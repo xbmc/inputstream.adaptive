@@ -70,19 +70,20 @@ void WriteProtobufVarint(std::vector<uint8_t>& data, int size)
 }
 
 // \brief Read a protobuf varint value from the data
-int ReadProtobufVarint(const std::vector<uint8_t>& data, size_t& offset)
+// \return False when the varint is truncated or longer than 10 bytes
+bool ReadProtobufVarint(const std::vector<uint8_t>& data, size_t& offset, uint64_t& value)
 {
-  int value = 0;
-  int shift = 0;
-  while (true)
+  value = 0;
+  for (int shift = 0; shift < 64; shift += 7)
   {
-    uint8_t byte = data[offset++];
-    value |= (byte & 0x7F) << shift;
+    if (offset >= data.size())
+      return false;
+    const uint8_t byte = data[offset++];
+    value |= static_cast<uint64_t>(byte & 0x7F) << shift;
     if (!(byte & 0x80))
-      break;
-    shift += 7;
+      return true;
   }
-  return value;
+  return false;
 }
 
 /*!
@@ -298,24 +299,43 @@ void DRM::ParseWidevinePssh(const std::vector<uint8_t>& wvPsshData,
 {
   keyIds.clear();
 
+  // The data can come from a media segment, so it is not trusted: a malformed
+  // field stops the parsing, the key ids read so far are kept
+  const size_t dataSize = wvPsshData.size();
   size_t offset = 0;
-  while (offset < wvPsshData.size())
+  while (offset < dataSize)
   {
-    uint8_t tag = wvPsshData[offset++];
-    int fieldNumber = tag >> 3;
-    int wireType = tag & 0x07;
+    uint64_t tag;
+    if (!ReadProtobufVarint(wvPsshData, offset, tag))
+      break;
+    const uint64_t fieldNumber = tag >> 3;
+    const int wireType = static_cast<int>(tag & 0x07);
 
-    if (fieldNumber == 2 && wireType == 2) // "key_id" field, id: 2
+    if (wireType == 0) // Varint, no payload to skip
     {
-      int length = ReadProtobufVarint(wvPsshData, offset);
-      keyIds.emplace_back(wvPsshData.begin() + offset, wvPsshData.begin() + offset + length);
+      uint64_t value;
+      if (!ReadProtobufVarint(wvPsshData, offset, value))
+        break;
+    }
+    else if (wireType == 2) // Length-delimited
+    {
+      uint64_t length;
+      if (!ReadProtobufVarint(wvPsshData, offset, length) || length > dataSize - offset)
+        break;
+      if (fieldNumber == 2) // "key_id" field, id: 2
+        keyIds.emplace_back(wvPsshData.begin() + offset, wvPsshData.begin() + offset + length);
+      offset += static_cast<size_t>(length);
+    }
+    else if (wireType == 1 || wireType == 5) // 64-bit / 32-bit fixed size
+    {
+      const size_t length = wireType == 1 ? 8 : 4;
+      if (length > dataSize - offset)
+        break;
       offset += length;
     }
-    else // Skip other fields
+    else // Groups (deprecated) or invalid wire type
     {
-      int length = ReadProtobufVarint(wvPsshData, offset);
-      if (wireType != 0) // Wire type 0 has no field size
-        offset += length;
+      break;
     }
   }
 }

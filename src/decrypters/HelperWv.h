@@ -126,15 +126,12 @@ std::vector<uint8_t> MakeWidevinePsshData(const std::vector<std::vector<uint8_t>
                                           std::vector<uint8_t> contentIdData);
 
 /*!
- * \brief Generate a synthesized Widevine PSSH.
+ * \brief Get the key ids from the Data field of a Widevine PSSH box
  *        (WidevinePsshData as google protobuf format
  *        https://github.com/devine-dl/pywidevine/blob/master/pywidevine/license_protocol.proto)
- * \param kid The KeyId
- * \param contentIdData Custom content for the "content_id" field as bytes
- *                      Placeholders allowed:
- *                      {KID} To inject the KID as bytes
- *                      {UUID} To inject the KID as UUID string format
- * \return The pssh if has success, otherwise empty value.
+ *        Malformed data does not read out of bounds, the parsing stops at the bad field.
+ * \param wvPsshData The PSSH Data field (without the box header)
+ * \param keyIds[OUT] The key ids found, in order
  */
 void ParseWidevinePssh(const std::vector<uint8_t>& wvPsshData,
                        std::vector<std::vector<uint8_t>>& keyIds);

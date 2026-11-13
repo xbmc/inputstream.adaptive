@@ -10,6 +10,7 @@
 
 #include "../common/AdaptiveTreeFactory.h"
 #include "../common/SegTemplate.h"
+#include "../decrypters/HelperWv.h"
 #include "../utils/Base64Utils.h"
 #include "../utils/Bento4Utils.h"
 #include "../utils/DigestMD5Utils.h"
@@ -511,4 +512,62 @@ TEST_F(UtilsTest, FindMoofPsshData)
     EXPECT_TRUE(UTILS::BENTO4::FindMoofPsshData(&moof, WIDEVINE_SYSTEM_ID).empty());
     EXPECT_TRUE(UTILS::BENTO4::FindMoofPsshData(nullptr, WIDEVINE_SYSTEM_ID).empty());
   }
+}
+
+TEST_F(UtilsTest, ParseWidevinePssh)
+{
+  const std::vector<uint8_t> kid1 = MakeKid(0x01);
+  const std::vector<uint8_t> kid2 = MakeKid(0x02);
+  std::vector<std::vector<uint8_t>> keyIds;
+
+  // Round trip with the PSSH generator, two key_id fields
+  DRM::ParseWidevinePssh(DRM::MakeWidevinePsshData({kid1, kid2}, {'c', 'i', 'd'}), keyIds);
+  ASSERT_EQ(keyIds.size(), 2u);
+  EXPECT_EQ(keyIds[0], kid1);
+  EXPECT_EQ(keyIds[1], kid2);
+
+  // Fields of other wire types before the key_id are skipped:
+  // algorithm (1, varint), a 10 byte varint, a fixed32 and a fixed64 field
+  std::vector<uint8_t> data = {0x08, 0x01, 0x18, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                               0xFF, 0xFF, 0x01, 0x25, 1,    2,    3,    4,    0x29, 1,
+                               2,    3,    4,    5,    6,    7,    8,    0x12, 0x10};
+  data.insert(data.end(), kid1.begin(), kid1.end());
+  DRM::ParseWidevinePssh(data, keyIds);
+  ASSERT_EQ(keyIds.size(), 1u);
+  EXPECT_EQ(keyIds[0], kid1);
+}
+
+TEST_F(UtilsTest, ParseWidevinePsshMalformed)
+{
+  const std::vector<uint8_t> kid1 = MakeKid(0x01);
+  std::vector<std::vector<uint8_t>> keyIds;
+
+  // key_id length beyond the end of the data, the valid key id before it is kept
+  std::vector<uint8_t> data = {0x12, 0x10};
+  data.insert(data.end(), kid1.begin(), kid1.end());
+  data.insert(data.end(), {0x12, 0x10, 0xAA, 0xBB});
+  DRM::ParseWidevinePssh(data, keyIds);
+  ASSERT_EQ(keyIds.size(), 1u);
+  EXPECT_EQ(keyIds[0], kid1);
+
+  // Truncated varint length
+  DRM::ParseWidevinePssh({0x12, 0x80}, keyIds);
+  EXPECT_TRUE(keyIds.empty());
+
+  // Huge length that would overflow a 32 bit int
+  DRM::ParseWidevinePssh({0x12, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0x00}, keyIds);
+  EXPECT_TRUE(keyIds.empty());
+
+  // Varint longer than 10 bytes
+  DRM::ParseWidevinePssh({0x08, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01},
+                         keyIds);
+  EXPECT_TRUE(keyIds.empty());
+
+  // Truncated fixed64 field
+  DRM::ParseWidevinePssh({0x29, 1, 2, 3}, keyIds);
+  EXPECT_TRUE(keyIds.empty());
+
+  // Empty data
+  DRM::ParseWidevinePssh({}, keyIds);
+  EXPECT_TRUE(keyIds.empty());
 }
