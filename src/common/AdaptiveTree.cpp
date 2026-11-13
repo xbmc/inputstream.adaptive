@@ -112,6 +112,18 @@ namespace adaptive
     m_chaptersSnapshot = std::move(snapshot);
   }
 
+  std::optional<double> AdaptiveTree::GetLiveStartSecs() const
+  {
+    std::lock_guard<std::mutex> lock(m_liveStartMutex);
+    return m_liveStartSecs;
+  }
+
+  void AdaptiveTree::SetLiveStartSecs(double secs)
+  {
+    std::lock_guard<std::mutex> lock(m_liveStartMutex);
+    m_liveStartSecs = secs;
+  }
+
   void AdaptiveTree::PostOpen()
   {
     SortTree();

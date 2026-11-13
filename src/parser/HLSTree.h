@@ -33,6 +33,12 @@ public:
 
   virtual TreeType GetTreeType() const override { return TreeType::HLS; }
 
+  // Without EXT-X-PROGRAM-DATE-TIME the segment times of each playlist start from zero
+  virtual bool HasAbsoluteLiveTimeline() const override
+  {
+    return m_currentPeriod && m_currentPeriod->GetStart() != PLAYLIST::NO_VALUE;
+  }
+
   CHLSTree(const CHLSTree& left);
 
   virtual CHLSTree* Clone() const override { return new CHLSTree{*this}; }
