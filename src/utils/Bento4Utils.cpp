@@ -10,14 +10,29 @@
 
 #include "utils/log.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include <bento4/Ap4PsshAtom.h>
+#include <bento4/Ap4SbgpAtom.h>
 
 using namespace UTILS::BENTO4;
 
 namespace
 {
+constexpr AP4_UI32 GROUPING_TYPE_SEIG = AP4_ATOM_TYPE('s', 'e', 'i', 'g');
+// SBGP indexes above this value refer to the SGPD of the fragment, the lower ones
+// to the SGPD of the init segment (ISO/IEC 14496-12, 8.9.4)
+constexpr AP4_UI32 SBGP_FRAGMENT_INDEX_BASE = 0x10000;
+
+bool HasSeigKid(const CencSeigGroupEntry& entry)
+{
+  return entry.isProtected == 1 && !entry.keySets.empty() &&
+         entry.keySets.front().kid.size() == 16 &&
+         std::any_of(entry.keySets.front().kid.cbegin(), entry.keySets.front().kid.cend(),
+                     [](std::uint8_t b) { return b != 0; });
+}
+
 std::vector<std::uint8_t> FindPsshData(AP4_ContainerAtom* container, const std::uint8_t* systemId)
 {
   AP4_Atom* childAtom{nullptr};
@@ -63,6 +78,100 @@ std::vector<std::uint8_t> UTILS::BENTO4::FindMoofPsshData(AP4_ContainerAtom* moo
   }
 
   return {};
+}
+
+std::vector<std::uint8_t> UTILS::BENTO4::GetTrafSeigKid(AP4_ContainerAtom* traf, bool& isPartial)
+{
+  isPartial = false;
+  if (!traf)
+    return {};
+
+  std::vector<CencSeigGroupEntry> entries;
+  AP4_Atom* childAtom{nullptr};
+  unsigned int atomIndex{0};
+  while ((childAtom = traf->GetChild(AP4_ATOM_TYPE_SGPD, atomIndex++)) != nullptr)
+  {
+    // A malformed box is created as a generic atom and the cast fails.
+    // FMP4SgpdAtom only adds accessors, it is not known to the Bento4 RTTI
+    AP4_SgpdAtom* sgpd = AP4_DYNAMIC_CAST(AP4_SgpdAtom, childAtom);
+    if (!sgpd)
+      continue;
+
+    auto sgpdAccessor = static_cast<FMP4SgpdAtom*>(sgpd);
+    if (sgpdAccessor->GetGroupingType() != GROUPING_TYPE_SEIG)
+      continue;
+
+    entries = sgpdAccessor->GetSeigEntries();
+    break; // Assume that only a single SGPD can contain SEIG
+  }
+  if (entries.empty())
+    return {};
+
+  AP4_SbgpAtom* sbgp{nullptr};
+  atomIndex = 0;
+  while ((childAtom = traf->GetChild(AP4_ATOM_TYPE_SBGP, atomIndex++)) != nullptr)
+  {
+    sbgp = AP4_DYNAMIC_CAST(AP4_SbgpAtom, childAtom);
+    if (sbgp && sbgp->GetGroupingType() == GROUPING_TYPE_SEIG)
+      break;
+    sbgp = nullptr;
+  }
+
+  const CencSeigGroupEntry* selected{nullptr};
+  if (sbgp)
+  {
+    // The distinct group indexes used by the samples, 0 means no group (track defaults)
+    std::vector<AP4_UI32> groupIndexes;
+    AP4_Array<AP4_SbgpAtom::Entry>& sbgpEntries = sbgp->GetEntries();
+    for (unsigned int i = 0; i < sbgpEntries.ItemCount(); ++i)
+    {
+      const AP4_UI32 groupIndex = sbgpEntries[i].group_description_index;
+      if (sbgpEntries[i].sample_count > 0 &&
+          std::find(groupIndexes.begin(), groupIndexes.end(), groupIndex) == groupIndexes.end())
+      {
+        groupIndexes.emplace_back(groupIndex);
+      }
+    }
+    isPartial = groupIndexes.size() > 1;
+
+    for (const AP4_UI32 groupIndex : groupIndexes)
+    {
+      if (groupIndex <= SBGP_FRAGMENT_INDEX_BASE)
+        continue; // No group, or a group of the init segment
+
+      const size_t entryIndex = groupIndex - SBGP_FRAGMENT_INDEX_BASE - 1;
+      if (entryIndex < entries.size() && HasSeigKid(entries[entryIndex]))
+      {
+        selected = &entries[entryIndex];
+        break;
+      }
+    }
+  }
+  else
+  {
+    // Without SBGP no sample is mapped to the group. Some packagers leave it out
+    // when the fragment has a single group, so its protected entry is used
+    for (const CencSeigGroupEntry& entry : entries)
+    {
+      if (!HasSeigKid(entry))
+        continue;
+      if (selected)
+      {
+        isPartial = true;
+        break;
+      }
+      selected = &entry;
+    }
+  }
+
+  if (!selected)
+    return {};
+
+  // Multiple keys in the entry, the subsamples may use the other ones
+  if (selected->keySets.size() > 1)
+    isPartial = true;
+
+  return selected->keySets.front().kid;
 }
 
 std::vector<CencSeigGroupEntry> UTILS::BENTO4::FMP4SgpdAtom::GetSeigEntries()

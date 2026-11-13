@@ -106,6 +106,14 @@ std::string_view UrnToKeySystem(std::string_view urn);
 std::vector<uint8_t> ConvertKidStrToBytes(std::string_view kidStr);
 
 /*!
+ * \brief Check if a KeyId is made of zeros only. Some packagers put such a KID
+ *        as a placeholder, it means that there is no usable KID.
+ * \param kid The KeyId as bytes
+ * \return True if the KID is not empty and all its bytes are zero.
+ */
+bool IsAllZeroKey(const std::vector<uint8_t>& kid);
+
+/*!
  * \brief Convert a KeyId of 16 bytes to a KeyId UUID format.
  * \param kidStr The hexdecimal KeyId
  * \return The KeyId UUID, otherwise empty if fails.

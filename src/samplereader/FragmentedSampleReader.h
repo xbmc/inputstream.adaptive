@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <mutex>
+#include <vector>
 
 // forwards
 class CAdaptiveCencSampleDecrypter;
@@ -135,7 +136,8 @@ protected:
 private:
   void UpdateSampleDescription();
   void ParseTrafTfrf(AP4_UuidAtom* uuidAtom);
-  void ParseTrafSgpd(AP4_ContainerAtom* traf);
+  // Set m_fragmentKid from the SEIG sample group of the fragment, if any
+  void ParseTrafSeig(AP4_ContainerAtom* traf);
   void ParseMoofPssh(AP4_ContainerAtom* moof);
 
   AP4_Track* m_track;
@@ -158,6 +160,9 @@ private:
   std::shared_ptr<DRM::DRMSession> m_drmSession;
   std::unique_ptr<CAdaptiveCencSampleDecrypter> m_decrypter;
   CryptoInfo m_readerCryptoInfo{};
+  std::vector<uint8_t> m_fragmentKid; // KID of the current fragment from SEIG, empty if none
+  std::vector<uint8_t> m_lastSeigKid; // Last logged SEIG KID
+  bool m_isSeigPartialWarned{false};
 
   std::shared_ptr<CLinearReader> m_lReader;
 };

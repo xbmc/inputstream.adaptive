@@ -10,6 +10,7 @@
 
 #include "../common/AdaptiveTreeFactory.h"
 #include "../common/SegTemplate.h"
+#include "../decrypters/Helpers.h"
 #include "../decrypters/HelperWv.h"
 #include "../utils/Base64Utils.h"
 #include "../utils/Bento4Utils.h"
@@ -570,4 +571,157 @@ TEST_F(UtilsTest, ParseWidevinePsshMalformed)
   // Empty data
   DRM::ParseWidevinePssh({}, keyIds);
   EXPECT_TRUE(keyIds.empty());
+}
+
+TEST_F(UtilsTest, IsAllZeroKey)
+{
+  EXPECT_TRUE(DRM::IsAllZeroKey(MakeKid(0x00)));
+  EXPECT_FALSE(DRM::IsAllZeroKey(MakeKid(0x01)));
+  std::vector<uint8_t> kid = MakeKid(0x00);
+  kid[15] = 0x01;
+  EXPECT_FALSE(DRM::IsAllZeroKey(kid));
+  EXPECT_FALSE(DRM::IsAllZeroKey({}));
+}
+
+namespace
+{
+// SEIG entry with a single key, protected or not
+std::vector<uint8_t> MakeSeigEntry(uint8_t isProtected, const std::vector<uint8_t>& kid)
+{
+  std::vector<uint8_t> entry = {0x00, 0x00, isProtected, 0x08};
+  entry.insert(entry.end(), kid.begin(), kid.end());
+  return entry;
+}
+
+// Parse a box and add it to a container
+void AddBox(AP4_ContainerAtom& container, const std::vector<uint8_t>& box)
+{
+  AP4_MemoryByteStream stream(box.data(), static_cast<AP4_Size>(box.size()));
+  AP4_Atom* atom{nullptr};
+  ASSERT_TRUE(AP4_SUCCEEDED(AP4_DefaultAtomFactory::Instance_.CreateAtomFromStream(stream, atom)));
+  container.AddChild(atom);
+}
+
+// Build a TRAF with a SGPD "seig" box of the given entries (all of the same size)
+// and, if not empty, a SBGP "seig" box with the given {sample_count, group_index} pairs
+void MakeSeigTraf(AP4_ContainerAtom& traf,
+                  const std::vector<std::vector<uint8_t>>& entries,
+                  const std::vector<std::pair<uint32_t, uint32_t>>& sbgp)
+{
+  std::vector<uint8_t> box;
+  auto putU32 = [&box](uint32_t v)
+  {
+    for (int shift = 24; shift >= 0; shift -= 8)
+      box.push_back(static_cast<uint8_t>(v >> shift));
+  };
+  size_t entriesSize = 0;
+  for (const auto& entry : entries)
+    entriesSize += entry.size();
+
+  putU32(static_cast<uint32_t>(8 + 4 + 4 + 4 + 4 + entriesSize));
+  box.insert(box.end(), {'s', 'g', 'p', 'd'});
+  putU32(0x01000000); // version 1, flags 0
+  box.insert(box.end(), {'s', 'e', 'i', 'g'});
+  putU32(static_cast<uint32_t>(entries.front().size())); // default_length
+  putU32(static_cast<uint32_t>(entries.size()));
+  for (const auto& entry : entries)
+    box.insert(box.end(), entry.begin(), entry.end());
+  AddBox(traf, box);
+
+  if (sbgp.empty())
+    return;
+
+  box.clear();
+  putU32(static_cast<uint32_t>(8 + 4 + 4 + 4 + sbgp.size() * 8));
+  box.insert(box.end(), {'s', 'b', 'g', 'p'});
+  putU32(0); // version 0, flags 0
+  box.insert(box.end(), {'s', 'e', 'i', 'g'});
+  putU32(static_cast<uint32_t>(sbgp.size()));
+  for (const auto& [sampleCount, groupIndex] : sbgp)
+  {
+    putU32(sampleCount);
+    putU32(groupIndex);
+  }
+  AddBox(traf, box);
+}
+} // unnamed namespace
+
+TEST_F(UtilsTest, GetTrafSeigKidWithoutSbgp)
+{
+  const std::vector<uint8_t> kid1 = MakeKid(0x01);
+  const std::vector<uint8_t> kid2 = MakeKid(0x02);
+  bool isPartial{true};
+
+  // Single protected entry
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, {MakeSeigEntry(1, kid1)}, {});
+    EXPECT_EQ(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial), kid1);
+    EXPECT_FALSE(isPartial);
+  }
+  // Unprotected entry first, then two protected entries
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, {MakeSeigEntry(0, kid1), MakeSeigEntry(1, kid2), MakeSeigEntry(1, kid1)},
+                 {});
+    EXPECT_EQ(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial), kid2);
+    EXPECT_TRUE(isPartial);
+  }
+  // No protected entry
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, {MakeSeigEntry(0, kid1)}, {});
+    EXPECT_TRUE(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial).empty());
+    EXPECT_FALSE(isPartial);
+  }
+  // No SGPD
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    EXPECT_TRUE(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial).empty());
+    EXPECT_TRUE(UTILS::BENTO4::GetTrafSeigKid(nullptr, isPartial).empty());
+    EXPECT_FALSE(isPartial);
+  }
+}
+
+TEST_F(UtilsTest, GetTrafSeigKidWithSbgp)
+{
+  const std::vector<uint8_t> kid1 = MakeKid(0x01);
+  const std::vector<uint8_t> kid2 = MakeKid(0x02);
+  const std::vector<std::vector<uint8_t>> entries = {MakeSeigEntry(1, kid1),
+                                                     MakeSeigEntry(1, kid2)};
+  bool isPartial{true};
+
+  // All the samples mapped to the second entry of the fragment
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, entries, {{10, 0x10002}, {5, 0x10002}, {0, 0x10001}});
+    EXPECT_EQ(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial), kid2);
+    EXPECT_FALSE(isPartial);
+  }
+  // Samples mapped to two entries, the first one used is returned
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, entries, {{10, 0x10001}, {5, 0x10002}});
+    EXPECT_EQ(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial), kid1);
+    EXPECT_TRUE(isPartial);
+  }
+  // No group (index 0): the track default KID applies
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, entries, {{10, 0}});
+    EXPECT_TRUE(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial).empty());
+    EXPECT_FALSE(isPartial);
+  }
+  // Group of the init segment, not resolved
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, entries, {{10, 1}});
+    EXPECT_TRUE(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial).empty());
+  }
+  // Index out of range
+  {
+    AP4_ContainerAtom traf(AP4_ATOM_TYPE_TRAF);
+    MakeSeigTraf(traf, entries, {{10, 0x10003}});
+    EXPECT_TRUE(UTILS::BENTO4::GetTrafSeigKid(&traf, isPartial).empty());
+  }
 }

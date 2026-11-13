@@ -483,6 +483,8 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
                                                 AP4_Position mdat_payload_offset,
                                                 AP4_UI64 mdat_payload_size)
 {
+  m_fragmentKid.clear();
+
   // Clone outside AP4_DYNAMIC_CAST: with AP4_CONFIG_NO_RTTI (set for Android in Ap4Config.h)
   // the macro evaluates its argument twice, which cloned the moof twice and leaked one copy
   // (including its trun and senc atoms) for every fragment.
@@ -581,7 +583,7 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
         return AP4_ERROR_INVALID_FORMAT;
 
       ParseMoofPssh(moof);
-      ParseTrafSgpd(traf);
+      ParseTrafSeig(traf);
 
       bool isDefaultProtected{true};
       AP4_ContainerAtom* schi = m_protectedDesc->GetSchemeInfo()->GetSchiAtom();
@@ -648,8 +650,9 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
 SUCCESS:
   if (m_drmSession && m_codecHandler)
   {
-    //! @todo: if the media segment/package provide a different KID, the decrypter should be informed (key rotation)
-    std::vector<uint8_t> kid = DRM::ConvertKidStrToBytes(m_drmSession->kid);
+    // The KID of the SEIG sample group has precedence over the default KID (key rotation)
+    const std::vector<uint8_t> kid =
+        m_fragmentKid.empty() ? DRM::ConvertKidStrToBytes(m_drmSession->kid) : m_fragmentKid;
 
     if (AP4_FAILED(m_drmSession->decrypter->SetFragmentInfo(
             m_poolId, kid, m_codecHandler->m_naluLengthSize, m_codecHandler->m_extraData,
@@ -781,37 +784,29 @@ void CFragmentedSampleReader::ParseTrafTfrf(AP4_UuidAtom* uuidAtom)
   }
 }
 
-void CFragmentedSampleReader::ParseTrafSgpd(AP4_ContainerAtom* traf)
+void CFragmentedSampleReader::ParseTrafSeig(AP4_ContainerAtom* traf)
 {
-  std::vector<BENTO4::CencSeigGroupEntry> seigEntries;
+  bool isPartial{false};
+  std::vector<uint8_t> kid = BENTO4::GetTrafSeigKid(traf, isPartial);
 
-  AP4_Atom* childAtom{nullptr};
-  unsigned int atomIndex{0};
+  // A KID of zeros is a placeholder, the default KID applies
+  if (DRM::IsAllZeroKey(kid))
+    kid.clear();
 
-  while ((childAtom = traf->GetChild(AP4_ATOM_TYPE_SGPD, atomIndex++)) != nullptr)
+  if (isPartial && !m_isSeigPartialWarned)
   {
-    auto sgpdAtom = static_cast<BENTO4::FMP4SgpdAtom*>(childAtom);
-
-    if (sgpdAtom->GetGroupingType() != AP4_ATOM_TYPE('s', 'e', 'i', 'g'))
-      continue;
-
-    seigEntries = sgpdAtom->GetSeigEntries();
-
-    break; // Assume that only a single SGPD can contains SEIG
+    m_isSeigPartialWarned = true;
+    LOG::LogF(LOGWARNING, "The samples of a fragment use multiple KIDs (SEIG sample group), "
+                          "this is not supported, only the first KID is used");
   }
 
-  if (!seigEntries.empty())
+  if (!kid.empty() && kid != m_lastSeigKid)
   {
-    //! @todo: Key rotation feature not implemented
-    LOG::LogF(LOGDEBUG, "Found TRAF/SGPD/SEIG boxes with %zu entries", seigEntries.size());
-    for (auto& entry : seigEntries)
-    {
-      if (entry.isProtected && !entry.keySets.empty())
-      {
-        LOG::LogF(LOGDEBUG, "Protected SEIG box entry have %zu key sets", entry.keySets.size());
-      }
-    }
+    LOG::LogF(LOGDEBUG, "Fragment KID from the SEIG sample group: %s",
+              STRING::ToHexadecimal(kid).c_str());
+    m_lastSeigKid = kid;
   }
+  m_fragmentKid = std::move(kid);
 }
 
 void CFragmentedSampleReader::ParseMoofPssh(AP4_ContainerAtom* moof)
