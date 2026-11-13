@@ -99,6 +99,8 @@ public:
 
   virtual std::vector<DRM::DRMInfo> GetInitDRMInfo() override;
 
+  std::vector<uint8_t> GetMediaSegmentPsshData(const uint8_t* systemId) override;
+
   virtual void SetDecrypter(std::shared_ptr<DRM::DRMSession> drmSession) override;
 
   AP4_Result Start(std::optional<uint64_t> pts) override;

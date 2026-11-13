@@ -124,6 +124,8 @@ struct DRMInfo
   std::string defaultKid;
   std::string licenseServerUri;
   std::vector<uint8_t> serverCert; // Server certificate
+  // Init data taken from a media segment (in-band key rotation), it has no KID
+  bool isFromMediaSegment{false};
 };
 
 struct DRMInstance
@@ -151,6 +153,8 @@ struct DRMSession
   std::string kid;
   std::string challenge; // Key request (Challenge) as base64
   DRMMediaType mediaType{DRMMediaType::UNKNOWN};
+  // Session opened with the init data of a media segment (in-band key rotation)
+  bool isFromMediaSegment{false};
 };
 
 } // namespace DRM

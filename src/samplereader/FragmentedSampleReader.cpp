@@ -29,6 +29,7 @@
 #include <bento4/Ap4SencAtom.h>
 
 #include <limits>
+#include <memory>
 
 using namespace UTILS;
 
@@ -38,6 +39,63 @@ constexpr uint8_t MP4_TFRFBOX_UUID[] = {0xd4, 0x80, 0x7e, 0xf2, 0xca, 0x39, 0x46
                                         0x8e, 0x54, 0x26, 0xcb, 0x9e, 0x46, 0xa7, 0x9f};
 
 constexpr AP4_UI32 FMP4_SAMPLE_FORMAT_WVTT = AP4_ATOM_TYPE('w', 'v', 't', 't');
+
+// Max number of top-level atoms inspected after the MOOV while looking for the first MOOF
+// (usually only STYP/SIDX/PRFT/EMSG precede it)
+constexpr unsigned int MOOF_SEARCH_MAX_ATOMS = 16;
+
+/*!
+ * \brief Read a stream from just after its MOOV up to the first MOOF (first media segment)
+ *        and get the PSSH data of a DRM from it. The stream goes back to where it was.
+ * \param byteStream The stream, positioned just after the MOOV atom
+ * \param systemId The DRM system ID
+ * \return The PSSH data (Data field of the PSSH box), empty if not found
+ */
+std::vector<uint8_t> ExtractMoofPsshData(AP4_ByteStream& byteStream, const uint8_t* systemId)
+{
+  std::vector<uint8_t> psshData;
+  AP4_DefaultAtomFactory atomFactory;
+  // Where the reading continues. The position is taken before reading the first atom,
+  // when the stream has already moved from the init segment to the first media segment,
+  // so that the data of the init segment, already dropped, is not needed
+  std::optional<AP4_Position> resumePos;
+
+  for (unsigned int i = 0; i < MOOF_SEARCH_MAX_ATOMS; ++i)
+  {
+    AP4_Position atomPos{0};
+    if (AP4_FAILED(byteStream.Tell(atomPos)))
+      break;
+    if (!resumePos.has_value())
+      resumePos = atomPos;
+
+    AP4_Atom* atom{nullptr};
+    if (AP4_FAILED(atomFactory.CreateAtomFromStream(byteStream, atom)) || !atom)
+    {
+      LOG::LogF(LOGDEBUG, "Cannot read the first media segment");
+      break;
+    }
+    std::unique_ptr<AP4_Atom> atomOwner{atom};
+
+    if (atom->GetType() == AP4_ATOM_TYPE_MDAT)
+    {
+      LOG::LogF(LOGDEBUG, "No MOOF found in the first media segment");
+      break;
+    }
+    if (atom->GetType() != AP4_ATOM_TYPE_MOOF)
+      continue;
+
+    psshData = BENTO4::FindMoofPsshData(AP4_DYNAMIC_CAST(AP4_ContainerAtom, atom), systemId);
+    if (psshData.empty())
+      LOG::LogF(LOGDEBUG, "No PSSH found in the MOOF of the first media segment");
+    break;
+  }
+
+  // Go back, the reader starts reading the fragments from there
+  if (resumePos.has_value() && AP4_FAILED(byteStream.Seek(*resumePos)))
+    LOG::LogF(LOGERROR, "Cannot seek back the stream after reading the first media segment");
+
+  return psshData;
+}
 } // unnamed namespace
 
 
@@ -225,6 +283,15 @@ std::vector<DRM::DRMInfo> CFragmentedSampleReader::GetInitDRMInfo()
   }
 
   return drmInfos;
+}
+
+std::vector<uint8_t> CFragmentedSampleReader::GetMediaSegmentPsshData(const uint8_t* systemId)
+{
+  AP4_ByteStream* byteStream = m_lReader->GetByteStream();
+  if (!byteStream)
+    return {};
+
+  return ExtractMoofPsshData(*byteStream, systemId);
 }
 
 void CFragmentedSampleReader::SetDecrypter(std::shared_ptr<DRM::DRMSession> drmSession)
