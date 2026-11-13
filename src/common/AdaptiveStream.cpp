@@ -669,9 +669,12 @@ bool adaptive::AdaptiveStream::start_stream()
         !m_tree->IsChangingPeriod() && !CSrvBroker::GetKodiProps().IsPlayTimeshift() &&
         !current_rep_->Timeline().IsEmpty())
     {
-      uint64_t totalDurSecs{0};
-      const uint64_t liveDelaySecs = m_tree->m_liveDelay;
+      // Sum the exact segment durations in timescale units, rounding each segment
+      // duration down to whole seconds made the delay much longer with short
+      // segments (e.g. 17 segments of 1.92 secs for a 16 secs delay)
+      uint64_t totalDur{0};
       const uint32_t timescale = current_rep_->GetTimescale();
+      const uint64_t liveDelay = m_tree->m_liveDelay * timescale;
 
       //! @todo: This code does not consider that the live delay could cause the startup segment to be selected
       //! in the previous period when the current period has too few segments
@@ -681,11 +684,10 @@ bool adaptive::AdaptiveStream::start_stream()
       for (auto itSeg = current_rep_->Timeline().rbegin(); itSeg != timelineItRend;
            ++itSeg)
       {
-        // Implicit rounding down because managing PTS milliseconds negatively affects segment selection
-        totalDurSecs += (itSeg->m_endPts - itSeg->startPTS_) / timescale;
+        totalDur += itSeg->m_endPts - itSeg->startPTS_;
         // Dont use >= since if live delay is equal to the segment duration
         // we may fall too close to the live edge to get new segments from manifest update
-        if (totalDurSecs > liveDelaySecs)
+        if (totalDur > liveDelay)
         {
           if (itSeg != timelineItRend)
           {

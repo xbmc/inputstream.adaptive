@@ -700,6 +700,21 @@ TEST_F(DASHTreeTest, SuggestedPresentationDelay)
   EXPECT_EQ(tree->m_liveDelay, 32);
 }
 
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartExactSegmentDurations)
+{
+  // Video segments 1000-1029 of 1.92 secs, default live delay of 16 secs
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_EQ(tree->m_liveDelay, 16);
+
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
+  testStream->start_stream();
+  // Playback starts 9 segments (17.28 secs) from the live edge with segment 1021,
+  // the current segment is the one before
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1020);
+}
+
 TEST_F(DASHTreeTest, SegmentTemplateStartNumber)
 {
   OpenTestFile("mpd/segmenttemplate_startnumber.mpd", "https://vod.service.net/SGP1/highlightpost/1234567890/1/web/dash/segtpl_sn.mpd");
