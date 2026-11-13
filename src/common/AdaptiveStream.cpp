@@ -676,6 +676,18 @@ bool adaptive::AdaptiveStream::start_stream()
       const uint32_t timescale = current_rep_->GetTimescale();
       const uint64_t liveDelay = m_tree->m_liveDelay * timescale;
 
+      // With a live delay below the default keep also a minimum number of
+      // segments from the live edge, on a short timeline the requirement alone
+      // must not move the start to the oldest segment
+      size_t minSegments{1};
+      if (m_tree->m_liveDelay < AdaptiveTree::LIVE_DELAY_DEFAULT_SECS)
+      {
+        const size_t timelineSize = current_rep_->Timeline().GetSize();
+        minSegments = std::min(AdaptiveTree::LIVE_DELAY_MIN_SEGMENTS,
+                               timelineSize > 1 ? timelineSize - 1 : timelineSize);
+      }
+      size_t segCount{0};
+
       //! @todo: This code does not consider that the live delay could cause the startup segment to be selected
       //! in the previous period when the current period has too few segments
       //! more likely live delay management should be moved just after manifest parsing and before period init
@@ -685,9 +697,10 @@ bool adaptive::AdaptiveStream::start_stream()
            ++itSeg)
       {
         totalDur += itSeg->m_endPts - itSeg->startPTS_;
+        ++segCount;
         // Dont use >= since if live delay is equal to the segment duration
         // we may fall too close to the live edge to get new segments from manifest update
-        if (totalDur > liveDelay)
+        if (totalDur > liveDelay && segCount >= minSegments)
         {
           if (itSeg != timelineItRend)
           {

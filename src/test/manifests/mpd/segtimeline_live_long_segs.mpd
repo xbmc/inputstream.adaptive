@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+<MPD availabilityStartTime="1970-01-01T00:00:06Z" minBufferTime="PT6S" minimumUpdatePeriod="PT6S" profiles="urn:mpeg:dash:profile:isoff-live:2011" publishTime="2020-06-07T11:59:55Z" timeShiftBufferDepth="PT1M" type="dynamic" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd">
+	<Period id="0" start="PT1588628086S">
+		<AdaptationSet contentType="video" id="1" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$/init.mp4" media="$RepresentationID$/segment_$Number$.m4s" startNumber="1000" timescale="1000">
+				<SegmentTimeline>
+					<S d="6000" r="9" t="2922007000"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="300000" codecs="avc1.42001e" frameRate="25" height="224" id="video" width="400">
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<UTCTiming schemeIdUri="urn:mpeg:dash:utc:direct:2014" value="2020-06-07T11:59:55Z"/>
+</MPD>

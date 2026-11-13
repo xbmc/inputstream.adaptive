@@ -715,6 +715,49 @@ TEST_F(DASHTreeAdaptiveStreamTest, LiveStartExactSegmentDurations)
   EXPECT_EQ(currentSeg->m_number, 1020);
 }
 
+TEST_F(DASHTreeTest, LiveDelayFromAddon)
+{
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":8}");
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_EQ(tree->m_liveDelay, 8);
+}
+
+TEST_F(DASHTreeTest, LiveDelayFromAddonBelowMinimum)
+{
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":2}");
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_EQ(tree->m_liveDelay, 4);
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartLowDelayShortSegments)
+{
+  // Video segments 1000-1029 of 1.92 secs, 3 segments (5.76 secs) exceed the 4 secs delay
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":4}");
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
+  testStream->start_stream();
+  // Playback starts with segment 1027, the current segment is the one before
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1026);
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartLowDelayMinSegments)
+{
+  // Video segments 1000-1009 of 6 secs, a single segment exceeds the 4 secs delay
+  // but a delay below the default requires at least 3 segments from the live edge
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":4}");
+  OpenTestFile("mpd/segtimeline_live_long_segs.mpd");
+
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
+  testStream->start_stream();
+  // Playback starts with segment 1007, the current segment is the one before
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1006);
+}
+
 TEST_F(DASHTreeTest, SegmentTemplateStartNumber)
 {
   OpenTestFile("mpd/segmenttemplate_startnumber.mpd", "https://vod.service.net/SGP1/highlightpost/1234567890/1/web/dash/segtpl_sn.mpd");
