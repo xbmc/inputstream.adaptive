@@ -221,7 +221,7 @@ bool CdmAdapter::Initialize()
   m_initPromise = std::promise<void>{};
   m_initFuture = m_initPromise.get_future();
   m_provisioningCompleteOrStarted = false;
-  m_isClosingSession = false;
+  m_isStoppingTimers = false;
 
   Log(LogLevel::DEBUG, "CDM version: %s", GetVersion().c_str());
 
@@ -351,8 +351,20 @@ void CdmAdapter::SendOnKeyStatusChange(const std::string& sessionId,
 
 void CdmAdapter::RemoveClient()
 {
-  std::lock_guard<std::mutex> guard(client_mutex_);
-  client_ = nullptr;
+  {
+    std::lock_guard<std::mutex> guard(client_mutex_);
+    client_ = nullptr;
+  }
+  // The client goes away, so stop the pending timers and wait for their threads.
+  // This also releases the references to this adapter held by the timer tasks
+  std::vector<std::future<void>> timerTasks;
+  {
+    std::lock_guard<std::mutex> lock(m_timerMutex);
+    m_isStoppingTimers = true;
+    timerTasks.swap(m_asyncTimerTasks);
+  }
+  m_timerCond.notify_all();
+  timerTasks.clear();
 }
 
 void CdmAdapter::SetServerCertificate(uint32_t promise_id,
@@ -363,7 +375,8 @@ void CdmAdapter::SetServerCertificate(uint32_t promise_id,
     server_certificate_data_size > limits::kMaxCertificateLength) {
   return;
   }
-  
+
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->SetServerCertificate(promise_id, server_certificate_data, server_certificate_data_size);
   else if (cdm11_)
@@ -378,6 +391,7 @@ void CdmAdapter::CreateSessionAndGenerateRequest(uint32_t promise_id,
   const uint8_t* init_data,
   uint32_t init_data_size)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->CreateSessionAndGenerateRequest(promise_id, session_type, init_data_type, init_data,
                                             init_data_size);
@@ -394,6 +408,7 @@ void CdmAdapter::LoadSession(uint32_t promise_id,
   const char* session_id,
   uint32_t session_id_size)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->LoadSession(promise_id, session_type, session_id, session_id_size);
   else if (cdm11_)
@@ -408,6 +423,7 @@ void CdmAdapter::UpdateSession(uint32_t promise_id,
   const uint8_t* response,
   uint32_t response_size)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->UpdateSession(promise_id, session_id, session_id_size, response, response_size);
   else if (cdm11_)
@@ -420,25 +436,22 @@ void CdmAdapter::CloseSession(uint32_t promise_id,
   const char* session_id,
   uint32_t session_id_size)
 {
-  {
-    std::lock_guard<std::mutex> lock(m_closeSessionMutex);
-    m_isClosingSession = true;
-  }
-  m_sessionClosingCond.notify_all();
+  // The pending timers are not stopped here. The CDM timers are not bound to a session,
+  // stopping them would stop also the license renewal of the other open sessions
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->CloseSession(promise_id, session_id, session_id_size);
   else if (cdm11_)
     cdm11_->CloseSession(promise_id, session_id, session_id_size);
   else if (cdm10_)
     cdm10_->CloseSession(promise_id, session_id, session_id_size);
-  // remove any shared_ptr references left
-  m_asyncTimerTasks.clear();
 }
 
 void CdmAdapter::RemoveSession(uint32_t promise_id,
   const char* session_id,
   uint32_t session_id_size)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->RemoveSession(promise_id, session_id, session_id_size);
   else if (cdm11_)
@@ -449,6 +462,10 @@ void CdmAdapter::RemoveSession(uint32_t promise_id,
 
 void CdmAdapter::TimerExpired(void* context)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
+  if (m_isStoppingTimers)
+    return;
+
   if (cdm12_)
     cdm12_->TimerExpired(context);
   else if (cdm11_)
@@ -465,7 +482,7 @@ cdm::Status CdmAdapter::Decrypt(const cdm::InputBuffer_2& encrypted_buffer,
   //widewine stopps if some seconds (5??) are fetched too fast
   //std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-  std::lock_guard<std::mutex> lock(decrypt_mutex_);
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
 
   active_buffer_ = decrypted_buffer->DecryptedBuffer();
   cdm::Status ret{cdm::Status::kDecryptError};
@@ -492,6 +509,7 @@ cdm::Status CdmAdapter::Decrypt(const cdm::InputBuffer_2& encrypted_buffer,
 cdm::Status CdmAdapter::InitializeAudioDecoder(
   const cdm::AudioDecoderConfig_2& audio_decoder_config)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     return cdm12_->InitializeAudioDecoder(audio_decoder_config);
   else if (cdm11_)
@@ -505,6 +523,7 @@ cdm::Status CdmAdapter::InitializeAudioDecoder(
 cdm::Status CdmAdapter::InitializeVideoDecoder(
   const cdm::VideoDecoderConfig_3& video_decoder_config)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     return cdm12_->InitializeVideoDecoder(video_decoder_config);
   else if (cdm11_)
@@ -517,6 +536,7 @@ cdm::Status CdmAdapter::InitializeVideoDecoder(
 
 void CdmAdapter::DeinitializeDecoder(cdm::StreamType decoder_type)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->DeinitializeDecoder(decoder_type);
   else if (cdm11_)
@@ -527,6 +547,7 @@ void CdmAdapter::DeinitializeDecoder(cdm::StreamType decoder_type)
 
 void CdmAdapter::ResetDecoder(cdm::StreamType decoder_type)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->ResetDecoder(decoder_type);
   else if (cdm11_)
@@ -538,7 +559,7 @@ void CdmAdapter::ResetDecoder(cdm::StreamType decoder_type)
 cdm::Status CdmAdapter::DecryptAndDecodeFrame(const cdm::InputBuffer_2& encrypted_buffer,
   CdmVideoFrame* video_frame)
 {
-  std::lock_guard<std::mutex> lock(decrypt_mutex_);
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   cdm::Status ret(cdm::kDeferredInitialization);
 
   if (cdm12_)
@@ -555,7 +576,7 @@ cdm::Status CdmAdapter::DecryptAndDecodeFrame(const cdm::InputBuffer_2& encrypte
 cdm::Status CdmAdapter::DecryptAndDecodeSamples(const cdm::InputBuffer_2& encrypted_buffer,
   cdm::AudioFrames* audio_frames)
 {
-  std::lock_guard<std::mutex> lock(decrypt_mutex_);
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     return cdm12_->DecryptAndDecodeSamples(encrypted_buffer, audio_frames);
   else if (cdm11_)
@@ -568,6 +589,7 @@ cdm::Status CdmAdapter::DecryptAndDecodeSamples(const cdm::InputBuffer_2& encryp
 void CdmAdapter::OnPlatformChallengeResponse(
   const cdm::PlatformChallengeResponse& response)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->OnPlatformChallengeResponse(response);
   else if (cdm11_)
@@ -580,6 +602,7 @@ void CdmAdapter::OnQueryOutputProtectionStatus(cdm::QueryResult result,
   uint32_t link_mask,
   uint32_t output_protection_mask)
 {
+  std::lock_guard<std::recursive_mutex> lock(cdm_mutex_);
   if (cdm12_)
     cdm12_->OnQueryOutputProtectionStatus(result, link_mask, output_protection_mask);
   else if (cdm11_)
@@ -601,10 +624,10 @@ cdm::Buffer* CdmAdapter::Allocate(uint32_t capacity)
 void CdmAdapter::timerfunc(CdmAdapter* adp, int64_t delay, void* context)
 {
   {
-    std::unique_lock<std::mutex> lock(m_closeSessionMutex);
-    const bool isClosing = m_sessionClosingCond.wait_for(
-      lock, std::chrono::milliseconds(delay), [this] { return m_isClosingSession.load(); });
-    if (isClosing)
+    std::unique_lock<std::mutex> lock(m_timerMutex);
+    const bool isStopping = m_timerCond.wait_for(lock, std::chrono::milliseconds(delay),
+                                                 [this] { return m_isStoppingTimers.load(); });
+    if (isStopping)
       return;
   }
   adp->TimerExpired(context);
@@ -613,19 +636,21 @@ void CdmAdapter::timerfunc(CdmAdapter* adp, int64_t delay, void* context)
 void CdmAdapter::SetTimer(int64_t delay_ms, void* context)
 {
   //LICENSERENEWAL
+  // Called by the CDM, also from a timer thread inside TimerExpired
+  std::lock_guard<std::mutex> lock(m_timerMutex);
+  if (m_isStoppingTimers)
+    return;
+
   // Clean up async tasks which have finished
+  for (auto itFuture = m_asyncTimerTasks.begin(); itFuture != m_asyncTimerTasks.end();)
   {
-    std::lock_guard<std::mutex> lock(m_closeSessionMutex);
-    for (auto itFuture = m_asyncTimerTasks.begin(); itFuture != m_asyncTimerTasks.end();)
-    {
-      if (!itFuture->valid() ||
+    if (!itFuture->valid() ||
         itFuture->wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
-      {
-        itFuture = m_asyncTimerTasks.erase(itFuture);
-      }
-      else
-        itFuture++;
+    {
+      itFuture = m_asyncTimerTasks.erase(itFuture);
     }
+    else
+      itFuture++;
   }
   std::future<void> future = std::async(std::launch::async, &CdmAdapter::timerfunc,
                                         shared_from_this(), this, delay_ms, context);
