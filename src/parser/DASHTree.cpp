@@ -271,7 +271,9 @@ void adaptive::CDashTree::ParseTagMPDAttribs(pugi::xml_node nodeMPD)
   m_isLive = XML::GetAttrib(nodeMPD, "type") == "dynamic";
 
   std::string timeShiftBufferDepthStr;
-  if (XML::QueryAttrib(nodeMPD, "timeShiftBufferDepth", timeShiftBufferDepthStr))
+  m_hasTimeShiftBufferDepth =
+      XML::QueryAttrib(nodeMPD, "timeShiftBufferDepth", timeShiftBufferDepthStr);
+  if (m_hasTimeShiftBufferDepth)
     m_timeShiftBufferDepth = static_cast<uint64_t>(XML::ParseDuration(timeShiftBufferDepthStr) * 1000);
 
   std::string availabilityStartTimeStr;

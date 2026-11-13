@@ -39,6 +39,11 @@ public:
 
   virtual TreeType GetTreeType() const override { return TreeType::DASH; }
 
+  virtual bool HasSlidingTimeshiftWindow() const override
+  {
+    return m_isLive && m_hasTimeShiftBufferDepth;
+  }
+
   virtual bool Open(const std::string& url,
                     const std::map<std::string, std::string>& headers,
                     const std::string& data) override;
@@ -119,6 +124,8 @@ protected:
   uint16_t m_periodIndex{1};
 
   uint64_t m_timeShiftBufferDepth{0}; // MPD Timeshift buffer attribute value, in ms
+  // MPD has the timeShiftBufferDepth attribute, without it the timeshift buffer is infinite
+  bool m_hasTimeShiftBufferDepth{false};
   uint64_t m_tsbLimited{0}; // Timeshift buffer for templated representations (max value limited), in ms
 
   uint64_t m_mediaPresDuration{0}; // MPD Media presentation duration attribute value, in ms (may be not provided)

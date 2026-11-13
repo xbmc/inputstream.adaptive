@@ -261,6 +261,13 @@ public:
   virtual bool HasAbsoluteLiveTimeline() const { return true; }
 
   /*!
+   * \brief Check if the timeshift window of live content slides,
+   *        so its oldest segments are removed from the server over time.
+   * \return True if the timeshift window slides, otherwise false
+   */
+  virtual bool HasSlidingTimeshiftWindow() const { return m_isLive; }
+
+  /*!
    * \brief Get the live start position chosen by the first stream started,
    *        used to start the other streams (e.g. audio and video) at the same position.
    * \return The start position in secs, if set

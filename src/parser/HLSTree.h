@@ -39,6 +39,8 @@ public:
     return m_currentPeriod && m_currentPeriod->GetStart() != PLAYLIST::NO_VALUE;
   }
 
+  virtual bool HasSlidingTimeshiftWindow() const override { return m_isLive && !m_isEventPlaylist; }
+
   CHLSTree(const CHLSTree& left);
 
   virtual CHLSTree* Clone() const override { return new CHLSTree{*this}; }
@@ -218,6 +220,9 @@ protected:
 
   // Temporary cache to store the downloaded AES KEY's
   std::unordered_map<std::string, std::vector<uint8_t>> m_aesUrlKeyCache;
+
+  // The media playlist type is EVENT, its timeshift window does not slide
+  bool m_isEventPlaylist{false};
 
 private:
   /*!

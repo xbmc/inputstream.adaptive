@@ -715,6 +715,20 @@ TEST_F(DASHTreeAdaptiveStreamTest, LiveStartExactSegmentDurations)
   EXPECT_EQ(currentSeg->m_number, 1020);
 }
 
+TEST_F(DASHTreeTest, LiveSlidingTimeshiftWindow)
+{
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_TRUE(tree->HasSlidingTimeshiftWindow());
+}
+
+TEST_F(DASHTreeTest, LiveNoTimeshiftBufferDepthNotSliding)
+{
+  // Without the timeShiftBufferDepth attribute the timeshift buffer is infinite
+  OpenTestFile("mpd/segtimeline_live_no_tsb.mpd");
+  EXPECT_TRUE(tree->IsLive());
+  EXPECT_FALSE(tree->HasSlidingTimeshiftWindow());
+}
+
 TEST_F(DASHTreeTest, LiveDelayFromAddon)
 {
   m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":8}");

@@ -267,6 +267,7 @@ private:
 
   bool m_changed{false};
   uint64_t m_elapsedTime{0};
+  uint64_t m_elapsedChapterTime{0}; // m_elapsedTime without the chapter start time
   uint64_t m_chapterStartTime{0}; // In STREAM_TIME_BASE
   double m_chapterSeekTime{0.0}; // In seconds
   uint8_t m_mediaTypeMask{0};
