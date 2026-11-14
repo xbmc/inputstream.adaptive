@@ -494,6 +494,16 @@ namespace adaptive
     m_waitQueue++;
   }
 
+  bool AdaptiveTree::TreeUpdateThread::try_lock()
+  {
+    // The worker holds m_updMutex for the whole update, including the manifest download
+    if (!m_updMutex.try_lock())
+      return false;
+    m_waitQueue++;
+    m_updMutex.unlock();
+    return true;
+  }
+
   void AdaptiveTree::TreeUpdateThread::Resume()
   {
     // assert(m_waitQueue != 0); // Debug only, resume without any pause
