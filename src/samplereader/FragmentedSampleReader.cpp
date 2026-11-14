@@ -483,8 +483,11 @@ AP4_Result CFragmentedSampleReader::ProcessMoof(AP4_ContainerAtom* moof,
                                                 AP4_Position mdat_payload_offset,
                                                 AP4_UI64 mdat_payload_size)
 {
-  AP4_MovieFragment fragment =
-      AP4_MovieFragment(AP4_DYNAMIC_CAST(AP4_ContainerAtom, moof->Clone()));
+  // Clone outside AP4_DYNAMIC_CAST: with AP4_CONFIG_NO_RTTI (set for Android in Ap4Config.h)
+  // the macro evaluates its argument twice, which cloned the moof twice and leaked one copy
+  // (including its trun and senc atoms) for every fragment.
+  AP4_Atom* moofClone = moof->Clone();
+  AP4_MovieFragment fragment = AP4_MovieFragment(AP4_DYNAMIC_CAST(AP4_ContainerAtom, moofClone));
   AP4_Array<AP4_UI32> ids;
   fragment.GetTrackIds(ids);
   if (ids.ItemCount() == 1)
