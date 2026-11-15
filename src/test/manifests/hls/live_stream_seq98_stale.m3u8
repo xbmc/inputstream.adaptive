@@ -1,0 +1,17 @@
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:60
+#EXT-X-MEDIA-SEQUENCE:98
+#EXT-X-MAP:URI="init_stale.mp4"
+#EXTINF:6.0,
+segment_98.m4s
+#EXTINF:6.0,
+segment_99.m4s
+#EXTINF:6.0,
+segment_100.m4s
+#EXTINF:6.0,
+segment_101.m4s
+#EXTINF:6.0,
+segment_102.m4s
+#EXTINF:6.0,
+segment_103.m4s
