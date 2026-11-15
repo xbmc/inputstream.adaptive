@@ -21,9 +21,10 @@
 #include <kodi/addon-instance/Inputstream.h>
 #endif
 
+#include <chrono>
 #include <cstdint>
-#include <optional>
 #include <future>
+#include <optional>
 
 class Adaptive_CencSingleSampleDecrypter;
 
@@ -146,14 +147,15 @@ public:
   }
 
   /*!
-   * \brief Check if the async ReadSample is working
+   * \brief Check if the async ReadSample is working, blocking until it finishes or the
+   *        deadline passes
+   * \param deadline When to stop waiting
    * \return Return true if is working, otherwise false
    */
-  bool IsReadSampleAsyncWorking()
+  bool IsReadSampleAsyncWorking(std::chrono::steady_clock::time_point deadline)
   {
     return m_readSampleAsyncState.valid() &&
-           m_readSampleAsyncState.wait_for(std::chrono::milliseconds(0)) !=
-               std::future_status::ready;
+           m_readSampleAsyncState.wait_until(deadline) != std::future_status::ready;
   }
 
   void SetObserver(SampleReaderObserver* observer) { m_observer = observer; }
