@@ -487,6 +487,12 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
     rep = adp->GetRepresentations()[reprPos].get();
   }
 
+  // Restored if the update is rejected as stale ("rep" can change with the discontinuity sequence)
+  CRepresentation* const baseUrlRep = rep;
+  const std::string previousBaseUrl = rep->GetBaseUrl();
+  // Same for the first initialization segment replaced by EXT-X-MAP
+  CRepresentation* initSegRep{nullptr};
+  std::optional<CSegment> previousInitSegment;
   rep->SetBaseUrl(sourceUrl);
 
   // To know in advance if EXT-X-PROGRAM-DATE-TIME is available
@@ -560,6 +566,11 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
         segInit.url = attribs["URI"];
         segInit.startPTS_ = NO_PTS_VALUE;
         segInit.AESKeyInfo() = aesKey;
+        if (!initSegRep)
+        {
+          initSegRep = rep;
+          previousInitSegment = rep->GetInitSegment();
+        }
         rep->SetInitSegment(segInit);
         rep->SetContainerType(ContainerType::MP4);
       }
@@ -867,6 +878,30 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
       return ParseStatus::INVALID;
 
     return ParseStatus::ERROR;
+  }
+
+  // A live playlist only grows at its end (RFC 8216, section 6.2.1). An update whose last segment
+  // is older than the last one already known is a stale copy (e.g. served by a CDN cache): using
+  // it would move the current segment backwards, the stream would download segments already
+  // played or stop downloading. Keep the current segments and try again, unless the two playlists
+  // do not overlap at all (media sequence restarted).
+  if (m_isLive && discontCount == 0 && !rep->Timeline().IsEmpty())
+  {
+    const uint64_t lastSegNumber = rep->GetStartNumber() + rep->Timeline().GetSize() - 1;
+    const uint64_t newLastSegNumber = mediaSequenceNbr + newSegments.GetSize() - 1;
+
+    if (newLastSegNumber < lastSegNumber && newLastSegNumber >= rep->GetStartNumber())
+    {
+      LOG::Log(LOGWARNING,
+               "Stale playlist update ignored on representation id \"%s\" (last segment %llu, "
+               "previous last segment %llu)",
+               rep->GetId().c_str(), newLastSegNumber, lastSegNumber);
+      // The segments kept may have URIs relative to the previous playlist
+      baseUrlRep->SetBaseUrl(previousBaseUrl);
+      if (initSegRep)
+        initSegRep->GetInitSegment() = previousInitSegment;
+      return ParseStatus::INVALID;
+    }
   }
 
   // Set the DRM info

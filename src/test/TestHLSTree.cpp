@@ -518,3 +518,36 @@ TEST_F(HLSTreeTest, ReferencedRenditionOrphanGroupIncluded)
 
   EXPECT_EQ(audioAdpSets, 2);
 }
+
+TEST_F(HLSTreeTest, LiveStalePlaylistUpdateIgnored)
+{
+  OpenTestFileMaster("hls/1v_master.m3u8", "https://foo.bar/master.m3u8");
+
+  auto& period = tree->m_periods[0];
+  auto adp = period->GetAdaptationSets()[0].get();
+  auto rep = adp->GetRepresentations()[0].get();
+  const std::string url = rep->GetSourceUrl();
+
+  // Segments 100 to 105
+  EXPECT_EQ(OpenTestFileVariant("hls/live_stream_seq100.m3u8", url, period.get(), adp, rep), true);
+  EXPECT_EQ(rep->GetStartNumber(), 100);
+  EXPECT_EQ(rep->Timeline().GetSize(), 6);
+
+  const std::string baseUrl = rep->GetBaseUrl();
+
+  // A stale update (segments 98 to 103), here from another location, must not move the timeline
+  // backwards nor change the base url and the initialization segment of the segments kept
+  EXPECT_EQ(OpenTestFileVariant("hls/live_stream_seq98_stale.m3u8",
+                                "https://foo.bar/stale/stream.m3u8", period.get(), adp, rep),
+            false);
+  EXPECT_EQ(rep->GetBaseUrl(), baseUrl);
+  EXPECT_EQ(rep->GetInitSegment()->url, "init.mp4");
+  EXPECT_EQ(rep->GetStartNumber(), 100);
+  EXPECT_EQ(rep->Timeline().GetSize(), 6);
+  EXPECT_EQ(rep->Timeline().GetBack()->url, "segment_105.m4s");
+
+  // The next regular update (segments 101 to 106) is applied
+  EXPECT_EQ(OpenTestFileVariant("hls/live_stream_seq101.m3u8", url, period.get(), adp, rep), true);
+  EXPECT_EQ(rep->GetStartNumber(), 101);
+  EXPECT_EQ(rep->Timeline().GetSize(), 6);
+}
