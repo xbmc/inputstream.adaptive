@@ -43,6 +43,7 @@ public:
   bool PosTime(int ms) override;
   int GetTotalTime() override;
   int GetTime() override;
+  bool GetTimes(kodi::addon::InputstreamTimes& times) override;
   bool IsRealTimeStream() override;
 
 #if INPUTSTREAM_VERSION_LEVEL > 1
