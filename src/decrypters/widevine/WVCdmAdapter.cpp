@@ -221,16 +221,33 @@ void CWVCdmAdapter::OnKeyStatusChange(const std::string& sessionId,
 
 cdm::Buffer* CWVCdmAdapter::AllocateBuffer(size_t sz)
 {
-  VIDEOCODEC_PICTURE pic;
-  pic.decodedDataSize = sz;
-  // Video format is used by GetBuffer to get a free buffer from video buffer pool cache
-  // but we cant set the real format here because we dont know it yet
-  pic.videoFormat = VIDEOCODEC_FORMAT_YV12;
-  if (m_host->GetBuffer(m_codecInstance, pic))
+  //! @todo: this method can be called by audio/video decoders, more likely this should be protected by a mutex i dont know if a/v decoders can run concurrently
+  if (m_codecInstance)
   {
-    CdmFixedBuffer* buf = new CdmFixedBuffer;
-    buf->initialize(m_codecInstance, pic.decodedData, pic.decodedDataSize, pic.videoBufferHandle, m_host);
-    return buf;
+    VIDEOCODEC_PICTURE pic;
+    pic.decodedDataSize = sz;
+    // Video format is used by GetBuffer to get a free buffer from video buffer pool cache
+    // but we cant set the real format here because we dont know it yet
+    pic.videoFormat = VIDEOCODEC_FORMAT_YV12;
+    if (m_host->GetBuffer(m_codecInstance, pic))
+    {
+      CdmFixedBuffer* buf = new CdmFixedBuffer;
+      buf->initialize(m_codecInstance, pic.decodedData, pic.decodedDataSize, pic.videoBufferHandle,
+                      m_host);
+      return buf;
+    }
+  }
+  if (m_audioCodecInstance)
+  {
+    AUDIOCODEC_FRAME frame;
+    frame.decodedDataSize = sz;
+    if (m_host->GetBufferAudio(m_audioCodecInstance, frame))
+    {
+      CdmFixedBuffer* buf = new CdmFixedBuffer;
+      buf->initialize(m_audioCodecInstance, frame.decodedData, frame.decodedDataSize,
+                      frame.audioBufferHandle, m_host);
+      return buf;
+    }
   }
   return nullptr;
 }
@@ -248,6 +265,16 @@ void CWVCdmAdapter::SetCodecInstance(void* instance)
 void CWVCdmAdapter::ResetCodecInstance()
 {
   m_codecInstance = nullptr;
+}
+
+void CWVCdmAdapter::SetAudioCodecInstance(void* instance)
+{
+  m_audioCodecInstance = reinterpret_cast<kodi::addon::CInstanceAudioCodec*>(instance);
+}
+
+void CWVCdmAdapter::ResetAudioCodecInstance()
+{
+  m_audioCodecInstance = nullptr;
 }
 
 std::string_view CWVCdmAdapter::GetKeySystem()
