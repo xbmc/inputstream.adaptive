@@ -208,28 +208,76 @@ bool TSReader::GetInformation(kodi::addon::InputstreamInfo& info)
   return isChanged;
 }
 
-// We assume that m_startpos is the current I-Frame position
+// We assume that m_startPos is the start of the current segment
 bool TSReader::SeekTime(uint64_t timeInTs)
 {
   bool hasVideo(false);
+  // Only the H.264 parser flags recovery points
+  bool hasRecoveryPoints(false);
   //look if we have video
   for (auto &tsInfo : m_streamInfos)
     if (tsInfo.m_enabled && tsInfo.m_streamType == INPUTSTREAM_TYPE_VIDEO)
     {
       hasVideo = true;
+      hasRecoveryPoints = tsInfo.m_stream->stream_type == TSDemux::STREAM_TYPE_VIDEO_H264;
       break;
     }
 
   if (hasVideo)
   {
-    // Stop at the first video I-frame of the segment, or at timeInTs if none is flagged
-    // (only the H.264 parser flags recovery points)
+    // Pass 1: find the last video recovery point <= timeInTs in this segment
+    const AP4_Position segStartPos{m_startPos};
+    int64_t keyPts{PTS_UNSET};
     while (m_pkt.pts == PTS_UNSET || GetStreamType() != INPUTSTREAM_TYPE_VIDEO ||
-           (!m_pkt.recoveryPoint && static_cast<uint64_t>(m_pkt.pts) < timeInTs))
+           static_cast<uint64_t>(m_pkt.pts) < timeInTs)
     {
+      if (GetStreamType() == INPUTSTREAM_TYPE_VIDEO && m_pkt.recoveryPoint &&
+          m_pkt.pts != PTS_UNSET)
+        keyPts = m_pkt.pts;
+
       if (!ReadPacket())
         return false;
+      if (m_startPos != segStartPos)
+        break;
     }
+    // The packet at timeInTs can be a recovery point itself
+    if (m_startPos == segStartPos && m_pkt.recoveryPoint &&
+        static_cast<uint64_t>(m_pkt.pts) == timeInTs)
+      keyPts = m_pkt.pts;
+
+    if (m_startPos != segStartPos)
+    {
+      // The previous segment cannot be read again, use the first recovery point from here,
+      // or the first video packet at/after timeInTs when the codec has no recovery points
+      while (m_pkt.pts == PTS_UNSET || GetStreamType() != INPUTSTREAM_TYPE_VIDEO ||
+             (hasRecoveryPoints ? !m_pkt.recoveryPoint
+                                : static_cast<uint64_t>(m_pkt.pts) < timeInTs))
+      {
+        if (!ReadPacket())
+          return false;
+      }
+    }
+    else if (keyPts != PTS_UNSET && keyPts != m_pkt.pts)
+    {
+      // Pass 2: restart the parser at the segment start and stop at the found recovery point
+      m_AVContext->GoPosition(m_startPos, true);
+      m_pkt.pts = PTS_UNSET;
+      while (m_pkt.pts != keyPts || GetStreamType() != INPUTSTREAM_TYPE_VIDEO ||
+             !m_pkt.recoveryPoint)
+      {
+        if (!ReadPacket())
+          return false;
+        if (m_startPos != segStartPos)
+        {
+          LOG::Log(LOGWARNING, "TS seek: recovery point %lld not found again, at PTS %lld",
+                   keyPts, m_pkt.pts);
+          break;
+        }
+      }
+    }
+
+    LOG::Log(LOGDEBUG, "TS seek: target PTS %llu, starting at video PTS %lld", timeInTs,
+             m_pkt.pts);
   }
   else
   {
