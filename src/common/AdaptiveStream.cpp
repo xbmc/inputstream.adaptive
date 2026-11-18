@@ -21,6 +21,7 @@
 #include "utils/log.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <iostream>
@@ -786,6 +787,22 @@ bool adaptive::AdaptiveStream::ensureSegment()
   {
     if (frontSnapshot.state == BufferState::DOWNLOADING)
     {
+      {
+        // The reader caught up with the download, wait for the next chunk.
+        // mutexWorker below is held for the whole segment download.
+        SegmentBuffer& front{m_segBuffers.Front()};
+        std::unique_lock<std::mutex> lckrw(thread_data_->mutexRW);
+        // AppendBuffer notifies without mutexRW, the timeout covers a missed notification
+        while (segment_read_pos_ >= front.BufferSize() &&
+               front.State() == BufferState::DOWNLOADING &&
+               thread_data_->State() == THREADDATA::ThState::RUNNING)
+        {
+          thread_data_->cvRW.wait_for(lckrw, std::chrono::milliseconds(100));
+        }
+        if (segment_read_pos_ < front.BufferSize())
+          return true;
+      }
+
       // Although the reading position has reached the end, the segment status may not yet be updated
       // so wait for the mutex release, otherwise segment buffers PopFront will cause incorrect buffer updates
       std::lock_guard<std::mutex> lckWorker(thread_data_->mutexWorker);
