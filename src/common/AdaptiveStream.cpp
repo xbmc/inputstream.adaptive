@@ -1193,7 +1193,12 @@ bool adaptive::AdaptiveStream::seek(uint64_t const pos, bool& isEos)
 
   if (segment_read_pos_ > currSegBuffer.BufferSize())
   {
+    // Stay at the segment end, absolute_position_ must keep pointing to the same position
     segment_read_pos_ = currSegBuffer.BufferSize();
+    absolute_position_ = segStartPos + segment_read_pos_;
+    LOG::LogF(LOGWARNING,
+              "[AS-%u] Cannot seek to position %llu, beyond the segment end %llu (state %i)",
+              clsId, pos, absolute_position_, static_cast<int>(currSegBuffer.State()));
     return false;
   }
 
