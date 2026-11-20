@@ -109,6 +109,7 @@ void SESSION::CSession::DeleteStreams()
   LOG::Log(LOGDEBUG, "CSession::DeleteStreams()");
   m_streams.clear();
   m_timingStream = nullptr;
+  m_isStartAligned = false;
 }
 
 /*----------------------------------------------------------------------
@@ -311,6 +312,7 @@ void SESSION::CSession::InitializePeriod()
 
   // Clean to create new SESSION::STREAM objects. One for each AdaptationSet/Representation
   m_streams.clear();
+  m_isStartAligned = false;
 
   CPeriod* currPeriod = m_adaptiveTree->m_currentPeriod;
   if (!currPeriod)
@@ -852,7 +854,12 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
   {
     return true;
   }
-  else if (res)
+
+  // Deliver nothing this time, the next call picks the sample from the realigned streams
+  if (res && !m_isStartAligned && AlignStartStreams())
+    return true;
+
+  if (res)
   {
     ISampleReader* sr{res->GetReader()};
 
@@ -863,6 +870,91 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     return true;
   }
   return false;
+}
+
+bool SESSION::CSession::AlignStartStreams()
+{
+  CStream* video{nullptr};
+  for (auto& stream : m_streams)
+  {
+    ISampleReader* reader{stream->GetReader()};
+    const INPUTSTREAM_TYPE type{stream->m_info.GetStreamType()};
+    if (!reader || !stream->IsEnabled() || reader->EOS() ||
+        (type != INPUTSTREAM_TYPE_VIDEO && type != INPUTSTREAM_TYPE_AUDIO))
+      continue;
+    // Wait until the audio and video streams have their first sample. Until then samples are
+    // delivered unaligned, so that a stream that fails to start does not stall the playback
+    if (!reader->IsStarted())
+      return false;
+    if (!video && type == INPUTSTREAM_TYPE_VIDEO)
+      video = stream.get();
+  }
+  m_isStartAligned = true;
+
+  if (!video)
+    return false;
+
+  ISampleReader* videoReader{video->GetReader()};
+  videoReader->WaitReadSampleAsyncComplete();
+  const uint64_t videoReaderPts{videoReader->PTS()};
+  if (videoReaderPts == STREAM_NOPTS_VALUE)
+    return false;
+
+  // Each stream starts at a segment of its own timeline, e.g. the first one when the timeshift
+  // buffer is played. The timelines can start at different segments, so the audio can start
+  // earlier than the video
+  bool isRealigned{false};
+
+  for (auto& stream : m_streams)
+  {
+    ISampleReader* reader{stream->GetReader()};
+    if (!reader || !stream->IsEnabled() || reader->EOS() ||
+        stream->m_info.GetStreamType() != INPUTSTREAM_TYPE_AUDIO ||
+        (reader->GetType() == ISampleReader::Type::FMP4 &&
+         stream->m_adStream.getRepresentation()->IsIncludedStream()))
+      continue;
+
+    reader->WaitReadSampleAsyncComplete();
+    if (reader->PTS() == STREAM_NOPTS_VALUE)
+      continue;
+
+    // Audio starting later has no data before, its timeline begins after the video one
+    const int64_t avDeltaPts{static_cast<int64_t>(reader->PTS()) -
+                             static_cast<int64_t>(videoReaderPts)};
+    if (avDeltaPts >= -static_cast<int64_t>(STREAM_TIME_BASE / 2))
+      continue;
+
+    // The audio segment that contains the video PTS, from the audio PTS diff
+    const int64_t audioManifestPts{static_cast<int64_t>(videoReaderPts) - reader->GetPTSDiff()};
+    if (audioManifestPts < 0)
+      continue;
+    const double audioSecs{static_cast<double>(audioManifestPts) / STREAM_TIME_BASE};
+
+    // Unchanged if the segment is not found, the audio then just starts early
+    if (!stream->m_adStream.seek_time(audioSecs))
+    {
+      LOG::Log(LOGWARNING, "Start A/V align: no segment at %0.1lf for audio stream %i", audioSecs,
+               reader->GetStreamId());
+      continue;
+    }
+
+    isRealigned = true;
+    reader->Reset(false);
+    if (reader->TimeSeek(videoReaderPts, ISampleReader::PtsType::READER))
+    {
+      LOG::Log(LOGINFO,
+               "Start A/V align: audio stream %i started %0.3lfs off the video, now at PTS %llu, "
+               "video PTS %llu",
+               reader->GetStreamId(), static_cast<double>(avDeltaPts) / STREAM_TIME_BASE,
+               reader->PTS(), videoReaderPts);
+    }
+    else
+    {
+      LOG::Log(LOGWARNING, "Start A/V align: cannot seek audio stream %i to %0.1lf",
+               reader->GetStreamId(), audioSecs);
+    }
+  }
+  return isRealigned;
 }
 
 bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
@@ -1090,6 +1182,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
   }
+  m_isStartAligned = true;
   return true;
 }
 
