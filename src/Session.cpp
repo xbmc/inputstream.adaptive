@@ -54,9 +54,10 @@ uint32_t MakeUniqueId(uint16_t periodIndex, uint16_t streamIndex)
  * \brief Provide a pts value that represents the time elapsed from current stream window
  * \param pts The pts value coming from the stream reader
  * \param stream The stream where the reader belongs to, used to obtain the reader pts diff and the segment pts offset
+ * \param originStream [OPT] The stream whose segment pts offset is the start of the window, if not the own one
  * \return The adjusted pts value
  */
-uint64_t PTSToElapsed(uint64_t pts, CStream* stream)
+uint64_t PTSToElapsed(uint64_t pts, CStream* stream, const CStream* originStream = nullptr)
 {
   if (!stream)
   {
@@ -76,7 +77,8 @@ uint64_t PTSToElapsed(uint64_t pts, CStream* stream)
   if (manifestTime < 0)
     manifestTime = 0;
 
-  const adaptive::AdaptiveStream& adStream = stream->m_adStream;
+  const adaptive::AdaptiveStream& adStream =
+      originStream ? originStream->m_adStream : stream->m_adStream;
 
   if (static_cast<uint64_t>(manifestTime) > adStream.GetAbsolutePTSOffset())
     return static_cast<uint64_t>(manifestTime) - adStream.GetAbsolutePTSOffset();
@@ -973,6 +975,11 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
   // PTS diff of the video reader before the seek, compared with the audio ones
   std::optional<int64_t> videoPtsDiff;
 
+  // The timelines of the streams can start at different segments, so the window start of each
+  // stream differs. Seek all of them to the same time, from the window start of the timing stream
+  const CStream* timeOrigin{m_timingStream && m_timingStream->IsEnabled() ? m_timingStream.get()
+                                                                          : nullptr};
+
   for (auto& stream : m_streams)
   {
     ISampleReader* streamReader{stream->GetReader()};
@@ -983,7 +990,8 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     if (!stream->IsEnabled())
       continue;
 
-    const uint64_t seekTimePts = seekTimeCorrected + stream->m_adStream.GetAbsolutePTSOffset();
+    const CStream* origin{timeOrigin ? timeOrigin : stream.get()};
+    const uint64_t seekTimePts = seekTimeCorrected + origin->m_adStream.GetAbsolutePTSOffset();
 
     // With FMP4 audio stream included to video stream you must not seek with AdaptiveStream
     // segments are managed by AdaptiveStream of the video stream
@@ -1039,7 +1047,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     }
     else
     {
-      const uint64_t destTimePts = PTSToElapsed(streamReader->PTS(), stream.get());
+      const uint64_t destTimePts = PTSToElapsed(streamReader->PTS(), stream.get(), timeOrigin);
       const double destTimeSecs{static_cast<double>(destTimePts) / STREAM_TIME_BASE};
 
       // Note: TS sample reader with included streams have a dynamic streamId,
