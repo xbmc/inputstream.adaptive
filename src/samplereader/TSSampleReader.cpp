@@ -77,7 +77,7 @@ bool CTSSampleReader::RemoveStreamType(INPUTSTREAM_TYPE type)
   return m_typeMask == 0;
 }
 
-AP4_Result CTSSampleReader::Start(std::optional<uint64_t> pts)
+AP4_Result CTSSampleReader::Start(std::optional<uint64_t> pts, PtsType ptsType)
 {
   if (m_started)
     return AP4_SUCCESS;
@@ -90,7 +90,7 @@ AP4_Result CTSSampleReader::Start(std::optional<uint64_t> pts)
 
   AP4_Result ret;
   if (pts.has_value())
-    TimeSeek(*pts) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
+    TimeSeek(*pts, ptsType) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
   else
     ret = ReadSample();
 
@@ -123,7 +123,7 @@ void CTSSampleReader::Reset(bool bEOS)
   m_eos = bEOS;
 }
 
-bool CTSSampleReader::TimeSeek(uint64_t pts)
+bool CTSSampleReader::TimeSeek(uint64_t pts, PtsType ptsType)
 {
   if (!StartStreaming(m_typeMask))
     return false;
@@ -132,8 +132,9 @@ bool CTSSampleReader::TimeSeek(uint64_t pts)
   if (AP4_FAILED(ReadSample()))
       return false;
 
-  // compensate the pts diff with the manifest timing
-  pts += m_ptsDiff;
+  // compensate the pts diff with the manifest timing, the sample read above may have refreshed it
+  if (ptsType == PtsType::MANIFEST)
+    pts += m_ptsDiff;
 
   AP4_UI64 seekPos((pts * 9) / 100);
   if (TSReader::SeekTime(seekPos))

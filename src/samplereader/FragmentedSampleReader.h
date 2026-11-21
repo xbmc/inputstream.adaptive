@@ -100,7 +100,7 @@ public:
 
   virtual void SetDecrypter(std::shared_ptr<DRM::DRMSession> drmSession) override;
 
-  AP4_Result Start(std::optional<uint64_t> pts) override;
+  AP4_Result Start(std::optional<uint64_t> pts, PtsType ptsType) override;
   AP4_Result ReadSample() override;
   void Reset(bool bEOS) override;
   bool EOS() const override { return m_eos; }
@@ -112,7 +112,7 @@ public:
   uint64_t GetDuration() const override;
   bool IsEncrypted() const override;
   bool GetInformation(kodi::addon::InputstreamInfo& info) override;
-  bool TimeSeek(uint64_t pts) override;
+  bool TimeSeek(uint64_t pts, PtsType ptsType) override;
   void SetPTSOffset(uint64_t offset) override;
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
   bool GetFragmentInfo(uint64_t& duration) override;

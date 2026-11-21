@@ -37,11 +37,18 @@ enum class BufferState
 
 struct SegmentBuffer
 {
+  struct Snapshot
+  {
+    BufferState state;
+    size_t size;
+  };
+
   SegmentBuffer() = default;
   ~SegmentBuffer() = default;
 
   void ChangeState(BufferState state);
   BufferState State() const;
+  Snapshot GetSnapshot() const;
 
   PLAYLIST::CSegment segment;
   PLAYLIST::CRepresentation* rep{nullptr};

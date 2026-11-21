@@ -26,6 +26,12 @@ BufferState ADP::SegmentBuffer::State() const
   return m_state;
 }
 
+ADP::SegmentBuffer::Snapshot ADP::SegmentBuffer::GetSnapshot() const
+{
+  std::lock_guard<std::mutex> lock(m_rwMutex);
+  return {m_state, buffer.size()};
+}
+
 const std::vector<uint8_t> ADP::SegmentBuffer::ReadBuffer() const
 {
   std::lock_guard<std::mutex> lock(m_rwMutex);

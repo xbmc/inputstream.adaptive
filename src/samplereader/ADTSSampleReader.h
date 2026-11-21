@@ -25,14 +25,14 @@ public:
   bool EOS() const override { return m_eos; }
   uint64_t DTS() const override { return m_pts; }
   uint64_t PTS() const override { return m_pts; }
-  AP4_Result Start(std::optional<uint64_t> pts) override;
+  AP4_Result Start(std::optional<uint64_t> pts, PtsType ptsType) override;
   AP4_Result ReadSample() override;
   void Reset(bool bEOS) override;
   bool GetInformation(kodi::addon::InputstreamInfo& info) override
   {
     return ADTSReader::GetInformation(info);
   }
-  bool TimeSeek(uint64_t pts) override;
+  bool TimeSeek(uint64_t pts, PtsType ptsType) override;
   void SetPTSOffset(uint64_t offset) override { m_ptsOffs = offset; }
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
   uint32_t GetTimeScale() const override { return 90000; }
