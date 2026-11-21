@@ -108,7 +108,7 @@ bool CSubtitleSampleReader::InitializeFile(std::string url)
   return true;
 }
 
-AP4_Result CSubtitleSampleReader::Start(std::optional<uint64_t> pts)
+AP4_Result CSubtitleSampleReader::Start(std::optional<uint64_t> pts, PtsType ptsType)
 {
   if (!m_codecHandler)
   {
@@ -121,7 +121,7 @@ AP4_Result CSubtitleSampleReader::Start(std::optional<uint64_t> pts)
 
   AP4_Result ret;
   if (pts.has_value())
-    TimeSeek(*pts) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
+    TimeSeek(*pts, ptsType) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
   else
     ret = ReadSample();
 
@@ -231,8 +231,9 @@ bool CSubtitleSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
   return false;
 }
 
-bool CSubtitleSampleReader::TimeSeek(uint64_t pts)
+bool CSubtitleSampleReader::TimeSeek(uint64_t pts, PtsType /*ptsType*/)
 {
+  // The PTS diff is always 0, so both timings are the same
   if (dynamic_cast<WebVTTCodecHandler*>(m_codecHandler.get()))
   {
     return AP4_SUCCEEDED(ReadSample());

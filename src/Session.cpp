@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <optional>
 
 using namespace adaptive;
 using namespace PLAYLIST;
@@ -53,9 +54,10 @@ uint32_t MakeUniqueId(uint16_t periodIndex, uint16_t streamIndex)
  * \brief Provide a pts value that represents the time elapsed from current stream window
  * \param pts The pts value coming from the stream reader
  * \param stream The stream where the reader belongs to, used to obtain the reader pts diff and the segment pts offset
+ * \param originStream [OPT] The stream whose segment pts offset is the start of the window, if not the own one
  * \return The adjusted pts value
  */
-uint64_t PTSToElapsed(uint64_t pts, CStream* stream)
+uint64_t PTSToElapsed(uint64_t pts, CStream* stream, const CStream* originStream = nullptr)
 {
   if (!stream)
   {
@@ -75,7 +77,8 @@ uint64_t PTSToElapsed(uint64_t pts, CStream* stream)
   if (manifestTime < 0)
     manifestTime = 0;
 
-  const adaptive::AdaptiveStream& adStream = stream->m_adStream;
+  const adaptive::AdaptiveStream& adStream =
+      originStream ? originStream->m_adStream : stream->m_adStream;
 
   if (static_cast<uint64_t>(manifestTime) > adStream.GetAbsolutePTSOffset())
     return static_cast<uint64_t>(manifestTime) - adStream.GetAbsolutePTSOffset();
@@ -106,6 +109,7 @@ void SESSION::CSession::DeleteStreams()
   LOG::Log(LOGDEBUG, "CSession::DeleteStreams()");
   m_streams.clear();
   m_timingStream = nullptr;
+  m_isStartAligned = false;
 }
 
 /*----------------------------------------------------------------------
@@ -308,6 +312,7 @@ void SESSION::CSession::InitializePeriod()
 
   // Clean to create new SESSION::STREAM objects. One for each AdaptationSet/Representation
   m_streams.clear();
+  m_isStartAligned = false;
 
   CPeriod* currPeriod = m_adaptiveTree->m_currentPeriod;
   if (!currPeriod)
@@ -849,7 +854,12 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
   {
     return true;
   }
-  else if (res)
+
+  // Deliver nothing this time, the next call picks the sample from the realigned streams
+  if (res && !m_isStartAligned && AlignStartStreams())
+    return true;
+
+  if (res)
   {
     ISampleReader* sr{res->GetReader()};
 
@@ -860,6 +870,91 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     return true;
   }
   return false;
+}
+
+bool SESSION::CSession::AlignStartStreams()
+{
+  CStream* video{nullptr};
+  for (auto& stream : m_streams)
+  {
+    ISampleReader* reader{stream->GetReader()};
+    const INPUTSTREAM_TYPE type{stream->m_info.GetStreamType()};
+    if (!reader || !stream->IsEnabled() || reader->EOS() ||
+        (type != INPUTSTREAM_TYPE_VIDEO && type != INPUTSTREAM_TYPE_AUDIO))
+      continue;
+    // Wait until the audio and video streams have their first sample. Until then samples are
+    // delivered unaligned, so that a stream that fails to start does not stall the playback
+    if (!reader->IsStarted())
+      return false;
+    if (!video && type == INPUTSTREAM_TYPE_VIDEO)
+      video = stream.get();
+  }
+  m_isStartAligned = true;
+
+  if (!video)
+    return false;
+
+  ISampleReader* videoReader{video->GetReader()};
+  videoReader->WaitReadSampleAsyncComplete();
+  const uint64_t videoReaderPts{videoReader->PTS()};
+  if (videoReaderPts == STREAM_NOPTS_VALUE)
+    return false;
+
+  // Each stream starts at a segment of its own timeline, e.g. the first one when the timeshift
+  // buffer is played. The timelines can start at different segments, so the audio can start
+  // earlier than the video
+  bool isRealigned{false};
+
+  for (auto& stream : m_streams)
+  {
+    ISampleReader* reader{stream->GetReader()};
+    if (!reader || !stream->IsEnabled() || reader->EOS() ||
+        stream->m_info.GetStreamType() != INPUTSTREAM_TYPE_AUDIO ||
+        (reader->GetType() == ISampleReader::Type::FMP4 &&
+         stream->m_adStream.getRepresentation()->IsIncludedStream()))
+      continue;
+
+    reader->WaitReadSampleAsyncComplete();
+    if (reader->PTS() == STREAM_NOPTS_VALUE)
+      continue;
+
+    // Audio starting later has no data before, its timeline begins after the video one
+    const int64_t avDeltaPts{static_cast<int64_t>(reader->PTS()) -
+                             static_cast<int64_t>(videoReaderPts)};
+    if (avDeltaPts >= -static_cast<int64_t>(STREAM_TIME_BASE / 2))
+      continue;
+
+    // The audio segment that contains the video PTS, from the audio PTS diff
+    const int64_t audioManifestPts{static_cast<int64_t>(videoReaderPts) - reader->GetPTSDiff()};
+    if (audioManifestPts < 0)
+      continue;
+    const double audioSecs{static_cast<double>(audioManifestPts) / STREAM_TIME_BASE};
+
+    // Unchanged if the segment is not found, the audio then just starts early
+    if (!stream->m_adStream.seek_time(audioSecs))
+    {
+      LOG::Log(LOGWARNING, "Start A/V align: no segment at %0.1lf for audio stream %i", audioSecs,
+               reader->GetStreamId());
+      continue;
+    }
+
+    isRealigned = true;
+    reader->Reset(false);
+    if (reader->TimeSeek(videoReaderPts, ISampleReader::PtsType::READER))
+    {
+      LOG::Log(LOGINFO,
+               "Start A/V align: audio stream %i started %0.3lfs off the video, now at PTS %llu, "
+               "video PTS %llu",
+               reader->GetStreamId(), static_cast<double>(avDeltaPts) / STREAM_TIME_BASE,
+               reader->PTS(), videoReaderPts);
+    }
+    else
+    {
+      LOG::Log(LOGWARNING, "Start A/V align: cannot seek audio stream %i to %0.1lf",
+               reader->GetStreamId(), audioSecs);
+    }
+  }
+  return isRealigned;
 }
 
 bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
@@ -920,13 +1015,14 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
   }
 
   // Helper lambda to perform the seek on stream reader
-  auto SeekReader = [this](CStream& stream, uint64_t seekTimePts) -> bool
+  auto SeekReader = [this](CStream& stream, uint64_t seekTimePts,
+                           ISampleReader::PtsType ptsType) -> bool
   {
     auto reader = stream.GetReader();
     // Seeking across chapters/periods the reader is not started yet
     if (!reader->IsStarted())
     {
-      if (AP4_FAILED(reader->Start(seekTimePts)))
+      if (AP4_FAILED(reader->Start(seekTimePts, ptsType)))
         return false;
 
       if (reader->GetInformation(stream.m_info))
@@ -934,7 +1030,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     }
     else
     {
-      if (!reader->TimeSeek(seekTimePts))
+      if (!reader->TimeSeek(seekTimePts, ptsType))
         return false;
     }
     return true;
@@ -965,6 +1061,17 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 
   // NOTE: It is assumed that the streams are ordered by video type (on m_streams), so we will seek first the video stream
   // to get the closest sample PTS to the requested seek time, then we will use to seek/align the other streams
+
+  // Reader PTS of the video sample delivered, used to align the audio streams
+  std::optional<uint64_t> videoReaderPts;
+  // PTS diff of the video reader before the seek, compared with the audio ones
+  std::optional<int64_t> videoPtsDiff;
+
+  // The timelines of the streams can start at different segments, so the window start of each
+  // stream differs. Seek all of them to the same time, from the window start of the timing stream
+  const CStream* timeOrigin{m_timingStream && m_timingStream->IsEnabled() ? m_timingStream.get()
+                                                                          : nullptr};
+
   for (auto& stream : m_streams)
   {
     ISampleReader* streamReader{stream->GetReader()};
@@ -975,7 +1082,8 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     if (!stream->IsEnabled())
       continue;
 
-    const uint64_t seekTimePts = seekTimeCorrected + stream->m_adStream.GetAbsolutePTSOffset();
+    const CStream* origin{timeOrigin ? timeOrigin : stream.get()};
+    const uint64_t seekTimePts = seekTimeCorrected + origin->m_adStream.GetAbsolutePTSOffset();
 
     // With FMP4 audio stream included to video stream you must not seek with AdaptiveStream
     // segments are managed by AdaptiveStream of the video stream
@@ -983,9 +1091,27 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     const bool hasAdStream = !(streamReader->GetType() == ISampleReader::Type::FMP4 &&
                                stream->m_adStream.getRepresentation()->IsIncludedStream());
 
+    // Align audio to the delivered video PTS instead of its own manifest timing, which drifts
+    const bool alignToVideoPts =
+        videoReaderPts.has_value() && stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO;
+
+    if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO && !videoPtsDiff &&
+        streamReader->IsStarted())
+      videoPtsDiff = streamReader->GetPTSDiff();
+
     if (hasAdStream)
     {
-      const double seekSecs{static_cast<double>(seekTimePts) / STREAM_TIME_BASE};
+      int64_t segmentPts{static_cast<int64_t>(seekTimePts)};
+      // The audio and video PTS diffs can differ, so the video PTS can be in another audio
+      // segment. Correct by their difference before the seek, which unlike the audio diff alone
+      // does not change at a discontinuity
+      if (alignToVideoPts && videoPtsDiff && streamReader->IsStarted())
+      {
+        const int64_t correctedPts{segmentPts - (streamReader->GetPTSDiff() - *videoPtsDiff)};
+        if (correctedPts >= 0)
+          segmentPts = correctedPts;
+      }
+      const double seekSecs{static_cast<double>(segmentPts) / STREAM_TIME_BASE};
 
       if (!SeekAdStream(*stream, seekSecs))
       {
@@ -997,7 +1123,11 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
 
-    if (!SeekReader(*stream, seekTimePts))
+    const bool seekOk =
+        alignToVideoPts
+            ? SeekReader(*stream, *videoReaderPts, ISampleReader::PtsType::READER)
+            : SeekReader(*stream, seekTimePts, ISampleReader::PtsType::MANIFEST);
+    if (!seekOk)
     {
       streamReader->Reset(true);
 
@@ -1009,7 +1139,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     }
     else
     {
-      const uint64_t destTimePts = PTSToElapsed(streamReader->PTS(), stream.get());
+      const uint64_t destTimePts = PTSToElapsed(streamReader->PTS(), stream.get(), timeOrigin);
       const double destTimeSecs{static_cast<double>(destTimePts) / STREAM_TIME_BASE};
 
       // Note: TS sample reader with included streams have a dynamic streamId,
@@ -1017,6 +1147,20 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       // maybe this could be improved on sample reader to always start the seek from a video packet
       LOG::Log(LOGINFO, "Seek time %0.1lf for stream: %i continues at %0.1lf (PTS: %llu)", seekTime,
                streamReader->GetStreamId(), destTimeSecs, streamReader->PTS());
+
+      if (alignToVideoPts)
+      {
+        const int64_t avDeltaPts{static_cast<int64_t>(streamReader->PTS()) -
+                                 static_cast<int64_t>(*videoReaderPts)};
+        constexpr int64_t avDeltaWarnPts{STREAM_TIME_BASE / 2};
+        const int64_t avDeltaAbs{avDeltaPts < 0 ? -avDeltaPts : avDeltaPts};
+
+        LOG::Log(avDeltaAbs > avDeltaWarnPts ? LOGWARNING : LOGINFO,
+                 "Seek A/V align: audio stream %i landed at PTS %llu, target (video) PTS %llu, "
+                 "delta %lld (%0.3lfs)",
+                 streamReader->GetStreamId(), streamReader->PTS(), *videoReaderPts, avDeltaPts,
+                 static_cast<double>(avDeltaPts) / STREAM_TIME_BASE);
+      }
 
       // We replace the seek time PTS initially requested with the PTS of the video sample found
       // in order to search the audio/subtitle sample packet more accurately.
@@ -1027,6 +1171,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
       {
         seekTime = destTimeSecs;
+        videoReaderPts = streamReader->PTS();
 
         if (seekTimeCorrected != destTimePts)
         {
@@ -1037,6 +1182,7 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
       }
     }
   }
+  m_isStartAligned = true;
   return true;
 }
 
