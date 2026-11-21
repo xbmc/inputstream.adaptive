@@ -970,6 +970,8 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 
   // Reader PTS of the video sample delivered, used to align the audio streams
   std::optional<uint64_t> videoReaderPts;
+  // PTS diff of the video reader before the seek, compared with the audio ones
+  std::optional<int64_t> videoPtsDiff;
 
   for (auto& stream : m_streams)
   {
@@ -989,9 +991,27 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
     const bool hasAdStream = !(streamReader->GetType() == ISampleReader::Type::FMP4 &&
                                stream->m_adStream.getRepresentation()->IsIncludedStream());
 
+    // Align audio to the delivered video PTS instead of its own manifest timing, which drifts
+    const bool alignToVideoPts =
+        videoReaderPts.has_value() && stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO;
+
+    if (stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_VIDEO && !videoPtsDiff &&
+        streamReader->IsStarted())
+      videoPtsDiff = streamReader->GetPTSDiff();
+
     if (hasAdStream)
     {
-      const double seekSecs{static_cast<double>(seekTimePts) / STREAM_TIME_BASE};
+      int64_t segmentPts{static_cast<int64_t>(seekTimePts)};
+      // The audio and video PTS diffs can differ, so the video PTS can be in another audio
+      // segment. Correct by their difference before the seek, which unlike the audio diff alone
+      // does not change at a discontinuity
+      if (alignToVideoPts && videoPtsDiff && streamReader->IsStarted())
+      {
+        const int64_t correctedPts{segmentPts - (streamReader->GetPTSDiff() - *videoPtsDiff)};
+        if (correctedPts >= 0)
+          segmentPts = correctedPts;
+      }
+      const double seekSecs{static_cast<double>(segmentPts) / STREAM_TIME_BASE};
 
       if (!SeekAdStream(*stream, seekSecs))
       {
@@ -1002,10 +1022,6 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
         return false;
       }
     }
-
-    // Align audio to the delivered video PTS instead of its own manifest timing, which drifts
-    const bool alignToVideoPts =
-        videoReaderPts.has_value() && stream->m_info.GetStreamType() == INPUTSTREAM_TYPE_AUDIO;
 
     const bool seekOk =
         alignToVideoPts
