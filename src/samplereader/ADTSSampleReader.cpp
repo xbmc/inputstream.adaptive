@@ -25,14 +25,14 @@ bool CADTSSampleReader::Initialize(SESSION::CStream* stream)
   return true;
 }
 
-AP4_Result CADTSSampleReader::Start(std::optional<uint64_t> pts)
+AP4_Result CADTSSampleReader::Start(std::optional<uint64_t> pts, PtsType ptsType)
 {
   if (m_started)
     return AP4_SUCCESS;
 
   AP4_Result ret;
   if (pts.has_value())
-    TimeSeek(*pts) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
+    TimeSeek(*pts, ptsType) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
   else
     ret = ReadSample();
 
@@ -67,14 +67,15 @@ void CADTSSampleReader::Reset(bool bEOS)
   m_eos = bEOS;
 }
 
-bool CADTSSampleReader::TimeSeek(uint64_t pts)
+bool CADTSSampleReader::TimeSeek(uint64_t pts, PtsType ptsType)
 {
   // ADTSReader::SeekTime expect a sample already read to be able to find the correct position of the requested PTS
   if (AP4_FAILED(ReadSample()))
     return false;
 
-  // compensate the pts diff with the manifest timing
-  pts += m_ptsDiff;
+  // compensate the pts diff with the manifest timing, the sample read above may have refreshed it
+  if (ptsType == PtsType::MANIFEST)
+    pts += m_ptsDiff;
 
   AP4_UI64 seekPos{(pts * 9) / 100};
   if (ADTSReader::SeekTime(seekPos))

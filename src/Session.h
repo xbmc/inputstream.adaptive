@@ -257,6 +257,13 @@ protected:
   uint64_t GetMediaDurationMs();
 
 private:
+  /*!
+   * \brief Seek the audio streams to the first video sample once all streams are started,
+   *        if they started earlier than it.
+   * \return True if an audio stream was sought again
+   */
+  bool AlignStartStreams();
+
   DRM::CDRMEngine m_drmEngine;
 
   adaptive::AdaptiveTree* m_adaptiveTree{nullptr};
@@ -266,6 +273,7 @@ private:
   std::shared_ptr<CStream> m_timingStream;
 
   bool m_changed{false};
+  bool m_isStartAligned{false}; // Audio aligned to the video after the streams started
   uint64_t m_elapsedTime{0};
   uint64_t m_chapterStartTime{0}; // In STREAM_TIME_BASE
   double m_chapterSeekTime{0.0}; // In seconds

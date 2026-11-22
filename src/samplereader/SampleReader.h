@@ -80,11 +80,22 @@ public:
   virtual uint64_t PTS() const = 0;
   virtual uint64_t DTSorPTS() const { return DTS() < PTS() ? DTS() : PTS(); };
   /*!
+   * \brief Timing of a PTS passed to Start() and TimeSeek()
+   */
+  enum class PtsType
+  {
+    MANIFEST, // Manifest timing, the reader applies its PTS diff
+    READER, // Reader timing, as returned by PTS()
+  };
+
+  /*!
    * \brief Start the reader by reading the first packet.
    * \param pts[OPT] The PTS where to start reading.
+   * \param ptsType[OPT] The timing of pts.
    * \return AP4_SUCCESS if reader is started or was already started, otherwise an error result.
    */
-  virtual AP4_Result Start(std::optional<uint64_t> pts = std::nullopt) = 0;
+  virtual AP4_Result Start(std::optional<uint64_t> pts = std::nullopt,
+                           PtsType ptsType = PtsType::MANIFEST) = 0;
   virtual AP4_Result ReadSample() = 0;
   virtual void Reset(bool bEOS) = 0;
   virtual bool GetInformation(kodi::addon::InputstreamInfo& info) = 0;
@@ -92,9 +103,10 @@ public:
   /*!
    * \brief Advance the reader to requested PTS.
    * \param pts The PTS to seek for
+   * \param ptsType[OPT] The timing of pts.
    * \return True if has success, otherwise false.
    */
-  virtual bool TimeSeek(uint64_t pts) = 0;
+  virtual bool TimeSeek(uint64_t pts, PtsType ptsType = PtsType::MANIFEST) = 0;
 
   virtual void SetPTSOffset(uint64_t offset) = 0;
   virtual int64_t GetPTSDiff() const = 0;
