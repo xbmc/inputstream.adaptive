@@ -236,14 +236,14 @@ void CFragmentedSampleReader::SetDecrypter(std::shared_ptr<DRM::DRMSession> drmS
   }
 }
 
-AP4_Result CFragmentedSampleReader::Start(std::optional<uint64_t> pts)
+AP4_Result CFragmentedSampleReader::Start(std::optional<uint64_t> pts, PtsType ptsType)
 {
   if (m_started)
     return AP4_SUCCESS;
 
   AP4_Result ret;
   if (pts.has_value())
-    TimeSeek(*pts) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
+    TimeSeek(*pts, ptsType) ? ret = AP4_SUCCESS : ret = AP4_ERROR_EOS;
   else
     ret = ReadSample();
 
@@ -407,10 +407,11 @@ bool CFragmentedSampleReader::GetInformation(kodi::addon::InputstreamInfo& info)
   return isChanged;
 }
 
-bool CFragmentedSampleReader::TimeSeek(uint64_t pts)
+bool CFragmentedSampleReader::TimeSeek(uint64_t pts, PtsType ptsType)
 {
   // compensate the pts diff with the manifest timing
-  pts += m_ptsDiff;
+  if (ptsType == PtsType::MANIFEST)
+    pts += m_ptsDiff;
 
   AP4_Ordinal sampleIndex;
   AP4_UI64 seekPos(static_cast<AP4_UI64>((pts * m_timeBaseInt) / m_timeBaseExt));
