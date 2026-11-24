@@ -110,9 +110,11 @@ bool CClearKeyCencSingleSampleDecrypter::HasKeyId(const std::vector<uint8_t>& ke
 
 AP4_UI32 CClearKeyCencSingleSampleDecrypter::AddPool()
 {
-  const AP4_UI32 poolId = static_cast<AP4_UI32>(m_pool.size());
-
-  m_pool.emplace(poolId, PINFO());
+  AP4_UI32 poolId;
+  do
+  {
+    poolId = m_nextPoolId++;
+  } while (!m_pool.emplace(poolId, PINFO()).second);
 
   return poolId;
 }
