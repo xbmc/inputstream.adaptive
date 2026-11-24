@@ -79,6 +79,7 @@ private:
 
   // \brif Decrypter pool
   std::map<AP4_UI32, PINFO> m_pool; // ID - Pool info
+  AP4_UI32 m_nextPoolId{0};
 
   DRM::Config m_config;
   std::vector<uint8_t> m_defaultKeyId;

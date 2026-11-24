@@ -27,7 +27,9 @@ typedef intptr_t ssize_t;
 #include <sys/types.h>
 #endif // TARGET_POSIX
 
+#ifndef ATTR_DLL_LOCAL
 #define ATTR_DLL_LOCAL
+#endif
 
 typedef enum CURLOptiontype
 {

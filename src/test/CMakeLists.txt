@@ -6,6 +6,7 @@ add_definitions(-DINPUTSTREAM_TEST_BUILD)
 
 add_executable(${BINARY}
     TestMain.cpp
+    TestClearKeyDecrypter.cpp
     TestDASHTree.cpp
     TestHLSTree.cpp
     TestSmoothTree.cpp
@@ -15,6 +16,7 @@ add_executable(${BINARY}
     ../decrypters/Helpers.cpp
     ../decrypters/HelperPr.cpp
     ../decrypters/HelperWv.cpp
+    ../decrypters/clearkey/ClearKeyCencSingleSampleDecrypter.cpp
     ../parser/DASHTree.cpp
     ../parser/HLSTree.cpp
     ../parser/SmoothTree.cpp

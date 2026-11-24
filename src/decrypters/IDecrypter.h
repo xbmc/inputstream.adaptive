@@ -18,7 +18,16 @@
 #include <optional>
 #include <string_view>
 
+#ifdef INPUTSTREAM_TEST_BUILD
+#include <kodi/c-api/addon-instance/video_codec.h>
+
+namespace kodi::addon
+{
+class CInstanceVideoCodec;
+}
+#else
 #include <kodi/addon-instance/VideoCodec.h>
+#endif
 
 class Adaptive_CencSingleSampleDecrypter;
 enum class CryptoMode;
