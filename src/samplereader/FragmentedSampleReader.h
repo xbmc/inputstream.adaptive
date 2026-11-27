@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <mutex>
+#include <vector>
 
 // forwards
 class CAdaptiveCencSampleDecrypter;
@@ -98,6 +99,8 @@ public:
 
   virtual std::vector<DRM::DRMInfo> GetInitDRMInfo() override;
 
+  std::vector<uint8_t> GetMediaSegmentPsshData(const uint8_t* systemId) override;
+
   virtual void SetDecrypter(std::shared_ptr<DRM::DRMSession> drmSession) override;
 
   AP4_Result Start(std::optional<uint64_t> pts) override;
@@ -135,8 +138,12 @@ protected:
 private:
   void UpdateSampleDescription();
   void ParseTrafTfrf(AP4_UuidAtom* uuidAtom);
-  void ParseTrafSgpd(AP4_ContainerAtom* traf);
-  void ParseMoofPssh(AP4_ContainerAtom* moof);
+  // Set m_fragmentKid from the SEIG sample group of the fragment, if any
+  void ParseTrafSeig(AP4_ContainerAtom* traf);
+  // KID of the samples: from SEIG, else the default KID of the session, empty if none or zeros
+  std::vector<uint8_t> GetKeyId() const;
+  // Get the PSSH data of a DRM from the media segment, empty if none
+  std::vector<uint8_t> ParseMoofPssh(AP4_ContainerAtom* moof, const uint8_t* systemId);
 
   AP4_Track* m_track;
   AP4_UI32 m_poolId{0};
@@ -158,6 +165,12 @@ private:
   std::shared_ptr<DRM::DRMSession> m_drmSession;
   std::unique_ptr<CAdaptiveCencSampleDecrypter> m_decrypter;
   CryptoInfo m_readerCryptoInfo{};
+  std::vector<uint8_t> m_fragmentKid; // KID of the current fragment from SEIG, empty if none
+  std::vector<uint8_t> m_lastSeigKid; // Last logged SEIG KID
+  std::vector<uint8_t> m_lastMoofPssh; // Last logged PSSH data of the media segments
+  std::vector<uint8_t> m_keyWaitedFor; // Last KID whose key has been waited for
+  std::vector<uint8_t> m_keyRewaitedFor; // KID waited for again after a decrypt failure
+  bool m_isSeigPartialWarned{false};
 
   std::shared_ptr<CLinearReader> m_lReader;
 };

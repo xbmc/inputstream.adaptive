@@ -14,6 +14,9 @@
 #include <kodi/AddonBase.h>
 #endif
 
+#include <cstdint>
+#include <vector>
+
 #include <bento4/Ap4.h>
 #include <bento4/Ap4SgpdAtom.h>
 
@@ -54,6 +57,26 @@ public:
 
   std::vector<CencSeigGroupEntry> GetSeigEntries();
 };
+
+// \brief Find the PSSH box of a DRM system in a media segment's MOOF. The box normally
+//        is a direct child of the MOOF, but some packagers place it inside a TRAF,
+//        so both are searched. PSSH boxes of other DRM systems are skipped.
+// \param moof The MOOF atom
+// \param systemId The 16-byte DRM system ID to look for
+// \return The Data field of the PSSH box (no box header), or empty if not found
+std::vector<std::uint8_t> FindMoofPsshData(AP4_ContainerAtom* moof, const std::uint8_t* systemId);
+
+// \brief Get the KID that the SEIG sample group assigns to the samples of a fragment
+//        (key rotation, ISO/IEC 23001-7). The SBGP box maps the samples to the entries
+//        of the SGPD box of the fragment. Only one KID per fragment is supported: when the
+//        samples use more KIDs, the KID of the first protected entry is returned and
+//        isPartial is set. Groups of the init segment (SBGP index up to 0x10000) are
+//        not resolved.
+// \param traf The TRAF atom
+// \param isPartial[OUT] Set when the fragment uses also other KIDs than the returned one
+// \return The 16-byte KID, or empty when the fragment has no KID of its own
+//         (the default KID of the track applies)
+std::vector<std::uint8_t> GetTrafSeigKid(AP4_ContainerAtom* traf, bool& isPartial);
 
 } // namespace BENTO4
 } // namespace UTILS

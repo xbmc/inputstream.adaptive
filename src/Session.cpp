@@ -720,6 +720,13 @@ bool SESSION::CSession::PrepareStream(CStream& stream)
   std::vector<DRM::DRMInfo> mediaDrmInfo = stream.GetReader()->GetInitDRMInfo();
   bool isDrmSecure{false};
 
+  if (!m_drmEngine.AddMediaSegmentDrmInfo(
+          manifestDrmInfo, mediaDrmInfo, [&stream](const uint8_t* systemId)
+          { return stream.GetReader()->GetMediaSegmentPsshData(systemId); }))
+  {
+    return false;
+  }
+
   if (!manifestDrmInfo.empty() || !mediaDrmInfo.empty())
   {
     DRM::DRMMediaType drmMediaType{DRM::DRMMediaType::UNKNOWN};

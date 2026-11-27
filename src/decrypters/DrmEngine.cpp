@@ -21,6 +21,8 @@
 #include "utils/UrlUtils.h"
 #include "utils/log.h"
 
+#include <algorithm>
+
 #include <nlohmann/json.hpp>
 
 using njson = nlohmann::json;
@@ -500,7 +502,7 @@ const std::shared_ptr<DRMSession> DRM::CDRMEngine::InitializeSession(
 
     std::vector<uint8_t> drmInfoKidBytes = DRM::ConvertKidStrToBytes(drmInfo.defaultKid);
 
-    if (m_isPreinitialized && m_sessions.size() == 1)
+    if (m_isPreinitialized && m_sessions.size() == 1 && !drmInfo.isFromMediaSegment)
     {
       // Widevine only, when the CDM is preinitialized for non-android systems
       // the session has been created with a custom PSSH/KID and it should
@@ -532,6 +534,14 @@ const std::shared_ptr<DRMSession> DRM::CDRMEngine::InitializeSession(
       {
         isReuseSession = true;
       }
+      // in-band key rotation without a KID of the stream (it is known only per fragment):
+      // share the session opened with the PSSH of a media segment. A stream whose PSSH has
+      // its own KID (e.g. audio with other keys than video) needs its own license
+      else if (drmInfo.isFromMediaSegment && s->isFromMediaSegment && drmInfoKidBytes.empty() &&
+               s->mediaType == mediaType)
+      {
+        isReuseSession = true;
+      }
       if (isReuseSession)
       {
         session = s;
@@ -558,6 +568,7 @@ const std::shared_ptr<DRMSession> DRM::CDRMEngine::InitializeSession(
       newSes.drm = drm;
       newSes.mediaType = mediaType;
       newSes.kid = drmInfo.defaultKid;
+      newSes.isFromMediaSegment = drmInfo.isFromMediaSegment;
 
       DRM::Config drmCfg = DRM::CreateDRMConfig(m_keySystem, drmPropCfg);
 
@@ -590,8 +601,10 @@ const std::shared_ptr<DRMSession> DRM::CDRMEngine::InitializeSession(
 
       const DRM::DRMInfo* altDrmInfo{nullptr};
 
-      // If the DRM license response doesn't contain the requested KID, try to find a fallback
-      if (licenseHasKey.has_value() && !*licenseHasKey)
+      // If the DRM license response doesn't contain the requested KID, try to find a fallback.
+      // A session opened with the PSSH of a media segment has no KID to verify,
+      // the KID changes with the key rotation and the decrypter renews the keys
+      if (licenseHasKey.has_value() && !*licenseHasKey && !drmInfo.isFromMediaSegment)
       {
         // Try check if the license contains another valid known KID
         for (size_t nextIdx = drmInfoIdx + 1; nextIdx < selDrmInfos.size(); ++nextIdx)
@@ -662,6 +675,7 @@ const std::shared_ptr<DRMSession> DRM::CDRMEngine::InitializeSession(
       newSes.decrypter = session->decrypter;
       newSes.mediaType = mediaType;
       newSes.kid = drmInfo.defaultKid;
+      newSes.isFromMediaSegment = session->isFromMediaSegment;
 
       if (drmInfo.defaultKid == session->kid) // Same KID same capabilities
       {
@@ -738,6 +752,80 @@ const std::shared_ptr<DRMSession> DRM::CDRMEngine::InitializeSession(
   streamInfo.SetCryptoSession(cryptoSession);
 
   return session;
+}
+
+const uint8_t* DRM::CDRMEngine::GetMediaSegmentPsshSystemId(
+    const std::vector<DRM::DRMInfo>& manifestDrmInfos,
+    const std::vector<DRM::DRMInfo>& mediaDrmInfos) const
+{
+#if ANDROID
+  // The keys renewal is implemented only by the Widevine CDM decrypter
+  return nullptr;
+#else
+  const auto& kodiProps = CSrvBroker::GetKodiProps();
+  // Init data provided by the "license" property takes precedence
+  if (!kodiProps.HasDrmConfig(KS_WIDEVINE) || !kodiProps.GetDrmConfig(KS_WIDEVINE).initData.empty())
+    return nullptr;
+
+  // The init segment must be encrypted, a track that is not encrypted
+  // can have a ContentProtection in the manifest without data
+  const bool isInitEncrypted =
+      std::any_of(mediaDrmInfos.cbegin(), mediaDrmInfos.cend(),
+                  [](const DRM::DRMInfo& info) { return info.cryptoMode != CryptoMode::NONE; });
+  if (!isInitEncrypted)
+    return nullptr;
+
+  // Init data of other DRM systems cannot open the Widevine session
+  auto hasSessionData = [](const DRM::DRMInfo& info)
+  {
+    if (!info.initData.empty() && info.keySystem == KS_WIDEVINE)
+      return true;
+    const std::vector<uint8_t> kid = DRM::ConvertKidStrToBytes(info.defaultKid);
+    return !kid.empty() && !DRM::IsAllZeroKey(kid);
+  };
+  if (std::any_of(manifestDrmInfos.cbegin(), manifestDrmInfos.cend(), hasSessionData) ||
+      std::any_of(mediaDrmInfos.cbegin(), mediaDrmInfos.cend(), hasSessionData))
+    return nullptr;
+
+  return DRM::ID_WIDEVINE;
+#endif
+}
+
+bool DRM::CDRMEngine::AddMediaSegmentDrmInfo(
+    const std::vector<DRM::DRMInfo>& manifestDrmInfos,
+    std::vector<DRM::DRMInfo>& mediaDrmInfos,
+    const std::function<std::vector<uint8_t>(const uint8_t* systemId)>& getPsshData) const
+{
+  const uint8_t* systemId = GetMediaSegmentPsshSystemId(manifestDrmInfos, mediaDrmInfos);
+  if (!systemId)
+    return true;
+
+  std::vector<uint8_t> psshData = getPsshData(systemId);
+  if (psshData.empty())
+  {
+    LOG::LogF(LOGERROR, "No PSSH found in the manifest, the init segment and the first "
+                        "media segment, the DRM session cannot be opened");
+    return false;
+  }
+
+  LOG::LogF(LOGINFO, "Using the PSSH of the first media segment (in-band keys)");
+  DRM::DRMInfo drmInfo;
+  drmInfo.keySystem = DRM::SystemIdToKeySystem(systemId);
+  drmInfo.initData = DRM::PSSH::Make(systemId, {}, psshData);
+  drmInfo.isFromMediaSegment = true;
+  // The protection scheme of the init segment, if any
+  for (const DRM::DRMInfo& info : mediaDrmInfos)
+  {
+    if (info.cryptoMode != CryptoMode::NONE)
+    {
+      drmInfo.cryptoMode = info.cryptoMode;
+      break;
+    }
+  }
+  // Must be the first one, the DRM infos of the init segment without init data
+  // and with a placeholder KID cannot open a session
+  mediaDrmInfos.insert(mediaDrmInfos.begin(), std::move(drmInfo));
+  return true;
 }
 
 const std::shared_ptr<DRMSession> DRM::CDRMEngine::GetSession(const std::string& id) const

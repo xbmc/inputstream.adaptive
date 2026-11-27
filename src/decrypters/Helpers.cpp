@@ -228,6 +228,11 @@ std::vector<uint8_t> DRM::ConvertKidStrToBytes(std::string_view kidStr)
   return kidBytes;
 }
 
+bool DRM::IsAllZeroKey(const std::vector<uint8_t>& kid)
+{
+  return !kid.empty() && std::all_of(kid.cbegin(), kid.cend(), [](uint8_t b) { return b == 0; });
+}
+
 std::string DRM::ConvertKidBytesToUUID(std::vector<uint8_t> kid)
 {
   if (kid.size() != 16)

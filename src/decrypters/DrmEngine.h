@@ -18,6 +18,7 @@
 #include <kodi/addon-instance/Inputstream.h>
 #endif
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -54,6 +55,22 @@ public:
                                                       std::optional<bool> isForceSecureDecoder,
                                                       kodi::addon::InputstreamInfo& streamInfo,
                                                       bool canCleanupSessions);
+
+  /*!
+   * \brief Some live streams with in-band key rotation have an encrypted init segment
+   *        without usable init data or default KID, only the media segments have the PSSH.
+   *        In this case, insert as first media DRM info the one with the PSSH of the
+   *        first media segment, to open the session with it.
+   * \param manifestDrmInfos The DRM info provided by the manifest
+   * \param mediaDrmInfos[in,out] The DRM info provided by the init segment
+   * \param getPsshData Get the PSSH data of the first media segment for a DRM system ID,
+   *                    empty if none
+   * \return False if the PSSH of the media segment is needed but not found, otherwise true
+   */
+  bool AddMediaSegmentDrmInfo(
+      const std::vector<DRM::DRMInfo>& manifestDrmInfos,
+      std::vector<DRM::DRMInfo>& mediaDrmInfos,
+      const std::function<std::vector<uint8_t>(const uint8_t* systemId)>& getPsshData) const;
 
   /*!
    * \brief Get the session by ID (dont take in account KID).
@@ -107,6 +124,16 @@ private:
 
   // \brief Get a DRM instance for the specified key system, it will return nullptr if not found
   std::shared_ptr<DRM::IDecrypter> GetDrmInstance(std::string_view ks) const;
+
+  /*!
+   * \brief Get the DRM system ID whose PSSH must be read from the first media segment.
+   * \param manifestDrmInfos The DRM info provided by the manifest
+   * \param mediaDrmInfos The DRM info provided by the init segment
+   * \return The system ID, nullptr if the PSSH of the media segment is not needed
+   *         or the decrypter cannot renew the keys
+   */
+  const uint8_t* GetMediaSegmentPsshSystemId(const std::vector<DRM::DRMInfo>& manifestDrmInfos,
+                                             const std::vector<DRM::DRMInfo>& mediaDrmInfos) const;
 
   std::string m_keySystem; // Choosen key system
   std::vector<DRMInstance> m_drms;

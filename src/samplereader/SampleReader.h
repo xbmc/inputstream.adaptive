@@ -62,6 +62,14 @@ public:
 
   virtual std::vector<DRM::DRMInfo> GetInitDRMInfo() { return {}; }
 
+  /*!
+   * \brief Get the PSSH data of the specified DRM from the first media segment.
+   *        To be called just after GetInitDRMInfo, before reading samples.
+   * \param systemId The DRM system ID
+   * \return The PSSH data (Data field of the PSSH box), empty if not found
+   */
+  virtual std::vector<uint8_t> GetMediaSegmentPsshData(const uint8_t* systemId) { return {}; }
+
   virtual void SetDecrypter(std::shared_ptr<DRM::DRMSession> drmSession)
   {
   }

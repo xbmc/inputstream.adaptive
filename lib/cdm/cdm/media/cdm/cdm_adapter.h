@@ -281,10 +281,14 @@ private:
   std::string cdm_base_path_;
   CdmAdapterClient* client_{nullptr};
   std::mutex client_mutex_;
-  std::mutex decrypt_mutex_;
-  std::mutex m_closeSessionMutex;
-  std::atomic<bool> m_isClosingSession;
-  std::condition_variable m_sessionClosingCond;
+  // Serializes all the calls into the CDM, it is not thread safe. The calls come from
+  // the demux/decode threads, the session handling and the timer threads.
+  // Recursive because the CDM calls the host synchronously, and a host callback
+  // could call into the CDM again on the same thread
+  std::recursive_mutex cdm_mutex_;
+  std::mutex m_timerMutex;
+  std::atomic<bool> m_isStoppingTimers{false};
+  std::condition_variable m_timerCond;
   std::vector<std::future<void>> m_asyncTimerTasks;
 
   std::string key_system_;
