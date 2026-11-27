@@ -71,6 +71,17 @@ public:
   uint64_t available_time_{0}; // in ms
   uint64_t m_liveDelay{0}; // Apply a delay in seconds from the live edge
 
+  // Default live delay in secs, used when neither the manifest nor the add-on provide one
+  static constexpr uint64_t LIVE_DELAY_DEFAULT_SECS{16};
+  // Lowest live delay in secs accepted from the add-on
+  static constexpr uint64_t LIVE_DELAY_MIN_SECS{4};
+  // With a live delay below the default, the minimum number of segments
+  // to keep from the live edge (as RFC 8216 section 6.3.3 for HLS)
+  static constexpr size_t LIVE_DELAY_MIN_SEGMENTS{3};
+  // Max distance in secs before its own start position that a stream
+  // moves its live start to, to start at the same position of the other streams
+  static constexpr double LIVE_START_ALIGN_MAX_SECS{30.0};
+
   AdaptiveTree() = default;
   AdaptiveTree(const AdaptiveTree& left);
   virtual ~AdaptiveTree() = default;
@@ -241,6 +252,33 @@ public:
    * \return True for live streaming content, otherwise false for VOD content
    */
   bool IsLive() const { return m_isLive; }
+
+  /*!
+   * \brief Check if the segment times of the live streams are on a common time base,
+   *        so a position of a stream can be found in the timeline of another stream.
+   * \return True if the streams share the time base, otherwise false
+   */
+  virtual bool HasAbsoluteLiveTimeline() const { return true; }
+
+  /*!
+   * \brief Check if the timeshift window of live content slides,
+   *        so its oldest segments are removed from the server over time.
+   * \return True if the timeshift window slides, otherwise false
+   */
+  virtual bool HasSlidingTimeshiftWindow() const { return m_isLive; }
+
+  /*!
+   * \brief Get the live start position chosen by the first stream started,
+   *        used to start the other streams (e.g. audio and video) at the same position.
+   * \return The start position in secs, if set
+   */
+  std::optional<double> GetLiveStartSecs() const;
+
+  /*!
+   * \brief Set the live start position chosen by a stream.
+   * \param secs The start position in secs
+   */
+  void SetLiveStartSecs(double secs);
 
   /*!
    * \brief Determines if a live manifest needs updates when new segments are requested
@@ -451,6 +489,10 @@ private:
       std::make_shared<const ChaptersSnapshot>()};
   // Guards the m_chaptersSnapshot pointer only, never held while doing any work
   mutable std::mutex m_chaptersSnapshotMutex;
+
+  // Live start position shared between the streams, streams can start from different threads
+  std::optional<double> m_liveStartSecs;
+  mutable std::mutex m_liveStartMutex;
 };
 
 } // namespace adaptive

@@ -700,6 +700,142 @@ TEST_F(DASHTreeTest, SuggestedPresentationDelay)
   EXPECT_EQ(tree->m_liveDelay, 32);
 }
 
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartExactSegmentDurations)
+{
+  // Video segments 1000-1029 of 1.92 secs, default live delay of 16 secs
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_EQ(tree->m_liveDelay, 16);
+
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
+  testStream->start_stream();
+  // Playback starts 9 segments (17.28 secs) from the live edge with segment 1021,
+  // the current segment is the one before
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1020);
+}
+
+TEST_F(DASHTreeTest, LiveSlidingTimeshiftWindow)
+{
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_TRUE(tree->HasSlidingTimeshiftWindow());
+}
+
+TEST_F(DASHTreeTest, LiveNoTimeshiftBufferDepthNotSliding)
+{
+  // Without the timeShiftBufferDepth attribute the timeshift buffer is infinite
+  OpenTestFile("mpd/segtimeline_live_no_tsb.mpd");
+  EXPECT_TRUE(tree->IsLive());
+  EXPECT_FALSE(tree->HasSlidingTimeshiftWindow());
+}
+
+TEST_F(DASHTreeTest, LiveDelayFromAddon)
+{
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":8}");
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_EQ(tree->m_liveDelay, 8);
+}
+
+TEST_F(DASHTreeTest, LiveDelayFromAddonBelowMinimum)
+{
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":2}");
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  EXPECT_EQ(tree->m_liveDelay, 4);
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartLowDelayShortSegments)
+{
+  // Video segments 1000-1029 of 1.92 secs, 3 segments (5.76 secs) exceed the 4 secs delay
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":4}");
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
+  testStream->start_stream();
+  // Playback starts with segment 1027, the current segment is the one before
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1026);
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartLowDelayMinSegments)
+{
+  // Video segments 1000-1009 of 6 secs, a single segment exceeds the 4 secs delay
+  // but a delay below the default requires at least 3 segments from the live edge
+  m_kodiProps.emplace("inputstream.adaptive.manifest_config", "{\"live_delay\":4}");
+  OpenTestFile("mpd/segtimeline_live_long_segs.mpd");
+
+  SetTestStream(NewStream(tree->m_periods[0]->GetAdaptationSets()[0].get()));
+  testStream->start_stream();
+  // Playback starts with segment 1007, the current segment is the one before
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1006);
+}
+
+// Segment times of segtimeline_live_short_segs.mpd include the period start (PT1588628086S)
+// and the availabilityStartTime (6 secs)
+constexpr double LIVE_TEST_BASE_SECS = 1588628092.0;
+
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartSharedByStreams)
+{
+  // Video segments of 1.92 secs and audio segments of 2 secs, both from 2922007 secs
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
+
+  // The video starts first with segment 1021 (2922047.32 secs) and sets the position
+  SetTestStream(NewStream(adpSets[0].get()));
+  testStream->start_stream();
+  ASSERT_TRUE(tree->GetLiveStartSecs().has_value());
+  EXPECT_NEAR(*tree->GetLiveStartSecs(), LIVE_TEST_BASE_SECS + 2922047.32, 0.001);
+
+  // The audio starts with the segment that contains the position, 1020 (2922047-2922049 secs)
+  SetTestStream(NewStream(adpSets[1].get()));
+  testStream->start_stream();
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1019);
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartAlignedToEarlierPosition)
+{
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
+
+  // Another stream started earlier at 2922040 secs, before the audio own start
+  // (segment 1020 at 2922047 secs), the audio starts with segment 1016 (2922039-2922041 secs)
+  tree->SetLiveStartSecs(LIVE_TEST_BASE_SECS + 2922040.0);
+  SetTestStream(NewStream(adpSets[1].get()));
+  testStream->start_stream();
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1015);
+  EXPECT_NEAR(*tree->GetLiveStartSecs(), LIVE_TEST_BASE_SECS + 2922040.0, 0.001);
+}
+
+TEST_F(DASHTreeAdaptiveStreamTest, LiveStartNotAlignedOutOfRange)
+{
+  OpenTestFile("mpd/segtimeline_live_short_segs.mpd");
+  auto& adpSets = tree->m_periods[0]->GetAdaptationSets();
+
+  // A position more than 30 secs before the audio own start is ignored
+  tree->SetLiveStartSecs(LIVE_TEST_BASE_SECS + 2922010.0);
+  SetTestStream(NewStream(adpSets[1].get()));
+  testStream->start_stream();
+  auto& currentSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(currentSeg.has_value());
+  EXPECT_EQ(currentSeg->m_number, 1019);
+  // The audio own start replaces it
+  EXPECT_NEAR(*tree->GetLiveStartSecs(), LIVE_TEST_BASE_SECS + 2922047.0, 0.001);
+
+  // A position closer to the live edge than the own start is ignored
+  tree->SetLiveStartSecs(LIVE_TEST_BASE_SECS + 2922060.0);
+  SetTestStream(NewStream(adpSets[0].get()));
+  testStream->start_stream();
+  auto& videoSeg = testStream->getRepresentation()->current_segment_;
+  ASSERT_TRUE(videoSeg.has_value());
+  EXPECT_EQ(videoSeg->m_number, 1020);
+}
+
 TEST_F(DASHTreeTest, SegmentTemplateStartNumber)
 {
   OpenTestFile("mpd/segmenttemplate_startnumber.mpd", "https://vod.service.net/SGP1/highlightpost/1234567890/1/web/dash/segtpl_sn.mpd");

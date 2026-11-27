@@ -112,6 +112,18 @@ namespace adaptive
     m_chaptersSnapshot = std::move(snapshot);
   }
 
+  std::optional<double> AdaptiveTree::GetLiveStartSecs() const
+  {
+    std::lock_guard<std::mutex> lock(m_liveStartMutex);
+    return m_liveStartSecs;
+  }
+
+  void AdaptiveTree::SetLiveStartSecs(double secs)
+  {
+    std::lock_guard<std::mutex> lock(m_liveStartMutex);
+    m_liveStartSecs = secs;
+  }
+
   void AdaptiveTree::PostOpen()
   {
     SortTree();
@@ -119,12 +131,13 @@ namespace adaptive
 
     // A manifest can provide live delay value, if not so we use our default
     // value of 16 secs, this is needed to ensure an appropriate playback,
-    // an add-on can override the delay to try fix edge use cases
-    uint64_t liveDelay = CSrvBroker::GetKodiProps().GetManifestConfig().liveDelay;
-    if (liveDelay >= 16)
-      m_liveDelay = liveDelay;
-    else if (m_liveDelay < 16)
-      m_liveDelay = 16;
+    // an add-on can override the delay to try fix edge use cases, also with
+    // a lower delay (e.g. for low latency streams with short segments)
+    const uint64_t liveDelay = CSrvBroker::GetKodiProps().GetManifestConfig().liveDelay;
+    if (liveDelay > 0)
+      m_liveDelay = std::max(liveDelay, LIVE_DELAY_MIN_SECS);
+    else if (m_liveDelay < LIVE_DELAY_DEFAULT_SECS)
+      m_liveDelay = LIVE_DELAY_DEFAULT_SECS;
 
     // Build the initial snapshot before the update thread can modify m_periods
     RefreshChaptersSnapshot();

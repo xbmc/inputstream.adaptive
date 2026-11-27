@@ -854,7 +854,10 @@ bool SESSION::CSession::GetNextSample(ISampleReader*& sampleReader)
     ISampleReader* sr{res->GetReader()};
 
     if (sr->PTS() != STREAM_NOPTS_VALUE && m_timingStream.get() == res)
-      m_elapsedTime = PTSToElapsed(sr->PTS(), res) + GetChapterStartTime();
+    {
+      m_elapsedChapterTime = PTSToElapsed(sr->PTS(), res);
+      m_elapsedTime = m_elapsedChapterTime + GetChapterStartTime();
+    }
 
     sampleReader = sr;
     return true;
@@ -870,6 +873,40 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
   //we don't have pts < 0 here and work internally with uint64
   if (seekTime < 0)
     seekTime = 0;
+
+  // When the timeshift window slides, its oldest segments are removed from the server
+  // while the manifest update is pending, seeking to the very start of the window
+  // can request segments no longer available (e.g. HTTP 404) and stop the playback,
+  // so keep a margin from the start of the window.
+  // The seek time is relative to the start of the oldest period, the margin must be applied
+  // before the period change, the chapter seek time is not applied when it is zero.
+  if (m_adaptiveTree->IsLive() && !CSrvBroker::GetKodiProps().IsPlayTimeshift() &&
+      m_adaptiveTree->HasSlidingTimeshiftWindow())
+  {
+    constexpr double LIVE_TSB_START_MARGIN_MAX_SECS = 30.0;
+    const double windowSecs = static_cast<double>(GetMediaDurationMs()) / 1000;
+    const double delayPtsSecs = windowSecs - m_adaptiveTree->m_liveDelay;
+    double margin =
+        std::min({LIVE_TSB_START_MARGIN_MAX_SECS, windowSecs * 0.25, std::max(delayPtsSecs, 0.0)});
+
+    // The window slides towards the current position, a seek backwards
+    // must not move the playback forward. The start of the chapter is taken now,
+    // it moves when the oldest period is removed, m_elapsedTime has the one of the last read
+    if (m_elapsedTime > 0)
+    {
+      const uint64_t elapsedTime = m_elapsedChapterTime + GetChapterStartTime();
+      const double elapsedSecs = static_cast<double>(elapsedTime) / STREAM_TIME_BASE;
+      if (elapsedSecs < margin)
+        margin = elapsedSecs;
+    }
+
+    if (seekTime < margin)
+    {
+      LOG::Log(LOGDEBUG, "SeekTime: keep a margin of %.1f secs from the timeshift window start",
+               margin);
+      seekTime = margin;
+    }
+  }
 
   // Check if we leave our current period
   {
@@ -911,8 +948,8 @@ bool SESSION::CSession::SeekTime(double seekTime, bool& isError)
 
   if (m_adaptiveTree->IsLive())
   {
-    double delayPtsSecs =
-        (static_cast<double>(GetMediaDurationMs()) / 1000) - m_adaptiveTree->m_liveDelay;
+    const double windowSecs = static_cast<double>(GetMediaDurationMs()) / 1000;
+    const double delayPtsSecs = windowSecs - m_adaptiveTree->m_liveDelay;
 
     // Check to avoid seek into live delay duration portion, to allow an appropriate live buffering
     if (seekTime > delayPtsSecs)

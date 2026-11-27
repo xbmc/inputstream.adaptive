@@ -669,33 +669,91 @@ bool adaptive::AdaptiveStream::start_stream()
         !m_tree->IsChangingPeriod() && !CSrvBroker::GetKodiProps().IsPlayTimeshift() &&
         !current_rep_->Timeline().IsEmpty())
     {
-      uint64_t totalDurSecs{0};
-      const uint64_t liveDelaySecs = m_tree->m_liveDelay;
+      // Sum the exact segment durations in timescale units, rounding each segment
+      // duration down to whole seconds made the delay much longer with short
+      // segments (e.g. 17 segments of 1.92 secs for a 16 secs delay)
+      uint64_t totalDur{0};
       const uint32_t timescale = current_rep_->GetTimescale();
+      const uint64_t liveDelay = m_tree->m_liveDelay * timescale;
+
+      // With a live delay below the default keep also a minimum number of
+      // segments from the live edge, on a short timeline the requirement alone
+      // must not move the start to the oldest segment
+      size_t minSegments{1};
+      if (m_tree->m_liveDelay < AdaptiveTree::LIVE_DELAY_DEFAULT_SECS)
+      {
+        const size_t timelineSize = current_rep_->Timeline().GetSize();
+        minSegments = std::min(AdaptiveTree::LIVE_DELAY_MIN_SEGMENTS,
+                               timelineSize > 1 ? timelineSize - 1 : timelineSize);
+      }
+      size_t segCount{0};
 
       //! @todo: This code does not consider that the live delay could cause the startup segment to be selected
       //! in the previous period when the current period has too few segments
       //! more likely live delay management should be moved just after manifest parsing and before period init
       auto timelineItRend = current_rep_->Timeline().rend();
+      auto itStart = timelineItRend;
 
       for (auto itSeg = current_rep_->Timeline().rbegin(); itSeg != timelineItRend;
            ++itSeg)
       {
-        // Implicit rounding down because managing PTS milliseconds negatively affects segment selection
-        totalDurSecs += (itSeg->m_endPts - itSeg->startPTS_) / timescale;
+        totalDur += itSeg->m_endPts - itSeg->startPTS_;
+        ++segCount;
         // Dont use >= since if live delay is equal to the segment duration
         // we may fall too close to the live edge to get new segments from manifest update
-        if (totalDurSecs > liveDelaySecs)
+        if (totalDur > liveDelay && segCount >= minSegments)
         {
-          if (itSeg != timelineItRend)
-          {
-            // GetNextSegment used below requires the previous one, then advance
-            ++itSeg;
-            if (itSeg != timelineItRend)
-              current_rep_->current_segment_ = *itSeg;
-          }
+          itStart = itSeg;
           break;
         }
+      }
+
+      // Streams are opened one after another (e.g. the video can take seconds to
+      // open the DRM session), so each stream counting the delay from its own live
+      // edge can start at a different position. The first stream started sets the
+      // position, the others start from the segment that contains it, when it is
+      // not closer to the live edge than their own start and not too far from it
+      if (itStart != timelineItRend && m_tree->HasAbsoluteLiveTimeline())
+      {
+        const double startSecs = static_cast<double>(itStart->startPTS_) / timescale;
+        const double startEndSecs = static_cast<double>(itStart->m_endPts) / timescale;
+        const std::optional<double> sharedStart = m_tree->GetLiveStartSecs();
+        bool isAligned{false};
+
+        if (sharedStart && *sharedStart < startEndSecs &&
+            *sharedStart >= startSecs - AdaptiveTree::LIVE_START_ALIGN_MAX_SECS)
+        {
+          for (auto itSeg = itStart; itSeg != timelineItRend; ++itSeg)
+          {
+            if (*sharedStart >= static_cast<double>(itSeg->startPTS_) / timescale)
+            {
+              if (*sharedStart < static_cast<double>(itSeg->m_endPts) / timescale)
+              {
+                itStart = itSeg;
+                isAligned = true;
+              }
+              break;
+            }
+          }
+        }
+
+        if (isAligned)
+        {
+          LOG::Log(LOGDEBUG, "[AS-%u] Live start aligned to the other streams at %.3f secs", clsId,
+                   *sharedStart);
+        }
+        else
+        {
+          m_tree->SetLiveStartSecs(startSecs);
+        }
+      }
+
+      if (itStart != timelineItRend)
+      {
+        // GetNextSegment used below requires the previous one
+        auto itPrev = std::next(itStart);
+        if (itPrev != timelineItRend)
+          current_rep_->current_segment_ = *itPrev;
       }
     }
     else

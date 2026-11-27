@@ -580,6 +580,11 @@ bool adaptive::CHLSTree::ProcessChildManifest(PLAYLIST::CPeriod* period,
         m_isLive = false;
         m_updateInterval = NO_VALUE;
       }
+      else if (STRING::CompareNoCase(tagValue, "EVENT"))
+      {
+        // Segments can only be appended to the playlist, never removed
+        m_isEventPlaylist = true;
+      }
     }
     else if (tagName == "#EXT-X-PROGRAM-DATE-TIME" && !isSkipUntilDiscont)
     {
